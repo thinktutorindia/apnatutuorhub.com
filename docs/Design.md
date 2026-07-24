@@ -1,21 +1,5 @@
-﻿# ThinkTutor — Design System & UI Specifications
+# ThinkTutor — Design System & UI Specifications
 
-**Version:** 3.0 (Next.js 16 & Tailwind CSS v4 Ecosystem)  
-**Theme:** Modern, trustworthy, warm ed-tech UI  
-**Design Tokens:** CSS-first configuration via `@import "tailwindcss";` in `globals.css`  
-
----
-
-## 1. Brand Identity & Personality
-
-- **Trustworthy**: Clean layouts, prominent KYC verification badges, clear rating breakdowns.
-- **Efficient**: Single-page requirement posting, clear step indicators, instant applicant feedback.
-- **Warm & Approachable**: Rich indigo blue primary, energetic orange accent, soft off-white background.
-- **Responsive-First**: Mobile-optimized layouts tailored for parents and tutors on mobile devices.
-
----
-
-## 2. Color Palette & CSS Tokens
 
 ### Tailwind CSS v4 `globals.css` Setup
 In Tailwind CSS v4, design tokens are configured directly in CSS using `@theme`:

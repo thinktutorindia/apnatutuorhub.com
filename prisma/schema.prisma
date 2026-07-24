@@ -1,0 +1,460 @@
+// Prisma 6/7 Schema — ThinkTutor
+// Phase 1: Foundation models (User, Auth, Profiles, Wallet)
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+// ────────────────────────────────────────────────
+// Enums
+// ────────────────────────────────────────────────
+
+enum UserRole {
+  PARENT
+  TUTOR
+  SUPER_ADMIN
+  SUB_ADMIN
+}
+
+enum KycStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SubAdminRole {
+  SUPPORT
+  VERIFICATION
+  FINANCE
+  OPERATIONS
+  MARKETING
+}
+
+enum TeachingMode {
+  ONLINE
+  OFFLINE
+  EITHER
+}
+
+enum LeadStatus {
+  ACTIVE
+  MATCHING
+  APPLICATIONS_RECEIVED
+  BOOKED
+  COMPLETED
+  EXPIRED
+  CLOSED
+}
+
+enum WalletTransactionType {
+  PURCHASE
+  DEDUCTION
+  REFUND
+  BONUS
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+}
+
+enum BookingStatus {
+  REQUESTED
+  CONFIRMED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  WEB
+  EMAIL
+}
+
+// ────────────────────────────────────────────────
+// User & Auth
+// ────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  phone         String?   @unique
+  image         String?
+  role          UserRole  @default(PARENT)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  parentProfile ParentProfile?
+  tutorProfile  TutorProfile?
+  subAdminRole  SubAdminRole?
+
+  // Notifications
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ────────────────────────────────────────────────
+// Parent Profile & Student Profiles
+// ────────────────────────────────────────────────
+
+model ParentProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  city      String?
+  state     String?
+  pincode   String?
+  address   String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students StudentProfile[]
+  leads    Lead[]
+
+  @@map("parent_profiles")
+}
+
+model StudentProfile {
+  id              String   @id @default(cuid())
+  parentProfileId String
+  name            String
+  classLevel      String
+  board           String?
+  subjects        String[]
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  parentProfile ParentProfile @relation(fields: [parentProfileId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+// ────────────────────────────────────────────────
+// Tutor Profile & KYC
+// ────────────────────────────────────────────────
+
+model TutorProfile {
+  id               String       @id @default(cuid())
+  userId           String       @unique
+  bio              String?      @db.Text
+  qualification    String?
+  experience       Int?         // years
+  subjects         String[]
+  classLevels      String[]
+  teachingMode     TeachingMode @default(EITHER)
+  teachingRadius   Int          @default(10) // km
+  feeMin           Int?
+  feeMax           Int?
+  latitude         Float?
+  longitude        Float?
+  city             String?
+  state            String?
+  introVideoUrl    String?
+  profileScore     Int          @default(0)
+  averageRating    Float        @default(0)
+  totalReviews     Int          @default(0)
+  isVerified       Boolean      @default(false)
+  kycStatus        KycStatus    @default(NOT_SUBMITTED)
+  kycIdProofUrl    String?
+  kycAddressUrl    String?
+  kycSelfieUrl     String?
+  kycRejectionNote String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet        Wallet?
+  leadPurchases LeadPurchase[]
+  availability  TutorAvailability[]
+  reviews       Review[]
+  bookings      Booking[]
+
+  @@map("tutor_profiles")
+}
+
+model TutorAvailability {
+  id             String @id @default(cuid())
+  tutorProfileId String
+  dayOfWeek      Int    // 0=Sun, 6=Sat
+  startTime      String // "09:00"
+  endTime        String // "17:00"
+
+  tutorProfile TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@map("tutor_availability")
+}
+
+// ────────────────────────────────────────────────
+// Wallet & Coins
+// ────────────────────────────────────────────────
+
+model Wallet {
+  id             String   @id @default(cuid())
+  tutorProfileId String   @unique
+  balance        Int      @default(0)
+  totalPurchased Int      @default(0)
+  totalSpent     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tutorProfile TutorProfile        @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String                @id @default(cuid())
+  walletId    String
+  type        WalletTransactionType
+  amount      Int
+  balanceAfter Int
+  description String?
+  referenceId String?               // payment ID, lead ID, etc.
+  createdAt   DateTime              @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@map("wallet_transactions")
+}
+
+model CoinPackage {
+  id         String   @id @default(cuid())
+  name       String
+  coins      Int
+  bonusCoins Int      @default(0)
+  priceInr   Int      // in paise
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@map("coin_packages")
+}
+
+// ────────────────────────────────────────────────
+// Leads & Matching
+// ────────────────────────────────────────────────
+
+model Lead {
+  id               String     @id @default(cuid())
+  parentProfileId  String
+  studentProfileId String?
+  subjects         String[]
+  classLevel       String
+  board            String?
+  mode             TeachingMode
+  budgetMin        Int?
+  budgetMax        Int?
+  latitude         Float?
+  longitude        Float?
+  city             String?
+  area             String?
+  timingPreference String?
+  tutorGenderPref  String?    // MALE, FEMALE, ANY
+  languagePref     String?
+  notes            String?    @db.Text
+  status           LeadStatus @default(ACTIVE)
+  coinCost         Int        @default(10)
+  maxTutors        Int        @default(5)
+  purchaseCount    Int        @default(0)
+  radiusKm         Int        @default(10)
+  expiresAt        DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  parentProfile ParentProfile  @relation(fields: [parentProfileId], references: [id], onDelete: Cascade)
+  purchases     LeadPurchase[]
+  bookings      Booking[]
+
+  @@index([status, createdAt])
+  @@index([classLevel, status])
+  @@map("leads")
+}
+
+model LeadPurchase {
+  id             String   @id @default(cuid())
+  leadId         String
+  tutorProfileId String
+  coinsSpent     Int
+  proposalNote   String?  @db.Text
+  feeQuote       Int?
+  isShortlisted  Boolean  @default(false)
+  isHired        Boolean  @default(false)
+  isRejected     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tutorProfile TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, tutorProfileId])
+  @@index([tutorProfileId])
+  @@map("lead_purchases")
+}
+
+// ────────────────────────────────────────────────
+// Bookings
+// ────────────────────────────────────────────────
+
+model Booking {
+  id             String        @id @default(cuid())
+  leadId         String
+  tutorProfileId String
+  parentName     String?
+  tutorName      String?
+  subject        String
+  classLevel     String
+  mode           TeachingMode
+  status         BookingStatus @default(REQUESTED)
+  startDate      DateTime?
+  classFrequency String?       // "3x/week"
+  meetLink       String?
+  venueAddress   String?
+  agreedFee      Int?
+  isTrial        Boolean       @default(false)
+  cancelledBy    String?
+  cancelReason   String?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tutorProfile TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  reviews      Review[]
+
+  @@index([tutorProfileId, status])
+  @@map("bookings")
+}
+
+// ────────────────────────────────────────────────
+// Reviews
+// ────────────────────────────────────────────────
+
+model Review {
+  id              String   @id @default(cuid())
+  bookingId       String
+  tutorProfileId  String
+  reviewerUserId  String
+  reviewerRole    UserRole
+  teachingRating  Int?     // 1-5
+  communicationRating Int? // 1-5
+  punctualityRating   Int? // 1-5
+  overallRating   Int      // 1-5
+  comment         String?  @db.Text
+  isEditable      Boolean  @default(true)
+  editLockedAt    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  booking      Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  tutorProfile TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, reviewerUserId])
+  @@map("reviews")
+}
+
+// ────────────────────────────────────────────────
+// Notifications
+// ────────────────────────────────────────────────
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  channel   NotificationChannel @default(WEB)
+  isRead    Boolean             @default(false)
+  actionUrl String?
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+// ────────────────────────────────────────────────
+// Audit Log
+// ────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  entityType String
+  entityId   String?
+  details    String?  @db.Text
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@map("audit_logs")
+}
+
+// ────────────────────────────────────────────────
+// Platform Settings
+// ────────────────────────────────────────────────
+
+model PlatformSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  label String?
+
+  @@map("platform_settings")
+}

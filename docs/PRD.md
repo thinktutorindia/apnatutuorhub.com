@@ -1,9 +1,9 @@
 ﻿# 📋 ThinkTutor — Product Requirements Document (PRD)
 
-**Version:** 2.1 (Cost-Optimized Scope: Email + Google Auth, Web + Email Notifications)  
+**Version:** 2.2 (AWS Ecosystem: AWS SES Email + AWS SNS Web Push + S3 Storage)  
 **Platform:** Smart Tutor Matching Marketplace  
 **Target Market:** India (Primary), English & Regional medium education  
-**Core Tech Benchmark:** Next.js 16, React 19, Auth.js v5, Prisma 6/7, Tailwind CSS v4  
+**Core Tech Benchmark:** Next.js 16, React 19, Auth.js v5, Prisma 6/7, Tailwind CSS v4, AWS Ecosystem  
 
 ---
 
@@ -36,7 +36,7 @@
 3. **Capped Competition**: Max **5 tutors** per lead to preserve lead quality and conversion.
 4. **Trust & Security**: Mandatory KYC, verified badges, rating loops, and atomic coin transactions.
 5. **Cost Efficiency**: Primary Auth via **Email & Google OAuth** (Phone OTP disabled to eliminate SMS costs).
-6. **Active Notifications**: High-deliverability **Web (In-App / Browser Push)** and **Email (Resend)** notifications.
+6. **AWS Infrastructure**: Unified AWS suite — **AWS SES** (Email), **AWS SNS** (Web Push), **AWS S3** (KYC/Files).
 
 ---
 
@@ -69,7 +69,7 @@
 
 ### 5.1 Registration & KYC Verification
 - Registration via Email + Password or Google OAuth.
-- **Mandatory KYC before purchasing leads**: Government ID upload, Address Proof, Live Selfie.
+- **Mandatory KYC before purchasing leads**: Government ID upload, Address Proof, Live Selfie to **AWS S3** private bucket.
 - Admin reviews KYC → Grants **Verification Badge**.
 
 ### 5.2 Tutor Profile & Availability
@@ -117,17 +117,17 @@
 
 ---
 
-## 7. Notifications Matrix (Web & Email Only)
+## 7. Notifications Matrix (AWS SES & AWS SNS)
 
-| Trigger Event | Recipient | Channels |
-|---------------|-----------|----------|
-| New Matched Lead Available | Tutor | Web Push, Email |
-| Application Status Update (Shortlisted/Hired) | Tutor | Web Push, Email |
-| New Application Received | Parent | Web Push, Email |
-| Booking Confirmed / Reminders | Parent & Tutor | Web Push, Email |
-| Low Wallet Coin Balance | Tutor | Web Push, Email |
-| KYC Review Approved/Rejected | Tutor | Email |
-| Refund Request Status | Tutor | Email |
+| Trigger Event | Recipient | Channels | Service Used |
+|---------------|-----------|----------|--------------|
+| New Matched Lead Available | Tutor | Web Push, Email | AWS SNS + AWS SES |
+| Application Status Update (Shortlisted/Hired) | Tutor | Web Push, Email | AWS SNS + AWS SES |
+| New Application Received | Parent | Web Push, Email | AWS SNS + AWS SES |
+| Booking Confirmed / Reminders | Parent & Tutor | Web Push, Email | AWS SNS + AWS SES |
+| Low Wallet Coin Balance | Tutor | Web Push, Email | AWS SNS + AWS SES |
+| KYC Review Approved/Rejected | Tutor | Email | AWS SES |
+| Refund Request Status | Tutor | Email | AWS SES |
 
 ---
 

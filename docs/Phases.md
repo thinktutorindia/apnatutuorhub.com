@@ -1,6 +1,6 @@
 ﻿# ThinkTutor — Build Phases
 
-**Version:** 3.1 (Email Auth, Web & Email Notifications Plan)  
+**Version:** 3.2 (AWS Ecosystem Implementation Plan)  
 **Strategy:** Build incrementally. Each phase is independently testable and deployable.
 
 ---
@@ -19,7 +19,7 @@
 | 8 | Feedback & Ratings | 3-4 days | Bayesian Average Rating, Review Locks | TODO |
 | 9 | Admin Panel (Super Admin) | 2 weeks | Next.js 16 `'use cache'`, Admin Dashboard UI | TODO |
 | 10 | Sub Admin & RBAC | 1 week | Role-Based Guard (`proxy.ts`), Audit Logs | TODO |
-| 11 | Notifications (Web & Email) | 1 week | Resend Email, Pusher In-App Notifications, Web Push | TODO |
+| 11 | AWS Notifications | 1 week | AWS SES Email, AWS SNS Web Push, In-App Notification Bell | TODO |
 | 12 | Rewards & Loyalty | 1 week | Coupon Engine, Milestone Bonuses, Referrals | TODO |
 | 13 | Analytics & Reports | 1 week | TanStack Query v5, CSV Exporters | TODO |
 | 14 | QA, Polish & Launch | 2 weeks | Vercel Deployment, Sentry, Performance Audit | TODO |
@@ -34,24 +34,22 @@
 - [ ] Initialize Next.js 16 project with React 19 & TypeScript
 - [ ] Set up Tailwind CSS v4 with `@import "tailwindcss";` and shadcn/ui primitives
 - [ ] Set up Prisma 6/7 schema + `@prisma/adapter-pg` driver adapter singleton (`lib/prisma.ts`)
-- [ ] Configure Auth.js v5 (`auth.ts`) with:
-  - Email + Password registration & login
-  - Google OAuth single-click login
-  - *(Note: Phone OTP disabled to avoid SMS costs)*
+- [ ] Configure Auth.js v5 (`auth.ts`) with Email + Password & Google OAuth
 - [ ] Implement `proxy.ts` / route middleware for role-based redirects (`PARENT`, `TUTOR`, `SUPER_ADMIN`, `SUB_ADMIN`)
 - [ ] Build UI pages: Login, Register, Password Reset
 - [ ] Deploy initial foundation to Vercel + Supabase Postgres + Upstash Redis
 
 ---
 
-## Phase 11 — Notifications System (Web & Email Only)
+## Phase 11 — AWS Notifications System (SES & SNS)
 
-**Goal:** Real-time in-app notifications and transactional emails (Resend).
+**Goal:** Transactional email alerts via AWS SES and browser push via AWS SNS.
 
 ### Tasks
-- [ ] Set up Resend API client for email dispatching
+- [ ] Configure AWS SDK Client for SES and SNS in `lib/aws-notification.ts`
+- [ ] Set up & verify AWS SES domain/sender email identity
 - [ ] Design HTML email templates (New Lead Alert, Application Status, Booking Confirmation)
-- [ ] Set up Pusher / Web Push for real-time browser notifications
-- [ ] In-app Notification Bell dropdown component with unread badges
+- [ ] Configure AWS SNS topic for Web Push notifications
+- [ ] In-App Notification Bell dropdown component with unread badges
 - [ ] Notification history list page
-- [ ] Admin broadcast email tool
+- [ ] Admin broadcast email tool via AWS SES

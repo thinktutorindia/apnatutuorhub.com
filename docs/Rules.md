@@ -1,6 +1,6 @@
 ﻿# ThinkTutor — AI Development Rules & Tech Constraints
 
-**Version:** 3.1 (Email + Google Auth, Web & Email Notifications Only)  
+**Version:** 3.2 (AWS Ecosystem: AWS SES Email + AWS SNS Web Push + S3 Storage)  
 **Purpose:** Sets hard engineering boundaries for the AI assistant and developer team.
 
 ---
@@ -19,28 +19,30 @@
 | Data Fetching | **TanStack Query v5** / RSC `async` | SWR, legacy `useEffect` data fetching |
 | Forms | **React Hook Form + Zod** | Formik, Yup |
 | Payments | **Razorpay** | Stripe, PayPal |
-| Notifications | **Resend (Email)** + **Pusher / Web Push (In-App)** | SMS Providers (Twilio / MSG91), WhatsApp BSP |
+| Email Alerts | **AWS SES (Simple Email Service)** | SendGrid, Nodemailer (AWS SES preferred for low cost) |
+| Web Push Alerts | **AWS SNS (Simple Notification Service)** + In-App Bell | SMS Gateway (Twilio / MSG91), WhatsApp BSP |
 | Background Jobs | **BullMQ + Upstash Redis** | `node-cron`, `setInterval` for critical background jobs |
-| File Storage | **AWS S3 / Cloudflare R2** | Local disk storage for uploads |
+| File Storage | **AWS S3** | Local disk storage for uploads |
 
 ---
 
-## 2. Authentication & Authorization Rules
+## 2. Authentication & Security Rules
 
 - Primary login MUST use **Email + Password** or **Google OAuth**.
 - Phone SMS OTP is explicitly disabled to avoid SMS costs. Do NOT add SMS OTP dependencies.
+- Store KYC docs in private AWS S3 buckets — generate short-lived signed URLs for Admin verification.
 - Retrieve active session inside actions/pages using `await auth()` from `@/auth`.
 - Enforce permissions with `forbidden()` or `redirect()` from `next/navigation`.
 
 ---
 
-## 3. Notification Rules (Web & Email Only)
+## 3. Notification Rules (AWS SES + AWS SNS)
 
 - Notifications MUST be delivered via:
-  1. **Web / In-App Notification Bell** (real-time via Pusher / Web Push)
-  2. **Email** (via Resend)
+  1. **AWS SES**: Transactional emails for lead alerts, booking status, receipts.
+  2. **AWS SNS**: Web browser push alerts for active users.
+  3. **In-App Notification Bell**: Persistent notifications stored in DB (`notifications` table).
 - Do NOT invoke SMS APIs or WhatsApp APIs in notification dispatchers.
-- Email templates must be clean HTML rendered using Resend or React Email components.
 
 ---
 

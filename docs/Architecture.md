@@ -1,10 +1,11 @@
 ﻿# ThinkTutor — Architecture Document
 
-**Version:** 3.1 (Web & Email Notification Scope, Email + Google Auth)  
+**Version:** 3.2 (AWS Ecosystem: AWS SES Email + AWS SNS Web Push + AWS S3 Storage)  
 **App Framework:** Next.js 16 (App Router + RSC + Server Actions + Cache Directives)  
 **React Version:** React 19  
 **Database ORM:** Prisma 6/7 with `@prisma/adapter-pg`  
 **Authentication:** Auth.js (NextAuth v5) — Email + Password & Google OAuth  
+**Notification Suite:** AWS SES (Transactional Email) + AWS SNS (Web Push Alerts) + In-App Bell  
 **Styling System:** Tailwind CSS v4  
 
 ---
@@ -26,14 +27,14 @@
                                │
 ┌──────────────────────────────▼───────────────────────────────────┐
 │                 SERVICE & BUSINESS LOGIC LAYER                   │
-│   MatchingEngine   │   CoinEngine   │   NotificationService      │
-│   RefundService    │   RatingService   │   (Web Push & Resend Email)│
+│   MatchingEngine   │   CoinEngine   │   AWS Notification Service │
+│   RefundService    │   RatingService   │   (AWS SES + AWS SNS)   │
 └──────┬───────────────────────┬──────────────────────┬────────────┘
        │                       │                      │
   ┌────▼────────┐        ┌─────▼──────┐        ┌──────▼──────┐
-  │ PostgreSQL  │        │   Redis    │        │  File Store │
-  │ (Prisma 6/7 │        │  (Upstash/ │        │  (AWS S3 /  │
-  │ Pg Adapter) │        │   BullMQ)  │        │ Cloudflare) │
+  │ PostgreSQL  │        │   Redis    │        │  AWS S3     │
+  │ (Prisma 6/7 │        │  (Upstash/ │        │  (KYC Docs, │
+  │ Pg Adapter) │        │   BullMQ)  │        │  Videos)    │
   └─────────────┘        └────────────┘        └─────────────┘
 ```
 
@@ -51,7 +52,7 @@
 | State Management | **Zustand** | Latest | Atomic client-side state for UI toggles & filters |
 | Data Fetching | **TanStack Query** | **v5** | Object options format for client refetching & infinite scroll |
 | Form Validation | **React Hook Form + Zod** | Latest | Type-safe form controls with Zod 3.x/4.x schemas |
-| Real-time Web Notifications | **Pusher / Web Push API** | Latest | In-app real-time lead alerts & applicant updates |
+| Real-Time Notifications | **AWS SNS + In-App Bell** | Latest | Browser push notifications & DB-backed notification badge |
 
 ### 2.2 Backend & Infrastructure
 | Component | Technology | Version | Configuration / Usage |
@@ -59,82 +60,29 @@
 | Auth | **Auth.js (NextAuth)** | **v5** | Central `auth.ts`, Email + Password & Google OAuth (No Phone OTP) |
 | Database ORM | **Prisma** | **6/7** | `provider = "prisma-client"`, `@prisma/adapter-pg` pool connection |
 | Database Engine | **PostgreSQL** | Supabase | Managed Postgres with transactional isolation for wallet coins |
-| Task Queue / Cache | **Upstash Redis + BullMQ** | Serverless | Background workers for Lead Matching, Radius Expansion, and Email/Web jobs |
-| File Storage | **AWS S3 / Cloudflare R2** | Private | Pre-signed URL generation for KYC docs & intro videos |
+| Task Queue / Cache | **Upstash Redis + BullMQ** | Serverless | Background workers for Lead Matching, Radius Expansion, & Notification jobs |
+| File Storage | **AWS S3** | Private | Pre-signed URL generation for KYC docs & intro videos |
 
-### 2.3 Messaging & Payments Services
+### 2.3 AWS Notification & Payment Services
 | Service | Provider | Usage |
 |---------|---------|-------|
+| Transactional Email | **AWS SES (Simple Email Service)** | High-speed, low-cost email alerts (62k free emails/mo) |
+| Web Push Notifications | **AWS SNS (Simple Notification Service)** | Browser push alerts for new matched leads & hiring updates |
+| In-App Notification Bell | **Prisma DB + Server Actions** | Persistent notification inbox with unread badges |
 | Payment Gateway | **Razorpay** | Coin package checkout (UPI, Cards, Net Banking) & Webhook verification |
-| Email Notifications | **Resend** | Transactional emails for lead alerts, booking confirmations, and receipts |
-| Web Notifications | **Pusher / Web Push** | Real-time in-app notification bell & browser push notifications |
 
 ---
 
-## 3. Auth.js v5 Setup (`auth.ts`) — Email & Google Only
+## 3. AWS Notification Service (`lib/aws-notification.ts`)
 
 ```typescript
-// auth.ts
-import NextAuth from "next-auth"
-import Google from "next-auth/providers/google"
-import Credentials from "next-auth/providers/credentials"
+// lib/aws-notification.ts
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses"
+import { SNSClient, PublishCommand } from "@aws-sdk/client-sns"
 import { prisma } from "@/lib/prisma"
-import bcrypt from "bcryptjs"
 
-export const { auth, handlers, signIn, signOut } = NextAuth({
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-    Credentials({
-      name: "Email & Password",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        })
-
-        if (!user || !user.passwordHash) return null
-
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.passwordHash
-        )
-
-        if (!isValid) return null
-
-        return { id: user.id, email: user.email, name: user.name, role: user.role }
-      },
-    }),
-  ],
-  callbacks: {
-    async session({ session, token }) {
-      if (token.sub && session.user) {
-        session.user.id = token.sub
-        session.user.role = token.role as string
-      }
-      return session
-    },
-  },
-})
-```
-
----
-
-## 4. Notification Service (`lib/notification-service.ts`)
-
-```typescript
-// lib/notification-service.ts
-import { Resend } from "resend"
-import { PusherServer } from "pusher"
-
-const resend = new Resend(process.env.RESEND_API_KEY)
+const ses = new SESClient({ region: process.env.AWS_REGION })
+const sns = new SNSClient({ region: process.env.AWS_REGION })
 
 export async function sendNotification({
   userId,
@@ -147,19 +95,36 @@ export async function sendNotification({
   title: string
   message: string
 }) {
-  // 1. Web / In-App Notification via Pusher
-  await pusher.trigger(`user-${userId}`, "notification", {
-    title,
-    message,
-    timestamp: new Date().toISOString(),
+  // 1. Save In-App Notification to Database
+  await prisma.notification.create({
+    data: {
+      userId,
+      title,
+      message,
+      read: false,
+    },
   })
 
-  // 2. Email Notification via Resend
-  await resend.emails.send({
-    from: "ThinkTutor Alerts <alerts@thinktutor.com>",
-    to: email,
-    subject: title,
-    html: `<div style="font-family: sans-serif;"><h2>${title}</h2><p>${message}</p></div>`,
+  // 2. Send Transactional Email via AWS SES
+  const sesCommand = new SendEmailCommand({
+    Source: process.env.AWS_SES_SENDER_EMAIL,
+    Destination: { ToAddresses: [email] },
+    Message: {
+      Subject: { Data: title },
+      Body: { Html: { Data: `<div style="font-family: sans-serif;"><h2>${title}</h2><p>${message}</p></div>` } },
+    },
   })
+  await ses.send(sesCommand)
+
+  // 3. Send Web Push Alert via AWS SNS (if user endpoint subscribed)
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { snsEndpointArn: true } })
+  if (user?.snsEndpointArn) {
+    const snsCommand = new PublishCommand({
+      TargetArn: user.snsEndpointArn,
+      Message: JSON.stringify({ default: message, GCM: JSON.stringify({ notification: { title, body: message } }) }),
+      MessageStructure: "json",
+    })
+    await sns.send(snsCommand)
+  }
 }
 ```

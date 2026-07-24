@@ -1,0 +1,178 @@
+﻿Tutor Marketplace Platform
+Product Requirements Document - Lead Purchase & Smart Matching System
+Version 1.0  |  Prepared for development, design, and stakeholder review
+1. Project Overview
+Purpose: The platform connects parents seeking tuition with qualified tutors through an automated, lead-based matching system. Instead of manually browsing tutor listings, parents post a requirement once; the system identifies and surfaces the requirement to relevant tutors, who then purchase access and apply.
+Business Model: Revenue is generated through a coin-based lead purchase system. Tutors buy coins in packages and spend coins to unlock parent leads that match their teaching profile. Parents use the platform free of charge.
+User Roles:
+● Parent - posts tuition requirements, reviews tutor applications, books and rates tutors.
+● Tutor - creates a verified profile, purchases matched leads, applies, delivers classes, and is rated.
+● Admin (Super Admin) - has full platform access, configuration, and override authority.
+● Sub Admin - has role-restricted access to specific operational modules.
+Platform Goals:
+● Reduce parent effort in finding a suitable tutor by pre-filtering candidates through automated matching.
+● Give tutors access only to leads relevant to their subject, location, and pricing.
+● Maintain lead quality by capping the number of competing tutors per lead.
+● Build trust through verification, ratings, and a transparent booking and feedback cycle.
+2. Parent Workflow
+2.1 Registration
+Parents can register using any of the following methods:
+● Mobile number with OTP verification (primary method).
+● Email and password.
+● Google Sign-In (OAuth).
+Assumption: mobile OTP is treated as the primary identity for account recovery and communication, since WhatsApp/SMS is the main outreach channel for Indian parents. This is not stated explicitly in the source material and should be confirmed.
+2.2 Parent Profile
+● Profile fields: name, contact number, email, city/area, preferred language.
+● A parent account can hold multiple student profiles (for multiple children), each with its own class, board, and subject needs.
+● Address is captured at the student-profile level to support accurate distance-based matching.
+2.3 Posting a Requirement
+The requirement form captures the following fields:
+● Subject(s) - one or more, selected from a fixed taxonomy.
+● Class / Grade - including competitive exam tracks (JEE, NEET, CA, coding, music, language, etc.).
+● Board - CBSE, ICSE, State Board, IB, or Other.
+● Mode - Online, Offline, or Either.
+● Location - required for Offline/Either mode; used for radius-based matching.
+● Budget - parent's expected fee range.
+● Preferred timings - days and time slots.
+● Tutor preference - Male, Female, or No preference.
+● Language preference.
+● Additional notes - free text.
+Validation: Subject, Class, Mode, and Budget are mandatory. Location is mandatory unless Mode is Online only. Budget must be a positive number within platform-defined minimum/maximum bounds per class level.
+Requirement statuses: Draft → Active → Matching → Applications Received → Booked → Completed → Closed/Expired.
+On Submit: The system validates the form, creates a new lead record with status Active, timestamps it, and immediately triggers the Tutor Matching System (Section 3). The parent is shown a confirmation screen with expected response time.
+3. Tutor Matching System
+When a lead is created, the system evaluates all eligible tutors against the following parameters:
+● Distance from student location vs. tutor's declared teaching radius.
+● Subject and class-level expertise match.
+● Budget compatibility (tutor's fee range vs. parent's budget).
+● Tutor ratings and review count.
+● Profile completion percentage.
+● Verification/KYC status.
+● Availability against the parent's preferred timing.
+● Mode match (Online/Offline).
+Ranking priority (highest to lowest weight):
+● 1. Verified tutors are ranked above unverified tutors.
+● 2. Closer tutors (within initial radius) are ranked above tutors reached via radius expansion.
+● 3. Higher-rated tutors are ranked above lower-rated tutors, subject to a minimum review count to avoid new-tutor bias.
+● 4. Higher profile completion improves ranking among otherwise-equal tutors.
+Only tutors that pass all mandatory filters (subject, class, mode, budget floor) are notified; ranking then determines the order in which the lead is surfaced to them.
+4. Tutor Module
+4.1 Registration & KYC
+● Registration via mobile OTP, email, or Google Sign-In.
+● KYC: government ID upload, address proof, and a live selfie for verification.
+● A tutor cannot purchase leads until KYC is submitted; a Verification Badge is granted only after admin approval.
+4.2 Profile
+● Qualifications and certificates (uploaded documents).
+● Years of experience.
+● Subjects taught and class levels covered.
+● Teaching radius (in km) for offline classes.
+● Availability calendar.
+● Languages spoken.
+● Introduction video (optional but boosts profile completion score and ranking).
+4.3 Tutor Dashboard
+● Wallet - current coin balance and quick top-up.
+● Purchased Leads - list of unlocked leads with parent contact and application status.
+● Applications - status of each submitted application (Pending, Shortlisted, Rejected, Hired).
+● Analytics - leads purchased, conversion rate, average rating, profile views.
+● Notifications - new matched leads, application updates, booking confirmations, payment/wallet alerts.
+5. Wallet & Coin System
+● Wallet displays current balance and full transaction history (purchases, deductions, refunds, bonuses).
+● Coins are sold in fixed packages via an integrated payment gateway (UPI/cards/net banking).
+● Bonus coins may be credited on first purchase or large top-ups; referral coins are credited when a referred tutor completes registration and KYC.
+Refund policy (recommended default): Coins are refunded to wallet only - not as cash - and only for lead-level issues (see Section 6.9). Coin package purchases themselves are non-refundable once coins are credited, consistent with standard digital-goods practice; this should be confirmed against applicable consumer protection requirements before launch.
+5.1 Dynamic Lead Pricing
+Coin cost per lead is fixed per class/category tier, as confirmed. Pricing increases with academic level and specialization, since higher classes and competitive exams require more experienced, harder-to-source tutors, and yield higher parent budgets:
+CategoryIndicative Coin CostRationaleClass 1-5LowHigh tutor supply, lower parent budgets, easier to fill.Class 6-8Low-MediumSlightly higher subject specificity.Class 9-10MediumBoard exam stakes increase demand for experienced tutors.Class 11-12Medium-HighSubject specialization and board-exam pressure.JEE / NEETPremiumHighly specialized tutors, high parent budgets, high competition among tutors.CA / ProfessionalPremiumNiche expertise, limited tutor pool.CodingMedium-HighSkill-based, moderate specialist supply.Music / ArtsMediumSkill-based, moderate specialist supply.LanguageLow-MediumBroad tutor availability.
+Exact coin values per tier are a pricing/business decision to be finalized separately (e.g., via a pricing configuration table in the Admin Panel) rather than hard-coded, so Admin can adjust tiers without a release.
+6. Lead Purchase System
+● Visibility: only tutors who pass the mandatory matching filters (Section 3) and hold sufficient wallet balance can see and purchase a given lead.
+● Tutors who do not meet subject/class/mode/budget criteria never see the lead.
+● Maximum 5 tutors may purchase a single lead. Once 5 purchases occur, the lead is closed to further purchases.
+Lead expiry (recommended default): 48 hours from creation, or earlier if 5 tutors have purchased it. This is short enough to keep leads fresh for the parent and long enough to allow radius expansion to complete; the exact window should be tuned post-launch using purchase-time analytics.
+● Purchase deducts coins from the tutor's wallet immediately and atomically (no purchase is confirmed without a successful deduction).
+● On purchase: parent's contact details are unlocked for that tutor, and the tutor is enabled to submit an application.
+● Lead statuses: Active → Partially Purchased (1-4 tutors) → Fully Purchased (5 tutors) → Expired/Archived.
+● Radius expansion: if fewer than 5 tutors purchase within the initial radius before a defined checkpoint (e.g., 25% of the expiry window elapsed), the radius auto-expands in fixed increments (5 km → 10 km → 15 km) until 5 purchases occur or the maximum radius is reached.
+● Duplicate prevention: a tutor cannot purchase the same lead twice; the system checks tutor ID against the lead's purchase list before allowing a transaction.
+Invalid lead refund policy (recommended default): A tutor may request a refund within 24 hours of purchase if the parent's number is unreachable/invalid, or if the requirement is confirmed duplicate/spam by Admin. Refunds are credited as coins to the tutor's wallet after review. Refunds are not granted simply because a parent does not respond or does not select that tutor, since contact was successfully made.
+7. Parent Receives Applications
+As tutors purchase the lead and apply, their profiles appear on the parent's dashboard in ranked order (see Section 3 ranking logic).
+Comparison parameters shown per tutor:
+● Rating and number of reviews
+● Experience (years)
+● Fees
+● Distance from student
+● Qualification
+● Languages spoken
+● Verification status
+● Profile completion percentage
+● Trial class availability
+Parent actions per tutor: Shortlist, Reject, Hire, Schedule Trial, Chat, Call.
+8. Booking Workflow
+● Online classes: once hired, the tutor shares a Google Meet/Zoom link through the platform; the link and schedule are visible to both parties.
+● Offline classes: both parties receive confirmed date, time, and location details.
+● Trial booking: parent can request a trial session before full booking; trial completion is tracked separately from regular class completion.
+● Rescheduling: either party can propose a new time; the other party must accept for the change to be confirmed.
+● Cancellation: allowed up to a defined cutoff (e.g., 2 hours before class); late cancellations are logged against the cancelling party's reliability score.
+● Notifications are sent to both parties on booking confirmation, reschedule, cancellation, and upcoming-class reminders.
+Booking statuses: Requested → Confirmed → Rescheduled (optional) → Completed → Cancelled.
+9. Feedback & Rating System
+Only verified, completed bookings unlock the review prompt, preventing fake or pre-emptive reviews.
+● Parent rates tutor on: Teaching Quality, Communication, Punctuality, Overall Experience.
+● Tutor rates parent on: Communication, Student Behaviour, Overall Experience.
+Impact of ratings:
+● Directly affects tutor visibility and ranking in future matching (Section 3).
+● Affects lead priority - higher-rated tutors are notified earlier in the purchase window.
+● Feeds into Verification Badge and loyalty tier eligibility (Section 10).
+Fake review prevention: reviews are tied to a booking ID that must have status Completed; one review per booking; reviews cannot be edited after 48 hours to prevent manipulation after disputes.
+10. Rewards & Loyalty
+10.1 Parent Rewards
+● Discount coupons for future bookings.
+● Wallet-style credits usable toward platform service charges, where applicable.
+● Promotional offers tied to festivals/seasons.
+● Reduced service charges for repeat bookings.
+10.2 Tutor Rewards
+● Discounted lead prices for consistently high ratings.
+● Bonus wallet credits for milestones (e.g., 10 completed bookings).
+● Higher priority in lead matching and better search visibility.
+● Exclusive promotional benefits (e.g., Featured Tutor placement).
+● Referral Program: both referrer and referee receive bonus coins once the referee completes registration and KYC.
+11. Admin Panel (Super Admin)
+The Super Admin has full platform access and the following module-level capabilities:
+ModuleAdmin CapabilitiesDashboardView platform-wide KPIs: active leads, GMV, tutor/parent growth, wallet balances.Parent ManagementView, edit, suspend, or delete parent accounts; view posted requirements.Tutor ManagementApprove/reject KYC, suspend tutors, manually adjust verification badges.Lead ManagementView all leads, manually close/reassign/expire leads, override radius expansion.Wallet ManagementView all tutor wallets, manually credit/debit coins, review refund requests.PaymentsConfigure and monitor payment gateway transactions.RefundsApprove/reject refund requests raised by tutors.CouponsCreate, edit, and expire discount coupons for parents/tutors.ReportsGenerate revenue, lead-conversion, and tutor-performance reports.Support TicketsView and resolve tickets raised by parents/tutors.NotificationsConfigure and trigger platform-wide announcements.CMSManage static content: FAQs, terms, policy pages.SettingsConfigure lead pricing tiers, radius increments, expiry windows, max tutors per lead.AnalyticsDeep-dive analytics on matching efficiency, ranking performance, churn.
+The Super Admin can additionally: manage all user accounts, create Sub Admin accounts, assign module-level permissions, modify pricing configuration, configure the matching algorithm's weighting, manage payment gateway settings, view audit logs, and override any operation performed by a Sub Admin.
+12. Sub Admin
+Sub Admin accounts are role-restricted and can only access the modules assigned to their role by the Super Admin. Confirmed roles:
+RoleModule AccessSupportSupport Tickets, read-only access to Parent/Tutor profiles for issue resolution.VerificationTutor KYC review and approval, Verification Badge management.FinanceWallet Management, Payments, Refunds, financial Reports.OperationsLead Management, radius/expiry overrides, dispute handling on bookings.MarketingCoupons, Notifications (campaign-level), CMS promotional content.
+Each Sub Admin's actions are logged against their account for audit purposes, and no Sub Admin role includes access to platform-wide Settings or the ability to create other admin accounts.
+13. Super Admin - Full Platform Access
+In addition to the capabilities listed in Section 11, the Super Admin role has unrestricted, non-delegable authority over the entire platform:
+● Manage all Parent, Tutor, and Sub Admin accounts.
+● Create and deactivate Sub Admin accounts and assign/revoke their permissions.
+● Modify coin pricing tiers and package pricing at any time.
+● Configure the tutor matching algorithm's parameters and ranking weights.
+● Configure wallet rules: bonus structures, referral values, refund limits.
+● Manage payment gateway integrations and credentials.
+● View complete audit logs of all admin and Sub Admin actions.
+● Manage platform-wide settings (lead expiry defaults, max tutors per lead, radius increments).
+● Override any operation performed by any Sub Admin.
+14. Business Rules
+● A maximum of 5 tutors can purchase a single lead.
+● Coins are deducted immediately and atomically upon lead purchase.
+● Refunds are issued as coins, and only for invalid, duplicate, or unreachable-contact leads - not for parent non-response after a successful contact unlock.
+● Search radius expands automatically in fixed increments (5 km → 10 km → 15 km) if the purchase target is not met within a defined checkpoint.
+● Higher-rated tutors receive better visibility and earlier notification in the purchase window.
+● Verified tutors rank above unverified tutors regardless of other ranking factors.
+● Profile completion percentage is a tie-breaking ranking factor among otherwise comparable tutors.
+● Admin (Super Admin and authorized Sub Admins per role) can manually refund, close, or reassign leads.
+● Leads that reach their expiry window without full purchase are automatically archived.
+● Coin package purchases are non-refundable once credited; lead-level refunds are credited back as coins only.
+● Parents may edit only minor fields (preferred timing, additional notes) once a lead has active tutor purchases; core fields (subject, class, mode, location, budget) are locked to preserve match integrity for tutors who already purchased.
+15. Notifications
+RecipientTrigger EventsChannelsParentNew tutor application received; tutor hired confirmation; booking reminder; reschedule/cancellation; review promptPush, Email, SMSTutorNew matched lead available; application status update; booking confirmed; class reminder; review prompt; wallet low-balancePush, Email, SMSAdminKYC submission pending review; refund request raised; support ticket created; payment gateway failurePush, Email
+WhatsApp is planned as a future channel for both parent and tutor notifications, given higher open rates for Indian users, pending Business API (BSP) integration.
+16. Open Items & Assumptions Requiring Confirmation
+● Exact coin cost per class/category tier - table in Section 5.1 is indicative and should be finalized in a configurable pricing table.
+● Lead expiry window is set to 48 hours as a recommended default; confirm before build.
+● Refund eligibility rules in Sections 5 and 6.9 are recommended defaults, not explicitly specified in the source material; confirm against business and consumer-protection requirements.
+● Cancellation cutoff window (Section 8) is a placeholder default and should be finalized.

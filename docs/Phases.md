@@ -307,24 +307,24 @@ sequenceDiagram
 **Goal:** Parents manage student profiles and post tuition requirements with single-page interactive forms, subject taxonomy, budget sliders, and location tagging.
 
 ### Detailed Tasks
-- [ ] Build Parent Layout Shell (`app/parent/layout.tsx`) with top navbar, Parent badge, navigation links, and Sign Out
-- [ ] Build Parent Dashboard (`app/parent/dashboard/page.tsx`) with welcome banner, overview stats, requirement cards list, and CTA
-- [ ] Create Parent Profile Page (`app/parent/profile/page.tsx`) to manage name, email, phone, city, state, pincode, and address
-- [ ] Create Student Profile Modal Component (`components/parent/StudentProfileModal.tsx`) to manage multiple children profiles
-- [ ] Build Requirement Posting Form Page (`app/parent/post-requirement/page.tsx`):
+- [x] Build Parent Layout Shell (`app/parent/layout.tsx`) with top navbar, Parent badge, navigation links, and Sign Out
+- [x] Build Parent Dashboard (`app/parent/dashboard/page.tsx`) with welcome banner, overview stats, requirement cards list, and CTA
+- [x] Create Parent Profile Page (`app/parent/profile/page.tsx`) to manage name, email, phone, city, state, pincode, and address
+- [x] Create Student Profile Modal Component (`components/parent/StudentProfileModal.tsx`) to manage multiple children profiles
+- [x] Build Requirement Posting Form Page (`app/parent/post-requirement/page.tsx`):
   - Subject taxonomy selector (Multi-select pill buttons from `SUBJECTS` constant)
   - Class/Grade tier picker (Class 1-5, 6-8, 9-10, 11-12, JEE, NEET, CA, Coding, Languages)
   - Mode selector (Online, Offline, Either)
   - Budget range inputs (Min ₹/hr & Max ₹/hr)
   - Location inputs & Map coordinates selector (`latitude`, `longitude`, `city`, `area`, `pincode`)
   - Optional fields: Board (CBSE, ICSE, State, IB), Timings, Tutor Gender Preference, Language Preference, Free-text Notes
-- [ ] Implement Server Action `createRequirementAction` in `app/actions/leads.actions.ts`:
+- [x] Implement Server Action `createRequirementAction` in `app/actions/leads.actions.ts`:
   - Validate parameters with Zod schema `createLeadSchema` in `lib/validations.ts`
   - Store lead record in Prisma with initial status `ACTIVE`
   - Enforce coin pricing assignment based on class tier (`Class 1-8: 20 coins`, `9-12: 30 coins`, `JEE/NEET/Coding: 50 coins`)
   - Trigger BullMQ background matching job (`jobs/matching.worker.ts`)
-- [ ] Build Parent Requirements List Page (`app/parent/my-leads/page.tsx`) with status filters (`ACTIVE`, `MATCHING`, `APPLICATIONS_RECEIVED`, `BOOKED`, `COMPLETED`, `EXPIRED`)
-- [ ] Implement Requirement Editing & Lock Rules: Lock core fields (Subject, Class, Mode, Budget, Location) if lead has 1 or more tutor purchases
+- [x] Build Parent Requirements List Page (`app/parent/my-leads/page.tsx`) with status filters (`ACTIVE`, `MATCHING`, `APPLICATIONS_RECEIVED`, `BOOKED`, `COMPLETED`, `EXPIRED`)
+- [x] Implement Requirement Editing & Lock Rules: Lock core fields (Subject, Class, Mode, Budget, Location) if lead has 1 or more tutor purchases
 
 ---
 

@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { LogoBrand } from "@/components/brand/Logo";
 import { AuthIllustration } from "@/components/illustrations/AuthIllustration";
 
@@ -21,12 +22,12 @@ export default function AuthLayout({
           <div className="neu-card p-6 md:p-10 bg-white space-y-6">
             <div className="flex justify-between items-center pb-2 border-b-2 border-slate-200">
               <LogoBrand size={36} />
-              <a
+              <Link
                 href="/"
                 className="text-xs font-extrabold text-slate-600 hover:text-[#0F172A] underline"
               >
                 ← Back to Home
-              </a>
+              </Link>
             </div>
             {children}
           </div>

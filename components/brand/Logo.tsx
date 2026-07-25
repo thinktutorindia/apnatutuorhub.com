@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 export function Logo({
   size = 36,
@@ -57,18 +58,20 @@ export function Wordmark({ className }: { className?: string }) {
 export function LogoBrand({
   size = 36,
   className,
+  href = "/",
 }: {
   size?: number;
   className?: string;
+  href?: string;
 }) {
   return (
-    <a
-      href="/"
+    <Link
+      href={href}
       className={`inline-flex items-center gap-2.5 no-underline ${className}`}
       style={{ fontSize: `${size * 0.65}px` }}
     >
       <Logo size={size} />
       <Wordmark />
-    </a>
+    </Link>
   );
 }

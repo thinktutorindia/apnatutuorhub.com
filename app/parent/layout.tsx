@@ -1,17 +1,10 @@
 import React from "react";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { User } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import {
-  BookOpen,
-  PlusCircle,
-  Users,
-  Calendar,
-  User,
-  Settings,
-  Bell,
-} from "lucide-react";
+import { ParentNav } from "@/components/parent/ParentNav";
 
 export default async function ParentLayout({
   children,
@@ -25,41 +18,19 @@ export default async function ParentLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] flex flex-col">
+    <div className="flex min-h-screen flex-col bg-[#FAF8F5]">
       {/* Navbar */}
-      <header className="pt-4 px-4 max-w-6xl mx-auto w-full">
-        <nav className="neu-card px-6 py-3.5 flex items-center justify-between bg-white">
-          <LogoBrand size={32} />
+      <header className="mx-auto w-full max-w-6xl px-4 pt-4">
+        <nav className="neu-card flex items-center justify-between gap-4 bg-white px-6 py-3.5">
+          <LogoBrand size={32} href="/parent/dashboard" />
 
-          <div className="hidden md:flex items-center gap-6 font-bold text-sm text-[#0F172A]">
-            <a
-              href="/parent/dashboard"
-              className="flex items-center gap-1.5 hover:text-[#22C55E] transition-colors"
-            >
-              <BookOpen size={16} />
-              <span>My Requirements</span>
-            </a>
-            <a
-              href="/parent/post-requirement"
-              className="flex items-center gap-1.5 hover:text-[#22C55E] transition-colors"
-            >
-              <PlusCircle size={16} />
-              <span>Post Requirement</span>
-            </a>
-            <a
-              href="/parent/bookings"
-              className="flex items-center gap-1.5 hover:text-[#22C55E] transition-colors"
-            >
-              <Calendar size={16} />
-              <span>Bookings</span>
-            </a>
-          </div>
+          <ParentNav />
 
           <div className="flex items-center gap-3">
-            <div className="neu-badge bg-[#E0F2FE] text-[#0F172A] hidden sm:inline-flex items-center gap-1.5">
+            <div className="neu-badge hidden items-center gap-1.5 bg-[#E0F2FE] text-[#0F172A] sm:inline-flex">
               <User size={14} />
               <span>{session.user.name || session.user.email}</span>
-              <span className="text-[10px] bg-[#0F172A] text-white px-1.5 py-0.5 rounded-full uppercase">
+              <span className="rounded-full bg-[#0F172A] px-1.5 py-0.5 text-[10px] uppercase text-white">
                 PARENT
               </span>
             </div>
@@ -69,7 +40,7 @@ export default async function ParentLayout({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 p-4 md:p-6">
         {children}
       </main>
     </div>

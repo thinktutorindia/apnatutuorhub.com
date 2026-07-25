@@ -181,6 +181,7 @@ model StudentProfile {
 
   parentProfile ParentProfile @relation(fields: [parentProfileId], references: [id], onDelete: Cascade)
 
+  @@index([parentProfileId])
   @@map("student_profiles")
 }
 
@@ -305,6 +306,7 @@ model Lead {
   longitude        Float?
   city             String?
   area             String?
+  pincode          String?
   timingPreference String?
   tutorGenderPref  String?    // MALE, FEMALE, ANY
   languagePref     String?
@@ -322,6 +324,7 @@ model Lead {
   purchases     LeadPurchase[]
   bookings      Booking[]
 
+  @@index([parentProfileId, createdAt])
   @@index([status, createdAt])
   @@index([classLevel, status])
   @@map("leads")

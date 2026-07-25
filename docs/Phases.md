@@ -333,11 +333,11 @@ sequenceDiagram
 **Goal:** Tutors build detailed teaching profiles and upload mandatory KYC documents to AWS S3 for Admin verification.
 
 ### Detailed Tasks
-- [ ] Build Tutor Layout Shell (`app/tutor/layout.tsx`) with top navbar, Tutor badge, wallet balance, and KYC alert banner
-- [ ] Build Tutor Dashboard (`app/tutor/dashboard/page.tsx`) with welcome banner, wallet card (`bg-[#FEF3C7]`), stats grid, and lead feed explorer
-- [ ] Implement AWS S3 Helper in `lib/s3.ts` using `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`
-- [ ] Create Pre-signed URL API Route (`app/api/upload/presigned-url/route.ts`) for secure direct-to-S3 file uploads (max 5MB, PDF/JPG/PNG)
-- [ ] Build Tutor Profile Page (`app/tutor/profile/page.tsx`):
+- [x] Build Tutor Layout Shell (`app/tutor/layout.tsx`) with top navbar, Tutor badge, wallet balance, and KYC alert banner
+- [x] Build Tutor Dashboard (`app/tutor/dashboard/page.tsx`) with welcome banner, wallet card (`bg-[#FEF3C7]`), stats grid, and lead feed explorer
+- [x] Implement AWS S3 Helper in `lib/s3.ts` using `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`
+- [x] Create Pre-signed URL API Route (`app/api/upload/presigned-url/route.ts`) for secure direct-to-S3 file uploads (max 5MB, PDF/JPG/PNG)
+- [x] Build Tutor Profile Page (`app/tutor/profile/page.tsx`):
   - Qualification & Degree certificates upload
   - Teaching experience (Years) & bio text area
   - Subjects handled & class levels covered checkboxes
@@ -345,13 +345,13 @@ sequenceDiagram
   - Hourly fee expectations (Min & Max)
   - Weekly Availability Grid component
   - Intro Video URL / YouTube embed input
-- [ ] Build Tutor KYC Verification Form Component (`components/tutor/KYCUploadModal.tsx`):
+- [x] Build Tutor KYC Verification Form Component (`components/tutor/KYCUploadModal.tsx`):
   - Government ID Proof upload (Aadhaar / PAN / Passport)
   - Address Proof upload
   - Live Selfie image upload
-- [ ] Create Server Action `submitKYCAction` in `app/actions/kyc.actions.ts` setting `kycStatus = PENDING`
-- [ ] Build Tutor Profile Completion Score Calculator (`lib/profile-score.ts`) (0% to 100%)
-- [ ] Build Public Tutor Profile View (`app/tutor/[id]/page.tsx`) for parent review
+- [x] Create Server Action `submitKYCAction` in `app/actions/kyc.actions.ts` setting `kycStatus = PENDING`
+- [x] Build Tutor Profile Completion Score Calculator (`lib/profile-score.ts`) (0% to 100%)
+- [x] Build Public Tutor Profile View (`app/tutor/[id]/page.tsx`) for parent review
 
 ---
 

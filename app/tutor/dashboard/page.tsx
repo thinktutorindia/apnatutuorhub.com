@@ -1,158 +1,223 @@
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  Wallet,
-  Compass,
-  ShieldAlert,
-  ShieldCheck,
-  Star,
   ArrowRight,
+  Compass,
+  ShieldCheck,
   Sparkles,
+  Star,
+  UserCog,
+  Wallet,
 } from "lucide-react";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { calcProfileScore } from "@/lib/profile-score";
 
 export default async function TutorDashboardPage() {
   const session = await auth();
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     redirect("/login");
   }
 
-  // Fetch tutor profile, wallet, and lead purchases from Supabase
   const tutorProfile = await prisma.tutorProfile.findUnique({
     where: { userId: session.user.id },
     include: {
-      wallet: true,
-      leadPurchases: {
-        include: {
-          lead: true,
-        },
-      },
+      wallet: { select: { balance: true, totalSpent: true } },
+      availability: true,
+      _count: { select: { leadPurchases: true, reviews: true, bookings: true } },
     },
   });
 
-  const walletBalance = tutorProfile?.wallet?.balance || 0;
+  const walletBalance = tutorProfile?.wallet?.balance ?? 0;
+  const kycStatus = tutorProfile?.kycStatus ?? "NOT_SUBMITTED";
+  const isKycApproved = kycStatus === "APPROVED";
+
+  const scoreBreakdown = tutorProfile
+    ? calcProfileScore({ ...tutorProfile, availability: tutorProfile.availability })
+    : null;
+
+  const stats = [
+    {
+      label: "Coin Balance",
+      value: `${walletBalance} 🪙`,
+      icon: Wallet,
+      bg: "#FEF3C7",
+      href: "/tutor/wallet",
+    },
+    {
+      label: "Leads Unlocked",
+      value: tutorProfile?._count.leadPurchases ?? 0,
+      icon: Compass,
+      bg: "#E0F2FE",
+      href: "/tutor/leads",
+    },
+    {
+      label: "Avg Rating",
+      value: tutorProfile?.averageRating
+        ? `${tutorProfile.averageRating.toFixed(1)} ⭐`
+        : "New",
+      icon: Star,
+      bg: "#FCE7F3",
+      href: null,
+    },
+    {
+      label: "Profile Score",
+      value: `${scoreBreakdown?.total ?? 0}%`,
+      icon: UserCog,
+      bg: "#DCFCE7",
+      href: "/tutor/profile",
+    },
+  ];
 
   return (
     <div className="space-y-8 py-4">
       {/* Welcome Banner */}
-      <div className="neu-card p-6 md:p-8 bg-[#DCFCE7] flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="neu-card flex flex-col items-start justify-between gap-6 bg-[#DCFCE7] p-6 md:flex-row md:items-center md:p-8">
         <div className="space-y-2">
           <div className="neu-badge bg-white text-[#0F172A]">
             <Sparkles size={14} className="text-amber-500" />
             Tutor Dashboard
           </div>
-          <h1 className="text-3xl md:text-4xl font-black text-[#0F172A]">
+          <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
             Welcome back, {session.user.name || "Tutor"}! 🎓
           </h1>
           <p className="text-sm font-semibold text-slate-700">
-            Browse matched student requirements, unlock parent contacts using coins, and schedule classes.
+            Browse matched student requirements, unlock parent contacts using
+            coins, and schedule classes.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <a
+        <div className="flex flex-wrap gap-3">
+          <Link
             href="/tutor/wallet"
-            className="neu-btn neu-btn-yellow py-3 px-5 text-sm flex items-center gap-2"
+            className="neu-btn neu-btn-yellow shrink-0 px-5 py-3 text-sm"
           >
             <Wallet size={18} />
-            <span>Wallet: {walletBalance} Coins</span>
-          </a>
+            <span>{walletBalance} Coins</span>
+          </Link>
+          {!isKycApproved && (
+            <Link
+              href="/tutor/profile"
+              className="neu-btn neu-btn-primary shrink-0 px-5 py-3 text-sm"
+            >
+              <ShieldCheck size={18} />
+              <span>Complete KYC</span>
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* KYC Alert if not verified */}
-      {tutorProfile?.kycStatus !== "APPROVED" && (
-        <div className="neu-card p-5 bg-[#FEF3C7] flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <ShieldAlert size={24} className="text-amber-600 flex-shrink-0" />
-            <div>
-              <h3 className="font-extrabold text-[#0F172A] text-sm md:text-base">
-                KYC Verification Pending
-              </h3>
-              <p className="text-xs font-semibold text-slate-700">
-                Complete your KYC verification to get the Verified Tutor Badge and boost your lead ranking by +500 points!
-              </p>
-            </div>
-          </div>
-          <a
-            href="/tutor/profile"
-            className="neu-btn neu-btn-primary text-xs px-4 py-2 flex-shrink-0"
-          >
-            Submit KYC
-          </a>
-        </div>
-      )}
-
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          {
-            label: "Coin Balance",
-            value: `${walletBalance} Coins`,
-            icon: Wallet,
-            bg: "#FEF3C7",
-          },
-          {
-            label: "Unlocked Leads",
-            value: tutorProfile?.leadPurchases.length || 0,
-            icon: Compass,
-            bg: "#E0F2FE",
-          },
-          {
-            label: "Average Rating",
-            value: tutorProfile?.averageRating
-              ? `${tutorProfile.averageRating.toFixed(1)} ⭐`
-              : "New Tutor",
-            icon: Star,
-            bg: "#FCE7F3",
-          },
-          {
-            label: "Verification Status",
-            value: tutorProfile?.isVerified ? "Verified ✅" : "Unverified",
-            icon: ShieldCheck,
-            bg: "#DCFCE7",
-          },
-        ].map((stat) => (
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat) => (
           <div
             key={stat.label}
-            className="neu-card p-5 space-y-2"
+            className="neu-card space-y-2 p-5"
             style={{ backgroundColor: stat.bg }}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase text-slate-700">
                 {stat.label}
               </span>
-              <div className="w-8 h-8 rounded-lg bg-white border-2 border-[#0F172A] flex items-center justify-center">
-                <stat.icon size={16} className="text-[#0F172A]" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-[#0F172A] bg-white">
+                <stat.icon size={16} />
               </div>
             </div>
-            <div className="text-2xl font-black text-[#0F172A]">
-              {stat.value}
-            </div>
+            <div className="text-2xl font-black text-[#0F172A]">{stat.value}</div>
+            {stat.href && (
+              <Link
+                href={stat.href}
+                className="text-[11px] font-extrabold text-[#22C55E] hover:underline"
+              >
+                View →
+              </Link>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Available Leads Feed CTA */}
-      <div className="neu-card p-8 bg-white space-y-4 text-center md:text-left md:flex md:items-center md:justify-between">
+      {/* Profile completion ring */}
+      {scoreBreakdown && scoreBreakdown.total < 100 && (
+        <div className="neu-card flex flex-col gap-4 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-lg font-black text-[#0F172A]">
+              Profile {scoreBreakdown.total}% complete
+            </h2>
+            <p className="text-xs font-semibold text-slate-600">
+              A complete profile ranks higher in the matching engine and attracts
+              more parents.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {scoreBreakdown.kyc === 0 && (
+                <span className="neu-badge bg-[#FFEDD5] text-[10px]">
+                  + KYC (40 pts)
+                </span>
+              )}
+              {scoreBreakdown.bio === 0 && (
+                <span className="neu-badge bg-[#E0F2FE] text-[10px]">
+                  + Bio (10 pts)
+                </span>
+              )}
+              {scoreBreakdown.availability === 0 && (
+                <span className="neu-badge bg-[#F3E8FF] text-[10px]">
+                  + Availability (10 pts)
+                </span>
+              )}
+              {scoreBreakdown.introVideo === 0 && (
+                <span className="neu-badge bg-[#DCFCE7] text-[10px]">
+                  + Intro Video (5 pts)
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-col items-center gap-2">
+            <div className="relative h-20 w-20">
+              <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90">
+                <circle
+                  cx="18" cy="18" r="15.9"
+                  fill="none" stroke="#E2E8F0" strokeWidth="3.2"
+                />
+                <circle
+                  cx="18" cy="18" r="15.9"
+                  fill="none" stroke="#22C55E" strokeWidth="3.2"
+                  strokeDasharray={`${scoreBreakdown.total} 100`}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-base font-black text-[#0F172A]">
+                {scoreBreakdown.total}%
+              </span>
+            </div>
+            <Link
+              href="/tutor/profile"
+              className="neu-btn neu-btn-primary px-5 py-2.5 text-xs"
+            >
+              Complete Profile
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Leads CTA */}
+      <div className="neu-card flex flex-col items-start justify-between gap-4 bg-white p-6 sm:flex-row sm:items-center">
         <div className="space-y-1">
           <h2 className="text-2xl font-black text-[#0F172A]">
-            Browse Available Tuition Leads
+            Browse Available Leads
           </h2>
           <p className="text-sm font-semibold text-slate-600">
-            View parents actively looking for tutors in your subjects and teaching radius.
+            View parents actively looking for tutors in your subjects and radius.
           </p>
         </div>
-
-        <a
+        <Link
           href="/tutor/leads"
-          className="neu-btn neu-btn-primary py-3.5 px-6 text-sm flex items-center justify-center gap-2"
+          className="neu-btn neu-btn-primary shrink-0 px-6 py-3.5 text-sm"
         >
           <Compass size={18} />
-          <span>Explore Matched Leads Feed</span>
-          <ArrowRight size={18} />
-        </a>
+          <span>Explore Lead Feed</span>
+          <ArrowRight size={16} />
+        </Link>
       </div>
     </div>
   );

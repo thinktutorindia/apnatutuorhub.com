@@ -1,7 +1,7 @@
 # ThinkTutor — AI Memory & Active Session Handshake
 
 **Last Updated:** 2026-07-25  
-**Current Phase:** **PHASE 3 — Tutor Profile & AWS S3 KYC Verification**  
+- **Current Phase:** **PHASE 4 — Dynamic Wallet & Coin System**
 **Active Branch:** `main`  
 **Target Stack:** Next.js 16 (App Router, RSC, Server Actions, `'use cache'`), React 19, Auth.js v5, Prisma 6/7, Tailwind CSS v4, AWS Suite (SES, SNS, S3), BullMQ + Upstash Redis  
 
@@ -29,7 +29,8 @@ If you are an AI assistant starting a new chat session on this project:
 
 - **Completed Phase 1**: Foundation, Next.js 16 App Router, Playful Neubrutalism & Claymorphism Design System (inspired by UU-PM Educational Platform: warm cream background `#FAF8F5`, 2.5px slate borders `#0F172A`, 3D offset drop shadows `shadow-[5px_5px_0px_0px_rgba(15,23,42,1)]`, pastel card backgrounds, extra-bold Poppins typography), Prisma Client 6, Auth.js v5, Supabase Integration (`@supabase/supabase-js`, `@supabase/ssr`, browser & server client helpers), Supabase MCP Server (`mcp.supabase.com/mcp?project_ref=awfgtylndntipblgmmll`), Supabase PostgreSQL Database (synced via `npx prisma db push` to Tokyo `aws-0-ap-northeast-1.pooler.supabase.com`), SVG Brand Icons & Illustrations, Auth Pages (Login, Register with Parent/Tutor selector, Forgot Password), landing page with session auth header, parent/tutor dashboard shells (`app/parent/dashboard/page.tsx`, `app/tutor/dashboard/page.tsx`), and verified TypeScript compilation (`npx tsc --noEmit` passed with 0 errors).
 - **Completed Phase 2**: Parent Module & Requirement Posting — Parent layout with `ParentNav` (active-route indicators), dashboard (welcome banner, stats grid, recent requirements with status badges), profile page (`ParentProfileForm` + `StudentProfilesSection` with CRUD modal), requirement posting form (`RequirementForm` with `SubjectPicker` taxonomy, `OptionPills` class/mode/gender selectors, budget range, geolocation pin, board/timing/language preferences), `createRequirementAction` & `updateRequirementAction` & `closeRequirementAction` in `app/actions/leads.actions.ts` (8-step lifecycle: Zod validation → auth → RBAC via `lib/rbac.ts` → business rules → atomic Prisma tx → `after()` queue dispatch → cache revalidation → `ActionResult<T>`), dynamic coin pricing via `lib/lead-pricing.ts` + `lib/platform-settings.ts` (Class 1-8: 20, 9-12: 30, JEE/NEET/Coding: 50), `my-leads` list with 7 status filters & per-card edit/close/applicant actions, edit page with core-field lock rule (`purchaseCount > 0`), stub pages for bookings & applicants (Phase 6/7), `Lead.pincode` column added via `prisma db push`, and verified TypeScript compilation (`npx tsc --noEmit` passed with 0 errors, 0 lint errors).
-- **Next Up**: Phase 3 — Tutor Profile & AWS S3 KYC Verification (`app/tutor/*`, S3 presigned URL upload, KYC form).
+- **Completed Phase 3**: Tutor Profile & AWS S3 KYC Verification — installed `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`; `lib/s3.ts` (presigned PUT/GET/DELETE helpers, `kycObjectKey`, `certObjectKey`, `isS3Configured`); `app/api/upload/presigned-url/route.ts` (POST — session+profile guard, MIME whitelist, docType router); `lib/profile-score.ts` (`calcProfileScore` / `getProfileScore`, 0-100% with breakdown: KYC 40, subjects 15, classLevels 10, bio 10, availability 10, fees 5, location 5, introVideo 5); `lib/tutor-context.ts` (auth+RBAC `kyc:upload` resolver); `app/actions/kyc.actions.ts` (`submitKYCAction` — Zod, APPROVED guard, set `kycStatus=PENDING`); `app/actions/tutor.actions.ts` (`saveTutorProfileAction` + `saveAvailabilityAction` — both recalculate `profileScore` via `getProfileScore` and revalidate paths); `components/tutor/TutorNav.tsx` (active-route `<Link>` navbar); `app/tutor/layout.tsx` (upgraded — TutorNav, KYC status banner with 4 states: NOT_SUBMITTED/PENDING/REJECTED/APPROVED); `app/tutor/dashboard/page.tsx` (profile completion ring SVG, stat cards, hints for missing score sections); `components/tutor/AvailabilityGrid.tsx` (7-day toggle+time-range, hidden inputs for Server Action); `components/tutor/TutorProfileForm.tsx` (multi-section form: subjects/classLevels, qualification/experience/bio, mode/radius/location, fees, intro video, availability); `components/tutor/KYCUploadModal.tsx` (3-slot S3 direct-upload: presigned URL → PUT → objectKey stored → submit Server Action, Escape/backdrop close, file-size guard); `components/tutor/TutorProfilePage.tsx` (client page shell — KYC status card, profile form, modal toggle); `app/tutor/profile/page.tsx` (RSC — fetches profile+availability, passes serialised props); `app/tutor/[id]/page.tsx` (public profile — hero, bio, video embed, subjects, availability, reviews, CTA); `app/tutor/leads/page.tsx`, `app/tutor/wallet/page.tsx`, `app/tutor/bookings/page.tsx` (stub pages). `npx tsc --noEmit` 0 errors, `npm run lint` 0 errors.
+- **Next Up**: Phase 4 — Dynamic Wallet & Coin System (Razorpay checkout, webhook, transaction history).
 
 ---
 
@@ -66,6 +67,18 @@ If you are an AI assistant starting a new chat session on this project:
 ---
 
 ## 3. Session Change Log
+
+### Session 14 (2026-07-25)
+- Built entire Phase 3 — Tutor Profile & AWS S3 KYC Verification:
+  - **AWS S3**: `lib/s3.ts` (presigned PUT/GET/DELETE, `kycObjectKey`, `certObjectKey`, `ALLOWED_MIME_TYPES`, `MAX_UPLOAD_BYTES`, `isS3Configured`). Installed `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`.
+  - **API Route**: `app/api/upload/presigned-url/route.ts` — POST, session guard, tutor-profile guard, MIME whitelist (jpg/png/pdf), docType router (`id-proof`, `address-proof`, `selfie`, `cert`).
+  - **Scoring**: `lib/profile-score.ts` — `calcProfileScore` / `getProfileScore` (0-100%) with point breakdown: KYC approved (+40), subjects (+3 each, max 15), classLevels (+2 each, max 10), bio ≥80 chars (+10), availability ≥3 days (+10), fees set (+5), city+lat (+5), introVideo (+5).
+  - **Context/Actions**: `lib/tutor-context.ts` (auth+RBAC `kyc:upload`), `app/actions/kyc.actions.ts` (`submitKYCAction` — Zod, APPROVED guard, set PENDING), `app/actions/tutor.actions.ts` (`saveTutorProfileAction` + `saveAvailabilityAction` — both recalculate `profileScore`).
+  - **Components**: `TutorNav.tsx` (active-route Link navbar), `AvailabilityGrid.tsx` (7-day toggle + time selectors, hidden inputs), `TutorProfileForm.tsx` (subjects/classLevels multi-select, qualification/exp/bio, mode+radius slider, location, fees, intro video + availability), `KYCUploadModal.tsx` (3-slot direct-to-S3 upload: presigned URL → PUT → objectKey → submit, Escape/backdrop close, 5 MB guard), `TutorProfilePage.tsx` (client shell — KYC card, form, modal).
+  - **Pages**: `app/tutor/layout.tsx` (upgraded — TutorNav + 4-state KYC banner using `<Link>`), `app/tutor/dashboard/page.tsx` (profile completion ring SVG + score hints + stat cards), `app/tutor/profile/page.tsx` (RSC, passes serialised props to `TutorProfilePage`), `app/tutor/[id]/page.tsx` (public — hero, bio, YouTube embed, subjects, availability, reviews, CTA), `app/tutor/leads/page.tsx`, `app/tutor/wallet/page.tsx`, `app/tutor/bookings/page.tsx` (stub pages).
+  - **QA**: `npx tsc --noEmit` 0 errors. `npm run lint` 0 errors (pre-existing auth-page warnings only).
+- Marked Phase 3 checkboxes `[x]` in `docs/Phases.md`.
+- Ready to build Phase 4 (Razorpay Wallet & Coin System).
 
 ### Session 13 (2026-07-25)
 - Built entire Phase 2 — Parent Module & Requirement Posting:

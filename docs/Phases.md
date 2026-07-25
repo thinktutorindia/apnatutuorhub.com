@@ -360,22 +360,22 @@ sequenceDiagram
 **Goal:** Tutors purchase coin packages via Razorpay checkout and manage their coin wallet transactions for lead unlocking.
 
 ### Detailed Tasks
-- [ ] Ensure `Wallet`, `WalletTransaction`, and `CoinPackage` Prisma models exist in database schema
-- [ ] Create Razorpay Server SDK Wrapper in `lib/razorpay.ts` using `razorpay` npm package
-- [ ] Build Coin Package Cards Grid Component (`components/wallet/CoinPackageGrid.tsx`):
+- [x] Ensure `Wallet`, `WalletTransaction`, and `CoinPackage` Prisma models exist in database schema
+- [x] Create Razorpay Server SDK Wrapper in `lib/razorpay.ts` using `razorpay` npm package
+- [x] Build Coin Package Cards Grid Component (`components/wallet/CoinPackageGrid.tsx`):
   - Tier 1: 50 Coins (₹500)
   - Tier 2: 120 Coins (₹1,000 + 20 Bonus Coins)
   - Tier 3: 300 Coins (₹2,200 + 80 Bonus Coins)
-- [ ] Build Razorpay Order Creation Server Action `createCoinOrderAction` in `app/actions/wallet.actions.ts`
-- [ ] Implement Razorpay Webhook Handler (`app/api/webhooks/razorpay/route.ts`):
+- [x] Build Razorpay Order Creation Server Action `createCoinOrderAction` in `app/actions/wallet.actions.ts`
+- [x] Implement Razorpay Webhook Handler (`app/api/webhooks/razorpay/route.ts`):
   - Verify Razorpay HMAC-SHA256 signature using `RAZORPAY_WEBHOOK_SECRET`
   - Credit coins to tutor wallet inside atomic `prisma.$transaction`
   - Log `WalletTransaction` (`type: PURCHASE`, `amount: coins`, `status: SUCCESS`)
-- [ ] Build Tutor Wallet Page (`app/tutor/wallet/page.tsx`):
+- [x] Build Tutor Wallet Page (`app/tutor/wallet/page.tsx`):
   - Current coin balance card (`bg-[#FEF3C7]`)
   - Transaction history table with pagination and filters (`PURCHASE`, `DEDUCTION`, `REFUND`, `BONUS`)
   - Top-Up Modal
-- [ ] Implement Coin Refund Request Server Action `requestLeadRefundAction` in `app/actions/wallet.actions.ts`:
+- [x] Implement Coin Refund Request Server Action `requestLeadRefundAction` in `app/actions/wallet.actions.ts`:
   - Validate 24-hour window from lead purchase
   - Submit refund request for Admin review (Status: `PENDING_REVIEW`)
 

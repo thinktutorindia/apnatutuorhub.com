@@ -33,19 +33,25 @@ export type ProfileScoreBreakdown = {
 /**
  * 0-to-100 profile completion score used in:
  *  - "Profile Completion" ring on the tutor dashboard
- *  - Matching engine ranking (+100 pts for 100% completion, Phase 5)
+ *  - Matching engine ranking (+100 pts for 100% completion)
  *  - KYC alert trigger
  */
 export function calcProfileScore(profile: ScoredProfile): ProfileScoreBreakdown {
   const kyc = profile.kycStatus === "APPROVED" ? 40 : 0;
-  const subjects = Math.min(15, profile.subjects.length * 3);
-  const classLevels = Math.min(10, profile.classLevels.length * 2);
-  const bio = profile.bio && profile.bio.trim().length >= 80 ? 10 : 0;
-  const fees = profile.feeMin != null && profile.feeMax != null ? 5 : 0;
-  const location = profile.city && profile.latitude ? 5 : 0;
-  const availability =
-    (profile.availability?.length ?? 0) >= 3 ? 10 : 0;
-  const introVideo = profile.introVideoUrl ? 5 : 0;
+  // 3+ subjects = 15 pts
+  const subjects = profile.subjects.length >= 3 ? 15 : profile.subjects.length * 5;
+  // 2+ class levels = 10 pts
+  const classLevels = profile.classLevels.length >= 2 ? 10 : profile.classLevels.length * 5;
+  // bio >= 20 chars = 10 pts
+  const bio = profile.bio && profile.bio.trim().length >= 20 ? 10 : 0;
+  // feeMin or feeMax set = 5 pts
+  const fees = profile.feeMin != null || profile.feeMax != null ? 5 : 0;
+  // city set = 5 pts
+  const location = profile.city && profile.city.trim().length > 0 ? 5 : 0;
+  // 3+ availability slots = 10 pts
+  const availability = (profile.availability?.length ?? 0) >= 3 ? 10 : 0;
+  // intro video set = 5 pts
+  const introVideo = profile.introVideoUrl && profile.introVideoUrl.trim().length > 0 ? 5 : 0;
 
   const total = Math.min(
     100,

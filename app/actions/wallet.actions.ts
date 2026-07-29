@@ -13,6 +13,7 @@ import {
   createRazorpayOrder,
   getCoinPackage,
   isRazorpayConfigured,
+  verifyPaymentSignature,
   type CoinPackageId,
 } from "@/lib/razorpay";
 
@@ -56,7 +57,8 @@ export async function createCoinOrderAction(
   }
 
   try {
-    const receipt = `coins_${tutorProfile.id}_${Date.now()}`;
+    // Razorpay receipt length MUST be <= 40 characters
+    const receipt = `rcpt_${Date.now()}_${tutorProfile.id.slice(-8)}`;
     const orderResult = await createRazorpayOrder(pkg.priceInPaise, receipt);
 
     return actionSuccess({
@@ -70,6 +72,63 @@ export async function createCoinOrderAction(
       "Failed to create payment order. Please try again in a moment."
     );
   }
+}
+
+// ── Confirm Razorpay Payment (Client Callback Verification) ─────────────────
+
+export type ConfirmPaymentInput = {
+  orderId: string;
+  paymentId: string;
+  signature: string;
+  packageId: CoinPackageId;
+};
+
+export async function confirmCoinPaymentAction(
+  input: ConfirmPaymentInput
+): Promise<ActionResult<{ newBalance: number }>> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return actionError("Your session has expired. Please log in again.");
+  }
+
+  const pkg = getCoinPackage(input.packageId);
+  if (!pkg) {
+    return actionError("Invalid coin package selected.");
+  }
+
+  const isValid = verifyPaymentSignature(
+    input.orderId,
+    input.paymentId,
+    input.signature
+  );
+
+  if (!isValid) {
+    return actionError("Payment verification failed. Invalid signature.");
+  }
+
+  const tutorProfile = await prisma.tutorProfile.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
+
+  if (!tutorProfile) {
+    return actionError("Tutor profile not found.");
+  }
+
+  const description = `Purchased ${pkg.name} (${pkg.totalCoins} Coins)`;
+  const result = await creditCoinsToWallet(
+    tutorProfile.id,
+    pkg.totalCoins,
+    description,
+    input.paymentId
+  );
+
+  if (result.success) {
+    revalidatePath("/tutor/wallet");
+    revalidatePath("/tutor/dashboard");
+  }
+
+  return result;
 }
 
 // ── Credit coins after payment (also called from webhook) ────────────────────
@@ -86,6 +145,19 @@ export async function creditCoinsToWallet(
 ): Promise<CreditCoinsResult> {
   try {
     const result = await prisma.$transaction(async (tx) => {
+      // Idempotency guard: avoid double-crediting if webhook + client callback both run
+      if (referenceId) {
+        const existingTx = await tx.walletTransaction.findFirst({
+          where: { referenceId },
+        });
+        if (existingTx) {
+          const wallet = await tx.wallet.findUnique({
+            where: { tutorProfileId },
+          });
+          return wallet ?? { balance: 0 };
+        }
+      }
+
       // Upsert wallet (creates if this tutor's first top-up ever)
       const wallet = await tx.wallet.upsert({
         where: { tutorProfileId },

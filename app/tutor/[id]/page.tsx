@@ -211,19 +211,25 @@ export default async function PublicTutorProfilePage({
         {/* Reviews */}
         {profile.reviews.length > 0 && (
           <section className="space-y-4">
-            <h2 className="flex items-center gap-2 text-2xl font-black text-[#0F172A]">
-              <Star size={20} className="text-amber-500" />
-              Verified Reviews ({profile.reviews.length})
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-2xl font-black text-[#0F172A]">
+                <Star size={22} className="fill-amber-400 text-amber-400" />
+                Verified Student Reviews ({profile.reviews.length})
+              </h2>
+              <span className="text-sm font-black text-[#0F172A]">
+                ★ {profile.averageRating.toFixed(1)} / 5.0
+              </span>
+            </div>
+
             <div className="space-y-4">
               {profile.reviews.map((review) => (
-                <div key={review.id} className="neu-card space-y-3 bg-white p-5">
-                  <div className="flex items-center justify-between">
+                <div key={review.id} className="neu-card space-y-3.5 bg-white p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Star
                           key={i}
-                          size={14}
+                          size={16}
                           className={
                             i < review.overallRating
                               ? "fill-amber-400 text-amber-400"
@@ -232,18 +238,39 @@ export default async function PublicTutorProfilePage({
                         />
                       ))}
                     </div>
-                    <span className="neu-badge bg-[#DCFCE7] text-[10px]">
-                      <ShieldCheck size={10} />
-                      Verified Student
+                    <span className="neu-badge bg-[#DCFCE7] text-xs text-[#166534]">
+                      <ShieldCheck size={12} />
+                      Verified Student Booking
                     </span>
                   </div>
+
+                  {/* Rating Breakdown Badges */}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {review.teachingRating && (
+                      <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                        Teaching: {review.teachingRating}★
+                      </span>
+                    )}
+                    {review.communicationRating && (
+                      <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                        Communication: {review.communicationRating}★
+                      </span>
+                    )}
+                    {review.punctualityRating && (
+                      <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                        Punctuality: {review.punctualityRating}★
+                      </span>
+                    )}
+                  </div>
+
                   {review.comment && (
                     <p className="text-sm font-semibold text-slate-700">
-                      {review.comment}
+                      &quot;{review.comment}&quot;
                     </p>
                   )}
                   <p className="text-[11px] font-bold text-slate-400">
                     {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                      day: "numeric",
                       month: "short",
                       year: "numeric",
                     })}

@@ -386,24 +386,24 @@ sequenceDiagram
 **Goal:** Automated background engine matches posted requirements with eligible tutors, calculates ranking scores, and expands teaching radius dynamically.
 
 ### Detailed Tasks
-- [ ] Configure BullMQ Worker Queues in `lib/queue.ts` backed by Upstash Redis (`REDIS_URL`)
-- [ ] Build Core Matching Algorithm in `lib/matching-engine.ts`:
+- [x] Configure BullMQ Worker Queues in `lib/queue.ts` backed by Upstash Redis (`REDIS_URL`)
+- [x] Build Core Matching Algorithm in `lib/matching-engine.ts`:
   - **Filter 1**: Subject match (`tutor.subjects INTERSECT lead.subjects`)
   - **Filter 2**: Class match (`tutor.classLevels CONTAINS lead.classLevel`)
   - **Filter 3**: Mode match (`ONLINE`, `OFFLINE`, or `EITHER`)
   - **Filter 4**: Budget compatibility (`tutor.feeMin <= lead.budgetMax`)
   - **Filter 5**: Distance filter (Haversine formula distance <= `tutor.teachingRadius`)
   - **Filter 6**: KYC verification check (`tutor.kycStatus == APPROVED`)
-- [ ] Implement Ranking Score Formula (`lib/ranking-score.ts`):
+- [x] Implement Ranking Score Formula (`lib/ranking-score.ts`):
   - `Verified Badge (+500 pts)`
   - `Distance Rank (Inverse km, up to +300 pts)`
   - `Average Rating & Review Count (Bayesian weighted, up to +200 pts)`
   - `Profile Completion & Intro Video (+100 pts)`
-- [ ] Create Background Workers:
+- [x] Create Background Workers:
   - `jobs/matching.worker.ts`: Process new leads & trigger tutor alerts
   - `jobs/radius-expand.worker.ts`: Check 25% expiry checkpoint; expand radius (+5 km step) if purchases < 5
   - `jobs/lead-expiry.worker.ts`: Archive leads reaching 48h lifespan window
-- [ ] Build Admin Matching Configuration Reader (`lib/matching-config.ts`) to pull weights dynamically from `PlatformSetting` DB table
+- [x] Build Admin Matching Configuration Reader (`lib/matching-config.ts`) to pull weights dynamically from `PlatformSetting` DB table
 
 ---
 
@@ -412,11 +412,11 @@ sequenceDiagram
 **Goal:** Tutors view matched leads, unlock parent contact details using coins, and submit applications. Parents compare applicants side-by-side.
 
 ### Detailed Tasks
-- [ ] Build Matched Lead Feed Page (`app/tutor/leads/page.tsx`):
+- [x] Build Matched Lead Feed Page (`app/tutor/leads/page.tsx`):
   - Display eligible leads matching tutor profile
   - Filter bar: Subject, Mode, Distance, Coin Cost
   - Lead Card showing class, subject, city area, budget, distance, coin cost
-- [ ] Implement Lead Purchase Server Action `purchaseLeadAction` in `app/actions/leads.actions.ts`:
+- [x] Implement Lead Purchase Server Action `purchaseLeadAction` in `app/actions/leads.actions.ts`:
   - Execute atomic `prisma.$transaction`:
     1. Check lead status != `CLOSED` and purchases count < `maxTutorsPerLead` (5)
     2. Verify tutor has not already purchased
@@ -425,12 +425,12 @@ sequenceDiagram
     5. Deduct coins from wallet & log `WalletTransaction` (`type: DEDUCTION`)
     6. Record `LeadPurchase`
     7. Unlock parent contact details for tutor
-- [ ] Build Tutor Application Modal (`components/tutor/ApplyLeadModal.tsx`) to submit proposal notes & fee quote
-- [ ] Build Parent Applicant Review Page (`app/parent/my-leads/[id]/applicants/page.tsx`):
+- [x] Build Tutor Application Modal (`components/tutor/ApplyLeadModal.tsx`) to submit proposal notes & fee quote
+- [x] Build Parent Applicant Review Page (`app/parent/my-leads/[id]/applicants/page.tsx`):
   - Display unlocked tutor applications in ranked order
   - Tutor card comparison metrics: Rating, Reviews, Experience, Distance, Qualification, Verified Badge, Intro Video
   - Parent action buttons: Shortlist, Reject, Schedule Trial, Chat
-- [ ] Implement Real-time Lead Status Transitions (`ACTIVE → PARTIALLY_PURCHASED → FULLY_PURCHASED → CLOSED`)
+- [x] Implement Real-time Lead Status Transitions (`ACTIVE → PARTIALLY_PURCHASED → FULLY_PURCHASED → CLOSED`)
 
 ---
 
@@ -439,16 +439,16 @@ sequenceDiagram
 **Goal:** Handle trial class booking, regular hiring, Google Meet/Zoom link sharing, and schedule management.
 
 ### Detailed Tasks
-- [ ] Create `Booking` Prisma model with statuses (`REQUESTED`, `CONFIRMED`, `RESCHEDULED`, `COMPLETED`, `CANCELLED`)
-- [ ] Build Hire & Schedule Server Action `createBookingAction` in `app/actions/booking.actions.ts`:
+- [x] Create `Booking` Prisma model with statuses (`REQUESTED`, `CONFIRMED`, `RESCHEDULED`, `COMPLETED`, `CANCELLED`)
+- [x] Build Hire & Schedule Server Action `createBookingAction` in `app/actions/booking.actions.ts`:
   - Select Trial vs. Regular Booking
   - Set start date, time slots, and class frequency
-- [ ] Build Online Class Link Sharing Modal (`components/booking/ClassLinkModal.tsx`) for tutors to input Google Meet/Zoom links
-- [ ] Build Offline Venue Confirmation Card (`components/booking/VenueConfirmationCard.tsx`) showing address details
-- [ ] Implement Reschedule Request Flow in `app/actions/booking.actions.ts`:
+- [x] Build Online Class Link Sharing Modal (`components/booking/ClassLinkModal.tsx`) for tutors to input Google Meet/Zoom links
+- [x] Build Offline Venue Confirmation Card (`components/booking/VenueConfirmationCard.tsx`) showing address details
+- [x] Implement Reschedule Request Flow in `app/actions/booking.actions.ts`:
   - Propose new date/time → Counterparty accepts/declines
-- [ ] Implement Cancellation Cutoff Enforcement (2-hour limit before start time)
-- [ ] Build Parent & Tutor Bookings Schedule Dashboard (`app/parent/bookings/page.tsx` & `app/tutor/bookings/page.tsx`)
+- [x] Implement Cancellation Cutoff Enforcement (2-hour limit before start time)
+- [x] Build Parent & Tutor Bookings Schedule Dashboard (`app/parent/bookings/page.tsx` & `app/tutor/bookings/page.tsx`)
 
 ---
 
@@ -457,19 +457,19 @@ sequenceDiagram
 **Goal:** Verified completed bookings trigger mutual rating requests. Ratings directly update tutor ranking scores.
 
 ### Detailed Tasks
-- [ ] Ensure `Review` Prisma model is linked to `Booking` ID and `TutorProfile` ID
-- [ ] Build Rating Trigger Guard: Unlock review prompt ONLY when `booking.status == COMPLETED`
-- [ ] Build Parent Review Modal Component (`components/reviews/ParentReviewModal.tsx`):
+- [x] Ensure `Review` Prisma model is linked to `Booking` ID and `TutorProfile` ID
+- [x] Build Rating Trigger Guard: Unlock review prompt ONLY when `booking.status == COMPLETED`
+- [x] Build Parent Review Modal Component (`components/reviews/ParentReviewModal.tsx`):
   - Star ratings for: Teaching Quality, Communication, Punctuality, Overall Experience
   - Written review text area
-- [ ] Build Tutor Review Modal Component (`components/reviews/TutorReviewModal.tsx`):
+- [x] Build Tutor Review Modal Component (`components/reviews/TutorReviewModal.tsx`):
   - Star ratings for: Student Behavior, Punctuality, Overall Experience
-- [ ] Create Submit Review Server Action `submitReviewAction` in `app/actions/review.actions.ts`:
+- [x] Create Submit Review Server Action `submitReviewAction` in `app/actions/review.actions.ts`:
   - Store review record
   - Enforce 48-hour edit window lock
   - Recalculate tutor's aggregate rating & review count inside Prisma
   - Update tutor's matching engine ranking score
-- [ ] Display Verified Reviews on Tutor Public Profile (`app/tutor/[id]/page.tsx`) with "Verified Student Booking" badge
+- [x] Display Verified Reviews on Tutor Public Profile (`app/tutor/[id]/page.tsx`) with "Verified Student Booking" badge
 
 ---
 

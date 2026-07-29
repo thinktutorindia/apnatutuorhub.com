@@ -151,22 +151,42 @@ export default async function TutorDashboardPage() {
             <div className="flex flex-wrap gap-2 pt-1">
               {scoreBreakdown.kyc === 0 && (
                 <span className="neu-badge bg-[#FFEDD5] text-[10px]">
-                  + KYC (40 pts)
+                  + KYC Verification (40 pts)
+                </span>
+              )}
+              {scoreBreakdown.subjects < 15 && (
+                <span className="neu-badge bg-[#DCFCE7] text-[10px]">
+                  + Select 3+ Subjects ({15 - scoreBreakdown.subjects} pts)
+                </span>
+              )}
+              {scoreBreakdown.classLevels < 10 && (
+                <span className="neu-badge bg-[#DCFCE7] text-[10px]">
+                  + Select 2+ Class Levels ({10 - scoreBreakdown.classLevels} pts)
                 </span>
               )}
               {scoreBreakdown.bio === 0 && (
                 <span className="neu-badge bg-[#E0F2FE] text-[10px]">
-                  + Bio (10 pts)
+                  + Bio (20+ chars) (10 pts)
+                </span>
+              )}
+              {scoreBreakdown.fees === 0 && (
+                <span className="neu-badge bg-[#FEF3C7] text-[10px]">
+                  + Set Fee Range (5 pts)
+                </span>
+              )}
+              {scoreBreakdown.location === 0 && (
+                <span className="neu-badge bg-[#FCE7F3] text-[10px]">
+                  + Set City (5 pts)
                 </span>
               )}
               {scoreBreakdown.availability === 0 && (
                 <span className="neu-badge bg-[#F3E8FF] text-[10px]">
-                  + Availability (10 pts)
+                  + Set Availability (3+ days) (10 pts)
                 </span>
               )}
               {scoreBreakdown.introVideo === 0 && (
                 <span className="neu-badge bg-[#DCFCE7] text-[10px]">
-                  + Intro Video (5 pts)
+                  + Add Intro Video Link (5 pts)
                 </span>
               )}
             </div>

@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveParentContext } from "@/lib/parent-context";
+import { resolveTutorContext } from "@/lib/tutor-context";
 import { resolveLeadCommercials } from "@/lib/lead-pricing";
-import { enqueueLeadMatching } from "@/lib/queue";
+import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
 import {
   actionError,
   actionFieldErrors,
@@ -16,6 +17,25 @@ import { formFloat, formInt, formList, formString } from "@/lib/form-data";
 import { createLeadSchema, updateLockedLeadSchema } from "@/lib/validations";
 
 export type RequirementState = ActionResult<{ leadId: string; coinCost?: number }>;
+
+// ── Lead Purchase types ───────────────────────────────────────────────────────
+
+export type ParentContact = {
+  name: string | null;
+  email: string;
+  phone: string | null;
+  area: string | null;
+  city: string | null;
+  pincode: string | null;
+};
+
+export type PurchaseLeadState = ActionResult<{
+  purchaseId: string;
+  parentContact: ParentContact;
+}>;
+
+export type ApplicationState = ActionResult<{ updated: true }>;
+export type ApplicantActionState = ActionResult<{ updated: true }>;
 
 const MAX_OPEN_REQUIREMENTS = 10;
 
@@ -149,7 +169,7 @@ export async function createRequirementAction(
     return created;
   });
 
-  after(() => enqueueLeadMatching({ leadId: lead.id }));
+  after(() => dispatchLeadMatching(lead.id));
 
   revalidatePath("/parent/dashboard");
   revalidatePath("/parent/my-leads");
@@ -261,7 +281,7 @@ export async function updateRequirementAction(
       },
     });
 
-    after(() => enqueueLeadMatching({ leadId: lead.id }));
+    after(() => dispatchLeadMatching(lead.id));
   }
 
   revalidatePath("/parent/dashboard");
@@ -310,4 +330,252 @@ export async function closeRequirementAction(
   revalidatePath("/parent/my-leads");
 
   return actionSuccess({ leadId: lead.id });
+}
+
+// ────────────────────────────────────────────────
+// Purchase Lead (Tutor unlocks parent contact)
+// ────────────────────────────────────────────────
+
+export async function purchaseLeadAction(
+  leadId: string
+): Promise<PurchaseLeadState> {
+  const authCtx = await resolveTutorContext();
+  if (!authCtx.ok) return authCtx.result;
+
+  const tutorProfileId = authCtx.context.tutorProfileId;
+
+  const [lead, wallet, tutorKyc] = await Promise.all([
+    prisma.lead.findUnique({
+      where: { id: leadId },
+      select: {
+        id: true,
+        status: true,
+        coinCost: true,
+        maxTutors: true,
+        purchaseCount: true,
+        area: true,
+        city: true,
+        pincode: true,
+        parentProfile: {
+          select: {
+            user: { select: { name: true, email: true, phone: true } },
+          },
+        },
+      },
+    }),
+    prisma.wallet.findUnique({
+      where: { tutorProfileId },
+      select: { id: true, balance: true },
+    }),
+    prisma.tutorProfile.findUnique({
+      where: { id: tutorProfileId },
+      select: { kycStatus: true },
+    }),
+  ]);
+
+  if (!lead) return actionError("This lead no longer exists.");
+
+  if (["CLOSED", "EXPIRED", "COMPLETED"].includes(lead.status)) {
+    return actionError("This lead is no longer accepting applications.");
+  }
+
+  if (lead.purchaseCount >= lead.maxTutors) {
+    return actionError(
+      "This lead has reached its maximum number of tutors."
+    );
+  }
+
+  if (tutorKyc?.kycStatus !== "APPROVED") {
+    return actionError(
+      "Your KYC must be approved before you can unlock leads."
+    );
+  }
+
+  const walletBalance = wallet?.balance ?? 0;
+  if (walletBalance < lead.coinCost) {
+    return actionError(
+      `Insufficient coins. You have ${walletBalance} coins but this lead costs ${lead.coinCost}. Please top up your wallet.`
+    );
+  }
+
+  const alreadyPurchased = await prisma.leadPurchase.findFirst({
+    where: { leadId, tutorProfileId },
+    select: { id: true },
+  });
+  if (alreadyPurchased) return actionError("You have already unlocked this lead.");
+
+  // Atomic 7-step transaction
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedWallet = await tx.wallet.update({
+      where: { tutorProfileId },
+      data: {
+        balance: { decrement: lead.coinCost },
+        totalSpent: { increment: lead.coinCost },
+      },
+    });
+
+    await tx.walletTransaction.create({
+      data: {
+        walletId: updatedWallet.id,
+        type: "DEDUCTION",
+        amount: lead.coinCost,
+        balanceAfter: updatedWallet.balance,
+        description: `Lead unlock — ${lead.city ?? "location"}`,
+        referenceId: leadId,
+      },
+    });
+
+    const purchase = await tx.leadPurchase.create({
+      data: { leadId, tutorProfileId, coinsSpent: lead.coinCost },
+    });
+
+    const newPurchaseCount = lead.purchaseCount + 1;
+    const newStatus =
+      newPurchaseCount >= lead.maxTutors
+        ? "APPLICATIONS_RECEIVED"
+        : lead.status === "ACTIVE"
+          ? "MATCHING"
+          : lead.status;
+
+    await tx.lead.update({
+      where: { id: leadId },
+      data: {
+        purchaseCount: { increment: 1 },
+        ...(newStatus !== lead.status ? { status: newStatus } : {}),
+      },
+    });
+
+    return purchase;
+  });
+
+  revalidatePath("/tutor/leads");
+  revalidatePath("/tutor/wallet");
+  revalidatePath("/tutor/dashboard");
+
+  return actionSuccess({
+    purchaseId: result.id,
+    parentContact: {
+      name: lead.parentProfile.user.name,
+      email: lead.parentProfile.user.email,
+      phone: lead.parentProfile.user.phone,
+      area: lead.area,
+      city: lead.city,
+      pincode: lead.pincode,
+    },
+  });
+}
+
+// ────────────────────────────────────────────────
+// Submit Application (proposal + fee quote)
+// ────────────────────────────────────────────────
+
+export async function submitApplicationAction(
+  _prevState: ApplicationState,
+  formData: FormData
+): Promise<ApplicationState> {
+  const authCtx = await resolveTutorContext();
+  if (!authCtx.ok) return authCtx.result;
+
+  const purchaseId = formData.get("purchaseId") as string | null;
+  const proposalNote = (formData.get("proposalNote") as string | null)?.trim();
+  const feeQuoteStr = formData.get("feeQuote") as string | null;
+  const feeQuote = feeQuoteStr ? parseInt(feeQuoteStr, 10) : null;
+
+  if (!purchaseId) return actionError("Invalid application reference.");
+
+  const purchase = await prisma.leadPurchase.findFirst({
+    where: { id: purchaseId, tutorProfileId: authCtx.context.tutorProfileId },
+    select: { id: true },
+  });
+
+  if (!purchase) return actionError("Application not found or access denied.");
+
+  await prisma.leadPurchase.update({
+    where: { id: purchaseId },
+    data: {
+      proposalNote: proposalNote ?? null,
+      ...(feeQuote && Number.isFinite(feeQuote) ? { feeQuote } : {}),
+    },
+  });
+
+  revalidatePath("/tutor/leads");
+  return actionSuccess({ updated: true as const });
+}
+
+// ────────────────────────────────────────────────
+// Shortlist / Reject Applicant (Parent actions)
+// ────────────────────────────────────────────────
+
+export async function shortlistApplicantAction(
+  purchaseId: string
+): Promise<ApplicantActionState> {
+  const auth = await resolveParentContext();
+  if (!auth.ok) return auth.result;
+
+  const purchase = await prisma.leadPurchase.findFirst({
+    where: {
+      id: purchaseId,
+      lead: { parentProfileId: auth.context.parentProfileId },
+    },
+    select: {
+      id: true,
+      isShortlisted: true,
+      tutorProfile: { select: { userId: true } },
+      lead: { select: { classLevel: true, subjects: true } },
+    },
+  });
+
+  if (!purchase) return actionError("Applicant not found.");
+
+  const newShortlistState = !purchase.isShortlisted;
+
+  await prisma.leadPurchase.update({
+    where: { id: purchaseId },
+    data: { isShortlisted: newShortlistState, isRejected: false },
+  });
+
+  if (newShortlistState) {
+    await prisma.notification.create({
+      data: {
+        userId: purchase.tutorProfile.userId,
+        title: "⭐ You were Shortlisted!",
+        message: `A parent shortlisted your application for ${purchase.lead.classLevel} ${purchase.lead.subjects.join(", ")}.`,
+        actionUrl: "/tutor/leads",
+      },
+    });
+  }
+
+  revalidatePath(`/parent/my-leads`);
+  revalidatePath("/tutor/leads");
+  revalidatePath("/tutor/dashboard");
+
+  return actionSuccess({ updated: true as const });
+}
+
+export async function rejectApplicantAction(
+  purchaseId: string
+): Promise<ApplicantActionState> {
+  const auth = await resolveParentContext();
+  if (!auth.ok) return auth.result;
+
+  const purchase = await prisma.leadPurchase.findFirst({
+    where: {
+      id: purchaseId,
+      lead: { parentProfileId: auth.context.parentProfileId },
+    },
+    select: { id: true },
+  });
+
+  if (!purchase) return actionError("Applicant not found.");
+
+  await prisma.leadPurchase.update({
+    where: { id: purchaseId },
+    data: { isRejected: true, isShortlisted: false },
+  });
+
+  revalidatePath(`/parent/my-leads`);
+  revalidatePath("/tutor/leads");
+  revalidatePath("/tutor/dashboard");
+
+  return actionSuccess({ updated: true as const });
 }

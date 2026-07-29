@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Wallet, X } from "lucide-react";
 import { CoinPackageGrid } from "@/components/wallet/CoinPackageGrid";
-import { createCoinOrderAction } from "@/app/actions/wallet.actions";
+import {
+  createCoinOrderAction,
+  confirmCoinPaymentAction,
+} from "@/app/actions/wallet.actions";
 import type { CoinPackageId } from "@/lib/razorpay";
 
 // Minimal type shim for the Razorpay Checkout.js script
@@ -91,13 +94,51 @@ export function TopUpModal({
       name: "ThinkTutor",
       description: `${result.data.packageName} — ${totalCoins} Coins`,
       image: "/logo.png",
-      prefill: { name: userName, email: userEmail },
+      prefill: {
+        name: userName,
+        email: userEmail,
+        contact: "9999999999", // Required by Razorpay for UPI method display
+      },
+      config: {
+        display: {
+          blocks: {
+            upi: {
+              name: "Pay via UPI (GPay, PhonePe, Paytm, QR)",
+              instruments: [
+                {
+                  method: "upi",
+                },
+              ],
+            },
+          },
+          sequence: ["block.upi", "block.other"],
+          preferences: {
+            show_default_blocks: true,
+          },
+        },
+      },
       theme: { color: "#22C55E" },
-      handler: () => {
-        // Coins are credited via webhook; show success immediately for UX
-        setCreditedCoins(totalCoins);
-        setModalState("success");
-        onSuccess(totalCoins);
+      handler: async (response: {
+        razorpay_payment_id: string;
+        razorpay_order_id: string;
+        razorpay_signature: string;
+      }) => {
+        setModalState("paying");
+        const confirmRes = await confirmCoinPaymentAction({
+          orderId: response.razorpay_order_id,
+          paymentId: response.razorpay_payment_id,
+          signature: response.razorpay_signature,
+          packageId: pkgId,
+        });
+
+        if (confirmRes.success) {
+          setCreditedCoins(totalCoins);
+          setModalState("success");
+          onSuccess(totalCoins);
+        } else {
+          setErrorMsg(confirmRes.error ?? "Failed to confirm payment.");
+          setModalState("error");
+        }
       },
       modal: {
         ondismiss: () => {

@@ -15,6 +15,10 @@ import {
 } from "@/lib/action-result";
 import { formFloat, formInt, formList, formString } from "@/lib/form-data";
 import { createLeadSchema, updateLockedLeadSchema } from "@/lib/validations";
+import { captureEvent, Events } from "@/lib/posthog";
+import { logActivity, ActivityEvent } from "@/lib/activity-logger";
+import { createNotification } from "@/lib/notification-engine";
+import { geocodeLocation } from "@/lib/geocoding";
 
 export type RequirementState = ActionResult<{ leadId: string; coinCost?: number }>;
 
@@ -127,6 +131,22 @@ export async function createRequirementAction(
 
   const commercials = await resolveLeadCommercials(input.classLevel);
 
+  // Auto-geocode lead location if lat/lng not provided directly
+  let lat = input.latitude ?? null;
+  let lng = input.longitude ?? null;
+
+  if ((!lat || !lng) && (input.city || input.pincode || input.area)) {
+    const geo = await geocodeLocation({
+      address: input.area,
+      city: input.city,
+      pincode: input.pincode,
+    });
+    if (geo) {
+      lat = geo.lat;
+      lng = geo.lng;
+    }
+  }
+
   const lead = await prisma.$transaction(async (tx) => {
     const created = await tx.lead.create({
       data: {
@@ -138,8 +158,8 @@ export async function createRequirementAction(
         mode: input.mode,
         budgetMin: input.budgetMin ?? null,
         budgetMax: input.budgetMax ?? null,
-        latitude: input.latitude ?? null,
-        longitude: input.longitude ?? null,
+        latitude: lat,
+        longitude: lng,
         city: input.city ?? null,
         area: input.area ?? null,
         pincode: input.pincode ?? null,
@@ -161,8 +181,8 @@ export async function createRequirementAction(
       data: {
         city: input.city ?? null,
         pincode: input.pincode ?? null,
-        latitude: input.latitude ?? null,
-        longitude: input.longitude ?? null,
+        latitude: lat,
+        longitude: lng,
       },
     });
 
@@ -173,6 +193,24 @@ export async function createRequirementAction(
 
   revalidatePath("/parent/dashboard");
   revalidatePath("/parent/my-leads");
+
+  captureEvent(auth.context.userId, Events.LEAD_POSTED, {
+    leadId: lead.id,
+    coinCost: lead.coinCost,
+    subjects: input.subjects,
+    classLevel: input.classLevel,
+    mode: input.mode,
+    city: input.city,
+  });
+
+  // Phase 13: Activity logging
+  after(() =>
+    logActivity({
+      userId: auth.context.userId,
+      event: ActivityEvent.LEAD_CREATED,
+      metadata: { leadId: lead.id, coinCost: lead.coinCost, subjects: input.subjects, classLevel: input.classLevel },
+    })
+  );
 
   return actionSuccess({ leadId: lead.id, coinCost: lead.coinCost });
 }
@@ -350,6 +388,8 @@ export async function purchaseLeadAction(
       select: {
         id: true,
         status: true,
+        classLevel: true,
+        subjects: true,
         coinCost: true,
         maxTutors: true,
         purchaseCount: true,
@@ -358,7 +398,7 @@ export async function purchaseLeadAction(
         pincode: true,
         parentProfile: {
           select: {
-            user: { select: { name: true, email: true, phone: true } },
+            user: { select: { id: true, name: true, email: true, phone: true } },
           },
         },
       },
@@ -404,8 +444,26 @@ export async function purchaseLeadAction(
   });
   if (alreadyPurchased) return actionError("You have already unlocked this lead.");
 
-  // Atomic 7-step transaction
+  // ── Enterprise Upgrade: Move balance guard INSIDE the transaction ─────────
+  // Previously, the wallet balance was checked BEFORE the transaction began.
+  // Under concurrent requests (double-click / race), both checks could pass
+  // before the first decrement committed, causing negative wallet balances.
+  // Now the check and decrement happen atomically within the same transaction.
+
+  // Atomic 7-step transaction with in-transaction balance guard
   const result = await prisma.$transaction(async (tx) => {
+    // Re-fetch wallet inside transaction for accurate balance
+    const lockedWallet = await tx.wallet.findUnique({
+      where: { tutorProfileId },
+      select: { id: true, balance: true },
+    });
+
+    if (!lockedWallet || lockedWallet.balance < lead.coinCost) {
+      throw new Error(
+        `Insufficient coins. You have ${lockedWallet?.balance ?? 0} coins but this lead costs ${lead.coinCost}.`
+      );
+    }
+
     const updatedWallet = await tx.wallet.update({
       where: { tutorProfileId },
       data: {
@@ -446,11 +504,60 @@ export async function purchaseLeadAction(
     });
 
     return purchase;
+  }).catch((err: Error) => {
+    // Surface in-transaction balance errors as ActionResult errors
+    if (err.message.startsWith("Insufficient coins")) {
+      return null;
+    }
+    throw err;
   });
+
+  if (!result) {
+    return actionError(
+      `Insufficient coins. This lead costs ${lead.coinCost} coins. Please top up your wallet.`
+    );
+  }
 
   revalidatePath("/tutor/leads");
   revalidatePath("/tutor/wallet");
   revalidatePath("/tutor/dashboard");
+
+  captureEvent(authCtx.context.userId, Events.LEAD_UNLOCKED, {
+    leadId,
+    purchaseId: result.id,
+    coinsSpent: lead.coinCost,
+    city: lead.city,
+  });
+
+  // Phase 13: Activity logging
+  after(() =>
+    logActivity({
+      userId: authCtx.context.userId,
+      event: ActivityEvent.LEAD_PURCHASED,
+      metadata: { leadId, purchaseId: result.id, coinsSpent: lead.coinCost },
+    })
+  );
+
+  // Phase 1: Dispatch notifications to Parent & Tutor
+  after(() => {
+    // Notify Parent that a tutor unlocked their requirement
+    void createNotification({
+      userId: lead.parentProfile.user.id,
+      type: "LEAD_UNLOCKED",
+      title: "🎯 A Tutor Unlocked Your Requirement!",
+      message: `A verified tutor unlocked your requirement for ${lead.classLevel} ${lead.subjects.join(", ")}. Check your applicants list to chat with them!`,
+      actionUrl: `/parent/my-leads/${leadId}/applicants`,
+    });
+
+    // Notify Tutor confirmation
+    void createNotification({
+      userId: authCtx.context.userId,
+      type: "LEAD_PURCHASED",
+      title: "✅ Parent Contact Unlocked!",
+      message: `You unlocked parent contact details for ${lead.classLevel} ${lead.subjects.join(", ")}.`,
+      actionUrl: `/tutor/leads`,
+    });
+  });
 
   return actionSuccess({
     purchaseId: result.id,

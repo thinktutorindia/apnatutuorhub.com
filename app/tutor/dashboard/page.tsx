@@ -12,6 +12,7 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calcProfileScore } from "@/lib/profile-score";
+import { TutorAnalyticsWidget } from "@/components/tutor/TutorAnalyticsWidget";
 
 export default async function TutorDashboardPage() {
   const session = await auth();
@@ -25,7 +26,7 @@ export default async function TutorDashboardPage() {
     include: {
       wallet: { select: { balance: true, totalSpent: true } },
       availability: true,
-      _count: { select: { leadPurchases: true, reviews: true, bookings: true } },
+      _count: { select: { purchases: true, reviews: true, bookings: true } },
     },
   });
 
@@ -47,7 +48,7 @@ export default async function TutorDashboardPage() {
     },
     {
       label: "Leads Unlocked",
-      value: tutorProfile?._count.leadPurchases ?? 0,
+      value: tutorProfile?._count.purchases ?? 0,
       icon: Compass,
       bg: "#E0F2FE",
       href: "/tutor/leads",
@@ -136,6 +137,9 @@ export default async function TutorDashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Analytics Widget */}
+      {tutorProfile && <TutorAnalyticsWidget tutorProfileId={tutorProfile.id} />}
 
       {/* Profile completion ring */}
       {scoreBreakdown && scoreBreakdown.total < 100 && (

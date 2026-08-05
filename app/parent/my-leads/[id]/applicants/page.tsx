@@ -22,6 +22,7 @@ import {
 } from "@/app/actions/leads.actions";
 import { LEAD_STATUS_META } from "@/lib/validations";
 import BookApplicantButtons from "@/components/booking/BookApplicantButtons";
+import { StartChatButton } from "@/components/chat/StartChatButton";
 
 export const metadata = {
   title: "Tutor Applicants | ThinkTutor",
@@ -266,6 +267,12 @@ export default async function ApplicantsPage({
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    <StartChatButton
+                      targetProfileId={tutor.id}
+                      leadId={lead.id}
+                      role="PARENT"
+                      buttonText="💬 Chat in App"
+                    />
                     {tutor.user.phone && (
                       <>
                         <a

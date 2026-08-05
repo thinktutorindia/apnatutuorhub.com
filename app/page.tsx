@@ -73,8 +73,8 @@ export default async function HomePage() {
     user?.role === "TUTOR"
       ? "/tutor/dashboard"
       : user?.role === "SUPER_ADMIN" || user?.role === "SUB_ADMIN"
-      ? "/admin/dashboard"
-      : "/parent/dashboard";
+        ? "/admin/dashboard"
+        : "/parent/dashboard";
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] pb-16">
@@ -136,10 +136,10 @@ export default async function HomePage() {
       {/* ── 2. Hero Section ── */}
       <section className="pt-12 md:pt-16 pb-12 px-4 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
+
           {/* Left Column: Headlines & Search */}
           <div className="lg:col-span-7 space-y-6">
-            
+
             {/* Top Pill Badge */}
             <div className="inline-flex items-center gap-2 neu-badge bg-[#DCFCE7] text-[#0F172A]">
               <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-pulse" />
@@ -193,10 +193,10 @@ export default async function HomePage() {
 
           {/* Right Column: Playful Claymorphism Preview Card */}
           <div className="lg:col-span-5 relative">
-            
+
             {/* Main Interactive Widget Card */}
             <div className="neu-card p-6 bg-white relative z-10 space-y-6">
-              
+
               {/* Card Header with Class Info */}
               <div className="flex items-center justify-between p-4 bg-[#E0F2FE] border-2 border-[#0F172A] rounded-xl">
                 <div className="flex items-center gap-3">

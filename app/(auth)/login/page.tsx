@@ -12,7 +12,7 @@ const initialState: LoginFormState = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [state, formAction, isPending] = useActionState(
     loginAction,
     initialState

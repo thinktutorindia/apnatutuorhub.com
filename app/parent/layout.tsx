@@ -6,6 +6,9 @@ import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { ParentNav } from "@/components/parent/ParentNav";
 
+import { NotificationBell } from "@/components/NotificationBell";
+import { prisma } from "@/lib/prisma";
+
 export default async function ParentLayout({
   children,
 }: {
@@ -17,6 +20,10 @@ export default async function ParentLayout({
     redirect("/login");
   }
 
+  const unreadCount = await prisma.notification.count({
+    where: { userId: session.user.id, isRead: false },
+  });
+
   return (
     <div className="flex min-h-screen flex-col bg-[#FAF8F5]">
       {/* Navbar */}
@@ -27,6 +34,7 @@ export default async function ParentLayout({
           <ParentNav />
 
           <div className="flex items-center gap-3">
+            <NotificationBell initialCount={unreadCount} />
             <div className="neu-badge hidden items-center gap-1.5 bg-[#E0F2FE] text-[#0F172A] sm:inline-flex">
               <User size={14} />
               <span>{session.user.name || session.user.email}</span>

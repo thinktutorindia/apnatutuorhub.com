@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveParentContext } from "@/lib/parent-context";
 import { resolveTutorContext } from "@/lib/tutor-context";
@@ -10,6 +11,9 @@ import {
   type ActionResult,
 } from "@/lib/action-result";
 import { formString, formInt } from "@/lib/form-data";
+import { evaluateTutorMilestones } from "@/lib/milestone-tracker";
+import { logActivity, ActivityEvent } from "@/lib/activity-logger";
+import { createNotification } from "@/lib/notification-engine";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -124,14 +128,14 @@ export async function createBookingAction(
     select: { id: true },
   });
 
-  // Notify the tutor
-  await prisma.notification.create({
-    data: {
-      userId: tutorProfile.userId,
-      title: isTrial ? "📅 Trial Class Requested!" : "📚 Hire Request Received!",
-      message: `A parent has requested a ${isTrial ? "trial class" : "regular class"} with you for ${lead.subjects.join(", ")} (${lead.classLevel}).`,
-      actionUrl: "/tutor/bookings",
-    },
+  // Notify the tutor via notification engine
+  void createNotification({
+    userId: tutorProfile.userId,
+    type: "BOOKING_REQUESTED",
+    priority: "HIGH",
+    title: isTrial ? "📅 Trial Class Requested!" : "📚 Hire Request Received!",
+    message: `A parent has requested a ${isTrial ? "trial class" : "regular class"} with you for ${lead.subjects.join(", ")} (${lead.classLevel}).`,
+    actionUrl: "/tutor/bookings",
   });
 
   revalidateBookingPaths(leadId);
@@ -180,13 +184,13 @@ export async function confirmBookingAction(
   });
 
   // Notify parent
-  await prisma.notification.create({
-    data: {
-      userId: booking.lead.parentProfile.userId,
-      title: "✅ Booking Confirmed!",
-      message: `Your ${booking.subject} class booking has been confirmed by the tutor.${meetLink ? " A Meet link has been shared." : ""}`,
-      actionUrl: "/parent/bookings",
-    },
+  void createNotification({
+    userId: booking.lead.parentProfile.userId,
+    type: "BOOKING_CONFIRMED",
+    priority: "HIGH",
+    title: "✅ Booking Confirmed!",
+    message: `Your ${booking.subject} class booking has been confirmed by the tutor.${meetLink ? " A Meet link has been shared." : ""}`,
+    actionUrl: "/parent/bookings",
   });
 
   revalidateBookingPaths(booking.leadId);
@@ -235,13 +239,12 @@ export async function addClassLinkAction(
   });
 
   // Notify parent
-  await prisma.notification.create({
-    data: {
-      userId: booking.lead.parentProfile.userId,
-      title: "🔗 Class Link Shared!",
-      message: `Your tutor has shared a Google Meet link for the ${booking.subject} class.`,
-      actionUrl: "/parent/bookings",
-    },
+  void createNotification({
+    userId: booking.lead.parentProfile.userId,
+    type: "CLASS_LINK_SHARED",
+    title: "🔗 Class Link Shared!",
+    message: `Your tutor has shared a Google Meet link for the ${booking.subject} class.`,
+    actionUrl: "/parent/bookings",
   });
 
   revalidateBookingPaths(booking.leadId);
@@ -334,13 +337,13 @@ export async function rescheduleBookingAction(
     ? booking.lead.parentProfile.userId
     : booking.tutorProfile.userId;
 
-  await prisma.notification.create({
-    data: {
-      userId: notifyUserId,
-      title: "🔄 Booking Rescheduled",
-      message: `The ${booking.subject} class has been rescheduled to ${newDate.toLocaleDateString("en-IN", { dateStyle: "long" })}. Please confirm the new time.`,
-      actionUrl: isFromTutor ? "/parent/bookings" : "/tutor/bookings",
-    },
+  void createNotification({
+    userId: notifyUserId,
+    type: "BOOKING_RESCHEDULED",
+    priority: "NORMAL",
+    title: "🔄 Booking Rescheduled",
+    message: `The ${booking.subject} class has been rescheduled to ${newDate.toLocaleDateString("en-IN", { dateStyle: "long" })}. Please confirm the new time.`,
+    actionUrl: isFromTutor ? "/parent/bookings" : "/tutor/bookings",
   });
 
   revalidateBookingPaths(booking.leadId);
@@ -450,13 +453,13 @@ export async function cancelBookingAction(
     ? booking.lead.parentProfile.userId
     : booking.tutorProfile.userId;
 
-  await prisma.notification.create({
-    data: {
-      userId: notifyUserId,
-      title: "❌ Booking Cancelled",
-      message: `The ${booking.subject} class booking has been cancelled.${cancelReason ? ` Reason: ${cancelReason}` : ""}`,
-      actionUrl: isFromTutor ? "/parent/bookings" : "/tutor/bookings",
-    },
+  void createNotification({
+    userId: notifyUserId,
+    type: "BOOKING_CANCELLED",
+    priority: "HIGH",
+    title: "❌ Booking Cancelled",
+    message: `The ${booking.subject} class booking has been cancelled.${cancelReason ? ` Reason: ${cancelReason}` : ""}`,
+    actionUrl: isFromTutor ? "/parent/bookings" : "/tutor/bookings",
   });
 
   revalidateBookingPaths(booking.leadId);
@@ -480,6 +483,7 @@ export async function completeBookingAction(
       leadId: true,
       status: true,
       subject: true,
+      tutorProfileId: true,
       lead: {
         select: { parentProfile: { select: { userId: true } } },
       },
@@ -498,14 +502,28 @@ export async function completeBookingAction(
   });
 
   // Prompt parent to review
-  await prisma.notification.create({
-    data: {
-      userId: booking.lead.parentProfile.userId,
-      title: "⭐ Class Completed! Leave a Review",
-      message: `Your ${booking.subject} class is complete. Please leave a review for your tutor — it helps other parents!`,
-      actionUrl: "/parent/bookings",
-    },
+  void createNotification({
+    userId: booking.lead.parentProfile.userId,
+    type: "BOOKING_COMPLETED",
+    priority: "HIGH",
+    title: "⭐ Class Completed! Leave a Review",
+    message: `Your ${booking.subject} class is complete. Please leave a review for your tutor — it helps other parents!`,
+    actionUrl: "/parent/bookings",
   });
+
+  // ── Enterprise Upgrade: Milestone Evaluation (Phase 12) ──────────────────
+  // Previously MISSING — evaluateTutorMilestones() was defined but never called.
+  // Now fires asynchronously after response returns to avoid blocking the UI.
+  after(() => evaluateTutorMilestones(booking.tutorProfileId));
+
+  // ── Enterprise Upgrade: Activity Logging (Phase 13) ──────────────────────
+  after(() =>
+    logActivity({
+      userId: auth.context.userId,
+      event: ActivityEvent.BOOKING_COMPLETED,
+      metadata: { bookingId, tutorProfileId: booking.tutorProfileId },
+    })
+  );
 
   revalidateBookingPaths(booking.leadId);
   return actionSuccess({ updated: true as const });

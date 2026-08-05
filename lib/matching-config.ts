@@ -1,27 +1,14 @@
-import {
-  getNumericSettings,
-  type PlatformSettingKey,
-} from "@/lib/platform-settings";
+import { getCachedSettings, type PlatformSettingKey } from "@/lib/settings-cache";
 
 // ── Matching configuration weights ──────────────────────────────────────────
-// All values are pulled from the `platform_settings` DB table via
-// `getNumericSettings()`.  Hardcoded fallbacks in `PLATFORM_SETTING_DEFAULTS`
-// apply until an admin overrides them in Phase 10.
-
-const MATCHING_KEYS = [
-  "WEIGHT_KYC_VERIFIED",
-  "WEIGHT_MAX_DISTANCE",
-  "WEIGHT_BAYESIAN_RATING",
-  "WEIGHT_PROFILE_COMPLETION",
-  "RADIUS_EXPANSION_STEP_KM",
-  "RADIUS_EXPANSION_INTERVAL_HOURS",
-  "LEAD_EXPIRY_HOURS",
-  "MAX_TUTORS_PER_LEAD",
-] as const satisfies readonly PlatformSettingKey[];
+// Values are pulled from the in-memory settings cache (10-min TTL backed by
+// `platform_settings` DB table). This eliminates the hot-loop SQL query that
+// previously fired on every individual match calculation.
+// Call `invalidateSettingsCache()` after admin saves settings changes.
 
 export type MatchingWeights = {
   kycVerified: number;       // default 500
-  maxDistance: number;        // default 300
+  maxDistance: number;       // default 300
   bayesianRating: number;    // default 200
   profileCompletion: number; // default 100
 };
@@ -34,11 +21,12 @@ export type MatchingConfig = MatchingWeights & {
 };
 
 /**
- * Loads the full matching configuration from the database.
- * Safe to call from Server Actions, workers, or RSC pages.
+ * Loads the full matching configuration from the in-memory settings cache.
+ * Cache TTL is 10 minutes — call `invalidateSettingsCache()` after admin
+ * updates to force an immediate DB refresh.
  */
 export async function loadMatchingConfig(): Promise<MatchingConfig> {
-  const s = await getNumericSettings(MATCHING_KEYS);
+  const s = await getCachedSettings();
 
   return {
     kycVerified: s.WEIGHT_KYC_VERIFIED,
@@ -62,3 +50,9 @@ export async function loadMatchingWeights(): Promise<MatchingWeights> {
     profileCompletion: cfg.profileCompletion,
   };
 }
+
+// Re-export cache invalidation so admin actions can call it directly
+export { invalidateSettingsCache } from "@/lib/settings-cache";
+
+// Re-export PlatformSettingKey for callers that previously imported it here
+export type { PlatformSettingKey } from "@/lib/platform-settings";

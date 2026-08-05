@@ -1,0 +1,453 @@
+/**
+ * lib/aws-notification.ts
+ * Phase 11 — Unified Email & Notification Helper
+ * Primary Driver: Resend API (via RESEND_API_KEY)
+ * Fallback Driver: AWS SES (via AWS_SES_SENDER_EMAIL)
+ */
+
+import { Resend } from "resend";
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { prisma } from "@/lib/prisma";
+import { renderNewMatchedLeadEmail } from "@/emails/NewMatchedLeadEmail";
+import { renderApplicationStatusEmail } from "@/emails/ApplicationStatusEmail";
+import { renderNewApplicantEmail } from "@/emails/NewApplicantEmail";
+import { renderBookingConfirmationEmail } from "@/emails/BookingConfirmationEmail";
+
+// ── Email Clients Setup ────────────────────────────────────────────────────────
+
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const RESEND_FROM = process.env.RESEND_FROM_EMAIL ?? "ApnaTutorHub <noreply@mail.apnatutorhub.com>";
+
+const ses = new SESClient({ region: process.env.AWS_REGION ?? "ap-south-1" });
+const SENDER_EMAIL = process.env.AWS_SES_SENDER_EMAIL ?? "";
+const isSesConfigured = !!SENDER_EMAIL;
+
+/**
+ * Universal email dispatcher: Resend first, AWS SES fallback.
+ */
+export async function dispatchEmail(
+  to: string,
+  subject: string,
+  htmlBody: string,
+  textBody?: string
+): Promise<{ success: boolean; error?: string }> {
+  // 1. Try Resend
+  if (resend) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: RESEND_FROM,
+        to: [to],
+        subject,
+        html: htmlBody,
+        ...(textBody ? { text: textBody } : {}),
+      });
+
+      if (error) {
+        console.error("[Email/Resend] Error sending email:", error);
+        return { success: false, error: error.message };
+      } else {
+        console.info(`[Email/Resend] Sent successfully to ${to} (ID: ${data?.id})`);
+        return { success: true };
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Email/Resend] Exception:", msg);
+      return { success: false, error: msg };
+    }
+  }
+
+  // 2. Fallback to AWS SES
+  if (isSesConfigured) {
+    try {
+      const sesCmd = new SendEmailCommand({
+        Source: SENDER_EMAIL,
+        Destination: { ToAddresses: [to] },
+        Message: {
+          Subject: { Data: subject, Charset: "UTF-8" },
+          Body: {
+            Html: { Data: htmlBody, Charset: "UTF-8" },
+            ...(textBody ? { Text: { Data: textBody, Charset: "UTF-8" } } : {}),
+          },
+        },
+      });
+      await ses.send(sesCmd);
+      console.info(`[Email/SES] Sent successfully to ${to}`);
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Email/SES] Exception:", msg);
+      return { success: false, error: msg };
+    }
+  }
+
+  if (!resend && !isSesConfigured) {
+    console.info(`[Email] No email provider configured (set RESEND_API_KEY in .env to send real emails).`);
+  }
+
+  return { success: false, error: "No email provider configured in .env" };
+}
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+export type NotificationPayload = {
+  userId: string;
+  email?: string | null;
+  title: string;
+  message: string;
+  actionUrl?: string;
+  skipEmail?: boolean;
+  skipPush?: boolean;
+};
+
+// ── Core Dispatcher ────────────────────────────────────────────────────────────
+
+export async function sendNotification(
+  payload: NotificationPayload
+): Promise<{ success: boolean; error?: string }> {
+  const { userId, email, title, message, actionUrl, skipEmail } = payload;
+
+  // 1. Save in-app notification to DB (always)
+  await prisma.notification.create({
+    data: {
+      userId,
+      title,
+      message,
+      actionUrl: actionUrl ?? null,
+      channel: "WEB",
+      isRead: false,
+    },
+  });
+
+  // 2. Send email via Resend / SES
+  if (!skipEmail && email) {
+    const htmlBody = buildEmailHtml(title, message, actionUrl);
+    return await dispatchEmail(email, title, htmlBody, message);
+  }
+
+  return { success: true };
+}
+
+// ── Bulk Broadcast ─────────────────────────────────────────────────────────────
+
+export type BroadcastTarget = "ALL" | "TUTORS" | "PARENTS";
+
+export async function broadcastNotification(opts: {
+  target: BroadcastTarget;
+  title: string;
+  message: string;
+  actionUrl?: string;
+}) {
+  const { target, title, message, actionUrl } = opts;
+
+  const roleFilter =
+    target === "TUTORS"
+      ? { role: "TUTOR" as const }
+      : target === "PARENTS"
+        ? { role: "PARENT" as const }
+        : {};
+
+  const users = await prisma.user.findMany({
+    where: { isActive: true, ...roleFilter },
+    select: { id: true, email: true },
+  });
+
+  // 1. Create in-app notifications
+  await prisma.notification.createMany({
+    data: users.map((u) => ({
+      userId: u.id,
+      title,
+      message,
+      actionUrl: actionUrl ?? null,
+      channel: "WEB" as const,
+      isRead: false,
+    })),
+  });
+
+  // 2. Dispatch batch email using Resend Batch API
+  const htmlBody = buildEmailHtml(title, message, actionUrl);
+  const emailTargets = users
+    .filter((u) => Boolean(u.email))
+    .map((u) => ({
+      to: u.email!,
+      subject: title,
+      html: htmlBody,
+      text: message,
+    }));
+
+  if (emailTargets.length > 0) {
+    const { sendBatchEmails } = await import("@/lib/resend-service");
+    void sendBatchEmails(emailTargets).catch((err) => {
+      console.error("[broadcastNotification] Resend batch email error:", err);
+    });
+  }
+
+  return { sent: users.length };
+}
+
+// ── Named Event Senders ────────────────────────────────────────────────────────
+
+export async function notifyTutorNewLead(opts: {
+  tutorUserId: string;
+  tutorEmail: string | null;
+  tutorName: string;
+  leadId: string;
+  subjects: string[];
+  classLevel: string;
+  city: string | null;
+  teachingMode: "ONLINE" | "OFFLINE" | "EITHER";
+  coinCost: number;
+}) {
+  const subjectStr = opts.subjects.slice(0, 2).join(", ");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
+
+  const htmlBody = renderNewMatchedLeadEmail({
+    tutorName: opts.tutorName,
+    subjects: opts.subjects,
+    classLevel: opts.classLevel,
+    city: opts.city,
+    teachingMode: opts.teachingMode,
+    coinCost: opts.coinCost,
+    leadUrl: `${appUrl}/tutor/leads`,
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: opts.tutorUserId,
+      title: "🎯 New Matched Lead Available",
+      message: `A new tuition lead for ${subjectStr} in ${opts.city ?? "your area"} matches your profile. Unlock it now!`,
+      actionUrl: `/tutor/leads`,
+      channel: "WEB",
+      isRead: false,
+    },
+  });
+
+  if (opts.tutorEmail) {
+    await dispatchEmail(opts.tutorEmail, "🎯 New Matched Lead Available — ApnaTutorHub", htmlBody);
+  }
+}
+
+export async function notifyParentNewApplicant(opts: {
+  parentUserId: string;
+  parentEmail: string | null;
+  parentName: string;
+  leadId: string;
+  tutorName: string | null;
+  subjects: string[];
+  proposalNote?: string | null;
+  feeQuote?: number | null;
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
+  const htmlBody = renderNewApplicantEmail({
+    parentName: opts.parentName,
+    tutorName: opts.tutorName ?? "A Tutor",
+    tutorProfileUrl: `${appUrl}/parent/my-leads/${opts.leadId}/applicants`,
+    subjects: opts.subjects,
+    proposalNote: opts.proposalNote,
+    feeQuote: opts.feeQuote,
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: opts.parentUserId,
+      title: "👋 New Tutor Applied",
+      message: `${opts.tutorName ?? "A tutor"} has applied to your tuition requirement. Review their profile.`,
+      actionUrl: `/parent/my-leads/${opts.leadId}/applicants`,
+      channel: "WEB",
+      isRead: false,
+    },
+  });
+
+  if (opts.parentEmail) {
+    await dispatchEmail(opts.parentEmail, "👋 New Tutor Applied to Your Requirement — ApnaTutorHub", htmlBody);
+  }
+}
+
+export async function notifyTutorApplicationStatus(opts: {
+  tutorUserId: string;
+  tutorEmail: string | null;
+  tutorName: string;
+  status: "SHORTLISTED" | "REJECTED" | "HIRED";
+  subject: string;
+  leadId: string;
+}) {
+  const statusMap = {
+    SHORTLISTED: { emoji: "⭐", label: "Shortlisted", msg: "You have been shortlisted by the parent!" },
+    REJECTED: { emoji: "❌", label: "Not Selected", msg: "The parent has passed on your application this time." },
+    HIRED: { emoji: "🎉", label: "Hired!", msg: "Congratulations! The parent has chosen you for this tuition." },
+  };
+  const s = statusMap[opts.status];
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
+  const htmlBody = renderApplicationStatusEmail({
+    tutorName: opts.tutorName,
+    status: opts.status,
+    subject: opts.subject,
+    leadUrl: `${appUrl}/tutor/leads`,
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: opts.tutorUserId,
+      title: `${s.emoji} Application ${s.label}`,
+      message: s.msg,
+      actionUrl: `/tutor/leads`,
+      channel: "WEB",
+      isRead: false,
+    },
+  });
+
+  if (opts.tutorEmail) {
+    await dispatchEmail(opts.tutorEmail, `${s.emoji} Application ${s.label} — ApnaTutorHub`, htmlBody);
+  }
+}
+
+export async function notifyBookingConfirmation(opts: {
+  parentUserId: string;
+  parentEmail: string | null;
+  parentName: string;
+  tutorUserId: string;
+  tutorEmail: string | null;
+  tutorName: string;
+  bookingId: string;
+  subject: string;
+  classLevel: string;
+  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  agreedFee?: number | null;
+  classFrequency?: string | null;
+  meetLink?: string | null;
+  venueAddress?: string | null;
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
+  const title = `✅ Booking Confirmed — ${opts.subject}`;
+  const parentMsg = `Your booking for ${opts.subject} has been confirmed. Check your schedule.`;
+  const tutorMsg = `Your booking for ${opts.subject} has been confirmed. Good luck!`;
+
+  const commonEmailProps = {
+    subject: opts.subject,
+    classLevel: opts.classLevel,
+    mode: opts.mode,
+    agreedFee: opts.agreedFee,
+    classFrequency: opts.classFrequency,
+    meetLink: opts.meetLink,
+    venueAddress: opts.venueAddress,
+    tutorName: opts.tutorName,
+    parentName: opts.parentName,
+  };
+
+  const parentHtml = renderBookingConfirmationEmail({ ...commonEmailProps, recipientName: opts.parentName, recipientRole: "PARENT", bookingUrl: `${appUrl}/parent/bookings` });
+  const tutorHtml = renderBookingConfirmationEmail({ ...commonEmailProps, recipientName: opts.tutorName, recipientRole: "TUTOR", bookingUrl: `${appUrl}/tutor/bookings` });
+
+  await Promise.all([
+    prisma.notification.create({ data: { userId: opts.parentUserId, title, message: parentMsg, actionUrl: `/parent/bookings`, channel: "WEB", isRead: false } }),
+    prisma.notification.create({ data: { userId: opts.tutorUserId, title, message: tutorMsg, actionUrl: `/tutor/bookings`, channel: "WEB", isRead: false } }),
+  ]);
+
+  if (opts.parentEmail) {
+    await dispatchEmail(opts.parentEmail, title, parentHtml);
+  }
+  if (opts.tutorEmail) {
+    await dispatchEmail(opts.tutorEmail, title, tutorHtml);
+  }
+}
+
+export async function notifyKycStatus(opts: {
+  tutorUserId: string;
+  tutorEmail: string | null;
+  approved: boolean;
+  rejectionNote?: string | null;
+}) {
+  if (opts.approved) {
+    await sendNotification({
+      userId: opts.tutorUserId,
+      email: opts.tutorEmail,
+      title: "✅ KYC Verified — You're Good to Go!",
+      message: "Your identity has been verified. You can now unlock leads and start earning!",
+      actionUrl: `/tutor/leads`,
+    });
+  } else {
+    await sendNotification({
+      userId: opts.tutorUserId,
+      email: opts.tutorEmail,
+      title: "⚠️ KYC Rejected — Action Required",
+      message: `Your KYC was rejected: ${opts.rejectionNote ?? "Please re-submit your documents."}`,
+      actionUrl: `/tutor/profile`,
+    });
+  }
+}
+
+export async function notifyWalletCredited(opts: {
+  tutorUserId: string;
+  tutorEmail: string | null;
+  coins: number;
+}) {
+  await sendNotification({
+    userId: opts.tutorUserId,
+    email: opts.tutorEmail,
+    title: `🪙 ${opts.coins} Coins Added to Wallet`,
+    message: `Your coin purchase was successful. You now have more coins to unlock leads.`,
+    actionUrl: `/tutor/wallet`,
+    skipPush: false,
+    skipEmail: false,
+  });
+}
+
+export async function notifyLowWalletBalance(opts: {
+  tutorUserId: string;
+  tutorEmail: string | null;
+  balance: number;
+}) {
+  await sendNotification({
+    userId: opts.tutorUserId,
+    email: opts.tutorEmail,
+    title: `⚠️ Low Coin Balance — ${opts.balance} coins left`,
+    message: `Your coin balance is running low. Top up now to keep unlocking leads.`,
+    actionUrl: `/tutor/wallet`,
+  });
+}
+
+// ── Email Template Builder ─────────────────────────────────────────────────────
+
+function buildEmailHtml(title: string, message: string, actionUrl?: string): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
+  const cta = actionUrl
+    ? `<a href="${appUrl}${actionUrl}"
+        style="display:inline-block;margin-top:20px;padding:12px 28px;background:#22C55E;color:#fff;
+               border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
+        View Now →
+       </a>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#22C55E,#16A34A);padding:32px 40px;text-align:center;">
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">ApnaTutorHub</h1>
+            <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Smart Tutor Matching Platform</p>
+          </td>
+        </tr>
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px;">
+            <h2 style="margin:0 0 12px;color:#0F172A;font-size:20px;font-weight:700;">${title}</h2>
+            <p style="margin:0;color:#475569;font-size:15px;line-height:1.7;">${message}</p>
+            ${cta}
+          </td>
+        </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 40px;background:#F8FAFC;border-top:1px solid #E2E8F0;text-align:center;">
+            <p style="margin:0;color:#94A3B8;font-size:12px;">© ${new Date().getFullYear()} ApnaTutorHub. You're receiving this because you have an account on our platform.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}

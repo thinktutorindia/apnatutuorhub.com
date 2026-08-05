@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Poppins, Open_Sans } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { PostHogProvider } from "@/components/PostHogProvider";
+import { PushNotificationProvider } from "@/components/PushNotificationProvider";
+import { auth } from "@/auth";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -19,11 +22,11 @@ const openSans = Open_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "ThinkTutor — Smart Tutor Matching",
-    template: "%s | ThinkTutor",
+    default: "ApnaTutorHub — Smart Tutor Matching",
+    template: "%s | ApnaTutorHub",
   },
   description:
-    "Find verified, qualified tutors near you. ThinkTutor matches parents with the right tutors using smart algorithms — for every subject, every class.",
+    "Find verified, qualified tutors near you. ApnaTutorHub matches parents with the right tutors using smart algorithms — for every subject, every class.",
   keywords: [
     "tutor",
     "home tuition",
@@ -33,29 +36,35 @@ export const metadata: Metadata = {
     "education",
     "tutor marketplace",
   ],
-  authors: [{ name: "ThinkTutor" }],
+  authors: [{ name: "ApnaTutorHub" }],
   openGraph: {
-    title: "ThinkTutor — Smart Tutor Matching",
+    title: "ApnaTutorHub — Smart Tutor Matching",
     description:
       "Find verified, qualified tutors near you. Smart matching for every subject, every class.",
     type: "website",
     locale: "en_IN",
-    siteName: "ThinkTutor",
+    siteName: "ApnaTutorHub",
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
   return (
     <html
       lang="en"
       className={`${poppins.variable} ${openSans.variable} h-full`}
     >
       <body>
-        <Providers>{children}</Providers>
+        <PostHogProvider>
+          <Providers>{children}</Providers>
+        </PostHogProvider>
+        {/* Web Push: registers Service Worker & subscribes user for off-site notifications */}
+        <PushNotificationProvider userId={session?.user?.id} />
       </body>
     </html>
   );

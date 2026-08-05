@@ -97,6 +97,12 @@ export default async function PublicTutorProfilePage({
                   Verified
                 </span>
               )}
+              {profile.isFeatured && (
+                <span className="neu-badge bg-[#FEF3C7] text-[11px] text-amber-800 border-amber-400">
+                  <Star size={12} className="text-amber-500 fill-amber-400" />
+                  ⭐ Featured Tutor
+                </span>
+              )}
             </div>
 
             <p className="text-sm font-semibold text-slate-700">

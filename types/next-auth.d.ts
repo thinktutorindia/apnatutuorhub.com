@@ -6,12 +6,14 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      subAdminRole: string | null;
       isActive: boolean;
     } & DefaultSession["user"];
   }
 
   interface User extends DefaultUser {
     role?: string;
+    subAdminRole?: string | null;
     isActive?: boolean;
   }
 }
@@ -20,6 +22,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id?: string;
     role?: string;
+    subAdminRole?: string | null;
     isActive?: boolean;
   }
 }

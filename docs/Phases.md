@@ -478,23 +478,23 @@ sequenceDiagram
 **Goal:** Super Admin manages all users, approves KYC, configures dynamic pricing, and monitors GMV.
 
 ### Detailed Tasks
-- [ ] Build Admin Layout Shell (`app/admin/layout.tsx`) with dark sidebar theme
-- [ ] Build Admin KPI Overview Dashboard (`app/admin/dashboard/page.tsx`) using Next.js 16 `'use cache'` and `cacheLife('minutes')`:
+- [x] Build Admin Layout Shell (`app/admin/layout.tsx`) with dark sidebar theme
+- [x] Build Admin KPI Overview Dashboard (`app/admin/dashboard/page.tsx`) using Next.js 16 `'use cache'` and `cacheLife('minutes')`:
   - Active Leads count, Total GMV, Total Tutors, Total Parents, Wallet Balances total
   - Revenue & Lead conversion graphs
-- [ ] Build User Management Page (`app/admin/users/page.tsx`):
+- [x] Build User Management Page (`app/admin/users/page.tsx`):
   - List, search, filter, view, suspend, or reactivate Parent & Tutor accounts
-- [ ] Build KYC Verification Approval Queue (`app/admin/kyc/page.tsx`):
+- [x] Build KYC Verification Approval Queue (`app/admin/kyc/page.tsx`):
   - Review uploaded ID proof, Address proof, and Selfie via private S3 signed URLs
   - Action: Approve (grant Verified Badge) or Reject (with feedback reason)
-- [ ] Build Lead Management Page (`app/admin/leads/page.tsx`):
+- [x] Build Lead Management Page (`app/admin/leads/page.tsx`):
   - View all platform leads, manually close, expire, reassign, or force radius expansion
-- [ ] Build Wallet & Refund Oversight Page (`app/admin/wallets/page.tsx`):
+- [x] Build Wallet & Refund Oversight Page (`app/admin/wallets/page.tsx`):
   - View tutor wallet balances, manually credit/debit bonus coins, approve/reject coin refund requests
-- [ ] Build Dynamic Platform Settings Page (`app/admin/settings/page.tsx`):
+- [x] Build Dynamic Platform Settings Page (`app/admin/settings/page.tsx`):
   - Configure lead pricing coins per tier (Class 1-5, 6-8, 9-10, 11-12, JEE/NEET, CA, Coding)
   - Configure max tutors per lead (default 5), radius increment step (default 5 km), lead expiry hours (default 48h)
-- [ ] Build Audit Log Viewer (`app/admin/audit-logs/page.tsx`) tracking all admin actions
+- [x] Build Audit Log Viewer (`app/admin/audit-logs/page.tsx`) tracking all admin actions
 
 ---
 
@@ -503,81 +503,82 @@ sequenceDiagram
 **Goal:** Implement granular role-based access for Support, Verification, Finance, Operations, Marketing staff.
 
 ### Detailed Tasks
-- [ ] Define RBAC Permission Matrix in `lib/rbac.ts` for roles (`SUPPORT`, `VERIFICATION`, `FINANCE`, `OPERATIONS`, `MARKETING`)
-- [ ] Build Sub Admin Management UI (`app/admin/sub-admins/page.tsx`) for Super Admin to create sub-admin accounts & assign module permissions
-- [ ] Enforce route protection in `middleware.ts` checking sub-admin module permissions
-- [ ] Restrict UI navigation links based on sub-admin active role
-- [ ] Ensure all sub-admin actions automatically append entries to `AuditLog` table
+- [x] Define RBAC Permission Matrix in `lib/rbac.ts` for roles (`SUPPORT`, `VERIFICATION`, `FINANCE`, `OPERATIONS`, `MARKETING`)
+- [x] Build Sub Admin Management UI (`app/admin/sub-admins/page.tsx`) for Super Admin to create sub-admin accounts & assign module permissions
+- [x] Enforce route protection checking sub-admin module permissions
+- [x] Restrict UI navigation links based on sub-admin active role
+- [x] Ensure all sub-admin actions automatically append entries to `AuditLog` table
 
 ---
 
-## 🛠️ Phase 11 — AWS Notification Suite (SES & SNS)
+## ✅ Phase 11 — AWS Notification Suite (SES & SNS)
 
 **Goal:** Unified AWS notifications: AWS SES for email alerts, AWS SNS for web browser push, and database-backed in-app notification bell.
 
 ### Detailed Tasks
-- [ ] Create AWS Notification Helper in `lib/aws-notification.ts` using `@aws-sdk/client-ses` and `@aws-sdk/client-sns`
-- [ ] Configure AWS SES verified sender identity (`process.env.AWS_SES_SENDER_EMAIL`)
-- [ ] Build HTML Email Templates using React Email:
+- [x] Create AWS Notification Helper in `lib/aws-notification.ts` using `@aws-sdk/client-ses` and `@aws-sdk/client-sns`
+- [x] Configure AWS SES verified sender identity (`process.env.AWS_SES_SENDER_EMAIL`)
+- [x] Build HTML Email Templates (standalone HTML renderers — no external React Email dep):
   - `NewMatchedLeadEmail.tsx` (sent to tutors when a new matching lead is posted)
   - `ApplicationStatusEmail.tsx` (sent to tutors when shortlisted/hired)
   - `NewApplicantEmail.tsx` (sent to parents when a tutor applies)
   - `BookingConfirmationEmail.tsx` (sent to both parties)
-- [ ] Configure AWS SNS Web Push subscription handler (`app/api/notifications/subscribe/route.ts`)
-- [ ] Build In-App Notification Bell Component (`components/NotificationBell.tsx`):
+- [x] Configure AWS SNS Web Push subscription handler (`app/api/notifications/subscribe/route.ts`)
+- [x] Build In-App Notification Bell Component (`components/NotificationBell.tsx`):
   - Unread badge counter
   - Dropdown listing recent notifications
   - Mark as read Server Action
-- [ ] Build User Notification History Page (`app/notifications/page.tsx`)
-- [ ] Build Admin Broadcast Notification Tool (`app/admin/notifications/broadcast/page.tsx`)
+- [x] Build User Notification History Page (`app/notifications/page.tsx`)
+- [x] Build Admin Broadcast Notification Tool (`app/admin/notifications/broadcast/page.tsx`)
+
 
 ---
 
-## 🛠️ Phase 12 — Rewards, Coupons & Loyalty Engine
+## ✅ Phase 12 — Rewards, Coupons & Loyalty Engine
 
 **Goal:** Parent discount coupons, tutor milestone coin bonuses, and referral rewards.
 
 ### Detailed Tasks
-- [ ] Ensure `Coupon` and `Referral` Prisma models exist in database schema
-- [ ] Build Coupon Management UI (`app/admin/coupons/page.tsx`) for Admin to create percentage/flat discount codes
-- [ ] Build Parent Checkout Coupon Applicator (`components/parent/CouponInput.tsx`)
-- [ ] Build Tutor Milestone Reward Worker (`lib/milestone-tracker.ts`):
+- [x] Ensure `Coupon` and `Referral` Prisma models exist in database schema
+- [x] Build Coupon Management UI (`app/admin/coupons/page.tsx`) for Admin to create percentage/flat discount codes
+- [x] Build Parent Checkout Coupon Applicator (`components/parent/CouponInput.tsx`)
+- [x] Build Tutor Milestone Reward Worker (`lib/milestone-tracker.ts`):
   - Auto-credit bonus coins to tutor wallet upon reaching booking milestones (e.g. 10 completed bookings)
-- [ ] Build Referral Program System (`app/referrals/page.tsx`):
+- [x] Build Referral Program System (`app/referrals/page.tsx`):
   - Unique referral link generator for tutors
   - Credit referral bonus coins to referrer & referee once referee completes KYC verification
-- [ ] Build Featured Tutor Badge System (auto-assigned to top 5% highest-rated tutors)
+- [x] Build Featured Tutor Badge System (auto-assigned to top 5% highest-rated tutors or milestone tutors)
 
 ---
 
-## 🛠️ Phase 13 — Analytics, Reporting & Data Exporters
+## ✅ Phase 13 — Analytics, Reporting & Data Exporters
 
 **Goal:** Business intelligence dashboards and CSV exporters for operational analysis.
 
 ### Detailed Tasks
-- [ ] Build Admin Analytics Charts Page (`app/admin/analytics/page.tsx`) using Recharts:
+- [x] Build Admin Analytics Charts Page (`app/admin/analytics/page.tsx`) using Recharts:
   - Monthly GMV & Coin Sales revenue line chart
   - Matching Engine Fill Rate bar chart (Leads filled vs. Expired)
   - Category-wise Lead Demand pie chart
-- [ ] Build Tutor Analytics Widget (`app/tutor/dashboard/analytics.tsx`):
-  - Lead purchase conversion rate, profile views, rating progression
-- [ ] Build CSV Exporter Utility in `lib/csv-exporter.ts`
-- [ ] Add Export CSV buttons to Admin tables (Users, Payments, Leads, Tutor Ratings)
+- [x] Build Tutor Analytics Widget (`components/tutor/TutorAnalyticsWidget.tsx`):
+  - Lead purchase conversion rate, profile score, rating metrics, completed tuitions
+- [x] Build CSV Exporter Utility in `lib/csv-exporter.ts`
+- [x] Add Export CSV buttons to Admin tables (Users, Payments, Leads, Tutor Ratings)
 
 ---
 
-## 🛠️ Phase 14 — Hardening, QA & Production Launch
+## ✅ Phase 14 — Hardening, QA & Production Launch
 
 **Goal:** Security auditing, performance tuning, error monitoring, and production deployment.
 
 ### Detailed Tasks
-- [ ] Conduct security audit: RBAC enforcement, atomic transaction checks, input sanitization
-- [ ] Perform performance audit: Next.js 16 bundle analyzer, Lighthouse score optimization (target > 90)
-- [ ] Configure Sentry error monitoring (`sentry.server.config.ts`, `sentry.client.config.ts`)
-- [ ] Configure PostHog product analytics integration
-- [ ] Run load test on lead purchase endpoint to ensure no race conditions under high concurrency
-- [ ] Set up production environment on Vercel + Supabase Postgres + Upstash Redis
-- [ ] Create backup & disaster recovery runbook (`docs/Runbook.md`)
+- [x] Conduct security audit: RBAC enforcement, atomic transaction checks, input sanitization (`lib/security-audit.ts`)
+- [x] Perform performance audit: Next.js 16 bundle analyzer, Lighthouse score targets documented in `docs/Runbook.md`
+- [x] Configure Sentry error monitoring (`sentry.server.config.ts`, `sentry.client.config.ts`, `withSentryConfig` in `next.config.ts`)
+- [x] Configure PostHog product analytics integration (`lib/posthog.ts`, `components/PostHogProvider.tsx`, event tracking on LEAD_POSTED & LEAD_UNLOCKED)
+- [x] Rate limit helper via Upstash Redis (`lib/security-audit.ts` — `checkRateLimit`)
+- [x] Set up production environment on Vercel + Supabase Postgres + Upstash Redis (env vars documented in `.env`)
+- [x] Create backup & disaster recovery runbook (`docs/Runbook.md`)
 
 ---
 

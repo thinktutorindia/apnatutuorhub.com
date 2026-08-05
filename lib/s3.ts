@@ -19,6 +19,12 @@ export const ALLOWED_MIME_TYPES = [
   "image/jpg",
   "image/png",
   "application/pdf",
+  "audio/webm",
+  "audio/wav",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/ogg",
+  "audio/aac",
 ] as const;
 
 export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
@@ -28,6 +34,12 @@ export const MIME_EXTENSIONS: Record<AllowedMimeType, string> = {
   "image/jpg": "jpg",
   "image/png": "png",
   "application/pdf": "pdf",
+  "audio/webm": "webm",
+  "audio/wav": "wav",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "mp4",
+  "audio/ogg": "ogg",
+  "audio/aac": "aac",
 };
 
 /** KYC document types stored in S3. */

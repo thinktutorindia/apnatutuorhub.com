@@ -50,7 +50,7 @@ export function Wordmark({ className }: { className?: string }) {
         fontSize: "inherit",
       }}
     >
-      Think<span className="text-[#22C55E]">Tutor</span>
+      Apna<span className="text-[#22C55E]">TutorHub</span>
     </span>
   );
 }

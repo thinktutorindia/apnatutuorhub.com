@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { docType, contentType, filename } = body as Record<string, string>;
+  const { docType, contentType, filename, conversationId } = body as Record<string, string>;
 
   if (!docType || !contentType) {
     return NextResponse.json(
@@ -54,40 +54,67 @@ export async function POST(request: Request) {
     );
   }
 
-  const tutorProfile = await prisma.tutorProfile.findUnique({
-    where: { userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!tutorProfile) {
-    return NextResponse.json(
-      { error: "Tutor profile not found" },
-      { status: 403 }
-    );
-  }
-
   const mimeType = contentType as AllowedMimeType;
   const ext = MIME_EXTENSIONS[mimeType];
+  const safeName = (filename ?? "attachment")
+    .replace(/[^a-z0-9._-]/gi, "_")
+    .slice(0, 80);
 
   let objectKey: string;
 
   if (["id-proof", "address-proof", "selfie"].includes(docType)) {
+    const tutorProfile = await prisma.tutorProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+    if (!tutorProfile) {
+      return NextResponse.json({ error: "Tutor profile not found" }, { status: 403 });
+    }
     objectKey = kycObjectKey(tutorProfile.id, docType as KycDocType, ext);
   } else if (docType === "cert") {
-    const safeName = (filename ?? "cert")
-      .replace(/[^a-z0-9._-]/gi, "_")
-      .slice(0, 80);
+    const tutorProfile = await prisma.tutorProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+    if (!tutorProfile) {
+      return NextResponse.json({ error: "Tutor profile not found" }, { status: 403 });
+    }
     objectKey = certObjectKey(tutorProfile.id, `${safeName}.${ext}`);
+  } else if (docType === "chat") {
+    if (!conversationId) {
+      return NextResponse.json({ error: "conversationId is required for chat uploads" }, { status: 400 });
+    }
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        parentProfile: { select: { userId: true } },
+        tutorProfile: { select: { userId: true } },
+      },
+    });
+    if (!conversation) {
+      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    }
+    if (
+      conversation.parentProfile.userId !== session.user.id &&
+      conversation.tutorProfile.userId !== session.user.id
+    ) {
+      return NextResponse.json({ error: "Not a participant in this conversation" }, { status: 403 });
+    }
+    objectKey = `chats/${conversationId}/${Date.now()}_${safeName}.${ext}`;
   } else {
     return NextResponse.json({ error: "Invalid docType" }, { status: 400 });
   }
 
   try {
     const result = await generatePresignedUploadUrl(objectKey, mimeType);
+    const region = process.env.AWS_REGION ?? "ap-south-1";
+    const bucket = process.env.AWS_S3_BUCKET_NAME ?? "";
+    const fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/${result.objectKey}`;
 
     return NextResponse.json({
       uploadUrl: result.uploadUrl,
       objectKey: result.objectKey,
+      fileUrl,
       maxBytes: MAX_UPLOAD_BYTES,
       expiresInSeconds: result.expiresInSeconds,
     });

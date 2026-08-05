@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { SUB_ADMIN_MODULE_MAP } from "@/lib/rbac";
 
 const ROLE_ROUTES: Record<string, string[]> = {
   "/parent": ["PARENT"],
@@ -17,7 +17,7 @@ const PUBLIC_ROUTES = [
   "/api/webhooks",
 ];
 
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
 
@@ -44,6 +44,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/login?error=suspended", req.nextUrl.origin));
   }
 
+  // ── Role-Level Route Guard ─────────────────────────────────────────────────
   for (const [routePrefix, allowedRoles] of Object.entries(ROLE_ROUTES)) {
     if (pathname.startsWith(routePrefix)) {
       if (!allowedRoles.includes(session.user.role)) {
@@ -59,8 +60,27 @@ export default auth((req) => {
     }
   }
 
+  // ── Sub-Admin Module Guard ─────────────────────────────────────────────────
+  // If the user is a SUB_ADMIN, enforce department-level route restrictions.
+  if (session.user.role === "SUB_ADMIN" && pathname.startsWith("/admin")) {
+    const subRole = (session.user as { subAdminRole?: string | null }).subAdminRole ?? "";
+    const allowedModules = SUB_ADMIN_MODULE_MAP[subRole] ?? [];
+
+    // Check if the requested admin route starts with any allowed module
+    const isAllowed = allowedModules.some(
+      (mod) => pathname === mod || pathname.startsWith(mod + "/")
+    );
+
+    if (!isAllowed) {
+      // Redirect unauthorized sub-admin to their dashboard
+      return NextResponse.redirect(new URL("/admin/dashboard", req.nextUrl.origin));
+    }
+  }
+
   return NextResponse.next();
 });
+
+export default proxy;
 
 export const config = {
   matcher: [

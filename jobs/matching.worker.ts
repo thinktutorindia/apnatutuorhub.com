@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { findMatchingTutors } from "@/lib/matching-engine";
 import { calculateRankingScore } from "@/lib/ranking-score";
 import { loadMatchingWeights } from "@/lib/matching-config";
+import { createNotification } from "@/lib/notification-engine";
 import type { MatchableLead } from "@/lib/matching-engine";
 import type { LeadMatchingJob } from "@/lib/queue";
 
@@ -86,21 +87,17 @@ export async function processLeadMatching(
 
   const locationLabel = [lead.area, lead.city].filter(Boolean).join(", ") || "your area";
 
-  // Create in-app bell notifications for all matched tutors.
-  const notificationData = rankedTutors.map(({ tutor }) => ({
-    userId: tutor.userId,
-    title: "🎯 New Lead Matched!",
-    message: `A parent is looking for a ${lead.classLevel} ${subjectLabel} tutor in ${locationLabel}. Unlock to view contact details.`,
-    channel: "WEB" as const,
-    isRead: false,
-    actionUrl: "/tutor/leads",
-  }));
-
-  if (notificationData.length > 0) {
-    await prisma.notification.createMany({ data: notificationData });
-    console.info(
-      `[matching] Created ${notificationData.length} notifications for lead ${lead.id}`
-    );
+  // Create in-app & tracked notifications for all matched tutors.
+  for (const { tutor } of rankedTutors) {
+    await createNotification({
+      userId: tutor.userId,
+      type: "LEAD_MATCHED",
+      priority: "HIGH",
+      title: "🎯 New Tuition Lead Matched!",
+      message: `A parent is looking for a ${lead.classLevel} ${subjectLabel} tutor in ${locationLabel}. Unlock now to claim contact details.`,
+      actionUrl: "/tutor/leads",
+      referenceId: lead.id,
+    });
   }
 
   // Transition lead status: ACTIVE → MATCHING (tutors have been notified).

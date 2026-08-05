@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Calendar,
   Compass,
   LayoutDashboard,
+  MessageSquare,
   ShieldCheck,
   Wallet,
 } from "lucide-react";
@@ -12,6 +14,8 @@ import {
 const LINKS = [
   { href: "/tutor/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tutor/leads", label: "Leads Feed", icon: Compass },
+  { href: "/tutor/bookings", label: "Bookings", icon: Calendar },
+  { href: "/chat", label: "Messages", icon: MessageSquare },
   { href: "/tutor/wallet", label: "Wallet", icon: Wallet },
   { href: "/tutor/profile", label: "Profile & KYC", icon: ShieldCheck },
 ] as const;

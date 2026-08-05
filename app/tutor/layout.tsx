@@ -8,6 +8,8 @@ import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { TutorNav } from "@/components/tutor/TutorNav";
 
+import { NotificationBell } from "@/components/NotificationBell";
+
 export default async function TutorLayout({
   children,
 }: {
@@ -19,14 +21,19 @@ export default async function TutorLayout({
     redirect("/login");
   }
 
-  const tutorProfile = await prisma.tutorProfile.findUnique({
-    where: { userId: session.user.id },
-    select: {
-      kycStatus: true,
-      kycRejectionNote: true,
-      wallet: { select: { balance: true } },
-    },
-  });
+  const [tutorProfile, unreadCount] = await Promise.all([
+    prisma.tutorProfile.findUnique({
+      where: { userId: session.user.id },
+      select: {
+        kycStatus: true,
+        kycRejectionNote: true,
+        wallet: { select: { balance: true } },
+      },
+    }),
+    prisma.notification.count({
+      where: { userId: session.user.id, isRead: false },
+    }),
+  ]);
 
   const kycStatus = tutorProfile?.kycStatus ?? "NOT_SUBMITTED";
   const walletBalance = tutorProfile?.wallet?.balance ?? 0;
@@ -74,6 +81,7 @@ export default async function TutorLayout({
           <TutorNav />
 
           <div className="flex items-center gap-3">
+            <NotificationBell initialCount={unreadCount} />
             <div className="neu-badge hidden items-center gap-1.5 bg-[#FEF3C7] text-[#0F172A] sm:inline-flex">
               <User size={14} />
               <span className="max-w-[120px] truncate">{session.user.name || session.user.email}</span>

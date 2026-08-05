@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BookOpen, Clock, Filter, IndianRupee, MapPin, Sliders } from "lucide-react";
 import { LeadPurchaseModal } from "@/components/tutor/LeadPurchaseModal";
+import { StartChatButton } from "@/components/chat/StartChatButton";
 
 export type ParentDetails = {
   name: string;
@@ -22,6 +23,7 @@ export type ParentDetails = {
 
 export type FeedLead = {
   id: string;
+  parentProfileId?: string;
   subjects: string[];
   classLevel: string;
   mode: string;
@@ -159,6 +161,14 @@ function LeadCard({
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {lead.parentProfileId && (
+                  <StartChatButton
+                    targetProfileId={lead.parentProfileId}
+                    leadId={lead.id}
+                    role="TUTOR"
+                    buttonText="💬 Chat with Parent"
+                  />
+                )}
                 {lead.parentDetails.phone && (
                   <>
                     <a

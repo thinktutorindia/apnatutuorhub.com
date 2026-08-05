@@ -13,6 +13,8 @@ import {
 import { formList, formString } from "@/lib/form-data";
 import { parentProfileSchema, studentProfileSchema } from "@/lib/validations";
 
+import { geocodeLocation } from "@/lib/geocoding";
+
 export type ParentProfileState = ActionResult<{ updated: true }>;
 export type StudentProfileState = ActionResult<{ studentId: string }>;
 
@@ -42,6 +44,9 @@ export async function updateParentProfileAction(
 
   const { name, phone, city, state, pincode, address } = parsed.data;
 
+  // Auto-geocode location
+  const geo = await geocodeLocation({ address, city, state, pincode });
+
   try {
     await prisma.$transaction([
       prisma.user.update({
@@ -50,7 +55,13 @@ export async function updateParentProfileAction(
       }),
       prisma.parentProfile.update({
         where: { id: auth.context.parentProfileId },
-        data: { city, state, pincode, address: address ?? null },
+        data: {
+          city,
+          state,
+          pincode,
+          address: address ?? null,
+          ...(geo ? { latitude: geo.lat, longitude: geo.lng } : {}),
+        },
       }),
     ]);
   } catch (error) {

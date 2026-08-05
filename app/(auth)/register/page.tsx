@@ -13,8 +13,6 @@ import {
   Lock,
   ArrowRight,
   AlertCircle,
-  BookOpen,
-  GraduationCap,
 } from "lucide-react";
 
 const initialState: RegisterFormState = {
@@ -55,11 +53,10 @@ export default function RegisterPage() {
         <button
           type="button"
           onClick={() => setSelectedRole("PARENT")}
-          className={`neu-card p-4 text-center cursor-pointer transition-all ${
-            selectedRole === "PARENT"
+          className={`neu-card p-4 text-center cursor-pointer transition-all ${selectedRole === "PARENT"
               ? "bg-[#DCFCE7] shadow-[5px_5px_0px_0px_rgba(15,23,42,1)] translate-x-[-2px] translate-y-[-2px]"
               : "bg-white opacity-75 hover:opacity-100"
-          }`}
+            }`}
         >
           <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-white border-2 border-[#0F172A] flex items-center justify-center text-xl">
             👨‍👩‍👧
@@ -71,11 +68,10 @@ export default function RegisterPage() {
         <button
           type="button"
           onClick={() => setSelectedRole("TUTOR")}
-          className={`neu-card p-4 text-center cursor-pointer transition-all ${
-            selectedRole === "TUTOR"
+          className={`neu-card p-4 text-center cursor-pointer transition-all ${selectedRole === "TUTOR"
               ? "bg-[#FEF3C7] shadow-[5px_5px_0px_0px_rgba(15,23,42,1)] translate-x-[-2px] translate-y-[-2px]"
               : "bg-white opacity-75 hover:opacity-100"
-          }`}
+            }`}
         >
           <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-white border-2 border-[#0F172A] flex items-center justify-center text-xl">
             🎓

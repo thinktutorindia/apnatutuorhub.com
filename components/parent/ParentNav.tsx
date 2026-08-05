@@ -6,6 +6,7 @@ import {
   BookOpen,
   Calendar,
   LayoutDashboard,
+  MessageSquare,
   PlusCircle,
   UserCog,
 } from "lucide-react";
@@ -15,6 +16,7 @@ const LINKS = [
   { href: "/parent/my-leads", label: "Requirements", icon: BookOpen },
   { href: "/parent/post-requirement", label: "Post", icon: PlusCircle },
   { href: "/parent/bookings", label: "Bookings", icon: Calendar },
+  { href: "/chat", label: "Messages", icon: MessageSquare },
   { href: "/parent/profile", label: "Profile", icon: UserCog },
 ] as const;
 

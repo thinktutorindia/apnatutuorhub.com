@@ -11,6 +11,7 @@ import {
 import { formInt, formList, formString } from "@/lib/form-data";
 import { tutorProfileSchema } from "@/lib/validations";
 import { getProfileScore } from "@/lib/profile-score";
+import { geocodeLocation } from "@/lib/geocoding";
 
 export type TutorProfileState = ActionResult<{ updated: true }>;
 
@@ -59,20 +60,36 @@ export async function saveTutorProfileAction(
     introVideoUrl: parsed.data.introVideoUrl || null,
   };
 
-  // Recalculate profile completion score
+  // Recalculate profile completion score & geocode location
   const current = await prisma.tutorProfile.findUnique({
     where: { id: auth.context.tutorProfileId },
     select: {
       latitude: true,
+      longitude: true,
       kycStatus: true,
       isVerified: true,
       availability: true,
     },
   });
 
+  // Geocode if city/state provided
+  let lat = current?.latitude ?? null;
+  let lng = current?.longitude ?? null;
+
+  if (parsed.data.city || parsed.data.state) {
+    const geo = await geocodeLocation({
+      city: parsed.data.city,
+      state: parsed.data.state,
+    });
+    if (geo) {
+      lat = geo.lat;
+      lng = geo.lng;
+    }
+  }
+
   const profileScore = getProfileScore({
     ...data,
-    latitude: current?.latitude ?? null,
+    latitude: lat,
     kycStatus: current?.kycStatus ?? "NOT_SUBMITTED",
     isVerified: current?.isVerified ?? false,
     availability: current?.availability ?? [],
@@ -80,7 +97,12 @@ export async function saveTutorProfileAction(
 
   await prisma.tutorProfile.update({
     where: { id: auth.context.tutorProfileId },
-    data: { ...data, profileScore },
+    data: {
+      ...data,
+      latitude: lat,
+      longitude: lng,
+      profileScore,
+    },
   });
 
   revalidatePath("/tutor/profile");

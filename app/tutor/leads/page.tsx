@@ -80,6 +80,7 @@ export default async function TutorLeadsPage() {
     take: 200,
     select: {
       id: true,
+      parentProfileId: true,
       subjects: true,
       classLevel: true,
       mode: true,
@@ -102,6 +103,7 @@ export default async function TutorLeadsPage() {
       status: true,
       parentProfile: {
         select: {
+          id: true,
           address: true,
           city: true,
           state: true,
@@ -168,6 +170,7 @@ export default async function TutorLeadsPage() {
 
     feedLeads.push({
       id: lead.id,
+      parentProfileId: lead.parentProfileId,
       subjects: lead.subjects,
       classLevel: lead.classLevel,
       mode: lead.mode,

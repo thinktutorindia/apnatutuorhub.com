@@ -58,6 +58,42 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Determine canonical app origin in production vs local dev
+      let canonicalBase = baseUrl;
+      if (process.env.VERCEL_URL) {
+        canonicalBase = `https://${process.env.VERCEL_URL}`;
+      } else if (
+        process.env.NEXT_PUBLIC_APP_URL &&
+        !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")
+      ) {
+        canonicalBase = process.env.NEXT_PUBLIC_APP_URL;
+      }
+
+      // If callbackUrl is relative (e.g. "/login", "/"), resolve against canonical origin
+      if (url.startsWith("/")) {
+        return `${canonicalBase}${url}`;
+      }
+
+      // If callbackUrl is an absolute URL pointing to localhost in production, sanitize it
+      try {
+        const parsedUrl = new URL(url);
+        if (
+          parsedUrl.hostname.includes("localhost") &&
+          !canonicalBase.includes("localhost")
+        ) {
+          return `${canonicalBase}${parsedUrl.pathname}${parsedUrl.search}`;
+        }
+        // Allow same-origin redirects
+        if (parsedUrl.origin === canonicalBase || parsedUrl.origin === baseUrl) {
+          return url;
+        }
+      } catch {
+        // invalid URL string
+      }
+
+      return canonicalBase;
+    },
     async jwt({ token, user, trigger, session }) {
       if (user) {
         const dbUser = await prisma.user.findUnique({
@@ -96,8 +132,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (dbUser && !dbUser.isActive) {
           return false; // Block suspended users
         }
-        // If this is a brand-new Google OAuth user (no role assigned), create parentProfile
-        // Only if they don't already have one
         if (dbUser) {
           const existingParentProfile = await prisma.parentProfile.findUnique({
             where: { userId: dbUser.id },
@@ -112,8 +146,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
   },
-  // Removed createUser event — it was creating parentProfile for ALL new users
-  // including tutors, overriding the correct profile set by registerAction.
-  // Profile creation is now handled in registerAction (credentials) and
-  // signIn callback (Google OAuth).
 });

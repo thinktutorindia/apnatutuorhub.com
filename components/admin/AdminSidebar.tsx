@@ -59,6 +59,12 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
   const effectiveRole = userRole === "SUB_ADMIN" ? (subAdminRole ?? "") : userRole;
   const roleLabel = SUB_ADMIN_ROLE_LABELS[effectiveRole] ?? { label: effectiveRole.toLowerCase(), color: "#94A3B8" };
 
+  const handleSignOut = () => {
+    setMobileOpen(false);
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    signOut({ callbackUrl: `${origin}/login` });
+  };
+
   const visibleNavItems = ALL_NAV_ITEMS.filter(({ roles, href }) => {
     if (href === "/admin/dashboard") return true;
     if (roles === null) return true;
@@ -179,7 +185,7 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
           </div>
         </div>
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={handleSignOut}
           className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 hover:bg-red-900/20 hover:text-red-400"
           style={{ color: "#64748B" }}
         >
@@ -194,7 +200,7 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
     <>
       {/* Mobile Topbar */}
       <div className="flex items-center justify-between border-b border-[#1E293B] bg-[#0F172A] px-4 py-3 lg:hidden">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setMobileOpen(true)}
             className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-white hover:bg-slate-700"

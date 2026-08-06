@@ -8,10 +8,15 @@ export function SignOutButton({
 }: {
   className?: string;
 }) {
+  const handleSignOut = () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    signOut({ callbackUrl: `${origin}/login` });
+  };
+
   return (
     <button
       type="button"
-      onClick={() => signOut({ callbackUrl: "/" })}
+      onClick={handleSignOut}
       className={className}
     >
       <LogOut size={14} />

@@ -54,6 +54,12 @@ export function TutorNav({ userName, userEmail, walletBalance = 0 }: TutorNavPro
     };
   }, [mobileMenuOpen]);
 
+  const handleSignOut = () => {
+    setMobileMenuOpen(false);
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    signOut({ callbackUrl: `${origin}/login` });
+  };
+
   const drawerJSX = (
     <div className="fixed inset-0 z-[999999] flex justify-end md:hidden">
       {/* Dark Backdrop */}
@@ -117,10 +123,7 @@ export function TutorNav({ userName, userEmail, walletBalance = 0 }: TutorNavPro
         <div className="mt-6 pt-4 border-t-2 border-[#0F172A]">
           <button
             type="button"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              signOut({ callbackUrl: "/login" });
-            }}
+            onClick={handleSignOut}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-[#0F172A] bg-[#FCE7F3] py-3.5 text-xs font-black text-[#EF4444] shadow-[3px_3px_0px_0px_#0F172A] hover:bg-red-100 active:scale-95 transition-all cursor-pointer"
           >
             <LogOut size={18} />

@@ -89,13 +89,15 @@ export async function sendNotification(
 
   // 2. Dispatch VAPID Web Push
   if (!skipPush) {
-    void sendWebPush(userId, {
-      title,
-      body: message,
-      url: actionUrl,
-    }).catch((err) => {
+    try {
+      await sendWebPush(userId, {
+        title,
+        body: message,
+        url: actionUrl,
+      });
+    } catch (err) {
       console.warn("[sendNotification] VAPID push failed:", err);
-    });
+    }
   }
 
   // 3. Send email via 100% Resend
@@ -144,12 +146,14 @@ export async function broadcastNotification(opts: {
   });
 
   // 2. Dispatch VAPID Web Push to all devices
-  void broadcastWebPush(
-    { title, body: message, url: actionUrl },
-    target === "TUTORS" ? "TUTOR" : target === "PARENTS" ? "PARENT" : undefined
-  ).catch((err) => {
+  try {
+    await broadcastWebPush(
+      { title, body: message, url: actionUrl },
+      target === "TUTORS" ? "TUTOR" : target === "PARENTS" ? "PARENT" : undefined
+    );
+  } catch (err) {
     console.error("[broadcastNotification] VAPID push broadcast error:", err);
-  });
+  }
 
   // 3. Dispatch batch email using Resend Batch API
   const htmlBody = buildEmailHtml(title, message, actionUrl);
@@ -164,9 +168,11 @@ export async function broadcastNotification(opts: {
 
   if (emailTargets.length > 0) {
     const { sendBatchEmails } = await import("@/lib/resend-service");
-    void sendBatchEmails(emailTargets).catch((err) => {
+    try {
+      await sendBatchEmails(emailTargets);
+    } catch (err) {
       console.error("[broadcastNotification] Resend batch email error:", err);
-    });
+    }
   }
 
   return { sent: users.length };
@@ -209,11 +215,13 @@ export async function notifyTutorNewLead(opts: {
     },
   });
 
-  void sendWebPush(opts.tutorUserId, {
-    title: "🎯 New Matched Lead Available",
-    body: `A new tuition lead for ${subjectStr} in ${opts.city ?? "your area"} matches your profile.`,
-    url: "/tutor/leads",
-  }).catch(() => {});
+  try {
+    await sendWebPush(opts.tutorUserId, {
+      title: "🎯 New Matched Lead Available",
+      body: `A new tuition lead for ${subjectStr} in ${opts.city ?? "your area"} matches your profile.`,
+      url: "/tutor/leads",
+    });
+  } catch {}
 
   if (opts.tutorEmail) {
     await dispatchEmail(opts.tutorEmail, "🎯 New Matched Lead Available — ApnaTutorHub", htmlBody);
@@ -251,11 +259,13 @@ export async function notifyParentNewApplicant(opts: {
     },
   });
 
-  void sendWebPush(opts.parentUserId, {
-    title: "👋 New Tutor Applied",
-    body: `${opts.tutorName ?? "A tutor"} applied to your tuition requirement.`,
-    url: `/parent/my-leads/${opts.leadId}/applicants`,
-  }).catch(() => {});
+  try {
+    await sendWebPush(opts.parentUserId, {
+      title: "👋 New Tutor Applied",
+      body: `${opts.tutorName ?? "A tutor"} applied to your tuition requirement.`,
+      url: `/parent/my-leads/${opts.leadId}/applicants`,
+    });
+  } catch {}
 
   if (opts.parentEmail) {
     await dispatchEmail(opts.parentEmail, "👋 New Tutor Applied to Your Requirement — ApnaTutorHub", htmlBody);
@@ -295,11 +305,13 @@ export async function notifyTutorApplicationStatus(opts: {
     },
   });
 
-  void sendWebPush(opts.tutorUserId, {
-    title: `${s.emoji} Application ${s.label}`,
-    body: s.msg,
-    url: "/tutor/leads",
-  }).catch(() => {});
+  try {
+    await sendWebPush(opts.tutorUserId, {
+      title: `${s.emoji} Application ${s.label}`,
+      body: s.msg,
+      url: "/tutor/leads",
+    });
+  } catch {}
 
   if (opts.tutorEmail) {
     await dispatchEmail(opts.tutorEmail, `${s.emoji} Application ${s.label} — ApnaTutorHub`, htmlBody);
@@ -347,8 +359,12 @@ export async function notifyBookingConfirmation(opts: {
     prisma.notification.create({ data: { userId: opts.tutorUserId, title, message: tutorMsg, actionUrl: `/tutor/bookings`, channel: "WEB", isRead: false } }),
   ]);
 
-  void sendWebPush(opts.parentUserId, { title, body: parentMsg, url: "/parent/bookings" }).catch(() => {});
-  void sendWebPush(opts.tutorUserId, { title, body: tutorMsg, url: "/tutor/bookings" }).catch(() => {});
+  try {
+    await Promise.allSettled([
+      sendWebPush(opts.parentUserId, { title, body: parentMsg, url: "/parent/bookings" }),
+      sendWebPush(opts.tutorUserId, { title, body: tutorMsg, url: "/tutor/bookings" }),
+    ]);
+  } catch {}
 
   if (opts.parentEmail) {
     await dispatchEmail(opts.parentEmail, title, parentHtml);

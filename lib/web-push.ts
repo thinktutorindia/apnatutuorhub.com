@@ -23,16 +23,29 @@ import { prisma } from "@/lib/prisma";
 
 // ── VAPID Configuration ───────────────────────────────────────────────────────
 
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? "";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? "";
-const VAPID_CONTACT = process.env.VAPID_CONTACT_EMAIL ?? "mailto:support@apnatutorhub.com";
+let isVapidInitialized = false;
 
-export function isWebPushConfigured(): boolean {
-  return Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+function getVapidKeys() {
+  const publicKey = process.env.VAPID_PUBLIC_KEY ?? "";
+  const privateKey = process.env.VAPID_PRIVATE_KEY ?? "";
+  const contact = process.env.VAPID_CONTACT_EMAIL ?? "mailto:support@apnatutorhub.com";
+  return { publicKey, privateKey, contact };
 }
 
-if (isWebPushConfigured()) {
-  webpush.setVapidDetails(VAPID_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+export function isWebPushConfigured(): boolean {
+  const { publicKey, privateKey, contact } = getVapidKeys();
+  const configured = Boolean(publicKey && privateKey);
+
+  if (configured && !isVapidInitialized) {
+    try {
+      webpush.setVapidDetails(contact, publicKey, privateKey);
+      isVapidInitialized = true;
+    } catch (err) {
+      console.error("[web-push] Failed to set VAPID details:", err);
+    }
+  }
+
+  return configured;
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -126,19 +139,20 @@ export async function broadcastWebPush(
     return { sent: 0, failed: 0 };
   }
 
-  const users = await prisma.user.findMany({
+  const allCandidateUsers = await prisma.user.findMany({
     where: {
       isActive: true,
-      pushSubscription: { not: undefined },
       ...(roleFilter ? { role: roleFilter } : {}),
     },
-    select: { id: true },
+    select: { id: true, pushSubscription: true },
   });
+
+  const usersWithPush = allCandidateUsers.filter((u) => Boolean(u.pushSubscription));
 
   let sent = 0, failed = 0;
 
   await Promise.allSettled(
-    users.map(async (user) => {
+    usersWithPush.map(async (user) => {
       try {
         await sendWebPush(user.id, payload);
         sent++;

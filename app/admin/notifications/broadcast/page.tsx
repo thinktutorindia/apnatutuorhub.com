@@ -2,10 +2,10 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
-import { adminBroadcastAction } from "@/app/actions/notification.actions";
+import { ComposeBroadcastForm } from "@/components/admin/ComposeBroadcastForm";
 import { SendTestEmailForm } from "@/components/admin/SendTestEmailForm";
 import { SendDirectVapidPushForm } from "@/components/admin/SendDirectVapidPushForm";
-import { Bell, Users, GraduationCap, Radio, Send } from "lucide-react";
+import { Bell, Radio } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Broadcast Notifications — Admin" };
@@ -43,103 +43,7 @@ export default async function AdminBroadcastPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left Column: Compose Broadcast & Direct VAPID Push */}
         <div className="space-y-6">
-          <div className="rounded-2xl p-6" style={{ background: "#0F172A", border: "1px solid #1E293B" }}>
-            <div className="mb-5 flex items-center gap-2">
-              <Radio size={16} style={{ color: "#22C55E" }} />
-              <h2 className="text-base font-semibold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                Compose Platform Broadcast (Push + Email + Bell)
-              </h2>
-            </div>
-
-            <form
-              action={async (formData: FormData) => {
-                "use server";
-                await adminBroadcastAction(formData);
-              }}
-              className="space-y-4"
-            >
-              {/* Target */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-white">
-                  Audience
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { value: "ALL", label: "All Users", icon: Users, color: "#3B82F6" },
-                    { value: "PARENTS", label: "Parents", icon: GraduationCap, color: "#8B5CF6" },
-                    { value: "TUTORS", label: "Tutors", icon: Bell, color: "#22C55E" },
-                  ].map(({ value, label, icon: Icon, color }) => (
-                    <label
-                      key={value}
-                      className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl px-3 py-3 transition-all has-[:checked]:ring-2"
-                      style={{
-                        background: "#1E293B",
-                        border: "1px solid #334155",
-                      }}
-                    >
-                      <input type="radio" name="target" value={value} defaultChecked={value === "ALL"} className="sr-only" />
-                      <Icon size={16} style={{ color }} />
-                      <span className="text-xs font-medium text-slate-300">{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">
-                  Notification Title
-                </label>
-                <input
-                  name="title"
-                  type="text"
-                  required
-                  placeholder="e.g. Platform Maintenance on Sunday"
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                />
-              </div>
-
-              {/* Message */}
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">
-                  Message
-                </label>
-                <textarea
-                  name="message"
-                  required
-                  rows={4}
-                  placeholder="Write your announcement here..."
-                  className="w-full resize-none rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                />
-              </div>
-
-              {/* Optional Action URL */}
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">
-                  Link URL{" "}
-                  <span style={{ color: "#475569", fontWeight: 400 }}>(optional)</span>
-                </label>
-                <input
-                  name="actionUrl"
-                  type="text"
-                  placeholder="/tutor/leads or /parent/my-leads"
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
-                style={{ background: "linear-gradient(135deg, #22C55E, #16A34A)", boxShadow: "0 4px 15px rgba(34,197,94,0.3)" }}
-              >
-                <Send size={15} />
-                Send Broadcast to Audience
-              </button>
-            </form>
-          </div>
+          <ComposeBroadcastForm />
 
           {/* Direct VAPID Web Push Dispatcher */}
           <SendDirectVapidPushForm />

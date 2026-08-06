@@ -167,14 +167,16 @@ async function dispatchNotification(
           data: { status: "SENT", sentAt: new Date() },
         });
         if (isWebPushConfigured()) {
-          void sendWebPush(userId, {
-            title,
-            body: message,
-            url: actionUrl,
-            tag: notificationId,
-          }).catch((err) => {
+          try {
+            await sendWebPush(userId, {
+              title,
+              body: message,
+              url: actionUrl,
+              tag: notificationId,
+            });
+          } catch (err) {
             console.warn("[notification-engine] Background web-push failed:", err);
-          });
+          }
         }
         break;
 

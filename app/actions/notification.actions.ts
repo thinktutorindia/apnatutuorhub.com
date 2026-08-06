@@ -81,9 +81,12 @@ const broadcastSchema = z.object({
   actionUrl: z.string().optional(),
 });
 
+export type BroadcastActionResult = ActionResult<{ sent: number }>;
+
 export async function adminBroadcastAction(
+  _prevState: BroadcastActionResult,
   formData: FormData
-): Promise<ActionResult<{ sent: number }>> {
+): Promise<BroadcastActionResult> {
   const session = await auth();
   if (!session?.user) return actionError("Unauthenticated");
   if (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN") {

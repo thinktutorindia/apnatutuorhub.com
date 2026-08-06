@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { Mail, MapPin, Phone, Save, User } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Compass, Mail, MapPin, Phone, Save, User } from "lucide-react";
 import {
   updateParentProfileAction,
   type ParentProfileState,
@@ -22,6 +22,8 @@ export function ParentProfileForm({
     state: string;
     pincode: string;
     address: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
 }) {
   const [state, formAction, isPending] = useActionState(
@@ -29,11 +31,43 @@ export function ParentProfileForm({
     initialState
   );
 
+  const [coordinates, setCoordinates] = useState({
+    latitude: defaults.latitude?.toString() || "",
+    longitude: defaults.longitude?.toString() || "",
+  });
+  const [geoStatus, setGeoStatus] = useState<"idle" | "loading" | "error">("idle");
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoStatus("error");
+      return;
+    }
+    setGeoStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCoordinates({
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6),
+        });
+        setGeoStatus("idle");
+      },
+      () => setGeoStatus("error")
+    );
+  };
+
   return (
     <form action={formAction} className="neu-card space-y-5 bg-white p-6">
-      <div className="flex items-center gap-2">
-        <User size={18} />
-        <h2 className="text-xl font-black text-[#0F172A]">Contact Details</h2>
+      <input type="hidden" name="latitude" value={coordinates.latitude} />
+      <input type="hidden" name="longitude" value={coordinates.longitude} />
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <User size={18} />
+          <h2 className="text-xl font-black text-[#0F172A]">Contact & Location Details</h2>
+        </div>
+        <span className="rounded-full border-2 border-[#0F172A] bg-[#DCFCE7] px-3 py-1 text-xs font-extrabold text-[#0F172A]">
+          📍 GPS Matching Enabled
+        </span>
       </div>
 
       {state.error && <FormAlert tone="error" message={state.error} />}
@@ -185,26 +219,65 @@ export function ParentProfileForm({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <label
-          htmlFor="profile-address"
-          className="block text-xs font-extrabold text-[#0F172A]"
-        >
-          Address <span className="text-slate-400">(optional)</span>
-        </label>
-        <textarea
-          id="profile-address"
-          name="address"
-          rows={3}
-          maxLength={300}
-          placeholder="Flat / house, street, landmark"
-          defaultValue={defaults.address}
-          className="neu-input resize-none"
-        />
-        <FieldError messages={state.fieldErrors?.address} />
-        <p className="text-[11px] font-semibold text-slate-500">
-          Only shared with tutors after they unlock your requirement.
-        </p>
+      <div className="grid gap-4 md:grid-cols-2 pt-2">
+        <div className="space-y-1.5">
+          <label
+            htmlFor="profile-address"
+            className="block text-xs font-extrabold text-[#0F172A]"
+          >
+            Address <span className="text-slate-400">(optional)</span>
+          </label>
+          <textarea
+            id="profile-address"
+            name="address"
+            rows={3}
+            maxLength={300}
+            placeholder="Flat / house, street, landmark"
+            defaultValue={defaults.address}
+            className="neu-input resize-none"
+          />
+          <FieldError messages={state.fieldErrors?.address} />
+          <p className="text-[11px] font-semibold text-slate-500">
+            Only shared with tutors after they unlock your requirement.
+          </p>
+        </div>
+
+        <div className="space-y-1.5 flex flex-col justify-between">
+          <div>
+            <span className="block text-xs font-extrabold text-[#0F172A] mb-1">
+              Exact GPS Location
+            </span>
+            <button
+              type="button"
+              onClick={detectLocation}
+              disabled={geoStatus === "loading"}
+              className="neu-btn neu-btn-white w-full py-3 text-xs flex items-center justify-center gap-2"
+            >
+              <Compass size={15} />
+              <span>
+                {geoStatus === "loading"
+                  ? "Detecting..."
+                  : coordinates.latitude
+                    ? "Update pinned location"
+                    : "Pin my live location"}
+              </span>
+            </button>
+          </div>
+          {coordinates.latitude && coordinates.longitude ? (
+            <p className="text-[11px] font-bold text-[#22C55E]">
+              📍 Pinned at {coordinates.latitude}, {coordinates.longitude}
+            </p>
+          ) : (
+            <p className="text-[11px] font-semibold text-slate-500">
+              Improves exact distance calculation when tutors apply.
+            </p>
+          )}
+          {geoStatus === "error" && (
+            <p className="text-[11px] font-bold text-red-500">
+              Could not detect location. Pincode and city will be used instead.
+            </p>
+          )}
+        </div>
       </div>
 
       <button

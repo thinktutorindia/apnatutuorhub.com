@@ -5,6 +5,15 @@ const nextConfig: NextConfig = {
   // Enable React strict mode for development
   reactStrictMode: true,
 
+  // Allow mobile LAN origins for dev server HMR & client JS bundle hydration
+  allowedDevOrigins: [
+    "localhost:3000",
+    "192.168.137.1:3000",
+    "192.168.1.36:3000",
+    "192.168.137.1",
+    "192.168.1.36",
+  ],
+
   // Image optimization domains
   images: {
     remotePatterns: [

@@ -44,10 +44,9 @@ export function Logo({
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span
-      className={`font-black text-[#0F172A] tracking-tight ${className}`}
+      className={`font-black text-[#0F172A] tracking-tight text-sm sm:text-base ${className}`}
       style={{
         fontFamily: "'Poppins', sans-serif",
-        fontSize: "inherit",
       }}
     >
       Apna<span className="text-[#22C55E]">TutorHub</span>
@@ -57,21 +56,24 @@ export function Wordmark({ className }: { className?: string }) {
 
 export function LogoBrand({
   size = 36,
-  className,
+  className = "",
   href = "/",
+  hideWordmarkOnMobile = true,
 }: {
   size?: number;
   className?: string;
   href?: string;
+  hideWordmarkOnMobile?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-2.5 no-underline ${className}`}
-      style={{ fontSize: `${size * 0.65}px` }}
+      className={`inline-flex items-center gap-2.5 no-underline shrink-0 ${className}`}
     >
       <Logo size={size} />
-      <Wordmark />
+      <span className={hideWordmarkOnMobile ? "hidden md:inline-block" : "inline-block"}>
+        <Wordmark />
+      </span>
     </Link>
   );
 }

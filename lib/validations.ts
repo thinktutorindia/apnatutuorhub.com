@@ -367,5 +367,7 @@ export const tutorProfileSchema = z.object({
   feeMax: budgetField,
   city: z.string().optional(),
   state: z.string().optional(),
+  pincode: pincodeField.optional().or(z.literal("")),
+  address: z.string().max(300, "Address is too long").optional(),
   introVideoUrl: z.string().url().optional().or(z.literal("")),
 });

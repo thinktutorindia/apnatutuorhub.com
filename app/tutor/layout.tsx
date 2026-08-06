@@ -7,7 +7,6 @@ import { User, ShieldAlert, ShieldCheck, AlertCircle } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { TutorNav } from "@/components/tutor/TutorNav";
-
 import { NotificationBell } from "@/components/NotificationBell";
 
 export default async function TutorLayout({
@@ -37,6 +36,8 @@ export default async function TutorLayout({
 
   const kycStatus = tutorProfile?.kycStatus ?? "NOT_SUBMITTED";
   const walletBalance = tutorProfile?.wallet?.balance ?? 0;
+  const userName = session.user.name || session.user.email || "Tutor";
+  const userEmail = session.user.email || "";
 
   const kycBannerConfig = {
     NOT_SUBMITTED: {
@@ -73,32 +74,46 @@ export default async function TutorLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-[#FAF8F5]">
-      {/* Navbar */}
-      <header className="mx-auto w-full max-w-6xl px-4 pt-4">
-        <nav className="neu-card flex items-center justify-between gap-4 bg-white px-6 py-3.5">
-          <LogoBrand size={32} href="/tutor/dashboard" />
+      {/* Top Navbar Header */}
+      <header className="mx-auto w-full max-w-6xl px-3 pt-3 sm:px-4 sm:pt-4">
+        <nav className="neu-card flex items-center justify-between gap-2 sm:gap-4 bg-white px-3.5 py-3 sm:px-6 sm:py-3.5">
+          {/* Left: Logo Brand (Logo + Wordmark on desktop, Icon only on mobile) */}
+          <div className="shrink-0">
+            <LogoBrand size={32} href="/tutor/dashboard" hideWordmarkOnMobile={true} />
+          </div>
 
-          <TutorNav />
+          {/* Center: Tutor Nav Links (Desktop md+ / Mobile Drawer Trigger) */}
+          <div className="flex-1 flex items-center justify-end md:justify-center">
+            <TutorNav userName={userName} userEmail={userEmail} walletBalance={walletBalance} />
+          </div>
 
-          <div className="flex items-center gap-3">
+          {/* Right: Actions Container */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Notification Bell */}
             <NotificationBell initialCount={unreadCount} />
-            <div className="neu-badge hidden items-center gap-1.5 bg-[#FEF3C7] text-[#0F172A] sm:inline-flex">
+
+            {/* User Badge (desktop xl+ only to prevent header crowding) */}
+            <div className="neu-badge hidden items-center gap-1.5 bg-[#FEF3C7] text-[#0F172A] xl:inline-flex">
               <User size={14} />
-              <span className="max-w-[120px] truncate">{session.user.name || session.user.email}</span>
-              <span className="rounded-full bg-[#0F172A] px-1.5 py-0.5 text-[10px] uppercase text-white">
+              <span className="max-w-[100px] truncate">{userName}</span>
+              <span className="rounded-full bg-[#0F172A] px-1.5 py-0.5 text-[9px] font-black uppercase text-white">
                 {walletBalance} 🪙
               </span>
             </div>
-            <SignOutButton />
+
+            {/* Sign Out Button (desktop md+ only) */}
+            <div className="hidden md:block">
+              <SignOutButton />
+            </div>
           </div>
         </nav>
       </header>
 
       {/* KYC Status Banner */}
       {banner.show && (
-        <div className="mx-auto w-full max-w-6xl px-4 pt-3">
+        <div className="mx-auto w-full max-w-6xl px-3 pt-3 sm:px-4">
           <div
-            className="neu-card flex items-center justify-between gap-4 px-5 py-3"
+            className="neu-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 sm:px-5"
             style={{ backgroundColor: banner.bg }}
           >
             <div className="flex items-center gap-3">
@@ -108,7 +123,7 @@ export default async function TutorLayout({
             {banner.cta && (
               <Link
                 href="/tutor/profile"
-                className="neu-btn neu-btn-primary shrink-0 px-4 py-2 text-[11px]"
+                className="neu-btn neu-btn-primary shrink-0 px-4 py-2 text-[11px] self-start sm:self-auto"
               >
                 {banner.cta}
               </Link>
@@ -118,7 +133,7 @@ export default async function TutorLayout({
       )}
 
       {/* Main Content */}
-      <main className="mx-auto w-full max-w-6xl flex-1 p-4 md:p-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 p-3 sm:p-4 md:p-6">
         {children}
       </main>
     </div>

@@ -19,6 +19,8 @@ type ProfileData = {
   feeMax: string;
   city: string;
   state: string;
+  pincode: string;
+  address: string;
   introVideoUrl: string;
   availability: { dayOfWeek: number; startTime: string; endTime: string }[];
   kycStatus: string;
@@ -209,6 +211,8 @@ export function TutorProfilePage({
           feeMax: profile.feeMax,
           city: profile.city,
           state: profile.state,
+          pincode: profile.pincode,
+          address: profile.address,
           introVideoUrl: profile.introVideoUrl,
           availability: profile.availability,
         }}

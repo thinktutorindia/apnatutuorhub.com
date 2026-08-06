@@ -44,8 +44,20 @@ export async function updateParentProfileAction(
 
   const { name, phone, city, state, pincode, address } = parsed.data;
 
-  // Auto-geocode location
-  const geo = await geocodeLocation({ address, city, state, pincode });
+  // Optional manual GPS coordinates from form
+  const rawLat = formString(formData, "latitude");
+  const rawLng = formString(formData, "longitude");
+  let lat = rawLat ? parseFloat(rawLat) : null;
+  let lng = rawLng ? parseFloat(rawLng) : null;
+
+  // Fallback to auto-geocoding if no manual GPS pinned
+  if (!lat || !lng) {
+    const geo = await geocodeLocation({ address, city, state, pincode });
+    if (geo) {
+      lat = geo.lat;
+      lng = geo.lng;
+    }
+  }
 
   try {
     await prisma.$transaction([
@@ -60,7 +72,8 @@ export async function updateParentProfileAction(
           state,
           pincode,
           address: address ?? null,
-          ...(geo ? { latitude: geo.lat, longitude: geo.lng } : {}),
+          ...(lat !== null ? { latitude: lat } : {}),
+          ...(lng !== null ? { longitude: lng } : {}),
         },
       }),
     ]);

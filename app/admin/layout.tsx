@@ -16,7 +16,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen" style={{ background: "#0A0F1E" }}>
+    <div className="flex min-h-screen flex-col lg:flex-row" style={{ background: "#0A0F1E" }}>
       <AdminSidebar
         userName={session.user.name || session.user.email || "Admin"}
         userRole={session.user.role}
@@ -24,8 +24,8 @@ export default async function AdminLayout({
       />
 
       {/* Main scrollable area */}
-      <div className="flex flex-1 flex-col" style={{ marginLeft: "260px" }}>
-        <main className="flex-1 p-6 lg:p-8">{children}</main>
+      <div className="flex flex-1 flex-col lg:ml-[260px] min-w-0">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

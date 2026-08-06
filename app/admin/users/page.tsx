@@ -80,16 +80,16 @@ export default async function AdminUsersPage({
   return (
     <div style={{ color: "#F8FAFC" }}>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.04em" }}>
+          <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.04em" }}>
             User Management
           </h1>
           <p className="mt-0.5 text-sm" style={{ color: "#475569" }}>
             {total.toLocaleString()} total users
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div
             className="flex items-center gap-2 rounded-xl px-3 py-2"
             style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.15)" }}

@@ -2,23 +2,13 @@
  * lib/notification-engine.ts
  * Enterprise Upgrade — Phase 1: Notification Lifecycle Engine
  *
- * This replaces the old `lib/aws-notification.ts` with a fully tracked,
- * multi-channel, retryable notification system.
- *
- * Features:
- * - Delivery tracking (PENDING → SENT → DELIVERED → SEEN → CLICKED)
- * - Multi-channel escalation: WEB → EMAIL → PUSH → WHATSAPP
- * - Retry engine with exponential backoff (via BullMQ)
- * - Per-notification analytics metadata
- * - Idempotent creates (dedup by userId + type + referenceId)
- *
- * Channel delivery is done via existing `lib/aws-notification.ts` providers.
- * This layer wraps them with persistence and retry semantics.
+ * Fully tracked, multi-channel notification system.
+ * Channel delivery is 100% driven by Resend API & VAPID Web Push.
  */
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { sendNotification as sendAwsNotification } from "@/lib/aws-notification";
+import { sendNotification as sendResendNotification } from "@/lib/aws-notification";
 import { sendWebPush, isWebPushConfigured } from "@/lib/web-push";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -123,20 +113,18 @@ async function dispatchNotification(
 ): Promise<void> {
   // Fetch user contact details for non-WEB channels
   let userEmail: string | null = null;
-  let userPhone: string | null = null;
 
   if (channel !== "WEB") {
-    // If it's a chat message, check if the recipient is viewing the chat (meaning the message is already read)
+    // If it's a chat message, check if recipient already read it
     const notification = await prisma.notification.findUnique({
       where: { id: notificationId },
       select: { type: true, metadata: true },
     });
 
     if (notification?.type === "NEW_CHAT_MESSAGE") {
-      // Delay 4 seconds to let the message deliver via Supabase Realtime and be marked read
       await new Promise((resolve) => setTimeout(resolve, 4000));
       
-      const messageId = (notification.metadata as any)?.messageId;
+      const messageId = (notification.metadata as { messageId?: string })?.messageId;
       if (messageId) {
         const msg = await prisma.message.findUnique({
           where: { id: messageId },
@@ -154,7 +142,6 @@ async function dispatchNotification(
       select: { email: true, phone: true },
     });
     userEmail = user?.email ?? null;
-    userPhone = user?.phone ?? null;
   }
 
   const deliveryData = {
@@ -171,8 +158,6 @@ async function dispatchNotification(
   try {
     switch (channel) {
       case "WEB":
-        // WEB notifications are consumed by the frontend via polling / SSE
-        // Mark immediately as SENT since it's stored in DB
         await prisma.notificationDelivery.update({
           where: { id: delivery.id },
           data: { status: "SENT" },
@@ -181,7 +166,6 @@ async function dispatchNotification(
           where: { id: notificationId },
           data: { status: "SENT", sentAt: new Date() },
         });
-        // Also fire native Web Push so user sees it even if app tab is closed
         if (isWebPushConfigured()) {
           void sendWebPush(userId, {
             title,
@@ -195,10 +179,11 @@ async function dispatchNotification(
         break;
 
       case "EMAIL":
+      case "WHATSAPP":
         if (!userEmail) {
           throw new Error("No email address for user");
         }
-        await sendAwsNotification({
+        await sendResendNotification({
           userId,
           email: userEmail,
           title,
@@ -209,7 +194,6 @@ async function dispatchNotification(
         break;
 
       case "PUSH":
-        // Web Push via VAPID (native OS notification, works off-site)
         if (isWebPushConfigured()) {
           await sendWebPush(userId, {
             title,
@@ -219,10 +203,6 @@ async function dispatchNotification(
           });
           await markDelivered(notificationId, delivery.id);
         } else {
-          console.info(`[notification-engine] VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY not set — skipping PUSH`, {
-            notificationId,
-            userId,
-          });
           await prisma.notificationDelivery.update({
             where: { id: delivery.id },
             data: {
@@ -231,20 +211,6 @@ async function dispatchNotification(
             },
           });
         }
-        break;
-
-      case "WHATSAPP":
-        if (!userPhone) {
-          throw new Error("No phone number for user");
-        }
-        await sendAwsNotification({
-          userId,
-          email: userEmail,
-          title: `*${title}*`,
-          message,
-          actionUrl,
-        });
-        await markDelivered(notificationId, delivery.id);
         break;
     }
   } catch (err) {
@@ -288,16 +254,15 @@ async function markDelivered(
 
 function resolveProvider(channel: NotificationChannel): string {
   switch (channel) {
-    case "WEB":     return "INTERNAL_DB";
-    case "EMAIL":   return "AWS_SES";
-    case "PUSH":    return "FCM";
-    case "WHATSAPP": return "AWS_SNS";
+    case "WEB":      return "INTERNAL_DB";
+    case "EMAIL":    return "RESEND";
+    case "PUSH":     return "VAPID_WEB_PUSH";
+    case "WHATSAPP": return "RESEND";
   }
 }
 
 // ── Mark Seen / Clicked ───────────────────────────────────────────────────────
 
-/** Mark a notification as seen (opened by user). */
 export async function markNotificationSeen(
   notificationId: string,
   userId: string
@@ -312,7 +277,6 @@ export async function markNotificationSeen(
   });
 }
 
-/** Mark a notification as clicked (CTA actioned). */
 export async function markNotificationClicked(
   notificationId: string,
   userId: string
@@ -326,7 +290,6 @@ export async function markNotificationClicked(
   });
 }
 
-/** Mark all WEB notifications as read for a user (bulk "mark all read"). */
 export async function markAllNotificationsRead(userId: string): Promise<void> {
   const now = new Date();
   await prisma.notification.updateMany({
@@ -337,7 +300,6 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
 
 // ── Analytics Helpers ─────────────────────────────────────────────────────────
 
-/** Delivery stats for admin dashboard. */
 export async function getNotificationStats(days = 7) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 

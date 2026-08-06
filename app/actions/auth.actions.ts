@@ -14,11 +14,13 @@ export type RegisterFormState = {
   success: boolean;
   error?: string;
   fieldErrors?: Record<string, string[]>;
+  role?: string;
 };
 
 export type LoginFormState = {
   success: boolean;
   error?: string;
+  redirectTo?: string;
 };
 
 // ────────────────────────────────────────────────
@@ -55,14 +57,14 @@ export async function registerAction(
   if (existing) {
     return {
       success: false,
-      error: "An account with this email already exists",
+      error: "An account with this email already exists. Please log in instead.",
     };
   }
 
   // Hash password
   const passwordHash = await bcrypt.hash(password, 12);
 
-  // Create user
+  // Create user with the correct role
   const user = await prisma.user.create({
     data: {
       name,
@@ -72,27 +74,22 @@ export async function registerAction(
     },
   });
 
-  // Create corresponding profile
+  // Create corresponding profile based on role
   if (role === "PARENT") {
     await prisma.parentProfile.create({
       data: { userId: user.id },
     });
   } else if (role === "TUTOR") {
-    await prisma.tutorProfile.create({
+    const tutorProfile = await prisma.tutorProfile.create({
       data: { userId: user.id },
     });
     // Create wallet for tutor
-    const tutorProfile = await prisma.tutorProfile.findUnique({
-      where: { userId: user.id },
+    await prisma.wallet.create({
+      data: { tutorProfileId: tutorProfile.id },
     });
-    if (tutorProfile) {
-      await prisma.wallet.create({
-        data: { tutorProfileId: tutorProfile.id },
-      });
-    }
   }
 
-  return { success: true };
+  return { success: true, role };
 }
 
 // ────────────────────────────────────────────────
@@ -113,7 +110,7 @@ export async function loginAction(
   if (!parsed.success) {
     return {
       success: false,
-      error: "Please check your email and password",
+      error: "Please enter a valid email and password.",
     };
   }
 
@@ -124,12 +121,27 @@ export async function loginAction(
       redirect: false,
     });
 
-    return { success: true };
+    // Look up the user's role to redirect them to the correct dashboard
+    const user = await prisma.user.findUnique({
+      where: { email: parsed.data.email },
+      select: { role: true },
+    });
+
+    const redirectMap: Record<string, string> = {
+      TUTOR: "/tutor/dashboard",
+      SUPER_ADMIN: "/admin/dashboard",
+      SUB_ADMIN: "/admin/dashboard",
+      PARENT: "/parent/dashboard",
+    };
+
+    const redirectTo = redirectMap[user?.role ?? "PARENT"] ?? "/parent/dashboard";
+
+    return { success: true, redirectTo };
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
-          return { success: false, error: "Invalid email or password" };
+          return { success: false, error: "Invalid email or password. Please try again." };
         default:
           return { success: false, error: "Something went wrong. Please try again." };
       }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,6 +18,8 @@ import {
   Bell,
   Ticket,
   BarChart3,
+  Menu,
+  X,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -51,48 +54,50 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole }: AdminSidebarProps) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Determine effective role for filtering
   const effectiveRole = userRole === "SUB_ADMIN" ? (subAdminRole ?? "") : userRole;
   const roleLabel = SUB_ADMIN_ROLE_LABELS[effectiveRole] ?? { label: effectiveRole.toLowerCase(), color: "#94A3B8" };
 
   const visibleNavItems = ALL_NAV_ITEMS.filter(({ roles, href }) => {
-    if (href === "/admin/dashboard") return true; // Dashboard always visible
+    if (href === "/admin/dashboard") return true;
     if (roles === null) return true;
     return (roles as readonly string[]).includes(effectiveRole);
   });
 
-  return (
-    <aside
-      className="fixed inset-y-0 left-0 z-50 flex flex-col"
-      style={{
-        width: "260px",
-        background: "linear-gradient(180deg, #0F172A 0%, #0A0F1E 100%)",
-        borderRight: "1px solid #1E293B",
-      }}
-    >
-      {/* Logo / Brand */}
+  const sidebarContent = (
+    <div className="flex h-full flex-col">
+      {/* Logo / Brand Header */}
       <div
-        className="flex items-center gap-3 px-6 py-5"
+        className="flex items-center justify-between gap-3 px-6 py-5"
         style={{ borderBottom: "1px solid #1E293B" }}
       >
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-xl"
-          style={{ background: "linear-gradient(135deg, #22C55E, #16A34A)" }}
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-xl"
+            style={{ background: "linear-gradient(135deg, #22C55E, #16A34A)" }}
+          >
+            <GraduationCap size={18} color="#fff" strokeWidth={2.5} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.02em" }}>
+              ApnaTutorHub
+            </p>
+            <p className="text-xs" style={{ color: roleLabel.color, fontFamily: "'Fira Code', monospace" }}>
+              {roleLabel.label}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 lg:hidden"
+          aria-label="Close sidebar"
         >
-          <GraduationCap size={18} color="#fff" strokeWidth={2.5} />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.02em" }}>
-            ApnaTutorHub
-          </p>
-          <p className="text-xs" style={{ color: roleLabel.color, fontFamily: "'Fira Code', monospace" }}>
-            {roleLabel.label}
-          </p>
-        </div>
+          <X size={20} />
+        </button>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation Links */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <p
           className="mb-2 px-3 text-xs font-semibold uppercase tracking-widest"
@@ -112,6 +117,7 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={() => setMobileOpen(false)}
                   className="group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200"
                   style={{
                     background: active
@@ -155,7 +161,7 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
           style={{ background: "rgba(30,41,59,0.6)" }}
         >
           <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white shrink-0"
             style={{ background: roleLabel.color }}
           >
             {userName.charAt(0).toUpperCase()}
@@ -181,6 +187,60 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
           Sign Out
         </button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile Topbar */}
+      <div className="flex items-center justify-between border-b border-[#1E293B] bg-[#0F172A] px-4 py-3 lg:hidden">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-white hover:bg-slate-700"
+            aria-label="Open navigation"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-500 text-white">
+              <GraduationCap size={15} />
+            </div>
+            <span className="font-bold text-white text-sm">ApnaTutorHub Admin</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Sidebar (Fixed) */}
+      <aside
+        className="fixed inset-y-0 left-0 z-40 hidden flex-col lg:flex"
+        style={{
+          width: "260px",
+          background: "linear-gradient(180deg, #0F172A 0%, #0A0F1E 100%)",
+          borderRight: "1px solid #1E293B",
+        }}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer (Slide-Over) */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside
+            className="relative flex w-4/5 max-w-xs flex-1 flex-col"
+            style={{
+              background: "linear-gradient(180deg, #0F172A 0%, #0A0F1E 100%)",
+              borderRight: "1px solid #1E293B",
+            }}
+          >
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

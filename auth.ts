@@ -88,7 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
     async signIn({ user, account }) {
-      // For OAuth sign-ins, ensure user has a role assigned
+      // For OAuth sign-ins, block suspended users
       if (account?.provider === "google" && user.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
@@ -96,18 +96,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (dbUser && !dbUser.isActive) {
           return false; // Block suspended users
         }
+        // If this is a brand-new Google OAuth user (no role assigned), create parentProfile
+        // Only if they don't already have one
+        if (dbUser) {
+          const existingParentProfile = await prisma.parentProfile.findUnique({
+            where: { userId: dbUser.id },
+          });
+          if (!existingParentProfile && dbUser.role === "PARENT") {
+            await prisma.parentProfile.create({
+              data: { userId: dbUser.id },
+            });
+          }
+        }
       }
       return true;
     },
   },
-  events: {
-    async createUser({ user }) {
-      // When a new user is created via OAuth, create their parent profile by default
-      if (user.id) {
-        await prisma.parentProfile.create({
-          data: { userId: user.id },
-        });
-      }
-    },
-  },
+  // Removed createUser event — it was creating parentProfile for ALL new users
+  // including tutors, overriding the correct profile set by registerAction.
+  // Profile creation is now handled in registerAction (credentials) and
+  // signIn callback (Google OAuth).
 });

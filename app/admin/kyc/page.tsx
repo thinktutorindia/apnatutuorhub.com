@@ -138,7 +138,7 @@ export default async function AdminKycPage({
               </div>
 
               {/* Tutor details row */}
-              <div className="grid grid-cols-3 gap-4 px-5 py-3" style={{ borderBottom: "1px solid #0F172A" }}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-5 py-3" style={{ borderBottom: "1px solid #0F172A" }}>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#334155", fontFamily: "'Fira Code', monospace" }}>
                     Subjects
@@ -163,7 +163,7 @@ export default async function AdminKycPage({
               </div>
 
               {/* KYC Documents */}
-              <div className="grid grid-cols-3 gap-4 px-5 py-4" style={{ borderBottom: "1px solid #1E293B" }}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-5 py-4" style={{ borderBottom: "1px solid #1E293B" }}>
                 {[
                   { label: "ID Proof", url: tutor.idUrl, icon: FileText },
                   { label: "Address Proof", url: tutor.addressUrl, icon: MapPin },

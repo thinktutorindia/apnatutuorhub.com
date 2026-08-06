@@ -1,30 +1,26 @@
 /**
- * lib/aws-notification.ts
- * Phase 11 — Unified Email & Notification Helper
- * Primary Driver: Resend API (via RESEND_API_KEY)
- * Fallback Driver: AWS SES (via AWS_SES_SENDER_EMAIL)
+ * lib/aws-notification.ts (100% Resend & VAPID Service Driver)
+ * Unified Email & Notification Helper
+ * Primary Email Driver: Resend API (via RESEND_API_KEY)
+ * Primary Push Driver: VAPID Web Push (via VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)
  */
 
 import { Resend } from "resend";
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { prisma } from "@/lib/prisma";
 import { renderNewMatchedLeadEmail } from "@/emails/NewMatchedLeadEmail";
 import { renderApplicationStatusEmail } from "@/emails/ApplicationStatusEmail";
 import { renderNewApplicantEmail } from "@/emails/NewApplicantEmail";
 import { renderBookingConfirmationEmail } from "@/emails/BookingConfirmationEmail";
+import { broadcastWebPush, sendWebPush } from "@/lib/web-push";
 
-// ── Email Clients Setup ────────────────────────────────────────────────────────
+// ── Email Client Setup (100% Resend) ──────────────────────────────────────────
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const RESEND_FROM = process.env.RESEND_FROM_EMAIL ?? "ApnaTutorHub <noreply@mail.apnatutorhub.com>";
 
-const ses = new SESClient({ region: process.env.AWS_REGION ?? "ap-south-1" });
-const SENDER_EMAIL = process.env.AWS_SES_SENDER_EMAIL ?? "";
-const isSesConfigured = !!SENDER_EMAIL;
-
 /**
- * Universal email dispatcher: Resend first, AWS SES fallback.
+ * Universal email dispatcher: 100% Resend API.
  */
 export async function dispatchEmail(
   to: string,
@@ -32,60 +28,32 @@ export async function dispatchEmail(
   htmlBody: string,
   textBody?: string
 ): Promise<{ success: boolean; error?: string }> {
-  // 1. Try Resend
-  if (resend) {
-    try {
-      const { data, error } = await resend.emails.send({
-        from: RESEND_FROM,
-        to: [to],
-        subject,
-        html: htmlBody,
-        ...(textBody ? { text: textBody } : {}),
-      });
+  if (!resend) {
+    console.info("[Email/Resend] RESEND_API_KEY is not configured in .env — skipping live email send to", to);
+    return { success: false, error: "RESEND_API_KEY is not configured in .env" };
+  }
 
-      if (error) {
-        console.error("[Email/Resend] Error sending email:", error);
-        return { success: false, error: error.message };
-      } else {
-        console.info(`[Email/Resend] Sent successfully to ${to} (ID: ${data?.id})`);
-        return { success: true };
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[Email/Resend] Exception:", msg);
-      return { success: false, error: msg };
+  try {
+    const { data, error } = await resend.emails.send({
+      from: RESEND_FROM,
+      to: [to],
+      subject,
+      html: htmlBody,
+      ...(textBody ? { text: textBody } : {}),
+    });
+
+    if (error) {
+      console.error("[Email/Resend] Error sending email:", error);
+      return { success: false, error: error.message };
     }
-  }
 
-  // 2. Fallback to AWS SES
-  if (isSesConfigured) {
-    try {
-      const sesCmd = new SendEmailCommand({
-        Source: SENDER_EMAIL,
-        Destination: { ToAddresses: [to] },
-        Message: {
-          Subject: { Data: subject, Charset: "UTF-8" },
-          Body: {
-            Html: { Data: htmlBody, Charset: "UTF-8" },
-            ...(textBody ? { Text: { Data: textBody, Charset: "UTF-8" } } : {}),
-          },
-        },
-      });
-      await ses.send(sesCmd);
-      console.info(`[Email/SES] Sent successfully to ${to}`);
-      return { success: true };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[Email/SES] Exception:", msg);
-      return { success: false, error: msg };
-    }
+    console.info(`[Email/Resend] Sent successfully to ${to} (ID: ${data?.id})`);
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[Email/Resend] Exception in dispatchEmail:", msg);
+    return { success: false, error: msg };
   }
-
-  if (!resend && !isSesConfigured) {
-    console.info(`[Email] No email provider configured (set RESEND_API_KEY in .env to send real emails).`);
-  }
-
-  return { success: false, error: "No email provider configured in .env" };
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -105,7 +73,7 @@ export type NotificationPayload = {
 export async function sendNotification(
   payload: NotificationPayload
 ): Promise<{ success: boolean; error?: string }> {
-  const { userId, email, title, message, actionUrl, skipEmail } = payload;
+  const { userId, email, title, message, actionUrl, skipEmail, skipPush } = payload;
 
   // 1. Save in-app notification to DB (always)
   await prisma.notification.create({
@@ -119,7 +87,18 @@ export async function sendNotification(
     },
   });
 
-  // 2. Send email via Resend / SES
+  // 2. Dispatch VAPID Web Push
+  if (!skipPush) {
+    void sendWebPush(userId, {
+      title,
+      body: message,
+      url: actionUrl,
+    }).catch((err) => {
+      console.warn("[sendNotification] VAPID push failed:", err);
+    });
+  }
+
+  // 3. Send email via 100% Resend
   if (!skipEmail && email) {
     const htmlBody = buildEmailHtml(title, message, actionUrl);
     return await dispatchEmail(email, title, htmlBody, message);
@@ -164,7 +143,15 @@ export async function broadcastNotification(opts: {
     })),
   });
 
-  // 2. Dispatch batch email using Resend Batch API
+  // 2. Dispatch VAPID Web Push to all devices
+  void broadcastWebPush(
+    { title, body: message, url: actionUrl },
+    target === "TUTORS" ? "TUTOR" : target === "PARENTS" ? "PARENT" : undefined
+  ).catch((err) => {
+    console.error("[broadcastNotification] VAPID push broadcast error:", err);
+  });
+
+  // 3. Dispatch batch email using Resend Batch API
   const htmlBody = buildEmailHtml(title, message, actionUrl);
   const emailTargets = users
     .filter((u) => Boolean(u.email))
@@ -222,6 +209,12 @@ export async function notifyTutorNewLead(opts: {
     },
   });
 
+  void sendWebPush(opts.tutorUserId, {
+    title: "🎯 New Matched Lead Available",
+    body: `A new tuition lead for ${subjectStr} in ${opts.city ?? "your area"} matches your profile.`,
+    url: "/tutor/leads",
+  }).catch(() => {});
+
   if (opts.tutorEmail) {
     await dispatchEmail(opts.tutorEmail, "🎯 New Matched Lead Available — ApnaTutorHub", htmlBody);
   }
@@ -257,6 +250,12 @@ export async function notifyParentNewApplicant(opts: {
       isRead: false,
     },
   });
+
+  void sendWebPush(opts.parentUserId, {
+    title: "👋 New Tutor Applied",
+    body: `${opts.tutorName ?? "A tutor"} applied to your tuition requirement.`,
+    url: `/parent/my-leads/${opts.leadId}/applicants`,
+  }).catch(() => {});
 
   if (opts.parentEmail) {
     await dispatchEmail(opts.parentEmail, "👋 New Tutor Applied to Your Requirement — ApnaTutorHub", htmlBody);
@@ -295,6 +294,12 @@ export async function notifyTutorApplicationStatus(opts: {
       isRead: false,
     },
   });
+
+  void sendWebPush(opts.tutorUserId, {
+    title: `${s.emoji} Application ${s.label}`,
+    body: s.msg,
+    url: "/tutor/leads",
+  }).catch(() => {});
 
   if (opts.tutorEmail) {
     await dispatchEmail(opts.tutorEmail, `${s.emoji} Application ${s.label} — ApnaTutorHub`, htmlBody);
@@ -341,6 +346,9 @@ export async function notifyBookingConfirmation(opts: {
     prisma.notification.create({ data: { userId: opts.parentUserId, title, message: parentMsg, actionUrl: `/parent/bookings`, channel: "WEB", isRead: false } }),
     prisma.notification.create({ data: { userId: opts.tutorUserId, title, message: tutorMsg, actionUrl: `/tutor/bookings`, channel: "WEB", isRead: false } }),
   ]);
+
+  void sendWebPush(opts.parentUserId, { title, body: parentMsg, url: "/parent/bookings" }).catch(() => {});
+  void sendWebPush(opts.tutorUserId, { title, body: tutorMsg, url: "/tutor/bookings" }).catch(() => {});
 
   if (opts.parentEmail) {
     await dispatchEmail(opts.parentEmail, title, parentHtml);

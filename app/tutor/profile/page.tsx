@@ -29,6 +29,11 @@ export default async function TutorProfilePageRoute() {
     availability: tutorProfile.availability,
   });
 
+  const profileExt = tutorProfile as typeof tutorProfile & {
+    pincode?: string | null;
+    address?: string | null;
+  };
+
   return (
     <TutorProfilePage
       profile={{
@@ -44,6 +49,8 @@ export default async function TutorProfilePageRoute() {
         feeMax: tutorProfile.feeMax?.toString() ?? "",
         city: tutorProfile.city ?? "",
         state: tutorProfile.state ?? "",
+        pincode: profileExt.pincode ?? "",
+        address: profileExt.address ?? "",
         introVideoUrl: tutorProfile.introVideoUrl ?? "",
         availability: tutorProfile.availability,
         kycStatus: tutorProfile.kycStatus,

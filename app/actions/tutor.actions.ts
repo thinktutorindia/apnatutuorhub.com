@@ -35,6 +35,8 @@ export async function saveTutorProfileAction(
     feeMax: formInt(formData, "feeMax"),
     city: formString(formData, "city"),
     state: formString(formData, "state"),
+    pincode: formString(formData, "pincode"),
+    address: formString(formData, "address"),
     introVideoUrl: formString(formData, "introVideoUrl"),
   });
 
@@ -57,6 +59,8 @@ export async function saveTutorProfileAction(
     feeMax: parsed.data.feeMax ?? null,
     city: parsed.data.city ?? null,
     state: parsed.data.state ?? null,
+    pincode: parsed.data.pincode ?? null,
+    address: parsed.data.address ?? null,
     introVideoUrl: parsed.data.introVideoUrl || null,
   };
 
@@ -72,14 +76,16 @@ export async function saveTutorProfileAction(
     },
   });
 
-  // Geocode if city/state provided
+  // Geocode location using address, city, state, pincode
   let lat = current?.latitude ?? null;
   let lng = current?.longitude ?? null;
 
-  if (parsed.data.city || parsed.data.state) {
+  if (parsed.data.city || parsed.data.state || parsed.data.pincode || parsed.data.address) {
     const geo = await geocodeLocation({
+      address: parsed.data.address,
       city: parsed.data.city,
       state: parsed.data.state,
+      pincode: parsed.data.pincode,
     });
     if (geo) {
       lat = geo.lat;

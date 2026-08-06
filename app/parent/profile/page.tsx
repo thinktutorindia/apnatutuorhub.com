@@ -28,6 +28,8 @@ export default async function ParentProfilePage() {
           state: true,
           pincode: true,
           address: true,
+          latitude: true,
+          longitude: true,
           students: {
             orderBy: { createdAt: "asc" },
             select: {
@@ -75,6 +77,8 @@ export default async function ParentProfilePage() {
           state: parentProfile.state ?? "",
           pincode: parentProfile.pincode ?? "",
           address: parentProfile.address ?? "",
+          latitude: parentProfile.latitude,
+          longitude: parentProfile.longitude,
         }}
       />
 

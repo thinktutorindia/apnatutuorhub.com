@@ -244,6 +244,8 @@ model TutorProfile {
   longitude        Float?
   city             String?
   state            String?
+  pincode          String?
+  address          String?
   introVideoUrl    String?
   profileScore     Int          @default(0)
   averageRating    Float        @default(0)
@@ -656,4 +658,3 @@ model Referral {
   @@index([referrerId])
   @@map("referrals")
 }
-

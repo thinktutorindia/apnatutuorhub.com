@@ -13,6 +13,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calcProfileScore } from "@/lib/profile-score";
 import { TutorAnalyticsWidget } from "@/components/tutor/TutorAnalyticsWidget";
+import { EnablePushBanner } from "@/components/EnablePushBanner";
 
 export default async function TutorDashboardPage() {
   const session = await auth();
@@ -108,6 +109,9 @@ export default async function TutorDashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Push Notification Opt-in Banner */}
+      <EnablePushBanner userId={session.user.id} />
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

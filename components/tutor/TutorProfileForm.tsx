@@ -43,6 +43,8 @@ type Defaults = {
   feeMax: string;
   city: string;
   state: string;
+  pincode: string;
+  address: string;
   introVideoUrl: string;
   availability: { dayOfWeek: number; startTime: string; endTime: string }[];
 };
@@ -124,7 +126,7 @@ export function TutorProfileForm({ defaults }: { defaults: Defaults }) {
                     className={`rounded-full border-[2.5px] border-[#0F172A] px-3 py-1.5 text-[11px] font-extrabold transition-all ${
                       isActive
                         ? "bg-[#E0F2FE] shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] -translate-x-[1px] -translate-y-[1px]"
-                        : "bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]"
+                        : "bg-[#FAF8F5] shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]"
                     }`}
                   >
                     {option.label}
@@ -210,7 +212,11 @@ export function TutorProfileForm({ defaults }: { defaults: Defaults }) {
         </SectionCard>
 
         <SectionCard title="🗺️ Where & How You Teach" bg="#FEF3C7">
-          <div className="space-y-2">
+          <div className="rounded-xl border-2 border-[#0F172A] bg-[#FEF3C7] px-4 py-2.5 text-xs font-bold text-[#0F172A]">
+            📍 <strong>Exact Location Matching</strong> — Providing your Pincode and Locality ensures the matching engine accurately pairs you with nearby parents within your teaching radius.
+          </div>
+
+          <div className="space-y-2 pt-1">
             <span className="block text-xs font-extrabold text-[#0F172A]">
               Teaching Mode
             </span>
@@ -273,6 +279,7 @@ export function TutorProfileForm({ defaults }: { defaults: Defaults }) {
                   className="neu-input pl-11"
                 />
               </div>
+              <FieldError messages={profileState.fieldErrors?.city} />
             </div>
 
             <div className="space-y-1.5">
@@ -295,6 +302,45 @@ export function TutorProfileForm({ defaults }: { defaults: Defaults }) {
                   </option>
                 ))}
               </select>
+              <FieldError messages={profileState.fieldErrors?.state} />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="tp-pincode"
+                className="block text-xs font-extrabold text-[#0F172A]"
+              >
+                Pincode <span className="text-slate-400">(for exact distance matching)</span>
+              </label>
+              <input
+                id="tp-pincode"
+                name="pincode"
+                type="text"
+                maxLength={6}
+                inputMode="numeric"
+                placeholder="6-digit pincode e.g. 110080"
+                defaultValue={defaults.pincode}
+                className="neu-input"
+              />
+              <FieldError messages={profileState.fieldErrors?.pincode} />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="tp-address"
+                className="block text-xs font-extrabold text-[#0F172A]"
+              >
+                Locality / Area / Address
+              </label>
+              <input
+                id="tp-address"
+                name="address"
+                type="text"
+                placeholder="e.g. Sangam Vihar, Sector 62"
+                defaultValue={defaults.address}
+                className="neu-input"
+              />
+              <FieldError messages={profileState.fieldErrors?.address} />
             </div>
           </div>
         </SectionCard>

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Mail, ArrowRight, ArrowLeft, AlertCircle } from "lucide-react";
+import { requestPasswordResetAction } from "@/app/actions/auth.actions";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -15,8 +16,12 @@ export default function ForgotPasswordPage() {
     setError("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setIsSubmitted(true);
+      const res = await requestPasswordResetAction(email);
+      if (res.success) {
+        setIsSubmitted(true);
+      } else {
+        setError(res.error || "Failed to send reset email. Please try again.");
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

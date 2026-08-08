@@ -217,3 +217,74 @@ export async function validateCouponAction(
     finalAmountInr,
   });
 }
+
+// ── Atomic Coupon Consumption (In Transaction) ─────────────────────────────────
+
+import type { Prisma } from "@prisma/client";
+
+export type ConsumeCouponInput = {
+  couponId: string;
+  userId: string;
+  orderId?: string;
+  discountPaise: number;
+};
+
+export async function consumeCouponInTx(
+  tx: Prisma.TransactionClient,
+  input: ConsumeCouponInput
+): Promise<ActionResult<{ usageId: string }>> {
+  const coupon = await tx.coupon.findUnique({
+    where: { id: input.couponId },
+  });
+
+  if (!coupon || !coupon.isActive) {
+    return actionError("Coupon is inactive or invalid");
+  }
+
+  if (coupon.expiresAt && new Date() > coupon.expiresAt) {
+    return actionError("Coupon code has expired");
+  }
+
+  const existingUserUsage = await tx.couponUsage.findFirst({
+    where: { couponId: input.couponId, userId: input.userId },
+  });
+  if (existingUserUsage) {
+    return actionError("You have already used this coupon code");
+  }
+
+  const updated = await tx.coupon.updateMany({
+    where: {
+      id: input.couponId,
+      isActive: true,
+      ...(coupon.usageLimit !== null
+        ? { usedCount: { lt: coupon.usageLimit } }
+        : {}),
+    },
+    data: {
+      usedCount: { increment: 1 },
+    },
+  });
+
+  if (updated.count === 0) {
+    return actionError("Coupon global usage limit reached");
+  }
+
+  try {
+    const usage = await tx.couponUsage.create({
+      data: {
+        couponId: input.couponId,
+        userId: input.userId,
+        orderId: input.orderId ?? null,
+        discount: input.discountPaise,
+      },
+    });
+
+    return actionSuccess({ usageId: usage.id });
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    if (err?.code === "P2002" || err?.message?.includes("Unique constraint")) {
+      return actionError("You have already used this coupon code");
+    }
+    throw error;
+  }
+}

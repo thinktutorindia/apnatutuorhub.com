@@ -59,10 +59,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { pushSubscription: sub as object },
-  });
+  try {
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { pushSubscription: sub as object },
+    });
+  } catch {
+    return NextResponse.json({ error: "User record not found" }, { status: 404 });
+  }
 
   return NextResponse.json({ subscribed: true });
 }
@@ -75,10 +79,14 @@ export async function DELETE() {
     return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
   }
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { pushSubscription: undefined },
-  });
+  try {
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { pushSubscription: undefined },
+    });
+  } catch {
+    return NextResponse.json({ error: "User record not found" }, { status: 404 });
+  }
 
   return NextResponse.json({ unsubscribed: true });
 }

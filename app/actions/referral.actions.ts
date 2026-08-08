@@ -60,66 +60,71 @@ export async function processReferralRewardOnKyc(refereeUserId: string) {
 
   if (!referral || referral.status === "REWARDED") return;
 
-  // Credit referrer wallet if tutor
-  if (referral.referrer.tutorProfile?.wallet) {
-    const wallet = referral.referrer.tutorProfile.wallet;
-    const updated = await prisma.wallet.update({
-      where: { id: wallet.id },
-      data: { balance: { increment: referral.rewardCoins } },
+  await prisma.$transaction(async (tx) => {
+    const refUpdate = await tx.referral.updateMany({
+      where: { id: referral.id, status: { not: "REWARDED" } },
+      data: { status: "REWARDED" },
     });
 
-    await prisma.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        type: "BONUS",
-        amount: referral.rewardCoins,
-        balanceAfter: updated.balance,
-        description: `🎁 Referral Bonus: Invited friend ${referral.referee.name ?? "Tutor"} joined and completed KYC!`,
-        referenceId: `REF_${referral.id}_REFERRER`,
-      },
-    });
+    if (refUpdate.count === 0) return;
 
-    await prisma.notification.create({
-      data: {
-        userId: referral.referrerId,
-        title: `🎁 ${referral.rewardCoins} Referral Coins Earned!`,
-        message: `Your invited tutor ${referral.referee.name ?? "friend"} got verified. Bonus coins added to your wallet!`,
-        actionUrl: "/tutor/wallet",
-      },
-    });
-  }
+    if (referral.referrer.tutorProfile?.wallet) {
+      const wallet = referral.referrer.tutorProfile.wallet;
+      const updated = await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: { increment: referral.rewardCoins } },
+      });
 
-  // Credit referee wallet if tutor
-  if (referral.referee.tutorProfile?.wallet) {
-    const wallet = referral.referee.tutorProfile.wallet;
-    const updated = await prisma.wallet.update({
-      where: { id: wallet.id },
-      data: { balance: { increment: referral.refereeCoins } },
-    });
+      await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          type: "BONUS",
+          amount: referral.rewardCoins,
+          balanceAfter: updated.balance,
+          description: `🎁 Referral Bonus: Invited friend ${referral.referee.name ?? "Tutor"} joined and completed KYC!`,
+          referenceId: `REF_${referral.id}_REFERRER`,
+        },
+      });
 
-    await prisma.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        type: "BONUS",
-        amount: referral.refereeCoins,
-        balanceAfter: updated.balance,
-        description: `🎁 Welcome Referral Bonus: Verified via invite code ${referral.code}!`,
-        referenceId: `REF_${referral.id}_REFEREE`,
-      },
-    });
+      await tx.notification.create({
+        data: {
+          userId: referral.referrerId,
+          title: `🎁 ${referral.rewardCoins} Referral Coins Earned!`,
+          message: `Your invited tutor ${referral.referee.name ?? "friend"} got verified. Bonus coins added to your wallet!`,
+          actionUrl: "/tutor/wallet",
+        },
+      });
+    }
 
-    await prisma.notification.create({
-      data: {
-        userId: referral.refereeId,
-        title: `🎁 Welcome ${referral.refereeCoins} Bonus Coins!`,
-        message: `Thanks for joining via referral code ${referral.code}. Your welcome bonus coins have been credited!`,
-        actionUrl: "/tutor/wallet",
-      },
-    });
-  }
+    if (referral.referee.tutorProfile?.wallet) {
+      const wallet = referral.referee.tutorProfile.wallet;
+      const updated = await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: { increment: referral.refereeCoins } },
+      });
 
-  await prisma.referral.update({
-    where: { id: referral.id },
-    data: { status: "REWARDED" },
+      await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          type: "BONUS",
+          amount: referral.refereeCoins,
+          balanceAfter: updated.balance,
+          description: `🎁 Welcome Referral Bonus: Verified via invite code ${referral.code}!`,
+          referenceId: `REF_${referral.id}_REFEREE`,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: referral.refereeId,
+          title: `🎁 Welcome ${referral.refereeCoins} Bonus Coins!`,
+          message: `Thanks for joining via referral code ${referral.code}. Your welcome bonus coins have been credited!`,
+          actionUrl: "/tutor/wallet",
+        },
+      });
+    }
+  }).catch((err) => {
+    if (err?.code === "P2002") return;
+    throw err;
   });
 }

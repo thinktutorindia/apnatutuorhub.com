@@ -14,6 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { sanitizeInput } from "@/lib/security-audit";
+import { moderateText } from "@/lib/ai-moderator";
 import { createNotification } from "@/lib/notification-engine";
 
 // ── Conversation Management ───────────────────────────────────────────────────
@@ -99,6 +100,16 @@ export async function sendMessage(input: SendMessageInput) {
     throw new Error("Message content cannot be empty.");
   }
 
+  // AI moderation: redact contact leaks and block profanity
+  const moderation = moderateText(sanitizedContent);
+  if (!moderation.isAllowed) {
+    throw new Error(
+      "Your message contains prohibited content and could not be sent. Please keep conversations professional."
+    );
+  }
+  // Use redacted content if contact info was detected
+  const finalContent = moderation.sanitizedContent || sanitizedContent;
+
   // Verify sender is participant in conversation
   const conv = await prisma.conversation.findUnique({
     where: { id: conversationId },
@@ -130,7 +141,7 @@ export async function sendMessage(input: SendMessageInput) {
       data: {
         conversationId,
         senderUserId,
-        content: sanitizedContent,
+        content: finalContent,
         attachmentUrl,
       },
     }),

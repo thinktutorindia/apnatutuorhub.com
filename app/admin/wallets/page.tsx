@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Coins, TrendingUp, TrendingDown, Search } from "lucide-react";
-import { adminCreditCoinsAction, adminDebitCoinsAction } from "@/app/actions/admin.actions";
+import { Coins, TrendingUp, TrendingDown, Search, RotateCcw, Check, X } from "lucide-react";
+import { adminCreditCoinsAction, adminDebitCoinsAction, approveRefundAction, rejectRefundAction } from "@/app/actions/admin.actions";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportPaymentsCsv } from "@/app/actions/analytics.actions";
 
@@ -45,7 +45,7 @@ export default async function AdminWalletsPage({
     }
     : {};
 
-  const [wallets, total, walletAgg] = await Promise.all([
+  const [wallets, total, walletAgg, pendingRefunds] = await Promise.all([
     prisma.wallet.findMany({
       where: walletWhere,
       orderBy: { balance: "desc" },
@@ -74,6 +74,19 @@ export default async function AdminWalletsPage({
     }),
     prisma.wallet.count({ where: walletWhere }),
     prisma.wallet.aggregate({ _sum: { balance: true, totalPurchased: true, totalSpent: true } }),
+    prisma.walletTransaction.findMany({
+      where: { type: "REFUND", description: "REFUND_REQUEST_PENDING" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        wallet: {
+          include: {
+            tutorProfile: {
+              include: { user: { select: { name: true, email: true } } },
+            },
+          },
+        },
+      },
+    }),
   ]);
 
   const totalPages = Math.ceil(total / take);
@@ -117,6 +130,67 @@ export default async function AdminWalletsPage({
           </div>
         ))}
       </div>
+
+      {/* Pending Refund Requests Section */}
+      {pendingRefunds.length > 0 && (
+        <div className="mb-8 rounded-2xl p-5" style={{ background: "linear-gradient(135deg, #1E1B4B 0%, #0F172A 100%)", border: "1px solid #4338CA" }}>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "rgba(99,102,241,0.2)", border: "1px solid rgba(99,102,241,0.4)" }}>
+                <RotateCcw size={16} style={{ color: "#818CF8" }} />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  Pending Refund Requests ({pendingRefunds.length})
+                </h2>
+                <p className="text-xs" style={{ color: "#A5B4FC" }}>
+                  Tutors requesting coin refunds for invalid/expired leads
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {pendingRefunds.map((rf) => (
+              <div key={rf.id} className="flex flex-col items-start justify-between gap-3 rounded-xl p-3.5 sm:flex-row sm:items-center" style={{ background: "#0A0F1E", border: "1px solid #1E293B" }}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-white">{rf.wallet.tutorProfile.user.name || "Tutor"}</span>
+                    <span className="text-xs" style={{ color: "#64748B" }}>({rf.wallet.tutorProfile.user.email})</span>
+                  </div>
+                  <p className="mt-1 text-xs" style={{ color: "#94A3B8" }}>
+                    Requested <strong className="text-amber-400">{rf.amount} coins</strong> refund · {new Date(rf.createdAt).toLocaleDateString("en-IN")}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <form
+                    action={async () => {
+                      "use server";
+                      await approveRefundAction(rf.id);
+                    }}
+                  >
+                    <button type="submit" className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold" style={{ background: "#22C55E", color: "#0F172A" }}>
+                      <Check size={12} /> Approve
+                    </button>
+                  </form>
+
+                  <form
+                    action={async () => {
+                      "use server";
+                      await rejectRefundAction(rf.id, "Refund criteria not met.");
+                    }}
+                  >
+                    <button type="submit" className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" }}>
+                      <X size={12} /> Reject
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <form method="GET" className="mb-6 flex gap-3">

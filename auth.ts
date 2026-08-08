@@ -95,16 +95,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return canonicalBase;
     },
     async jwt({ token, user, trigger, session }) {
-      if (user) {
+      const targetUserId = (user?.id || token.id) as string | undefined;
+
+      if (targetUserId) {
         const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
+          where: { id: targetUserId },
+          select: { id: true, role: true, subAdminRole: true, isActive: true },
         });
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role;
-          token.subAdminRole = dbUser.subAdminRole ?? null;
-          token.isActive = dbUser.isActive;
+
+        if (!dbUser || !dbUser.isActive) {
+          // User deleted or suspended — wipe token fields
+          return {} as typeof token;
         }
+
+        token.id = dbUser.id;
+        token.role = dbUser.role;
+        token.subAdminRole = dbUser.subAdminRole ?? null;
+        token.isActive = dbUser.isActive;
       }
 
       // Handle session updates (e.g., role change)
@@ -115,12 +122,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.subAdminRole = (token.subAdminRole as string | null) ?? null;
-        session.user.isActive = token.isActive as boolean;
+      if (!token?.id || !token?.isActive) {
+        // Return empty object for deleted / suspended users so auth() returns null
+        return null as any;
       }
+
+      session.user.id = token.id as string;
+      session.user.role = token.role as string;
+      session.user.subAdminRole = (token.subAdminRole as string | null) ?? null;
+      session.user.isActive = token.isActive as boolean;
       return session;
     },
     async signIn({ user, account }) {
@@ -131,16 +141,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
         if (dbUser && !dbUser.isActive) {
           return false; // Block suspended users
-        }
-        if (dbUser) {
-          const existingParentProfile = await prisma.parentProfile.findUnique({
-            where: { userId: dbUser.id },
-          });
-          if (!existingParentProfile && dbUser.role === "PARENT") {
-            await prisma.parentProfile.create({
-              data: { userId: dbUser.id },
-            });
-          }
         }
       }
       return true;

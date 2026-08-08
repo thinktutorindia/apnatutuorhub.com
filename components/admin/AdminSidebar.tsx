@@ -20,6 +20,8 @@ import {
   BarChart3,
   Menu,
   X,
+  BookOpen,
+  MessageSquare,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -29,6 +31,9 @@ const ALL_NAV_ITEMS = [
   { label: "Users",         href: "/admin/users",                           icon: Users,           roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "OPERATIONS"] },
   { label: "KYC Queue",     href: "/admin/kyc",                             icon: ShieldCheck,     roles: ["SUPER_ADMIN", "VERIFICATION"],  badge: "!" },
   { label: "Leads",         href: "/admin/leads",                           icon: FileText,        roles: ["SUPER_ADMIN", "OPERATIONS", "MARKETING", "SUPPORT"] },
+  { label: "Bookings",      href: "/admin/bookings",                       icon: BookOpen,        roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT"] },
+  { label: "Support Chat",  href: "/admin/chat",                           icon: MessageSquare,   roles: ["SUPER_ADMIN", "SUPPORT", "OPERATIONS"] },
+  { label: "Reviews",       href: "/admin/reviews",                        icon: MessageSquare,   roles: ["SUPER_ADMIN", "SUPPORT"] },
   { label: "Wallets",       href: "/admin/wallets",                         icon: Wallet,          roles: ["SUPER_ADMIN", "FINANCE"] },
   { label: "Notifications", href: "/admin/notifications/broadcast",         icon: Bell,            roles: ["SUPER_ADMIN", "MARKETING"] },
   { label: "Coupons",       href: "/admin/coupons",                         icon: Ticket,          roles: ["SUPER_ADMIN", "MARKETING"] },

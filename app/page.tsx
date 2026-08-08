@@ -67,7 +67,21 @@ const STATS = [
 
 export default async function HomePage() {
   const session = await auth();
-  const user = session?.user;
+  const rawUser = session?.user;
+  const user = (rawUser?.id && rawUser?.role) ? rawUser : null;
+
+  if (user && user.role !== "SUPER_ADMIN" && user.role !== "SUB_ADMIN") {
+    const { prisma } = await import("@/lib/prisma");
+    const [hasParent, hasTutor] = await Promise.all([
+      prisma.parentProfile.findUnique({ where: { userId: user.id } }),
+      prisma.tutorProfile.findUnique({ where: { userId: user.id } }),
+    ]);
+
+    if (!hasParent && !hasTutor) {
+      const { redirect } = await import("next/navigation");
+      redirect("/select-role");
+    }
+  }
 
   const dashboardUrl =
     user?.role === "TUTOR"

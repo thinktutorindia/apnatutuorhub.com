@@ -2,8 +2,9 @@
 // Phase 1: Foundation models (User, Auth, Profiles, Wallet)
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -314,6 +315,7 @@ model WalletTransaction {
 
   wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
+  @@unique([walletId, referenceId, type])
   @@index([walletId, createdAt])
   @@map("wallet_transactions")
 }
@@ -632,6 +634,7 @@ model CouponUsage {
   coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([couponId, userId])
   @@index([couponId])
   @@index([userId])
   @@map("coupon_usages")

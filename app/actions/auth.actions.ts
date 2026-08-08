@@ -36,6 +36,7 @@ export async function registerAction(
     email: formData.get("email"),
     password: formData.get("password"),
     role: formData.get("role"),
+    referralCode: formData.get("referralCode") || undefined,
   };
 
   const parsed = registerSchema.safeParse(raw);
@@ -47,7 +48,7 @@ export async function registerAction(
     };
   }
 
-  const { name, email, password, role } = parsed.data;
+  const { name, email, password, role, referralCode } = parsed.data;
 
   // Check if email already exists
   const existing = await prisma.user.findUnique({
@@ -59,6 +60,16 @@ export async function registerAction(
       success: false,
       error: "An account with this email already exists. Please log in instead.",
     };
+  }
+
+  // Validate referral code if provided
+  let referrer: { id: string } | null = null;
+  if (referralCode && referralCode.trim() !== "") {
+    referrer = await prisma.user.findUnique({
+      where: { referralCode: referralCode.trim().toUpperCase() },
+      select: { id: true },
+    });
+    // Silently ignore invalid codes — don't block registration
   }
 
   // Hash password
@@ -86,6 +97,20 @@ export async function registerAction(
     // Create wallet for tutor
     await prisma.wallet.create({
       data: { tutorProfileId: tutorProfile.id },
+    });
+  }
+
+  // Record referral relationship so rewards can be granted on KYC approval
+  if (referrer && referrer.id !== user.id) {
+    await prisma.referral.create({
+      data: {
+        referrerId: referrer.id,
+        refereeId: user.id,
+        code: referralCode!.trim().toUpperCase(),
+        status: "PENDING",
+        rewardCoins: 50,
+        refereeCoins: 25,
+      },
     });
   }
 
@@ -147,5 +172,166 @@ export async function loginAction(
       }
     }
     throw error;
+  }
+}
+
+// ────────────────────────────────────────────────
+// Password Reset Actions
+// ────────────────────────────────────────────────
+
+export async function requestPasswordResetAction(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!email || !email.includes("@")) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+  const user = await prisma.user.findUnique({
+    where: { email: cleanEmail },
+    select: { id: true, name: true, email: true },
+  });
+
+  // Always return success even if user not found to prevent email enumeration attacks
+  if (!user) {
+    return { success: true };
+  }
+
+  // Generate 32-byte secure random token
+  const token = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+  const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await prisma.verificationToken.create({
+    data: {
+      identifier: cleanEmail,
+      token,
+      expires,
+    },
+  });
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const resetUrl = `${appUrl}/reset-password?token=${token}&email=${encodeURIComponent(cleanEmail)}`;
+
+  // Send reset email via Resend
+  const { sendEmail } = await import("@/lib/resend-service");
+  await sendEmail({
+    to: cleanEmail,
+    subject: "🔑 Reset Your Password — ApnaTutorHub",
+    html: `
+      <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <h2 style="color: #0f172a; margin-top: 0;">Password Reset Request</h2>
+        <p style="color: #475569; font-size: 14px;">Hi ${user.name || "there"},</p>
+        <p style="color: #475569; font-size: 14px;">We received a request to reset your password on ApnaTutorHub. Click the button below to set a new password:</p>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${resetUrl}" style="background-color: #22c55e; color: #0f172a; font-weight: bold; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">Reset Password →</a>
+        </div>
+        <p style="color: #94a3b8; font-size: 12px;">This link is valid for 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
+      </div>
+    `,
+  });
+
+  return { success: true };
+}
+
+export async function resetPasswordWithTokenAction(
+  token: string,
+  email: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!token || !email || !newPassword || newPassword.length < 8) {
+    return { success: false, error: "Password must be at least 8 characters." };
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+
+  const record = await prisma.verificationToken.findFirst({
+    where: {
+      identifier: cleanEmail,
+      token,
+      expires: { gte: new Date() },
+    },
+  });
+
+  if (!record) {
+    return { success: false, error: "This password reset link is invalid or has expired." };
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { email: cleanEmail },
+      data: { passwordHash },
+    }),
+    prisma.verificationToken.deleteMany({
+      where: { identifier: cleanEmail },
+    }),
+  ]);
+
+  return { success: true };
+}
+
+// ────────────────────────────────────────────────
+// Role Selection Action (Google OAuth Onboarding)
+// ────────────────────────────────────────────────
+
+export async function selectUserRoleAction(
+  targetRole: "PARENT" | "TUTOR"
+): Promise<{ success: boolean; redirectTo?: string; error?: string }> {
+  const { auth: getAuth } = await import("@/auth");
+  const session = await getAuth();
+
+  if (!session?.user?.id) {
+    return { success: false, error: "Please log in first." };
+  }
+
+  const userId = session.user.id;
+
+  if (targetRole === "TUTOR") {
+    // Check if tutor profile exists or create it
+    let tutorProfile = await prisma.tutorProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!tutorProfile) {
+      tutorProfile = await prisma.tutorProfile.create({
+        data: { userId },
+      });
+    }
+
+    // Ensure wallet exists
+    const wallet = await prisma.wallet.findUnique({
+      where: { tutorProfileId: tutorProfile.id },
+    });
+    if (!wallet) {
+      await prisma.wallet.create({
+        data: { tutorProfileId: tutorProfile.id },
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: "TUTOR" },
+    });
+
+    return { success: true, redirectTo: "/tutor/dashboard" };
+  } else {
+    // Target role PARENT
+    let parentProfile = await prisma.parentProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!parentProfile) {
+      parentProfile = await prisma.parentProfile.create({
+        data: { userId },
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: "PARENT" },
+    });
+
+    return { success: true, redirectTo: "/parent/dashboard" };
   }
 }

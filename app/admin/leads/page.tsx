@@ -10,11 +10,13 @@ import {
   MapPin,
   Maximize2,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import {
   forceCloseLeadAction,
   forceExpireLeadAction,
   forceRadiusExpandAction,
+  adminDeleteLeadAction,
 } from "@/app/actions/admin.actions";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportLeadsCsv } from "@/app/actions/analytics.actions";
@@ -206,48 +208,60 @@ export default async function AdminLeadsPage({
                       )}
                     </td>
                     <td className="px-4 py-3.5">
-                      {isOpen && (
-                        <div className="flex flex-wrap gap-1.5">
-                          <form
-                            action={async () => {
-                              "use server";
-                              await forceCloseLeadAction(lead.id);
-                            }}
-                          >
-                            <button type="submit" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.2)" }}>
-                              <X size={10} /> Close
-                            </button>
-                          </form>
-                          <form
-                            action={async () => {
-                              "use server";
-                              await forceExpireLeadAction(lead.id);
-                            }}
-                          >
-                            <button type="submit" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ background: "rgba(100,116,139,0.12)", color: "#64748B", border: "1px solid rgba(100,116,139,0.2)" }}>
-                              <Clock size={10} /> Expire
-                            </button>
-                          </form>
-                          <form
-                            action={async () => {
-                              "use server";
-                              await forceRadiusExpandAction(lead.id);
-                            }}
-                          >
-                            <button type="submit" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ background: "rgba(34,197,94,0.1)", color: "#22C55E", border: "1px solid rgba(34,197,94,0.2)" }}>
-                              <Maximize2 size={10} /> +5 km
-                            </button>
-                          </form>
-                        </div>
-                      )}
-                      {!isOpen && (
-                        <Link
-                          href={`/admin/users?q=${lead.parentProfile.user.email}`}
-                          className="flex items-center gap-1 text-xs" style={{ color: "#334155" }}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {isOpen && (
+                          <>
+                            <form
+                              action={async () => {
+                                "use server";
+                                await forceCloseLeadAction(lead.id);
+                              }}
+                            >
+                              <button type="submit" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                                <X size={10} /> Close
+                              </button>
+                            </form>
+                            <form
+                              action={async () => {
+                                "use server";
+                                await forceExpireLeadAction(lead.id);
+                              }}
+                            >
+                              <button type="submit" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ background: "rgba(100,116,139,0.12)", color: "#64748B", border: "1px solid rgba(100,116,139,0.2)" }}>
+                                <Clock size={10} /> Expire
+                              </button>
+                            </form>
+                            <form
+                              action={async () => {
+                                "use server";
+                                await forceRadiusExpandAction(lead.id);
+                              }}
+                            >
+                              <button type="submit" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ background: "rgba(34,197,94,0.1)", color: "#22C55E", border: "1px solid rgba(34,197,94,0.2)" }}>
+                                <Maximize2 size={10} /> +5 km
+                              </button>
+                            </form>
+                          </>
+                        )}
+                        <form
+                          action={async () => {
+                            "use server";
+                            await adminDeleteLeadAction(lead.id);
+                          }}
                         >
-                          <RefreshCw size={10} /> View Parent
-                        </Link>
-                      )}
+                          <button type="submit" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ background: "rgba(239,68,68,0.08)", color: "#94A3B8", border: "1px solid #1E293B" }}>
+                            <Trash2 size={10} /> Delete
+                          </button>
+                        </form>
+                        {!isOpen && (
+                          <Link
+                            href={`/admin/users?q=${lead.parentProfile.user.email}`}
+                            className="flex items-center gap-1 text-xs" style={{ color: "#334155" }}
+                          >
+                            <RefreshCw size={10} /> View Parent
+                          </Link>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

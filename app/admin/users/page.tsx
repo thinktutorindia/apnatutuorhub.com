@@ -11,7 +11,12 @@ import {
   UserX,
   ChevronRight,
 } from "lucide-react";
-import { suspendUserAction, reactivateUserAction } from "@/app/actions/admin.actions";
+import {
+  suspendUserAction,
+  reactivateUserAction,
+  adminResetUserPasswordAction,
+  adminDeleteUserAction,
+} from "@/app/actions/admin.actions";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportUsersCsv } from "@/app/actions/analytics.actions";
 
@@ -237,7 +242,7 @@ export default async function AdminUsersPage({
                         {new Date(u.createdAt).toLocaleDateString("en-IN")}
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {u.isActive ? (
                             <form
                               action={async () => {
@@ -269,6 +274,41 @@ export default async function AdminUsersPage({
                               </button>
                             </form>
                           )}
+                          <Link
+                            href={`/admin/users/${u.id}/edit`}
+                            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
+                            style={{ background: "rgba(59,130,246,0.12)", color: "#3B82F6", border: "1px solid rgba(59,130,246,0.2)" }}
+                          >
+                            Edit
+                          </Link>
+                          <form
+                            action={async () => {
+                              "use server";
+                              await adminResetUserPasswordAction(u.id);
+                            }}
+                          >
+                            <button
+                              type="submit"
+                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
+                              style={{ background: "rgba(245,158,11,0.12)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.2)" }}
+                            >
+                              Reset Pwd
+                            </button>
+                          </form>
+                          <form
+                            action={async () => {
+                              "use server";
+                              await adminDeleteUserAction(u.id);
+                            }}
+                          >
+                            <button
+                              type="submit"
+                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
+                              style={{ background: "rgba(239,68,68,0.08)", color: "#64748B", border: "1px solid #1E293B" }}
+                            >
+                              Delete
+                            </button>
+                          </form>
                           {u.tutorProfile && (
                             <Link
                               href={`/tutor/${u.id}`}

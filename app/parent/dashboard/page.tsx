@@ -23,7 +23,16 @@ export default async function ParentDashboardPage() {
     redirect("/login");
   }
 
-  const parentProfile = await prisma.parentProfile.findUnique({
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  });
+
+  if (!dbUser) {
+    redirect("/login");
+  }
+
+  let parentProfile = await prisma.parentProfile.findUnique({
     where: { userId: session.user.id },
     select: {
       id: true,
@@ -50,7 +59,20 @@ export default async function ParentDashboardPage() {
   });
 
   if (!parentProfile) {
-    redirect("/login");
+    try {
+      const created = await prisma.parentProfile.create({
+        data: { userId: session.user.id },
+      });
+      parentProfile = {
+        id: created.id,
+        city: null,
+        pincode: null,
+        _count: { students: 0, leads: 0 },
+        leads: [],
+      };
+    } catch {
+      redirect("/login");
+    }
   }
 
   const [openRequirements, totalApplicants] = await Promise.all([

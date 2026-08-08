@@ -13,6 +13,8 @@ const PUBLIC_ROUTES = [
   "/login",
   "/register",
   "/forgot-password",
+  "/reset-password",
+  "/select-role",
   "/api/auth",
   "/api/webhooks",
 ];

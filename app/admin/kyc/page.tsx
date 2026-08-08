@@ -27,6 +27,12 @@ export default async function AdminKycPage({
   const params = await searchParams;
   const statusFilter = (params.status as "PENDING" | "APPROVED" | "REJECTED") ?? "PENDING";
 
+  const [pendingCount, approvedCount, rejectedCount] = await Promise.all([
+    prisma.tutorProfile.count({ where: { kycStatus: "PENDING" } }),
+    prisma.tutorProfile.count({ where: { kycStatus: "APPROVED" } }),
+    prisma.tutorProfile.count({ where: { kycStatus: "REJECTED" } }),
+  ]);
+
   const tutors = await prisma.tutorProfile.findMany({
     where: { kycStatus: statusFilter },
     orderBy: { updatedAt: "asc" },
@@ -47,10 +53,10 @@ export default async function AdminKycPage({
     })
   );
 
-  const STATUS_TABS: { label: string; value: string; color: string }[] = [
-    { label: "Pending", value: "PENDING", color: "#F59E0B" },
-    { label: "Approved", value: "APPROVED", color: "#22C55E" },
-    { label: "Rejected", value: "REJECTED", color: "#EF4444" },
+  const STATUS_TABS: { label: string; value: string; color: string; count: number }[] = [
+    { label: "Pending", value: "PENDING", color: "#F59E0B", count: pendingCount },
+    { label: "Approved", value: "APPROVED", color: "#22C55E", count: approvedCount },
+    { label: "Rejected", value: "REJECTED", color: "#EF4444", count: rejectedCount },
   ];
 
   return (
@@ -78,7 +84,7 @@ export default async function AdminKycPage({
                 : { background: "#0F172A", color: "#475569", border: "1px solid #1E293B" }
             }
           >
-            {tab.label}
+            {tab.label} ({tab.count})
           </a>
         ))}
       </div>

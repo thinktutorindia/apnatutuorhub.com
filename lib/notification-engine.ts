@@ -115,15 +115,15 @@ async function dispatchNotification(
   let userEmail: string | null = null;
 
   if (channel !== "WEB") {
-    // If it's a chat message, check if recipient already read it
+    // For chat messages, suppress external notification if already read.
+    // We check immediately (no delay) — if read between creation and dispatch
+    // the notification is safely suppressed.
     const notification = await prisma.notification.findUnique({
       where: { id: notificationId },
       select: { type: true, metadata: true },
     });
 
     if (notification?.type === "NEW_CHAT_MESSAGE") {
-      await new Promise((resolve) => setTimeout(resolve, 4000));
-      
       const messageId = (notification.metadata as { messageId?: string })?.messageId;
       if (messageId) {
         const msg = await prisma.message.findUnique({
@@ -131,7 +131,7 @@ async function dispatchNotification(
           select: { isRead: true },
         });
         if (msg?.isRead) {
-          console.info(`[notification-engine] Suppression: message ${messageId} is read. Skipping ${channel} delivery.`);
+          console.info(`[notification-engine] Suppression: message ${messageId} already read. Skipping ${channel} delivery.`);
           return;
         }
       }

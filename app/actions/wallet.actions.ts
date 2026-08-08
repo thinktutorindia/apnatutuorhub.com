@@ -59,7 +59,10 @@ export async function createCoinOrderAction(
   try {
     // Razorpay receipt length MUST be <= 40 characters
     const receipt = `rcpt_${Date.now()}_${tutorProfile.id.slice(-8)}`;
-    const orderResult = await createRazorpayOrder(pkg.priceInPaise, receipt);
+    const orderResult = await createRazorpayOrder(pkg.priceInPaise, receipt, {
+      tutorProfileId: tutorProfile.id,
+      packageId,
+    });
 
     return actionSuccess({
       ...orderResult,
@@ -185,10 +188,18 @@ export async function creditCoinsToWallet(
       });
 
       return wallet;
-    });
+    }, { timeout: 15000, maxWait: 10000 });
 
     return actionSuccess({ newBalance: result.balance });
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    if (err?.code === "P2002" || err?.message?.includes("Unique constraint")) {
+      const wallet = await prisma.wallet.findUnique({
+        where: { tutorProfileId },
+        select: { balance: true },
+      });
+      return actionSuccess({ newBalance: wallet?.balance ?? 0 });
+    }
     console.error("[wallet] creditCoinsToWallet error", { tutorProfileId, error });
     return actionError("Failed to credit coins. Please contact support.");
   }

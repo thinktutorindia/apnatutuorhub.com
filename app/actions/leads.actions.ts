@@ -85,6 +85,8 @@ function readPreferencesForm(formData: FormData) {
 // Create Requirement
 // ────────────────────────────────────────────────
 
+import { checkRateLimit } from "@/lib/security-audit";
+
 export async function createRequirementAction(
   _prevState: RequirementState,
   formData: FormData
@@ -97,6 +99,12 @@ export async function createRequirementAction(
 
   const auth = await resolveParentContext();
   if (!auth.ok) return auth.result;
+
+  // Rate limiting guard: max 5 lead postings per minute per parent
+  const { allowed } = await checkRateLimit(`post_lead:${auth.context.userId}`, 5);
+  if (!allowed) {
+    return actionError("You are posting requirements too quickly. Please wait a minute.");
+  }
 
   const input = parsed.data;
 
@@ -450,28 +458,68 @@ export async function purchaseLeadAction(
   // before the first decrement committed, causing negative wallet balances.
   // Now the check and decrement happen atomically within the same transaction.
 
-  // Atomic 7-step transaction with in-transaction balance guard
+  // Atomic transaction with database-level balance and capacity guards
   const result = await prisma.$transaction(async (tx) => {
-    // Re-fetch wallet inside transaction for accurate balance
-    const lockedWallet = await tx.wallet.findUnique({
-      where: { tutorProfileId },
-      select: { id: true, balance: true },
-    });
-
-    if (!lockedWallet || lockedWallet.balance < lead.coinCost) {
-      throw new Error(
-        `Insufficient coins. You have ${lockedWallet?.balance ?? 0} coins but this lead costs ${lead.coinCost}.`
-      );
-    }
-
-    const updatedWallet = await tx.wallet.update({
-      where: { tutorProfileId },
+    // 1. Atomic Wallet Balance Guard: Decrement balance ONLY if balance >= coinCost
+    const walletUpdate = await tx.wallet.updateMany({
+      where: {
+        tutorProfileId,
+        balance: { gte: lead.coinCost },
+      },
       data: {
         balance: { decrement: lead.coinCost },
         totalSpent: { increment: lead.coinCost },
       },
     });
 
+    if (walletUpdate.count === 0) {
+      throw new Error(`INSUFFICIENT_COINS: Insufficient balance to purchase lead.`);
+    }
+
+    const updatedWallet = await tx.wallet.findUniqueOrThrow({
+      where: { tutorProfileId },
+      select: { id: true, balance: true },
+    });
+
+    // 2. Atomic Lead Capacity Guard: Increment purchaseCount ONLY if purchaseCount < maxTutors and active
+    const leadUpdate = await tx.lead.updateMany({
+      where: {
+        id: leadId,
+        purchaseCount: { lt: lead.maxTutors },
+        status: { notIn: ["CLOSED", "EXPIRED", "COMPLETED"] },
+      },
+      data: {
+        purchaseCount: { increment: 1 },
+      },
+    });
+
+    if (leadUpdate.count === 0) {
+      throw new Error(`LEAD_CAPACITY_REACHED: Lead max capacity reached.`);
+    }
+
+    const updatedLead = await tx.lead.findUniqueOrThrow({
+      where: { id: leadId },
+      select: { id: true, purchaseCount: true, maxTutors: true, status: true },
+    });
+
+    if (updatedLead.purchaseCount >= updatedLead.maxTutors && updatedLead.status !== "APPLICATIONS_RECEIVED") {
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { status: "APPLICATIONS_RECEIVED" },
+      });
+    } else if (updatedLead.status === "ACTIVE") {
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { status: "MATCHING" },
+      });
+    }
+
+    // 3. Record purchase (fails if duplicate tutor+lead due to @@unique([leadId, tutorProfileId]))
+    const purchase = await tx.leadPurchase.create({
+      data: { leadId, tutorProfileId, coinsSpent: lead.coinCost },
+    });
+
+    // 4. Record wallet transaction (fails if duplicate (walletId, referenceId, type) due to @@unique([walletId, referenceId, type]))
     await tx.walletTransaction.create({
       data: {
         walletId: updatedWallet.id,
@@ -483,39 +531,32 @@ export async function purchaseLeadAction(
       },
     });
 
-    const purchase = await tx.leadPurchase.create({
-      data: { leadId, tutorProfileId, coinsSpent: lead.coinCost },
-    });
-
-    const newPurchaseCount = lead.purchaseCount + 1;
-    const newStatus =
-      newPurchaseCount >= lead.maxTutors
-        ? "APPLICATIONS_RECEIVED"
-        : lead.status === "ACTIVE"
-          ? "MATCHING"
-          : lead.status;
-
-    await tx.lead.update({
-      where: { id: leadId },
-      data: {
-        purchaseCount: { increment: 1 },
-        ...(newStatus !== lead.status ? { status: newStatus } : {}),
-      },
-    });
-
     return purchase;
-  }).catch((err: Error) => {
-    // Surface in-transaction balance errors as ActionResult errors
-    if (err.message.startsWith("Insufficient coins")) {
-      return null;
+  }, { timeout: 15000, maxWait: 10000 }).catch((err: Error) => {
+    if (err.message.startsWith("INSUFFICIENT_COINS")) {
+      return { errorType: "INSUFFICIENT_COINS" as const };
+    }
+    if (err.message.startsWith("LEAD_CAPACITY_REACHED")) {
+      return { errorType: "LEAD_CAPACITY_REACHED" as const };
     }
     throw err;
   });
 
-  if (!result) {
-    return actionError(
-      `Insufficient coins. This lead costs ${lead.coinCost} coins. Please top up your wallet.`
-    );
+  if (result && "errorType" in result) {
+    if (result.errorType === "INSUFFICIENT_COINS") {
+      return actionError(
+        `Insufficient coins. You need ${lead.coinCost} coins to unlock this lead. Please top up your wallet.`
+      );
+    }
+    if (result.errorType === "LEAD_CAPACITY_REACHED") {
+      return actionError(
+        "This lead has reached its maximum capacity of tutors."
+      );
+    }
+  }
+
+  if (!result || !("id" in result)) {
+    return actionError("Failed to purchase lead. Please try again.");
   }
 
   revalidatePath("/tutor/leads");

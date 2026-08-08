@@ -67,34 +67,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
-  // ── 4. Match package by amount ─────────────────────────────────────────────
-  const pkg = COIN_PACKAGES.find((p) => p.priceInPaise === amountPaise);
+  // ── 4. Match package by notes or amount ───────────────────────────────────
+  const notes = paymentEntity.notes as Record<string, string> | undefined;
+  const packageIdFromNotes = notes?.packageId;
+  const pkg =
+    (packageIdFromNotes ? COIN_PACKAGES.find((p) => p.id === packageIdFromNotes) : null) ??
+    COIN_PACKAGES.find((p) => p.priceInPaise === amountPaise);
 
   if (!pkg) {
-    console.error("[razorpay-webhook] Unknown amount", { amountPaise, orderId });
+    console.error("[razorpay-webhook] Unknown package", { packageIdFromNotes, amountPaise, orderId });
     return NextResponse.json({ error: "Unknown package amount" }, { status: 400 });
   }
 
-  // ── 5. Find the tutor via order receipt prefix ─────────────────────────────
-  // Receipt format: coins_{tutorProfileId}_{timestamp}
-  // We look up the latest pending order with matching orderId — or fall back to
-  // receipt parsing once Razorpay returns the receipt on the payment entity.
-
-  const notes = paymentEntity.notes as Record<string, string> | undefined;
-  const tutorProfileIdFromNotes = notes?.tutorProfileId;
-
-  // Fallback: scan recent wallet transactions for the order (Phase 9 adds notes)
-  let tutorProfileId = tutorProfileIdFromNotes;
-
-  if (!tutorProfileId) {
-    // Parse from description if we stored orderId in a temp lookup.
-    // For now, check all wallet objects where we stored the orderId in referenceId.
-    const tempTx = await prisma.walletTransaction.findFirst({
-      where: { referenceId: orderId, amount: 0 },
-      select: { wallet: { select: { tutorProfileId: true } } },
-    });
-    tutorProfileId = tempTx?.wallet?.tutorProfileId;
-  }
+  // ── 5. Resolve tutor profile ──────────────────────────────────────────────
+  const tutorProfileId = notes?.tutorProfileId;
 
   if (!tutorProfileId) {
     console.error("[razorpay-webhook] Cannot resolve tutor for order", { orderId });

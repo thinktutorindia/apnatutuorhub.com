@@ -22,7 +22,16 @@ export default async function TutorDashboardPage() {
     redirect("/login");
   }
 
-  const tutorProfile = await prisma.tutorProfile.findUnique({
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  });
+
+  if (!dbUser) {
+    redirect("/login");
+  }
+
+  let tutorProfile = await prisma.tutorProfile.findUnique({
     where: { userId: session.user.id },
     include: {
       wallet: { select: { balance: true, totalSpent: true } },
@@ -30,6 +39,27 @@ export default async function TutorDashboardPage() {
       _count: { select: { purchases: true, reviews: true, bookings: true } },
     },
   });
+
+  if (!tutorProfile) {
+    try {
+      const created = await prisma.tutorProfile.create({
+        data: { userId: session.user.id },
+      });
+      await prisma.wallet.create({
+        data: { tutorProfileId: created.id },
+      });
+      tutorProfile = await prisma.tutorProfile.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          wallet: { select: { balance: true, totalSpent: true } },
+          availability: true,
+          _count: { select: { purchases: true, reviews: true, bookings: true } },
+        },
+      });
+    } catch {
+      redirect("/login");
+    }
+  }
 
   const walletBalance = tutorProfile?.wallet?.balance ?? 0;
   const kycStatus = tutorProfile?.kycStatus ?? "NOT_SUBMITTED";

@@ -1,8 +1,9 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/security-audit";
 import {
   generatePresignedUploadUrl,
-  isS3Configured,
+  isStorageConfigured,
   kycObjectKey,
   certObjectKey,
   ALLOWED_MIME_TYPES,
@@ -20,6 +21,15 @@ export async function POST(request: Request) {
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  }
+
+  // Rate limiting guard: max 10 presigned URL requests per minute
+  const { allowed } = await checkRateLimit(`upload:${session.user.id}`, 10);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many upload requests. Please wait a minute before trying again." },
+      { status: 429 }
+    );
   }
 
   let body: unknown;
@@ -47,7 +57,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isS3Configured()) {
+  if (!isStorageConfigured()) {
     return NextResponse.json(
       { error: "File uploads are not configured on this server yet." },
       { status: 503 }
@@ -107,21 +117,18 @@ export async function POST(request: Request) {
 
   try {
     const result = await generatePresignedUploadUrl(objectKey, mimeType);
-    const region = process.env.AWS_REGION ?? "ap-south-1";
-    const bucket = process.env.AWS_S3_BUCKET_NAME ?? "";
-    const fileUrl = `https://${bucket}.s3.${region}.amazonaws.com/${result.objectKey}`;
 
     return NextResponse.json({
       uploadUrl: result.uploadUrl,
       objectKey: result.objectKey,
-      fileUrl,
+      fileUrl: result.objectKey,
       maxBytes: MAX_UPLOAD_BYTES,
       expiresInSeconds: result.expiresInSeconds,
     });
   } catch (error) {
     console.error("[presigned-url] error generating URL", error);
     return NextResponse.json(
-      { error: "Could not generate upload URL. Check AWS configuration." },
+      { error: "Could not generate upload URL. Check Supabase Storage configuration." },
       { status: 500 }
     );
   }

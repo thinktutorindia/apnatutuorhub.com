@@ -198,6 +198,13 @@ export const registerSchema = z.object({
   role: z.enum(["PARENT", "TUTOR"], {
     required_error: "Please select a role",
   }),
+  referralCode: z
+    .string()
+    .min(3, "Referral code must be at least 3 characters")
+    .max(12, "Referral code is too long")
+    .toUpperCase()
+    .optional()
+    .or(z.literal("")),
 });
 
 // ────────────────────────────────────────────────

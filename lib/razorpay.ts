@@ -91,7 +91,8 @@ export type RazorpayOrderResult = {
 
 export async function createRazorpayOrder(
   amountInPaise: number,
-  receiptId: string
+  receiptId: string,
+  notes?: Record<string, string>
 ): Promise<RazorpayOrderResult> {
   const client = getRazorpayClient();
 
@@ -99,6 +100,7 @@ export async function createRazorpayOrder(
     amount: amountInPaise,
     currency: "INR",
     receipt: receiptId,
+    notes: notes ?? {},
   });
 
   return {

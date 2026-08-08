@@ -15,6 +15,7 @@ export const PERMISSIONS = [
   // Sub-admin department permissions
   "users:read",
   "users:suspend",
+  "users:manage",
   "leads:manage",
   "leads:read",
   "wallets:manage",
@@ -43,6 +44,7 @@ const PERMISSION_MATRIX: Record<RbacRole, readonly Permission[]> = {
   SUPPORT: [
     "users:read",         // View user search / contact details
     "users:suspend",      // Suspend/reactivate user accounts
+    "users:manage",
     "leads:read",         // View active lead feed for support context
     "audit:read",         // Read audit logs (read-only)
   ],
@@ -98,10 +100,10 @@ export function getAllowedPermissions(subject: RbacSubject): readonly Permission
 
 // Helper: map sub-admin role to sidebar-visible modules
 export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
-  SUPPORT: ["/admin/dashboard", "/admin/users", "/admin/audit-logs"],
+  SUPPORT: ["/admin/dashboard", "/admin/users", "/admin/bookings", "/admin/reviews", "/admin/audit-logs"],
   VERIFICATION: ["/admin/dashboard", "/admin/kyc", "/admin/users", "/admin/audit-logs"],
   FINANCE: ["/admin/dashboard", "/admin/wallets", "/admin/audit-logs"],
-  OPERATIONS: ["/admin/dashboard", "/admin/leads", "/admin/users", "/admin/audit-logs"],
+  OPERATIONS: ["/admin/dashboard", "/admin/leads", "/admin/bookings", "/admin/users", "/admin/audit-logs"],
   MARKETING: ["/admin/dashboard", "/admin/settings", "/admin/coupons", "/admin/notifications/broadcast", "/admin/audit-logs"],
   SUPER_ADMIN: [], // Empty means all routes are accessible
 };

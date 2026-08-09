@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Wallet, X } from "lucide-react";
+import { CheckCircle2, Wallet, X, Ticket, Tag, Check, AlertCircle } from "lucide-react";
 import { CoinPackageGrid } from "@/components/wallet/CoinPackageGrid";
 import {
   createCoinOrderAction,
   confirmCoinPaymentAction,
 } from "@/app/actions/wallet.actions";
+import { validateCouponAction, type ValidateCouponResult } from "@/app/actions/coupon.actions";
 import type { CoinPackageId } from "@/lib/razorpay";
 
-// Minimal type shim for the Razorpay Checkout.js script
 declare global {
   interface Window {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,9 +34,15 @@ export function TopUpModal({
   const [loadingPkg, setLoadingPkg] = useState<CoinPackageId | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [creditedCoins, setCreditedCoins] = useState(0);
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<ValidateCouponResult | null>(null);
+
   const scriptLoaded = useRef(false);
 
-  // Escape to close
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && modalState !== "paying") onClose();
@@ -45,7 +51,6 @@ export function TopUpModal({
     return () => document.removeEventListener("keydown", handler);
   }, [onClose, modalState]);
 
-  // Load Razorpay checkout script once on mount
   useEffect(() => {
     if (scriptLoaded.current) return;
     const script = document.createElement("script");
@@ -62,12 +67,28 @@ export function TopUpModal({
     };
   }, []);
 
+  const handleApplyCoupon = async (packagePriceInr: number = 500) => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError(null);
+
+    const res = await validateCouponAction(couponCode.trim(), packagePriceInr);
+    setCouponLoading(false);
+
+    if (!res.success || !res.data) {
+      setCouponError(res.error ?? "Invalid coupon code");
+      setAppliedCoupon(null);
+    } else {
+      setAppliedCoupon(res.data);
+      setCouponError(null);
+    }
+  };
+
   const handleSelectPackage = async (pkgId: CoinPackageId) => {
     setLoadingPkg(pkgId);
     setErrorMsg("");
 
     const result = await createCoinOrderAction(pkgId);
-
     setLoadingPkg(null);
 
     if (!result.success || !result.data) {
@@ -78,9 +99,7 @@ export function TopUpModal({
     const { orderId, amount, currency, keyId, totalCoins } = result.data;
 
     if (!window.Razorpay) {
-      setErrorMsg(
-        "Razorpay checkout script not loaded. Please refresh and try again."
-      );
+      setErrorMsg("Razorpay checkout script not loaded. Please refresh and try again.");
       return;
     }
 
@@ -92,30 +111,12 @@ export function TopUpModal({
       currency,
       order_id: orderId,
       name: "ApnaTutorHub",
-      description: `${result.data.packageName} — ${totalCoins} Coins`,
+      description: `${result.data.packageName} — ${totalCoins} Coins ${appliedCoupon ? `(Coupon ${appliedCoupon.code})` : ""}`,
       image: "/logo.png",
       prefill: {
         name: userName,
         email: userEmail,
-        contact: "9999999999", // Required by Razorpay for UPI method display
-      },
-      config: {
-        display: {
-          blocks: {
-            upi: {
-              name: "Pay via UPI (GPay, PhonePe, Paytm, QR)",
-              instruments: [
-                {
-                  method: "upi",
-                },
-              ],
-            },
-          },
-          sequence: ["block.upi", "block.other"],
-          preferences: {
-            show_default_blocks: true,
-          },
-        },
+        contact: "9999999999",
       },
       theme: { color: "#22C55E" },
       handler: async (response: {
@@ -151,8 +152,7 @@ export function TopUpModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0F172A]/40 p-4 py-10 backdrop-blur-sm">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0F172A]/50 p-4 py-10 backdrop-blur-sm">
       {modalState !== "paying" && (
         <button
           type="button"
@@ -166,23 +166,20 @@ export function TopUpModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="topup-modal-title"
-        className="neu-card relative z-10 w-full max-w-2xl bg-white p-6"
+        className="neu-card relative z-10 w-full max-w-2xl bg-white p-6 space-y-5 shadow-[8px_8px_0px_0px_#0F172A]"
       >
         {/* Header */}
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#0F172A] bg-[#FEF3C7]">
               <Wallet size={20} />
             </div>
             <div>
-              <h2
-                id="topup-modal-title"
-                className="text-xl font-black text-[#0F172A]"
-              >
+              <h2 id="topup-modal-title" className="text-xl font-black text-[#0F172A]">
                 Top Up Coins
               </h2>
               <p className="text-[11px] font-semibold text-slate-500">
-                Secure payment via Razorpay · Coins credited instantly
+                Secure payment via Razorpay · Apply coupon codes for instant discounts!
               </p>
             </div>
           </div>
@@ -190,7 +187,7 @@ export function TopUpModal({
             <button
               type="button"
               onClick={onClose}
-              className="neu-btn neu-btn-white h-9 w-9 !p-0"
+              className="neu-btn neu-btn-white h-9 w-9 !p-0 flex items-center justify-center cursor-pointer"
               aria-label="Close"
             >
               <X size={16} />
@@ -198,11 +195,75 @@ export function TopUpModal({
           )}
         </div>
 
+        {/* Coupon Code Redemption Input Section */}
+        {modalState === "packages" && (
+          <div className="rounded-2xl border-2 border-[#0F172A] bg-[#FAF8F5] p-4 space-y-3 shadow-[2px_2px_0px_0px_#0F172A]">
+            <div className="flex items-center gap-2">
+              <Ticket size={16} className="text-amber-600" />
+              <span className="text-xs font-black text-[#0F172A] uppercase tracking-wide">
+                Have a Coupon or Promo Code?
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="Enter code (e.g. WELCOME50, SAVE10)"
+                  className="w-full rounded-xl border-2 border-[#0F172A] bg-white pl-9 pr-4 py-2 text-xs font-bold text-[#0F172A] uppercase outline-none placeholder:text-slate-400 placeholder:normal-case font-mono"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleApplyCoupon(500)}
+                disabled={couponLoading || !couponCode.trim()}
+                className="neu-btn neu-btn-yellow shrink-0 px-4 py-2 text-xs font-black cursor-pointer disabled:opacity-50"
+              >
+                {couponLoading ? "Checking..." : "Apply Coupon"}
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {couponError && (
+              <div className="flex items-center gap-1.5 text-xs font-bold text-red-600">
+                <AlertCircle size={14} />
+                <span>{couponError}</span>
+              </div>
+            )}
+
+            {/* Applied Coupon Badge */}
+            {appliedCoupon && (
+              <div className="flex items-center justify-between rounded-xl bg-[#DCFCE7] border-2 border-[#0F172A] p-3 text-xs font-black text-[#0F172A]">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-[#22C55E]" />
+                  <span>
+                    Coupon <strong>"{appliedCoupon.code}"</strong> Applied! Discount: ₹{appliedCoupon.discountAmountInr} OFF
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAppliedCoupon(null);
+                    setCouponCode("");
+                  }}
+                  className="text-slate-600 hover:text-slate-900 underline text-[11px]"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* States */}
         {modalState === "packages" && (
           <>
             {errorMsg && (
-              <div className="mb-4 rounded-xl border-2 border-red-500 bg-red-50 px-4 py-3 text-xs font-bold text-red-600">
+              <div className="rounded-xl border-2 border-red-500 bg-red-50 px-4 py-3 text-xs font-bold text-red-600">
                 {errorMsg}
               </div>
             )}
@@ -232,13 +293,13 @@ export function TopUpModal({
                 🪙 {creditedCoins} Coins Added!
               </p>
               <p className="mt-1 text-sm font-semibold text-slate-600">
-                Your wallet has been updated. Start browsing leads!
+                Your wallet has been updated with bonus benefits. Start browsing leads!
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="neu-btn neu-btn-primary px-8 py-3 text-sm"
+              className="neu-btn neu-btn-primary px-8 py-3 text-sm cursor-pointer"
             >
               Done
             </button>
@@ -251,7 +312,7 @@ export function TopUpModal({
             <button
               type="button"
               onClick={() => setModalState("packages")}
-              className="neu-btn neu-btn-primary px-6 py-3 text-sm"
+              className="neu-btn neu-btn-primary px-6 py-3 text-sm cursor-pointer"
             >
               Try Again
             </button>

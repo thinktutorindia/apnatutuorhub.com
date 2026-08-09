@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { createCouponAction, toggleCouponActiveAction, deleteCouponAction } from "@/app/actions/coupon.actions";
 import { CouponActions } from "@/components/admin/CouponActions";
+import { CreateCouponForm } from "@/components/admin/CreateCouponForm";
 import { Ticket, Plus, CheckCircle, XCircle, Trash2, Power, Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -42,121 +43,8 @@ export default async function AdminCouponsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Create Coupon Form */}
-        <div
-          className="rounded-2xl p-6 lg:col-span-1"
-          style={{ background: "#0F172A", border: "1px solid #1E293B" }}
-        >
-          <div className="mb-5 flex items-center gap-2">
-            <Plus size={18} style={{ color: "#22C55E" }} />
-            <h2 className="text-base font-semibold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              Create New Coupon
-            </h2>
-          </div>
-
-          <form
-            action={async (formData: FormData) => {
-              "use server";
-              await createCouponAction(formData);
-            }}
-            className="space-y-4"
-          >
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-white">Coupon Code</label>
-              <input
-                name="code"
-                type="text"
-                required
-                placeholder="e.g. WELCOME20 or FLAT100"
-                className="w-full rounded-xl px-4 py-2.5 text-sm uppercase text-white placeholder-slate-600 outline-none"
-                style={{ background: "#1E293B", border: "1px solid #334155", fontFamily: "'Fira Code', monospace" }}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">Type</label>
-                <select
-                  name="discountType"
-                  className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                >
-                  <option value="PERCENTAGE">Percentage (%)</option>
-                  <option value="FLAT">Flat Rate (₹)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">Discount</label>
-                <input
-                  name="discountAmount"
-                  type="number"
-                  step="any"
-                  required
-                  placeholder="20 (for 20% or ₹20)"
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">
-                  Max Cap (₹) <span className="text-slate-500">(pct only)</span>
-                </label>
-                <input
-                  name="maxDiscountInr"
-                  type="number"
-                  placeholder="e.g. 200"
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">Min Order (₹)</label>
-                <input
-                  name="minOrderInr"
-                  type="number"
-                  placeholder="e.g. 500"
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">Usage Limit</label>
-                <input
-                  name="usageLimit"
-                  type="number"
-                  placeholder="e.g. 100"
-                  className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-white">Expiry Date</label>
-                <input
-                  name="expiresAt"
-                  type="date"
-                  className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
-                  style={{ background: "#1E293B", border: "1px solid #334155" }}
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
-              style={{ background: "linear-gradient(135deg, #22C55E, #16A34A)", boxShadow: "0 4px 15px rgba(34,197,94,0.3)" }}
-            >
-              <Ticket size={16} />
-              Create Coupon
-            </button>
-          </form>
+        <div className="lg:col-span-1">
+          <CreateCouponForm />
         </div>
 
         {/* Coupons List */}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, BellOff, CheckCircle2, ShieldAlert, Sparkles, X, ArrowRight, Lock } from "lucide-react";
+import { Bell, BellOff, CheckCircle2 } from "lucide-react";
+import { UnblockGuideModal } from "@/components/UnblockGuideModal";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -29,6 +30,12 @@ export function LeadNotifReminderBanner({ userId }: { userId?: string }) {
 
   const handleEnablePush = async () => {
     if (!userId || typeof window === "undefined") return;
+
+    if (permission === "denied" || status === "denied") {
+      setShowGuideModal(true);
+      return;
+    }
+
     setStatus("loading");
 
     try {
@@ -118,7 +125,7 @@ export function LeadNotifReminderBanner({ userId }: { userId?: string }) {
           ) : status === "denied" || permission === "denied" ? (
             <>
               <BellOff size={15} />
-              <span>Unblock Notifications in Browser</span>
+              <span>Permission Denied in Browser — Click for Guide</span>
             </>
           ) : (
             <>
@@ -129,56 +136,8 @@ export function LeadNotifReminderBanner({ userId }: { userId?: string }) {
         </button>
       </div>
 
-      {/* Guide Modal for Unblocking Denied Notifications */}
-      {showGuideModal && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm">
-          <div className="neu-card w-full max-w-md bg-white p-6 space-y-5 shadow-[6px_6px_0px_0px_#0F172A]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Lock size={20} className="text-amber-500" />
-                <h3 className="text-lg font-black text-[#0F172A]">How to Enable Blocked Notifications</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowGuideModal(false)}
-                className="neu-btn neu-btn-white h-8 w-8 !p-0"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <p className="text-xs font-semibold text-slate-700">
-              Your browser is currently blocking notifications for <strong className="text-[#0F172A]">apnatutorhub.com</strong>. Follow these simple steps to allow instant lead alerts:
-            </p>
-
-            <ol className="space-y-3 text-xs font-bold text-[#0F172A] rounded-xl bg-amber-50 p-4 border border-amber-200">
-              <li className="flex items-start gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-[11px] font-black">1</span>
-                <span>Click the 🔒 <strong>Lock Icon</strong> next to the web address at the top left of your browser.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-[11px] font-black">2</span>
-                <span>Toggle <strong>Notifications</strong> to <strong className="text-emerald-700">Allow / ON</strong>.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-[11px] font-black">3</span>
-                <span>Refresh this page to start receiving instant lead alerts!</span>
-              </li>
-            </ol>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowGuideModal(false);
-                window.location.reload();
-              }}
-              className="neu-btn neu-btn-primary w-full py-3 text-xs font-black cursor-pointer"
-            >
-              Refresh Page Now
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Shared Visual Unblock Guide Modal */}
+      <UnblockGuideModal isOpen={showGuideModal} onClose={() => setShowGuideModal(false)} />
     </>
   );
 }

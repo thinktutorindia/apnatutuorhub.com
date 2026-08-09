@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Bell, BellOff, CheckCircle2 } from "lucide-react";
+import { UnblockGuideModal } from "@/components/UnblockGuideModal";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -17,6 +18,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function EnablePushBanner({ userId }: { userId?: string }) {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "denied">("idle");
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -28,6 +30,12 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
 
   const enablePush = async () => {
     if (!userId || typeof window === "undefined") return;
+
+    if (permission === "denied" || status === "denied") {
+      setShowGuide(true);
+      return;
+    }
+
     setStatus("loading");
 
     try {
@@ -42,6 +50,7 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
 
       if (result !== "granted") {
         setStatus("denied");
+        setShowGuide(true);
         return;
       }
 
@@ -86,46 +95,51 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
   }
 
   return (
-    <div className="neu-card flex flex-col items-start justify-between gap-4 bg-[#FFEDD5] border-2 border-[#0F172A] shadow-[4px_4px_0px_0px_#0F172A] p-5 sm:flex-row sm:items-center">
-      <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_0px_#0F172A]">
-          <Bell size={22} className="text-orange-600 animate-bounce" />
-        </div>
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wide">
-              ⚠️ Turn On Notifications to Get Instant Student Leads & Inquiries
-            </h2>
-            <span className="neu-badge bg-red-100 text-red-700 border-red-300 text-[10px] font-extrabold">
-              MUST ENABLE
-            </span>
+    <>
+      <div className="neu-card flex flex-col items-start justify-between gap-4 bg-[#FFEDD5] border-2 border-[#0F172A] shadow-[4px_4px_0px_0px_#0F172A] p-5 sm:flex-row sm:items-center">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_0px_#0F172A]">
+            <Bell size={22} className="text-orange-600 animate-bounce" />
           </div>
-          <p className="text-xs font-semibold text-slate-700 max-w-2xl leading-relaxed">
-            Without notification permission enabled, you will NOT get instant alerts when parents post tuition requirements in your area. Enable now so you never miss student leads!
-          </p>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wide">
+                ⚠️ Turn On Notifications to Get Instant Student Leads & Inquiries
+              </h2>
+              <span className="neu-badge bg-red-100 text-red-700 border-red-300 text-[10px] font-extrabold">
+                MUST ENABLE
+              </span>
+            </div>
+            <p className="text-xs font-semibold text-slate-700 max-w-2xl leading-relaxed">
+              Without notification permission enabled, you will NOT get instant alerts when parents post tuition requirements in your area. Enable now so you never miss student leads!
+            </p>
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={enablePush}
+          disabled={status === "loading"}
+          className="neu-btn neu-btn-primary shrink-0 px-6 py-3.5 text-xs font-black flex items-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A]"
+        >
+          {status === "loading" ? (
+            "Enabling Notifications..."
+          ) : status === "denied" || permission === "denied" ? (
+            <>
+              <BellOff size={15} />
+              <span>Permission Denied in Browser — Click for Guide</span>
+            </>
+          ) : (
+            <>
+              <Bell size={15} />
+              <span>Turn On Notifications Now</span>
+            </>
+          )}
+        </button>
       </div>
 
-      <button
-        type="button"
-        onClick={enablePush}
-        disabled={status === "loading"}
-        className="neu-btn neu-btn-primary shrink-0 px-6 py-3.5 text-xs font-black flex items-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A]"
-      >
-        {status === "loading" ? (
-          "Enabling Notifications..."
-        ) : status === "denied" || permission === "denied" ? (
-          <>
-            <BellOff size={15} />
-            <span>Permission Denied in Browser</span>
-          </>
-        ) : (
-          <>
-            <Bell size={15} />
-            <span>Turn On Notifications Now</span>
-          </>
-        )}
-      </button>
-    </div>
+      {/* Visual Guide Modal */}
+      <UnblockGuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />
+    </>
   );
 }

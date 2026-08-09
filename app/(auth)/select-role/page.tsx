@@ -37,7 +37,7 @@ export default function SelectRolePage() {
           <span>Account Setup</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
-          How do you want to use ThinkTutor? 🤔
+          How do you want to use ApnaTutorHub? 🤔
         </h1>
         <p className="text-sm font-semibold text-slate-600 max-w-sm mx-auto">
           Choose your primary account role below. You can change this anytime later.

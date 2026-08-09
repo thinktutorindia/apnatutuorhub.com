@@ -142,9 +142,12 @@ export function TutorProfilePage({
                 </span>
               </div>
               {profile.kycRejectionNote ? (
-                <p className="text-xs font-bold text-red-600">
-                  Reason: {profile.kycRejectionNote}
-                </p>
+                <div className="mt-1 space-y-1 rounded-xl border border-red-300 bg-red-50 p-2.5 text-xs text-red-900">
+                  <p className="font-black text-red-700 uppercase text-[10px]">
+                    Admin Rejection Reason — Please Re-upload:
+                  </p>
+                  <p className="font-bold">"{profile.kycRejectionNote}"</p>
+                </div>
               ) : (
                 <p className="max-w-lg text-xs font-semibold text-slate-700">
                   {kycConfig.description}
@@ -226,6 +229,7 @@ export function TutorProfilePage({
             kycAddressUrl: profile.kycAddressUrl,
             kycSelfieUrl: profile.kycSelfieUrl,
           }}
+          rejectionNote={profile.kycRejectionNote}
           onClose={() => setKycModalOpen(false)}
         />
       )}

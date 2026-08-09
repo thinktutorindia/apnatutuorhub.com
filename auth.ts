@@ -20,8 +20,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   providers: [
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || process.env.AUTH_GOOGLE_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || process.env.AUTH_GOOGLE_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
       allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
@@ -61,13 +68,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async redirect({ url, baseUrl }) {
       // Determine canonical app origin in production vs local dev
       let canonicalBase = baseUrl;
-      if (process.env.VERCEL_URL) {
-        canonicalBase = `https://${process.env.VERCEL_URL}`;
-      } else if (
+      if (
         process.env.NEXT_PUBLIC_APP_URL &&
         !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")
       ) {
         canonicalBase = process.env.NEXT_PUBLIC_APP_URL;
+      } else if (process.env.AUTH_URL && !process.env.AUTH_URL.includes("localhost")) {
+        canonicalBase = process.env.AUTH_URL;
+      } else if (process.env.VERCEL_URL) {
+        canonicalBase = `https://${process.env.VERCEL_URL}`;
       }
 
       // If callbackUrl is relative (e.g. "/login", "/"), resolve against canonical origin

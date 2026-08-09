@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { createCouponAction, toggleCouponActiveAction, deleteCouponAction } from "@/app/actions/coupon.actions";
+import { CouponActions } from "@/components/admin/CouponActions";
 import { Ticket, Plus, CheckCircle, XCircle, Trash2, Power, Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -237,39 +238,7 @@ export default async function AdminCouponsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    <form
-                      action={async () => {
-                        "use server";
-                        await toggleCouponActiveAction(c.id);
-                      }}
-                    >
-                      <button
-                        type="submit"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg transition-all hover:bg-slate-800"
-                        style={{ color: c.isActive ? "#22C55E" : "#64748B" }}
-                        title={c.isActive ? "Disable Coupon" : "Enable Coupon"}
-                      >
-                        <Power size={14} />
-                      </button>
-                    </form>
-
-                    <form
-                      action={async () => {
-                        "use server";
-                        await deleteCouponAction(c.id);
-                      }}
-                    >
-                      <button
-                        type="submit"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg transition-all hover:bg-red-950 hover:text-red-400"
-                        style={{ color: "#64748B" }}
-                        title="Delete Coupon"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </form>
-                  </div>
+                  <CouponActions couponId={c.id} code={c.code} isActive={c.isActive} />
                 </div>
               ))}
             </div>

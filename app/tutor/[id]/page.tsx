@@ -23,8 +23,8 @@ export async function generateMetadata({
 
   return {
     title: profile?.user.name
-      ? `${profile.user.name} — Tutor | ThinkTutor`
-      : "Tutor Profile | ThinkTutor",
+      ? `${profile.user.name} — Tutor | ApnaTutorHub`
+      : "Tutor Profile | ApnaTutorHub",
   };
 }
 
@@ -77,7 +77,7 @@ export default async function PublicTutorProfilePage({
           className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-600 hover:text-[#22C55E]"
         >
           <ArrowLeft size={15} />
-          Back to ThinkTutor
+          Back to ApnaTutorHub
         </Link>
 
         {/* Hero */}
@@ -294,7 +294,7 @@ export default async function PublicTutorProfilePage({
             Interested in classes with {profile.user.name?.split(" ")[0]}?
           </h2>
           <p className="text-sm font-semibold text-slate-700">
-            Post your tuition requirement on ThinkTutor and get matched with
+            Post your tuition requirement on ApnaTutorHub and get matched with
             verified tutors like {profile.user.name?.split(" ")[0]}.
           </p>
           <Link

@@ -5,7 +5,7 @@ import { calcProfileScore } from "@/lib/profile-score";
 import { TutorProfilePage } from "@/components/tutor/TutorProfilePage";
 
 export const metadata = {
-  title: "Profile & KYC | ThinkTutor",
+  title: "Profile & KYC | ApnaTutorHub",
 };
 
 export default async function TutorProfilePageRoute() {

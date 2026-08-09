@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { WalletPageClient } from "@/components/wallet/WalletPageClient";
 
-export const metadata = { title: "Coin Wallet | ThinkTutor" };
+export const metadata = { title: "Coin Wallet | ApnaTutorHub" };
 
 export default async function TutorWalletPage() {
   const session = await auth();

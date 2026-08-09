@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Star, Search, Trash2, User, MessageSquare } from "lucide-react";
 import { adminDeleteReviewAction } from "@/app/actions/admin.actions";
+import { ReviewDeleteButton } from "@/components/admin/ReviewDeleteButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Review Moderation — Admin" };
@@ -141,16 +142,7 @@ export default async function AdminReviewsPage({
                 </div>
 
                 {/* Delete action */}
-                <form
-                  action={async () => {
-                    "use server";
-                    await adminDeleteReviewAction(rev.id);
-                  }}
-                >
-                  <button type="submit" className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.25)" }}>
-                    <Trash2 size={12} /> Remove Review
-                  </button>
-                </form>
+                <ReviewDeleteButton reviewId={rev.id} />
               </div>
             </div>
           ))

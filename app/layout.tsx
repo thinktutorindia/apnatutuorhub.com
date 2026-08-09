@@ -4,6 +4,7 @@ import { Providers } from "@/components/Providers";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
 import { auth } from "@/auth";
+import { NavigationProgress } from "@/components/NavigationProgress";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -60,6 +61,7 @@ export default async function RootLayout({
       className={`${poppins.variable} ${openSans.variable} h-full`}
     >
       <body>
+        <NavigationProgress />
         <PostHogProvider>
           <Providers>{children}</Providers>
         </PostHogProvider>

@@ -91,7 +91,7 @@ export function TopUpModal({
       amount,
       currency,
       order_id: orderId,
-      name: "ThinkTutor",
+      name: "ApnaTutorHub",
       description: `${result.data.packageName} — ${totalCoins} Coins`,
       image: "/logo.png",
       prefill: {

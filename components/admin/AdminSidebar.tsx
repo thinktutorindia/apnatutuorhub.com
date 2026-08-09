@@ -38,7 +38,7 @@ const ALL_NAV_ITEMS = [
   { label: "Notifications", href: "/admin/notifications/broadcast",         icon: Bell,            roles: ["SUPER_ADMIN", "MARKETING"] },
   { label: "Coupons",       href: "/admin/coupons",                         icon: Ticket,          roles: ["SUPER_ADMIN", "MARKETING"] },
   { label: "Settings",      href: "/admin/settings",                        icon: Settings,        roles: ["SUPER_ADMIN", "MARKETING"] },
-  { label: "Audit Logs",    href: "/admin/audit-logs",                      icon: ClipboardList,   roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"] },
+  { label: "Sub-Admin & Audit Logs", href: "/admin/audit-logs", icon: ClipboardList, roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"] },
   { label: "Sub-Admins",    href: "/admin/sub-admins",                      icon: UserCog,         roles: ["SUPER_ADMIN"] },
 ] as const;
 

@@ -16,6 +16,7 @@ import {
   type RequirementState,
 } from "@/app/actions/leads.actions";
 import { FieldError, FormAlert } from "@/components/ui/FieldError";
+import { ActionOverlay } from "@/components/ui/LoadingState";
 import { OptionPills } from "@/components/ui/OptionPills";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import {
@@ -144,6 +145,11 @@ export function RequirementForm({
 
   return (
     <form action={formAction} className="space-y-6">
+      <ActionOverlay
+        isOpen={isPending}
+        title={leadId ? "Updating Requirement" : "Posting Requirement"}
+        subtitle={leadId ? "Saving updated tuition details..." : "Matching nearby verified tutors for your subject..."}
+      />
       {leadId && <input type="hidden" name="leadId" value={leadId} />}
       <input type="hidden" name="latitude" value={coordinates.latitude} />
       <input type="hidden" name="longitude" value={coordinates.longitude} />

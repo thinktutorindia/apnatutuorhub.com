@@ -14,7 +14,7 @@ import {
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "ThinkTutor — Learn Anything, Anytime, Anywhere!",
+  title: "ApnaTutorHub — Learn Anything, Anytime, Anywhere!",
   description:
     "Find top verified home & online tutors near you. Playful, smart matching for every subject & class.",
 };
@@ -324,7 +324,7 @@ export default async function HomePage() {
               Simple Process
             </div>
             <h2 className="text-3xl md:text-4xl font-black text-[#0F172A]">
-              How ThinkTutor Works
+              How ApnaTutorHub Works
             </h2>
           </div>
 
@@ -388,7 +388,7 @@ export default async function HomePage() {
 
       {/* ── Footer ── */}
       <footer className="pt-12 border-t-2 border-[#0F172A] px-4 max-w-6xl mx-auto text-center font-bold text-sm text-slate-600">
-        <p>© {new Date().getFullYear()} ThinkTutor. Playful & Smart Learning Platform.</p>
+        <p>© {new Date().getFullYear()} ApnaTutorHub. Smart Tutor Matching Platform.</p>
       </footer>
     </div>
   );

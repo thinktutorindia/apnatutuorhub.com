@@ -6,7 +6,7 @@ import { getUserConversations } from "@/lib/chat-service";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Messages | ThinkTutor",
+  title: "Messages | ApnaTutorHub",
 };
 
 export default async function ChatInboxPage() {

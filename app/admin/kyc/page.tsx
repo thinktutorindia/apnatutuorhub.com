@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react";
 import { approveKycAction, rejectKycAction } from "@/app/actions/admin.actions";
+import { KycRowActions } from "@/components/admin/KycRowActions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "KYC Approval Queue — Admin" };
@@ -215,47 +216,8 @@ export default async function AdminKycPage({
 
               {/* Actions */}
               {statusFilter === "PENDING" && (
-                <div className="flex items-center gap-3 px-5 py-4">
-                  <form
-                    action={async () => {
-                      "use server";
-                      await approveKycAction(tutor.id);
-                    }}
-                  >
-                    <button
-                      type="submit"
-                      className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all hover:scale-[1.02] hover:opacity-90"
-                      style={{ background: "#22C55E", color: "#0F172A" }}
-                    >
-                      <ShieldCheck size={14} />
-                      Approve KYC
-                    </button>
-                  </form>
-
-                  <form
-                    action={async (formData: FormData) => {
-                      "use server";
-                      await rejectKycAction(formData);
-                    }}
-                    className="flex flex-1 items-center gap-2"
-                  >
-                    <input type="hidden" name="tutorProfileId" value={tutor.id} />
-                    <input
-                      name="rejectionNote"
-                      required
-                      placeholder="Rejection reason (required)…"
-                      className="flex-1 rounded-xl px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600"
-                      style={{ background: "#1E293B", border: "1px solid #334155" }}
-                    />
-                    <button
-                      type="submit"
-                      className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
-                      style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.25)" }}
-                    >
-                      <ShieldX size={14} />
-                      Reject
-                    </button>
-                  </form>
+                <div className="px-5 py-4 border-t border-[#1E293B]">
+                  <KycRowActions tutorProfileId={tutor.id} tutorName={tutor.user.name || tutor.user.email} />
                 </div>
               )}
             </div>

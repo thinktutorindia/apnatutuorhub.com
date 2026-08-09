@@ -16,6 +16,7 @@ import {
   type AvailabilityState,
 } from "@/app/actions/tutor.actions";
 import { FieldError, FormAlert } from "@/components/ui/FieldError";
+import { ActionOverlay } from "@/components/ui/LoadingState";
 import { OptionPills } from "@/components/ui/OptionPills";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import { AvailabilityGrid } from "@/components/tutor/AvailabilityGrid";
@@ -88,6 +89,17 @@ export function TutorProfileForm({ defaults }: { defaults: Defaults }) {
 
   return (
     <div className="space-y-6">
+      <ActionOverlay
+        isOpen={profilePending}
+        title="Saving Tutor Profile"
+        subtitle="Updating subjects, fees, location, and bio..."
+      />
+      <ActionOverlay
+        isOpen={availPending}
+        title="Saving Availability"
+        subtitle="Updating weekly teaching schedule..."
+      />
+
       {/* ── Profile form ── */}
       <form action={profileAction} className="space-y-6">
         {profileState.error && <FormAlert tone="error" message={profileState.error} />}

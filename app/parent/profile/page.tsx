@@ -6,7 +6,7 @@ import { ParentProfileForm } from "@/components/parent/ParentProfileForm";
 import { StudentProfilesSection } from "@/components/parent/StudentProfilesSection";
 
 export const metadata = {
-  title: "My Profile | ThinkTutor",
+  title: "My Profile | ApnaTutorHub",
 };
 
 export default async function ParentProfilePage() {

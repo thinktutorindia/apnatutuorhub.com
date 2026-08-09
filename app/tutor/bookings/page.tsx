@@ -7,7 +7,7 @@ import BookingCard from "@/components/booking/BookingCard";
 import type { ExistingReview } from "@/app/actions/review.actions";
 
 export const metadata = {
-  title: "My Bookings | ThinkTutor",
+  title: "My Bookings | ApnaTutorHub",
   description: "Track your class bookings, trial sessions, and schedules.",
 };
 

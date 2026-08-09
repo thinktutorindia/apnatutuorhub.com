@@ -19,6 +19,8 @@ import {
 } from "@/app/actions/admin.actions";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportUsersCsv } from "@/app/actions/analytics.actions";
+import { UserRowActions } from "@/components/admin/UserRowActions";
+import { UserFilterBar } from "@/components/admin/UserFilterBar";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "User Management — Admin" };
@@ -33,7 +35,7 @@ const ROLE_COLOR: Record<string, { bg: string; text: string }> = {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; role?: string; status?: string; page?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -41,6 +43,7 @@ export default async function AdminUsersPage({
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const roleFilter = params.role ?? "";
+  const statusFilter = params.status ?? "";
   const page = Math.max(1, Number(params.page ?? 1));
   const take = 20;
   const skip = (page - 1) * take;
@@ -52,11 +55,16 @@ export default async function AdminUsersPage({
           OR: [
             { email: { contains: q, mode: "insensitive" as const } },
             { name: { contains: q, mode: "insensitive" as const } },
-            { phone: { contains: q } },
+            { phone: { contains: q, mode: "insensitive" as const } },
           ],
         }
         : {},
       roleFilter ? { role: roleFilter as "PARENT" | "TUTOR" | "SUPER_ADMIN" | "SUB_ADMIN" } : {},
+      statusFilter === "ACTIVE"
+        ? { isActive: true }
+        : statusFilter === "SUSPENDED"
+          ? { isActive: false }
+          : {},
     ],
   };
 
@@ -107,40 +115,11 @@ export default async function AdminUsersPage({
       </div>
 
       {/* Filters */}
-      <form method="GET" className="mb-6 flex flex-wrap gap-3">
-        <div
-          className="flex flex-1 items-center gap-2 rounded-xl px-3 py-2.5"
-          style={{ background: "#0F172A", border: "1px solid #1E293B", minWidth: "200px" }}
-        >
-          <Search size={14} style={{ color: "#475569" }} />
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Search name, email, phone…"
-            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
-            style={{ fontFamily: "'Fira Sans', sans-serif" }}
-          />
-        </div>
-        <select
-          name="role"
-          defaultValue={roleFilter}
-          className="rounded-xl px-3 py-2.5 text-sm font-medium text-white outline-none"
-          style={{ background: "#0F172A", border: "1px solid #1E293B" }}
-        >
-          <option value="">All Roles</option>
-          <option value="PARENT">Parent</option>
-          <option value="TUTOR">Tutor</option>
-          <option value="SUPER_ADMIN">Super Admin</option>
-          <option value="SUB_ADMIN">Sub Admin</option>
-        </select>
-        <button
-          type="submit"
-          className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:opacity-90"
-          style={{ background: "#22C55E", color: "#0F172A" }}
-        >
-          Search
-        </button>
-      </form>
+      <UserFilterBar
+        initialQ={q}
+        initialRole={roleFilter}
+        initialStatus={statusFilter}
+      />
 
       {/* Table */}
       <div
@@ -242,83 +221,7 @@ export default async function AdminUsersPage({
                         {new Date(u.createdAt).toLocaleDateString("en-IN")}
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {u.isActive ? (
-                            <form
-                              action={async () => {
-                                "use server";
-                                await suspendUserAction(u.id);
-                              }}
-                            >
-                              <button
-                                type="submit"
-                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
-                                style={{ background: "rgba(239,68,68,0.12)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.2)" }}
-                              >
-                                Suspend
-                              </button>
-                            </form>
-                          ) : (
-                            <form
-                              action={async () => {
-                                "use server";
-                                await reactivateUserAction(u.id);
-                              }}
-                            >
-                              <button
-                                type="submit"
-                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
-                                style={{ background: "rgba(34,197,94,0.12)", color: "#22C55E", border: "1px solid rgba(34,197,94,0.2)" }}
-                              >
-                                Reactivate
-                              </button>
-                            </form>
-                          )}
-                          <Link
-                            href={`/admin/users/${u.id}/edit`}
-                            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
-                            style={{ background: "rgba(59,130,246,0.12)", color: "#3B82F6", border: "1px solid rgba(59,130,246,0.2)" }}
-                          >
-                            Edit
-                          </Link>
-                          <form
-                            action={async () => {
-                              "use server";
-                              await adminResetUserPasswordAction(u.id);
-                            }}
-                          >
-                            <button
-                              type="submit"
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
-                              style={{ background: "rgba(245,158,11,0.12)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.2)" }}
-                            >
-                              Reset Pwd
-                            </button>
-                          </form>
-                          <form
-                            action={async () => {
-                              "use server";
-                              await adminDeleteUserAction(u.id);
-                            }}
-                          >
-                            <button
-                              type="submit"
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
-                              style={{ background: "rgba(239,68,68,0.08)", color: "#64748B", border: "1px solid #1E293B" }}
-                            >
-                              Delete
-                            </button>
-                          </form>
-                          {u.tutorProfile && (
-                            <Link
-                              href={`/tutor/${u.id}`}
-                              className="flex items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
-                              style={{ background: "rgba(59,130,246,0.12)", color: "#3B82F6", border: "1px solid rgba(59,130,246,0.2)" }}
-                            >
-                              Profile <ChevronRight size={10} />
-                            </Link>
-                          )}
-                        </div>
+                        <UserRowActions user={u} />
                       </td>
                     </tr>
                   );
@@ -340,7 +243,7 @@ export default async function AdminUsersPage({
             <div className="flex gap-2">
               {page > 1 && (
                 <Link
-                  href={`/admin/users?q=${q}&role=${roleFilter}&page=${page - 1}`}
+                  href={`/admin/users?q=${encodeURIComponent(q)}&role=${roleFilter}&status=${statusFilter}&page=${page - 1}`}
                   className="rounded-lg px-3 py-1.5 text-xs font-semibold"
                   style={{ background: "#1E293B", color: "#94A3B8" }}
                 >
@@ -349,7 +252,7 @@ export default async function AdminUsersPage({
               )}
               {page < totalPages && (
                 <Link
-                  href={`/admin/users?q=${q}&role=${roleFilter}&page=${page + 1}`}
+                  href={`/admin/users?q=${encodeURIComponent(q)}&role=${roleFilter}&status=${statusFilter}&page=${page + 1}`}
                   className="rounded-lg px-3 py-1.5 text-xs font-semibold"
                   style={{ background: "#22C55E", color: "#0F172A" }}
                 >

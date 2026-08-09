@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { RequirementForm } from "@/components/parent/RequirementForm";
 
 export const metadata = {
-  title: "Post a Requirement | ThinkTutor",
+  title: "Post a Requirement | ApnaTutorHub",
 };
 
 export default async function PostRequirementPage() {

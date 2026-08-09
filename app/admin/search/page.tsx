@@ -5,7 +5,7 @@ import { reindexSearchEngineAction } from "@/app/actions/search.actions";
 import { Search, Database, Cpu, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
 
 export const metadata = {
-  title: "Search Engine Control Panel | ThinkTutor Admin",
+  title: "Search Engine Control Panel | ApnaTutorHub Admin",
 };
 
 export default async function AdminSearchPage() {

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
 
-export const metadata = { title: "Lead Feed | ThinkTutor" };
+export const metadata = { title: "Lead Feed | ApnaTutorHub" };
 
 export default async function TutorLeadsPage() {
   const session = await auth();

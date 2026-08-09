@@ -22,7 +22,7 @@ import {
 } from "@/lib/validations";
 
 export const metadata = {
-  title: "My Requirements | ThinkTutor",
+  title: "My Requirements | ApnaTutorHub",
 };
 
 const CLOSED_STATUSES = new Set<LeadStatusKey>([

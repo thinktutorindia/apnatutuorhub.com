@@ -11,6 +11,7 @@ import {
 } from "@/lib/action-result";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { createNotification } from "@/lib/notification-engine";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins
@@ -37,7 +38,7 @@ async function requireSuperAdmin() {
 export async function suspendUserAction(
   userId: string
 ): Promise<ActionResult<{ updated: true }>> {
-  const { error, session } = await requireSuperAdmin();
+  const { error, session } = await requirePermission("users:suspend");
   if (error) return actionError(error);
 
   await prisma.$transaction(async (tx) => {
@@ -52,6 +53,15 @@ export async function suspendUserAction(
     });
   });
 
+  await createNotification({
+    userId,
+    type: "USER_SUSPENDED",
+    priority: "CRITICAL",
+    title: "⛔ Account Suspended",
+    message: "Your account has been suspended by an administrator. Please contact support if you believe this was an error.",
+    actionUrl: "/login",
+  });
+
   revalidatePath("/admin/users");
   return actionSuccess({ updated: true });
 }
@@ -59,7 +69,7 @@ export async function suspendUserAction(
 export async function reactivateUserAction(
   userId: string
 ): Promise<ActionResult<{ updated: true }>> {
-  const { error, session } = await requireSuperAdmin();
+  const { error, session } = await requirePermission("users:suspend");
   if (error) return actionError(error);
 
   await prisma.$transaction(async (tx) => {
@@ -72,6 +82,15 @@ export async function reactivateUserAction(
         entityId: userId,
       },
     });
+  });
+
+  await createNotification({
+    userId,
+    type: "USER_REACTIVATED",
+    priority: "HIGH",
+    title: "✅ Account Reactivated!",
+    message: "Your ApnaTutorHub account has been reactivated. You can now access your dashboard and services.",
+    actionUrl: "/login",
   });
 
   revalidatePath("/admin/users");
@@ -87,6 +106,11 @@ export async function approveKycAction(
   const { error, session } = await requirePermission("kyc:review");
   if (error) return actionError(error);
 
+  const profile = await prisma.tutorProfile.findUnique({
+    where: { id: tutorProfileId },
+    select: { userId: true },
+  });
+
   await prisma.$transaction(async (tx) => {
     await tx.tutorProfile.update({
       where: { id: tutorProfileId },
@@ -101,6 +125,17 @@ export async function approveKycAction(
       },
     });
   });
+
+  if (profile?.userId) {
+    await createNotification({
+      userId: profile.userId,
+      type: "KYC_APPROVED",
+      priority: "HIGH",
+      title: "🎉 KYC Verification Approved!",
+      message: "Congratulations! Your identity documents have been verified by an administrator. Your tutor profile is now live for parents.",
+      actionUrl: "/tutor/profile",
+    });
+  }
 
   revalidatePath("/admin/kyc");
   return actionSuccess({ updated: true });
@@ -125,6 +160,11 @@ export async function rejectKycAction(
 
   const { tutorProfileId, rejectionNote } = parsed.data;
 
+  const profile = await prisma.tutorProfile.findUnique({
+    where: { id: tutorProfileId },
+    select: { userId: true },
+  });
+
   await prisma.$transaction(async (tx) => {
     await tx.tutorProfile.update({
       where: { id: tutorProfileId },
@@ -144,6 +184,17 @@ export async function rejectKycAction(
       },
     });
   });
+
+  if (profile?.userId) {
+    await createNotification({
+      userId: profile.userId,
+      type: "KYC_REJECTED",
+      priority: "HIGH",
+      title: "⚠️ KYC Verification Update Required",
+      message: `Your document submission requires revision: "${rejectionNote}". Please upload updated documents.`,
+      actionUrl: "/tutor/profile",
+    });
+  }
 
   revalidatePath("/admin/kyc");
   return actionSuccess({ updated: true });
@@ -247,6 +298,11 @@ export async function adminCreditCoinsAction(
 
   const { tutorProfileId, amount, description } = parsed.data;
 
+  const profile = await prisma.tutorProfile.findUnique({
+    where: { id: tutorProfileId },
+    select: { userId: true },
+  });
+
   await prisma.$transaction(async (tx) => {
     const wallet = await tx.wallet.findUniqueOrThrow({
       where: { tutorProfileId },
@@ -275,6 +331,17 @@ export async function adminCreditCoinsAction(
       },
     });
   });
+
+  if (profile?.userId) {
+    await createNotification({
+      userId: profile.userId,
+      type: "WALLET_CREDITED",
+      priority: "HIGH",
+      title: "💰 Coins Credited to Wallet",
+      message: `An administrator credited ${amount} coins to your wallet balance.`,
+      actionUrl: "/tutor/wallet",
+    });
+  }
 
   revalidatePath("/admin/wallets");
   return actionSuccess({ updated: true });
@@ -571,7 +638,29 @@ export async function adminDeleteUserAction(
   await prisma.$transaction(async (tx) => {
     await tx.account.deleteMany({ where: { userId } });
     await tx.session.deleteMany({ where: { userId } });
+    await tx.notification.deleteMany({ where: { userId } });
+    await tx.userActivity.deleteMany({ where: { userId } });
+    await tx.couponUsage.deleteMany({ where: { userId } });
+    await tx.referral.deleteMany({
+      where: { OR: [{ referrerId: userId }, { refereeId: userId }] },
+    });
+
+    const tutor = await tx.tutorProfile.findUnique({ where: { userId } });
+    if (tutor) {
+      await tx.walletTransaction.deleteMany({ where: { wallet: { tutorProfileId: tutor.id } } });
+      await tx.wallet.deleteMany({ where: { tutorProfileId: tutor.id } });
+      await tx.tutorAvailability.deleteMany({ where: { tutorProfileId: tutor.id } });
+      await tx.tutorProfile.delete({ where: { id: tutor.id } });
+    }
+
+    const parent = await tx.parentProfile.findUnique({ where: { userId } });
+    if (parent) {
+      await tx.studentProfile.deleteMany({ where: { parentProfileId: parent.id } });
+      await tx.parentProfile.delete({ where: { id: parent.id } });
+    }
+
     await tx.user.delete({ where: { id: userId } });
+
     await tx.auditLog.create({
       data: {
         adminId: session!.user.id,

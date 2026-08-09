@@ -25,7 +25,7 @@ import BookApplicantButtons from "@/components/booking/BookApplicantButtons";
 import { StartChatButton } from "@/components/chat/StartChatButton";
 
 export const metadata = {
-  title: "Tutor Applicants | ThinkTutor",
+  title: "Tutor Applicants | ApnaTutorHub",
 };
 
 export default async function ApplicantsPage({

@@ -7,7 +7,7 @@ import { RequirementForm } from "@/components/parent/RequirementForm";
 import { LEAD_STATUS_META, type LeadStatusKey } from "@/lib/validations";
 
 export const metadata = {
-  title: "Edit Requirement | ThinkTutor",
+  title: "Edit Requirement | ApnaTutorHub",
 };
 
 const EDITABLE_STATUSES = new Set<LeadStatusKey>([

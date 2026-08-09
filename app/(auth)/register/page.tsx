@@ -55,7 +55,7 @@ export default function RegisterPage() {
           Create Account 🚀
         </h1>
         <p className="text-sm font-semibold text-slate-600 mt-1">
-          Select your role and start your journey with ThinkTutor
+          Select your role and start your journey with ApnaTutorHub
         </p>
       </div>
 

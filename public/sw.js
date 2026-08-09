@@ -1,5 +1,5 @@
 /**
- * public/sw.js — ThinkTutor Service Worker
+ * public/sw.js — ApnaTutorHub Service Worker
  *
  * Handles:
  *  1. Web Push notification events → shows OS-level notification

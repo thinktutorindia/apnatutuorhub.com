@@ -8,7 +8,7 @@ import { ChatThreadView } from "@/components/chat/ChatThreadView";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return { title: `Chat Thread | ThinkTutor` };
+  return { title: `Chat Thread | ApnaTutorHub` };
 }
 
 export default async function ChatThreadPage({

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Power, Trash2 } from "lucide-react";
+import { Power, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { toggleCouponActiveAction, deleteCouponAction } from "@/app/actions/coupon.actions";
 
@@ -18,9 +18,9 @@ export function CouponActions({ couponId, code, isActive }: CouponActionsProps) 
         action={async () => {
           await toggleCouponActiveAction(couponId);
         }}
-        label={isActive ? "Active" : "Disabled"}
-        loadingLabel="Toggling..."
-        variant={isActive ? "success" : "secondary"}
+        label={isActive ? "Deactivate" : "Activate Coupon"}
+        loadingLabel="Updating..."
+        variant={isActive ? "secondary" : "success"}
         icon={<Power size={13} />}
       />
 

@@ -88,7 +88,7 @@ export function TopUpModal({
     setLoadingPkg(pkgId);
     setErrorMsg("");
 
-    const result = await createCoinOrderAction(pkgId);
+    const result = await createCoinOrderAction(pkgId, appliedCoupon?.code);
     setLoadingPkg(null);
 
     if (!result.success || !result.data) {
@@ -227,7 +227,28 @@ export function TopUpModal({
               </button>
             </div>
 
-            {/* Error Message */}
+            {/* Pre-defined Coupon Quick Suggestion Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[11px] font-bold text-slate-500 mr-1">Available Coupons:</span>
+              {[
+                { code: "NEWJOINING", label: "₹50 OFF" },
+                { code: "WELCOME50", label: "₹50 OFF" },
+                { code: "SUPER100", label: "₹100 OFF" },
+                { code: "APNATUTOR25", label: "25% OFF" },
+              ].map((c) => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => {
+                    setCouponCode(c.code);
+                    handleApplyCoupon(500);
+                  }}
+                  className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 cursor-pointer transition-colors"
+                >
+                  🏷️ {c.code} ({c.label})
+                </button>
+              ))}
+            </div>
             {couponError && (
               <div className="flex items-center gap-1.5 text-xs font-bold text-red-600">
                 <AlertCircle size={14} />
@@ -267,7 +288,7 @@ export function TopUpModal({
                 {errorMsg}
               </div>
             )}
-            <CoinPackageGrid onSelect={handleSelectPackage} loading={loadingPkg} />
+            <CoinPackageGrid onSelect={handleSelectPackage} loading={loadingPkg} appliedCoupon={appliedCoupon} />
           </>
         )}
 

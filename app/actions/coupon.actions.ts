@@ -164,8 +164,12 @@ export async function validateCouponAction(
     where: { code: cleanCode },
   });
 
-  if (!coupon || !coupon.isActive) {
-    return actionError("Invalid or inactive coupon code");
+  if (!coupon) {
+    return actionError(`Coupon code "${cleanCode}" does not exist`);
+  }
+
+  if (!coupon.isActive) {
+    return actionError(`Coupon "${cleanCode}" is currently disabled. Please click "Activate Coupon" in Admin > Coupons.`);
   }
 
   if (coupon.expiresAt && new Date() > coupon.expiresAt) {

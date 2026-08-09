@@ -28,8 +28,11 @@ export type CoinOrderResult = ActionResult<{
   totalCoins: number;
 }>;
 
+import { validateCouponAction } from "@/app/actions/coupon.actions";
+
 export async function createCoinOrderAction(
-  packageId: CoinPackageId
+  packageId: CoinPackageId,
+  couponCode?: string
 ): Promise<CoinOrderResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -56,12 +59,24 @@ export async function createCoinOrderAction(
     return actionError("Tutor profile not found.");
   }
 
+  let finalPricePaise = pkg.priceInPaise;
+  let appliedCouponId: string | undefined;
+
+  if (couponCode?.trim()) {
+    const valRes = await validateCouponAction(couponCode.trim(), pkg.priceInr);
+    if (valRes.success && valRes.data) {
+      finalPricePaise = Math.round(valRes.data.finalAmountInr * 100);
+      appliedCouponId = valRes.data.couponId;
+    }
+  }
+
   try {
     // Razorpay receipt length MUST be <= 40 characters
     const receipt = `rcpt_${Date.now()}_${tutorProfile.id.slice(-8)}`;
-    const orderResult = await createRazorpayOrder(pkg.priceInPaise, receipt, {
+    const orderResult = await createRazorpayOrder(finalPricePaise, receipt, {
       tutorProfileId: tutorProfile.id,
       packageId,
+      couponId: appliedCouponId ?? "",
     });
 
     return actionSuccess({

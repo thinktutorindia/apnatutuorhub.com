@@ -86,20 +86,22 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
   }
 
   return (
-    <div className="neu-card flex flex-col items-start justify-between gap-4 bg-[#FEF3C7] p-5 sm:flex-row sm:items-center">
+    <div className="neu-card flex flex-col items-start justify-between gap-4 bg-[#FFEDD5] border-2 border-[#0F172A] shadow-[4px_4px_0px_0px_#0F172A] p-5 sm:flex-row sm:items-center">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
-          <Bell size={20} className="text-amber-500 animate-bounce" />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_0px_#0F172A]">
+          <Bell size={22} className="text-orange-600 animate-bounce" />
         </div>
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-black text-[#0F172A]">
-              Enable Browser Push Notifications for Localhost
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wide">
+              ⚠️ Turn On Notifications to Get Instant Student Leads & Inquiries
             </h2>
-            <span className="neu-badge bg-white text-[10px]">VAPID Active</span>
+            <span className="neu-badge bg-red-100 text-red-700 border-red-300 text-[10px] font-extrabold">
+              MUST ENABLE
+            </span>
           </div>
-          <p className="text-xs font-semibold text-slate-700">
-            Get instant native desktop and mobile popups whenever new tuition leads, messages, or booking alerts arrive!
+          <p className="text-xs font-semibold text-slate-700 max-w-2xl leading-relaxed">
+            Without notification permission enabled, you will NOT get instant alerts when parents post tuition requirements in your area. Enable now so you never miss student leads!
           </p>
         </div>
       </div>
@@ -108,11 +110,11 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
         type="button"
         onClick={enablePush}
         disabled={status === "loading"}
-        className="neu-btn neu-btn-primary shrink-0 px-5 py-3 text-xs"
+        className="neu-btn neu-btn-primary shrink-0 px-6 py-3.5 text-xs font-black flex items-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A]"
       >
         {status === "loading" ? (
-          "Enabling..."
-        ) : status === "denied" ? (
+          "Enabling Notifications..."
+        ) : status === "denied" || permission === "denied" ? (
           <>
             <BellOff size={15} />
             <span>Permission Denied in Browser</span>
@@ -120,7 +122,7 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
         ) : (
           <>
             <Bell size={15} />
-            <span>Turn On Push Notifications</span>
+            <span>Turn On Notifications Now</span>
           </>
         )}
       </button>

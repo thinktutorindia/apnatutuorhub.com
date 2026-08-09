@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BookOpen, Clock, Filter, IndianRupee, MapPin, Sliders } from "lucide-react";
 import { LeadPurchaseModal } from "@/components/tutor/LeadPurchaseModal";
 import { StartChatButton } from "@/components/chat/StartChatButton";
+import { LeadNotifReminderBanner } from "@/components/tutor/LeadNotifReminderBanner";
 
 export type ParentDetails = {
   name: string;
@@ -382,6 +383,8 @@ export function LeadFeedClient({
 
   return (
     <div className="space-y-5">
+      <LeadNotifReminderBanner />
+
       {/* View Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Lead Feed Tabs" className="flex flex-wrap gap-2">

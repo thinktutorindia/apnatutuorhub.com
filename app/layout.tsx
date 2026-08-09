@@ -3,6 +3,7 @@ import { Poppins, Open_Sans } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
+import { NotificationOnboardingModal } from "@/components/NotificationOnboardingModal";
 import { auth } from "@/auth";
 import { NavigationProgress } from "@/components/NavigationProgress";
 import "./globals.css";
@@ -67,6 +68,7 @@ export default async function RootLayout({
         </PostHogProvider>
         {/* Web Push: registers Service Worker & subscribes user for off-site notifications */}
         <PushNotificationProvider userId={session?.user?.id} />
+        <NotificationOnboardingModal userId={session?.user?.id} />
       </body>
     </html>
   );

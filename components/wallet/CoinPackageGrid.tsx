@@ -23,11 +23,11 @@ export function CoinPackageGrid({
         let finalPriceInr = pkg.priceInr;
 
         if (appliedCoupon) {
+          const val = appliedCoupon.discountValue ?? appliedCoupon.discountAmountInr ?? 0;
           if (appliedCoupon.discountType === "FLAT") {
-            discountSavings = appliedCoupon.discountAmountInr;
+            discountSavings = val;
           } else {
-            // Percentage discount for this specific package price
-            discountSavings = Math.round((pkg.priceInr * appliedCoupon.discountAmountInr) / 100);
+            discountSavings = Math.round((pkg.priceInr * val) / 100);
           }
           discountSavings = Math.min(discountSavings, pkg.priceInr);
           finalPriceInr = Math.max(0, pkg.priceInr - discountSavings);

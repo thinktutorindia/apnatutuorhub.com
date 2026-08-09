@@ -147,6 +147,7 @@ export type ValidateCouponResult = {
   couponId: string;
   code: string;
   discountType: "PERCENTAGE" | "FLAT";
+  discountValue: number;      // raw discount (e.g. 25 for 25% or 50 for ₹50)
   discountAmountInr: number; // calculated discount in Rupees
   finalAmountInr: number;    // order total after discount in Rupees
   message?: string;
@@ -217,6 +218,7 @@ export async function validateCouponAction(
     couponId: coupon.id,
     code: coupon.code,
     discountType: coupon.discountType,
+    discountValue: coupon.discountType === "FLAT" ? coupon.discountAmount / 100 : coupon.discountAmount,
     discountAmountInr,
     finalAmountInr,
   });

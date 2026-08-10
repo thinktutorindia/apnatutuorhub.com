@@ -1,13 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  ArrowRight,
-  Compass,
-  ShieldCheck,
-  Sparkles,
-  Star,
-  UserCog,
-  Wallet,
+  ArrowRight, Search, Wallet, ShieldCheck, ShieldAlert, Star, UserCog,
+  BookOpen, CheckCircle2, MapPin, Clock, Calendar, Sparkles, MessageSquare,
+  TrendingUp, Award, Zap, ChevronRight, UserCheck
 } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -27,9 +23,7 @@ export default async function TutorDashboardPage() {
     select: { id: true },
   });
 
-  if (!dbUser) {
-    redirect("/login");
-  }
+  if (!dbUser) redirect("/login");
 
   let tutorProfile = await prisma.tutorProfile.findUnique({
     where: { userId: session.user.id },
@@ -69,214 +63,415 @@ export default async function TutorDashboardPage() {
     ? calcProfileScore({ ...tutorProfile, availability: tutorProfile.availability })
     : null;
 
-  const stats = [
-    {
-      label: "Coin Balance",
-      value: `${walletBalance} 🪙`,
-      icon: Wallet,
-      bg: "#FEF3C7",
-      href: "/tutor/wallet",
-    },
-    {
-      label: "Leads Unlocked",
-      value: tutorProfile?._count.purchases ?? 0,
-      icon: Compass,
-      bg: "#E0F2FE",
-      href: "/tutor/leads",
-    },
-    {
-      label: "Avg Rating",
-      value: tutorProfile?.averageRating
-        ? `${tutorProfile.averageRating.toFixed(1)} ⭐`
-        : "New",
-      icon: Star,
-      bg: "#FCE7F3",
-      href: null,
-    },
-    {
-      label: "Profile Score",
-      value: `${scoreBreakdown?.total ?? 0}%`,
-      icon: UserCog,
-      bg: "#DCFCE7",
-      href: "/tutor/profile",
-    },
+  const firstName = session.user.name?.split(" ")[0] || "Tutor";
+
+  // Profile completion items
+  const completionItems = [
+    { done: (tutorProfile?.subjects?.length ?? 0) >= 3, label: "Add subjects (3+)" },
+    { done: (tutorProfile?.classLevels?.length ?? 0) >= 2, label: "Select class levels (2+)" },
+    { done: (tutorProfile?.bio?.length ?? 0) >= 20, label: "Write your bio" },
+    { done: !!tutorProfile?.feeMin, label: "Set your hourly fee" },
+    { done: !!tutorProfile?.city, label: "Set your city" },
+    { done: isKycApproved, label: "Complete KYC verification" },
   ];
+  const profileScore = scoreBreakdown?.total ?? 0;
+
+  // Fetch recent active student leads for preview
+  const recentLeads = await prisma.lead.findMany({
+    where: {
+      status: { in: ["ACTIVE", "MATCHING"] },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 3,
+    select: {
+      id: true,
+      classLevel: true,
+      subjects: true,
+      mode: true,
+      city: true,
+      area: true,
+      budgetMin: true,
+      budgetMax: true,
+      createdAt: true,
+    },
+  });
 
   return (
-    <div className="space-y-8 py-4">
-      {/* Welcome Banner */}
-      <div className="neu-card flex flex-col items-start justify-between gap-6 bg-[#DCFCE7] p-6 md:flex-row md:items-center md:p-8">
-        <div className="space-y-2">
-          <div className="neu-badge bg-white text-[#0F172A]">
-            <Sparkles size={14} className="text-amber-500" />
-            Tutor Dashboard
-          </div>
-          <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
-            Welcome back, {session.user.name || "Tutor"}! 🎓
-          </h1>
-          <p className="text-sm font-semibold text-slate-700">
-            Browse matched student requirements, unlock parent contacts using
-            coins, and schedule classes.
-          </p>
-        </div>
+    <div className="space-y-6 pb-8">
 
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/tutor/wallet"
-            className="neu-btn neu-btn-yellow shrink-0 px-5 py-3 text-sm"
-          >
-            <Wallet size={18} />
-            <span>{walletBalance} Coins</span>
-          </Link>
-          {!isKycApproved && (
+      {/* Push Notification Opt-In Banner */}
+      <EnablePushBanner userId={session.user.id} />
+
+      {/* Hero Welcome Banner */}
+      <div
+        className="rounded-3xl p-6 sm:p-8 relative overflow-hidden text-white shadow-xl"
+        style={{
+          backgroundColor: "#0F2540",
+          backgroundImage:
+            "radial-gradient(ellipse at 80% 20%, rgba(45, 158, 107, 0.25) 0%, transparent 50%), radial-gradient(ellipse at 20% 80%, rgba(245, 166, 35, 0.15) 0%, transparent 45%)",
+        }}
+      >
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-xl">
+            <div className="flex items-center gap-2 flex-wrap">
+              {isKycApproved ? (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-700 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <ShieldCheck size={14} /> Verified Tutor Profile
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-700 bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  <ShieldAlert size={14} /> Verification Required
+                </span>
+              )}
+              {tutorProfile?.isFeatured && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-700 bg-amber-400 text-gray-900">
+                  <Star size={12} fill="#111827" /> Featured Tutor
+                </span>
+              )}
+            </div>
+
+            <h1
+              className="text-2xl sm:text-4xl font-800 text-white tracking-tight"
+              style={{ fontFamily: "'Poppins', sans-serif" }}
+            >
+              Welcome back, {firstName} 👋
+            </h1>
+            
+            <p className="text-sm text-gray-300 leading-relaxed">
+              {isKycApproved
+                ? "Your tutor profile is live. Explore student enquiries matching your subject and city."
+                : "Complete your identity verification to start receiving direct student leads and parent messages."}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            <Link
+              href="/tutor/leads"
+              className="px-5 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-sm font-700 flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl"
+            >
+              <Search size={16} />
+              <span>Browse Student Leads</span>
+              <ArrowRight size={15} />
+            </Link>
+            <Link
+              href="/tutor/wallet"
+              className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-600 flex items-center justify-center gap-2 transition-colors border border-white/15"
+            >
+              <Wallet size={16} className="text-[#F5A623]" />
+              <span>{walletBalance} Coins</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* KYC Alert Box if not verified */}
+      {!isKycApproved && (
+        <div
+          className={`p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all shadow-sm ${
+            kycStatus === "REJECTED"
+              ? "bg-red-50 border-red-200 text-red-900"
+              : "bg-amber-50 border-amber-200 text-amber-900"
+          }`}
+        >
+          <div className="flex items-start gap-3.5">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                kycStatus === "REJECTED" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"
+              }`}
+            >
+              {kycStatus === "REJECTED" ? <ShieldAlert size={20} /> : <ShieldCheck size={20} />}
+            </div>
+            <div>
+              <h3 className="text-sm font-700">
+                {kycStatus === "PENDING"
+                  ? "Identity Verification Pending Review"
+                  : kycStatus === "REJECTED"
+                    ? "Verification Rejected"
+                    : "Identity Verification Required"}
+              </h3>
+              <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">
+                {kycStatus === "PENDING"
+                  ? "Your submitted documents are being verified by our team (usually takes 24 hours)."
+                  : kycStatus === "REJECTED"
+                    ? "Your identity verification was rejected. Please re-upload corrected documents."
+                    : "Complete verification to unlock student contact details and receive tuition leads."}
+              </p>
+            </div>
+          </div>
+
+          {kycStatus !== "PENDING" && (
             <Link
               href="/tutor/profile"
-              className="neu-btn neu-btn-primary shrink-0 px-5 py-3 text-sm"
+              className="px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-700 shrink-0 text-center transition-colors shadow"
             >
-              <ShieldCheck size={18} />
-              <span>Complete KYC</span>
+              {kycStatus === "REJECTED" ? "Re-upload Documents →" : "Upload KYC Documents →"}
             </Link>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Push Notification Opt-in Banner */}
-      <EnablePushBanner userId={session.user.id} />
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="neu-card space-y-2 p-5"
-            style={{ backgroundColor: stat.bg }}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase text-slate-700">
-                {stat.label}
-              </span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-[#0F172A] bg-white">
-                <stat.icon size={16} />
-              </div>
+      {/* Metrics Row (4 Cards) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Wallet Balance */}
+        <Link
+          href="/tutor/wallet"
+          className="p-5 rounded-2xl bg-white border border-gray-200/80 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-700 uppercase tracking-wider text-gray-500">Coin Balance</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-700">
+              🪙
             </div>
-            <div className="text-2xl font-black text-[#0F172A]">{stat.value}</div>
-            {stat.href && (
-              <Link
-                href={stat.href}
-                className="text-[11px] font-extrabold text-[#22C55E] hover:underline"
-              >
-                View →
-              </Link>
-            )}
           </div>
-        ))}
-      </div>
-
-      {/* Analytics Widget */}
-      {tutorProfile && <TutorAnalyticsWidget tutorProfileId={tutorProfile.id} />}
-
-      {/* Profile completion ring */}
-      {scoreBreakdown && scoreBreakdown.total < 100 && (
-        <div className="neu-card flex flex-col gap-4 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-lg font-black text-[#0F172A]">
-              Profile {scoreBreakdown.total}% complete
-            </h2>
-            <p className="text-xs font-semibold text-slate-600">
-              A complete profile ranks higher in the matching engine and attracts
-              more parents.
+          <div>
+            <div className="text-2xl sm:text-3xl font-800 text-gray-900 tracking-tight group-hover:text-[#2D9E6B] transition-colors">
+              {walletBalance}
+            </div>
+            <p className="text-xs text-[#2D9E6B] font-600 mt-1 flex items-center gap-1">
+              Top Up Coins <ChevronRight size={13} />
             </p>
-            <div className="flex flex-wrap gap-2 pt-1">
-              {scoreBreakdown.kyc === 0 && (
-                <span className="neu-badge bg-[#FFEDD5] text-[10px]">
-                  + KYC Verification (40 pts)
-                </span>
-              )}
-              {scoreBreakdown.subjects < 15 && (
-                <span className="neu-badge bg-[#DCFCE7] text-[10px]">
-                  + Select 3+ Subjects ({15 - scoreBreakdown.subjects} pts)
-                </span>
-              )}
-              {scoreBreakdown.classLevels < 10 && (
-                <span className="neu-badge bg-[#DCFCE7] text-[10px]">
-                  + Select 2+ Class Levels ({10 - scoreBreakdown.classLevels} pts)
-                </span>
-              )}
-              {scoreBreakdown.bio === 0 && (
-                <span className="neu-badge bg-[#E0F2FE] text-[10px]">
-                  + Bio (20+ chars) (10 pts)
-                </span>
-              )}
-              {scoreBreakdown.fees === 0 && (
-                <span className="neu-badge bg-[#FEF3C7] text-[10px]">
-                  + Set Fee Range (5 pts)
-                </span>
-              )}
-              {scoreBreakdown.location === 0 && (
-                <span className="neu-badge bg-[#FCE7F3] text-[10px]">
-                  + Set City (5 pts)
-                </span>
-              )}
-              {scoreBreakdown.availability === 0 && (
-                <span className="neu-badge bg-[#F3E8FF] text-[10px]">
-                  + Set Availability (3+ days) (10 pts)
-                </span>
-              )}
-              {scoreBreakdown.introVideo === 0 && (
-                <span className="neu-badge bg-[#DCFCE7] text-[10px]">
-                  + Add Intro Video Link (5 pts)
+          </div>
+        </Link>
+
+        {/* Connected Students */}
+        <Link
+          href="/tutor/leads"
+          className="p-5 rounded-2xl bg-white border border-gray-200/80 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-700 uppercase tracking-wider text-gray-500">Leads Unlocked</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-[#2D9E6B] flex items-center justify-center font-700">
+              <UserCog size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-800 text-gray-900 tracking-tight group-hover:text-[#2D9E6B] transition-colors">
+              {tutorProfile?._count.purchases ?? 0}
+            </div>
+            <p className="text-xs text-[#1A3C5E] font-600 mt-1 flex items-center gap-1">
+              View All Leads <ChevronRight size={13} />
+            </p>
+          </div>
+        </Link>
+
+        {/* Bookings */}
+        <Link
+          href="/tutor/bookings"
+          className="p-5 rounded-2xl bg-white border border-gray-200/80 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-700 uppercase tracking-wider text-gray-500">Tuition Bookings</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-700">
+              <BookOpen size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-800 text-gray-900 tracking-tight group-hover:text-[#2D9E6B] transition-colors">
+              {tutorProfile?._count.bookings ?? 0}
+            </div>
+            <p className="text-xs text-blue-600 font-600 mt-1 flex items-center gap-1">
+              Manage Classes <ChevronRight size={13} />
+            </p>
+          </div>
+        </Link>
+
+        {/* Reviews & Rating */}
+        <div className="p-5 rounded-2xl bg-white border border-gray-200/80 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-700 uppercase tracking-wider text-gray-500">Rating &amp; Reviews</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-700">
+              <Star size={18} fill="#F5A623" />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-800 text-gray-900 tracking-tight">
+                {tutorProfile?.totalReviews && tutorProfile.totalReviews > 0
+                  ? tutorProfile.averageRating.toFixed(1)
+                  : "N/A"}
+              </span>
+              {tutorProfile?.totalReviews && tutorProfile.totalReviews > 0 && (
+                <span className="text-xs text-amber-600 font-700 flex items-center">
+                  ★ ({tutorProfile.totalReviews})
                 </span>
               )}
             </div>
+            <p className="text-xs text-gray-500 font-500 mt-1">From verified parents</p>
           </div>
+        </div>
+      </div>
 
-          <div className="flex shrink-0 flex-col items-center gap-2">
-            <div className="relative h-20 w-20">
-              <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90">
-                <circle
-                  cx="18" cy="18" r="15.9"
-                  fill="none" stroke="#E2E8F0" strokeWidth="3.2"
-                />
-                <circle
-                  cx="18" cy="18" r="15.9"
-                  fill="none" stroke="#22C55E" strokeWidth="3.2"
-                  strokeDasharray={`${scoreBreakdown.total} 100`}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-base font-black text-[#0F172A]">
-                {scoreBreakdown.total}%
-              </span>
+      {/* Profile Completeness Tracker (If < 100%) */}
+      {profileScore < 100 && (
+        <div className="p-6 rounded-3xl bg-white border border-gray-200/80 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-800 text-gray-900 flex items-center gap-2">
+                Profile Completeness Score ({profileScore}%)
+                {isKycApproved && (
+                  <span className="text-xs font-700 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Verified
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-gray-600 mt-0.5">
+                Complete your tutor profile to rank higher in student search results.
+              </p>
             </div>
             <Link
               href="/tutor/profile"
-              className="neu-btn neu-btn-primary px-5 py-2.5 text-xs"
+              className="px-4 py-2.5 rounded-xl bg-[#1A3C5E] hover:bg-[#0F2540] text-white text-xs font-700 shrink-0 text-center transition-colors shadow"
             >
-              Complete Profile
+              Complete Profile →
             </Link>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full h-3 rounded-full bg-gray-100 overflow-hidden p-0.5 border border-gray-200">
+            <div
+              className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-[#2D9E6B] to-emerald-400"
+              style={{ width: `${profileScore}%` }}
+            />
+          </div>
+
+          {/* Checklist Pills */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {completionItems.map((item, idx) => (
+              <span
+                key={idx}
+                className={`text-xs px-3 py-1 rounded-full font-600 flex items-center gap-1.5 ${
+                  item.done
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "bg-amber-50 text-amber-800 border border-amber-200"
+                }`}
+              >
+                {item.done ? <CheckCircle2 size={12} className="text-emerald-600" /> : "+"} {item.label}
+              </span>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Leads CTA */}
-      <div className="neu-card flex flex-col items-start justify-between gap-4 bg-white p-6 sm:flex-row sm:items-center">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-black text-[#0F172A]">
-            Browse Available Leads
-          </h2>
-          <p className="text-sm font-semibold text-slate-600">
-            View parents actively looking for tutors in your subjects and radius.
-          </p>
+      {/* Live Active Leads Preview */}
+      <div className="p-6 rounded-3xl bg-white border border-gray-200/80 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-800 text-gray-900 flex items-center gap-2">
+              <Zap size={18} className="text-[#F5A623]" />
+              Latest Student Enquiries
+            </h2>
+            <p className="text-xs text-gray-600">Fresh tuition requirements posted by parents</p>
+          </div>
+          <Link
+            href="/tutor/leads"
+            className="text-xs font-700 text-[#2D9E6B] hover:underline flex items-center gap-1"
+          >
+            View All Enquiries <ArrowRight size={14} />
+          </Link>
         </div>
-        <Link
-          href="/tutor/leads"
-          className="neu-btn neu-btn-primary shrink-0 px-6 py-3.5 text-sm"
-        >
-          <Compass size={18} />
-          <span>Explore Lead Feed</span>
-          <ArrowRight size={16} />
-        </Link>
+
+        {recentLeads.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {recentLeads.map((lead) => (
+              <div
+                key={lead.id}
+                className="p-4 rounded-2xl bg-gray-50/70 border border-gray-200/70 space-y-3 flex flex-col justify-between hover:border-[#2D9E6B]/50 transition-colors"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-700 px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#2D9E6B]">
+                      {lead.classLevel || "Tuition"}
+                    </span>
+                    <span className="text-[11px] font-600 text-gray-500">
+                      {lead.mode === "ONLINE" ? "💻 Live Online" : "🏠 Home Tuition"}
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm font-700 text-gray-900 leading-snug">
+                    {(lead.subjects && lead.subjects.slice(0, 2).join(", ")) || "Multiple Subjects"}
+                  </h3>
+
+                  <p className="text-xs text-gray-600 flex items-center gap-1">
+                    <MapPin size={13} className="text-amber-500 shrink-0" />
+                    {lead.area ? `${lead.area}, ${lead.city}` : lead.city}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-gray-200/60 flex items-center justify-between">
+                  <span className="text-xs font-700 text-[#1A3C5E]">
+                    ₹{lead.budgetMin && lead.budgetMax ? `${lead.budgetMin}–${lead.budgetMax}/hr` : "Negotiable"}
+                  </span>
+                  <Link
+                    href={`/tutor/leads`}
+                    className="text-xs font-700 text-[#2D9E6B] hover:underline"
+                  >
+                    Unlock Details →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 rounded-2xl bg-gray-50 border border-dashed border-gray-200 text-center space-y-2">
+            <p className="text-sm font-600 text-gray-700">No active student enquiries at the moment.</p>
+            <p className="text-xs text-gray-500">Check back soon or update your teaching subjects in profile settings.</p>
+          </div>
+        )}
       </div>
+
+      {/* Command Shortcuts Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          {
+            title: "Find Students",
+            sub: "Search tuition leads",
+            icon: Search,
+            href: "/tutor/leads",
+            color: "bg-emerald-500 text-white",
+          },
+          {
+            title: "My Tutor Profile",
+            sub: "Edit subjects & bio",
+            icon: UserCheck,
+            href: "/tutor/profile",
+            color: "bg-[#1A3C5E] text-white",
+          },
+          {
+            title: "Wallet & Coins",
+            sub: "Top up coin balance",
+            icon: Wallet,
+            href: "/tutor/wallet",
+            color: "bg-amber-500 text-white",
+          },
+          {
+            title: "Direct Messages",
+            sub: "Chat with parents",
+            icon: MessageSquare,
+            href: "/chat",
+            color: "bg-blue-600 text-white",
+          },
+        ].map((item, idx) => (
+          <Link
+            key={idx}
+            href={item.href}
+            className="p-5 rounded-2xl bg-white border border-gray-200/80 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color} shadow-sm`}>
+              <item.icon size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-800 text-gray-900 group-hover:text-[#2D9E6B] transition-colors">
+                {item.title}
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">{item.sub}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Performance Analytics Widget */}
+      {tutorProfile && <TutorAnalyticsWidget tutorProfileId={tutorProfile.id} />}
+
     </div>
   );
 }

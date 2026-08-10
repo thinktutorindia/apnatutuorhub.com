@@ -7,7 +7,6 @@ export function OptionPills({
   options,
   value,
   onChange,
-  activeBackground = "#DCFCE7",
   disabled = false,
   size = "md",
 }: {
@@ -19,7 +18,7 @@ export function OptionPills({
   disabled?: boolean;
   size?: "sm" | "md";
 }) {
-  const padding = size === "sm" ? "px-3 py-1.5 text-[11px]" : "px-4 py-2 text-xs";
+  const padding = size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-xs";
 
   return (
     <>
@@ -34,12 +33,11 @@ export function OptionPills({
               disabled={disabled}
               aria-pressed={isActive}
               onClick={() => onChange(option.value)}
-              className={`${padding} font-extrabold rounded-full border-[2.5px] border-[#0F172A] transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`${padding} font-800 rounded-2xl transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border ${
                 isActive
-                  ? "shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] -translate-x-[1px] -translate-y-[1px]"
-                  : "bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:bg-slate-50"
+                  ? "bg-[#0F2540] !text-white border-[#0F2540] shadow-2xs"
+                  : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100/80"
               }`}
-              style={isActive ? { backgroundColor: activeBackground } : undefined}
             >
               {option.label}
             </button>

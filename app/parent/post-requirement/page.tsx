@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PlusCircle, UserPlus } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { RequirementForm } from "@/components/parent/RequirementForm";
@@ -42,52 +40,40 @@ export default async function PostRequirementPage() {
   }
 
   return (
-    <div className="space-y-6 py-4">
-      <header className="neu-card flex flex-col gap-3 bg-[#DCFCE7] p-6 md:p-8">
-        <div className="neu-badge w-fit bg-white text-[#0F172A]">
-          <PlusCircle size={14} />
-          New Requirement
+    <div className="space-y-6 text-slate-900">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+        <div className="space-y-1">
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">New Tuition Listing</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Post a Tuition Requirement
+          </h1>
+          <p className="text-xs text-slate-600 font-600">
+            Tell us what subjects, class level, budget, and teaching mode you need. Nearby verified tutors will be notified instantly.
+          </p>
         </div>
-        <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
-          Tell us what you need 📝
-        </h1>
-        <p className="max-w-2xl text-sm font-semibold text-slate-700">
-          One short form and verified tutors around you get notified instantly.
-          Your phone number and address stay hidden until a tutor unlocks your
-          requirement.
-        </p>
-
-        {parentProfile.students.length === 0 && (
-          <Link
-            href="/parent/profile"
-            className="neu-btn neu-btn-white w-fit px-5 py-2.5 text-xs"
-          >
-            <UserPlus size={15} />
-            <span>Add a student profile first (optional)</span>
-          </Link>
-        )}
-      </header>
+      </div>
 
       <RequirementForm
         mode="create"
         students={parentProfile.students}
         defaults={{
+          studentProfileId: "",
           subjects: [],
-          classLevel: "",
-          board: "",
-          mode: "EITHER",
-          budgetMin: "",
-          budgetMax: "",
-          latitude: parentProfile.latitude?.toString() ?? "",
-          longitude: parentProfile.longitude?.toString() ?? "",
+          classLevel: "Class 10",
+          board: "CBSE",
+          mode: "OFFLINE",
+          tutorGenderPref: "ANY",
+          timingPreference: "Evening (4 PM - 7 PM)",
+          languagePref: "English & Hindi",
+          budgetMin: "3000",
+          budgetMax: "8000",
           city: parentProfile.city ?? "",
           area: "",
           pincode: parentProfile.pincode ?? "",
-          timingPreference: "",
-          tutorGenderPref: "ANY",
-          languagePref: "",
+          latitude: parentProfile.latitude?.toString() ?? "",
+          longitude: parentProfile.longitude?.toString() ?? "",
           notes: "",
-          studentProfileId: "",
         }}
       />
     </div>

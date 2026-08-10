@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Ticket, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createCouponAction } from "@/app/actions/coupon.actions";
 
 export function CreateCouponForm() {
@@ -29,48 +29,46 @@ export function CreateCouponForm() {
   };
 
   return (
-    <div className="rounded-2xl bg-[#0F172A] p-6 border border-[#1E293B]">
-      <div className="mb-5 flex items-center gap-2">
-        <Plus size={18} className="text-emerald-400" />
-        <h2 className="text-base font-semibold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
+    <div className="rounded-3xl bg-white p-6 border border-slate-200 shadow-xs space-y-5">
+      <div className="flex items-center gap-2 pb-3 border-b border-slate-200">
+        <Plus size={20} className="text-[#2D9E6B]" />
+        <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
           Create New Coupon
         </h2>
       </div>
 
       {errorMsg && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/30 p-3 text-xs font-bold text-red-400">
-          <AlertCircle size={15} className="shrink-0" />
+        <div className="flex items-center gap-2 rounded-2xl bg-red-100 border border-red-300 p-3.5 text-xs font-800 text-red-950">
+          <AlertCircle size={16} className="shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {successMsg && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs font-bold text-emerald-400">
-          <CheckCircle2 size={15} className="shrink-0" />
+        <div className="flex items-center gap-2 rounded-2xl bg-emerald-100 border border-emerald-300 p-3.5 text-xs font-800 text-emerald-950">
+          <CheckCircle2 size={16} className="shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-xs font-semibold text-white">Coupon Code</label>
+          <label className="mb-1 block text-xs font-800 text-slate-900">Coupon Code</label>
           <input
             name="code"
             type="text"
             required
             placeholder="e.g. WELCOME20 or FLAT100"
-            className="w-full rounded-xl px-4 py-2.5 text-sm uppercase text-white placeholder-slate-600 outline-none transition-all focus:border-emerald-500"
-            style={{ background: "#1E293B", border: "1px solid #334155", fontFamily: "'Fira Code', monospace" }}
+            className="w-full h-11 rounded-2xl px-4 text-xs font-800 uppercase text-slate-900 placeholder:text-slate-400 border border-slate-300 outline-none focus:border-[#2D9E6B]"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-white">Type</label>
+            <label className="mb-1 block text-xs font-800 text-slate-900">Discount Type</label>
             <select
               name="discountType"
-              className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none cursor-pointer"
-              style={{ background: "#1E293B", border: "1px solid #334155" }}
+              className="w-full h-11 rounded-2xl px-3 text-xs font-800 text-slate-900 bg-white border border-slate-300 outline-none"
             >
               <option value="PERCENTAGE">Percentage (%)</option>
               <option value="FLAT">Flat Rate (₹)</option>
@@ -78,76 +76,34 @@ export function CreateCouponForm() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-white">Discount</label>
+            <label className="mb-1 block text-xs font-800 text-slate-900">Value</label>
             <input
-              name="discountAmount"
+              name="discountValue"
               type="number"
-              step="any"
               required
-              placeholder="20 (for 20% or ₹20)"
-              className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-              style={{ background: "#1E293B", border: "1px solid #334155" }}
+              min="1"
+              placeholder="e.g. 20"
+              className="w-full h-11 rounded-2xl px-4 text-xs font-800 text-slate-900 border border-slate-300 outline-none"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-white">
-              Max Cap (₹) <span className="text-slate-500">(pct only)</span>
-            </label>
-            <input
-              name="maxDiscountInr"
-              type="number"
-              placeholder="e.g. 200"
-              className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-              style={{ background: "#1E293B", border: "1px solid #334155" }}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-white">Min Order (₹)</label>
-            <input
-              name="minOrderInr"
-              type="number"
-              placeholder="e.g. 500"
-              className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-              style={{ background: "#1E293B", border: "1px solid #334155" }}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-white">Usage Limit</label>
-            <input
-              name="usageLimit"
-              type="number"
-              placeholder="e.g. 100"
-              className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-              style={{ background: "#1E293B", border: "1px solid #334155" }}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-white">Expiry Date</label>
-            <input
-              name="expiresAt"
-              type="date"
-              className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
-              style={{ background: "#1E293B", border: "1px solid #334155" }}
-            />
-          </div>
+        <div>
+          <label className="mb-1 block text-xs font-800 text-slate-900">Usage Limit (Max Uses)</label>
+          <input
+            name="usageLimit"
+            type="number"
+            placeholder="Unlimited (Leave blank)"
+            className="w-full h-11 rounded-2xl px-4 text-xs font-800 text-slate-900 border border-slate-300 outline-none"
+          />
         </div>
 
         <button
           type="submit"
           disabled={isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 cursor-pointer"
-          style={{ background: "linear-gradient(135deg, #22C55E, #16A34A)", boxShadow: "0 4px 15px rgba(34,197,94,0.3)" }}
+          className="w-full h-11 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 transition-all shadow-md cursor-pointer"
         >
-          <Ticket size={16} className={isPending ? "animate-spin" : ""} />
-          <span>{isPending ? "Creating Coupon..." : "Create Coupon"}</span>
+          {isPending ? "Generating Coupon..." : "Publish Coupon Code"}
         </button>
       </form>
     </div>

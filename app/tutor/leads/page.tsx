@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Compass, ShieldAlert } from "lucide-react";
+import { ShieldAlert, Wallet, Sparkles, ArrowRight } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
 
-export const metadata = { title: "Lead Feed | ApnaTutorHub" };
+export const metadata = { title: "Student Requirements | ApnaTutorHub" };
 
 export default async function TutorLeadsPage() {
   const session = await auth();
@@ -33,23 +33,27 @@ export default async function TutorLeadsPage() {
   // KYC gate
   if (tutorProfile.kycStatus !== "APPROVED") {
     return (
-      <div className="space-y-6 py-4">
-        <header className="neu-card flex flex-col gap-3 bg-[#FFEDD5] p-6 md:p-8">
-          <div className="neu-badge w-fit bg-white text-[#0F172A]">
-            <ShieldAlert size={14} className="text-orange-500" />
-            KYC Required
+      <div className="space-y-5 py-2">
+        <div className="rounded-3xl p-6 sm:p-8 bg-amber-50 border border-amber-200/80 shadow-xs space-y-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <ShieldAlert size={20} />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-xl font-800 text-amber-950">Identity Verification Required</h1>
+              <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
+                You need to complete identity verification (KYC) before viewing and unlocking student requirements. It only takes 2 minutes.
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl font-black text-[#0F172A]">
-            Complete KYC to Browse Leads
-          </h1>
-          <p className="max-w-xl text-sm font-semibold text-slate-700">
-            You need an approved KYC verification to view and unlock tuition
-            leads. It only takes a few minutes!
-          </p>
-          <Link href="/tutor/profile" className="neu-btn neu-btn-primary w-fit px-6 py-3 text-sm">
-            Complete KYC Now →
+          <Link
+            href="/tutor/profile"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-700 transition-colors shadow"
+          >
+            <span>Complete Verification Now</span>
+            <ArrowRight size={14} />
           </Link>
-        </header>
+        </div>
       </div>
     );
   }
@@ -124,27 +128,17 @@ export default async function TutorLeadsPage() {
   const feedLeads: FeedLead[] = [];
 
   for (const lead of rawLeads) {
-    // Already at max capacity (and not purchased by this tutor — still show if purchased)
-    if (
-      lead.purchaseCount >= lead.maxTutors &&
-      !purchasedMap.has(lead.id)
-    )
-      continue;
-
-    // Class level match
+    if (lead.purchaseCount >= lead.maxTutors && !purchasedMap.has(lead.id)) continue;
     if (!tutorProfile.classLevels.includes(lead.classLevel)) continue;
 
-    // Mode compatibility
     const tm = tutorProfile.teachingMode;
     const lm = lead.mode;
     if (tm !== "EITHER" && lm !== "EITHER" && tm !== lm) continue;
 
-    // Budget compatibility
     if (tutorProfile.feeMin !== null && lead.budgetMax !== null) {
       if (tutorProfile.feeMin > lead.budgetMax) continue;
     }
 
-    // Distance filter (only for offline/either leads)
     let distanceKm: number | null = null;
     if (lead.mode !== "ONLINE") {
       if (
@@ -210,21 +204,34 @@ export default async function TutorLeadsPage() {
   const walletBalance = tutorProfile.wallet?.balance ?? 0;
 
   return (
-    <div className="space-y-6 py-4">
-      <header className="neu-card flex flex-col gap-3 bg-[#E0F2FE] p-6 md:p-8">
-        <div className="neu-badge w-fit bg-white text-[#0F172A]">
-          <Compass size={14} />
-          Lead Feed
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-700 uppercase tracking-wider text-[#2D9E6B] bg-[#2D9E6B]/10 px-2.5 py-0.5 rounded-full mb-1">
+            <Sparkles size={12} /> Student Enquiries
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-800 text-gray-900 tracking-tight">
+            Find Student Requirements
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-600">
+            Matched with your subjects, teaching mode, and city location.
+          </p>
         </div>
-        <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
-          Matched Tuition Leads 🎯
-        </h1>
-        <p className="max-w-2xl text-sm font-semibold text-slate-700">
-          Showing requirements that match your subjects, class levels, teaching
-          mode, and location. Unlock a lead with coins to view parent contact
-          details.
-        </p>
-      </header>
+
+        {/* Coin Balance Pill */}
+        <Link
+          href="/tutor/wallet"
+          className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200/80 hover:bg-amber-100/70 transition-all shadow-xs shrink-0"
+        >
+          <div className="flex items-center gap-2">
+            <Wallet size={16} className="text-amber-700" />
+            <span className="text-xs font-600 text-amber-900">Coin Balance:</span>
+            <span className="text-sm font-800 text-amber-950">{walletBalance} 🪙</span>
+          </div>
+          <span className="text-xs font-700 text-[#2D9E6B]">Top Up →</span>
+        </Link>
+      </div>
 
       <LeadFeedClient
         leads={feedLeads}

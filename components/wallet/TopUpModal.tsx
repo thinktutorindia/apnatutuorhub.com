@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Wallet, X, Ticket, Tag, Check, AlertCircle } from "lucide-react";
+import { CheckCircle2, Wallet, X, Ticket, Tag, AlertCircle } from "lucide-react";
 import { CoinPackageGrid } from "@/components/wallet/CoinPackageGrid";
 import {
   createCoinOrderAction,
@@ -118,7 +118,7 @@ export function TopUpModal({
         email: userEmail,
         contact: "9999999999",
       },
-      theme: { color: "#22C55E" },
+      theme: { color: "#1A7F5A" },
       handler: async (response: {
         razorpay_payment_id: string;
         razorpay_order_id: string;
@@ -152,7 +152,7 @@ export function TopUpModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0F172A]/50 p-4 py-10 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 py-10 backdrop-blur-xs">
       {modalState !== "paying" && (
         <button
           type="button"
@@ -166,19 +166,19 @@ export function TopUpModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="topup-modal-title"
-        className="neu-card relative z-10 w-full max-w-2xl bg-white p-6 space-y-5 shadow-[8px_8px_0px_0px_#0F172A]"
+        className="relative z-10 w-full max-w-2xl rounded-2xl bg-white p-6 space-y-5 shadow-xl border border-gray-200"
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 pb-3 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#0F172A] bg-[#FEF3C7]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
               <Wallet size={20} />
             </div>
             <div>
-              <h2 id="topup-modal-title" className="text-xl font-black text-[#0F172A]">
+              <h2 id="topup-modal-title" className="text-lg font-700 text-gray-900">
                 Top Up Coins
               </h2>
-              <p className="text-[11px] font-semibold text-slate-500">
+              <p className="text-xs text-gray-500">
                 Secure payment via Razorpay · Apply coupon codes for instant discounts!
               </p>
             </div>
@@ -187,33 +187,33 @@ export function TopUpModal({
             <button
               type="button"
               onClick={onClose}
-              className="neu-btn neu-btn-white h-9 w-9 !p-0 flex items-center justify-center cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               aria-label="Close"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           )}
         </div>
 
         {/* Coupon Code Redemption Input Section */}
         {modalState === "packages" && (
-          <div className="rounded-2xl border-2 border-[#0F172A] bg-[#FAF8F5] p-4 space-y-3 shadow-[2px_2px_0px_0px_#0F172A]">
+          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <Ticket size={16} className="text-amber-600" />
-              <span className="text-xs font-black text-[#0F172A] uppercase tracking-wide">
-                Have a Coupon or Promo Code?
+              <Ticket size={16} className="text-amber-700" />
+              <span className="text-xs font-600 text-gray-900 uppercase tracking-wide">
+                Have a Coupon Code?
               </span>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="Enter code (e.g. WELCOME50, SAVE10)"
-                  className="w-full rounded-xl border-2 border-[#0F172A] bg-white pl-9 pr-4 py-2 text-xs font-bold text-[#0F172A] uppercase outline-none placeholder:text-slate-400 placeholder:normal-case font-mono"
+                  placeholder="Enter code (e.g. WELCOME50, APNATUTOR25)"
+                  className="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-4 py-2 text-xs font-600 text-gray-900 uppercase outline-none focus:border-green-600 placeholder:text-gray-400 placeholder:normal-case font-mono"
                 />
               </div>
 
@@ -221,7 +221,7 @@ export function TopUpModal({
                 type="button"
                 onClick={() => handleApplyCoupon(500)}
                 disabled={couponLoading || !couponCode.trim()}
-                className="neu-btn neu-btn-yellow shrink-0 px-4 py-2 text-xs font-black cursor-pointer disabled:opacity-50"
+                className="at-btn at-btn-accent at-btn-sm shrink-0"
               >
                 {couponLoading ? "Checking..." : "Apply Coupon"}
               </button>
@@ -229,7 +229,7 @@ export function TopUpModal({
 
             {/* Pre-defined Coupon Quick Suggestion Chips */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[11px] font-bold text-slate-500 mr-1">Available Coupons:</span>
+              <span className="text-[11px] font-500 text-gray-500 mr-1">Available Coupons:</span>
               {[
                 { code: "NEWJOINING", label: "₹50 OFF" },
                 { code: "WELCOME50", label: "₹50 OFF" },
@@ -243,14 +243,14 @@ export function TopUpModal({
                     setCouponCode(c.code);
                     handleApplyCoupon(500);
                   }}
-                  className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 cursor-pointer transition-colors"
+                  className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-[11px] font-600 text-amber-800 hover:bg-amber-100 cursor-pointer transition-colors"
                 >
                   🏷️ {c.code} ({c.label})
                 </button>
               ))}
             </div>
             {couponError && (
-              <div className="flex items-center gap-1.5 text-xs font-bold text-red-600">
+              <div className="flex items-center gap-1.5 text-xs font-500 text-red-600">
                 <AlertCircle size={14} />
                 <span>{couponError}</span>
               </div>
@@ -258,9 +258,9 @@ export function TopUpModal({
 
             {/* Applied Coupon Badge */}
             {appliedCoupon && (
-              <div className="flex items-center justify-between rounded-xl bg-[#DCFCE7] border-2 border-[#0F172A] p-3 text-xs font-black text-[#0F172A]">
+              <div className="flex items-center justify-between rounded-lg bg-green-50 border border-green-200 p-2.5 text-xs text-gray-900">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-[#22C55E]" />
+                  <CheckCircle2 size={16} className="text-green-600" />
                   <span>
                     Coupon <strong>"{appliedCoupon.code}"</strong> Applied! Discount: ₹{appliedCoupon.discountAmountInr} OFF
                   </span>
@@ -271,7 +271,7 @@ export function TopUpModal({
                     setAppliedCoupon(null);
                     setCouponCode("");
                   }}
-                  className="text-slate-600 hover:text-slate-900 underline text-[11px]"
+                  className="text-gray-500 hover:text-gray-800 underline text-xs"
                 >
                   Remove
                 </button>
@@ -284,7 +284,7 @@ export function TopUpModal({
         {modalState === "packages" && (
           <>
             {errorMsg && (
-              <div className="rounded-xl border-2 border-red-500 bg-red-50 px-4 py-3 text-xs font-bold text-red-600">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-500 text-red-600">
                 {errorMsg}
               </div>
             )}
@@ -294,33 +294,33 @@ export function TopUpModal({
 
         {modalState === "paying" && (
           <div className="flex flex-col items-center gap-4 py-12 text-center">
-            <div className="h-14 w-14 animate-spin rounded-full border-[4px] border-[#E2E8F0] border-t-[#22C55E]" />
-            <p className="text-sm font-extrabold text-[#0F172A]">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+            <p className="text-sm font-600 text-gray-900">
               Razorpay checkout is open…
             </p>
-            <p className="text-xs font-semibold text-slate-500">
+            <p className="text-xs text-gray-500">
               Complete the payment in the Razorpay popup. Do not close this window.
             </p>
           </div>
         )}
 
         {modalState === "success" && (
-          <div className="flex flex-col items-center gap-4 py-12 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-[2.5px] border-[#0F172A] bg-[#DCFCE7] shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
-              <CheckCircle2 size={32} className="text-[#22C55E]" />
+          <div className="flex flex-col items-center gap-4 py-10 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+              <CheckCircle2 size={32} />
             </div>
             <div>
-              <p className="text-2xl font-black text-[#0F172A]">
+              <p className="text-2xl font-700 text-gray-900">
                 🪙 {creditedCoins} Coins Added!
               </p>
-              <p className="mt-1 text-sm font-semibold text-slate-600">
-                Your wallet has been updated with bonus benefits. Start browsing leads!
+              <p className="mt-1 text-sm text-gray-600">
+                Your wallet has been updated. Start connecting with students!
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="neu-btn neu-btn-primary px-8 py-3 text-sm cursor-pointer"
+              className="at-btn at-btn-primary px-8 py-2.5 text-sm"
             >
               Done
             </button>
@@ -328,12 +328,12 @@ export function TopUpModal({
         )}
 
         {modalState === "error" && (
-          <div className="flex flex-col items-center gap-4 py-12 text-center">
-            <p className="text-sm font-bold text-red-500">{errorMsg}</p>
+          <div className="flex flex-col items-center gap-4 py-10 text-center">
+            <p className="text-sm font-500 text-red-600">{errorMsg}</p>
             <button
               type="button"
               onClick={() => setModalState("packages")}
-              className="neu-btn neu-btn-primary px-6 py-3 text-sm cursor-pointer"
+              className="at-btn at-btn-primary px-6 py-2.5 text-sm"
             >
               Try Again
             </button>

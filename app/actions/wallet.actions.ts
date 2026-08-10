@@ -59,7 +59,7 @@ export async function createCoinOrderAction(
     return actionError("Tutor profile not found.");
   }
 
-  let finalPricePaise = pkg.priceInPaise;
+  let finalPricePaise: number = pkg.priceInPaise;
   let appliedCouponId: string | undefined;
 
   if (couponCode?.trim()) {

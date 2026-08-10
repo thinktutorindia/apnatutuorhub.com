@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Calendar } from "lucide-react";
+import { Calendar, Sparkles, BookOpen, Clock } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import BookingCard from "@/components/booking/BookingCard";
@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 const STATUS_TABS = [
-  { key: "ALL", label: "All" },
+  { key: "ALL", label: "All Classes" },
   { key: "ACTIVE", label: "Upcoming" },
   { key: "COMPLETED", label: "Completed" },
   { key: "CANCELLED", label: "Cancelled" },
@@ -61,7 +61,6 @@ export default async function TutorBookingsPage({
     },
   });
 
-  // Batch-fetch existing reviews for completed bookings
   const completedBookingIds = bookings
     .filter((b) => b.status === "COMPLETED")
     .map((b) => b.id);
@@ -123,31 +122,29 @@ export default async function TutorBookingsPage({
   const pendingCount = bookings.filter((b) => b.status === "REQUESTED").length;
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-6">
       {/* Header */}
-      <header className="neu-card flex flex-col gap-3 bg-[#F3E8FF] p-6 md:p-8">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="neu-badge w-fit bg-white text-[#0F172A]">
-            <Calendar size={14} />
-            Bookings
-          </div>
+      <div>
+        <div className="inline-flex items-center gap-1.5 text-[11px] font-700 uppercase tracking-wider text-[#2D9E6B] bg-[#2D9E6B]/10 px-2.5 py-0.5 rounded-full mb-1">
+          <BookOpen size={12} /> Schedule &amp; Classes
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h1 className="text-2xl sm:text-3xl font-800 text-gray-900 tracking-tight">
+            Classes &amp; Bookings
+          </h1>
           {pendingCount > 0 && (
-            <span className="neu-badge bg-[#FEF3C7] text-[11px] font-black text-[#92400E]">
-              ⏳ {pendingCount} awaiting confirmation
+            <span className="px-3 py-1 rounded-full text-xs font-700 bg-amber-100 text-amber-900 border border-amber-200">
+              ⚡ {pendingCount} Pending Request{pendingCount > 1 ? "s" : ""}
             </span>
           )}
         </div>
-        <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
-          Your Class Bookings 📅
-        </h1>
-        <p className="max-w-2xl text-sm font-semibold text-slate-700">
-          Confirm booking requests, share Google Meet links for online classes,
-          and mark sessions as completed when done.
+        <p className="text-xs sm:text-sm text-gray-600 mt-1">
+          Confirm booking requests, share video class links, and manage your teaching schedule.
         </p>
-      </header>
+      </div>
 
-      {/* Status tabs */}
-      <div className="flex flex-wrap gap-2">
+      {/* Status Filter Tabs */}
+      <div className="p-1 rounded-2xl bg-gray-100/80 border border-gray-200/80 inline-flex flex-wrap gap-1">
         {STATUS_TABS.map((t) => {
           const count = counts[t.key as keyof typeof counts];
           const isActive = tab === t.key;
@@ -155,45 +152,35 @@ export default async function TutorBookingsPage({
             <Link
               key={t.key}
               href={`/tutor/bookings?tab=${t.key}`}
-              className={`rounded-2xl border-2 border-[#0F172A] px-4 py-2 text-xs font-black transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-700 transition-all ${
                 isActive
-                  ? "bg-[#0F172A] text-white shadow-[3px_3px_0px_0px_rgba(15,23,42,0.3)]"
-                  : "bg-white text-[#0F172A] hover:bg-[#F8FAFC]"
+                  ? "bg-white text-[#1A3C5E] shadow-xs"
+                  : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              {t.label}
-              {count > 0 && (
-                <span
-                  className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
-                    isActive ? "bg-white/20" : "bg-[#E2E8F0]"
-                  }`}
-                >
-                  {count}
-                </span>
-              )}
+              {t.label} {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
             </Link>
           );
         })}
       </div>
 
-      {/* Booking list */}
+      {/* Booking list container */}
       {displayedBookings.length === 0 ? (
-        <div className="neu-card space-y-4 bg-white p-12 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border-[2.5px] border-[#0F172A] bg-[#F3E8FF] text-3xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
-            📅
+        <div className="p-10 rounded-3xl bg-white border border-gray-200/80 shadow-xs text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center mx-auto">
+            <Calendar size={24} />
           </div>
-          <p className="text-lg font-black text-[#0F172A]">
-            No bookings in this category
-          </p>
-          <p className="mx-auto max-w-md text-sm font-semibold text-slate-600">
-            As you unlock leads and parents shortlist you, booking requests will
-            appear here.
-          </p>
+          <div className="space-y-1">
+            <h3 className="text-base font-800 text-gray-900">No classes in this section</h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              When parents confirm classes and schedule sessions with you, they will appear here.
+            </p>
+          </div>
           <Link
             href="/tutor/leads"
-            className="neu-btn neu-btn-primary inline-flex px-6 py-3 text-sm"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-700 transition-colors shadow-2xs"
           >
-            Browse Leads
+            Browse Student Requirements →
           </Link>
         </div>
       ) : (

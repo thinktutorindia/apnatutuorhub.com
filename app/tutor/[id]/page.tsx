@@ -10,6 +10,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+
 export async function generateMetadata({
   params,
 }: {
@@ -70,65 +71,77 @@ export default async function PublicTutorProfilePage({
     : null;
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] py-8">
-      <div className="mx-auto max-w-3xl space-y-6 px-4">
+    <div className="min-h-screen py-8 px-4 sm:px-6" style={{ backgroundColor: "#F9FAFB" }}>
+      <div className="mx-auto max-w-3xl space-y-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-600 hover:text-[#22C55E]"
+          className="inline-flex items-center gap-1.5 text-xs font-500 text-gray-500 hover:text-green-700 transition-colors"
         >
           <ArrowLeft size={15} />
           Back to ApnaTutorHub
         </Link>
 
         {/* Hero */}
-        <div className="neu-card flex flex-col gap-6 bg-[#DCFCE7] p-6 sm:flex-row sm:items-start sm:p-8">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-[2.5px] border-[#0F172A] bg-white text-4xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
-            🧑‍🏫
+        <div
+          className="rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start gap-5"
+          style={{ backgroundColor: "#E8F5F0", border: "1px solid #cce9df" }}
+        >
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0 font-700"
+            style={{ backgroundColor: "#FFFFFF", color: "#1A7F5A", border: "1px solid #E5E7EB" }}
+          >
+            {(profile.user.name?.[0] ?? "T").toUpperCase()}
           </div>
 
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-3xl font-black text-[#0F172A]">
+              <h1 className="text-2xl font-700 text-gray-900">
                 {profile.user.name ?? "Tutor"}
               </h1>
               {profile.isVerified && (
-                <span className="neu-badge bg-[#DCFCE7] text-[11px]">
-                  <ShieldCheck size={12} className="text-[#22C55E]" />
-                  Verified
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-600"
+                  style={{ backgroundColor: "#F0FDF4", color: "#16A34A" }}
+                >
+                  <ShieldCheck size={14} />
+                  Verified Tutor
                 </span>
               )}
               {profile.isFeatured && (
-                <span className="neu-badge bg-[#FEF3C7] text-[11px] text-amber-800 border-amber-400">
-                  <Star size={12} className="text-amber-500 fill-amber-400" />
-                  ⭐ Featured Tutor
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-600"
+                  style={{ backgroundColor: "#FEF3C7", color: "#92400e" }}
+                >
+                  <Star size={12} className="fill-amber-500 text-amber-500" />
+                  Featured
                 </span>
               )}
             </div>
 
-            <p className="text-sm font-semibold text-slate-700">
-              {profile.qualification} · {profile.experience ?? 0} yrs experience
+            <p className="text-sm text-gray-700">
+              {profile.qualification} · {profile.experience ?? 0} years experience
             </p>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-1">
               {profile.totalReviews > 0 && (
-                <span className="neu-badge bg-[#FEF3C7] text-xs">
-                  <Star size={12} className="text-amber-500" />
-                  {profile.averageRating.toFixed(1)} ({profile.totalReviews}{" "}
-                  reviews)
+                <span className="at-badge at-badge-accent">
+                  <Star size={12} className="fill-amber-500 text-amber-500" />
+                  {profile.averageRating.toFixed(1)} ({profile.totalReviews} review{profile.totalReviews !== 1 ? "s" : ""})
                 </span>
               )}
               {profile.city && (
-                <span className="neu-badge bg-white text-xs">
+                <span className="at-badge at-badge-neutral">
                   <MapPin size={12} />
                   {profile.city}
                 </span>
               )}
-              <span className="neu-badge bg-white text-xs">
-                {profile.teachingMode}
+              <span className="at-badge at-badge-primary">
+                {profile.teachingMode === "ONLINE" ? "Online Lessons" : profile.teachingMode === "OFFLINE" ? "Home Tuition" : "Online & Home"}
               </span>
               {profile.feeMin && profile.feeMax && (
-                <span className="neu-badge bg-white text-xs">
-                  <Wallet size={12} />₹{profile.feeMin}–₹{profile.feeMax}/hr
+                <span className="at-badge at-badge-neutral font-600">
+                  <Wallet size={12} />
+                  ₹{profile.feeMin}–₹{profile.feeMax}/hr
                 </span>
               )}
             </div>
@@ -137,9 +150,12 @@ export default async function PublicTutorProfilePage({
 
         {/* Bio */}
         {profile.bio && (
-          <section className="neu-card space-y-3 bg-white p-6">
-            <h2 className="text-lg font-black text-[#0F172A]">About</h2>
-            <p className="whitespace-pre-line text-sm font-semibold leading-relaxed text-slate-700">
+          <section
+            className="rounded-xl p-6 space-y-2"
+            style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+          >
+            <h2 className="text-base font-700 text-gray-900">About</h2>
+            <p className="whitespace-pre-line text-sm text-gray-700 leading-relaxed">
               {profile.bio}
             </p>
           </section>
@@ -147,12 +163,15 @@ export default async function PublicTutorProfilePage({
 
         {/* Intro Video */}
         {youtubeEmbedUrl && (
-          <section className="neu-card space-y-3 bg-white p-6">
-            <h2 className="flex items-center gap-2 text-lg font-black text-[#0F172A]">
-              <Video size={18} />
+          <section
+            className="rounded-xl p-6 space-y-3"
+            style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+          >
+            <h2 className="flex items-center gap-2 text-base font-700 text-gray-900">
+              <Video size={18} className="text-green-700" />
               Intro Video
             </h2>
-            <div className="aspect-video overflow-hidden rounded-2xl border-2 border-[#0F172A]">
+            <div className="aspect-video overflow-hidden rounded-xl border border-gray-200">
               <iframe
                 src={youtubeEmbedUrl}
                 title="Tutor intro video"
@@ -165,28 +184,31 @@ export default async function PublicTutorProfilePage({
         )}
 
         {/* Subjects & Classes */}
-        <section className="neu-card space-y-4 bg-white p-6">
-          <h2 className="text-lg font-black text-[#0F172A]">What I Teach</h2>
+        <section
+          className="rounded-xl p-6 space-y-4"
+          style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+        >
+          <h2 className="text-base font-700 text-gray-900">What I Teach</h2>
           <div className="space-y-3">
             <div>
-              <p className="mb-2 text-xs font-extrabold uppercase text-slate-500">
+              <p className="mb-2 text-xs font-600 uppercase text-gray-500">
                 Subjects
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {profile.subjects.map((subject) => (
-                  <span key={subject} className="neu-badge bg-[#DCFCE7] text-xs">
+                  <span key={subject} className="at-badge at-badge-primary">
                     {subject}
                   </span>
                 ))}
               </div>
             </div>
             <div>
-              <p className="mb-2 text-xs font-extrabold uppercase text-slate-500">
+              <p className="mb-2 text-xs font-600 uppercase text-gray-500">
                 Class Levels
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {profile.classLevels.map((level) => (
-                  <span key={level} className="neu-badge bg-[#E0F2FE] text-xs">
+                  <span key={level} className="at-badge at-badge-info">
                     {level}
                   </span>
                 ))}
@@ -197,15 +219,18 @@ export default async function PublicTutorProfilePage({
 
         {/* Availability */}
         {profile.availability.length > 0 && (
-          <section className="neu-card space-y-3 bg-white p-6">
-            <h2 className="text-lg font-black text-[#0F172A]">
+          <section
+            className="rounded-xl p-6 space-y-3"
+            style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+          >
+            <h2 className="text-base font-700 text-gray-900">
               Weekly Availability
             </h2>
             <div className="flex flex-wrap gap-2">
               {profile.availability.map((slot) => (
                 <div
                   key={slot.id}
-                  className="rounded-xl border-2 border-[#0F172A] bg-[#FEF3C7] px-3 py-2 text-xs font-bold"
+                  className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-500 text-gray-800"
                 >
                   {DAYS[slot.dayOfWeek]}: {slot.startTime}–{slot.endTime}
                 </div>
@@ -218,63 +243,47 @@ export default async function PublicTutorProfilePage({
         {profile.reviews.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-2xl font-black text-[#0F172A]">
-                <Star size={22} className="fill-amber-400 text-amber-400" />
-                Verified Student Reviews ({profile.reviews.length})
+              <h2 className="flex items-center gap-2 text-lg font-700 text-gray-900">
+                <Star size={20} className="fill-amber-400 text-amber-400" />
+                Student Reviews ({profile.reviews.length})
               </h2>
-              <span className="text-sm font-black text-[#0F172A]">
+              <span className="text-sm font-600 text-gray-900">
                 ★ {profile.averageRating.toFixed(1)} / 5.0
               </span>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {profile.reviews.map((review) => (
-                <div key={review.id} className="neu-card space-y-3.5 bg-white p-6">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                <div
+                  key={review.id}
+                  className="rounded-xl p-5 space-y-2.5"
+                  style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+                >
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Star
                           key={i}
-                          size={16}
+                          size={14}
                           className={
                             i < review.overallRating
                               ? "fill-amber-400 text-amber-400"
-                              : "text-slate-200"
+                              : "text-gray-200"
                           }
                         />
                       ))}
                     </div>
-                    <span className="neu-badge bg-[#DCFCE7] text-xs text-[#166534]">
-                      <ShieldCheck size={12} />
+                    <span className="at-badge at-badge-success text-[11px]">
                       Verified Student Booking
                     </span>
                   </div>
 
-                  {/* Rating Breakdown Badges */}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {review.teachingRating && (
-                      <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-[11px] font-bold text-slate-700">
-                        Teaching: {review.teachingRating}★
-                      </span>
-                    )}
-                    {review.communicationRating && (
-                      <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-[11px] font-bold text-slate-700">
-                        Communication: {review.communicationRating}★
-                      </span>
-                    )}
-                    {review.punctualityRating && (
-                      <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-[11px] font-bold text-slate-700">
-                        Punctuality: {review.punctualityRating}★
-                      </span>
-                    )}
-                  </div>
-
                   {review.comment && (
-                    <p className="text-sm font-semibold text-slate-700">
+                    <p className="text-sm text-gray-700 italic">
                       &quot;{review.comment}&quot;
                     </p>
                   )}
-                  <p className="text-[11px] font-bold text-slate-400">
+                  <p className="text-xs text-gray-400">
                     {new Date(review.createdAt).toLocaleDateString("en-IN", {
                       day: "numeric",
                       month: "short",
@@ -288,20 +297,22 @@ export default async function PublicTutorProfilePage({
         )}
 
         {/* CTA */}
-        <div className="neu-card flex flex-col items-center gap-4 bg-[#E0F2FE] p-6 text-center">
-          <BookOpen size={28} className="text-[#22C55E]" />
-          <h2 className="text-xl font-black text-[#0F172A]">
-            Interested in classes with {profile.user.name?.split(" ")[0]}?
+        <div
+          className="rounded-2xl p-8 text-center space-y-3"
+          style={{ backgroundColor: "#1A7F5A" }}
+        >
+          <BookOpen size={28} className="mx-auto text-emerald-200" />
+          <h2 className="text-xl font-700 text-white">
+            Interested in learning with {profile.user.name?.split(" ")[0]}?
           </h2>
-          <p className="text-sm font-semibold text-slate-700">
-            Post your tuition requirement on ApnaTutorHub and get matched with
-            verified tutors like {profile.user.name?.split(" ")[0]}.
+          <p className="text-sm text-emerald-100 max-w-md mx-auto">
+            Post your tuition requirement on ApnaTutorHub for free and get connected.
           </p>
           <Link
             href="/register"
-            className="neu-btn neu-btn-primary px-8 py-3.5 text-sm"
+            className="at-btn at-btn-accent at-btn-lg inline-flex"
           >
-            Post a Requirement — It&apos;s Free
+            Post a Requirement — Free
           </Link>
         </div>
       </div>

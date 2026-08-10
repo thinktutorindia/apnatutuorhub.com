@@ -97,6 +97,96 @@ export async function reactivateUserAction(
   return actionSuccess({ updated: true });
 }
 
+import type { SubAdminRole } from "@prisma/client";
+
+export type CreateUserInput = {
+  name: string;
+  email: string;
+  phone?: string;
+  password?: string;
+  role: "PARENT" | "TUTOR" | "SUB_ADMIN" | "SUPER_ADMIN";
+  subAdminRole?: SubAdminRole;
+  city?: string;
+};
+
+export async function adminCreateUserAction(
+  input: CreateUserInput
+): Promise<ActionResult<{ userId: string; email: string; temporaryPassword?: string }>> {
+  const { error, session } = await requirePermission("users:manage");
+  if (error) return actionError(error);
+
+  const emailClean = input.email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({
+    where: { email: emailClean },
+  });
+
+  if (existing) {
+    return actionError(`User with email "${emailClean}" already exists.`);
+  }
+
+  const rawPassword = input.password?.trim() || (Math.random().toString(36).slice(-8) + "A1!");
+  const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+  const newUser = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name: input.name.trim(),
+        email: emailClean,
+        phone: input.phone?.trim() || null,
+        passwordHash,
+        role: input.role,
+        subAdminRole: input.role === "SUB_ADMIN" ? (input.subAdminRole ?? "SUPPORT") : null,
+        isActive: true,
+        emailVerified: new Date(),
+      },
+    });
+
+    if (input.role === "PARENT") {
+      await tx.parentProfile.create({
+        data: {
+          userId: user.id,
+          city: input.city?.trim() || null,
+        },
+      });
+    } else if (input.role === "TUTOR") {
+      const tutor = await tx.tutorProfile.create({
+        data: {
+          userId: user.id,
+          city: input.city?.trim() || null,
+          isVerified: true,
+        },
+      });
+      await tx.wallet.create({
+        data: {
+          tutorProfileId: tutor.id,
+          balance: 0,
+          totalPurchased: 0,
+          totalSpent: 0,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session!.user.id,
+        action: "CREATE_USER",
+        entityType: "User",
+        entityId: user.id,
+        details: `Created ${input.role} account for ${user.email}`,
+      },
+    });
+
+    return user;
+  });
+
+  revalidatePath("/admin/users");
+  return actionSuccess({
+    userId: newUser.id,
+    email: newUser.email,
+    temporaryPassword: input.password ? undefined : rawPassword,
+  });
+}
+
 // ── KYC Management ─────────────────────────────────────────────────────────────
 // Requires: kyc:review (SUPER_ADMIN + VERIFICATION sub-admin)
 
@@ -798,64 +888,6 @@ export async function adminDeleteReviewAction(
 }
 
 // ── Additional Comprehensive Admin CRUD Actions ──────────────────────────────────
-
-export async function adminCreateUserAction(
-  formData: FormData
-): Promise<ActionResult<{ user: { id: string } }>> {
-  const { error, session } = await requirePermission("users:manage");
-  if (error) return actionError(error);
-
-  const name = formData.get("name")?.toString().trim();
-  const email = formData.get("email")?.toString().trim().toLowerCase();
-  const password = formData.get("password")?.toString();
-  const role = (formData.get("role")?.toString() ?? "PARENT") as "PARENT" | "TUTOR" | "SUPER_ADMIN" | "SUB_ADMIN";
-  const subAdminRole = formData.get("subAdminRole")?.toString() as any;
-
-  if (!name || !email || !password) {
-    return actionError("Name, email, and password are required.");
-  }
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return actionError("A user with this email address already exists.");
-  }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-
-  const user = await prisma.$transaction(async (tx) => {
-    const newUser = await tx.user.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-        role,
-        subAdminRole: role === "SUB_ADMIN" ? subAdminRole : null,
-      },
-    });
-
-    if (role === "PARENT") {
-      await tx.parentProfile.create({ data: { userId: newUser.id } });
-    } else if (role === "TUTOR") {
-      const tp = await tx.tutorProfile.create({ data: { userId: newUser.id } });
-      await tx.wallet.create({ data: { tutorProfileId: tp.id } });
-    }
-
-    await tx.auditLog.create({
-      data: {
-        adminId: session!.user.id,
-        action: "CREATE_USER",
-        entityType: "User",
-        entityId: newUser.id,
-        details: `Created new user ${email} with role ${role}`,
-      },
-    });
-
-    return newUser;
-  });
-
-  revalidatePath("/admin/users");
-  return actionSuccess({ user: { id: user.id } });
-}
 
 export async function adminEditUserAction(
   formData: FormData

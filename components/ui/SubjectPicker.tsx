@@ -1,90 +1,233 @@
 "use client";
 
-import { Check } from "lucide-react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { Search, X, Check, Plus } from "lucide-react";
 import { SUBJECT_TAXONOMY } from "@/lib/validations";
-
-const GROUP_BACKGROUNDS = [
-  "#DCFCE7",
-  "#E0F2FE",
-  "#FEF3C7",
-  "#F3E8FF",
-  "#FCE7F3",
-] as const;
 
 export function SubjectPicker({
   name = "subjects",
-  value,
+  value = [],
   onChange,
-  max = 6,
+  max = 10,
   disabled = false,
+  hintText = "Select subjects from the dropdown or type to search automatically.",
 }: {
   name?: string;
   value: string[];
   onChange: (subjects: string[]) => void;
   max?: number;
   disabled?: boolean;
+  hintText?: string;
 }) {
+  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>("ALL");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const allSubjects = useMemo(() => {
+    const list: { subject: string; group: string }[] = [];
+    SUBJECT_TAXONOMY.forEach((g) => {
+      g.subjects.forEach((s) => {
+        list.push({ subject: s, group: g.group });
+      });
+    });
+    return list;
+  }, []);
+
+  const filteredSubjects = useMemo(() => {
+    let result = allSubjects;
+    if (activeCategory !== "ALL") {
+      result = result.filter((item) => item.group === activeCategory);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      result = result.filter(
+        (item) =>
+          item.subject.toLowerCase().includes(q) ||
+          item.group.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [allSubjects, activeCategory, search]);
+
   const atLimit = value.length >= max;
 
-  const toggle = (subject: string) => {
-    if (value.includes(subject)) {
-      onChange(value.filter((item) => item !== subject));
-      return;
+  const toggleSubject = (subj: string) => {
+    if (value.includes(subj)) {
+      onChange(value.filter((s) => s !== subj));
+    } else {
+      if (!atLimit) {
+        onChange([...value, subj]);
+      }
     }
-    if (!atLimit) onChange([...value, subject]);
   };
 
+  const removeSubject = (subj: string) => {
+    onChange(value.filter((s) => s !== subj));
+  };
+
+  const addCustomSubject = () => {
+    const custom = search.trim();
+    if (custom && !value.includes(custom) && !atLimit) {
+      onChange([...value, custom]);
+      setSearch("");
+    }
+  };
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const categories = ["ALL", ...SUBJECT_TAXONOMY.map((g) => g.group)];
+
   return (
-    <div className="space-y-4">
-      {value.map((subject) => (
-        <input key={subject} type="hidden" name={name} value={subject} />
+    <div ref={containerRef} className="space-y-3 relative text-slate-900">
+      {/* Hidden Inputs for Form Submit */}
+      {value.map((s) => (
+        <input key={s} type="hidden" name={name} value={s} />
       ))}
 
+      {/* Header bar with counter */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">
-          Subject taxonomy
-        </span>
-        <span
-          className={`text-[11px] font-black ${
-            atLimit ? "text-[#EC4899]" : "text-slate-500"
-          }`}
-        >
-          {value.length}/{max} selected
-        </span>
+        <label className="text-xs font-800 uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+          <span>Selected Subjects</span>
+          <span className="text-[10px] font-800 text-[#2D9E6B] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            {value.length}/{max}
+          </span>
+        </label>
+        {atLimit && (
+          <span className="text-[11px] font-700 text-amber-700">
+            Maximum {max} subjects reached
+          </span>
+        )}
       </div>
 
-      {SUBJECT_TAXONOMY.map((group, index) => (
-        <div key={group.group} className="space-y-2">
-          <div
-            className="inline-flex items-center rounded-full border-2 border-[#0F172A] px-3 py-1 text-[10px] font-black uppercase"
-            style={{ backgroundColor: GROUP_BACKGROUNDS[index % GROUP_BACKGROUNDS.length] }}
-          >
-            {group.group}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {group.subjects.map((subject) => {
-              const isSelected = value.includes(subject);
-              return (
+      {/* Selected Chips Bar */}
+      {value.length > 0 ? (
+        <div className="flex flex-wrap gap-2 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+          {value.map((s) => (
+            <span
+              key={s}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-xs font-800 text-[#0F2540] shadow-2xs group hover:border-red-300 transition-colors"
+            >
+              <span>{s}</span>
+              {!disabled && (
                 <button
-                  key={subject}
                   type="button"
-                  aria-pressed={isSelected}
-                  disabled={disabled || (!isSelected && atLimit)}
-                  onClick={() => toggle(subject)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border-[2.5px] border-[#0F172A] px-3.5 py-1.5 text-[11px] font-extrabold transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
-                    isSelected
-                      ? "bg-[#22C55E] shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] -translate-x-[1px] -translate-y-[1px]"
-                      : "bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] hover:bg-slate-50"
+                  onClick={() => removeSubject(s)}
+                  className="text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                  aria-label={`Remove ${s}`}
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 font-700">
+          💡 {hintText}
+        </div>
+      )}
+
+      {/* Search Input Field */}
+      <div className="relative">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white border border-slate-300 shadow-2xs focus-within:border-[#2D9E6B]">
+          <Search size={16} className="text-slate-400 shrink-0" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            placeholder="Type to search subjects (e.g., Mathematics, Physics, Coding)..."
+            disabled={disabled || atLimit}
+            className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-400"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="text-slate-400 hover:text-slate-700"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Dropdown Menu */}
+        {isOpen && !disabled && (
+          <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-80 flex flex-col">
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1.5 p-3 border-b border-slate-200 overflow-x-auto bg-slate-50 shrink-0 [&::-webkit-scrollbar]:hidden">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-800 whitespace-nowrap transition-all cursor-pointer ${
+                    activeCategory === cat
+                      ? "bg-[#0F2540] text-white shadow-2xs"
+                      : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-200"
                   }`}
                 >
-                  {isSelected && <Check size={12} strokeWidth={3} />}
-                  {subject}
+                  {cat}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+
+            {/* Subject Options List */}
+            <div className="flex-1 overflow-y-auto p-2 divide-y divide-slate-100">
+              {filteredSubjects.length > 0 ? (
+                filteredSubjects.map(({ subject, group }) => {
+                  const isSelected = value.includes(subject);
+                  return (
+                    <button
+                      key={subject}
+                      type="button"
+                      onClick={() => toggleSubject(subject)}
+                      disabled={atLimit && !isSelected}
+                      className={`flex items-center justify-between w-full px-3.5 py-2.5 rounded-xl text-xs font-700 transition-colors text-left cursor-pointer ${
+                        isSelected
+                          ? "bg-emerald-50 text-[#2D9E6B] font-800"
+                          : "hover:bg-slate-100 text-slate-800"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span>{subject}</span>
+                        <span className="text-[10px] font-600 text-slate-400">({group})</span>
+                      </div>
+                      {isSelected && <Check size={14} className="text-[#2D9E6B] shrink-0" />}
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="p-4 text-center space-y-2">
+                  <p className="text-xs font-700 text-slate-500">No subjects found matching &quot;{search}&quot;</p>
+                  {search.trim() && !atLimit && (
+                    <button
+                      type="button"
+                      onClick={addCustomSubject}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#2D9E6B] text-white text-xs font-800 hover:bg-[#238357]"
+                    >
+                      <Plus size={14} />
+                      <span>Add &quot;{search.trim()}&quot; as custom subject</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        )}
+      </div>
     </div>
   );
 }

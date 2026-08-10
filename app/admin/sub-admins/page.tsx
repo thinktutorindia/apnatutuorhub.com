@@ -8,11 +8,11 @@ export const metadata = {
 };
 
 const ROLE_BADGES: Record<string, { label: string; color: string; bg: string }> = {
-  SUPPORT: { label: "Support", color: "#38BDF8", bg: "rgba(56,189,248,0.12)" },
-  VERIFICATION: { label: "Verification", color: "#A78BFA", bg: "rgba(167,139,250,0.12)" },
-  FINANCE: { label: "Finance", color: "#4ADE80", bg: "rgba(74,222,128,0.12)" },
-  OPERATIONS: { label: "Operations", color: "#FB923C", bg: "rgba(251,146,60,0.12)" },
-  MARKETING: { label: "Marketing", color: "#F472B6", bg: "rgba(244,114,182,0.12)" },
+  SUPPORT: { label: "Support", color: "#0284C7", bg: "bg-sky-100 text-sky-950 border-sky-300" },
+  VERIFICATION: { label: "Verification", color: "#7C3AED", bg: "bg-purple-100 text-purple-950 border-purple-300" },
+  FINANCE: { label: "Finance", color: "#16A34A", bg: "bg-emerald-100 text-emerald-950 border-emerald-300" },
+  OPERATIONS: { label: "Operations", color: "#EA580C", bg: "bg-orange-100 text-orange-950 border-orange-300" },
+  MARKETING: { label: "Marketing", color: "#DB2777", bg: "bg-pink-100 text-pink-950 border-pink-300" },
 };
 
 export default async function SubAdminsPage() {
@@ -36,34 +36,28 @@ export default async function SubAdminsPage() {
   });
 
   return (
-    <div>
+    <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1
-            className="text-2xl font-bold text-white"
-            style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.02em" }}
-          >
-            Sub-Admin Management
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+        <div className="space-y-1">
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">RBAC Governance</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Sub-Admin Staff Management
           </h1>
-          <p className="mt-1 text-sm" style={{ color: "#64748B" }}>
-            Create and manage staff accounts with department-level access control.
+          <p className="text-xs text-slate-600 font-600">
+            Create and manage staff accounts with department-level access control
           </p>
         </div>
       </div>
 
       {/* Department Key */}
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2.5">
         {Object.entries(ROLE_BADGES).map(([role, badge]) => (
           <span
             key={role}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-            style={{ color: badge.color, background: badge.bg }}
+            className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1 text-xs font-800 border ${badge.bg}`}
           >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: badge.color }}
-            />
+            <span className="h-2 w-2 rounded-full bg-current" />
             {badge.label}
           </span>
         ))}

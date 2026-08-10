@@ -1,79 +1,60 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export function Logo({
-  size = 36,
-  className,
+  size = 60,
+  className = "",
 }: {
   size?: number;
   className?: string;
+  light?: boolean;
 }) {
   return (
-    <div
-      className={`inline-flex items-center justify-center bg-[#DCFCE7] border-[2.5px] border-[#0F172A] rounded-xl shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] ${className}`}
-      style={{ width: size, height: size }}
-    >
-      <svg
-        width={size * 0.65}
-        height={size * 0.65}
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-label="ApnaTutorHub icon"
-      >
-        {/* Book / Mortarboard icon */}
-        <path
-          d="M12 3L2 8L12 13L22 8L12 3Z"
-          fill="#22C55E"
-          stroke="#0F172A"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M5 10.5V16.5C5 16.5 8 19 12 19C16 19 19 16.5 19 16.5V10.5"
-          stroke="#0F172A"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </div>
+    <Image
+      src="/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png"
+      alt="ApnaTutorHub Logo Mark"
+      width={size}
+      height={size}
+      className={`object-contain shrink-0 ${className}`}
+      priority
+    />
   );
 }
 
-export function Wordmark({ className }: { className?: string }) {
-  return (
-    <span
-      className={`font-black text-[#0F172A] tracking-tight text-sm sm:text-base ${className}`}
-      style={{
-        fontFamily: "'Poppins', sans-serif",
-      }}
-    >
-      Apna<span className="text-[#22C55E]">TutorHub</span>
-    </span>
-  );
+export function Wordmark() {
+  return null;
 }
 
 export function LogoBrand({
-  size = 36,
+  size,
   className = "",
   href = "/",
-  hideWordmarkOnMobile = true,
+  heightClass = "h-16 sm:h-20 md:h-22",
+  hideWordmarkOnMobile,
+  light = false,
 }: {
   size?: number;
   className?: string;
   href?: string;
+  heightClass?: string;
   hideWordmarkOnMobile?: boolean;
+  light?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-2.5 no-underline shrink-0 ${className}`}
+      className={`inline-flex items-center no-underline shrink-0 ${className}`}
     >
-      <Logo size={size} />
-      <span className={hideWordmarkOnMobile ? "hidden md:inline-block" : "inline-block"}>
-        <Wordmark />
-      </span>
+      <Image
+        src="/icons/Gemini_Generated_Image_f4d61ef4d61ef4d6_no_bg.png"
+        alt="ApnaTutorHub"
+        width={360}
+        height={80}
+        className={`${heightClass} w-auto object-contain ${light ? "brightness-0 invert" : ""
+          }`}
+        priority
+      />
     </Link>
   );
 }

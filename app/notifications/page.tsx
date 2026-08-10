@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { Bell, BellOff } from "lucide-react";
+import { Bell, BellOff, ArrowLeft } from "lucide-react";
 import { markAllNotificationsReadAction, markNotificationReadAction } from "@/app/actions/notification.actions";
 import Link from "next/link";
 
@@ -48,7 +48,6 @@ export default async function NotificationsPage({
 
   const totalPages = Math.ceil(total / take);
 
-  // Redirect based on role
   const backHref =
     session.user.role === "PARENT"
       ? "/parent/dashboard"
@@ -57,44 +56,35 @@ export default async function NotificationsPage({
         : "/admin/dashboard";
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "#F8FAFC", fontFamily: "'Inter', sans-serif" }}
-    >
-      <div className="mx-auto max-w-2xl px-4 py-10">
+    <div className="min-h-screen py-8 px-4 sm:px-6" style={{ backgroundColor: "#F9FAFB" }}>
+      <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <h1
-              className="text-2xl font-bold text-slate-900"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "-0.04em" }}
-            >
+            <h1 className="text-2xl font-700 mb-0.5" style={{ color: "#111827" }}>
               Notifications
             </h1>
-            <p className="mt-0.5 text-sm text-slate-500">
-              {unreadCount > 0 ? `${unreadCount} unread` : "All caught up!"}
+            <p className="text-sm" style={{ color: "#6B7280" }}>
+              {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}` : "All caught up!"}
             </p>
           </div>
-          <Link
-            href={backHref}
-            className="rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900"
-            style={{ background: "#F1F5F9" }}
-          >
-            ← Back
+          <Link href={backHref} className="at-btn at-btn-outline at-btn-sm">
+            <ArrowLeft size={14} />
+            Back
           </Link>
         </div>
 
         {/* Filter tabs + Mark all */}
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex gap-1.5">
             {["all", "unread"].map((f) => (
               <a
                 key={f}
                 href={`/notifications?filter=${f}`}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-all"
+                className="px-3 py-1.5 rounded-full text-xs font-500 capitalize transition-colors"
                 style={{
-                  background: filter === f ? "#0F172A" : "#F1F5F9",
-                  color: filter === f ? "#fff" : "#64748B",
+                  backgroundColor: filter === f ? "#1A7F5A" : "#F3F4F6",
+                  color: filter === f ? "#FFFFFF" : "#374151",
                 }}
               >
                 {f}
@@ -111,11 +101,11 @@ export default async function NotificationsPage({
             >
               <button
                 type="submit"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hover:opacity-80"
-                style={{ background: "rgba(34,197,94,0.1)", color: "#16A34A" }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-600 cursor-pointer"
+                style={{ backgroundColor: "#E8F5F0", color: "#1A7F5A" }}
               >
-                <BellOff size={12} />
-                Mark all read
+                <BellOff size={14} />
+                Mark all as read
               </button>
             </form>
           )}
@@ -124,58 +114,53 @@ export default async function NotificationsPage({
         {/* Notification List */}
         {notifications.length === 0 ? (
           <div
-            className="flex flex-col items-center gap-3 rounded-2xl py-20 text-center"
-            style={{ background: "#fff", border: "1px solid #E2E8F0" }}
+            className="rounded-xl py-16 text-center space-y-2"
+            style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
           >
-            <Bell size={36} className="text-slate-200" />
-            <p className="text-sm font-medium text-slate-500">No notifications here</p>
+            <Bell size={32} className="mx-auto" style={{ color: "#9CA3AF" }} />
+            <p className="text-sm font-500" style={{ color: "#6B7280" }}>No notifications found</p>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className="overflow-hidden rounded-2xl transition-all"
+                className="rounded-xl p-4 transition-all"
                 style={{
-                  background: n.isRead ? "#fff" : "#F0FDF4",
-                  border: n.isRead ? "1px solid #E2E8F0" : "1px solid #BBF7D0",
+                  backgroundColor: n.isRead ? "#FFFFFF" : "#E8F5F0",
+                  border: `1px solid ${n.isRead ? "#E5E7EB" : "#cce9df"}`,
                 }}
               >
-                <div className="flex items-start gap-4 p-4">
-                  {/* Icon */}
+                <div className="flex items-start gap-3.5">
                   <div
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                     style={{
-                      background: n.isRead ? "#F8FAFC" : "rgba(34,197,94,0.12)",
-                      border: n.isRead ? "1px solid #E2E8F0" : "1px solid rgba(34,197,94,0.25)",
+                      backgroundColor: n.isRead ? "#F3F4F6" : "#FFFFFF",
+                      color: n.isRead ? "#6B7280" : "#1A7F5A",
                     }}
                   >
-                    <Bell size={16} style={{ color: n.isRead ? "#94A3B8" : "#22C55E" }} />
+                    <Bell size={16} />
                   </div>
 
-                  {/* Content */}
-                  <div className="min-w-0 flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p
-                        className="text-sm font-semibold leading-snug"
-                        style={{ color: n.isRead ? "#334155" : "#0F172A" }}
-                      >
+                      <p className="text-sm font-600" style={{ color: "#111827" }}>
                         {n.title}
                       </p>
-                      <span className="flex-shrink-0 text-xs text-slate-400">
+                      <span className="text-xs shrink-0" style={{ color: "#9CA3AF" }}>
                         {timeAgo(n.createdAt)}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-sm leading-relaxed text-slate-500">
+                    <p className="text-sm mt-0.5" style={{ color: "#374151" }}>
                       {n.message}
                     </p>
 
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-2.5 flex items-center gap-3">
                       {n.actionUrl && (
                         <Link
                           href={n.actionUrl}
-                          className="inline-flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold transition-all hover:opacity-80"
-                          style={{ background: "#22C55E", color: "#fff" }}
+                          className="at-btn at-btn-primary at-btn-sm"
+                          style={{ padding: "4px 10px", fontSize: 12 }}
                         >
                           View →
                         </Link>
@@ -189,7 +174,8 @@ export default async function NotificationsPage({
                         >
                           <button
                             type="submit"
-                            className="text-xs text-slate-400 underline transition-colors hover:text-slate-600"
+                            className="text-xs font-500 hover:underline cursor-pointer"
+                            style={{ color: "#6B7280" }}
                           >
                             Mark read
                           </button>
@@ -205,16 +191,15 @@ export default async function NotificationsPage({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-between">
-            <p className="text-xs text-slate-500">
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-xs" style={{ color: "#6B7280" }}>
               Page {page} of {totalPages}
             </p>
             <div className="flex gap-2">
               {page > 1 && (
                 <a
                   href={`/notifications?filter=${filter}&page=${page - 1}`}
-                  className="rounded-lg px-3 py-1.5 text-xs font-semibold"
-                  style={{ background: "#F1F5F9", color: "#64748B" }}
+                  className="at-btn at-btn-outline at-btn-sm"
                 >
                   ← Prev
                 </a>
@@ -222,8 +207,7 @@ export default async function NotificationsPage({
               {page < totalPages && (
                 <a
                   href={`/notifications?filter=${filter}&page=${page + 1}`}
-                  className="rounded-lg px-3 py-1.5 text-xs font-semibold"
-                  style={{ background: "#22C55E", color: "#fff" }}
+                  className="at-btn at-btn-primary at-btn-sm"
                 >
                   Next →
                 </a>

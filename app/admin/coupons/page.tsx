@@ -2,10 +2,9 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
-import { createCouponAction, toggleCouponActiveAction, deleteCouponAction } from "@/app/actions/coupon.actions";
 import { CouponActions } from "@/components/admin/CouponActions";
 import { CreateCouponForm } from "@/components/admin/CreateCouponForm";
-import { Ticket, Plus, CheckCircle, XCircle, Trash2, Power, Tag } from "lucide-react";
+import { Ticket, Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Coupon Management — Admin" };
@@ -25,18 +24,16 @@ export default async function AdminCouponsPage() {
   });
 
   return (
-    <div style={{ color: "#F8FAFC" }}>
+    <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1
-            className="text-2xl font-bold text-white"
-            style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.02em" }}
-          >
-            Coupon & Discount Management
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+        <div className="space-y-1">
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Promotions &amp; Discounts</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Coupon &amp; Discount Management
           </h1>
-          <p className="mt-1 text-sm" style={{ color: "#64748B" }}>
-            Create promo codes, percentage discounts, and flat order coupons.
+          <p className="text-xs text-slate-600 font-600">
+            Create promo codes, percentage discounts, and flat coin bonus coupons
           </p>
         </div>
       </div>
@@ -48,85 +45,58 @@ export default async function AdminCouponsPage() {
         </div>
 
         {/* Coupons List */}
-        <div
-          className="rounded-2xl p-6 lg:col-span-2"
-          style={{ background: "#0F172A", border: "1px solid #1E293B" }}
-        >
-          <div className="mb-5 flex items-center justify-between">
+        <div className="rounded-3xl p-6 lg:col-span-2 bg-white border border-slate-200 shadow-xs space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
             <div className="flex items-center gap-2">
-              <Tag size={18} style={{ color: "#3B82F6" }} />
-              <h2 className="text-base font-semibold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                Active & Archived Coupons
+              <Tag size={20} className="text-[#2563EB]" />
+              <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                Active &amp; Archived Coupons
               </h2>
             </div>
-            <span className="rounded-full px-2.5 py-0.5 text-xs font-bold" style={{ background: "#1E293B", color: "#94A3B8" }}>
+            <span className="rounded-full px-3 py-1 text-xs font-800 bg-slate-100 text-slate-800 border border-slate-300">
               Total: {coupons.length}
             </span>
           </div>
 
           {coupons.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <Ticket size={36} style={{ color: "#334155" }} />
-              <p className="text-sm" style={{ color: "#64748B" }}>No coupons created yet.</p>
+              <Ticket size={40} className="text-slate-400" />
+              <p className="text-sm font-700 text-slate-600">No promo coupons created yet.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {coupons.map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center justify-between rounded-xl p-4 transition-all"
-                  style={{
-                    background: "#0A0F1E",
-                    border: c.isActive ? "1px solid #1E293B" : "1px solid #334155",
-                    opacity: c.isActive ? 1 : 0.6,
-                  }}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border transition-all ${
+                    c.isActive ? "bg-white border-slate-200 shadow-xs" : "bg-slate-50 border-slate-200 opacity-60"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-xl font-bold"
-                      style={{
-                        background: c.discountType === "PERCENTAGE" ? "rgba(59,130,246,0.15)" : "rgba(34,197,94,0.15)",
-                        color: c.discountType === "PERCENTAGE" ? "#3B82F6" : "#22C55E",
-                      }}
-                    >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl font-800 text-sm bg-blue-100 text-[#2563EB] border border-blue-300">
                       {c.discountType === "PERCENTAGE" ? "%" : "₹"}
                     </div>
 
                     <div>
                       <div className="flex items-center gap-2">
-                        <span
-                          className="text-sm font-bold text-white tracking-wider"
-                          style={{ fontFamily: "'Fira Code', monospace" }}
-                        >
+                        <span className="text-base font-800 text-[#0F2540] tracking-wider uppercase">
                           {c.code}
                         </span>
-                        {c.isActive ? (
-                          <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400">
-                            <CheckCircle size={10} /> Active
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">
-                            <XCircle size={10} /> Disabled
-                          </span>
-                        )}
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-800 border ${
+                          c.isActive ? "bg-emerald-100 text-emerald-950 border-emerald-300" : "bg-slate-100 text-slate-700 border-slate-300"
+                        }`}>
+                          {c.isActive ? "Active" : "Archived"}
+                        </span>
                       </div>
-
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        {c.discountType === "PERCENTAGE"
-                          ? `${c.discountAmount}% OFF ${c.maxDiscountInr ? `(Up to ₹${c.maxDiscountInr / 100})` : ""}`
-                          : `₹${c.discountAmount / 100} FLAT OFF`}
-                        {c.minOrderInr ? ` • Min Order: ₹${c.minOrderInr / 100}` : ""}
-                      </p>
-
-                      <p className="mt-1 text-[10px] text-slate-500">
-                        Used: {c.usedCount} {c.usageLimit ? `/ ${c.usageLimit}` : ""} times
-                        {c.expiresAt ? ` • Expires: ${new Date(c.expiresAt).toLocaleDateString("en-IN")}` : ""}
+                      <p className="text-xs font-600 text-slate-600">
+                        {c.discountType === "PERCENTAGE" ? `${c.discountAmount}% OFF` : `₹${c.discountAmount} Flat Discount`} · Used {c._count.usages} times
                       </p>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <CouponActions couponId={c.id} code={c.code} isActive={c.isActive} />
+                  <div className="mt-3 sm:mt-0 flex items-center gap-2">
+                    <CouponActions couponId={c.id} code={c.code} isActive={c.isActive} />
+                  </div>
                 </div>
               ))}
             </div>

@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition, useState, useEffect } from "react";
-import { Search, X, Filter, UserCheck, Shield, RefreshCw } from "lucide-react";
+import { Search, X, UserCheck } from "lucide-react";
 
 export function AuditLogFilterBar({
   initialAction,
@@ -75,11 +75,8 @@ export function AuditLogFilterBar({
       {/* Search Input & Select Dropdowns */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search Action */}
-        <div
-          className="flex flex-1 items-center gap-2 rounded-xl px-3.5 py-2.5 transition-all focus-within:border-[#22C55E]"
-          style={{ background: "#0F172A", border: "1px solid #1E293B", minWidth: "220px" }}
-        >
-          <Search size={15} className="text-slate-400 shrink-0" />
+        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] min-w-[220px]">
+          <Search size={16} className="text-slate-500 shrink-0" />
           <input
             type="text"
             value={action}
@@ -89,7 +86,7 @@ export function AuditLogFilterBar({
               updateFilters(val, entity, adminId, subAdminOnly);
             }}
             placeholder="Search action keyword (e.g. KYC, SUSPEND)..."
-            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+            className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-400"
           />
           {action && (
             <button
@@ -98,14 +95,14 @@ export function AuditLogFilterBar({
                 setAction("");
                 updateFilters("", entity, adminId, subAdminOnly);
               }}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-400 hover:text-slate-700"
             >
               <X size={14} />
             </button>
           )}
         </div>
 
-        {/* Entity Type Filter */}
+        {/* Target Entity Selector */}
         <select
           value={entity}
           onChange={(e) => {
@@ -113,18 +110,15 @@ export function AuditLogFilterBar({
             setEntity(val);
             updateFilters(action, val, adminId, subAdminOnly);
           }}
-          className="rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white outline-none cursor-pointer"
-          style={{ background: "#0F172A", border: "1px solid #1E293B" }}
+          className="rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
         >
-          <option value="" className="bg-[#0F172A] text-white">All Entities</option>
+          <option value="">All Entity Types</option>
           {ENTITIES.map((ent) => (
-            <option key={ent} value={ent} className="bg-[#0F172A] text-white">
-              {ent}
-            </option>
+            <option key={ent} value={ent}>{ent}</option>
           ))}
         </select>
 
-        {/* Filter by Specific Admin / Sub-Admin */}
+        {/* Staff Member Selector */}
         <select
           value={adminId}
           onChange={(e) => {
@@ -132,89 +126,45 @@ export function AuditLogFilterBar({
             setAdminId(val);
             updateFilters(action, entity, val, subAdminOnly);
           }}
-          className="rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white outline-none cursor-pointer"
-          style={{ background: "#0F172A", border: "1px solid #1E293B" }}
+          className="rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
         >
-          <option value="" className="bg-[#0F172A] text-white">All Admin Accounts</option>
+          <option value="">All Admin &amp; Staff Members</option>
           {adminUsers.map((u) => (
-            <option key={u.id} value={u.id} className="bg-[#0F172A] text-white">
-              {u.name || u.email.split("@")[0]} ({u.role === "SUB_ADMIN" ? `Sub-Admin: ${u.subAdminRole}` : "Super Admin"})
+            <option key={u.id} value={u.id}>
+              {u.name || u.email} ({u.role === "SUB_ADMIN" ? `Sub: ${u.subAdminRole ?? "Staff"}` : "Super Admin"})
             </option>
           ))}
         </select>
+
+        {/* Sub-Admin Only Toggle Button */}
+        <button
+          type="button"
+          onClick={() => {
+            const val = !subAdminOnly;
+            setSubAdminOnly(val);
+            updateFilters(action, entity, adminId, val);
+          }}
+          className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xs font-800 transition-all border cursor-pointer ${
+            subAdminOnly
+              ? "bg-amber-100 text-amber-950 border-amber-300 shadow-xs"
+              : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+          }`}
+        >
+          <UserCheck size={14} />
+          <span>Sub-Admin Actions Only</span>
+        </button>
 
         {/* Reset Button */}
         {hasActiveFilters && (
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-300 hover:text-white transition-colors border border-slate-700 hover:border-slate-500 cursor-pointer"
+            className="flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xs font-800 bg-slate-200 text-slate-800 hover:bg-slate-300 transition-colors"
           >
-            <RefreshCw size={13} className={isPending ? "animate-spin" : ""} />
+            <X size={14} />
             <span>Reset Filters</span>
           </button>
         )}
-      </div>
-
-      {/* Quick View Mode Pills */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold text-slate-400 flex items-center gap-1 mr-1">
-          <Filter size={12} />
-          View:
-        </span>
-
-        <button
-          type="button"
-          onClick={() => {
-            setSubAdminOnly(false);
-            setAdminId("");
-            updateFilters(action, entity, "", false);
-          }}
-          className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
-            !subAdminOnly && !adminId
-              ? "bg-[#3B82F6] text-white shadow-sm"
-              : "bg-[#0F172A] text-slate-400 hover:text-white border border-slate-800"
-          }`}
-        >
-          All Activity Logs
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setSubAdminOnly(true);
-            setAdminId("");
-            updateFilters(action, entity, "", true);
-          }}
-          className={`rounded-lg px-3 py-1.5 text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-            subAdminOnly
-              ? "bg-[#F59E0B] text-[#0F172A] shadow-sm font-black"
-              : "bg-[#0F172A] text-amber-400 hover:text-amber-300 border border-amber-500/30"
-          }`}
-        >
-          <UserCheck size={13} />
-          <span>Sub-Admin Activity Logs</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            const superAdmin = adminUsers.find((u) => u.role === "SUPER_ADMIN");
-            if (superAdmin) {
-              setSubAdminOnly(false);
-              setAdminId(superAdmin.id);
-              updateFilters(action, entity, superAdmin.id, false);
-            }
-          }}
-          className={`rounded-lg px-3 py-1.5 text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-            !subAdminOnly && adminId && adminUsers.find((u) => u.id === adminId)?.role === "SUPER_ADMIN"
-              ? "bg-[#22C55E] text-[#0F172A] shadow-sm font-black"
-              : "bg-[#0F172A] text-emerald-400 hover:text-emerald-300 border border-emerald-500/30"
-          }`}
-        >
-          <Shield size={13} />
-          <span>Super Admin Logs</span>
-        </button>
       </div>
     </div>
   );

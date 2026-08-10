@@ -1,18 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  ArrowRight,
-  BookOpen,
-  CheckCircle,
-  MapPin,
-  PlusCircle,
-  Sparkles,
-  Users,
-  UserCog,
+  ArrowRight, BookOpen, MapPin, PlusCircle, Users, CheckCircle, UserCog, ChevronRight,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { LEAD_STATUS_META, type LeadStatusKey } from "@/lib/validations";
+import { EnablePushBanner } from "@/components/EnablePushBanner";
 
 const OPEN_STATUSES = ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] as const;
 
@@ -28,9 +21,7 @@ export default async function ParentDashboardPage() {
     select: { id: true },
   });
 
-  if (!dbUser) {
-    redirect("/login");
-  }
+  if (!dbUser) redirect("/login");
 
   let parentProfile = await prisma.parentProfile.findUnique({
     where: { userId: session.user.id },
@@ -41,7 +32,7 @@ export default async function ParentDashboardPage() {
       _count: { select: { students: true, leads: true } },
       leads: {
         orderBy: { createdAt: "desc" },
-        take: 4,
+        take: 5,
         select: {
           id: true,
           subjects: true,
@@ -75,7 +66,7 @@ export default async function ParentDashboardPage() {
     }
   }
 
-  const [openRequirements, totalApplicants] = await Promise.all([
+  const [openRequirements, totalInterestedTutors] = await Promise.all([
     prisma.lead.count({
       where: {
         parentProfileId: parentProfile.id,
@@ -87,192 +78,159 @@ export default async function ParentDashboardPage() {
     }),
   ]);
 
-  const stats = [
-    {
-      label: "Posted Requirements",
-      value: parentProfile._count.leads,
-      icon: BookOpen,
-      background: "#DCFCE7",
-    },
-    {
-      label: "Tutor Applications",
-      value: totalApplicants,
-      icon: Users,
-      background: "#FEF3C7",
-    },
-    {
-      label: "Open Requirements",
-      value: openRequirements,
-      icon: CheckCircle,
-      background: "#FCE7F3",
-    },
-    {
-      label: "Student Profiles",
-      value: parentProfile._count.students,
-      icon: UserCog,
-      background: "#F3E8FF",
-    },
-  ];
+  const firstName = session.user.name?.split(" ")[0] || "there";
 
   return (
-    <div className="space-y-8 py-4">
-      {/* Welcome Banner */}
-      <div className="neu-card flex flex-col items-start justify-between gap-6 bg-[#E0F2FE] p-6 md:flex-row md:items-center md:p-8">
-        <div className="space-y-2">
-          <div className="neu-badge bg-white text-[#0F172A]">
-            <Sparkles size={14} className="text-amber-500" />
-            Parent Dashboard
-          </div>
-          <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
-            Welcome back, {session.user.name || "Parent"}! 👋
-          </h1>
-          <p className="text-sm font-semibold text-slate-700">
-            Manage your posted tuition requirements, review tutor applications,
-            and track classes.
-          </p>
-        </div>
+    <div className="space-y-6 text-slate-900">
+      {/* Push Notification Opt-in */}
+      <EnablePushBanner userId={session.user.id} />
 
-        <Link
-          href="/parent/post-requirement"
-          className="neu-btn neu-btn-primary flex shrink-0 items-center gap-2 px-6 py-3.5 text-sm"
-        >
-          <PlusCircle size={18} />
-          <span>Post New Requirement</span>
-        </Link>
+      {/* Hero Welcome Banner */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#0F2540] via-[#1E3A5F] to-[#0F2540] text-white shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[11px] font-800 uppercase tracking-widest text-emerald-400">Parent Learning Hub</span>
+            <h1 className="text-2xl sm:text-3xl font-800 tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+              Welcome back, {firstName} 👋
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 font-600">
+              Find verified home &amp; online tutors for your children, manage requirements, and track class progress
+            </p>
+          </div>
+
+          <Link
+            href="/parent/post-requirement"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 shadow-md transition-all shrink-0 cursor-pointer"
+          >
+            <PlusCircle size={16} />
+            <span>Post New Requirement</span>
+          </Link>
+        </div>
       </div>
 
+      {/* Location Nudge */}
       {!parentProfile.city && (
-        <div className="neu-card flex flex-col gap-3 bg-[#FFEDD5] p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-2">
-            <MapPin size={18} className="mt-0.5 shrink-0" />
-            <p className="text-xs font-bold text-slate-700">
-              Add your city and pincode so we can match you with verified tutors
-              nearby.
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-3xl bg-amber-50 border border-amber-200 text-amber-950 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-800 shrink-0 border border-amber-300">
+              <MapPin size={18} />
+            </div>
+            <p className="text-xs sm:text-sm font-700">
+              Add your city &amp; location in your profile so our matching engine can connect you with nearby tutors.
             </p>
           </div>
           <Link
             href="/parent/profile"
-            className="neu-btn neu-btn-white shrink-0 px-5 py-2.5 text-xs"
+            className="px-4 py-2 rounded-2xl bg-white border border-amber-300 text-amber-950 font-800 text-xs hover:bg-amber-100 shrink-0 self-start sm:self-auto"
           >
-            <UserCog size={15} />
-            <span>Complete Profile</span>
+            Update Profile
           </Link>
         </div>
       )}
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div
+      {/* Quick Stats Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { label: "Total Requirements", value: parentProfile._count.leads, icon: BookOpen, href: "/parent/my-leads", color: "text-[#2563EB]", bg: "bg-blue-50" },
+          { label: "Tutors Interested", value: totalInterestedTutors, icon: Users, href: "/parent/my-leads", color: "text-[#2D9E6B]", bg: "bg-emerald-50" },
+          { label: "Active Open Leads", value: openRequirements, icon: CheckCircle, href: "/parent/my-leads", color: "text-[#7C3AED]", bg: "bg-purple-50" },
+        ].map((stat) => (
+          <Link
             key={stat.label}
-            className="neu-card space-y-2 p-5"
-            style={{ backgroundColor: stat.background }}
+            href={stat.href || "#"}
+            className="p-5 rounded-3xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition-all space-y-2 group"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase text-slate-700">
-                {stat.label}
-              </span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-[#0F172A] bg-white">
-                <stat.icon size={16} className="text-[#0F172A]" />
+              <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${stat.bg} ${stat.color}`}>
+                <stat.icon size={20} />
               </div>
+              <ChevronRight size={16} className="text-slate-400 group-hover:text-slate-700 transition-transform group-hover:translate-x-1" />
             </div>
-            <div className="text-3xl font-black text-[#0F172A]">
-              {stat.value}
+            <div>
+              <p className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                {stat.value}
+              </p>
+              <p className="text-xs font-700 text-slate-600 mt-0.5">{stat.label}</p>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
-      {/* Recent Requirements */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black text-[#0F172A]">
-            Recent Requirements
-          </h2>
-          <Link
-            href="/parent/my-leads"
-            className="flex items-center gap-1 text-sm font-extrabold text-[#22C55E] hover:underline"
-          >
-            <span>View all</span> <ArrowRight size={16} />
-          </Link>
+      {/* Requirements List Card Section */}
+      <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+          <div>
+            <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+              Your Posted Requirements
+            </h2>
+            <p className="text-xs font-600 text-slate-600">Review applicant responses and tutor proposals</p>
+          </div>
+          {parentProfile.leads.length > 0 && (
+            <Link
+              href="/parent/my-leads"
+              className="text-xs font-800 text-[#2D9E6B] hover:underline flex items-center gap-1"
+            >
+              <span>View All ({parentProfile._count.leads})</span>
+              <ArrowRight size={14} />
+            </Link>
+          )}
         </div>
 
         {parentProfile.leads.length === 0 ? (
-          <div className="neu-card space-y-4 bg-white p-10 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border-[2.5px] border-[#0F172A] bg-[#DCFCE7] text-3xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]">
-              📝
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-emerald-50 text-[#2D9E6B] border border-emerald-200">
+              <BookOpen size={28} />
             </div>
-            <h3 className="text-xl font-black text-[#0F172A]">
-              No tuition requirements posted yet
-            </h3>
-            <p className="mx-auto max-w-md text-sm font-semibold text-slate-600">
-              Post your first requirement to get matched with top verified home or
-              online tutors in your area!
+            <h3 className="text-base font-800 text-[#0F2540]">No tuition requirements posted yet</h3>
+            <p className="text-xs font-600 text-slate-600 max-w-sm">
+              Post your subject requirement to start receiving tutor profiles and proposals in your locality.
             </p>
             <Link
               href="/parent/post-requirement"
-              className="neu-btn neu-btn-primary inline-flex items-center gap-2 px-6 py-3 text-sm"
+              className="px-5 py-2.5 rounded-2xl bg-[#2D9E6B] text-white text-xs font-800 hover:bg-[#238357] shadow-md transition-all mt-2"
             >
-              <PlusCircle size={18} />
-              <span>Post Requirement Now</span>
+              Post First Requirement
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="space-y-4">
             {parentProfile.leads.map((lead) => {
-              const statusMeta = LEAD_STATUS_META[lead.status as LeadStatusKey];
-
+              const applicantsCount = lead._count.purchases;
               return (
-                <div key={lead.id} className="neu-card space-y-4 bg-white p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="neu-badge bg-[#DCFCE7] text-xs">
+                <div
+                  key={lead.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100/80 transition-all"
+                >
+                  <div className="space-y-2 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-800 text-[#0F2540] text-base truncate">
+                        {lead.subjects.join(", ")}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-800 bg-blue-100 text-blue-950 border border-blue-300">
                         {lead.classLevel}
                       </span>
-                      <h3 className="mt-2 text-xl font-black text-[#0F172A]">
-                        {lead.subjects.join(", ")}
-                      </h3>
-                    </div>
-                    <span
-                      className="neu-badge shrink-0 text-[11px]"
-                      style={{ backgroundColor: statusMeta.background }}
-                    >
-                      {statusMeta.label}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 border-y-2 border-slate-100 py-3 text-xs font-bold text-slate-600">
-                    <div className="flex items-center justify-between">
-                      <span>Mode:</span>
-                      <span className="font-black text-[#0F172A]">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-800 bg-slate-200 text-slate-800 border border-slate-300">
                         {lead.mode}
                       </span>
                     </div>
-                    {lead.budgetMax && (
-                      <div className="flex items-center justify-between">
-                        <span>Budget:</span>
-                        <span className="font-black text-[#22C55E]">
-                          ₹{lead.budgetMin ?? 0} - ₹{lead.budgetMax} / hr
-                        </span>
-                      </div>
-                    )}
-                    {lead.city && (
-                      <div className="flex items-center gap-1 text-slate-600">
-                        <MapPin size={12} />
-                        <span>{lead.city}</span>
-                      </div>
-                    )}
+
+                    <p className="text-xs font-700 text-slate-600">
+                      Location: {lead.city || "Location Private"} · Budget: ₹{lead.budgetMin || 0} - ₹{lead.budgetMax || "Negotiable"}
+                    </p>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs font-bold text-slate-500">
-                      {lead._count.purchases} of {lead.maxTutors} tutors unlocked
-                    </span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <span className="text-xs font-800 text-[#2D9E6B]">
+                        {applicantsCount} {applicantsCount === 1 ? "Tutor Applicant" : "Tutors Applicant"}
+                      </span>
+                    </div>
                     <Link
                       href={`/parent/my-leads/${lead.id}/applicants`}
-                      className="neu-btn neu-btn-secondary px-4 py-2 text-xs"
+                      className="px-4 py-2 rounded-2xl bg-[#0F2540] hover:bg-[#1E3A5F] text-white text-xs font-800 shadow-2xs flex items-center gap-1 transition-all"
                     >
-                      View Applicants ({lead._count.purchases})
+                      <span>View Tutors</span>
+                      <ChevronRight size={14} />
                     </Link>
                   </div>
                 </div>

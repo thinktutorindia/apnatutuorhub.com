@@ -31,9 +31,12 @@ export async function registerAction(
   _prevState: RegisterFormState,
   formData: FormData
 ): Promise<RegisterFormState> {
+  const rawPhone = String(formData.get("phone") || "").replace(/\D/g, "");
+
   const raw = {
     name: formData.get("name"),
     email: formData.get("email"),
+    phone: rawPhone,
     password: formData.get("password"),
     role: formData.get("role"),
     referralCode: formData.get("referralCode") || undefined,
@@ -48,17 +51,28 @@ export async function registerAction(
     };
   }
 
-  const { name, email, password, role, referralCode } = parsed.data;
+  const { name, email, phone, password, role, referralCode } = parsed.data;
 
-  // Check if email already exists
-  const existing = await prisma.user.findUnique({
+  // Check if email or phone already exists
+  const existingEmail = await prisma.user.findUnique({
     where: { email },
   });
 
-  if (existing) {
+  if (existingEmail) {
     return {
       success: false,
       error: "An account with this email already exists. Please log in instead.",
+    };
+  }
+
+  const existingPhone = await prisma.user.findFirst({
+    where: { phone },
+  });
+
+  if (existingPhone) {
+    return {
+      success: false,
+      error: "An account with this mobile number already exists. Please log in instead.",
     };
   }
 
@@ -80,6 +94,7 @@ export async function registerAction(
     data: {
       name,
       email,
+      phone,
       passwordHash,
       role: role as "PARENT" | "TUTOR",
     },

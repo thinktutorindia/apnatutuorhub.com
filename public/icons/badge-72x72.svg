@@ -1,4 +1,4 @@
 <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="36" cy="36" r="36" fill="#22C55E"/>
-  <path d="M36 18L12 30L36 42L60 30L36 18Z" fill="#FFFFFF"/>
+  <rect width="72" height="72" rx="16" fill="#1A3C5E"/>
+  <text x="36" y="47" font-family="Poppins, Arial, sans-serif" font-weight="800" font-size="32" fill="#F5A623" text-anchor="middle">AT</text>
 </svg>

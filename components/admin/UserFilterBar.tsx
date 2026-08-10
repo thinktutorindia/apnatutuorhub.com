@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition, useState, useEffect } from "react";
-import { Search, X, Filter, RefreshCw } from "lucide-react";
+import { Search, X, Filter } from "lucide-react";
 
 export function UserFilterBar({
   initialQ,
@@ -22,7 +22,6 @@ export function UserFilterBar({
   const [role, setRole] = useState(initialRole);
   const [status, setStatus] = useState(initialStatus);
 
-  // Keep state in sync with URL changes
   useEffect(() => {
     setQ(searchParams.get("q") ?? "");
     setRole(searchParams.get("role") ?? "");
@@ -50,7 +49,6 @@ export function UserFilterBar({
       params.delete("status");
     }
 
-    // Always reset to page 1 on filter change
     params.delete("page");
 
     startTransition(() => {
@@ -82,11 +80,8 @@ export function UserFilterBar({
       {/* Search Input & Selectors */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search Input */}
-        <div
-          className="flex flex-1 items-center gap-2 rounded-xl px-3.5 py-2.5 transition-all focus-within:border-[#22C55E]"
-          style={{ background: "#0F172A", border: "1px solid #1E293B", minWidth: "240px" }}
-        >
-          <Search size={16} className="text-slate-400 shrink-0" />
+        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] min-w-[240px]">
+          <Search size={16} className="text-slate-500 shrink-0" />
           <input
             type="text"
             value={q}
@@ -96,23 +91,22 @@ export function UserFilterBar({
               updateFilters(val, role, status);
             }}
             placeholder="Search name, email, or phone number..."
-            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+            className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-400"
           />
           {q && (
             <button
-              type="button"
               onClick={() => {
                 setQ("");
                 updateFilters("", role, status);
               }}
-              className="text-slate-400 hover:text-white transition-colors"
+              className="text-slate-400 hover:text-slate-700"
             >
               <X size={14} />
             </button>
           )}
         </div>
 
-        {/* Role Select Dropdown */}
+        {/* Role Selector */}
         <select
           value={role}
           onChange={(e) => {
@@ -120,17 +114,16 @@ export function UserFilterBar({
             setRole(val);
             updateFilters(q, val, status);
           }}
-          className="rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white outline-none cursor-pointer"
-          style={{ background: "#0F172A", border: "1px solid #1E293B" }}
+          className="rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
         >
-          <option value="" className="bg-[#0F172A] text-white">All Roles</option>
-          <option value="PARENT" className="bg-[#0F172A] text-white">Parent</option>
-          <option value="TUTOR" className="bg-[#0F172A] text-white">Tutor</option>
-          <option value="SUB_ADMIN" className="bg-[#0F172A] text-white">Sub Admin</option>
-          <option value="SUPER_ADMIN" className="bg-[#0F172A] text-white">Super Admin</option>
+          <option value="">All Roles</option>
+          <option value="PARENT">Parents Only</option>
+          <option value="TUTOR">Tutors Only</option>
+          <option value="SUB_ADMIN">Sub-Admins Only</option>
+          <option value="SUPER_ADMIN">Super-Admins Only</option>
         </select>
 
-        {/* Status Select Dropdown */}
+        {/* Status Selector */}
         <select
           value={status}
           onChange={(e) => {
@@ -138,50 +131,47 @@ export function UserFilterBar({
             setStatus(val);
             updateFilters(q, role, val);
           }}
-          className="rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white outline-none cursor-pointer"
-          style={{ background: "#0F172A", border: "1px solid #1E293B" }}
+          className="rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
         >
-          <option value="" className="bg-[#0F172A] text-white">All Statuses</option>
-          <option value="ACTIVE" className="bg-[#0F172A] text-white">Active Only</option>
-          <option value="SUSPENDED" className="bg-[#0F172A] text-white">Suspended Only</option>
+          <option value="">All Statuses</option>
+          <option value="ACTIVE">Active Users</option>
+          <option value="SUSPENDED">Suspended Users</option>
         </select>
 
         {/* Clear Filters Button */}
         {hasActiveFilters && (
           <button
-            type="button"
             onClick={handleClear}
-            className="flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-300 hover:text-white transition-colors border border-slate-700 hover:border-slate-500 cursor-pointer"
+            className="flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xs font-800 bg-slate-200 text-slate-800 hover:bg-slate-300 transition-colors"
           >
-            <RefreshCw size={13} className={isPending ? "animate-spin" : ""} />
-            <span>Reset Filters</span>
+            <X size={14} />
+            <span>Reset</span>
           </button>
         )}
       </div>
 
-      {/* Quick Role Tab Pills */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold text-slate-400 flex items-center gap-1 mr-1">
-          <Filter size={12} />
-          Role:
+      {/* Quick Filter Pills */}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <span className="flex items-center gap-1 text-xs font-800 text-slate-700">
+          <Filter size={13} />
+          <span>Role:</span>
         </span>
-        {ROLE_TABS.map((tab) => {
-          const isActive = role === tab.value;
+        {ROLE_TABS.map((t) => {
+          const isActive = role === t.value;
           return (
             <button
-              key={tab.value}
-              type="button"
+              key={t.value}
               onClick={() => {
-                setRole(tab.value);
-                updateFilters(q, tab.value, status);
+                setRole(t.value);
+                updateFilters(q, t.value, status);
               }}
-              className={`rounded-lg px-3 py-1 text-xs font-extrabold transition-all cursor-pointer ${
+              className={`rounded-xl px-3 py-1.5 text-xs font-800 transition-all border cursor-pointer ${
                 isActive
-                  ? "bg-[#22C55E] text-[#0F172A] shadow-sm"
-                  : "bg-[#0F172A] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700"
+                  ? "bg-[#2D9E6B] !text-white border-[#2D9E6B] shadow-xs"
+                  : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
               }`}
             >
-              {tab.label}
+              {t.label}
             </button>
           );
         })}

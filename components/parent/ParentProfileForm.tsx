@@ -56,7 +56,7 @@ export function ParentProfileForm({
   };
 
   return (
-    <form action={formAction} className="neu-card space-y-5 bg-white p-6">
+    <form action={formAction} className="space-y-6 text-slate-900">
       <input type="hidden" name="latitude" value={coordinates.latitude} />
       <input type="hidden" name="longitude" value={coordinates.longitude} />
 

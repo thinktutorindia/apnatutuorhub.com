@@ -3,10 +3,10 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { User, ShieldAlert, ShieldCheck, AlertCircle } from "lucide-react";
+import { AlertCircle, ShieldAlert, ShieldCheck, ArrowRight } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import { TutorNav } from "@/components/tutor/TutorNav";
+import { TutorNavClient } from "@/components/tutor/TutorNavClient";
 import { NotificationBell } from "@/components/NotificationBell";
 
 export default async function TutorLayout({
@@ -39,101 +39,120 @@ export default async function TutorLayout({
   const userName = session.user.name || session.user.email || "Tutor";
   const userEmail = session.user.email || "";
 
-  const kycBannerConfig = {
+  // KYC banner config
+  type BannerKey = "NOT_SUBMITTED" | "PENDING" | "REJECTED" | "APPROVED";
+  const kycBanners: Record<BannerKey, {
+    show: boolean;
+    bg: string;
+    borderColor: string;
+    icon: React.ElementType;
+    iconColor: string;
+    message: string;
+    cta: string | null;
+  }> = {
     NOT_SUBMITTED: {
       show: true,
-      bg: "#FFEDD5",
+      bg: "#FFFBEB",
+      borderColor: "#FDE68A",
       icon: ShieldAlert,
-      iconColor: "text-orange-500",
-      message:
-        "Complete KYC verification to unlock leads and earn the Verified Tutor badge (+500 ranking points).",
-      cta: "Start KYC →",
+      iconColor: "#D97706",
+      message: "Complete your identity verification to start receiving student enquiries.",
+      cta: "Complete Verification →",
     },
     PENDING: {
       show: true,
-      bg: "#E0F2FE",
+      bg: "#EFF6FF",
+      borderColor: "#BFDBFE",
       icon: ShieldCheck,
-      iconColor: "text-blue-500",
-      message: "Your KYC documents are under review. We'll notify you once approved (usually within 24 hours).",
+      iconColor: "#2563EB",
+      message: "Your documents are being reviewed by our team. Usually approved within 24 hours.",
       cta: null,
     },
     REJECTED: {
       show: true,
-      bg: "#FCE7F3",
+      bg: "#FEF2F2",
+      borderColor: "#FECACA",
       icon: AlertCircle,
-      iconColor: "text-red-500",
+      iconColor: "#DC2626",
       message: tutorProfile?.kycRejectionNote
-        ? `KYC rejected: ${tutorProfile.kycRejectionNote}. Please re-upload corrected documents.`
-        : "Your KYC was rejected. Please re-upload your documents.",
-      cta: "Re-submit KYC →",
+        ? `Verification rejected: ${tutorProfile.kycRejectionNote}. Please re-upload corrected documents.`
+        : "Your verification was rejected. Please re-upload corrected documents.",
+      cta: "Re-submit Documents →",
     },
-    APPROVED: { show: false, bg: "", icon: ShieldCheck, iconColor: "", message: "", cta: null },
-  } as const;
+    APPROVED: { show: false, bg: "", borderColor: "", icon: ShieldCheck, iconColor: "", message: "", cta: null },
+  };
 
-  const banner = kycBannerConfig[kycStatus as keyof typeof kycBannerConfig] ?? kycBannerConfig.NOT_SUBMITTED;
+  const banner = kycBanners[kycStatus as BannerKey] ?? kycBanners.NOT_SUBMITTED;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAF8F5]">
-      {/* Top Navbar Header */}
-      <header className="mx-auto w-full max-w-6xl px-3 pt-3 sm:px-4 sm:pt-4">
-        <nav className="neu-card flex items-center justify-between gap-2 sm:gap-4 bg-white px-3.5 py-3 sm:px-6 sm:py-3.5">
-          {/* Left: Logo Brand (Logo + Wordmark on desktop, Icon only on mobile) */}
-          <div className="shrink-0">
-            <LogoBrand size={32} href="/tutor/dashboard" hideWordmarkOnMobile={true} />
+    <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
+      {/* Top sticky header */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/80 shadow-xs">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 md:h-18 flex items-center justify-between gap-3">
+          <div className="shrink-0 flex items-center gap-2">
+            <LogoBrand size={30} href="/tutor/dashboard" hideWordmarkOnMobile={true} />
+            <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-[#1A3C5E]/10 text-[#1A3C5E] text-[11px] font-700 uppercase tracking-wider">
+              Tutor Portal
+            </span>
           </div>
 
-          {/* Center: Tutor Nav Links (Desktop md+ / Mobile Drawer Trigger) */}
           <div className="flex-1 flex items-center justify-end md:justify-center">
-            <TutorNav userName={userName} userEmail={userEmail} walletBalance={walletBalance} />
+            <TutorNavClient
+              userName={userName}
+              userEmail={userEmail}
+              walletBalance={walletBalance}
+              unreadCount={unreadCount}
+            />
           </div>
 
-          {/* Right: Actions Container */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Notification Bell */}
             <NotificationBell initialCount={unreadCount} />
-
-            {/* User Badge (desktop xl+ only to prevent header crowding) */}
-            <div className="neu-badge hidden items-center gap-1.5 bg-[#FEF3C7] text-[#0F172A] xl:inline-flex">
-              <User size={14} />
-              <span className="max-w-[100px] truncate">{userName}</span>
-              <span className="rounded-full bg-[#0F172A] px-1.5 py-0.5 text-[9px] font-black uppercase text-white">
-                {walletBalance} 🪙
-              </span>
-            </div>
-
-            {/* Sign Out Button (desktop md+ only) */}
+            {/* Desktop: wallet pill */}
+            <Link
+              href="/tutor/wallet"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-700 bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200/80 transition-all shadow-2xs"
+            >
+              <span>{walletBalance}</span>
+              <span>🪙</span>
+            </Link>
             <div className="hidden md:block">
               <SignOutButton />
             </div>
           </div>
-        </nav>
+        </div>
       </header>
 
-      {/* KYC Status Banner */}
+      {/* KYC Alert Banner */}
       {banner.show && (
-        <div className="mx-auto w-full max-w-6xl px-3 pt-3 sm:px-4">
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 pt-3">
           <div
-            className="neu-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 sm:px-5"
-            style={{ backgroundColor: banner.bg }}
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl border shadow-2xs transition-all"
+            style={{
+              backgroundColor: banner.bg,
+              borderColor: banner.borderColor,
+            }}
           >
-            <div className="flex items-center gap-3">
-              <banner.icon size={18} className={`shrink-0 ${banner.iconColor}`} />
-              <p className="text-xs font-bold text-slate-700">{banner.message}</p>
+            <div className="flex items-center gap-2.5">
+              <banner.icon
+                size={18}
+                style={{ color: banner.iconColor, flexShrink: 0 }}
+              />
+              <p className="text-xs sm:text-sm font-500 text-gray-800 leading-snug">{banner.message}</p>
             </div>
             {banner.cta && (
               <Link
                 href="/tutor/profile"
-                className="neu-btn neu-btn-primary shrink-0 px-4 py-2 text-[11px] self-start sm:self-auto"
+                className="px-3.5 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-700 shrink-0 self-start sm:self-auto transition-colors shadow-2xs flex items-center gap-1"
               >
-                {banner.cta}
+                <span>{banner.cta}</span>
               </Link>
             )}
           </div>
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="mx-auto w-full max-w-6xl flex-1 p-3 sm:p-4 md:p-6">
+      {/* Main content area */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-8">
         {children}
       </main>
     </div>

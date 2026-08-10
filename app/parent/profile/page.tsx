@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { UserCog } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ParentProfileForm } from "@/components/parent/ParentProfileForm";
@@ -53,36 +52,41 @@ export default async function ParentProfilePage() {
   const { parentProfile } = user;
 
   return (
-    <div className="space-y-8 py-4">
-      <header className="neu-card flex flex-col gap-2 bg-[#F3E8FF] p-6 md:p-8">
-        <div className="neu-badge w-fit bg-white text-[#0F172A]">
-          <UserCog size={14} />
-          Account Settings
+    <div className="space-y-6 text-slate-900">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+        <div className="space-y-1">
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Account Preferences</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Parent Profile &amp; Children Details
+          </h1>
+          <p className="text-xs text-slate-600 font-600">
+            Manage your personal contact info, location address, and student profiles for faster requirement posting
+          </p>
         </div>
-        <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
-          My Profile
-        </h1>
-        <p className="max-w-2xl text-sm font-semibold text-slate-700">
-          Keep your location accurate — we use it to match you with verified
-          tutors nearby, and to pre-fill your tuition requirements.
-        </p>
-      </header>
+      </div>
 
-      <ParentProfileForm
-        defaults={{
-          name: user.name ?? "",
-          email: user.email,
-          phone: user.phone ?? "",
-          city: parentProfile.city ?? "",
-          state: parentProfile.state ?? "",
-          pincode: parentProfile.pincode ?? "",
-          address: parentProfile.address ?? "",
-          latitude: parentProfile.latitude,
-          longitude: parentProfile.longitude,
-        }}
-      />
+      {/* Profile Form Container */}
+      <div className="rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-xs">
+        <ParentProfileForm
+          defaults={{
+            name: user.name ?? "",
+            email: user.email,
+            phone: user.phone ?? "",
+            city: parentProfile.city ?? "",
+            state: parentProfile.state ?? "",
+            pincode: parentProfile.pincode ?? "",
+            address: parentProfile.address ?? "",
+            latitude: parentProfile.latitude ?? null,
+            longitude: parentProfile.longitude ?? null,
+          }}
+        />
+      </div>
 
-      <StudentProfilesSection students={parentProfile.students} />
+      {/* Student Profiles Section */}
+      <div className="rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-xs">
+        <StudentProfilesSection students={parentProfile.students} />
+      </div>
     </div>
   );
 }

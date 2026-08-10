@@ -17,48 +17,48 @@ type Transaction = {
 
 const TX_CONFIG: Record<
   WalletTransactionType,
-  { label: string; icon: React.ElementType; bg: string; colorClass: string; sign: string }
+  { label: string; icon: React.ElementType; bg: string; color: string; sign: string }
 > = {
   PURCHASE: {
-    label: "Coin Purchase",
+    label: "Coin Top-up",
     icon: ArrowUpRight,
-    bg: "#DCFCE7",
-    colorClass: "text-[#22C55E]",
+    bg: "#E8F5F0",
+    color: "#1A7F5A",
     sign: "+",
   },
   DEDUCTION: {
-    label: "Lead Unlock",
+    label: "Unlocked Parent Contact",
     icon: ArrowDownLeft,
-    bg: "#FCE7F3",
-    colorClass: "text-[#EC4899]",
+    bg: "#FEF2F2",
+    color: "#DC2626",
     sign: "-",
   },
   REFUND: {
     label: "Refund",
     icon: RotateCcw,
-    bg: "#E0F2FE",
-    colorClass: "text-blue-500",
+    bg: "#EFF6FF",
+    color: "#2563EB",
     sign: "+",
   },
   BONUS: {
     label: "Bonus Coins",
     icon: Gift,
     bg: "#FEF3C7",
-    colorClass: "text-amber-500",
+    color: "#D97706",
     sign: "+",
   },
   ADMIN_CREDIT: {
     label: "Admin Credit",
     icon: ShieldCheck,
     bg: "#F3E8FF",
-    colorClass: "text-purple-500",
+    color: "#7C3AED",
     sign: "+",
   },
   ADMIN_DEBIT: {
     label: "Admin Debit",
     icon: ShieldCheck,
-    bg: "#FCE7F3",
-    colorClass: "text-red-500",
+    bg: "#FEF2F2",
+    color: "#DC2626",
     sign: "-",
   },
 };
@@ -114,81 +114,78 @@ export function WalletPageClient({
 
   return (
     <>
-      <div className="space-y-6 py-4">
+      <div className="space-y-6">
         {/* Header */}
-        <header className="neu-card flex flex-col gap-4 bg-[#FEF3C7] p-6 md:flex-row md:items-center md:justify-between md:p-8">
-          <div className="space-y-2">
-            <div className="neu-badge w-fit bg-white text-[#0F172A]">
-              <Wallet size={14} />
+        <div className="flex items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-700 mb-0.5" style={{ color: "#111827" }}>
               Coin Wallet
-            </div>
-            <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
-              Your Coins 🪙
             </h1>
-            <p className="text-sm font-semibold text-slate-700">
-              Use coins to unlock parent contact details. Each lead costs
-              20–50 coins based on class level.
+            <p className="text-sm" style={{ color: "#6B7280" }}>
+              Use coins to connect with interested parents and unlock student enquiries.
             </p>
           </div>
-
           <button
             type="button"
             onClick={() => setTopUpOpen(true)}
-            className="neu-btn neu-btn-primary shrink-0 gap-2 px-6 py-3.5 text-sm"
+            className="at-btn at-btn-primary at-btn-sm shrink-0"
           >
-            <Plus size={18} />
-            <span>Top Up Coins</span>
+            <Plus size={16} />
+            Top Up Coins
           </button>
-        </header>
+        </div>
 
         {/* Balance Card + Stats */}
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="neu-card col-span-1 flex flex-col items-center justify-center gap-3 bg-[#FEF3C7] p-8 sm:col-span-1 text-center">
-            <p className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
-              Current Balance
+          <div
+            className="col-span-1 rounded-xl p-5 text-center flex flex-col items-center justify-center space-y-2"
+            style={{ backgroundColor: "#FEF3C7", border: "1px solid #FDE68A" }}
+          >
+            <p className="text-xs font-600" style={{ color: "#92400e" }}>
+              CURRENT BALANCE
             </p>
-            <p className="text-6xl font-black text-[#0F172A]">
-              {liveBalance}
+            <p className="text-4xl font-800" style={{ color: "#111827" }}>
+              {liveBalance} <span className="text-2xl font-600">🪙</span>
             </p>
-            <p className="text-sm font-extrabold text-slate-500">🪙 Coins</p>
             <button
               type="button"
               onClick={() => setTopUpOpen(true)}
-              className="neu-btn neu-btn-primary mt-2 w-full py-2.5 text-xs"
+              className="at-btn at-btn-accent at-btn-sm w-full mt-2"
             >
               <Plus size={14} />
-              Buy More Coins
+              Buy Coins
             </button>
           </div>
 
-          <div className="neu-card bg-[#DCFCE7] p-6 text-center sm:col-span-1">
-            <p className="text-xs font-extrabold uppercase text-slate-500">
-              Total Purchased
-            </p>
-            <p className="mt-2 text-3xl font-black text-[#0F172A]">
-              {totalPurchased} 🪙
-            </p>
+          <div
+            className="rounded-xl p-5 text-center flex flex-col items-center justify-center space-y-1"
+            style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+          >
+            <p className="text-xs font-500" style={{ color: "#6B7280" }}>TOTAL PURCHASED</p>
+            <p className="text-2xl font-700" style={{ color: "#111827" }}>{totalPurchased} 🪙</p>
           </div>
 
-          <div className="neu-card bg-[#FCE7F3] p-6 text-center sm:col-span-1">
-            <p className="text-xs font-extrabold uppercase text-slate-500">
-              Total Spent
-            </p>
-            <p className="mt-2 text-3xl font-black text-[#0F172A]">
-              {totalSpent} 🪙
-            </p>
+          <div
+            className="rounded-xl p-5 text-center flex flex-col items-center justify-center space-y-1"
+            style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+          >
+            <p className="text-xs font-500" style={{ color: "#6B7280" }}>TOTAL SPENT</p>
+            <p className="text-2xl font-700" style={{ color: "#111827" }}>{totalSpent} 🪙</p>
           </div>
         </div>
 
         {/* Transaction History */}
-        <section className="neu-card space-y-4 bg-white p-6">
+        <section
+          className="rounded-xl p-5 space-y-4"
+          style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+        >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-xl font-black text-[#0F172A]">
+            <h2 className="text-base font-700" style={{ color: "#111827" }}>
               Transaction History
             </h2>
 
             {/* Filter pills */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {ALL_TYPES.map((type) => (
                 <button
                   key={type}
@@ -197,11 +194,11 @@ export function WalletPageClient({
                     setFilter(type);
                     setPage(1);
                   }}
-                  className={`rounded-full border-2 border-[#0F172A] px-3 py-1 text-[11px] font-extrabold transition-all ${
-                    filter === type
-                      ? "bg-[#0F172A] text-white shadow-[2px_2px_0px_0px_rgba(15,23,42,0.3)]"
-                      : "bg-white hover:bg-slate-50"
-                  }`}
+                  className="px-3 py-1 rounded-full text-xs font-500 transition-colors"
+                  style={{
+                    backgroundColor: filter === type ? "#1A7F5A" : "#F3F4F6",
+                    color: filter === type ? "#FFFFFF" : "#374151",
+                  }}
                 >
                   {FILTER_LABELS[type]}
                 </button>
@@ -210,21 +207,19 @@ export function WalletPageClient({
           </div>
 
           {paginated.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-3xl">🪙</p>
-              <p className="mt-2 text-sm font-bold text-slate-500">
-                No transactions yet
-              </p>
+            <div className="py-10 text-center space-y-2">
+              <p className="text-2xl">🪙</p>
+              <p className="text-sm font-500" style={{ color: "#6B7280" }}>No transactions yet</p>
               <button
                 type="button"
                 onClick={() => setTopUpOpen(true)}
-                className="neu-btn neu-btn-primary mt-4 px-6 py-2.5 text-xs"
+                className="at-btn at-btn-primary at-btn-sm"
               >
                 Buy Your First Coins
               </button>
             </div>
           ) : (
-            <div className="divide-y-2 divide-[#E2E8F0]">
+            <div className="divide-y" style={{ borderColor: "#F3F4F6" }}>
               {paginated.map((tx) => {
                 const config = TX_CONFIG[tx.type] ?? TX_CONFIG.PURCHASE;
                 const Icon = config.icon;
@@ -233,21 +228,21 @@ export function WalletPageClient({
                   tx.description === "REFUND_REQUEST_PENDING";
 
                 return (
-                  <div key={tx.id} className="flex items-center gap-4 py-4">
+                  <div key={tx.id} className="flex items-center gap-3.5 py-3.5">
                     <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#0F172A]"
-                      style={{ backgroundColor: config.bg }}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: config.bg, color: config.color }}
                     >
                       <Icon size={16} />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-extrabold text-[#0F172A]">
+                      <p className="truncate text-sm font-600" style={{ color: "#111827" }}>
                         {isPending
-                          ? "Refund Request — Pending Admin Review"
+                          ? "Refund Request — Pending Review"
                           : (tx.description ?? config.label)}
                       </p>
-                      <p className="text-[11px] font-semibold text-slate-500">
+                      <p className="text-xs" style={{ color: "#9CA3AF" }}>
                         {new Date(tx.createdAt).toLocaleString("en-IN", {
                           day: "numeric",
                           month: "short",
@@ -259,14 +254,11 @@ export function WalletPageClient({
                     </div>
 
                     <div className="shrink-0 text-right">
-                      <p
-                        className={`text-base font-black ${config.colorClass}`}
-                      >
-                        {config.sign}
-                        {tx.amount} 🪙
+                      <p className="text-sm font-700" style={{ color: config.color }}>
+                        {config.sign}{tx.amount} 🪙
                       </p>
-                      <p className="text-[11px] font-semibold text-slate-400">
-                        Balance: {tx.balanceAfter}
+                      <p className="text-[11px]" style={{ color: "#9CA3AF" }}>
+                        Bal: {tx.balanceAfter}
                       </p>
                     </div>
                   </div>
@@ -282,18 +274,18 @@ export function WalletPageClient({
                 type="button"
                 disabled={page === 1}
                 onClick={() => setPage((p) => p - 1)}
-                className="neu-btn neu-btn-white px-4 py-2 text-xs disabled:opacity-40"
+                className="at-btn at-btn-outline at-btn-sm"
               >
                 ← Prev
               </button>
-              <span className="text-xs font-bold text-slate-500">
+              <span className="text-xs font-500" style={{ color: "#6B7280" }}>
                 Page {page} of {totalPages}
               </span>
               <button
                 type="button"
                 disabled={page === totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                className="neu-btn neu-btn-white px-4 py-2 text-xs disabled:opacity-40"
+                className="at-btn at-btn-outline at-btn-sm"
               >
                 Next →
               </button>
@@ -302,29 +294,30 @@ export function WalletPageClient({
         </section>
 
         {/* Coin cost guide */}
-        <section className="neu-card grid gap-3 bg-white p-6 sm:grid-cols-3">
-          <h2 className="col-span-full text-lg font-black text-[#0F172A]">
+        <section
+          className="rounded-xl p-5 space-y-3"
+          style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
+        >
+          <h2 className="text-sm font-700" style={{ color: "#111827" }}>
             Coin Cost Guide
           </h2>
-          {[
-            { label: "Class 1–8", cost: 20, bg: "#DCFCE7" },
-            { label: "Class 9–12", cost: 30, bg: "#E0F2FE" },
-            { label: "JEE / NEET / Coding", cost: 50, bg: "#FEF3C7" },
-          ].map((tier) => (
-            <div
-              key={tier.label}
-              className="rounded-2xl border-2 border-[#0F172A] p-4 text-center"
-              style={{ backgroundColor: tier.bg }}
-            >
-              <p className="text-xs font-extrabold text-slate-600">
-                {tier.label}
-              </p>
-              <p className="mt-1 text-3xl font-black text-[#0F172A]">
-                {tier.cost} 🪙
-              </p>
-              <p className="text-[11px] font-bold text-slate-500">per lead</p>
-            </div>
-          ))}
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              { label: "Class 1–8", cost: 20, bg: "#E8F5F0" },
+              { label: "Class 9–12", cost: 30, bg: "#EFF6FF" },
+              { label: "JEE / NEET / Coding", cost: 50, bg: "#FEF3C7" },
+            ].map((tier) => (
+              <div
+                key={tier.label}
+                className="rounded-xl p-3.5 text-center space-y-0.5"
+                style={{ backgroundColor: tier.bg }}
+              >
+                <p className="text-xs font-500" style={{ color: "#374151" }}>{tier.label}</p>
+                <p className="text-2xl font-700" style={{ color: "#111827" }}>{tier.cost} 🪙</p>
+                <p className="text-[11px]" style={{ color: "#6B7280" }}>per student enquiry</p>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
 

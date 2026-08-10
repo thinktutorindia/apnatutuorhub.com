@@ -2,7 +2,6 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import {
   suspendUserAction,
@@ -50,7 +49,7 @@ export function UserRowActions({ user }: UserRowActionsProps) {
 
       <Link
         href={`/admin/users/${user.id}/edit`}
-        className="inline-flex items-center justify-center px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+        className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-800 rounded-xl bg-blue-100 text-blue-950 border border-blue-300 hover:bg-blue-200 transition-colors"
       >
         Edit
       </Link>
@@ -76,16 +75,6 @@ export function UserRowActions({ user }: UserRowActionsProps) {
         confirmTitle="PERMANENTLY Delete Account"
         confirmMessage={`Are you sure you want to PERMANENTLY DELETE user ${user.name || user.email}? All associated data will be removed. This cannot be undone.`}
       />
-
-      {user.tutorProfile && (
-        <Link
-          href={`/tutor/${user.id}`}
-          className="inline-flex items-center gap-0.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-        >
-          <span>Preview Profile</span>
-          <ChevronRight size={10} />
-        </Link>
-      )}
     </div>
   );
 }

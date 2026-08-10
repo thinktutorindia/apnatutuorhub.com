@@ -1,7 +1,4 @@
 import React from "react";
-import Link from "next/link";
-import { LogoBrand } from "@/components/brand/Logo";
-import { AuthIllustration } from "@/components/illustrations/AuthIllustration";
 
 export default function AuthLayout({
   children,
@@ -9,31 +6,19 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#FAF8F5] flex flex-col md:flex-row items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-center">
+    <div
+      className="min-h-screen w-full flex flex-col justify-between items-center relative overflow-hidden"
+      style={{
+        backgroundColor: "#F7F9FC",
+        backgroundImage:
+          "radial-gradient(ellipse at 50% 0%, rgba(26, 60, 94, 0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(45, 158, 107, 0.06) 0%, transparent 50%)",
+      }}
+    >
+      {/* Background Ambient Glow Orbs */}
+      <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-r from-[#1A3C5E]/10 via-[#2D9E6B]/10 to-[#F5A623]/10 blur-[100px] pointer-events-none rounded-full" />
 
-        {/* Left — Illustration panel (hidden on mobile) */}
-        <div className="hidden md:flex md:col-span-5 flex-col items-center justify-center">
-          <AuthIllustration />
-        </div>
-
-        {/* Right — Form panel */}
-        <div className="col-span-1 md:col-span-7 w-full">
-          <div className="rounded-3xl border-2 border-[#0F172A] bg-white p-5 sm:p-8 shadow-[6px_6px_0px_0px_#0F172A] space-y-5">
-            {/* Card Header */}
-            <div className="flex justify-between items-center pb-3 border-b-2 border-slate-100">
-              <LogoBrand size={32} />
-              <Link
-                href="/"
-                className="text-xs font-extrabold text-slate-500 hover:text-[#0F172A] underline transition-colors"
-              >
-                ← Back to Home
-              </Link>
-            </div>
-            {children}
-          </div>
-        </div>
-
+      <div className="w-full flex-1 flex flex-col justify-center items-center relative z-10 py-10 px-4 sm:px-6">
+        {children}
       </div>
     </div>
   );

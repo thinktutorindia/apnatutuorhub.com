@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import {
   Compass,
   IndianRupee,
@@ -53,16 +52,18 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="neu-card space-y-4 bg-white p-6">
-      <div className="flex items-start gap-3">
+    <section className="rounded-3xl border border-slate-200 shadow-xs bg-white p-6 md:p-8 space-y-5">
+      <div className="flex items-start gap-3 border-b border-slate-200 pb-4">
         <div
-          className="mt-0.5 h-3 w-3 shrink-0 rounded-full border-2 border-[#0F172A]"
+          className="mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white shadow-2xs"
           style={{ backgroundColor: background }}
         />
         <div>
-          <h2 className="text-lg font-black text-[#0F172A]">{title}</h2>
+          <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            {title}
+          </h2>
           {description && (
-            <p className="text-xs font-semibold text-slate-500">{description}</p>
+            <p className="text-xs font-600 text-slate-600 mt-0.5">{description}</p>
           )}
         </div>
       </div>
@@ -84,7 +85,6 @@ export function RequirementForm({
   leadId?: string;
   locked?: boolean;
 }) {
-  const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     mode === "create" ? createRequirementAction : updateRequirementAction,
     initialState
@@ -101,26 +101,18 @@ export function RequirementForm({
     defaults.tutorGenderPref || "ANY"
   );
   const [coordinates, setCoordinates] = useState({
-    latitude: defaults.latitude,
-    longitude: defaults.longitude,
+    latitude: defaults.latitude?.toString() || "",
+    longitude: defaults.longitude?.toString() || "",
   });
   const [geoStatus, setGeoStatus] = useState<"idle" | "loading" | "error">("idle");
 
-  useEffect(() => {
-    if (state.success) {
-      router.push(
-        mode === "create" ? "/parent/my-leads?posted=1" : "/parent/my-leads?updated=1"
-      );
-    }
-  }, [state.success, mode, router]);
-
-  const applyStudent = (studentId: string) => {
-    setStudentProfileId(studentId);
-    const student = students.find((item) => item.id === studentId);
-    if (!student || locked) return;
-    setClassLevel(student.classLevel);
-    setBoard(student.board ?? "");
-    setSubjects(student.subjects.slice(0, 6));
+  const applyStudent = (id: string) => {
+    setStudentProfileId(id);
+    const target = students.find((s) => s.id === id);
+    if (!target) return;
+    if (target.classLevel) setClassLevel(target.classLevel);
+    if (target.board) setBoard(target.board);
+    if (target.subjects.length > 0) setSubjects(target.subjects);
   };
 
   const detectLocation = () => {
@@ -144,7 +136,7 @@ export function RequirementForm({
   const isOnlineOnly = teachingMode === "ONLINE";
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-6 text-slate-900">
       <ActionOverlay
         isOpen={isPending}
         title={leadId ? "Updating Requirement" : "Posting Requirement"}
@@ -155,16 +147,14 @@ export function RequirementForm({
       <input type="hidden" name="longitude" value={coordinates.longitude} />
 
       {locked && (
-        <div className="neu-card flex items-start gap-3 bg-[#FFEDD5] p-5">
-          <Lock size={18} className="mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 p-5 rounded-3xl bg-amber-50 border border-amber-300 text-amber-950 shadow-2xs">
+          <Lock size={18} className="mt-0.5 shrink-0 text-amber-700" />
           <div className="space-y-1">
-            <h2 className="text-sm font-black text-[#0F172A]">
+            <h2 className="text-sm font-800 text-amber-950">
               Core details are locked
             </h2>
-            <p className="text-xs font-semibold text-slate-700">
-              A tutor has already paid coins to unlock this requirement, so
-              subject, class, mode, budget and location can no longer change. You
-              can still update timings, tutor preferences and notes.
+            <p className="text-xs font-600 text-amber-900">
+              A tutor has already unlocked this requirement, so subject, class, mode, budget, and location are locked. You can still update timings, gender preference, and notes.
             </p>
           </div>
         </div>
@@ -174,19 +164,19 @@ export function RequirementForm({
 
       {students.length > 0 && (
         <SectionCard
-          title="Which child is this for?"
-          description="Optional — picking a saved profile pre-fills class and subjects."
-          background="#E0F2FE"
+          title="Which child is this requirement for?"
+          description="Optional — picking a saved child profile pre-fills their class and subjects."
+          background="#2563EB"
         >
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               aria-pressed={studentProfileId === ""}
               onClick={() => setStudentProfileId("")}
-              className={`rounded-full border-[2.5px] border-[#0F172A] px-4 py-2 text-xs font-extrabold transition-all ${
+              className={`px-4 py-2 rounded-2xl text-xs font-800 transition-all cursor-pointer border ${
                 studentProfileId === ""
-                  ? "bg-[#E0F2FE] shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]"
-                  : "bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]"
+                  ? "bg-[#0F2540] !text-white border-[#0F2540] shadow-xs"
+                  : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
               }`}
             >
               Not linked
@@ -197,10 +187,10 @@ export function RequirementForm({
                 type="button"
                 aria-pressed={studentProfileId === student.id}
                 onClick={() => applyStudent(student.id)}
-                className={`rounded-full border-[2.5px] border-[#0F172A] px-4 py-2 text-xs font-extrabold transition-all ${
+                className={`px-4 py-2 rounded-2xl text-xs font-800 transition-all cursor-pointer border ${
                   studentProfileId === student.id
-                    ? "bg-[#E0F2FE] shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]"
-                    : "bg-white shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]"
+                    ? "bg-[#0F2540] !text-white border-[#0F2540] shadow-xs"
+                    : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
                 }`}
               >
                 {student.name} · {student.classLevel}
@@ -216,20 +206,23 @@ export function RequirementForm({
         </SectionCard>
       )}
 
+      {/* 1. Subject & Class Track */}
       <SectionCard
         title="What does your child need help with?"
-        description="Pick up to 6 subjects and the class or exam track."
-        background="#DCFCE7"
+        description="Pick up to 6 subjects and select the target class or exam track."
+        background="#2D9E6B"
       >
         <SubjectPicker
           value={subjects}
           onChange={setSubjects}
+          hintText="Select subjects your child needs help with from the dropdown or type to search automatically."
           disabled={locked}
+          max={6}
         />
         <FieldError messages={state.fieldErrors?.subjects} />
 
-        <div className="space-y-2 pt-2">
-          <span className="block text-xs font-extrabold text-[#0F172A]">
+        <div className="space-y-2 pt-3">
+          <span className="block text-xs font-800 uppercase tracking-wider text-slate-700">
             Class / Exam Track
           </span>
           <OptionPills
@@ -238,18 +231,17 @@ export function RequirementForm({
             value={classLevel}
             onChange={setClassLevel}
             size="sm"
-            activeBackground="#E0F2FE"
             disabled={locked}
           />
           <FieldError messages={state.fieldErrors?.classLevel} />
         </div>
 
-        <div className="max-w-xs space-y-1.5 pt-2">
+        <div className="max-w-xs space-y-1.5 pt-3">
           <label
             htmlFor="lead-board"
-            className="block text-xs font-extrabold text-[#0F172A]"
+            className="block text-xs font-800 uppercase tracking-wider text-slate-700"
           >
-            Board <span className="text-slate-400">(optional)</span>
+            School Board <span className="text-slate-400 font-600">(Optional)</span>
           </label>
           <select
             id="lead-board"
@@ -257,7 +249,7 @@ export function RequirementForm({
             value={board}
             onChange={(event) => setBoard(event.target.value)}
             disabled={locked}
-            className="neu-input disabled:cursor-not-allowed disabled:bg-slate-50"
+            className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
           >
             <option value="">Not specified</option>
             {BOARDS.map((option) => (
@@ -270,13 +262,14 @@ export function RequirementForm({
         </div>
       </SectionCard>
 
+      {/* 2. Mode & Budget Range */}
       <SectionCard
-        title="How and at what budget?"
-        description="Tutors see this range before applying, so keep it realistic."
-        background="#FEF3C7"
+        title="Teaching Mode & Monthly Budget Range"
+        description="Verified tutors review your budget quote before connecting."
+        background="#D97706"
       >
         <div className="space-y-2">
-          <span className="block text-xs font-extrabold text-[#0F172A]">
+          <span className="block text-xs font-800 uppercase tracking-wider text-slate-700">
             Teaching Mode
           </span>
           <OptionPills
@@ -284,23 +277,22 @@ export function RequirementForm({
             options={MODE_OPTIONS}
             value={teachingMode}
             onChange={setTeachingMode}
-            activeBackground="#FEF3C7"
             disabled={locked}
           />
           <FieldError messages={state.fieldErrors?.mode} />
         </div>
 
-        <div className="grid gap-4 pt-2 sm:grid-cols-2">
+        <div className="grid gap-4 pt-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label
               htmlFor="lead-budget-min"
-              className="block text-xs font-extrabold text-[#0F172A]"
+              className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
-              Minimum Budget (₹ / hour)
+              Minimum Budget (₹ / Month)
             </label>
             <div className="relative">
               <IndianRupee
-                size={15}
+                size={16}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <input
@@ -309,11 +301,11 @@ export function RequirementForm({
                 type="number"
                 min={0}
                 max={100000}
-                step={50}
-                placeholder="300"
+                step={500}
+                placeholder="3000"
                 defaultValue={defaults.budgetMin}
                 disabled={locked}
-                className="neu-input pl-11 disabled:cursor-not-allowed disabled:bg-slate-50"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
             </div>
             <FieldError messages={state.fieldErrors?.budgetMin} />
@@ -322,13 +314,13 @@ export function RequirementForm({
           <div className="space-y-1.5">
             <label
               htmlFor="lead-budget-max"
-              className="block text-xs font-extrabold text-[#0F172A]"
+              className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
-              Maximum Budget (₹ / hour)
+              Maximum Budget (₹ / Month)
             </label>
             <div className="relative">
               <IndianRupee
-                size={15}
+                size={16}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <input
@@ -337,11 +329,11 @@ export function RequirementForm({
                 type="number"
                 min={0}
                 max={100000}
-                step={50}
-                placeholder="600"
+                step={500}
+                placeholder="8000"
                 defaultValue={defaults.budgetMax}
                 disabled={locked}
-                className="neu-input pl-11 disabled:cursor-not-allowed disabled:bg-slate-50"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
             </div>
             <FieldError messages={state.fieldErrors?.budgetMax} />
@@ -349,36 +341,37 @@ export function RequirementForm({
         </div>
       </SectionCard>
 
+      {/* 3. Location Details */}
       <SectionCard
-        title="Where should classes happen?"
+        title="Location & Address Details"
         description={
           isOnlineOnly
-            ? "Online-only requirements do not need an address."
-            : "We match tutors by distance, so an accurate area helps a lot."
+            ? "Online classes do not require home address matching."
+            : "We rank nearby tutors based on physical distance in kilometers."
         }
-        background="#FCE7F3"
+        background="#EA580C"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label
               htmlFor="lead-city"
-              className="block text-xs font-extrabold text-[#0F172A]"
+              className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
-              City {!isOnlineOnly && <span className="text-[#EC4899]">*</span>}
+              City {!isOnlineOnly && <span className="text-red-500">*</span>}
             </label>
             <div className="relative">
               <MapPin
-                size={15}
+                size={16}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <input
                 id="lead-city"
                 name="city"
                 type="text"
-                placeholder="e.g. Pune"
+                placeholder="e.g. Pune, Delhi, Mumbai"
                 defaultValue={defaults.city}
                 disabled={locked}
-                className="neu-input pl-11 disabled:cursor-not-allowed disabled:bg-slate-50"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
             </div>
             <FieldError messages={state.fieldErrors?.city} />
@@ -387,7 +380,7 @@ export function RequirementForm({
           <div className="space-y-1.5">
             <label
               htmlFor="lead-area"
-              className="block text-xs font-extrabold text-[#0F172A]"
+              className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
               Area / Locality
             </label>
@@ -395,10 +388,10 @@ export function RequirementForm({
               id="lead-area"
               name="area"
               type="text"
-              placeholder="e.g. Kothrud"
+              placeholder="e.g. Kothrud, Bandra West"
               defaultValue={defaults.area}
               disabled={locked}
-              className="neu-input disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
             <FieldError messages={state.fieldErrors?.area} />
           </div>
@@ -406,7 +399,7 @@ export function RequirementForm({
           <div className="space-y-1.5">
             <label
               htmlFor="lead-pincode"
-              className="block text-xs font-extrabold text-[#0F172A]"
+              className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
               Pincode
             </label>
@@ -419,58 +412,54 @@ export function RequirementForm({
               placeholder="411038"
               defaultValue={defaults.pincode}
               disabled={locked}
-              className="neu-input disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
             <FieldError messages={state.fieldErrors?.pincode} />
           </div>
 
           <div className="space-y-1.5">
-            <span className="block text-xs font-extrabold text-[#0F172A]">
-              Map Coordinates
+            <span className="block text-xs font-800 uppercase tracking-wider text-slate-700">
+              GPS Map Location
             </span>
             <button
               type="button"
               onClick={detectLocation}
               disabled={locked || geoStatus === "loading"}
-              className="neu-btn neu-btn-white w-full py-3 text-xs"
+              className="w-full py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-800 text-slate-800 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              <Compass size={15} />
+              <Compass size={16} />
               <span>
                 {geoStatus === "loading"
-                  ? "Detecting..."
+                  ? "Detecting GPS..."
                   : coordinates.latitude
-                    ? "Update pinned location"
-                    : "Pin my exact location"}
+                    ? "Update GPS Pin"
+                    : "Pin Exact GPS Location"}
               </span>
             </button>
             {coordinates.latitude && coordinates.longitude ? (
-              <p className="text-[11px] font-bold text-[#22C55E]">
-                Pinned at {coordinates.latitude}, {coordinates.longitude}
+              <p className="text-[11px] font-800 text-emerald-600">
+                ✓ Pinned at {coordinates.latitude}, {coordinates.longitude}
               </p>
             ) : (
-              <p className="text-[11px] font-semibold text-slate-500">
-                Improves distance-based tutor matching.
-              </p>
-            )}
-            {geoStatus === "error" && (
-              <p className="text-[11px] font-bold text-red-500">
-                We could not read your location. Enter city and pincode instead.
+              <p className="text-[11px] font-600 text-slate-500">
+                Improves distance matching for local home tutors.
               </p>
             )}
           </div>
         </div>
       </SectionCard>
 
+      {/* 4. Preferences & Notes */}
       <SectionCard
-        title="Preferences"
-        description="Always editable, even after tutors apply."
-        background="#F3E8FF"
+        title="Schedule & Tutor Preferences"
+        description="Always editable — helps match tutors with your timing expectations."
+        background="#7C3AED"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label
               htmlFor="lead-timing"
-              className="block text-xs font-extrabold text-[#0F172A]"
+              className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
               Preferred Timings
             </label>
@@ -478,7 +467,7 @@ export function RequirementForm({
               id="lead-timing"
               name="timingPreference"
               defaultValue={defaults.timingPreference}
-              className="neu-input"
+              className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none"
             >
               <option value="">No preference</option>
               {TIMING_PREFERENCES.map((slot) => (
@@ -493,7 +482,7 @@ export function RequirementForm({
           <div className="space-y-1.5">
             <label
               htmlFor="lead-language"
-              className="block text-xs font-extrabold text-[#0F172A]"
+              className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
               Teaching Language
             </label>
@@ -501,7 +490,7 @@ export function RequirementForm({
               id="lead-language"
               name="languagePref"
               defaultValue={defaults.languagePref}
-              className="neu-input"
+              className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none"
             >
               <option value="">No preference</option>
               {LANGUAGE_PREFERENCES.map((language) => (
@@ -514,8 +503,8 @@ export function RequirementForm({
           </div>
         </div>
 
-        <div className="space-y-2 pt-2">
-          <span className="block text-xs font-extrabold text-[#0F172A]">
+        <div className="space-y-2 pt-3">
+          <span className="block text-xs font-800 uppercase tracking-wider text-slate-700">
             Tutor Gender Preference
           </span>
           <OptionPills
@@ -524,17 +513,16 @@ export function RequirementForm({
             value={genderPref}
             onChange={setGenderPref}
             size="sm"
-            activeBackground="#F3E8FF"
           />
           <FieldError messages={state.fieldErrors?.tutorGenderPref} />
         </div>
 
-        <div className="space-y-1.5 pt-2">
+        <div className="space-y-1.5 pt-3">
           <label
             htmlFor="lead-notes"
-            className="block text-xs font-extrabold text-[#0F172A]"
+            className="block text-xs font-800 uppercase tracking-wider text-slate-700"
           >
-            Anything else tutors should know?
+            Additional Student Notes for Tutors
           </label>
           <textarea
             id="lead-notes"
@@ -543,33 +531,37 @@ export function RequirementForm({
             maxLength={500}
             placeholder="Board exam prep, weak in algebra, prefers 3 classes a week..."
             defaultValue={defaults.notes}
-            className="neu-input resize-none"
+            className="w-full p-4 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none resize-none"
           />
           <FieldError messages={state.fieldErrors?.notes} />
         </div>
       </SectionCard>
 
-      <div className="neu-card flex flex-col gap-4 bg-[#DCFCE7] p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-2">
-          <Sparkles size={18} className="mt-0.5 shrink-0 text-amber-500" />
-          <p className="text-xs font-bold text-slate-700">
+      {/* Form Submission Action Card */}
+      <div className="rounded-3xl bg-emerald-50 border border-emerald-300 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#2D9E6B] shrink-0 shadow-2xs border border-emerald-200">
+            <Sparkles size={20} />
+          </div>
+          <p className="text-xs font-700 text-emerald-950 max-w-lg leading-relaxed">
             {mode === "create"
-              ? "Once posted, we alert matching verified tutors near you. Up to 5 tutors can unlock your requirement, and it stays live for 48 hours."
-              : "Changes are shared with tutors who are still reviewing your requirement."}
+              ? "Once posted, we instantly notify matching verified tutors in your locality. Up to 5 tutors can review your requirement."
+              : "Updates will be immediately visible to tutors reviewing your tuition post."}
           </p>
         </div>
+
         <button
           type="submit"
           disabled={isPending}
-          className="neu-btn neu-btn-primary shrink-0 px-7 py-3.5 text-sm"
+          className="px-8 py-3.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all shrink-0 w-full sm:w-auto"
         >
           <Send size={16} />
           <span>
             {isPending
               ? "Saving..."
               : mode === "create"
-                ? "Post Requirement"
-                : "Save Changes"}
+                ? "Post Tuition Requirement"
+                : "Save Requirement Changes"}
           </span>
         </button>
       </div>

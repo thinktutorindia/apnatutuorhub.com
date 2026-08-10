@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Bell, CheckCircle2, Send, Zap } from "lucide-react";
+import { CheckCircle2, Send, Zap } from "lucide-react";
 import { sendDirectVapidPushAction } from "@/app/actions/notification.actions";
 import { FormAlert } from "@/components/ui/FieldError";
 
@@ -13,26 +13,26 @@ export function SendDirectVapidPushForm() {
   const [recipientEmail, setRecipientEmail] = useState("youhubteam@gmail.com");
 
   return (
-    <div className="rounded-2xl p-6" style={{ background: "#0F172A", border: "1px solid #1E293B" }}>
-      <div className="mb-5 flex items-center justify-between">
+    <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-5">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <Zap size={18} style={{ color: "#EAB308" }} />
-          <h2 className="text-base font-semibold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          <Zap size={20} className="text-amber-600" />
+          <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             Direct VAPID Web Push Dispatcher
           </h2>
         </div>
-        <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-400 border border-amber-500/20">
+        <span className="rounded-full bg-amber-100 text-amber-950 px-3 py-1 text-xs font-800 border border-amber-300">
           Native Push
         </span>
       </div>
 
-      <p className="mb-4 text-xs font-semibold text-slate-400">
+      <p className="text-xs font-600 text-slate-600">
         Send a real-time native browser push notification directly to any specific user by email.
       </p>
 
       {state.error && <FormAlert tone="error" message={state.error} />}
       {state.success && state.data && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs font-bold text-emerald-400 border border-emerald-500/20">
+        <div className="flex items-center gap-2 rounded-2xl bg-emerald-100 p-4 text-xs font-800 text-emerald-950 border border-emerald-300">
           <CheckCircle2 size={16} />
           <span>VAPID Web Push sent successfully to {state.data.userEmail}!</span>
         </div>
@@ -40,8 +40,8 @@ export function SendDirectVapidPushForm() {
 
       <form action={formAction} className="space-y-4">
         <div>
-          <label className="mb-1 block text-xs font-semibold text-white">
-            User Email Address
+          <label className="mb-1 block text-xs font-800 text-slate-900">
+            Target User Email Address
           </label>
           <input
             name="recipientEmail"
@@ -50,73 +50,43 @@ export function SendDirectVapidPushForm() {
             value={recipientEmail}
             onChange={(e) => setRecipientEmail(e.target.value)}
             placeholder="e.g. youhubteam@gmail.com"
-            className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-            style={{ background: "#1E293B", border: "1px solid #334155" }}
+            className="w-full h-11 rounded-2xl px-4 text-xs font-700 text-slate-900 border border-slate-300 outline-none focus:border-amber-500"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-white">
+          <label className="mb-1 block text-xs font-800 text-slate-900">
             Notification Title
           </label>
           <input
             name="title"
             type="text"
             required
-            defaultValue="🎯 New Tuition Lead Alert!"
-            placeholder="e.g. 🎯 New Tuition Lead Alert!"
-            className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-            style={{ background: "#1E293B", border: "1px solid #334155" }}
+            defaultValue="ApnaTutorHub Alert ⚡"
+            className="w-full h-11 rounded-2xl px-4 text-xs font-700 text-slate-900 border border-slate-300 outline-none focus:border-amber-500"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-white">
+          <label className="mb-1 block text-xs font-800 text-slate-900">
             Push Message Body
           </label>
           <textarea
-            name="message"
+            name="body"
             required
             rows={3}
-            defaultValue="Class 10 Mathematics requirement posted in Sangam Vihar (110080). Budget: ₹500–₹800/hr."
-            placeholder="Write the message that will pop up on the user's desktop or mobile..."
-            className="w-full resize-none rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-            style={{ background: "#1E293B", border: "1px solid #334155" }}
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-white">
-            Target Link URL <span style={{ color: "#475569" }}>(optional)</span>
-          </label>
-          <input
-            name="actionUrl"
-            type="text"
-            defaultValue="/tutor/leads"
-            placeholder="/tutor/leads or /parent/my-leads"
-            className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-            style={{ background: "#1E293B", border: "1px solid #334155" }}
+            defaultValue="You have a new high-priority notification on ApnaTutorHub!"
+            className="w-full rounded-2xl p-4 text-xs font-700 text-slate-900 border border-slate-300 outline-none focus:border-amber-500"
           />
         </div>
 
         <button
           type="submit"
           disabled={isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-          style={{
-            background: "linear-gradient(135deg, #EAB308, #CA8A04)",
-            boxShadow: "0 4px 15px rgba(234,179,8,0.3)",
-          }}
+          className="w-full h-11 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
         >
-          {isPending ? (
-            "Sending Push..."
-          ) : (
-            <>
-              <Bell size={15} />
-              <span>Send Instant VAPID Web Push</span>
-              <Send size={14} />
-            </>
-          )}
+          <Send size={16} />
+          <span>{isPending ? "Sending Web Push..." : "Dispatch Direct VAPID Push"}</span>
         </button>
       </form>
     </div>

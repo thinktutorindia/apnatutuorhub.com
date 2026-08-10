@@ -1,74 +1,162 @@
-import { LogoBrand } from "@/components/brand/Logo";
 import { auth } from "@/auth";
+import Link from "next/link";
+import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { HomeHeroCard } from "@/components/home/HomeHeroCard";
+import { HomeFaqAccordion } from "@/components/home/HomeFaqAccordion";
 import {
-  Search,
-  Star,
-  ArrowRight,
-  Sparkles,
-  Play,
-  Zap,
-  User,
-  LayoutDashboard,
+  LayoutDashboard, ArrowRight, ShieldCheck, CheckCircle2,
+  User, Check
 } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "ApnaTutorHub — Learn Anything, Anytime, Anywhere!",
+  title: "ApnaTutorHub — Find Verified Home & Online Tutors Near You",
   description:
-    "Find top verified home & online tutors near you. Playful, smart matching for every subject & class.",
+    "Post your tuition requirement for free. Connect directly with verified home and online tutors for all subjects and school boards across India.",
 };
 
-const CATEGORIES = [
+const FAQ_ITEMS = [
   {
-    name: "Mathematics",
-    icon: "📐",
-    tutors: "2,400+ Tutors",
-    bg: "#E0F2FE", // Soft Blue
+    q: "Is ApnaTutorHub free for parents?",
+    a: "Yes, posting a tuition requirement and receiving tutor enquiries is 100% free for parents. There are no registration or subscription fees for parents.",
   },
   {
-    name: "Science & Physics",
-    icon: "🔬",
-    tutors: "1,800+ Tutors",
-    bg: "#DCFCE7", // Soft Green
+    q: "How are tutors verified on ApnaTutorHub?",
+    a: "Tutors submit government identity documents (Aadhaar/PAN) and educational qualification certificates. Our team reviews these documents before marking a profile as verified.",
   },
   {
-    name: "JEE & NEET Prep",
-    icon: "🎯",
-    tutors: "950+ Tutors",
-    bg: "#FEF3C7", // Soft Yellow
+    q: "Can I choose between home tuition and online classes?",
+    a: "Yes. When posting your requirement, you can specify whether you prefer home tuition at your residence, live online classes, or either option.",
   },
   {
-    name: "Coding & AI",
-    icon: "💻",
-    tutors: "750+ Tutors",
-    bg: "#FCE7F3", // Soft Pink
+    q: "What subjects and class levels are supported?",
+    a: "We cover all subjects from Class 1 to Class 12 (CBSE, ICSE, State Boards), JEE/NEET entrance preparation, Coding/Computer Science, Commerce, and Languages.",
   },
   {
-    name: "English & Languages",
-    icon: "📝",
-    tutors: "2,100+ Tutors",
-    bg: "#F3E8FF", // Soft Purple
-  },
-  {
-    name: "Arts & Commerce",
-    icon: "🎨",
-    tutors: "520+ Tutors",
-    bg: "#FFEDD5", // Soft Orange
+    q: "How do I connect with a tutor after posting?",
+    a: "Once you submit your requirement, verified tutors matching your subject, location, and budget review your post and express interest. You can chat directly to discuss schedule and start classes.",
   },
 ];
 
-const STATS = [
-  { value: "15K+", label: "Verified Tutors" },
-  { value: "50K+", label: "Happy Students" },
-  { value: "500+", label: "Expert Instructors" },
-  { value: "120+", label: "Cities Covered" },
+const CURRICULUM_CARDS = [
+  {
+    title: "Classes 9 & 10",
+    subtitle: "Board Exam Preparation",
+    badge: "High Demand",
+    badgeClass: "bg-blue-100 text-blue-950 border border-blue-300 font-800",
+    borderGradient: "linear-gradient(90deg, #4F8EF7, #7AB4FF)",
+    subjects: ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Social Science"],
+    boards: "CBSE, ICSE, State Boards",
+    subjectQuery: "Classes 9 & 10 Mathematics",
+  },
+  {
+    title: "Classes 11 & 12 (Science)",
+    subtitle: "Board & Competitive Prep",
+    badge: "Science Core",
+    badgeClass: "bg-emerald-100 text-emerald-950 border border-emerald-300 font-800",
+    borderGradient: "linear-gradient(90deg, #2D9E6B, #5DD4A1)",
+    subjects: ["Physics", "Chemistry", "Mathematics", "Biology"],
+    boards: "CBSE, ISC, State Boards",
+    subjectQuery: "Class 11 & 12 Physics",
+  },
+  {
+    title: "Classes 11 & 12 (Commerce)",
+    subtitle: "Accounts & Economics",
+    badge: "Commerce",
+    badgeClass: "bg-amber-100 text-amber-950 border border-amber-300 font-800",
+    borderGradient: "linear-gradient(90deg, #F5A623, #FFC86B)",
+    subjects: ["Accountancy", "Economics", "Business Studies", "Applied Maths"],
+    boards: "CBSE, ISC, State Boards",
+    subjectQuery: "Accountancy",
+  },
+  {
+    title: "Competitive Entrance Prep",
+    subtitle: "JEE Main, NEET & CUET",
+    badge: "Entrance Specialisation",
+    badgeClass: "bg-red-100 text-red-950 border border-red-300 font-800",
+    borderGradient: "linear-gradient(90deg, #E74C3C, #FF8070)",
+    subjects: ["JEE Mains & Advanced", "NEET UG", "CUET", "Foundations (Class 8-10)"],
+    boards: "All India Entrance Exams",
+    subjectQuery: "JEE Prep",
+  },
+  {
+    title: "Classes 1 to 8",
+    subtitle: "Foundation Subjects",
+    badge: "Primary & Middle",
+    badgeClass: "bg-purple-100 text-purple-950 border border-purple-300 font-800",
+    borderGradient: "linear-gradient(90deg, #9B59B6, #C39BD3)",
+    subjects: ["Mathematics", "Science", "English", "Hindi", "Social Studies", "EVS"],
+    boards: "All School Boards",
+    subjectQuery: "Class 1-8 Maths",
+  },
+  {
+    title: "Coding & Computer Science",
+    subtitle: "Programming & Web Dev",
+    badge: "Technology",
+    badgeClass: "bg-teal-100 text-teal-950 border border-teal-300 font-800",
+    borderGradient: "linear-gradient(90deg, #1ABC9C, #76D7C4)",
+    subjects: ["Python", "Java", "C++", "Web Development", "Computer Applications"],
+    boards: "School & Skill Prep",
+    subjectQuery: "Coding & CS",
+  },
+];
+
+const EXAMPLE_TUTOR_PROFILES = [
+  {
+    name: "Tutor Profile Example",
+    qualification: "M.Sc. Physics · 8+ yrs Teaching Exp",
+    subjects: ["Physics", "JEE Prep", "Class 11-12"],
+    mode: "Home Tuition & Online",
+    badge: "Example Profile Preview",
+  },
+  {
+    name: "Tutor Profile Example",
+    qualification: "M.Sc. Mathematics · 6+ yrs Teaching Exp",
+    subjects: ["Mathematics", "Class 9-12", "CBSE/ICSE"],
+    mode: "Home Tuition",
+    badge: "Example Profile Preview",
+  },
+  {
+    name: "Tutor Profile Example",
+    qualification: "B.Tech Computer Science · 5+ yrs Exp",
+    subjects: ["Coding", "Python", "Class 9-12"],
+    mode: "Live Online Classes",
+    badge: "Example Profile Preview",
+  },
+];
+
+const EXAMPLE_REQUIREMENTS = [
+  {
+    grade: "Class 10 CBSE",
+    subject: "Mathematics & Science",
+    mode: "Home Tuition",
+    location: "Sector 56, Gurgaon",
+    budget: "₹500–700 / hr",
+    accentColor: "#2D9E6B",
+  },
+  {
+    grade: "Class 12 CBSE",
+    subject: "Physics & Chemistry",
+    mode: "Live Online",
+    location: "Koramangala, Bengaluru",
+    budget: "₹600–800 / hr",
+    accentColor: "#4F8EF7",
+  },
+  {
+    grade: "JEE Main Prep",
+    subject: "Mathematics & Physics",
+    mode: "Home Tuition",
+    location: "Preet Vihar, Delhi",
+    budget: "₹800–1000 / hr",
+    accentColor: "#F5A623",
+  },
 ];
 
 export default async function HomePage() {
   const session = await auth();
   const rawUser = session?.user;
-  const user = (rawUser?.id && rawUser?.role) ? rawUser : null;
+  const user = rawUser?.id && rawUser?.role ? rawUser : null;
 
   if (user && user.role !== "SUPER_ADMIN" && user.role !== "SUB_ADMIN") {
     const { prisma } = await import("@/lib/prisma");
@@ -76,320 +164,520 @@ export default async function HomePage() {
       prisma.parentProfile.findUnique({ where: { userId: user.id } }),
       prisma.tutorProfile.findUnique({ where: { userId: user.id } }),
     ]);
-
     if (!hasParent && !hasTutor) {
       const { redirect } = await import("next/navigation");
       redirect("/select-role");
     }
   }
 
-  const dashboardUrl =
-    user?.role === "TUTOR"
-      ? "/tutor/dashboard"
-      : user?.role === "SUPER_ADMIN" || user?.role === "SUB_ADMIN"
-        ? "/admin/dashboard"
-        : "/parent/dashboard";
+  const isTutor = user?.role === "TUTOR";
+  const isParent = user?.role === "PARENT";
+  const isAdmin = user?.role === "SUPER_ADMIN" || user?.role === "SUB_ADMIN";
+
+  const dashboardUrl = isTutor
+    ? "/tutor/dashboard"
+    : isAdmin
+      ? "/admin/dashboard"
+      : "/parent/dashboard";
+
+  const parentCtaUrl = user ? (isParent ? "/parent/post-requirement" : dashboardUrl) : "/register";
+  const tutorCtaUrl = user ? (isTutor ? "/tutor/dashboard" : dashboardUrl) : "/register?role=tutor";
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] pb-16">
-      {/* ── 1. Floating Neubrutalist Navbar ── */}
-      <header className="pt-6 px-4 max-w-6xl mx-auto">
-        <nav className="neu-card px-6 py-4 flex items-center justify-between bg-white">
-          <LogoBrand size={36} />
+    <div className="min-h-screen text-gray-900 bg-[#F7F8FA]">
 
-          <div className="hidden md:flex items-center gap-8 font-bold text-[#0F172A] text-sm">
-            <a href="#features" className="hover:text-[#22C55E] transition-colors">
-              Features
-            </a>
-            <a href="#subjects" className="hover:text-[#22C55E] transition-colors">
-              Subjects
-            </a>
-            <a href="#how-it-works" className="hover:text-[#22C55E] transition-colors">
-              How it works
-            </a>
-          </div>
+      {/* ── Navbar (Auth-Aware) ───────────────────────────────── */}
+      <header
+        className="sticky top-0 z-50 transition-all border-b border-gray-200 bg-white/95 backdrop-blur-md"
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 sm:h-24 flex items-center justify-between gap-4">
+          
+          {/* Logo */}
+          <LogoBrand />
 
+          {/* Nav Links */}
+          <nav className="hidden md:flex items-center gap-7 text-sm font-700 text-gray-900">
+            <a href="#how-it-works" className="hover:text-[#2D9E6B] transition-colors">How It Works</a>
+            <a href="#subjects" className="hover:text-[#2D9E6B] transition-colors">Subjects</a>
+            <a href="#preview" className="hover:text-[#2D9E6B] transition-colors">Tutor Profiles</a>
+            <a href="#faq" className="hover:text-[#2D9E6B] transition-colors">FAQ</a>
+          </nav>
+
+          {/* Action CTAs */}
           <div className="flex items-center gap-3">
             {user ? (
-              <div className="flex items-center gap-3">
-                <a
-                  href={dashboardUrl}
-                  className="neu-badge bg-[#FEF3C7] text-[#0F172A] hidden sm:inline-flex items-center gap-1.5"
-                >
-                  <User size={14} />
-                  <span>{user.name || user.email?.split("@")[0]}</span>
-                  <span className="text-[10px] bg-[#0F172A] text-white px-1.5 py-0.5 rounded-full font-black ml-1 uppercase">
-                    {user.role}
+              <>
+                <Link href={dashboardUrl} className="px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all shadow-sm">
+                  <LayoutDashboard size={15} className="!text-white" />
+                  <span className="!text-white font-800">Dashboard</span>
+                </Link>
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className="text-xs font-700 px-3.5 py-2 rounded-full bg-gray-100 text-gray-900 border border-gray-300 flex items-center gap-1.5">
+                    <User size={14} className="text-[#0F2540]" />
+                    {user.name?.split(" ")[0] || "Account"}
                   </span>
-                </a>
-
-                <a
-                  href={dashboardUrl}
-                  className="neu-btn neu-btn-primary text-sm px-4 py-2 flex items-center gap-1.5"
-                >
-                  <LayoutDashboard size={16} />
-                  <span>Dashboard</span>
-                </a>
-
-                <SignOutButton />
-              </div>
+                  <SignOutButton />
+                </div>
+              </>
             ) : (
               <>
-                <a href="/login" className="neu-btn neu-btn-white text-sm px-5 py-2">
-                  Log In
-                </a>
-                <a href="/register" className="neu-btn neu-btn-primary text-sm px-5 py-2">
-                  Start Free
-                </a>
+                <Link href="/login" className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-xs font-800 transition-colors">
+                  Log in
+                </Link>
+                <Link href={parentCtaUrl} className="px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 transition-all shadow-sm">
+                  Find a Tutor
+                </Link>
+                <Link href={tutorCtaUrl} className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-xs font-800 hidden sm:inline-flex transition-colors">
+                  Join as Tutor
+                </Link>
               </>
             )}
           </div>
-        </nav>
+        </div>
       </header>
 
-      {/* ── 2. Hero Section ── */}
-      <section className="pt-12 md:pt-16 pb-12 px-4 max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-
-          {/* Left Column: Headlines & Search */}
+      {/* ── Hero Section (Product-Oriented) ──────────────────── */}
+      <section className="bg-white py-12 lg:py-16 px-4 sm:px-6 border-b border-gray-200">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+          
+          {/* Hero Left: Product-Focused Messaging */}
           <div className="lg:col-span-7 space-y-6">
-
-            {/* Top Pill Badge */}
-            <div className="inline-flex items-center gap-2 neu-badge bg-[#DCFCE7] text-[#0F172A]">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] animate-pulse" />
-              <span>New: AI-Powered Tutor Matching</span>
+            <div className="inline-flex items-center gap-2 bg-amber-100 border border-amber-300 text-amber-950 text-xs font-800 px-4 py-1.5 rounded-full">
+              <span>Home &amp; Live Online Tuition Across India</span>
             </div>
 
-            {/* Main Title */}
-            <h1 className="text-4xl md:text-6xl font-black text-[#0F172A] leading-[1.1] tracking-tight">
-              Learn Anything, <br />
-              <span className="text-[#22C55E]">Anytime,</span> <br />
-              Anywhere!
+            <h1
+              className="text-3xl sm:text-4xl md:text-[3.15rem] font-800 text-[#0F2540] leading-[1.15]"
+              style={{ fontFamily: "Poppins, sans-serif" }}
+            >
+              Find the right tutor <span className="text-[#F5A623]">for your child</span>
             </h1>
 
-            {/* Subtitle */}
-            <p className="text-lg md:text-xl font-medium text-[#475569] max-w-xl leading-relaxed">
-              Join thousands of learners across India. Get matched with top verified tutors for home or online classes in under 2 minutes!
+            <p className="text-base sm:text-lg text-gray-900 font-600 leading-relaxed max-w-xl">
+              Tell us what subject, class level, location, and budget you need. We connect parents directly with verified home and online tutors — completely free for parents.
             </p>
 
-            {/* Search Input Box */}
-            <div className="p-2 neu-card bg-white max-w-lg flex items-center gap-2">
-              <div className="flex-1 flex items-center gap-3 px-3">
-                <Search size={20} className="text-[#0F172A]" />
-                <input
-                  type="text"
-                  placeholder="What subject do you need help with?"
-                  className="w-full bg-transparent border-none outline-none font-semibold text-[#0F172A] placeholder:text-slate-400 text-sm md:text-base"
-                />
-              </div>
-              <a href={user ? dashboardUrl : "/register"} className="neu-btn neu-btn-primary text-sm py-3 px-6">
-                Search Tutors
-              </a>
+            {/* Hero CTAs */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <Link
+                href={parentCtaUrl}
+                className="px-7 py-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-sm font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg pulse-glow"
+              >
+                <span className="!text-white font-800">Post Your Requirement — Free</span>
+                <ArrowRight size={18} className="!text-white" />
+              </Link>
+              <Link
+                href={tutorCtaUrl}
+                className="px-6 py-4 rounded-2xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-sm font-800 transition-colors flex items-center justify-center"
+              >
+                Join as a Tutor
+              </Link>
             </div>
 
-            {/* Quick Tag Pills */}
-            <div className="flex flex-wrap items-center gap-2 pt-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
-                Popular:
+            {/* Verified Trust Guarantees */}
+            <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm font-700 text-gray-900 pt-2">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck size={18} className="text-[#2D9E6B]" /> Identity-Verified Tutors
               </span>
-              {["Maths", "Physics", "JEE Prep", "Class 10", "Coding", "NEET"].map(
-                (tag) => (
-                  <span
-                    key={tag}
-                    className="neu-badge bg-white text-xs text-[#0F172A] cursor-pointer hover:bg-[#FEF3C7] transition-colors"
-                  >
-                    {tag}
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 size={18} className="text-[#2D9E6B]" /> No Platform Fees for Parents
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 size={18} className="text-[#2D9E6B]" /> Direct Tutor Connection
+              </span>
+            </div>
+          </div>
+
+          {/* Hero Right: Interactive Requirement Form */}
+          <div className="lg:col-span-5">
+            <HomeHeroCard
+              user={user}
+              dashboardUrl={dashboardUrl}
+              isParent={isParent}
+            />
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── Trust Bar (Product Features) ─────────────────────── */}
+      <div className="bg-white border-b border-gray-200 py-8 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            { icon: "🛡️", title: "Identity-Verified Tutors", desc: "Identity documents checked before listing" },
+            { icon: "🏠", title: "Home & Online Tuition", desc: "Choose in-person home tuition or live online classes" },
+            { icon: "⭐", title: "Verified Parent Reviews", desc: "Authentic feedback from parents after completed classes" },
+            { icon: "💰", title: "Custom Hourly Budget", desc: "Set your own tuition budget, no mandatory fees for parents" },
+          ].map((item) => (
+            <div key={item.title} className="flex items-start gap-3.5 p-3 rounded-2xl bg-gray-50 border border-gray-200/80">
+              <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+                {item.icon}
+              </div>
+              <div>
+                <h4 className="font-800 text-sm text-[#0F2540] mb-0.5">{item.title}</h4>
+                <p className="text-xs text-gray-800 font-600 leading-snug">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Classes & Subjects Section ───────────────────────── */}
+      <section id="subjects" className="py-16 px-4 sm:px-6 bg-[#F7F8FA]">
+        <div className="max-w-6xl mx-auto space-y-10">
+          
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <span className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B]">
+              Subjects &amp; Class Categories
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+              Find Tutors by Class &amp; Subject
+            </h2>
+            <p className="text-sm text-gray-900 font-600">
+              Select your child&apos;s grade to get matched with qualified home and online tutors.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {CURRICULUM_CARDS.map((card) => (
+              <div
+                key={card.title}
+                className="bg-white rounded-3xl border border-gray-300 p-6 space-y-4 shadow-xs relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-md"
+              >
+                <div className="absolute top-0 left-0 right-0 h-1.5" style={{ background: card.borderGradient }} />
+
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] px-3 py-1 rounded-full ${card.badgeClass}`}>
+                    {card.badge}
                   </span>
-                )
-              )}
-            </div>
-          </div>
+                </div>
 
-          {/* Right Column: Playful Claymorphism Preview Card */}
-          <div className="lg:col-span-5 relative">
+                <div>
+                  <h3 className="font-800 text-lg text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                    {card.title}
+                  </h3>
+                  <p className="text-xs text-gray-900 font-600 mt-0.5">{card.subtitle}</p>
+                </div>
 
-            {/* Main Interactive Widget Card */}
-            <div className="neu-card p-6 bg-white relative z-10 space-y-6">
-
-              {/* Card Header with Class Info */}
-              <div className="flex items-center justify-between p-4 bg-[#E0F2FE] border-2 border-[#0F172A] rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[#3B82F6] border-2 border-[#0F172A] flex items-center justify-center text-white">
-                    <Play size={20} fill="white" />
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-[#0F172A] text-sm md:text-base">
-                      Mathematics & Physics
-                    </h3>
-                    <p className="text-xs font-semibold text-slate-600">
-                      Class 10 CBSE • 12 lessons available
-                    </p>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-800 uppercase tracking-wider text-gray-800 block">
+                    Key Subjects
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {card.subjects.map((s) => (
+                      <span key={s} className="text-xs px-2.5 py-1 rounded-xl bg-gray-100 border border-gray-300 text-gray-900 font-700">
+                        {s}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              </div>
 
-              {/* Progress Tracking Bar Demo */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-extrabold text-[#0F172A]">
-                  <span>Matching Score Progress</span>
-                  <span className="text-[#22C55E]">85% Match</span>
+                <div className="pt-3 border-t border-gray-200 flex items-center justify-between text-xs">
+                  <span className="text-gray-900 font-700">Boards: {card.boards}</span>
+                  <Link
+                    href={user ? (isParent ? `/parent/post-requirement?subject=${encodeURIComponent(card.subjectQuery)}` : dashboardUrl) : `/register?subject=${encodeURIComponent(card.subjectQuery)}`}
+                    className="font-800 text-[#F5A623] hover:text-[#d88707] flex items-center gap-1"
+                  >
+                    Post Requirement <ArrowRight size={13} />
+                  </Link>
                 </div>
-                <div className="w-full h-4 bg-slate-100 border-2 border-[#0F172A] rounded-full overflow-hidden p-0.5">
-                  <div className="h-full bg-[#22C55E] rounded-full w-[85%] transition-all duration-1000" />
-                </div>
               </div>
-
-              {/* Action Button */}
-              <a href={user ? dashboardUrl : "/register"} className="neu-btn neu-btn-primary w-full text-center py-3">
-                {user ? "Go to Dashboard" : "Continue Tutor Matching"}
-              </a>
-            </div>
-
-            {/* Floating Badge 1: Target Icon */}
-            <div className="absolute -top-6 -right-4 z-20 neu-card p-3 bg-[#FCE7F3] rotate-6 hidden sm:flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#EC4899] border-2 border-[#0F172A] flex items-center justify-center text-white font-black text-sm">
-                🎯
-              </div>
-              <span className="font-extrabold text-xs text-[#0F172A]">Top Rated</span>
-            </div>
-
-            {/* Floating Badge 2: Verified Tutor Star */}
-            <div className="absolute -bottom-6 -left-4 z-20 neu-card p-3 bg-[#FEF3C7] -rotate-6 hidden sm:flex items-center gap-2">
-              <Star className="w-5 h-5 text-amber-500 fill-amber-400 stroke-[#0F172A] stroke-2" />
-              <span className="font-extrabold text-xs text-[#0F172A]">4.9 Star Tutors</span>
-            </div>
+            ))}
           </div>
-        </div>
 
-        {/* ── Stats Bar ── */}
-        <div className="mt-16 pt-10 border-t-2 border-[#0F172A] grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {STATS.map((stat) => (
-            <div key={stat.label} className="neu-card p-4 bg-white">
-              <div className="text-3xl md:text-4xl font-black text-[#0F172A] tracking-tight">
-                {stat.value}
-              </div>
-              <div className="text-xs md:text-sm font-bold text-slate-600 mt-1">
-                {stat.label}
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 
-      {/* ── 3. Subject Catalog Preview ── */}
-      <section id="subjects" className="py-16 px-4 max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
-          <div className="neu-badge bg-[#FEF3C7] text-[#0F172A] mx-auto">
-            <Sparkles size={14} className="text-amber-600" />
-            Explore Disciplines
-          </div>
-          <h2 className="text-3xl md:text-4xl font-black text-[#0F172A]">
-            Popular Subjects & Courses
-          </h2>
-          <p className="text-slate-600 font-medium text-base">
-            Find specialized tutors for school boards, entrance exams, and skills.
-          </p>
-        </div>
+      {/* ── Product Feature Preview (Example Tutor Profiles & Requirements) ── */}
+      <section id="preview" className="py-16 px-4 sm:px-6 bg-white">
+        <div className="max-w-6xl mx-auto space-y-14">
+          
+          {/* Example Tutor Profiles */}
+          <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+              <div>
+                <span className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B] block mb-1">
+                  Product Preview
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                  How Tutor Profiles Work
+                </h2>
+                <p className="text-sm text-gray-900 font-600 mt-1">
+                  Tutors build verified profiles detailing qualifications, subjects, and teaching modes.
+                </p>
+              </div>
+              <Link href={tutorCtaUrl} className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-900 font-800 text-xs hover:bg-gray-100 transition-colors shrink-0">
+                Join as a Tutor →
+              </Link>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {CATEGORIES.map((cat) => (
-            <a
-              key={cat.name}
-              href={user ? dashboardUrl : "/register"}
-              className="neu-card p-6 block text-left no-underline transition-all hover:scale-[1.02]"
-              style={{ backgroundColor: cat.bg }}
-            >
-              <div className="text-4xl mb-4">{cat.icon}</div>
-              <h3 className="text-xl font-black text-[#0F172A] mb-1">
-                {cat.name}
-              </h3>
-              <p className="text-xs font-bold text-slate-700 mb-4">
-                {cat.tutors}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {EXAMPLE_TUTOR_PROFILES.map((tutor, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white rounded-3xl border border-gray-300 p-6 space-y-4 transition-all hover:shadow-md"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#0F2540] text-white flex items-center justify-center font-800 text-sm" style={{ fontFamily: "Poppins, sans-serif" }}>
+                        TP
+                      </div>
+                      <div>
+                        <h3 className="font-800 text-sm text-[#0F2540]">{tutor.name}</h3>
+                        <p className="text-xs text-gray-900 font-600">{tutor.qualification}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-800 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 shrink-0">
+                      Verified ✅
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {tutor.subjects.map((s) => (
+                      <span key={s} className="text-xs px-2.5 py-1 rounded-xl bg-blue-100 text-blue-950 border border-blue-300 font-800">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-xs text-gray-900 font-700">
+                    <span>{tutor.mode}</span>
+                    <span className="text-[11px] font-700 text-gray-700">{tutor.badge}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Example Requirements Preview */}
+          <div className="space-y-8 pt-6 border-t border-gray-200">
+            <div className="text-center max-w-2xl mx-auto space-y-2">
+              <span className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B]">
+                Marketplace Preview
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                How Student Requirements Work
+              </h2>
+              <p className="text-sm text-gray-900 font-600">
+                Parents post requirement details. Relevant verified tutors in their city review posts and reach out directly.
               </p>
-              <div className="inline-flex items-center gap-2 font-extrabold text-sm text-[#0F172A]">
-                <span>Browse Tutors</span>
-                <ArrowRight size={16} />
-              </div>
-            </a>
-          ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {EXAMPLE_REQUIREMENTS.map((req, i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-3xl border border-gray-300 p-6 space-y-3 relative overflow-hidden shadow-xs"
+                >
+                  <div
+                    className="absolute left-0 top-0 bottom-0 w-1.5"
+                    style={{ backgroundColor: req.accentColor }}
+                  />
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-800 uppercase tracking-wider text-gray-900">
+                      {req.grade}
+                    </span>
+                    <span className="text-[11px] font-800 text-emerald-950 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                      Example Post
+                    </span>
+                  </div>
+
+                  <h4 className="font-800 text-base text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                    {req.subject}
+                  </h4>
+
+                  <div className="space-y-1 text-xs text-gray-900 font-600">
+                    <p>Mode: <strong className="text-gray-900 font-800">{req.mode}</strong></p>
+                    <p>Location: <strong className="text-gray-900 font-800">{req.location}</strong></p>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 text-xs font-800 text-[#2D9E6B]">
+                    Budget Range: {req.budget}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
       </section>
 
-      {/* ── 4. How It Works ── */}
-      <section id="how-it-works" className="py-16 px-4 max-w-6xl mx-auto">
-        <div className="neu-card p-8 md:p-12 bg-white">
-          <div className="text-center max-w-xl mx-auto mb-12 space-y-2">
-            <div className="neu-badge bg-[#E0F2FE] text-[#0F172A] mx-auto">
-              <Zap size={14} className="text-blue-600" />
-              Simple Process
-            </div>
-            <h2 className="text-3xl md:text-4xl font-black text-[#0F172A]">
+      {/* ── How It Works (Verified Wording) ─────────────────── */}
+      <section id="how-it-works" className="py-16 px-4 sm:px-6 bg-[#F7F8FA]">
+        <div className="max-w-6xl mx-auto space-y-12">
+          
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <span className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B]">
+              Simple 3-Step Flow
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
               How ApnaTutorHub Works
             </h2>
+            <p className="text-sm text-gray-900 font-600">
+              Find qualified tutors for your child in 3 straightforward steps.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             {[
               {
-                step: "01",
-                title: "Post Requirement",
-                desc: "Tell us subject, class, mode (online/offline), and budget preference.",
-                bg: "#E0F2FE",
+                num: "01",
+                title: "Tell Us What You Need",
+                desc: "Share your child's subject, class level, location, timing preference, and hourly budget.",
               },
               {
-                step: "02",
-                title: "Instant Smart Match",
-                desc: "Algorithm pairs you with verified tutors ranked by experience and ratings.",
-                bg: "#DCFCE7",
+                num: "02",
+                title: "Relevant Tutors Discover Your Requirement",
+                desc: "Verified local and online tutors review your requirement post and express interest.",
               },
               {
-                step: "03",
-                title: "Book & Learn",
-                desc: "Schedule a free trial class, verify profiles, and start learning!",
-                bg: "#FEF3C7",
+                num: "03",
+                title: "Connect and Choose Your Tutor",
+                desc: "Discuss expectations directly, agree on schedule and fee, and start tuition.",
               },
-            ].map((item) => (
-              <div
-                key={item.step}
-                className="neu-card p-6 text-left space-y-4"
-                style={{ backgroundColor: item.bg }}
-              >
-                <div className="w-12 h-12 rounded-xl bg-white border-2 border-[#0F172A] flex items-center justify-center font-black text-xl text-[#0F172A] shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
-                  {item.step}
+            ].map((step) => (
+              <div key={step.num} className="bg-white rounded-3xl p-7 border border-gray-300 space-y-3 shadow-xs">
+                <div className="w-14 h-14 rounded-full bg-amber-100 border-2 border-amber-400 text-amber-950 font-800 text-xl flex items-center justify-center mx-auto" style={{ fontFamily: "Poppins, sans-serif" }}>
+                  {step.num}
                 </div>
-                <h3 className="text-xl font-black text-[#0F172A]">
-                  {item.title}
+                <h3 className="font-800 text-lg text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                  {step.title}
                 </h3>
-                <p className="text-sm font-semibold text-slate-700 leading-relaxed">
-                  {item.desc}
+                <p className="text-xs text-gray-900 font-600 leading-relaxed">
+                  {step.desc}
                 </p>
               </div>
             ))}
           </div>
+
         </div>
       </section>
 
-      {/* ── 5. Enrollment CTA Banner ── */}
-      <section className="py-12 px-4 max-w-6xl mx-auto">
-        <div className="neu-card p-10 bg-[#22C55E] text-center space-y-6">
-          <h2 className="text-3xl md:text-5xl font-black text-[#0F172A]">
-            Ready to Find Your Perfect Tutor?
-          </h2>
-          <p className="text-lg font-bold text-slate-900 max-w-xl mx-auto">
-            Join 50,000+ happy parents and students across India today.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4 pt-2">
-            <a href={user ? dashboardUrl : "/register"} className="neu-btn neu-btn-white text-base px-8 py-3.5">
-              {user ? "Open Dashboard" : "Find a Tutor Free"}
-            </a>
+      {/* ── Teacher CTA Banner (HIGH-CONTRAST DARK NAVY CARD FIX) ────────── */}
+      <section className="py-16 px-4 sm:px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div
+            className="rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden shadow-xl border border-gray-800"
+            style={{ backgroundColor: "#0F2540" }}
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+              <div className="lg:col-span-8 space-y-4">
+                <span className="inline-block text-xs font-800 uppercase tracking-wider text-amber-300 bg-amber-400/20 px-3.5 py-1 rounded-full border border-amber-300/30">
+                  For Teachers &amp; Tutors
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-800 !text-white leading-snug" style={{ fontFamily: "Poppins, sans-serif" }}>
+                  Are you a qualified tutor looking for teaching opportunities?
+                </h2>
+                <p className="text-sm font-500 !text-gray-100 leading-relaxed max-w-xl">
+                  Create your profile, complete verification, and discover active student requirements in your subjects and location. Zero registration fees for tutors to sign up.
+                </p>
+              </div>
+              <div className="lg:col-span-4 flex flex-col items-start lg:items-end justify-center gap-3">
+                <Link
+                  href={tutorCtaUrl}
+                  className="px-7 py-4 rounded-2xl bg-[#F5A623] hover:bg-amber-400 !text-[#0F2540] text-sm font-800 transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
+                >
+                  <span className="!text-[#0F2540] font-800">Join as a Tutor Today →</span>
+                </Link>
+                <span className="text-xs font-700 !text-amber-200">
+                  Aadhaar &amp; qualification verification required
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer className="pt-12 border-t-2 border-[#0F172A] px-4 max-w-6xl mx-auto text-center font-bold text-sm text-slate-600">
-        <p>© {new Date().getFullYear()} ApnaTutorHub. Smart Tutor Matching Platform.</p>
+      {/* ── FAQ Section ──────────────────────────────────────── */}
+      <section id="faq" className="py-16 px-4 sm:px-6 bg-[#F7F8FA]">
+        <div className="max-w-3xl mx-auto space-y-10">
+          <div className="text-center space-y-2">
+            <span className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B]">
+              FAQ
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+              Frequently Asked Questions
+            </h2>
+          </div>
+
+          <HomeFaqAccordion items={FAQ_ITEMS} />
+        </div>
+      </section>
+
+      {/* ── Final Conversion CTA Strip ────────────────────────── */}
+      <section className="py-14 px-4 sm:px-6 text-center border-y border-[#C7EDD9] bg-gradient-to-r from-emerald-50 via-emerald-100/50 to-emerald-50">
+        <div className="max-w-3xl mx-auto space-y-4">
+          <h3 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Ready to Find the Right Tutor for Your Child?
+          </h3>
+          <p className="text-sm text-gray-900 font-600">
+            Tell us what you need. Verified tutors in your area will connect with you directly.
+          </p>
+          <div>
+            <Link href={parentCtaUrl} className="px-8 py-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-sm font-800 inline-flex items-center gap-2 transition-all shadow-md hover:shadow-lg">
+              <span className="!text-white font-800">Post Your Requirement — Free</span>
+              <ArrowRight size={16} className="!text-white" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer (HIGH CONTRAST FOOTER TEXT) ────────────────── */}
+      <footer className="bg-[#0F2540] text-gray-100 py-14 px-4 sm:px-6 border-t border-gray-800">
+        <div className="max-w-6xl mx-auto space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <LogoBrand light={true} />
+              </div>
+              <p className="text-xs text-gray-300 font-500 leading-relaxed">
+                Connecting students and parents with verified home and online tutors across India.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="font-800 text-sm text-white mb-3" style={{ fontFamily: "Poppins, sans-serif" }}>
+                For Parents
+              </h4>
+              <ul className="space-y-2 text-xs font-600 text-gray-200">
+                <li><Link href={parentCtaUrl} className="hover:text-[#F5A623] transition-colors">Post Requirement</Link></li>
+                <li><a href="#subjects" className="hover:text-[#F5A623] transition-colors">Browse Subjects</a></li>
+                <li><a href="#preview" className="hover:text-[#F5A623] transition-colors">Tutor Profiles</a></li>
+                <li><a href="#how-it-works" className="hover:text-[#F5A623] transition-colors">How It Works</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-800 text-sm text-white mb-3" style={{ fontFamily: "Poppins, sans-serif" }}>
+                For Tutors
+              </h4>
+              <ul className="space-y-2 text-xs font-600 text-gray-200">
+                <li><Link href={tutorCtaUrl} className="hover:text-[#F5A623] transition-colors">Join as a Tutor</Link></li>
+                <li><Link href="/login" className="hover:text-[#F5A623] transition-colors">Tutor Login</Link></li>
+                <li><a href="#faq" className="hover:text-[#F5A623] transition-colors">Verification Process</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-800 text-sm text-white mb-3" style={{ fontFamily: "Poppins, sans-serif" }}>
+                Company
+              </h4>
+              <ul className="space-y-2 text-xs font-600 text-gray-200">
+                <li><Link href="/login" className="hover:text-[#F5A623] transition-colors">Log in</Link></li>
+                <li><Link href="/register" className="hover:text-[#F5A623] transition-colors">Register</Link></li>
+                <li><a href="#faq" className="hover:text-[#F5A623] transition-colors">FAQ &amp; Support</a></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-600 text-gray-300">
+            <span>© {new Date().getFullYear()} ApnaTutorHub. All rights reserved.</span>
+            <span>Connecting Parents &amp; Verified Tutors Across India</span>
+          </div>
+        </div>
       </footer>
+
     </div>
   );
 }

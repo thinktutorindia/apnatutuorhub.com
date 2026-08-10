@@ -188,6 +188,10 @@ export const registerSchema = z.object({
     .min(2, "Name must be at least 2 characters")
     .max(100, "Name is too long"),
   email: z.string().email("Please enter a valid email"),
+  phone: z
+    .string()
+    .min(10, "Phone number must be 10 digits")
+    .regex(/^[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")

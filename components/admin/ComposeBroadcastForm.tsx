@@ -13,60 +13,56 @@ export function ComposeBroadcastForm() {
   const [target, setTarget] = useState<"ALL" | "PARENTS" | "TUTORS">("ALL");
 
   return (
-    <div className="rounded-2xl p-6" style={{ background: "#0F172A", border: "1px solid #1E293B" }}>
-      <div className="mb-5 flex items-center justify-between">
+    <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-5">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <Radio size={16} style={{ color: "#22C55E" }} />
-          <h2 className="text-base font-semibold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          <Radio size={20} className="text-[#2D9E6B]" />
+          <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             Compose Platform Broadcast (Push + Email + Bell)
           </h2>
         </div>
-        <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-400 border border-emerald-500/20">
+        <span className="rounded-full bg-emerald-100 text-emerald-950 px-3 py-1 text-xs font-800 border border-emerald-300">
           Live Broadcast
         </span>
       </div>
 
       {state.error && <FormAlert tone="error" message={state.error} />}
       {state.success && state.data && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs font-bold text-emerald-400 border border-emerald-500/20">
+        <div className="flex items-center gap-2 rounded-2xl bg-emerald-100 p-4 text-xs font-800 text-emerald-950 border border-emerald-300">
           <CheckCircle2 size={16} />
-          <span>Broadcast and VAPID Web Push dispatched successfully to {state.data.sent} user accounts!</span>
+          <span>Broadcast dispatched successfully to {state.data.sent} user accounts!</span>
         </div>
       )}
 
       <form action={formAction} className="space-y-4">
         {/* Target Audience Selection */}
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-white">
-            Audience
+          <label className="mb-1.5 block text-xs font-800 text-slate-900">
+            Target Audience
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2.5">
             {[
-              { value: "ALL", label: "All Users", icon: Users, color: "#3B82F6" },
-              { value: "PARENTS", label: "Parents", icon: GraduationCap, color: "#8B5CF6" },
-              { value: "TUTORS", label: "Tutors", icon: Bell, color: "#22C55E" },
-            ].map(({ value, label, icon: Icon, color }) => (
+              { value: "ALL", label: "All Users", icon: Users },
+              { value: "PARENTS", label: "Parents", icon: GraduationCap },
+              { value: "TUTORS", label: "Tutors", icon: Bell },
+            ].map(({ value, label, icon: Icon }) => (
               <label
                 key={value}
                 onClick={() => setTarget(value as "ALL" | "PARENTS" | "TUTORS")}
-                className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl px-3 py-3 transition-all ${
-                  target === value ? "ring-2 ring-emerald-500 border-emerald-500 bg-slate-800" : ""
+                className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl p-3.5 transition-all border ${
+                  target === value ? "bg-emerald-50 border-[#2D9E6B] text-[#2D9E6B] font-800 shadow-xs" : "bg-slate-50 border-slate-300 text-slate-800 hover:bg-slate-100 font-700"
                 }`}
-                style={{
-                  background: target === value ? "#1E293B" : "#1E293B",
-                  border: target === value ? "1px solid #22C55E" : "1px solid #334155",
-                }}
               >
                 <input
                   type="radio"
                   name="target"
                   value={value}
                   checked={target === value}
-                  onChange={() => setTarget(value as "ALL" | "PARENTS" | "TUTORS")}
+                  onChange={() => {}}
                   className="sr-only"
                 />
-                <Icon size={16} style={{ color }} />
-                <span className="text-xs font-medium text-slate-300">{label}</span>
+                <Icon size={18} />
+                <span className="text-xs">{label}</span>
               </label>
             ))}
           </div>
@@ -74,66 +70,55 @@ export function ComposeBroadcastForm() {
 
         {/* Title */}
         <div>
-          <label className="mb-1 block text-xs font-semibold text-white">
-            Notification Title
+          <label className="mb-1.5 block text-xs font-800 text-slate-900">
+            Announcement Title
           </label>
           <input
-            name="title"
             type="text"
+            name="title"
             required
-            placeholder="e.g. Platform Maintenance on Sunday"
-            className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-            style={{ background: "#1E293B", border: "1px solid #334155" }}
+            maxLength={100}
+            placeholder="e.g. New Feature Release / Weekend Special Discount"
+            className="w-full h-11 rounded-2xl px-4 text-xs font-700 text-slate-900 border border-slate-300 outline-none focus:border-[#2D9E6B]"
           />
         </div>
 
-        {/* Message */}
+        {/* Message Content */}
         <div>
-          <label className="mb-1 block text-xs font-semibold text-white">
-            Message Body
+          <label className="mb-1.5 block text-xs font-800 text-slate-900">
+            Notification Message Body
           </label>
           <textarea
             name="message"
             required
             rows={4}
-            placeholder="Write your announcement here..."
-            className="w-full resize-none rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-            style={{ background: "#1E293B", border: "1px solid #334155" }}
+            maxLength={500}
+            placeholder="Type your push notification and email broadcast message here..."
+            className="w-full rounded-2xl p-4 text-xs font-700 text-slate-900 border border-slate-300 outline-none focus:border-[#2D9E6B]"
           />
         </div>
 
-        {/* Action URL */}
+        {/* Link URL (Optional) */}
         <div>
-          <label className="mb-1 block text-xs font-semibold text-white">
-            Link URL{" "}
-            <span style={{ color: "#475569", fontWeight: 400 }}>(optional)</span>
+          <label className="mb-1.5 block text-xs font-800 text-slate-900">
+            Call-to-Action Link URL (Optional)
           </label>
           <input
-            name="actionUrl"
             type="text"
-            placeholder="/tutor/leads or /parent/my-leads"
-            className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none"
-            style={{ background: "#1E293B", border: "1px solid #334155" }}
+            name="link"
+            placeholder="/tutor/leads or /parent/post-requirement"
+            className="w-full h-11 rounded-2xl px-4 text-xs font-700 text-slate-900 border border-slate-300 outline-none focus:border-[#2D9E6B]"
           />
         </div>
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-          style={{
-            background: "linear-gradient(135deg, #22C55E, #16A34A)",
-            boxShadow: "0 4px 15px rgba(34,197,94,0.3)",
-          }}
+          className="w-full h-11 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
         >
-          {isPending ? (
-            "Dispatching Broadcast & Web Push..."
-          ) : (
-            <>
-              <Send size={15} />
-              <span>Send Broadcast & VAPID Web Push</span>
-            </>
-          )}
+          <Send size={16} />
+          <span>{isPending ? "Dispatching Broadcast..." : "Send Live Broadcast Now"}</span>
         </button>
       </form>
     </div>

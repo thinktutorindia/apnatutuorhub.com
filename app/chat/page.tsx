@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, ChevronRight } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getUserConversations } from "@/lib/chat-service";
@@ -13,7 +13,6 @@ export default async function ChatInboxPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  // Determine user role and profile ID
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
@@ -41,28 +40,44 @@ export default async function ChatInboxPage() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 py-6 px-4">
-      <header className="neu-card flex flex-col gap-2 bg-[#F3E8FF] p-6">
-        <div className="neu-badge w-fit bg-white text-[#0F172A]">
-          <MessageSquare size={14} />
-          Messages
-        </div>
-        <h1 className="text-3xl font-black text-[#0F172A]">Chat Inbox</h1>
-        <p className="text-sm font-semibold text-slate-700">
-          Direct instant messaging between Parents and Verified Tutors.
-        </p>
-      </header>
-
-      {conversations.length === 0 ? (
-        <div className="neu-card p-12 text-center space-y-3 bg-white">
-          <MessageSquare size={36} className="mx-auto text-slate-300" />
-          <p className="text-lg font-black text-[#0F172A]">No conversations yet</p>
-          <p className="text-sm text-slate-600">
-            Start a chat with a tutor or parent from lead applicant profiles!
+    <div className="max-w-4xl mx-auto space-y-6 text-slate-900">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+        <div className="space-y-1">
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Direct Communications</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Messages &amp; Conversations
+          </h1>
+          <p className="text-xs text-slate-600 font-600">
+            Real-time direct messaging between verified tutors and parents
           </p>
         </div>
+      </div>
+
+      {conversations.length === 0 ? (
+        <div className="p-8 sm:p-12 rounded-3xl bg-white border border-slate-200 shadow-xs text-center space-y-4 max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-[#2D9E6B] flex items-center justify-center mx-auto border border-emerald-200 shadow-2xs">
+            <MessageSquare size={28} />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-lg font-800 text-[#0F2540]">No active conversations yet</h2>
+            <p className="text-xs font-600 text-slate-600 max-w-xs mx-auto leading-relaxed">
+              {isParent
+                ? "Connect with verified tutors for your child's requirements to start direct messaging."
+                : "Conversations start automatically when a parent or tutor unlocks contact details."}
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              href={isParent ? "/parent/post-requirement" : "/tutor/leads"}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 transition-colors shadow-md"
+            >
+              <span>{isParent ? "Post Student Requirement →" : "Browse Student Requirements →"}</span>
+            </Link>
+          </div>
+        </div>
       ) : (
-        <div className="neu-card bg-white divide-y-2 divide-slate-100 overflow-hidden">
+        <div className="rounded-3xl bg-white border border-slate-200 shadow-xs divide-y divide-slate-200 overflow-hidden">
           {conversations.map((conv) => {
             const otherUser = isParent
               ? conv.tutorProfile.user
@@ -75,38 +90,27 @@ export default async function ChatInboxPage() {
               <Link
                 key={conv.id}
                 href={`/chat/${conv.id}`}
-                className={`flex items-center justify-between p-4 transition-all hover:bg-slate-50 ${
-                  hasUnread ? "bg-[#F0FDF4]" : ""
+                className={`flex items-center justify-between p-5 transition-all hover:bg-slate-50 ${
+                  hasUnread ? "bg-emerald-50/40" : "bg-white"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-[#FEF3C7] text-xl shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
-                    {isParent ? "🧑‍🏫" : "🏠"}
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-11 h-11 rounded-2xl bg-[#0F2540] text-white font-800 text-sm flex items-center justify-center shrink-0 shadow-2xs">
+                    {(otherUser.name || "U").charAt(0).toUpperCase()}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-[#0F172A]">
-                        {otherUser.name ?? "User"}
-                      </span>
-                      {conv.lead && (
-                        <span className="neu-badge bg-[#E0F2FE] text-[10px]">
-                          {conv.lead.classLevel}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-600 truncate max-w-md">
+                  <div className="min-w-0">
+                    <h3 className="font-800 text-sm text-[#0F2540] truncate">{otherUser.name || "User"}</h3>
+                    <p className="text-xs font-600 text-slate-600 truncate">
                       {lastMsg ? lastMsg.content : "No messages yet"}
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-slate-400">
-                    {new Date(conv.lastMessageAt).toLocaleDateString()}
-                  </span>
+                <div className="flex items-center gap-2 shrink-0">
                   {hasUnread && (
-                    <span className="block ml-auto mt-1 h-2.5 w-2.5 rounded-full bg-[#22C55E]" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#2D9E6B]" />
                   )}
+                  <ChevronRight size={16} className="text-slate-400" />
                 </div>
               </Link>
             );

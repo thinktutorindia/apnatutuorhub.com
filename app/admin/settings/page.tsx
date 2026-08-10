@@ -104,12 +104,6 @@ const SETTING_META: Record<
 };
 
 const GROUPS = ["Coin Pricing", "Lead Rules", "Matching Engine", "Ranking Weights"];
-const GROUP_COLOR: Record<string, string> = {
-  "Coin Pricing": "#22C55E",
-  "Lead Rules": "#3B82F6",
-  "Matching Engine": "#F59E0B",
-  "Ranking Weights": "#8B5CF6",
-};
 
 export default async function AdminSettingsPage() {
   const session = await auth();
@@ -123,53 +117,41 @@ export default async function AdminSettingsPage() {
 
   const keys = Object.keys(PLATFORM_SETTING_DEFAULTS) as PlatformSettingKey[];
 
-  // Current value: DB override OR code default
   const current = Object.fromEntries(
     keys.map((k) => [k, dbValues.has(k) ? dbValues.get(k)! : PLATFORM_SETTING_DEFAULTS[k]])
   ) as Record<PlatformSettingKey, number>;
 
   return (
-    <div style={{ color: "#F8FAFC" }}>
-      <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.2)" }}>
-            <Settings size={16} style={{ color: "#22C55E" }} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.04em" }}>
-              Platform Settings
-            </h1>
-            <p className="text-sm" style={{ color: "#475569" }}>
-              Changes take effect immediately — all workers read these values dynamically
-            </p>
-          </div>
+    <div className="space-y-6 text-slate-900">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+        <div className="space-y-1">
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">System Configuration</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Platform Settings &amp; Dynamic Pricing
+          </h1>
+          <p className="text-xs text-slate-600 font-600">
+            Changes take effect immediately — matching workers, coin costs, and ranking engines read these dynamically
+          </p>
         </div>
       </div>
 
       <div className="space-y-6">
         {GROUPS.map((group) => {
           const groupKeys = keys.filter((k) => SETTING_META[k].group === group);
-          const color = GROUP_COLOR[group] ?? "#64748B";
           return (
             <div
               key={group}
-              className="overflow-hidden rounded-2xl"
-              style={{ background: "#0F172A", border: "1px solid #1E293B" }}
+              className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs"
             >
-              <div
-                className="flex items-center gap-3 px-5 py-4"
-                style={{ borderBottom: "1px solid #1E293B", background: `${color}08` }}
-              >
-                <div
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: color }}
-                />
-                <h2 className="font-semibold" style={{ color, fontFamily: "'Poppins', sans-serif" }}>
+              <div className="flex items-center gap-3 px-6 py-4 bg-slate-50 border-b border-slate-200">
+                <div className="h-2.5 w-2.5 rounded-full bg-[#2D9E6B]" />
+                <h2 className="font-800 text-base text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
                   {group}
                 </h2>
               </div>
 
-              <div className="divide-y" style={{ borderColor: "#0A0F1E" }}>
+              <div className="divide-y divide-slate-200">
                 {groupKeys.map((key) => {
                   const meta = SETTING_META[key];
                   const defaultVal = PLATFORM_SETTING_DEFAULTS[key];
@@ -183,31 +165,24 @@ export default async function AdminSettingsPage() {
                         "use server";
                         await updatePlatformSettingAction(formData);
                       }}
-                      className="px-5 py-4"
+                      className="px-6 py-4 hover:bg-slate-50/60 transition-colors"
                     >
                       <input type="hidden" name="key" value={key} />
-                      <div className="flex flex-wrap items-center gap-4">
-                        <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="min-w-0 flex-1 space-y-0.5">
                           <div className="flex items-center gap-2">
-                            <p className="font-semibold text-white">{meta.label}</p>
+                            <p className="font-800 text-[#0F2540] text-sm">{meta.label}</p>
                             {isOverridden && (
-                              <span
-                                className="rounded-full px-2 py-0.5 text-xs font-semibold"
-                                style={{ background: `${color}15`, color }}
-                              >
-                                Custom
+                              <span className="rounded-full px-2.5 py-0.5 text-[10px] font-800 bg-emerald-100 text-emerald-950 border border-emerald-300">
+                                Custom Override
                               </span>
                             )}
                           </div>
-                          <p className="mt-0.5 flex items-center gap-1 text-xs" style={{ color: "#475569" }}>
-                            <Info size={10} />
-                            {meta.description}
-                            <span style={{ color: "#334155" }}>
-                              · Default: {defaultVal} {meta.unit}
-                            </span>
+                          <p className="text-xs font-600 text-slate-600">
+                            {meta.description} · <span className="text-slate-700">Default: {defaultVal} {meta.unit}</span>
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <input
                             type="number"
                             name="value"
@@ -216,18 +191,16 @@ export default async function AdminSettingsPage() {
                             max={meta.max}
                             step="1"
                             required
-                            className="w-28 rounded-xl px-3 py-2 text-right text-sm font-semibold text-white outline-none"
-                            style={{ background: "#1E293B", border: `1px solid ${color}30` }}
+                            className="w-28 h-10 rounded-2xl px-3 text-right text-sm font-800 text-[#0F2540] bg-slate-50 border border-slate-300 outline-none focus:border-[#2D9E6B]"
                           />
-                          <span className="text-xs" style={{ color: "#475569" }}>
+                          <span className="text-xs font-700 text-slate-700 w-12">
                             {meta.unit}
                           </span>
                           <button
                             type="submit"
-                            className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all hover:opacity-90"
-                            style={{ background: `${color}15`, color, border: `1px solid ${color}30` }}
+                            className="flex items-center gap-1.5 rounded-2xl px-4 py-2 text-xs font-800 bg-[#2D9E6B] hover:bg-[#238357] text-white shadow-xs transition-all cursor-pointer"
                           >
-                            <Save size={12} />
+                            <Save size={13} />
                             Save
                           </button>
                         </div>
@@ -247,17 +220,12 @@ export default async function AdminSettingsPage() {
       </div>
 
       {/* Info note */}
-      <div
-        className="mt-6 rounded-2xl px-5 py-4"
-        style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)" }}
-      >
-        <p className="flex items-start gap-2 text-sm" style={{ color: "#3B82F6" }}>
-          <Info size={16} className="mt-0.5 flex-shrink-0" />
-          All settings are persisted in the <code className="rounded px-1 py-0.5 text-xs" style={{ background: "rgba(59,130,246,0.12)" }}>platform_settings</code> table.
-          Changes are read dynamically by matching workers, lead pricing, and ranking engines — no redeployment required.
+      <div className="rounded-3xl p-5 bg-sky-50 border border-sky-200">
+        <p className="flex items-start gap-2 text-xs font-700 text-sky-950">
+          <Info size={16} className="mt-0.5 flex-shrink-0 text-sky-700" />
+          All settings are persisted in the database table and read dynamically by background workers, lead pricing calculations, and ranking algorithms — no code deployment needed.
         </p>
       </div>
     </div>
   );
 }
-

@@ -40,7 +40,7 @@ export function KycRowActions({ tutorProfileId, tutorName }: KycRowActionsProps)
           type="button"
           onClick={handleApprove}
           disabled={isApproving || isRejecting}
-          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all bg-[#22C55E] text-[#0F172A] hover:bg-[#16a34a] disabled:opacity-50 cursor-pointer"
+          className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-800 transition-all bg-[#2D9E6B] hover:bg-[#238357] text-white disabled:opacity-50 cursor-pointer shadow-md"
         >
           {isApproving ? (
             <>
@@ -59,7 +59,7 @@ export function KycRowActions({ tutorProfileId, tutorName }: KycRowActionsProps)
           type="button"
           onClick={() => setShowRejectForm(!showRejectForm)}
           disabled={isApproving || isRejecting}
-          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all bg-red-500/15 text-red-400 border border-red-500/25 hover:bg-red-500/25 disabled:opacity-50 cursor-pointer"
+          className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-800 transition-all bg-red-100 text-red-950 border border-red-300 hover:bg-red-200 disabled:opacity-50 cursor-pointer"
         >
           <ShieldX size={16} />
           <span>{showRejectForm ? "Cancel Rejection" : "Reject KYC"}</span>
@@ -74,21 +74,14 @@ export function KycRowActions({ tutorProfileId, tutorName }: KycRowActionsProps)
             onChange={(e) => setRejectionNote(e.target.value)}
             required
             placeholder="Enter reason for rejection (required)..."
-            className="flex-1 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-red-500/50"
+            className="flex-1 rounded-2xl px-4 py-2.5 text-xs font-700 text-slate-900 outline-none bg-white border border-slate-300 focus:border-red-500"
           />
           <button
             type="submit"
-            disabled={isRejecting || !rejectionNote.trim()}
-            className="flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold bg-red-500 text-slate-950 hover:bg-red-400 disabled:opacity-50 cursor-pointer"
+            disabled={isRejecting}
+            className="rounded-2xl px-5 py-2.5 text-xs font-800 text-white bg-red-600 hover:bg-red-700 transition-colors shrink-0 shadow-md cursor-pointer"
           >
-            {isRejecting ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Rejecting...</span>
-              </>
-            ) : (
-              <span>Confirm Rejection</span>
-            )}
+            {isRejecting ? "Submitting..." : "Confirm Rejection"}
           </button>
         </form>
       )}

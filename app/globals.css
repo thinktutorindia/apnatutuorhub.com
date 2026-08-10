@@ -1,185 +1,246 @@
+/* ── Google Fonts — must be first ───────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+
 @import "tailwindcss";
 
-/* ============================================
-   ApnaTutorHub Design System — Playful Neubrutalism & Claymorphism
-   Inspired by UU-PM Educational Platform
-   ============================================ */
+/* ============================================================
+   ApnaTutorHub Premium Design System
+   Brand Colors: Navy (#1A3C5E), Saffron (#F5A623), Green (#2D9E6B)
+   ============================================================ */
 
 :root {
-  /* Brand & Vibrant Colors */
-  --tt-bg: #FAF8F5;
-  --tt-surface: #FFFFFF;
-  --tt-slate: #0F172A;
-  --tt-border: #0F172A;
+  /* Brand Identity Colors */
+  --navy:         #1A3C5E;
+  --navy-dark:    #0F2540;
+  --saffron:      #F5A623;
+  --saffron-light: #FFF3DC;
+  --green:        #2D9E6B;
+  --green-dark:   #1E7A50;
+  --bg:           #F7F8FA;
+  --surface:      #FFFFFF;
+  --text:         #1A1A2E;
+  --muted:        #6B7280;
+  --border:       #E5E7EB;
+  --radius:       12px;
+  --shadow:       0 4px 24px rgba(26, 60, 94, .09);
+  --shadow-hover: 0 12px 40px rgba(26, 60, 94, .18);
 
-  /* Accent Pastels */
-  --tt-green: #22C55E;
-  --tt-green-light: #DCFCE7;
-  --tt-blue: #3B82F6;
-  --tt-blue-light: #E0F2FE;
-  --tt-pink: #EC4899;
-  --tt-pink-light: #FCE7F3;
-  --tt-yellow: #F59E0B;
-  --tt-yellow-light: #FEF3C7;
-  --tt-purple: #8B5CF6;
-  --tt-purple-light: #F3E8FF;
+  /* Legacy At-Token Aliases */
+  --color-primary:       #1A3C5E;
+  --color-primary-dark:  #0F2540;
+  --color-primary-light: #F0F4F8;
+  --color-accent:        #F5A623;
+  --color-accent-light:  #FFF3DC;
+  --color-dark:          #1A1A2E;
+  --color-body:          #374151;
+  --color-muted:         #6B7280;
+  --color-border:        #E5E7EB;
+  --color-surface:       #FFFFFF;
+  --color-bg:            #F7F8FA;
 
-  /* Hard Shadows */
-  --tt-shadow-sm: 2px 2px 0px 0px #0F172A;
-  --tt-shadow: 4px 4px 0px 0px #0F172A;
-  --tt-shadow-lg: 6px 6px 0px 0px #0F172A;
-  --tt-shadow-xl: 8px 8px 0px 0px #0F172A;
+  /* Semantic Colors */
+  --color-error:      #DC2626;
+  --color-error-bg:   #FEF2F2;
+  --color-success:    #2D9E6B;
+  --color-success-bg: #DCFCE7;
+  --color-warning:    #D97706;
+  --color-warning-bg: #FFFBEB;
+  --color-info:       #2563EB;
+  --color-info-bg:    #EFF6FF;
+
+  --radius-sm:  4px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.10);
+  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.08);
 }
 
-@theme inline {
-  --color-background: var(--tt-bg);
-  --color-foreground: var(--tt-slate);
-  --color-primary: var(--tt-green);
-  --color-primary-light: var(--tt-green-light);
-  --color-slate-custom: var(--tt-slate);
-  --font-heading: "Poppins", "Outfit", system-ui, sans-serif;
-  --font-body: "Open Sans", system-ui, sans-serif;
-}
-
-/* Base resets */
-*,
-*::before,
-*::after {
+/* ── Base Reset & Typography ──────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
 html {
   height: 100%;
   -webkit-font-smoothing: antialiased;
-  background-color: var(--tt-bg);
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
 }
 
 body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: var(--tt-bg);
-  color: var(--tt-slate);
-  font-family: "Open Sans", system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
   font-size: 16px;
   line-height: 1.6;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: "Poppins", system-ui, sans-serif;
-  font-weight: 800;
-  color: var(--tt-slate);
-  letter-spacing: -0.03em;
+  font-family: "Poppins", "Inter", system-ui, sans-serif;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
-/* ============================================
-   Neubrutalist Utility Components
-   ============================================ */
-
-/* Playful Clay/Brutalist Card */
-.neu-card {
-  background-color: #FFFFFF;
-  border: 2.5px solid #0F172A;
-  border-radius: 20px;
-  box-shadow: 5px 5px 0px 0px #0F172A;
-  transition: all 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
-.neu-card:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0px 0px #0F172A;
+/* ── Custom Utility Buttons & Cards ───────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border: none;
+  font-family: 'Inter', sans-serif;
 }
 
-/* Buttons */
-.neu-btn {
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--navy);
+  color: var(--navy);
+}
+.btn-outline:hover {
+  background: var(--navy);
+  color: #ffffff;
+}
+
+.btn-green {
+  background: var(--green);
+  color: #ffffff;
+  box-shadow: 0 2px 12px rgba(45, 158, 107, 0.3);
+}
+.btn-green:hover {
+  background: var(--green-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(45, 158, 107, 0.35);
+}
+
+.btn-saffron {
+  background: var(--saffron);
+  color: var(--navy);
+  font-weight: 700;
+}
+.btn-saffron:hover {
+  background: #e8960f;
+  transform: translateY(-1px);
+}
+
+.btn-lg {
+  padding: 14px 26px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+.pulse-glow {
+  animation: pulse-glow-anim 2.5s infinite;
+}
+
+@keyframes pulse-glow-anim {
+  0%, 100% {
+    box-shadow: 0 2px 12px rgba(45, 158, 107, 0.35);
+  }
+  50% {
+    box-shadow: 0 2px 28px rgba(45, 158, 107, 0.6);
+  }
+}
+
+.hero-bob {
+  animation: hero-bob-anim 4s ease-in-out infinite;
+}
+
+@keyframes hero-bob-anim {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ── AT Components (Backwards Compatibility) ──────────────── */
+.at-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 24px;
-  font-family: "Poppins", system-ui, sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  border-radius: 9999px;
-  border: 2.5px solid #0F172A;
-  box-shadow: 3px 3px 0px 0px #0F172A;
-  cursor: pointer;
-  transition: all 150ms ease;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.neu-btn:hover:not(:disabled) {
-  transform: translate(-2px, -2px);
-  box-shadow: 5px 5px 0px 0px #0F172A;
-}
-
-.neu-btn:active:not(:disabled) {
-  transform: translate(1px, 1px);
-  box-shadow: 2px 2px 0px 0px #0F172A;
-}
-
-.neu-btn-primary {
-  background-color: #22C55E;
-  color: #0F172A;
-}
-
-.neu-btn-secondary {
-  background-color: #E0F2FE;
-  color: #0F172A;
-}
-
-.neu-btn-white {
-  background-color: #FFFFFF;
-  color: #0F172A;
-}
-
-.neu-btn-yellow {
-  background-color: #FEF3C7;
-  color: #0F172A;
-}
-
-/* Input elements */
-.neu-input {
-  width: 100%;
-  padding: 12px 18px;
-  font-family: "Open Sans", system-ui, sans-serif;
-  font-size: 15px;
   font-weight: 600;
-  color: #0F172A;
-  background-color: #FFFFFF;
-  border: 2.5px solid #0F172A;
-  border-radius: 14px;
-  box-shadow: 3px 3px 0px 0px #0F172A;
-  outline: none;
-  transition: all 150ms ease;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 14px;
 }
-
-.neu-input:focus {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0px 0px #22C55E;
-  border-color: #0F172A;
+.at-btn-primary {
+  background-color: var(--green);
+  color: #FFFFFF;
 }
-
-/* Badge */
-.neu-badge {
-  align-items: center;
-  gap: 6px;
-  padding: 6px 16px;
-  font-family: "Poppins", system-ui, sans-serif;
-  font-size: 13px;
+.at-btn-primary:hover {
+  background-color: var(--green-dark);
+}
+.at-btn-secondary {
+  background-color: var(--navy);
+  color: #FFFFFF;
+}
+.at-btn-secondary:hover {
+  background-color: var(--navy-dark);
+}
+.at-btn-outline {
+  border: 1.5px solid var(--navy);
+  color: var(--navy);
+  background-color: transparent;
+}
+.at-btn-outline:hover {
+  background-color: var(--navy);
+  color: #FFFFFF;
+}
+.at-btn-accent {
+  background-color: var(--saffron);
+  color: var(--navy);
   font-weight: 700;
-  border-radius: 9999px;
-  border: 2px solid #0F172A;
-  box-shadow: 2px 2px 0px 0px #0F172A;
+}
+.at-btn-accent:hover {
+  background-color: #e8960f;
+}
+.at-btn-sm { padding: 6px 14px; font-size: 13px; }
+.at-btn-md { padding: 10px 20px; font-size: 14px; }
+.at-btn-lg { padding: 14px 26px; font-size: 15px; }
+
+.at-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: all 0.2s ease;
 }
 
-/* Container */
-.container-neu {
-  width: 100%;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 20px;
-  padding-right: 20px;
+.at-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
 }
+.at-badge-primary { background-color: #DCFCE7; color: #15803D; }
+.at-badge-neutral { background-color: #F3F4F6; color: #374151; }
+.at-badge-accent  { background-color: #FEF3C7; color: #92400E; }
+.at-badge-info    { background-color: #EBF2FF; color: #2563EB; }

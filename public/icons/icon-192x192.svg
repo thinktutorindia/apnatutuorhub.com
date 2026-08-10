@@ -1,6 +1,4 @@
 <svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="192" height="192" rx="40" fill="#0F172A"/>
-  <rect x="16" y="16" width="160" height="160" rx="32" fill="#DCFCE7" stroke="#22C55E" stroke-width="4"/>
-  <path d="M96 44L24 84L96 124L168 84L96 44Z" fill="#22C55E" stroke="#0F172A" stroke-width="8" stroke-linejoin="round"/>
-  <path d="M48 104V144C48 144 72 164 96 164C120 164 144 144 144 144V104" stroke="#0F172A" stroke-width="8" stroke-linecap="round"/>
+  <rect width="192" height="192" rx="40" fill="#1A3C5E"/>
+  <text x="96" y="122" font-family="Poppins, Arial, sans-serif" font-weight="800" font-size="84" fill="#FFFFFF" text-anchor="middle">AT</text>
 </svg>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, ShieldAlert, ShieldCheck, UserCog } from "lucide-react";
+import { UserCheck, MessageCircle } from "lucide-react";
 import { TutorProfileForm } from "@/components/tutor/TutorProfileForm";
 import { KYCUploadModal } from "@/components/tutor/KYCUploadModal";
 import type { ProfileScoreBreakdown } from "@/lib/profile-score";
@@ -32,47 +32,6 @@ type ProfileData = {
   profileScore: number;
 };
 
-const KYC_STATUS_CONFIG = {
-  NOT_SUBMITTED: {
-    bg: "#FFEDD5",
-    icon: ShieldAlert,
-    iconColor: "text-orange-500",
-    badge: "Not submitted",
-    badgeBg: "#FFEDD5",
-    description:
-      "Submit your Government ID, Address Proof, and a Live Selfie to unlock the Verified Tutor badge and gain access to parent contacts.",
-    cta: "Start KYC Verification",
-  },
-  PENDING: {
-    bg: "#E0F2FE",
-    icon: Shield,
-    iconColor: "text-blue-500",
-    badge: "Under review",
-    badgeBg: "#E0F2FE",
-    description:
-      "Your documents are being reviewed by our team. Approval typically takes up to 24 hours. You'll receive an email once approved.",
-    cta: "Update Documents",
-  },
-  REJECTED: {
-    bg: "#FCE7F3",
-    icon: ShieldAlert,
-    iconColor: "text-red-500",
-    badge: "Rejected",
-    badgeBg: "#FCE7F3",
-    description: "",
-    cta: "Re-submit KYC",
-  },
-  APPROVED: {
-    bg: "#DCFCE7",
-    icon: ShieldCheck,
-    iconColor: "text-[#22C55E]",
-    badge: "Verified ✅",
-    badgeBg: "#DCFCE7",
-    description: "Your KYC is approved. You can unlock parent contact details using coins.",
-    cta: null,
-  },
-} as const;
-
 export function TutorProfilePage({
   profile,
   scoreBreakdown,
@@ -82,125 +41,77 @@ export function TutorProfilePage({
 }) {
   const [kycModalOpen, setKycModalOpen] = useState(false);
 
-  const kycConfig =
-    KYC_STATUS_CONFIG[profile.kycStatus as keyof typeof KYC_STATUS_CONFIG] ??
-    KYC_STATUS_CONFIG.NOT_SUBMITTED;
-
   return (
-    <div className="space-y-8 py-4">
-      {/* Header */}
-      <header className="neu-card flex flex-col gap-3 bg-[#F3E8FF] p-6 md:p-8">
-        <div className="neu-badge w-fit bg-white text-[#0F172A]">
-          <UserCog size={14} />
-          Profile & KYC
-        </div>
-        <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
-          Build Your Tutor Profile
-        </h1>
-        <p className="max-w-2xl text-sm font-semibold text-slate-700">
-          A complete profile ranks higher in the matching engine and earns more
-          parent trust. KYC verification adds{" "}
-          <strong>+500 ranking points</strong>.
-        </p>
-
-        {/* Score bar */}
-        <div className="mt-2 max-w-lg space-y-2">
-          <div className="flex items-center justify-between text-xs font-black">
-            <span className="text-[#0F172A]">Profile Completion</span>
-            <span className="text-[#22C55E]">{scoreBreakdown.total}%</span>
+    <div className="space-y-6 pb-8">
+      {/* Hero Header Card */}
+      <div
+        className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-xl space-y-4"
+        style={{
+          backgroundColor: "#0F2540",
+          backgroundImage:
+            "radial-gradient(ellipse at 85% 15%, rgba(45, 158, 107, 0.3) 0%, transparent 50%), radial-gradient(ellipse at 15% 85%, rgba(245, 166, 35, 0.2) 0%, transparent 45%)",
+        }}
+      >
+        <div className="space-y-2 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-800 bg-white/15 text-emerald-300 border border-white/20">
+            <UserCheck size={15} /> Tutor Verification &amp; Onboarding Hub
           </div>
-          <div className="h-3 overflow-hidden rounded-full border-2 border-[#0F172A] bg-white">
+          <h1
+            className="text-2xl sm:text-4xl font-800 text-white tracking-tight"
+            style={{ fontFamily: "'Poppins', sans-serif" }}
+          >
+            Build Profile &amp; Start Earning
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-200 font-500 leading-relaxed">
+            Verified tutors rank higher, receive 5x more student enquiries, and unlock parent phone numbers instantly.
+          </p>
+        </div>
+
+        {/* Profile Strength Bar */}
+        <div className="max-w-lg space-y-2 pt-2">
+          <div className="flex items-center justify-between text-xs font-800">
+            <span className="text-gray-200">Profile Completeness Score</span>
+            <span className="text-emerald-400 font-800">{scoreBreakdown.total}%</span>
+          </div>
+          <div className="h-3.5 rounded-full bg-white/20 p-0.5 overflow-hidden border border-white/25">
             <div
-              className="h-full rounded-full bg-[#22C55E] transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-[#2D9E6B] to-emerald-400 transition-all duration-500 shadow-2xs"
               style={{ width: `${scoreBreakdown.total}%` }}
             />
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* KYC Card */}
-      <section
-        className="neu-card space-y-4 p-6"
-        style={{ backgroundColor: kycConfig.bg }}
-      >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-3">
-            <kycConfig.icon
-              size={22}
-              className={`mt-0.5 shrink-0 ${kycConfig.iconColor}`}
-            />
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-black text-[#0F172A]">
-                  KYC Verification
-                </h2>
-                <span
-                  className="neu-badge text-[11px]"
-                  style={{ backgroundColor: kycConfig.badgeBg }}
-                >
-                  {kycConfig.badge}
-                </span>
-              </div>
-              {profile.kycRejectionNote ? (
-                <div className="mt-1 space-y-1 rounded-xl border border-red-300 bg-red-50 p-2.5 text-xs text-red-900">
-                  <p className="font-black text-red-700 uppercase text-[10px]">
-                    Admin Rejection Reason — Please Re-upload:
-                  </p>
-                  <p className="font-bold">"{profile.kycRejectionNote}"</p>
-                </div>
-              ) : (
-                <p className="max-w-lg text-xs font-semibold text-slate-700">
-                  {kycConfig.description}
-                </p>
-              )}
-            </div>
+      {/* Support Assistance Helpline Box */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-emerald-100 border border-emerald-300 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-[#2D9E6B] !text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <MessageCircle size={20} className="!text-white" />
           </div>
-
-          {kycConfig.cta && (
-            <button
-              type="button"
-              onClick={() => setKycModalOpen(true)}
-              className="neu-btn neu-btn-primary shrink-0 px-5 py-3 text-sm"
-            >
-              <Shield size={16} />
-              <span>{kycConfig.cta}</span>
-            </button>
-          )}
+          <div className="space-y-0.5">
+            <h3 className="text-sm font-800 text-emerald-950">
+              Need Help with KYC or Profile Setup?
+            </h3>
+            <p className="text-xs text-emerald-950 font-600 leading-relaxed">
+              If you have any questions or get stuck at any step, our onboarding support team is available on WhatsApp to assist you immediately!
+            </p>
+          </div>
         </div>
 
-        {profile.kycStatus !== "NOT_SUBMITTED" && (
-          <div className="grid grid-cols-3 gap-3">
-            {(
-              [
-                { key: "kycIdProofUrl", label: "ID Proof" },
-                { key: "kycAddressUrl", label: "Address Proof" },
-                { key: "kycSelfieUrl", label: "Selfie" },
-              ] as const
-            ).map((doc) => {
-              const hasDoc = Boolean(
-                profile[doc.key as keyof ProfileData]
-              );
-              return (
-                <div
-                  key={doc.key}
-                  className={`flex items-center gap-1.5 rounded-xl border-2 border-[#0F172A] px-3 py-2 text-[11px] font-bold ${
-                    hasDoc ? "bg-white" : "bg-white opacity-40"
-                  }`}
-                >
-                  {hasDoc ? (
-                    <ShieldCheck size={13} className="text-[#22C55E]" />
-                  ) : (
-                    <ShieldAlert size={13} className="text-slate-400" />
-                  )}
-                  {doc.label}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <a
+            href="https://wa.me/919876543210?text=Hi%20ApnaTutorHub%20Support,%20I%20need%20help%20completing%20my%20tutor%20profile%20and%20KYC%20verification."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-1.5 transition-colors shadow-md hover:shadow-lg"
+          >
+            <MessageCircle size={15} className="!text-white" />
+            <span className="!text-white font-800">Chat on WhatsApp</span>
+          </a>
+        </div>
+      </div>
 
-      {/* Profile & Availability Forms */}
+      {/* Unified 5-Step Stacked Form Component */}
       <TutorProfileForm
         defaults={{
           bio: profile.bio,
@@ -219,9 +130,17 @@ export function TutorProfilePage({
           introVideoUrl: profile.introVideoUrl,
           availability: profile.availability,
         }}
+        kyc={{
+          kycStatus: profile.kycStatus,
+          kycRejectionNote: profile.kycRejectionNote,
+          kycIdProofUrl: profile.kycIdProofUrl,
+          kycAddressUrl: profile.kycAddressUrl,
+          kycSelfieUrl: profile.kycSelfieUrl,
+          onOpenKycModal: () => setKycModalOpen(true),
+        }}
       />
 
-      {/* KYC Modal */}
+      {/* KYC Upload Modal */}
       {kycModalOpen && (
         <KYCUploadModal
           existingKeys={{

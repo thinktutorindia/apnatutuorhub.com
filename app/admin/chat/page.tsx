@@ -7,7 +7,6 @@ import {
   Search,
   User,
   ArrowRight,
-  ShieldCheck,
   Clock,
   MessageCircle,
 } from "lucide-react";
@@ -24,14 +23,12 @@ export default async function AdminChatSupportPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  // Check RBAC permission for support / super admin
   if (!can(session.user, "users:manage")) {
     redirect("/admin/dashboard");
   }
 
   const { query } = await searchParams;
 
-  // Fetch all user conversations across the platform
   const conversations = await prisma.conversation.findMany({
     where: query
       ? {
@@ -83,127 +80,96 @@ export default async function AdminChatSupportPage({
   const totalMessages = await prisma.message.count();
 
   return (
-    <div className="space-y-6" style={{ color: "#F8FAFC" }}>
+    <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1
-              className="text-2xl font-bold tracking-tight text-white sm:text-3xl"
-              style={{ fontFamily: "'Poppins', sans-serif" }}
-            >
-              Support & Chat Inbox
-            </h1>
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-              style={{ background: "rgba(59,130,246,0.12)", color: "#3B82F6", border: "1px solid rgba(59,130,246,0.25)" }}
-            >
-              <MessageCircle size={12} />
-              {totalConversations} Active Threads
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-slate-400 font-mono">
-            Platform-wide conversation monitoring & support escalation management
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+        <div className="space-y-1">
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Support Moderation</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Support &amp; Chat Inbox
+          </h1>
+          <p className="text-xs text-slate-600 font-600">
+            Platform-wide conversation monitoring &amp; support escalation management
           </p>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl px-4 py-2 bg-blue-50 border border-blue-200 text-[#2563EB] font-800 text-xs shrink-0">
+          <MessageCircle size={15} />
+          <span>{totalConversations} Active Threads</span>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div
-          className="rounded-2xl p-5"
-          style={{
-            background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-            border: "1px solid #1E293B",
-          }}
-        >
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 font-mono">
-            Total Threads
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-1">
+          <p className="text-xs font-800 uppercase tracking-wider text-slate-900">
+            Total Chat Threads
           </p>
-          <p className="mt-1 text-3xl font-extrabold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          <p className="text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             {totalConversations}
           </p>
-          <p className="mt-1 text-xs text-slate-400">All active parent-tutor chats</p>
+          <p className="text-xs font-600 text-slate-600">All active parent-tutor conversations</p>
         </div>
 
-        <div
-          className="rounded-2xl p-5"
-          style={{
-            background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-            border: "1px solid #1E293B",
-          }}
-        >
-          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 font-mono">
+        <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-1">
+          <p className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B]">
             Messages Sent
           </p>
-          <p className="mt-1 text-3xl font-extrabold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
-            {totalMessages.toLocaleString()}
+          <p className="text-3xl font-800 text-[#2D9E6B]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            {totalMessages.toLocaleString("en-IN")}
           </p>
-          <p className="mt-1 text-xs text-slate-400">Instant messages processed</p>
+          <p className="text-xs font-600 text-slate-600">Instant messages processed</p>
         </div>
 
-        <div
-          className="rounded-2xl p-5 sm:col-span-2 lg:col-span-1"
-          style={{
-            background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-            border: "1px solid #1E293B",
-          }}
-        >
-          <p className="text-xs font-semibold uppercase tracking-widest text-blue-400 font-mono">
-            Support Access
+        <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-1 sm:col-span-2 lg:col-span-1">
+          <p className="text-xs font-800 uppercase tracking-wider text-[#2563EB]">
+            Support Governance
           </p>
-          <p className="mt-1 text-sm font-semibold text-white">
-            Full Audit & Transcript Access
+          <p className="text-sm font-800 text-[#0F2540]">
+            Full Audit &amp; Transcript Access
           </p>
-          <p className="mt-1 text-xs text-slate-400">Support role can review & mediate chat inquiries</p>
+          <p className="text-xs font-600 text-slate-600">Super Admin &amp; Support staff can mediate chat inquiries</p>
         </div>
       </div>
 
       {/* Search Input */}
-      <form method="GET" className="flex items-center gap-2">
+      <form method="GET" className="flex items-center gap-3 p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             name="query"
             defaultValue={query || ""}
             placeholder="Search chat by parent or tutor name / email..."
-            className="w-full rounded-xl border border-slate-800 bg-slate-900/80 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-hidden"
+            className="w-full h-11 rounded-2xl border border-slate-300 bg-slate-50 pl-11 pr-4 text-xs font-700 text-slate-900 placeholder:text-slate-500 outline-none focus:border-[#2D9E6B]"
           />
         </div>
         <button
           type="submit"
-          className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white transition-all hover:bg-blue-500"
+          className="rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] px-6 py-3 text-xs font-800 text-white transition-all shadow-md cursor-pointer"
         >
-          Search
+          Search Threads
         </button>
       </form>
 
       {/* Conversations List */}
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-          border: "1px solid #1E293B",
-        }}
-      >
-        <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/40 flex items-center justify-between">
-          <h2 className="font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
-            Active Support & Chat Threads
+      <div className="rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <h2 className="font-800 text-[#0F2540] text-base" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Active Support &amp; Chat Threads
           </h2>
-          <span className="text-xs text-slate-400 font-mono">Showing latest 50</span>
+          <span className="text-xs text-slate-600 font-700">Showing latest 50</span>
         </div>
 
         {conversations.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
-            <MessageSquare size={36} className="mx-auto mb-2 opacity-40" />
-            <p className="text-sm font-semibold text-slate-300">No chat threads found</p>
-            <p className="text-xs text-slate-500 mt-1">
+          <div className="p-16 text-center text-slate-600">
+            <MessageSquare size={40} className="mx-auto mb-3 text-slate-400" />
+            <p className="text-base font-800 text-[#0F2540]">No chat threads found</p>
+            <p className="text-xs font-600 text-slate-600 mt-1">
               {query ? `No matching conversations for "${query}"` : "User chat messages will appear here"}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-800/60">
+          <div className="divide-y divide-slate-200">
             {conversations.map((conv) => {
               const lastMsg = conv.messages[0];
               const parentUser = conv.parentProfile.user;
@@ -212,36 +178,36 @@ export default async function AdminChatSupportPage({
               return (
                 <div
                   key={conv.id}
-                  className="p-4 transition-colors hover:bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className="p-5 transition-colors hover:bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                      <User size={18} />
+                  <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-100 border border-blue-300 text-[#2563EB] font-800 text-xs">
+                      <User size={20} />
                     </div>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-white text-sm">
+                        <span className="font-800 text-[#0F2540] text-sm">
                           🏠 {parentUser.name || parentUser.email}
                         </span>
-                        <span className="text-slate-500 text-xs font-mono">↔</span>
-                        <span className="font-semibold text-emerald-400 text-sm">
+                        <span className="text-slate-400 text-xs font-700">↔</span>
+                        <span className="font-800 text-[#2D9E6B] text-sm">
                           🧑‍🏫 {tutorUser.name || tutorUser.email}
                         </span>
 
                         {conv.lead && (
-                          <span className="rounded-full bg-slate-800 border border-slate-700 px-2 py-0.5 text-[10px] font-mono text-slate-300">
+                          <span className="rounded-full bg-slate-100 border border-slate-300 px-2.5 py-0.5 text-[10px] font-800 text-slate-800">
                             {conv.lead.classLevel} ({conv.lead.subjects.slice(0, 2).join(", ")})
                           </span>
                         )}
                       </div>
 
-                      <p className="mt-1 text-xs text-slate-300 truncate max-w-xl">
+                      <p className="text-xs font-600 text-slate-700 truncate max-w-xl">
                         {lastMsg ? lastMsg.content : "No messages yet"}
                       </p>
 
-                      <div className="mt-1.5 flex items-center gap-3 text-[11px] text-slate-500 font-mono">
+                      <div className="flex items-center gap-3 text-xs font-600 text-slate-500">
                         <span className="flex items-center gap-1">
-                          <Clock size={11} />
+                          <Clock size={12} />
                           {new Date(conv.lastMessageAt).toLocaleDateString("en-IN", {
                             month: "short",
                             day: "numeric",
@@ -257,9 +223,10 @@ export default async function AdminChatSupportPage({
                     <Link
                       href={`/chat/${conv.id}`}
                       target="_blank"
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3.5 py-2 text-xs font-semibold text-blue-400 transition-all hover:bg-blue-500/20 hover:text-white"
+                      className="inline-flex items-center gap-1.5 rounded-2xl border border-blue-300 bg-blue-50 px-4 py-2.5 text-xs font-800 text-[#2563EB] hover:bg-blue-100 transition-all"
                     >
-                      Open Chat <ArrowRight size={12} />
+                      <span>Open Chat Transcript</span>
+                      <ArrowRight size={13} />
                     </Link>
                   </div>
                 </div>

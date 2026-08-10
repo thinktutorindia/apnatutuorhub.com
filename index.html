@@ -1,0 +1,1975 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>ApnaTutorHub — Find Verified Tutors Across India</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+        :root {
+            --navy: #1A3C5E;
+            --navy-dark: #0F2540;
+            --saffron: #F5A623;
+            --saffron-light: #FFF3DC;
+            --green: #2D9E6B;
+            --green-dark: #1E7A50;
+            --bg: #F7F8FA;
+            --surface: #FFFFFF;
+            --text: #1A1A2E;
+            --muted: #6B7280;
+            --border: #E5E7EB;
+            --radius: 12px;
+            --shadow: 0 4px 24px rgba(26, 60, 94, .09);
+            --shadow-hover: 0 12px 40px rgba(26, 60, 94, .18);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            overflow-x: hidden
+        }
+
+        /* ─── NAVBAR ─── */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            background: rgba(255, 255, 255, .85);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-bottom: 1px solid var(--border);
+            transition: box-shadow .3s;
+        }
+
+        nav.scrolled {
+            box-shadow: 0 2px 20px rgba(26, 60, 94, .12)
+        }
+
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 24px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none
+        }
+
+        .logo-mark {
+            width: 36px;
+            height: 36px;
+            background: var(--navy);
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            color: #fff;
+            font-size: 14px;
+            letter-spacing: -1px;
+        }
+
+        .logo-text {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 17px;
+            color: var(--navy)
+        }
+
+        .logo-text span {
+            color: var(--saffron)
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+            list-style: none
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 500;
+            transition: color .2s
+        }
+
+        .nav-links a:hover {
+            color: var(--navy)
+        }
+
+        .nav-ctas {
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            text-decoration: none;
+            border: none;
+            font-family: 'Inter', sans-serif
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid var(--navy);
+            color: var(--navy)
+        }
+
+        .btn-outline:hover {
+            background: var(--navy);
+            color: #fff
+        }
+
+        .btn-green {
+            background: var(--green);
+            color: #fff;
+            box-shadow: 0 2px 12px rgba(45, 158, 107, .3)
+        }
+
+        .btn-green:hover {
+            background: var(--green-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(45, 158, 107, .35)
+        }
+
+        .btn-saffron {
+            background: var(--saffron);
+            color: var(--navy);
+            font-weight: 700
+        }
+
+        .btn-saffron:hover {
+            background: #e8960f;
+            transform: translateY(-1px)
+        }
+
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 6px
+        }
+
+        .hamburger span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: var(--navy);
+            border-radius: 2px;
+            transition: .3s
+        }
+
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 65px;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            padding: 20px 24px;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
+            z-index: 998
+        }
+
+        .mobile-menu.open {
+            display: flex
+        }
+
+        .mobile-menu a {
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border)
+        }
+
+        /* ─── HERO ─── */
+        .hero {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 64px 24px 80px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--saffron-light);
+            border: 1px solid #F5A62340;
+            color: var(--navy);
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 100px;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: clamp(30px, 4vw, 48px);
+            line-height: 1.15;
+            color: var(--navy);
+            margin-bottom: 18px;
+        }
+
+        .hero h1 .highlight {
+            color: var(--saffron)
+        }
+
+        .hero-sub {
+            font-size: 16px;
+            color: var(--muted);
+            line-height: 1.7;
+            margin-bottom: 28px;
+            max-width: 440px
+        }
+
+        .hero-btns {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 28px
+        }
+
+        .btn-lg {
+            padding: 14px 26px;
+            font-size: 15px;
+            border-radius: 10px
+        }
+
+        .pulse {
+            animation: pulse 2.5s infinite
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 2px 12px rgba(45, 158, 107, .35)
+            }
+
+            50% {
+                box-shadow: 0 2px 28px rgba(45, 158, 107, .6)
+            }
+        }
+
+        .trust-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px
+        }
+
+        .trust-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: 500
+        }
+
+        .trust-item i {
+            color: var(--green);
+            font-size: 14px
+        }
+
+        /* Hero card */
+        .hero-card {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 8px 48px rgba(26, 60, 94, .14);
+            padding: 28px;
+            border: 1px solid var(--border);
+            animation: bob 4s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--navy), var(--green), var(--saffron));
+        }
+
+        @keyframes bob {
+
+            0%,
+            100% {
+                transform: translateY(0)
+            }
+
+            50% {
+                transform: translateY(-8px)
+            }
+        }
+
+        .card-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 17px;
+            color: var(--navy);
+            margin-bottom: 4px
+        }
+
+        .card-sub {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 16px
+        }
+
+        .subject-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 20px
+        }
+
+        .subject-pill {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            background: var(--bg);
+            border: 1.5px solid var(--border);
+            color: var(--text);
+            cursor: pointer;
+            transition: all .2s;
+            text-align: center;
+        }
+
+        .subject-pill:hover,
+        .subject-pill.active {
+            background: var(--saffron-light);
+            border-color: var(--saffron);
+            color: var(--navy);
+            font-weight: 600
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1.5px solid var(--border);
+            background: var(--bg);
+            color: var(--muted);
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .mode-btn.active {
+            background: var(--navy);
+            color: #fff;
+            border-color: var(--navy)
+        }
+
+        .card-cta {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            background: var(--green);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: all .2s
+        }
+
+        .card-cta:hover {
+            background: var(--green-dark)
+        }
+
+        .card-link {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .card-link a {
+            color: var(--navy);
+            font-weight: 600;
+            text-decoration: none
+        }
+
+        /* ─── STATS STRIP ─── */
+        .stats-strip {
+            background: var(--navy);
+            padding: 36px 24px
+        }
+
+        .stats-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            text-align: center
+        }
+
+        .stat-num {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: 36px;
+            color: var(--saffron);
+            display: block
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, .7);
+            font-weight: 500;
+            margin-top: 4px
+        }
+
+        /* ─── TRUST BAR ─── */
+        .trust-bar {
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            padding: 32px 24px
+        }
+
+        .trust-bar-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px
+        }
+
+        .trust-col {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px
+        }
+
+        .trust-icon-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0
+        }
+
+        .trust-col-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--navy);
+            margin-bottom: 4px
+        }
+
+        .trust-col-sub {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        /* ─── SECTIONS ─── */
+        .section {
+            padding: 72px 24px
+        }
+
+        .section-inner {
+            max-width: 1200px;
+            margin: 0 auto
+        }
+
+        .section-label {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--green);
+            margin-bottom: 10px
+        }
+
+        .section-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: clamp(24px, 3vw, 36px);
+            color: var(--navy);
+            margin-bottom: 10px
+        }
+
+        .section-sub {
+            font-size: 15px;
+            color: var(--muted);
+            max-width: 540px;
+            margin-bottom: 40px;
+            line-height: 1.7
+        }
+
+        .center {
+            text-align: center
+        }
+
+        .center .section-sub {
+            margin-left: auto;
+            margin-right: auto
+        }
+
+        /* ─── CURRICULUM CARDS ─── */
+        .curriculum-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px
+        }
+
+        .cur-card {
+            background: #fff;
+            border-radius: var(--radius);
+            border: 1.5px solid var(--border);
+            padding: 22px;
+            transition: all .25s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cur-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px
+        }
+
+        .cur-card:nth-child(1)::before {
+            background: linear-gradient(90deg, #4F8EF7, #7AB4FF)
+        }
+
+        .cur-card:nth-child(2)::before {
+            background: linear-gradient(90deg, #2D9E6B, #5DD4A1)
+        }
+
+        .cur-card:nth-child(3)::before {
+            background: linear-gradient(90deg, #F5A623, #FFC86B)
+        }
+
+        .cur-card:nth-child(4)::before {
+            background: linear-gradient(90deg, #E74C3C, #FF8070)
+        }
+
+        .cur-card:nth-child(5)::before {
+            background: linear-gradient(90deg, #9B59B6, #C39BD3)
+        }
+
+        .cur-card:nth-child(6)::before {
+            background: linear-gradient(90deg, #1ABC9C, #76D7C4)
+        }
+
+        .cur-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-hover);
+            border-color: transparent
+        }
+
+        .cur-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 100px;
+            margin-bottom: 12px;
+            display: inline-block
+        }
+
+        .badge-blue {
+            background: #EBF2FF;
+            color: #2563EB
+        }
+
+        .badge-green {
+            background: #DCFCE7;
+            color: #15803D
+        }
+
+        .badge-orange {
+            background: #FEF3C7;
+            color: #D97706
+        }
+
+        .badge-red {
+            background: #FEE2E2;
+            color: #DC2626
+        }
+
+        .badge-purple {
+            background: #F3E8FF;
+            color: #7C3AED
+        }
+
+        .badge-teal {
+            background: #CCFBF1;
+            color: #0F766E
+        }
+
+        .cur-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--navy);
+            margin-bottom: 10px
+        }
+
+        .subjects-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 6px
+        }
+
+        .subject-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 12px
+        }
+
+        .stag {
+            font-size: 11px;
+            padding: 3px 9px;
+            border-radius: 5px;
+            background: var(--bg);
+            color: var(--muted);
+            font-weight: 500
+        }
+
+        .boards-line {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 14px
+        }
+
+        .cur-link {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--saffron);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px
+        }
+
+        .cur-link:hover {
+            color: #e8960f
+        }
+
+        /* ─── TUTOR PROFILES ─── */
+        .profiles-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px
+        }
+
+        .profile-card {
+            background: #fff;
+            border-radius: var(--radius);
+            border: 1.5px solid var(--border);
+            padding: 24px;
+            transition: all .25s;
+        }
+
+        .profile-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--navy)20
+        }
+
+        .profile-top {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px
+        }
+
+        .avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            color: #fff;
+            flex-shrink: 0
+        }
+
+        .av-blue {
+            background: linear-gradient(135deg, #2563EB, #7C3AED)
+        }
+
+        .av-green {
+            background: linear-gradient(135deg, #2D9E6B, #059669)
+        }
+
+        .av-orange {
+            background: linear-gradient(135deg, #F5A623, #EF4444)
+        }
+
+        .profile-name {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--navy)
+        }
+
+        .verified-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--green);
+            background: #DCFCE7;
+            padding: 2px 8px;
+            border-radius: 100px;
+            margin-top: 4px
+        }
+
+        .profile-qual {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 12px
+        }
+
+        .profile-subjects {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 12px
+        }
+
+        .psub {
+            font-size: 11px;
+            padding: 3px 9px;
+            border-radius: 5px;
+            font-weight: 600
+        }
+
+        .psub-blue {
+            background: #EBF2FF;
+            color: #2563EB
+        }
+
+        .psub-green {
+            background: #DCFCE7;
+            color: #15803D
+        }
+
+        .psub-orange {
+            background: #FEF3C7;
+            color: #D97706
+        }
+
+        .profile-meta {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 14px
+        }
+
+        .profile-meta span {
+            margin-right: 12px
+        }
+
+        .stars {
+            color: var(--saffron);
+            font-size: 13px
+        }
+
+        .rating-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px
+        }
+
+        .rating-num {
+            font-weight: 700;
+            color: var(--navy)
+        }
+
+        .rating-count {
+            color: var(--muted)
+        }
+
+        /* ─── REQUIREMENTS ─── */
+        .req-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 32px
+        }
+
+        .req-card {
+            background: #fff;
+            border-radius: var(--radius);
+            border: 1.5px solid var(--border);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .req-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px
+        }
+
+        .req-card:nth-child(1)::before {
+            background: var(--green)
+        }
+
+        .req-card:nth-child(2)::before {
+            background: #4F8EF7
+        }
+
+        .req-card:nth-child(3)::before {
+            background: var(--saffron)
+        }
+
+        .req-active {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--green);
+            background: #DCFCE7;
+            padding: 2px 8px;
+            border-radius: 100px
+        }
+
+        .req-grade {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--muted);
+            margin-bottom: 6px
+        }
+
+        .req-subject {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--navy);
+            margin-bottom: 12px
+        }
+
+        .req-detail {
+            font-size: 12px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 5px
+        }
+
+        .req-budget {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--green);
+            margin-top: 10px
+        }
+
+        .req-center {
+            text-align: center
+        }
+
+        /* ─── STEPS ─── */
+        .steps-wrap {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            position: relative
+        }
+
+        .steps-wrap::before {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: calc(16.66% + 16px);
+            right: calc(16.66% + 16px);
+            height: 2px;
+            background: repeating-linear-gradient(90deg, var(--border) 0, var(--border) 8px, transparent 8px, transparent 16px);
+        }
+
+        .step-card {
+            text-align: center;
+            padding: 0 16px
+        }
+
+        .step-num {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: var(--saffron-light);
+            border: 2px solid var(--saffron);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: 22px;
+            color: var(--navy);
+            margin: 0 auto 20px;
+            position: relative;
+            z-index: 1;
+            background: var(--saffron-light);
+        }
+
+        .step-icon {
+            font-size: 22px;
+            margin-bottom: 14px;
+            display: block
+        }
+
+        .step-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 17px;
+            color: var(--navy);
+            margin-bottom: 8px
+        }
+
+        .step-desc {
+            font-size: 14px;
+            color: var(--muted);
+            line-height: 1.7
+        }
+
+        /* ─── TEACHER CTA ─── */
+        .teacher-cta {
+            background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 60%, #1E5A8A 100%);
+            border-radius: 20px;
+            padding: 56px 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .teacher-cta::before {
+            content: '';
+            position: absolute;
+            right: -80px;
+            top: -80px;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: rgba(245, 166, 35, .08);
+        }
+
+        .teacher-cta::after {
+            content: '';
+            position: absolute;
+            left: -40px;
+            bottom: -60px;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: rgba(45, 158, 107, .08);
+        }
+
+        .cta-left {
+            position: relative;
+            z-index: 1;
+            flex: 1
+        }
+
+        .cta-pill {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--saffron);
+            background: rgba(245, 166, 35, .15);
+            padding: 4px 12px;
+            border-radius: 100px;
+            margin-bottom: 14px
+        }
+
+        .cta-h2 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: clamp(22px, 3vw, 32px);
+            color: #fff;
+            margin-bottom: 12px;
+            line-height: 1.2
+        }
+
+        .cta-sub {
+            font-size: 14px;
+            color: rgba(255, 255, 255, .7);
+            line-height: 1.7;
+            max-width: 480px
+        }
+
+        .cta-right {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0
+        }
+
+        .cta-note {
+            font-size: 12px;
+            color: rgba(255, 255, 255, .6);
+            display: flex;
+            align-items: center;
+            gap: 4px
+        }
+
+        /* ─── FAQ ─── */
+        .faq-list {
+            max-width: 720px;
+            margin: 0 auto
+        }
+
+        .faq-item {
+            background: #fff;
+            border-radius: var(--radius);
+            border: 1.5px solid var(--border);
+            margin-bottom: 10px;
+            overflow: hidden;
+            transition: border-color .2s
+        }
+
+        .faq-item.open {
+            border-color: var(--navy)
+        }
+
+        .faq-q {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text);
+            gap: 16px;
+        }
+
+        .faq-q i {
+            color: var(--muted);
+            transition: transform .3s;
+            flex-shrink: 0
+        }
+
+        .faq-item.open .faq-q i {
+            transform: rotate(180deg);
+            color: var(--navy)
+        }
+
+        .faq-a {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height .35s ease;
+            font-size: 14px;
+            color: var(--muted);
+            line-height: 1.75;
+        }
+
+        .faq-a-inner {
+            padding: 0 24px 20px
+        }
+
+        /* ─── FOOTER CTA STRIP ─── */
+        .footer-strip {
+            background: linear-gradient(135deg, #E8F8F1 0%, #F0FBF5 100%);
+            border-top: 1px solid #C7EDD9;
+            border-bottom: 1px solid #C7EDD9;
+            padding: 56px 24px;
+            text-align: center;
+        }
+
+        .footer-strip h3 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 26px;
+            color: var(--navy);
+            margin-bottom: 8px
+        }
+
+        .footer-strip p {
+            color: var(--muted);
+            font-size: 15px;
+            margin-bottom: 28px
+        }
+
+        /* ─── FOOTER ─── */
+        footer {
+            background: var(--navy-dark);
+            padding: 56px 24px 32px;
+            color: rgba(255, 255, 255, .7)
+        }
+
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 48px
+        }
+
+        .footer-brand p {
+            font-size: 14px;
+            line-height: 1.7;
+            margin: 12px 0 20px;
+            max-width: 240px
+        }
+
+        .footer-col h4 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+            color: #fff;
+            margin-bottom: 16px
+        }
+
+        .footer-col ul {
+            list-style: none
+        }
+
+        .footer-col li {
+            margin-bottom: 10px
+        }
+
+        .footer-col a {
+            text-decoration: none;
+            color: rgba(255, 255, 255, .6);
+            font-size: 13px;
+            transition: color .2s
+        }
+
+        .footer-col a:hover {
+            color: var(--saffron)
+        }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255, 255, 255, .1);
+            padding-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px
+        }
+
+        .footer-bottom p {
+            font-size: 13px
+        }
+
+        .footer-bottom-links {
+            display: flex;
+            gap: 20px
+        }
+
+        .footer-bottom-links a {
+            font-size: 13px;
+            color: rgba(255, 255, 255, .5);
+            text-decoration: none
+        }
+
+        .footer-bottom-links a:hover {
+            color: rgba(255, 255, 255, .9)
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px
+        }
+
+        .footer-logo-mark {
+            width: 32px;
+            height: 32px;
+            background: var(--saffron);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            color: var(--navy);
+            font-size: 12px
+        }
+
+        .footer-logo-text {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 16px;
+            color: #fff
+        }
+
+        /* ─── SCROLL REVEAL ─── */
+        .reveal {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity .6s ease, transform .6s ease
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0)
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media(max-width:900px) {
+            .hero {
+                grid-template-columns: 1fr
+            }
+
+            .hero-card {
+                animation: none
+            }
+
+            .curriculum-grid,
+            .profiles-grid,
+            .req-grid {
+                grid-template-columns: 1fr 1fr
+            }
+
+            .steps-wrap {
+                grid-template-columns: 1fr;
+                gap: 24px
+            }
+
+            .steps-wrap::before {
+                display: none
+            }
+
+            .teacher-cta {
+                flex-direction: column;
+                padding: 36px 28px
+            }
+
+            .stats-inner,
+            .trust-bar-inner {
+                grid-template-columns: repeat(2, 1fr)
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr 1fr
+            }
+
+            .nav-links {
+                display: none
+            }
+
+            .hamburger {
+                display: flex
+            }
+        }
+
+        @media(max-width:600px) {
+            .hero {
+                padding: 40px 16px 56px
+            }
+
+            .curriculum-grid,
+            .profiles-grid,
+            .req-grid {
+                grid-template-columns: 1fr
+            }
+
+            .hero-btns {
+                flex-direction: column
+            }
+
+            .hero-btns .btn {
+                width: 100%;
+                justify-content: center
+            }
+
+            .stats-inner {
+                grid-template-columns: repeat(2, 1fr)
+            }
+
+            .trust-bar-inner {
+                grid-template-columns: 1fr
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr
+            }
+
+            .cta-right .btn {
+                width: 100%
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav id="navbar">
+        <div class="nav-inner">
+            <a class="logo" href="#">
+                <div class="logo-mark">AT</div>
+                <span class="logo-text">Apna<span>Tutor</span>Hub</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#">How It Works</a></li>
+                <li><a href="#">Subjects</a></li>
+                <li><a href="#">Verified Tutors</a></li>
+                <li><a href="#">FAQ</a></li>
+            </ul>
+            <div class="nav-ctas">
+                <a href="#" class="btn btn-outline">Join as Tutor</a>
+                <a href="#" class="btn btn-green">Post Requirement</a>
+            </div>
+            <div class="hamburger" id="ham" onclick="toggleMenu()">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </nav>
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="#">How It Works</a>
+        <a href="#">Subjects</a>
+        <a href="#">Verified Tutors</a>
+        <a href="#">FAQ</a>
+        <a href="#" class="btn btn-outline" style="width:100%;justify-content:center">Join as Tutor</a>
+        <a href="#" class="btn btn-green" style="width:100%;justify-content:center">Post Requirement</a>
+    </div>
+
+    <!-- HERO -->
+    <section style="background:#fff">
+        <div class="hero">
+            <div class="hero-left reveal">
+                <div class="hero-badge">🇮🇳 Trusted by 50,000+ Families Across India</div>
+                <h1>Find the <span class="highlight">Right Tutor</span> for Your Child's Subjects & Board</h1>
+                <p class="hero-sub">Post your tuition requirement free. Verified tutors in your city review and connect
+                    with you directly — no middlemen, no hidden fees.</p>
+                <div class="hero-btns">
+                    <a href="#" class="btn btn-green btn-lg pulse">Post Requirement — Free <i
+                            class="fas fa-arrow-right"></i></a>
+                    <a href="#" class="btn btn-outline btn-lg">Join as a Tutor</a>
+                </div>
+                <div class="trust-row">
+                    <div class="trust-item"><i class="fas fa-check-circle"></i> Identity-Verified Tutors</div>
+                    <div class="trust-item"><i class="fas fa-check-circle"></i> No Platform Fees</div>
+                    <div class="trust-item"><i class="fas fa-check-circle"></i> Parent Reviews</div>
+                    <div class="trust-item"><i class="fas fa-check-circle"></i> 50K+ Matches Made</div>
+                </div>
+            </div>
+            <div class="hero-right reveal">
+                <div class="hero-card">
+                    <div class="card-title">Find Tutors by Subject</div>
+                    <div class="card-sub">Select a subject to post your requirement</div>
+                    <div class="subject-grid" id="subjectGrid">
+                        <div class="subject-pill active" onclick="selectPill(this)">Mathematics</div>
+                        <div class="subject-pill" onclick="selectPill(this)">Physics</div>
+                        <div class="subject-pill" onclick="selectPill(this)">Chemistry</div>
+                        <div class="subject-pill" onclick="selectPill(this)">Biology</div>
+                        <div class="subject-pill" onclick="selectPill(this)">English</div>
+                        <div class="subject-pill" onclick="selectPill(this)">Accountancy</div>
+                        <div class="subject-pill" onclick="selectPill(this)">JEE Prep</div>
+                        <div class="subject-pill" onclick="selectPill(this)">NEET Prep</div>
+                        <div class="subject-pill" onclick="selectPill(this)">Coding / CS</div>
+                        <div class="subject-pill" onclick="selectPill(this)">Hindi</div>
+                    </div>
+                    <div class="mode-toggle">
+                        <button class="mode-btn active" onclick="toggleMode(this)">🏠 Home Tuition</button>
+                        <button class="mode-btn" onclick="toggleMode(this)">💻 Live Online</button>
+                    </div>
+                    <button class="card-cta">Post Requirement for Free →</button>
+                    <div class="card-link">Are you a teacher? <a href="#">Join as a Tutor</a></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- STATS STRIP -->
+    <div class="stats-strip">
+        <div class="stats-inner">
+            <div><span class="stat-num" data-target="50000" data-suffix="+">0</span>
+                <div class="stat-label">Families Served</div>
+            </div>
+            <div><span class="stat-num" data-target="12000" data-suffix="+">0</span>
+                <div class="stat-label">Verified Tutors</div>
+            </div>
+            <div><span class="stat-num" data-target="500" data-suffix="+">0</span>
+                <div class="stat-label">Cities & Towns</div>
+            </div>
+            <div><span class="stat-num" data-target="4.8" data-suffix="★" data-decimal="true">0</span>
+                <div class="stat-label">Average Tutor Rating</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRUST BAR -->
+    <div class="trust-bar">
+        <div class="trust-bar-inner">
+            <div class="trust-col reveal">
+                <div class="trust-icon-box">🛡️</div>
+                <div>
+                    <div class="trust-col-title">Identity-Verified Tutors</div>
+                    <div class="trust-col-sub">Aadhaar & qualification verified before approval</div>
+                </div>
+            </div>
+            <div class="trust-col reveal">
+                <div class="trust-icon-box">🏠</div>
+                <div>
+                    <div class="trust-col-title">Home & Online Options</div>
+                    <div class="trust-col-sub">In-person or live online sessions, your choice</div>
+                </div>
+            </div>
+            <div class="trust-col reveal">
+                <div class="trust-icon-box">⭐</div>
+                <div>
+                    <div class="trust-col-title">Parent Reviews</div>
+                    <div class="trust-col-sub">Ratings from verified completed bookings only</div>
+                </div>
+            </div>
+            <div class="trust-col reveal">
+                <div class="trust-icon-box">💰</div>
+                <div>
+                    <div class="trust-col-title">Transparent Pricing</div>
+                    <div class="trust-col-sub">Set your own hourly budget, no hidden charges</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CURRICULUM SECTION -->
+    <section class="section" style="background:var(--bg)">
+        <div class="section-inner">
+            <div class="center">
+                <span class="section-label">Classes & Curriculum</span>
+                <h2 class="section-title">Tutors Available for All Grades & School Boards</h2>
+                <p class="section-sub">Select your child's grade category to get connected with subject-matter
+                    specialists.</p>
+            </div>
+            <div class="curriculum-grid">
+                <div class="cur-card reveal">
+                    <span class="cur-badge badge-blue">High Demand</span>
+                    <div class="cur-title">Classes 9 & 10 (Board Prep)</div>
+                    <div class="subjects-label">Subjects Covered</div>
+                    <div class="subject-tags"><span class="stag">Mathematics</span><span
+                            class="stag">Physics</span><span class="stag">Chemistry</span><span
+                            class="stag">Biology</span><span class="stag">English</span><span class="stag">Social
+                            Science</span></div>
+                    <div class="boards-line"><b>Boards:</b> CBSE, ICSE, All State Boards</div>
+                    <a class="cur-link" href="#">Post Requirement <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div class="cur-card reveal">
+                    <span class="cur-badge badge-green">Board & Competitive</span>
+                    <div class="cur-title">Classes 11 & 12 (Science Stream)</div>
+                    <div class="subjects-label">Subjects Covered</div>
+                    <div class="subject-tags"><span class="stag">Physics</span><span class="stag">Chemistry</span><span
+                            class="stag">Mathematics</span><span class="stag">Biology</span></div>
+                    <div class="boards-line"><b>Boards:</b> CBSE, ICSE, All State Boards</div>
+                    <a class="cur-link" href="#">Post Requirement <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div class="cur-card reveal">
+                    <span class="cur-badge badge-orange">Commerce</span>
+                    <div class="cur-title">Classes 11 & 12 (Commerce Stream)</div>
+                    <div class="subjects-label">Subjects Covered</div>
+                    <div class="subject-tags"><span class="stag">Accountancy</span><span
+                            class="stag">Economics</span><span class="stag">Business Studies</span><span
+                            class="stag">Applied Maths</span></div>
+                    <div class="boards-line"><b>Boards:</b> CBSE, ICSE, All State Boards</div>
+                    <a class="cur-link" href="#">Post Requirement <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div class="cur-card reveal">
+                    <span class="cur-badge badge-red">Entrance Specialisation</span>
+                    <div class="cur-title">Competitive Entrance Prep</div>
+                    <div class="subjects-label">Subjects Covered</div>
+                    <div class="subject-tags"><span class="stag">JEE Mains & Advanced</span><span
+                            class="stag">NEET</span><span class="stag">CUET</span><span class="stag">Foundations (Class
+                            8-10)</span></div>
+                    <div class="boards-line"><b>Boards:</b> All India Entrance Exams</div>
+                    <a class="cur-link" href="#">Post Requirement <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div class="cur-card reveal">
+                    <span class="cur-badge badge-purple">Primary & Middle</span>
+                    <div class="cur-title">Classes 1 to 8 (Foundation)</div>
+                    <div class="subjects-label">Subjects Covered</div>
+                    <div class="subject-tags"><span class="stag">Mathematics</span><span
+                            class="stag">Science</span><span class="stag">English</span><span
+                            class="stag">Hindi</span><span class="stag">Social Studies</span><span
+                            class="stag">EVS</span></div>
+                    <div class="boards-line"><b>Boards:</b> All School Boards</div>
+                    <a class="cur-link" href="#">Post Requirement <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div class="cur-card reveal">
+                    <span class="cur-badge badge-teal">Technology</span>
+                    <div class="cur-title">Coding & Computer Science</div>
+                    <div class="subjects-label">Subjects Covered</div>
+                    <div class="subject-tags"><span class="stag">Python</span><span class="stag">Java</span><span
+                            class="stag">C++</span><span class="stag">Web Development</span><span class="stag">Computer
+                            Applications</span></div>
+                    <div class="boards-line"><b>Boards:</b> School & Skill Prep</div>
+                    <a class="cur-link" href="#">Post Requirement <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TUTOR PROFILES -->
+    <section class="section" style="background:#fff">
+        <div class="section-inner">
+            <div
+                style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:40px">
+                <div>
+                    <span class="section-label">Tutor Verification</span>
+                    <h2 class="section-title">Sample Verified Tutor Profiles</h2>
+                    <p class="section-sub" style="margin-bottom:0">Every tutor undergoes identity & document
+                        verification before receiving their verified badge.</p>
+                </div>
+                <a href="#" class="btn btn-outline" style="align-self:flex-end">Join as a Tutor →</a>
+            </div>
+            <div class="profiles-grid">
+                <div class="profile-card reveal">
+                    <div class="profile-top">
+                        <div class="avatar av-blue">AV</div>
+                        <div>
+                            <div class="profile-name">Dr. Alok Verma</div>
+                            <div class="verified-badge"><i class="fas fa-check-circle"></i> Verified Tutor</div>
+                        </div>
+                    </div>
+                    <div class="profile-qual">M.Sc. Physics · 8+ yrs Experience</div>
+                    <div class="profile-subjects">
+                        <span class="psub psub-blue">Physics</span>
+                        <span class="psub psub-blue">JEE Prep</span>
+                        <span class="psub psub-blue">Class 11-12</span>
+                    </div>
+                    <div class="profile-meta">
+                        <span>🏠 Home Tuition + Online</span>
+                    </div>
+                    <div class="rating-line">
+                        <span class="stars">★★★★★</span>
+                        <span class="rating-num">4.9</span>
+                        <span class="rating-count">(114 reviews)</span>
+                    </div>
+                </div>
+                <div class="profile-card reveal">
+                    <div class="profile-top">
+                        <div class="avatar av-green">PS</div>
+                        <div>
+                            <div class="profile-name">Priya Sharma</div>
+                            <div class="verified-badge"><i class="fas fa-check-circle"></i> Verified Tutor</div>
+                        </div>
+                    </div>
+                    <div class="profile-qual">B.Ed · Mathematics Specialist</div>
+                    <div class="profile-subjects">
+                        <span class="psub psub-green">Mathematics</span>
+                        <span class="psub psub-green">Class 8-12</span>
+                        <span class="psub psub-green">CBSE/ICSE</span>
+                    </div>
+                    <div class="profile-meta">
+                        <span>🏠 Home Tuition</span>
+                    </div>
+                    <div class="rating-line">
+                        <span class="stars">★★★★</span>
+                        <span class="rating-num">4.2</span>
+                        <span class="rating-count">(78 reviews)</span>
+                    </div>
+                </div>
+                <div class="profile-card reveal">
+                    <div class="profile-top">
+                        <div class="avatar av-orange">RK</div>
+                        <div>
+                            <div class="profile-name">Rohan Kulkarni</div>
+                            <div class="verified-badge"><i class="fas fa-check-circle"></i> Verified Tutor</div>
+                        </div>
+                    </div>
+                    <div class="profile-qual">B.Tech Computer Science · 5+ yrs</div>
+                    <div class="profile-subjects">
+                        <span class="psub psub-orange">Coding</span>
+                        <span class="psub psub-orange">Python</span>
+                        <span class="psub psub-orange">Computer Science</span>
+                    </div>
+                    <div class="profile-meta">
+                        <span>💻 Live Online Classes</span>
+                    </div>
+                    <div class="rating-line">
+                        <span class="stars">★★★★</span>
+                        <span class="rating-num">4.4</span>
+                        <span class="rating-count">(78 reviews)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW PARENTS POST -->
+    <section class="section" style="background:var(--bg)">
+        <div class="section-inner">
+            <div class="center">
+                <span class="section-label">Live Tuition Process</span>
+                <h2 class="section-title">How Parents Post Requirements</h2>
+                <p class="section-sub">Parents post what they need. Verified tutors in their city review and connect
+                    directly.</p>
+            </div>
+            <div class="req-grid">
+                <div class="req-card reveal">
+                    <div class="req-active">● Active</div>
+                    <div class="req-grade">Class 10 CBSE</div>
+                    <div class="req-subject">Mathematics & Science</div>
+                    <div class="req-detail"><i class="fas fa-map-marker-alt" style="color:var(--muted)"></i> Sector 56,
+                        Gurgaon</div>
+                    <div class="req-detail"><i class="fas fa-home" style="color:var(--muted)"></i> Home Tuition</div>
+                    <div class="req-budget">₹500–700 / hr</div>
+                </div>
+                <div class="req-card reveal">
+                    <div class="req-active">● Active</div>
+                    <div class="req-grade">Class 12</div>
+                    <div class="req-subject">Physics & Chemistry</div>
+                    <div class="req-detail"><i class="fas fa-map-marker-alt" style="color:var(--muted)"></i>
+                        Koramangala, Bengaluru</div>
+                    <div class="req-detail"><i class="fas fa-laptop" style="color:var(--muted)"></i> Online Classes
+                    </div>
+                    <div class="req-budget">₹600–800 / hr</div>
+                </div>
+                <div class="req-card reveal">
+                    <div class="req-active">● Active</div>
+                    <div class="req-grade">JEE Main Prep</div>
+                    <div class="req-subject">Mathematics & Physics</div>
+                    <div class="req-detail"><i class="fas fa-map-marker-alt" style="color:var(--muted)"></i> Preet
+                        Vihar, Delhi</div>
+                    <div class="req-detail"><i class="fas fa-home" style="color:var(--muted)"></i> Home Tuition</div>
+                    <div class="req-budget">₹800–1000 / hr</div>
+                </div>
+            </div>
+            <div class="req-center">
+                <a href="#" class="btn btn-green btn-lg pulse">Post Your Requirement for Free →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3-STEP PROCESS -->
+    <section class="section" style="background:#fff">
+        <div class="section-inner">
+            <div class="center">
+                <span class="section-label">Simple Process</span>
+                <h2 class="section-title">3 Steps to Your Perfect Tutor</h2>
+                <p class="section-sub">No endless phone calls or middlemen. Get matched directly with verified tutors.
+                </p>
+            </div>
+            <div class="steps-wrap">
+                <div class="step-card reveal">
+                    <div class="step-num">01</div>
+                    <span class="step-icon">📝</span>
+                    <div class="step-title">Post Your Requirement</div>
+                    <p class="step-desc">Share your child's class, subject, location, timing preference, and hourly
+                        budget. It takes under 2 minutes.</p>
+                </div>
+                <div class="step-card reveal">
+                    <div class="step-num">02</div>
+                    <span class="step-icon">👋</span>
+                    <div class="step-title">Tutors Connect With You</div>
+                    <p class="step-desc">Interested verified tutors in your area review your post and reach out directly
+                        to discuss availability.</p>
+                </div>
+                <div class="step-card reveal">
+                    <div class="step-num">03</div>
+                    <span class="step-icon">🎓</span>
+                    <div class="step-title">Choose & Start Classes</div>
+                    <p class="step-desc">Review tutor profiles and ratings, discuss expectations directly, agree on
+                        schedule and fee, begin classes.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TEACHER CTA BANNER -->
+    <section class="section" style="background:var(--bg)">
+        <div class="section-inner">
+            <div class="teacher-cta reveal">
+                <div class="cta-left">
+                    <div class="cta-pill">For Teachers & Educators</div>
+                    <h2 class="cta-h2">Want to teach students near you?</h2>
+                    <p class="cta-sub">Create your tutor profile, complete identity verification, and discover active
+                        student requirements matching your subjects, class levels, and location. Zero registration fees.
+                    </p>
+                </div>
+                <div class="cta-right">
+                    <a href="#" class="btn btn-saffron btn-lg">Join as a Tutor →</a>
+                    <div class="cta-note"><i class="fas fa-check-circle" style="color:var(--green)"></i> Identity
+                        verification required</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" style="background:#fff">
+        <div class="section-inner">
+            <div class="center">
+                <span class="section-label">Frequently Asked Questions</span>
+                <h2 class="section-title">Clear Answers for Parents & Tutors</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        Is ApnaTutorHub free for parents?
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-a">
+                        <div class="faq-a-inner">Yes, completely free. Post your tuition requirement, receive verified
+                            tutor profiles, and connect directly — no platform fees, ever. Parents pay only the tutor's
+                            agreed hourly rate.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        How are tutors verified on ApnaTutorHub?
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-a">
+                        <div class="faq-a-inner">Every tutor submits identity proof (Aadhaar), educational
+                            qualifications, and teaching experience. Our team manually reviews each submission before
+                            issuing the Verified Tutor badge.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        Can I choose between home tuition and online classes?
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-a">
+                        <div class="faq-a-inner">Absolutely. When posting your requirement, simply select your preferred
+                            mode — home tuition, live online classes, or both. Tutors who match your preference will
+                            reach out.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        What subjects and school boards are supported?
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-a">
+                        <div class="faq-a-inner">We cover all major subjects for CBSE, ICSE, IGCSE, and all State Boards
+                            across India, plus competitive entrance exams like JEE Mains, JEE Advanced, NEET, and CUET.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-q" onclick="toggleFaq(this)">
+                        How do I connect with a tutor after posting?
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-a">
+                        <div class="faq-a-inner">Verified tutors who match your requirement will reach out directly to
+                            you. You review their profiles, ratings, and parent reviews, then choose who to engage. No
+                            middlemen involved.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER CTA STRIP -->
+    <div class="footer-strip">
+        <h3>Ready to Find the Right Tutor?</h3>
+        <p>Tell us what you need — verified tutors in your area connect with you. Free for parents, always.</p>
+        <a href="#" class="btn btn-green btn-lg pulse">Post a Requirement →</a>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-inner">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <div class="footer-logo">
+                        <div class="footer-logo-mark">AT</div>
+                        <span class="footer-logo-text">ApnaTutorHub</span>
+                    </div>
+                    <p>Connecting parents & verified tutors across India. Home & online tuition made simple, trusted,
+                        and transparent.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>For Parents</h4>
+                    <ul>
+                        <li><a href="#">Post a Requirement</a></li>
+                        <li><a href="#">Browse Subjects</a></li>
+                        <li><a href="#">How It Works</a></li>
+                        <li><a href="#">Safety & Verification</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>For Tutors</h4>
+                    <ul>
+                        <li><a href="#">Register as Tutor</a></li>
+                        <li><a href="#">Get Verified</a></li>
+                        <li><a href="#">Browse Requirements</a></li>
+                        <li><a href="#">Tutor Guidelines</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#">About Us</a></li>
+                        <li><a href="#">Contact</a></li>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Use</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2024 ApnaTutorHub. All rights reserved.</p>
+                <div class="footer-bottom-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms</a>
+                    <a href="#">FAQ</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Navbar scroll
+        window.addEventListener('scroll', () => {
+            document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20)
+        })
+
+        // Mobile menu
+        function toggleMenu() {
+            document.getElementById('mobileMenu').classList.toggle('open')
+        }
+
+        // Subject pill toggle
+        function selectPill(el) {
+            document.querySelectorAll('.subject-pill').forEach(p => p.classList.remove('active'))
+            el.classList.add('active')
+        }
+
+        // Mode toggle
+        function toggleMode(el) {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'))
+            el.classList.add('active')
+        }
+
+        // FAQ accordion
+        function toggleFaq(el) {
+            const item = el.parentElement
+            const ans = item.querySelector('.faq-a')
+            const isOpen = item.classList.contains('open')
+            document.querySelectorAll('.faq-item').forEach(i => {
+                i.classList.remove('open')
+                i.querySelector('.faq-a').style.maxHeight = '0'
+            })
+            if (!isOpen) {
+                item.classList.add('open')
+                ans.style.maxHeight = ans.scrollHeight + 'px'
+            }
+        }
+
+        // Stats count-up
+        function animateCount(el) {
+            const target = parseFloat(el.dataset.target)
+            const suffix = el.dataset.suffix || ''
+            const isDecimal = el.dataset.decimal === 'true'
+            const duration = 1800
+            const start = performance.now()
+            function update(now) {
+                const elapsed = now - start
+                const progress = Math.min(elapsed / duration, 1)
+                const ease = 1 - Math.pow(1 - progress, 3)
+                const val = target * ease
+                el.textContent = (isDecimal ? val.toFixed(1) : Math.floor(val).toLocaleString('en-IN')) + suffix
+                if (progress < 1) requestAnimationFrame(update)
+            }
+            requestAnimationFrame(update)
+        }
+
+        // Scroll reveal + stats trigger
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    e.target.classList.add('visible')
+                    if (e.target.classList.contains('stats-strip')) {
+                        document.querySelectorAll('.stat-num').forEach(animateCount)
+                    }
+                    io.unobserve(e.target)
+                }
+            })
+        }, { threshold: 0.15 })
+
+        document.querySelectorAll('.reveal').forEach(el => io.observe(el))
+        const statsStrip = document.querySelector('.stats-strip')
+        if (statsStrip) io.observe(statsStrip)
+    </script>
+</body>
+
+</html>

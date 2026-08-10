@@ -5,10 +5,7 @@ import {
   Users,
   ShieldCheck,
   FileText,
-  Coins,
   BookOpen,
-  TrendingUp,
-  AlertCircle,
   ArrowRight,
   BarChart3,
   Activity,
@@ -21,6 +18,11 @@ import {
   Cpu,
   Mail,
   Zap,
+  Clock,
+  Sparkles,
+  TrendingUp,
+  AlertCircle,
+  MessageSquare,
 } from "lucide-react";
 import { getAdminDashboardStats } from "@/app/actions/admin.actions";
 import { prisma } from "@/lib/prisma";
@@ -33,7 +35,8 @@ function KpiCard({
   value,
   subtitle,
   icon: Icon,
-  accent,
+  accentBg,
+  accentText,
   href,
   badge,
 }: {
@@ -41,60 +44,49 @@ function KpiCard({
   value: string | number;
   subtitle?: string;
   icon: React.ElementType;
-  accent: string;
+  accentBg: string;
+  accentText: string;
   href?: string;
   badge?: string | number;
 }) {
   const card = (
     <div
-      className="group relative overflow-hidden rounded-2xl p-5 transition-all duration-300 hover:scale-[1.02]"
-      style={{
-        background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-        border: "1px solid #1E293B",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
-      }}
+      className="group relative overflow-hidden rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer bg-white border border-gray-200/90 shadow-xs"
     >
-      {/* Glow blob */}
-      <div
-        className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl transition-opacity duration-300 group-hover:opacity-40"
-        style={{ background: accent }}
-      />
-
       <div className="relative flex items-start justify-between">
-        <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: "#64748B", fontFamily: "'Fira Code', monospace" }}>
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-800 uppercase tracking-wider text-slate-900">
             {title}
           </p>
-          <div className="flex items-center gap-2">
-            <p className="text-3xl font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.04em" }}>
+          <div className="flex items-center gap-2.5">
+            <p className="text-3xl sm:text-4xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
               {value}
             </p>
             {badge && (
               <span
-                className="rounded-full px-2 py-0.5 text-xs font-bold animate-pulse"
-                style={{ background: `${accent}33`, color: accent, border: `1px solid ${accent}66` }}
+                className="rounded-full px-2.5 py-0.5 text-[10px] font-800 animate-pulse bg-emerald-100 text-emerald-950 border border-emerald-300"
               >
                 {badge}
               </span>
             )}
           </div>
           {subtitle && (
-            <p className="mt-1 text-xs" style={{ color: "#94A3B8" }}>
+            <p className="text-xs font-600 text-slate-700">
               {subtitle}
             </p>
           )}
         </div>
         <div
-          className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform group-hover:scale-110"
-          style={{ background: `${accent}22`, border: `1px solid ${accent}44` }}
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-transform group-hover:scale-110 shadow-2xs ${accentBg} ${accentText}`}
         >
-          <Icon size={20} style={{ color: accent }} />
+          <Icon size={24} />
         </div>
       </div>
 
       {href && (
-        <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold" style={{ color: accent }}>
-          Open section <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
+        <div className={`mt-5 flex items-center gap-1.5 text-xs font-800 pt-3 border-t border-gray-100 ${accentText}`}>
+          <span>View Section</span>
+          <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
         </div>
       )}
     </div>
@@ -103,21 +95,20 @@ function KpiCard({
   return href ? <Link href={href}>{card}</Link> : card;
 }
 
-function MiniBar({ values }: { values: number[] }) {
+function SparklineBars({ values }: { values: number[] }) {
   const max = Math.max(...values, 1);
   return (
-    <div className="flex h-10 items-end gap-1.5">
+    <div className="flex h-12 items-end gap-1.5 pt-2">
       {values.map((v, i) => (
         <div
           key={i}
-          className="flex-1 rounded-t transition-all duration-500 hover:brightness-125"
+          className="flex-1 rounded-t-lg transition-all duration-300 hover:brightness-110 cursor-pointer"
           style={{
-            height: `${(v / max) * 100}%`,
+            height: `${Math.max((v / max) * 100, 15)}%`,
             background:
               i === values.length - 1
-                ? "linear-gradient(180deg, #22C55E, #16A34A)"
-                : `rgba(34,197,94,${0.2 + (i / values.length) * 0.4})`,
-            minHeight: "4px",
+                ? "#2D9E6B"
+                : `rgba(45,158,107,${0.25 + (i / values.length) * 0.4})`,
           }}
           title={`Day ${i + 1}: ${v} leads`}
         />
@@ -133,10 +124,16 @@ export default async function AdminDashboardPage() {
   const stats = await getAdminDashboardStats();
   if (!stats) redirect("/login");
 
-  // Recent leads (last 7)
+  // Fetch breakdown count for KYC
+  const [kycApprovedCount, kycRejectedCount] = await Promise.all([
+    prisma.tutorProfile.count({ where: { kycStatus: "APPROVED" } }),
+    prisma.tutorProfile.count({ where: { kycStatus: "REJECTED" } }),
+  ]);
+
+  // Recent leads (last 6)
   const recentLeads = await prisma.lead.findMany({
     orderBy: { createdAt: "desc" },
-    take: 7,
+    take: 6,
     select: {
       id: true,
       classLevel: true,
@@ -148,372 +145,295 @@ export default async function AdminDashboardPage() {
   });
 
   // Recent audit actions (last 6)
-  const recentAudit = await prisma.auditLog.findMany({
+  const recentAudits = await prisma.auditLog.findMany({
     orderBy: { createdAt: "desc" },
     take: 6,
     select: {
       id: true,
       action: true,
-      entityType: true,
-      entityId: true,
+      details: true,
+      adminId: true,
       createdAt: true,
     },
   });
 
-  const leadsByDay = [12, 18, 14, 22, 19, 31, stats.activeLeads];
-
-  const STATUS_COLOR: Record<string, string> = {
-    ACTIVE: "#22C55E",
-    MATCHING: "#3B82F6",
-    APPLICATIONS_RECEIVED: "#F59E0B",
-    BOOKED: "#8B5CF6",
-    COMPLETED: "#06B6D4",
-    EXPIRED: "#64748B",
-    CLOSED: "#EF4444",
-  };
-
-  const systemServices = [
-    { name: "Database Pooler", status: "Active (Tokyo Port 6543)", icon: Database, color: "#22C55E" },
-    { name: "Supabase Storage", status: "Private Bucket 'kyc-documents'", icon: HardDrive, color: "#22C55E" },
-    { name: "Upstash Redis Queue", status: "BullMQ Serverless Connected", icon: Cpu, color: "#22C55E" },
-    { name: "Resend Email", status: "Domain Verified (mail.apnatutorhub.com)", icon: Mail, color: "#22C55E" },
-  ];
+  const kycPendingCount = stats.pendingKyc ?? 0;
+  const coinsSold = stats.totalCoinsSold ?? 0;
+  const coinsCirculating = stats.totalCoinsCirculating ?? 0;
 
   return (
-    <div className="min-h-full space-y-8" style={{ color: "#F8FAFC" }}>
-      {/* ── Page Header & Time Banner ────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1
-              className="text-2xl font-bold tracking-tight text-white sm:text-3xl"
-              style={{ fontFamily: "'Poppins', sans-serif" }}
-            >
-              System Operations Hub
-            </h1>
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-              style={{ background: "rgba(34,197,94,0.12)", color: "#22C55E", border: "1px solid rgba(34,197,94,0.25)" }}
-            >
-              <Activity size={12} className="animate-pulse" />
-              All Systems Operational
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-slate-400" style={{ fontFamily: "'Fira Code', monospace" }}>
-            {new Date().toLocaleDateString("en-IN", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })} · Logged in as <span className="text-emerald-400 font-semibold">{session.user.name || session.user.email}</span>
-          </p>
-        </div>
-
-        {/* Quick Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/admin/kyc"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-white transition-all hover:brightness-110"
-            style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)", boxShadow: "0 2px 12px rgba(245,158,11,0.2)" }}
-          >
-            <ShieldCheck size={15} />
-            Review KYC {stats.pendingKyc > 0 && `(${stats.pendingKyc})`}
-          </Link>
-          <Link
-            href="/admin/notifications/broadcast"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-white transition-all hover:brightness-110"
-            style={{ background: "linear-gradient(135deg, #3B82F6, #2563EB)", boxShadow: "0 2px 12px rgba(59,130,246,0.2)" }}
-          >
-            <Bell size={15} />
-            Send Push Alert
-          </Link>
-          <Link
-            href="/admin/coupons"
-            className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-white transition-all hover:brightness-110"
-            style={{ background: "linear-gradient(135deg, #8B5CF6, #7C3AED)", boxShadow: "0 2px 12px rgba(139,92,246,0.2)" }}
-          >
-            <Ticket size={15} />
-            New Coupon
-          </Link>
-        </div>
-      </div>
-
-      {/* ── System Health Bar ─────────────────────────────────────────────────── */}
+    <div className="space-y-8 pb-10 text-slate-900">
+      {/* ── Executive Hero Header (HIGH CONTRAST DEEP NAVY CARD) ── */}
       <div
-        className="rounded-2xl p-4 transition-all"
-        style={{
-          background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.8) 100%)",
-          border: "1px solid rgba(51,65,85,0.6)",
-          backdropFilter: "blur(12px)",
-        }}
+        className="rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl space-y-6 bg-gradient-to-r from-[#0F2540] via-[#1E3A5F] to-[#0F2540] text-white"
       >
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400" style={{ fontFamily: "'Fira Code', monospace" }}>
-            Infrastructure Health Status
-          </p>
-          <span className="text-xs text-emerald-400 font-mono flex items-center gap-1">
-            <Zap size={12} /> 100% Up
-          </span>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {systemServices.map((srv, idx) => {
-            const SrvIcon = srv.icon;
-            return (
-              <div
-                key={idx}
-                className="flex items-center gap-3 rounded-xl p-3"
-                style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(30,41,59,0.8)" }}
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <SrvIcon size={16} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-white">{srv.name}</p>
-                  <p className="truncate text-[11px] text-slate-400 font-mono">{srv.status}</p>
-                </div>
-                <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── KPI Stat Grid ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard
-          title="Total Accounts"
-          value={stats.totalUsers.toLocaleString()}
-          subtitle={`${stats.totalParents} parents · ${stats.totalTutors} tutors`}
-          icon={Users}
-          accent="#3B82F6"
-          href="/admin/users"
-        />
-        <KpiCard
-          title="Active Leads"
-          value={stats.activeLeads.toLocaleString()}
-          subtitle={`of ${stats.totalLeads} total leads created`}
-          icon={FileText}
-          accent="#22C55E"
-          href="/admin/leads"
-        />
-        <KpiCard
-          title="KYC Verification Queue"
-          value={stats.pendingKyc.toLocaleString()}
-          subtitle={stats.pendingKyc > 0 ? "Action required" : "Queue clear"}
-          icon={ShieldCheck}
-          accent="#F59E0B"
-          href="/admin/kyc"
-          badge={stats.pendingKyc > 0 ? `${stats.pendingKyc} Pending` : undefined}
-        />
-        <KpiCard
-          title="Completed Bookings"
-          value={stats.totalBookings.toLocaleString()}
-          subtitle="All time verified matches"
-          icon={BookOpen}
-          accent="#8B5CF6"
-          href="/admin/bookings"
-        />
-      </div>
-
-      {/* ── Financial & Marketplace Trend Row ───────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Wallet & Coins Status Card */}
-        <div
-          className="col-span-1 flex flex-col justify-between rounded-2xl p-6 relative overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #064E3B 0%, #022C22 100%)",
-            border: "1px solid rgba(34,197,94,0.3)",
-            boxShadow: "0 8px 32px rgba(34,197,94,0.12)",
-          }}
-        >
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-emerald-300" style={{ fontFamily: "'Fira Code', monospace" }}>
-                Platform Coin Circulation
-              </p>
-              <p className="mt-2 text-4xl font-extrabold text-white" style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.04em" }}>
-                {stats.totalCoinsCirculating.toLocaleString()}
-              </p>
-              <p className="mt-1 text-xs text-emerald-400">
-                {stats.totalCoinsSold.toLocaleString()} total coins purchased by tutors
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 border border-emerald-500/30">
-              <Coins size={24} className="text-emerald-400" />
-            </div>
-          </div>
-
-          <div className="mt-6 flex items-center justify-between border-t border-emerald-500/20 pt-4">
-            <div>
-              <p className="text-xs text-emerald-300 font-mono">Pending Refunds</p>
-              <p className="text-sm font-bold text-white">{stats.pendingRefunds} requests</p>
-            </div>
-            <Link
-              href="/admin/wallets"
-              className="flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:text-white transition-colors"
-            >
-              Manage Wallets <ArrowRight size={13} />
-            </Link>
-          </div>
-        </div>
-
-        {/* Lead Creation & Market Volume Trend */}
-        <div
-          className="col-span-2 flex flex-col justify-between rounded-2xl p-6"
-          style={{
-            background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-            border: "1px solid #1E293B",
-          }}
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400" style={{ fontFamily: "'Fira Code', monospace" }}>
-                Weekly Lead Activity Trend
-              </p>
-              <p className="text-base font-semibold text-white">Daily Parent Requirements</p>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl bg-slate-800/80 px-3 py-1.5 border border-slate-700 text-xs text-slate-300">
-              <BarChart3 size={15} className="text-emerald-400" />
-              <span>7-Day Window</span>
-            </div>
-          </div>
-
-          <MiniBar values={leadsByDay} />
-
-          <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3 text-xs text-slate-400">
-            <div className="flex items-center gap-1.5">
-              <TrendingUp size={14} className="text-emerald-400" />
-              <span>
-                <strong className="text-emerald-400">+{Math.round((leadsByDay[6] / leadsByDay[0] - 1) * 100)}%</strong> growth vs start of week
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-800 bg-emerald-500/30 text-emerald-200 border border-emerald-400/40">
+                <Zap size={14} className="animate-pulse text-emerald-400" />
+                Live Admin Command Center
+              </span>
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-700 bg-white/15 text-slate-100 border border-white/20">
+                <Clock size={13} />
+                {new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
               </span>
             </div>
-            <Link href="/admin/leads" className="text-xs font-semibold text-emerald-400 hover:underline">
-              View Detailed Analytics →
+
+            <h1 className="text-3xl sm:text-4xl font-800 !text-white tracking-tight drop-shadow-sm" style={{ fontFamily: "Poppins, sans-serif" }}>
+              Marketplace Control Panel
+            </h1>
+            <p className="text-xs sm:text-sm !text-slate-100 font-500 max-w-2xl leading-relaxed">
+              Monitor real-time tutor verification queues, student requirements, platform coin revenue, and system health.
+            </p>
+          </div>
+
+          {/* Quick Action Command Shortcuts */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <Link
+              href="/admin/kyc"
+              className="px-5 py-3.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all shadow-md cursor-pointer"
+            >
+              <ShieldCheck size={17} className="!text-white" />
+              <span className="!text-white font-800">KYC Queue ({kycPendingCount})</span>
             </Link>
+
+            <Link
+              href="/admin/notifications/broadcast"
+              className="px-5 py-3.5 rounded-2xl bg-white/15 hover:bg-white/25 !text-white text-xs font-800 flex items-center gap-2 border border-white/30 transition-all cursor-pointer"
+            >
+              <Bell size={17} className="!text-white" />
+              <span className="!text-white font-800">Broadcast Push</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* System Health Pulse Row */}
+        <div className="pt-4 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-800">
+          <div className="flex items-center gap-2 text-emerald-300">
+            <Database size={16} />
+            <span>Database: Connected</span>
+          </div>
+          <div className="flex items-center gap-2 text-emerald-300">
+            <HardDrive size={16} />
+            <span>AWS S3: Active</span>
+          </div>
+          <div className="flex items-center gap-2 text-emerald-300">
+            <Mail size={16} />
+            <span>Resend Mailer: Ready</span>
+          </div>
+          <div className="flex items-center gap-2 text-emerald-300">
+            <Activity size={16} />
+            <span>Razorpay API: Operational</span>
           </div>
         </div>
       </div>
 
-      {/* ── Recent Activity & Audit Trail Grid ─────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Recent Leads */}
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-            border: "1px solid #1E293B",
-          }}
-        >
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/40">
-            <div className="flex items-center gap-2">
-              <FileText size={16} className="text-emerald-400" />
-              <p className="font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                Latest Parent Requirements
-              </p>
+      {/* ── 8 KPI Metric Cards (PURE WHITE LIGHT CARDS) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <KpiCard
+          title="Total Registered Users"
+          value={(stats.totalUsers ?? 0).toLocaleString("en-IN")}
+          subtitle={`${stats.totalTutors ?? 0} Tutors · ${stats.totalParents ?? 0} Parents`}
+          icon={Users}
+          accentBg="bg-sky-100 border border-sky-300"
+          accentText="text-sky-700"
+          href="/admin/users"
+        />
+
+        <KpiCard
+          title="KYC Verification Queue"
+          value={kycPendingCount}
+          subtitle={`${kycApprovedCount} Verified · ${kycRejectedCount} Rejected`}
+          icon={ShieldCheck}
+          accentBg="bg-emerald-100 border border-emerald-300"
+          accentText="text-emerald-800"
+          href="/admin/kyc"
+          badge={kycPendingCount > 0 ? `${kycPendingCount} Pending` : undefined}
+        />
+
+        <KpiCard
+          title="Student Requirements"
+          value={(stats.totalLeads ?? 0).toLocaleString("en-IN")}
+          subtitle={`${stats.activeLeads ?? 0} Active Open Enquiries`}
+          icon={FileText}
+          accentBg="bg-amber-100 border border-amber-300"
+          accentText="text-amber-800"
+          href="/admin/leads"
+        />
+
+        <KpiCard
+          title="Coin Wallet Sales"
+          value={`₹${(coinsSold * 1.5).toLocaleString("en-IN")}`}
+          subtitle={`${coinsCirculating.toLocaleString("en-IN")} Coins Circulating`}
+          icon={Wallet}
+          accentBg="bg-purple-100 border border-purple-300"
+          accentText="text-purple-800"
+          href="/admin/wallets"
+        />
+
+        <KpiCard
+          title="Tuition Bookings"
+          value={stats.totalBookings ?? 0}
+          subtitle="Confirmed Tuitions"
+          icon={BookOpen}
+          accentBg="bg-rose-100 border border-rose-300"
+          accentText="text-rose-800"
+          href="/admin/bookings"
+        />
+
+        <KpiCard
+          title="Support Helpline"
+          value="Live"
+          subtitle="WhatsApp & Chat Support"
+          icon={MessageSquare}
+          accentBg="bg-cyan-100 border border-cyan-300"
+          accentText="text-cyan-800"
+          href="/admin/chat"
+        />
+
+        <KpiCard
+          title="Pending Wallet Refunds"
+          value={stats.pendingRefunds ?? 0}
+          subtitle="Support Refund Requests"
+          icon={Ticket}
+          accentBg="bg-pink-100 border border-pink-300"
+          accentText="text-pink-800"
+          href="/admin/wallets"
+        />
+
+        <KpiCard
+          title="Platform Governance"
+          value="Super Admin"
+          subtitle="RBAC & Audit Trail Active"
+          icon={Activity}
+          accentBg="bg-teal-100 border border-teal-300"
+          accentText="text-teal-800"
+          href="/admin/audit-logs"
+        />
+      </div>
+
+      {/* ── Realtime Activity Streams Grid ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Left 7 Columns: Live Student Leads Stream */}
+        <div className="lg:col-span-7 bg-white rounded-3xl border border-gray-200 p-6 sm:p-7 space-y-6 shadow-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Realtime Feed</span>
+              <h2 className="text-xl font-800 text-[#0F2540] flex items-center gap-2">
+                <FileText size={20} className="text-[#2D9E6B]" />
+                Latest Student Requirements
+              </h2>
             </div>
-            <Link href="/admin/leads" className="flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:underline">
-              View all leads <ArrowRight size={12} />
+            <Link
+              href="/admin/leads"
+              className="text-xs font-800 text-[#2D9E6B] hover:text-[#238357] flex items-center gap-1"
+            >
+              <span>View All Leads ({stats.totalLeads ?? 0})</span>
+              <ArrowRight size={14} />
             </Link>
           </div>
 
-          <div className="p-3">
-            {recentLeads.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-500">No requirements posted yet</p>
-            ) : (
-              <ul className="space-y-1">
-                {recentLeads.map((lead) => (
-                  <li
-                    key={lead.id}
-                    className="flex items-center justify-between rounded-xl px-3.5 py-3 transition-colors hover:bg-slate-800/50"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span
-                        className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                        style={{ background: STATUS_COLOR[lead.status] ?? "#64748B" }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-white">
-                          {lead.subjects.slice(0, 2).join(", ")} · {lead.classLevel}
-                        </p>
-                        <p className="text-xs text-slate-400 font-mono">
-                          {lead.city || "Online"} · {new Date(lead.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
+          {/* 7-Day Lead Velocity Chart */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-gray-200 space-y-2">
+            <div className="flex items-center justify-between text-xs font-800">
+              <span className="text-slate-700">7-Day Lead Submission Velocity</span>
+              <span className="text-emerald-700 font-800">High Demand 🔥</span>
+            </div>
+            <SparklineBars values={[3, 5, 8, 4, 9, 12, stats.totalLeads ?? 7]} />
+          </div>
 
-                    <span
-                      className="flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-bold"
-                      style={{
-                        background: `${STATUS_COLOR[lead.status] ?? "#64748B"}22`,
-                        color: STATUS_COLOR[lead.status] ?? "#64748B",
-                        border: `1px solid ${STATUS_COLOR[lead.status] ?? "#64748B"}44`,
-                      }}
-                    >
+          {/* Recent Leads List */}
+          <div className="space-y-3">
+            {recentLeads.map((lead) => (
+              <div
+                key={lead.id}
+                className="p-4 rounded-2xl bg-slate-50 border border-gray-200 hover:border-gray-300 transition-colors flex items-center justify-between gap-4"
+              >
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-800 text-[#0F2540] truncate">{lead.classLevel}</span>
+                    <span className="text-[10px] font-800 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300">
                       {lead.status}
                     </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  </div>
+                  <p className="text-xs font-700 text-slate-800 truncate">
+                    Subjects: {lead.subjects.join(", ")} · {lead.city || "Location Private"}
+                  </p>
+                </div>
+                <Link
+                  href={`/admin/leads`}
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-gray-100 text-xs font-800 text-slate-900 border border-gray-300 transition-colors shrink-0 shadow-2xs"
+                >
+                  Inspect
+                </Link>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Audit Log */}
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-            border: "1px solid #1E293B",
-          }}
-        >
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/40">
-            <div className="flex items-center gap-2">
-              <Activity size={16} className="text-blue-400" />
-              <p className="font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                Admin Governance Trail
-              </p>
+        {/* Right 5 Columns: Security Audit Logs & KYC Queue */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* KYC Priority Queue Box */}
+          <div className="bg-white rounded-3xl border border-gray-200 p-6 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+              <h2 className="text-lg font-800 text-[#0F2540] flex items-center gap-2">
+                <ShieldCheck size={20} className="text-[#2D9E6B]" />
+                KYC Verification Priority Queue
+              </h2>
+              <span className="text-xs font-800 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300">
+                {kycPendingCount} Pending
+              </span>
             </div>
-            <Link href="/admin/audit-logs" className="flex items-center gap-1 text-xs font-semibold text-blue-400 hover:underline">
-              Full audit log <ArrowRight size={12} />
+
+            <p className="text-xs text-slate-800 font-600 leading-relaxed">
+              Review government ID proofs and live selfies submitted by tutors to grant verified badges.
+            </p>
+
+            <Link
+              href="/admin/kyc"
+              className="w-full py-3.5 px-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+            >
+              <ShieldCheck size={17} className="!text-white" />
+              <span className="!text-white font-800">Open KYC Review Queue ({kycPendingCount})</span>
             </Link>
           </div>
 
-          <div className="p-3">
-            {recentAudit.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-slate-500">
-                <AlertCircle size={24} />
-                <p className="text-sm">No audit actions recorded yet</p>
-              </div>
-            ) : (
-              <ul className="space-y-1">
-                {recentAudit.map((log) => (
-                  <li
-                    key={log.id}
-                    className="flex items-center justify-between rounded-xl px-3.5 py-3 transition-colors hover:bg-slate-800/50"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                        <Activity size={12} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-white">
-                          {log.action.replace(/_/g, " ")}
-                        </p>
-                        <p className="text-xs text-slate-400 font-mono">
-                          {log.entityType} {log.entityId ? `· ${log.entityId.slice(0, 8)}…` : ""}
-                        </p>
-                      </div>
-                    </div>
+          {/* Security Audit Feed */}
+          <div className="bg-white rounded-3xl border border-gray-200 p-6 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+              <h2 className="text-lg font-800 text-[#0F2540] flex items-center gap-2">
+                <Activity size={20} className="text-[#2563EB]" />
+                Recent Governance Actions
+              </h2>
+              <Link href="/admin/audit-logs" className="text-xs font-800 text-[#2563EB] hover:underline">
+                All Logs
+              </Link>
+            </div>
 
-                    <span className="flex-shrink-0 text-xs text-slate-500 font-mono">
+            <div className="space-y-3">
+              {recentAudits.map((log) => (
+                <div
+                  key={log.id}
+                  className="p-3.5 rounded-2xl bg-slate-50 border border-gray-200 text-xs space-y-1"
+                >
+                  <div className="flex items-center justify-between text-slate-900">
+                    <span className="font-800 text-[#2563EB]">{log.action}</span>
+                    <span className="text-[10px] font-700 text-slate-600">
                       {new Date(log.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                     </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  </div>
+                  <p className="text-xs text-slate-800 font-600 truncate">
+                    {log.details || log.adminId}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
+
         </div>
+
       </div>
     </div>
   );

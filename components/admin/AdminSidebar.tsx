@@ -4,51 +4,52 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
+  LayoutGrid,
+  TrendingUp,
   Users,
-  ShieldCheck,
-  FileText,
-  Wallet,
-  Settings,
-  ClipboardList,
+  BadgeCheck,
+  FileSpreadsheet,
+  CalendarCheck2,
+  Headphones,
+  Star,
+  Coins,
+  Megaphone,
+  BadgePercent,
+  SlidersHorizontal,
+  History,
+  UserCog,
   LogOut,
   GraduationCap,
   ChevronRight,
-  UserCog,
-  Bell,
-  Ticket,
-  BarChart3,
   Menu,
   X,
-  BookOpen,
-  MessageSquare,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 const ALL_NAV_ITEMS = [
-  { label: "Dashboard",     href: "/admin/dashboard",                      icon: LayoutDashboard, roles: null },
-  { label: "Analytics",     href: "/admin/analytics",                      icon: BarChart3,       roles: null },
-  { label: "Users",         href: "/admin/users",                           icon: Users,           roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "OPERATIONS"] },
-  { label: "KYC Queue",     href: "/admin/kyc",                             icon: ShieldCheck,     roles: ["SUPER_ADMIN", "VERIFICATION"],  badge: "!" },
-  { label: "Leads",         href: "/admin/leads",                           icon: FileText,        roles: ["SUPER_ADMIN", "OPERATIONS", "MARKETING", "SUPPORT"] },
-  { label: "Bookings",      href: "/admin/bookings",                       icon: BookOpen,        roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT"] },
-  { label: "Support Chat",  href: "/admin/chat",                           icon: MessageSquare,   roles: ["SUPER_ADMIN", "SUPPORT", "OPERATIONS"] },
-  { label: "Reviews",       href: "/admin/reviews",                        icon: MessageSquare,   roles: ["SUPER_ADMIN", "SUPPORT"] },
-  { label: "Wallets",       href: "/admin/wallets",                         icon: Wallet,          roles: ["SUPER_ADMIN", "FINANCE"] },
-  { label: "Notifications", href: "/admin/notifications/broadcast",         icon: Bell,            roles: ["SUPER_ADMIN", "MARKETING"] },
-  { label: "Coupons",       href: "/admin/coupons",                         icon: Ticket,          roles: ["SUPER_ADMIN", "MARKETING"] },
-  { label: "Settings",      href: "/admin/settings",                        icon: Settings,        roles: ["SUPER_ADMIN", "MARKETING"] },
-  { label: "Sub-Admin & Audit Logs", href: "/admin/audit-logs", icon: ClipboardList, roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"] },
-  { label: "Sub-Admins",    href: "/admin/sub-admins",                      icon: UserCog,         roles: ["SUPER_ADMIN"] },
+  { label: "Dashboard",        href: "/admin/dashboard",                      icon: LayoutGrid,        roles: null, iconColor: "text-blue-400" },
+  { label: "Analytics",        href: "/admin/analytics",                      icon: TrendingUp,        roles: null, iconColor: "text-purple-400" },
+  { label: "User Directory",   href: "/admin/users",                          icon: Users,             roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "OPERATIONS"], iconColor: "text-emerald-400" },
+  { label: "KYC Queue",        href: "/admin/kyc",                             icon: BadgeCheck,        roles: ["SUPER_ADMIN", "VERIFICATION"],  badge: "!", iconColor: "text-amber-400" },
+  { label: "Student Leads",     href: "/admin/leads",                          icon: FileSpreadsheet,   roles: ["SUPER_ADMIN", "OPERATIONS", "MARKETING", "SUPPORT"], iconColor: "text-pink-400" },
+  { label: "Tuition Bookings", href: "/admin/bookings",                     icon: CalendarCheck2,    roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT"], iconColor: "text-cyan-400" },
+  { label: "Support Chat",     href: "/admin/chat",                           icon: Headphones,        roles: ["SUPER_ADMIN", "SUPPORT", "OPERATIONS"], iconColor: "text-indigo-400" },
+  { label: "Reviews",          href: "/admin/reviews",                        icon: Star,              roles: ["SUPER_ADMIN", "SUPPORT"], iconColor: "text-yellow-400" },
+  { label: "Wallets & Revenue", href: "/admin/wallets",                     icon: Coins,             roles: ["SUPER_ADMIN", "FINANCE"], iconColor: "text-emerald-400" },
+  { label: "Broadcast Push",    href: "/admin/notifications/broadcast",        icon: Megaphone,         roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-orange-400" },
+  { label: "Promo Coupons",     href: "/admin/coupons",                        icon: BadgePercent,      roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-lime-400" },
+  { label: "Platform Settings", href: "/admin/settings",                      icon: SlidersHorizontal, roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-slate-400" },
+  { label: "Audit Logs",       href: "/admin/audit-logs",                     icon: History,           roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"], iconColor: "text-purple-400" },
+  { label: "Sub-Admins",       href: "/admin/sub-admins",                      icon: UserCog,           roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
 ] as const;
 
 const SUB_ADMIN_ROLE_LABELS: Record<string, { label: string; color: string }> = {
   SUPPORT:      { label: "support",      color: "#38BDF8" },
-  VERIFICATION: { label: "verification", color: "#A78BFA" },
-  FINANCE:      { label: "finance",      color: "#4ADE80" },
+  VERIFICATION: { label: "verification", color: "#C084FC" },
+  FINANCE:      { label: "finance",      color: "#34D399" },
   OPERATIONS:   { label: "operations",   color: "#FB923C" },
   MARKETING:    { label: "marketing",    color: "#F472B6" },
-  SUPER_ADMIN:  { label: "super_admin",  color: "#22C55E" },
+  SUPER_ADMIN:  { label: "super_admin",  color: "#34D399" },
 };
 
 interface AdminSidebarProps {
@@ -62,7 +63,7 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const effectiveRole = userRole === "SUB_ADMIN" ? (subAdminRole ?? "") : userRole;
-  const roleLabel = SUB_ADMIN_ROLE_LABELS[effectiveRole] ?? { label: effectiveRole.toLowerCase(), color: "#94A3B8" };
+  const roleLabel = SUB_ADMIN_ROLE_LABELS[effectiveRole] ?? { label: effectiveRole.toLowerCase(), color: "#34D399" };
 
   const handleSignOut = () => {
     setMobileOpen(false);
@@ -77,47 +78,46 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
   });
 
   const sidebarContent = (
-    <div className="flex h-full flex-col">
-      {/* Logo / Brand Header */}
-      <div
-        className="flex items-center justify-between gap-3 px-6 py-5"
-        style={{ borderBottom: "1px solid #1E293B" }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl"
-            style={{ background: "linear-gradient(135deg, #22C55E, #16A34A)" }}
-          >
-            <GraduationCap size={18} color="#fff" strokeWidth={2.5} />
+    <div className="flex h-full flex-col bg-[#1E293B] border-r border-slate-700/80 select-none text-white shadow-xl">
+      {/* Brand Header */}
+      <div className="flex items-center justify-between gap-3 px-6 py-5 border-b border-slate-700/80 bg-[#0F172A]">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2D9E6B] text-white font-800 shadow-md">
+            <GraduationCap size={22} strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-sm font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: "-0.02em" }}>
-              ApnaTutorHub
-            </p>
-            <p className="text-xs" style={{ color: roleLabel.color, fontFamily: "'Fira Code', monospace" }}>
-              {roleLabel.label}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-base font-800 text-white tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+                ApnaTutorHub
+              </span>
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-800 uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                PRO
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-[#2D9E6B]" />
+              <span className="text-[10px] font-800 uppercase tracking-wider text-emerald-300">
+                {roleLabel.label}
+              </span>
+            </div>
           </div>
         </div>
         <button
           onClick={() => setMobileOpen(false)}
-          className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 lg:hidden"
+          className="rounded-xl p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden cursor-pointer"
           aria-label="Close sidebar"
         >
           <X size={20} />
         </button>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <p
-          className="mb-2 px-3 text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "#475569" }}
-        >
-          Governance
-        </p>
-        <ul className="space-y-1">
-          {visibleNavItems.map((item) => {
+      {/* Navigation Links with custom scrollbar & distinct colorful icons */}
+      <nav className="flex-1 overflow-y-auto px-4 py-5 space-y-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-700/60 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+        <div className="space-y-1.5">
+          <p className="px-3 text-[10px] font-800 uppercase tracking-widest text-slate-400 mb-2">
+            Command Center
+          </p>
+          {visibleNavItems.slice(0, 4).map((item) => {
             const Icon = item.icon;
             const active =
               item.href === "/admin/dashboard"
@@ -125,77 +125,88 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
                 : pathname.startsWith(item.href);
             const badge = "badge" in item ? (item as { badge?: string }).badge : undefined;
             return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200"
-                  style={{
-                    background: active
-                      ? "linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05))"
-                      : "transparent",
-                    color: active ? "#22C55E" : "#94A3B8",
-                    border: active ? "1px solid rgba(34,197,94,0.2)" : "1px solid transparent",
-                  }}
-                >
-                  <Icon size={16} strokeWidth={active ? 2.5 : 2} />
-                  <span style={{ fontFamily: "'Fira Sans', sans-serif" }}>{item.label}</span>
-                  {badge && !active && (
-                    <span
-                      className="ml-auto flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
-                      style={{ background: "#EF4444", color: "#fff" }}
-                    >
-                      {badge}
-                    </span>
-                  )}
-                  {active && (
-                    <ChevronRight
-                      size={14}
-                      className="ml-auto opacity-70"
-                      style={{ color: "#22C55E" }}
-                    />
-                  )}
-                </Link>
-              </li>
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={`group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-xs transition-all duration-150 ${
+                  active
+                    ? "bg-[#0F172A] !text-white font-800 shadow-md border border-slate-700/80"
+                    : "text-slate-300 hover:text-white font-600 hover:bg-slate-800/80 border border-transparent"
+                }`}
+              >
+                <Icon size={18} strokeWidth={active ? 2.5 : 2} className={`${item.iconColor} shrink-0`} />
+                <span className="truncate">{item.label}</span>
+                {badge && !active && (
+                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-800 text-white animate-bounce shadow-xs">
+                    {badge}
+                  </span>
+                )}
+                {active && (
+                  <ChevronRight size={16} className="ml-auto text-emerald-400" />
+                )}
+              </Link>
             );
           })}
-        </ul>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="px-3 text-[10px] font-800 uppercase tracking-widest text-slate-400 mb-2">
+            Operations &amp; Growth
+          </p>
+          {visibleNavItems.slice(4).map((item) => {
+            const Icon = item.icon;
+            const active = pathname.startsWith(item.href);
+            const badge = "badge" in item ? (item as { badge?: string }).badge : undefined;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={`group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-xs transition-all duration-150 ${
+                  active
+                    ? "bg-[#0F172A] !text-white font-800 shadow-md border border-slate-700/80"
+                    : "text-slate-300 hover:text-white font-600 hover:bg-slate-800/80 border border-transparent"
+                }`}
+              >
+                <Icon size={18} strokeWidth={active ? 2.5 : 2} className={`${item.iconColor} shrink-0`} />
+                <span className="truncate">{item.label}</span>
+                {badge && !active && (
+                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-800 text-white shadow-xs">
+                    {badge}
+                  </span>
+                )}
+                {active && (
+                  <ChevronRight size={16} className="ml-auto text-emerald-400" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
-      {/* Footer — user info + sign out */}
-      <div
-        className="px-4 py-4"
-        style={{ borderTop: "1px solid #1E293B" }}
-      >
-        <div
-          className="mb-3 flex items-center gap-3 rounded-xl px-3 py-2.5"
-          style={{ background: "rgba(30,41,59,0.6)" }}
-        >
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white shrink-0"
-            style={{ background: roleLabel.color }}
-          >
+      {/* User Info Footer */}
+      <div className="p-4 border-t border-slate-700/80 bg-[#0F172A] space-y-3">
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-800/80 border border-slate-700/80 shadow-xs">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl font-800 text-xs text-white shrink-0 bg-[#2D9E6B] shadow-2xs">
             {userName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-white">
+            <p className="truncate text-xs font-800 text-white">
               {userName}
             </p>
-            <p
-              className="text-xs"
-              style={{ color: roleLabel.color, fontFamily: "'Fira Code', monospace" }}
-            >
+            <span className="inline-block text-[10px] font-800 px-2 py-0.5 rounded-full uppercase tracking-wider mt-0.5 text-emerald-300 bg-emerald-500/20 border border-emerald-400/30">
               {roleLabel.label}
-            </p>
+            </span>
           </div>
         </div>
+
         <button
           onClick={handleSignOut}
-          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 hover:bg-red-900/20 hover:text-red-400"
-          style={{ color: "#64748B" }}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-800 text-rose-300 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 transition-colors cursor-pointer"
         >
           <LogOut size={15} />
-          Sign Out
+          <span>Sign Out Admin</span>
         </button>
       </div>
     </div>
@@ -204,20 +215,22 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
   return (
     <>
       {/* Mobile Topbar */}
-      <div className="flex items-center justify-between border-b border-[#1E293B] bg-[#0F172A] px-4 py-3 lg:hidden">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between border-b border-slate-700 bg-[#1E293B] px-4 py-3.5 lg:hidden z-40">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setMobileOpen(true)}
-            className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-white hover:bg-slate-700"
+            className="rounded-xl border border-slate-700 bg-slate-800 p-2 text-white hover:bg-slate-700 cursor-pointer"
             aria-label="Open navigation"
           >
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-500 text-white">
-              <GraduationCap size={15} />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2D9E6B] text-white font-800 shadow-2xs">
+              <GraduationCap size={16} />
             </div>
-            <span className="font-bold text-white text-sm">ApnaTutorHub Admin</span>
+            <span className="font-800 text-white text-sm tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+              ApnaTutorHub Admin
+            </span>
           </div>
         </div>
       </div>
@@ -227,8 +240,6 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
         className="fixed inset-y-0 left-0 z-40 hidden flex-col lg:flex"
         style={{
           width: "260px",
-          background: "linear-gradient(180deg, #0F172A 0%, #0A0F1E 100%)",
-          borderRight: "1px solid #1E293B",
         }}
       >
         {sidebarContent}
@@ -241,13 +252,7 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
             onClick={() => setMobileOpen(false)}
           />
-          <aside
-            className="relative flex w-4/5 max-w-xs flex-1 flex-col"
-            style={{
-              background: "linear-gradient(180deg, #0F172A 0%, #0A0F1E 100%)",
-              borderRight: "1px solid #1E293B",
-            }}
-          >
+          <aside className="relative flex w-4/5 max-w-xs flex-1 flex-col">
             {sidebarContent}
           </aside>
         </div>

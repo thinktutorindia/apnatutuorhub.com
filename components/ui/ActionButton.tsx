@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { Loader2, AlertTriangle, CheckCircle, Trash2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 
 interface ActionButtonProps {
   action: () => Promise<any>;
@@ -28,20 +28,19 @@ export function ActionButton({
 }: ActionButtonProps) {
   const [isPending, startTransition] = useTransition();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const getVariantStyles = () => {
     switch (variant) {
       case "danger":
-        return "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40";
+        return "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-800 shadow-2xs";
       case "warning":
-        return "bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40";
+        return "bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 font-800 shadow-2xs";
       case "success":
-        return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40";
+        return "bg-emerald-50 text-emerald-950 border border-emerald-200 hover:bg-emerald-100 font-800 shadow-2xs";
       case "secondary":
-        return "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700";
+        return "bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200 font-800 shadow-2xs";
       default:
-        return "bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/40";
+        return "bg-white text-[#0F2540] border border-slate-300 hover:bg-slate-50 font-800 shadow-2xs";
     }
   };
 
@@ -72,8 +71,8 @@ export function ActionButton({
         type="button"
         onClick={handleClick}
         disabled={isPending}
-        className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 cursor-pointer ${
-          size === "sm" ? "px-2.5 py-1.5 text-xs" : "px-4 py-2 text-sm"
+        className={`inline-flex items-center justify-center gap-1.5 rounded-2xl transition-all duration-200 disabled:opacity-50 cursor-pointer ${
+          size === "sm" ? "px-3 py-1.5 text-xs font-800" : "px-4 py-2 text-xs font-800"
         } ${getVariantStyles()} ${className}`}
       >
         {isPending ? (
@@ -89,34 +88,40 @@ export function ActionButton({
         )}
       </button>
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal (Corporate Light) */}
       {showConfirm && (
-        <div className="fixed inset-0 z-[99999] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0F172A] border border-[#1E293B] p-6 max-w-sm w-full rounded-2xl shadow-2xl space-y-4 text-white">
+        <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 p-6 max-w-sm w-full rounded-3xl shadow-2xl space-y-4 text-slate-900">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center shrink-0 border border-red-500/20">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
                 <AlertTriangle size={20} />
               </div>
               <div>
-                <h3 className="text-base font-bold">{confirmTitle || "Confirm Action"}</h3>
-                <p className="text-xs text-slate-400 mt-0.5">{confirmMessage}</p>
+                <h3 className="font-800 text-base text-[#0F2540]">
+                  {confirmTitle || "Confirm Action"}
+                </h3>
+                <p className="text-xs font-600 text-slate-600">This action requires confirmation</p>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1E293B]">
+
+            <p className="text-xs font-700 text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-2xl border border-slate-200">
+              {confirmMessage}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowConfirm(false)}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 cursor-pointer"
+                className="px-4 py-2 rounded-2xl text-xs font-800 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleExecute}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-red-500 text-slate-950 hover:bg-red-400 cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2 rounded-2xl text-xs font-800 text-white bg-red-600 hover:bg-red-700 shadow-md transition-colors cursor-pointer"
               >
-                <Trash2 size={14} />
-                <span>Confirm & Proceed</span>
+                Confirm &amp; Proceed
               </button>
             </div>
           </div>

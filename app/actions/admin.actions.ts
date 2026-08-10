@@ -1034,7 +1034,14 @@ export async function adminUpdateFullUserAction(
   const city = formData.get("city")?.toString().trim() || null;
   const state = formData.get("state")?.toString().trim() || null;
   const pincode = formData.get("pincode")?.toString().trim() || null;
+  const address = formData.get("address")?.toString().trim() || null;
+  const latRaw = formData.get("latitude")?.toString().trim();
+  const lngRaw = formData.get("longitude")?.toString().trim();
+  const latitude = latRaw && !isNaN(parseFloat(latRaw)) ? parseFloat(latRaw) : null;
+  const longitude = lngRaw && !isNaN(parseFloat(lngRaw)) ? parseFloat(lngRaw) : null;
+
   const kycStatus = formData.get("kycStatus")?.toString() as any;
+  const kycRejectionNote = formData.get("kycRejectionNote")?.toString().trim() || null;
   const kycIdProofUrl = formData.get("kycIdProofUrl")?.toString().trim() || null;
   const kycAddressUrl = formData.get("kycAddressUrl")?.toString().trim() || null;
   const kycSelfieUrl = formData.get("kycSelfieUrl")?.toString().trim() || null;
@@ -1076,6 +1083,7 @@ export async function adminUpdateFullUserAction(
         update: { city, pincode },
       });
     } else if (role === "TUTOR") {
+      const isVerified = kycStatus === "APPROVED";
       const tp = await tx.tutorProfile.upsert({
         where: { userId },
         create: {
@@ -1083,7 +1091,12 @@ export async function adminUpdateFullUserAction(
           city,
           state,
           pincode,
+          address,
+          latitude,
+          longitude,
           kycStatus: kycStatus || "NOT_SUBMITTED",
+          isVerified,
+          kycRejectionNote,
           kycIdProofUrl,
           kycAddressUrl,
           kycSelfieUrl,
@@ -1099,7 +1112,11 @@ export async function adminUpdateFullUserAction(
           city,
           state,
           pincode,
-          ...(kycStatus ? { kycStatus } : {}),
+          ...(address ? { address } : {}),
+          ...(latitude !== null ? { latitude } : {}),
+          ...(longitude !== null ? { longitude } : {}),
+          ...(kycStatus ? { kycStatus, isVerified } : {}),
+          kycRejectionNote,
           kycIdProofUrl,
           kycAddressUrl,
           kycSelfieUrl,

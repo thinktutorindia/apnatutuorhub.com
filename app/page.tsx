@@ -5,6 +5,7 @@ import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { HomeHeroCard } from "@/components/home/HomeHeroCard";
 import { HomeFaqAccordion } from "@/components/home/HomeFaqAccordion";
+import { HomepageJsonLd } from "@/components/seo/JsonLdSchemas";
 import {
   LayoutDashboard, ArrowRight, ShieldCheck, CheckCircle2,
   User, Check, Star, MapPin, Award
@@ -213,6 +214,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen text-gray-900 bg-[#F7F8FA]">
+      <HomepageJsonLd />
 
       {/* ── Navbar (Auth-Aware) ───────────────────────────────── */}
       <header

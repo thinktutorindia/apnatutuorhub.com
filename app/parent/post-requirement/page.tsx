@@ -3,8 +3,15 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { RequirementForm } from "@/components/parent/RequirementForm";
 
-export const metadata = {
-  title: "Post a Requirement | ApnaTutorHub",
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Post Tuition Requirement — Find Tutors Near You",
+  description:
+    "Tell us your learning needs, subject, class level, and location. Get matched for free with verified home and online tutors in your area.",
+  alternates: {
+    canonical: "/parent/post-requirement",
+  },
 };
 
 export default async function PostRequirementPage() {

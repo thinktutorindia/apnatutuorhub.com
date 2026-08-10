@@ -4,8 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { calcProfileScore } from "@/lib/profile-score";
 import { TutorProfilePage } from "@/components/tutor/TutorProfilePage";
 
-export const metadata = {
-  title: "Profile & KYC | ApnaTutorHub",
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Tutor Profile & Verification — ApnaTutorHub",
+  description:
+    "Complete your tutor profile, submit KYC verifications, set teaching availability, and connect with student requirements near you.",
 };
 
 export default async function TutorProfilePageRoute() {

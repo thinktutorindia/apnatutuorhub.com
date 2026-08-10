@@ -30,6 +30,14 @@ enum KycStatus {
   REJECTED
 }
 
+enum SubscriptionPlan {
+  NONE
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
 enum SubAdminRole {
   SUPPORT
   VERIFICATION
@@ -258,6 +266,10 @@ model TutorProfile {
   kycAddressUrl    String?
   kycSelfieUrl     String?
   kycRejectionNote String?
+  subscriptionPlan SubscriptionPlan @default(NONE)
+  subscriptionExpiresAt DateTime?
+  leadsUsedThisMonth Int        @default(0)
+  leadsResetAt     DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -268,6 +280,7 @@ model TutorProfile {
   purchases     LeadPurchase[]
   availability  TutorAvailability[]
   conversations Conversation[]
+  subscriptions TutorSubscription[]
 
   @@map("tutor_profiles")
 }
@@ -282,6 +295,24 @@ model TutorAvailability {
   tutorProfile TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
 
   @@map("tutor_availability")
+}
+
+model TutorSubscription {
+  id                String           @id @default(cuid())
+  tutorProfileId    String
+  plan              SubscriptionPlan
+  priceInr          Int              // Annual price in INR
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  startDate         DateTime         @default(now())
+  endDate           DateTime
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+
+  tutorProfile TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([tutorProfileId])
+  @@map("tutor_subscriptions")
 }
 
 // ────────────────────────────────────────────────

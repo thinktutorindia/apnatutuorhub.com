@@ -8,10 +8,12 @@ import {
   Upload,
   X,
   Loader2,
+  Zap,
 } from "lucide-react";
 import { submitKYCAction, type KycState } from "@/app/actions/kyc.actions";
 import { FieldError, FormAlert } from "@/components/ui/FieldError";
 import { ActionOverlay } from "@/components/ui/LoadingState";
+import { compressFile, formatFileSize } from "@/lib/compression";
 
 const initialState: KycState = { success: false };
 
@@ -50,7 +52,7 @@ const DOC_FIELDS: DocField[] = [
   },
 ];
 
-type UploadStatus = "idle" | "uploading" | "done" | "error";
+type UploadStatus = "idle" | "compressing" | "uploading" | "done" | "error";
 
 type DocState = {
   objectKey: string;
@@ -58,6 +60,9 @@ type DocState = {
   progress: number;
   error: string | null;
   filename: string | null;
+  savedPercent: number | null;
+  originalSizeKB: number | null;
+  compressedSizeKB: number | null;
 };
 
 const emptyDoc = (): DocState => ({
@@ -66,6 +71,9 @@ const emptyDoc = (): DocState => ({
   progress: 0,
   error: null,
   filename: null,
+  savedPercent: null,
+  originalSizeKB: null,
+  compressedSizeKB: null,
 });
 
 export function KYCUploadModal({
@@ -117,14 +125,55 @@ export function KYCUploadModal({
           status: "error",
           progress: 0,
           error: "File exceeds 5 MB limit.",
+          savedPercent: null,
+          originalSizeKB: null,
+          compressedSizeKB: null,
         },
       }));
       return;
     }
 
+    // ── Stage 1: Compressing ──────────────────────────────────────────────
     setDocs((prev) => ({
       ...prev,
-      [field.key]: { ...prev[field.key], status: "uploading", progress: 10, error: null, filename: file.name },
+      [field.key]: {
+        ...prev[field.key],
+        status: "compressing",
+        progress: 15,
+        error: null,
+        filename: file.name,
+        savedPercent: null,
+        originalSizeKB: null,
+        compressedSizeKB: null,
+      },
+    }));
+
+    let fileToUpload = file;
+    let savedPercent = 0;
+    let originalSizeKB = file.size / 1024;
+    let compressedSizeKB = originalSizeKB;
+
+    try {
+      const result = await compressFile(file);
+      fileToUpload = result.file;
+      savedPercent = result.savedPercent;
+      originalSizeKB = result.originalSizeKB;
+      compressedSizeKB = result.compressedSizeKB;
+    } catch {
+      // Fallback: upload original
+    }
+
+    // ── Stage 2: Uploading ────────────────────────────────────────────────
+    setDocs((prev) => ({
+      ...prev,
+      [field.key]: {
+        ...prev[field.key],
+        status: "uploading",
+        progress: 45,
+        savedPercent,
+        originalSizeKB,
+        compressedSizeKB,
+      },
     }));
 
     try {
@@ -133,7 +182,7 @@ export function KYCUploadModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           docType: field.docType,
-          contentType: file.type,
+          contentType: fileToUpload.type,
         }),
       });
 
@@ -141,12 +190,17 @@ export function KYCUploadModal({
         throw new Error("Failed to get upload URL");
       }
 
+      setDocs((prev) => ({
+        ...prev,
+        [field.key]: { ...prev[field.key], progress: 70 },
+      }));
+
       const { uploadUrl, objectKey } = await resp.json();
 
       const uploadResp = await fetch(uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+        headers: { "Content-Type": fileToUpload.type },
+        body: fileToUpload,
       });
 
       if (!uploadResp.ok) {
@@ -161,6 +215,9 @@ export function KYCUploadModal({
           progress: 100,
           error: null,
           filename: file.name,
+          savedPercent,
+          originalSizeKB,
+          compressedSizeKB,
         },
       }));
     } catch (err: unknown) {
@@ -249,7 +306,9 @@ export function KYCUploadModal({
         <div className="space-y-3">
           {DOC_FIELDS.map((field) => {
             const doc = docs[field.key];
+            const isCompressing = doc.status === "compressing";
             const isUploading = doc.status === "uploading";
+            const isBusy = isCompressing || isUploading;
             const isDone = Boolean(doc.objectKey && doc.status !== "error");
 
             return (
@@ -266,11 +325,19 @@ export function KYCUploadModal({
                       {field.hint}
                     </p>
                   </div>
-                  {isDone && (
-                    <span className="inline-flex items-center gap-1 text-xs font-700 text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full shrink-0">
-                      <CheckCircle2 size={13} /> Uploaded
-                    </span>
-                  )}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    {isDone && (
+                      <span className="inline-flex items-center gap-1 text-xs font-700 text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                        <CheckCircle2 size={13} /> Uploaded
+                      </span>
+                    )}
+                    {isDone && doc.savedPercent !== null && doc.savedPercent > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-700 text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                        <Zap size={10} className="text-blue-500" />
+                        {doc.savedPercent}% smaller · {Math.round(doc.compressedSizeKB!)} KB
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-3 flex items-center gap-3">
@@ -289,11 +356,16 @@ export function KYCUploadModal({
 
                   <button
                     type="button"
-                    disabled={isUploading}
+                    disabled={isBusy}
                     onClick={() => fileInputRefs.current[field.key]?.click()}
                     className="px-4 py-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-xs font-700 text-gray-800 flex items-center gap-2 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
                   >
-                    {isUploading ? (
+                    {isCompressing ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin text-blue-500" />
+                        <span>Compressing...</span>
+                      </>
+                    ) : isUploading ? (
                       <>
                         <Loader2 size={14} className="animate-spin text-[#2D9E6B]" />
                         <span>Uploading...</span>

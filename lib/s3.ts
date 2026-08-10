@@ -83,7 +83,9 @@ export async function generatePresignedUploadUrl(
 
   const { data, error } = await supabase.storage
     .from("kyc-documents")
-    .createSignedUploadUrl(objectKey);
+    .createSignedUploadUrl(objectKey, {
+      upsert: true, // Allow overwriting an existing file — prevents "resource already exists" error on re-uploads
+    });
 
   if (error || !data?.signedUrl) {
     throw new Error(`Supabase Storage signed upload URL error: ${error?.message ?? "Unknown error"}`);

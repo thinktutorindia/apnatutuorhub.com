@@ -76,8 +76,20 @@ export function calculateRankingScore(
     (tutor.profileScore / 100) * weights.profileCompletion
   );
 
+  // ── 5. Subscription Plan Priority (Platinum VIP = #1 Priority) ────────
+  let subscriptionBonus = 0;
+  if (tutor.subscriptionPlan === "PLATINUM") {
+    subscriptionBonus = 10000; // 🥇 Platinum VIP First Priority
+  } else if (tutor.subscriptionPlan === "GOLD") {
+    subscriptionBonus = 3000;
+  } else if (tutor.subscriptionPlan === "SILVER") {
+    subscriptionBonus = 1500;
+  } else if (tutor.subscriptionPlan === "BRONZE") {
+    subscriptionBonus = 500;
+  }
+
   // ── Total ──────────────────────────────────────────────────────────────
-  const total = verifiedBadge + distanceRank + bayesianRating + profileCompletion;
+  const total = verifiedBadge + distanceRank + bayesianRating + profileCompletion + subscriptionBonus;
 
   return {
     total,

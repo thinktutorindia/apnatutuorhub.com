@@ -39,6 +39,7 @@ type CandidateTutor = {
   averageRating: number;
   totalReviews: number;
   introVideoUrl: string | null;
+  subscriptionPlan?: string | null;
   user: { name: string | null; email: string };
 };
 
@@ -175,6 +176,7 @@ export async function findMatchingTutors(
       averageRating: true,
       totalReviews: true,
       introVideoUrl: true,
+      subscriptionPlan: true,
       user: { select: { name: true, email: true } },
     },
   });

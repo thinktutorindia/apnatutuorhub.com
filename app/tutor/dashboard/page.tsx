@@ -146,6 +146,13 @@ export default async function TutorDashboardPage() {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
             <Link
+              href="/tutor/plans"
+              className="px-4 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 !text-white text-sm font-800 flex items-center justify-center gap-2 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-lg border border-purple-400/40"
+            >
+              <Sparkles size={16} className="text-yellow-300" />
+              <span>Membership Plans</span>
+            </Link>
+            <Link
               href="/tutor/leads"
               className="btn-shine px-5 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-sm font-700 flex items-center justify-center gap-2 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl hover:shadow-emerald-500/25"
             >

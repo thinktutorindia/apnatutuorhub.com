@@ -7,12 +7,13 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   LayoutDashboard, Search, Calendar, MessageSquare,
-  Wallet, User, LogOut, X, Menu, ChevronRight,
+  Wallet, User, LogOut, X, Menu, ChevronRight, Crown,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/tutor/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/tutor/leads", label: "Find Students", icon: Search },
+  { href: "/tutor/plans", label: "Membership Plans", icon: Crown },
   { href: "/tutor/bookings", label: "Classes", icon: Calendar },
   { href: "/chat", label: "Messages", icon: MessageSquare },
   { href: "/tutor/wallet", label: "Wallet", icon: Wallet },

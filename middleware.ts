@@ -28,6 +28,10 @@ export default auth((req: NextRequest & { auth: any }) => {
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/icons") ||
     pathname.startsWith("/manifest") ||
+    pathname.startsWith("/sitemap") ||
+    pathname.startsWith("/robots") ||
+    pathname.startsWith("/home-tutors") ||
+    pathname.startsWith("/tutors") ||
     pathname === "/";
 
   const isAdminRoute = pathname.startsWith("/admin");
@@ -153,9 +157,9 @@ export default auth((req: NextRequest & { auth: any }) => {
 export const config = {
   matcher: [
     /*
-     * Match every route except Next.js internals and static files.
-     * This ensures security headers are applied globally.
+     * Match every route except Next.js internals, static files, and SEO metadata files.
+     * This ensures security headers are applied globally while allowing crawlers to fetch sitemap & robots.
      */
-    "/((?!_next/static|_next/image|favicon.ico|icons|manifest|sw.js|workbox|loading.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot)).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap|robots|manifest|icons|sw.js|workbox|loading.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|xml|txt|json)).*)",
   ],
 };

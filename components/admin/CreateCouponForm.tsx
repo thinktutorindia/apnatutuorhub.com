@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Plus, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createCouponAction } from "@/app/actions/coupon.actions";
+import { ActionOverlay } from "@/components/ui/LoadingState";
 
 export function CreateCouponForm() {
   const [isPending, startTransition] = useTransition();
@@ -30,6 +31,11 @@ export function CreateCouponForm() {
 
   return (
     <div className="rounded-3xl bg-white p-6 border border-slate-200 shadow-xs space-y-5">
+      <ActionOverlay
+        isOpen={isPending}
+        title="Publishing Coupon Code"
+        subtitle="Creating coupon rules and saving to platform settings..."
+      />
       <div className="flex items-center gap-2 pb-3 border-b border-slate-200">
         <Plus size={20} className="text-[#2D9E6B]" />
         <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>

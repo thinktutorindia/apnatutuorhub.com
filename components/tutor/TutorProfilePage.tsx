@@ -30,6 +30,7 @@ type ProfileData = {
   kycSelfieUrl: string | null;
   isVerified: boolean;
   profileScore: number;
+  coinBalance: number;
 };
 
 export function TutorProfilePage({
@@ -129,6 +130,7 @@ export function TutorProfilePage({
           address: profile.address,
           introVideoUrl: profile.introVideoUrl,
           availability: profile.availability,
+          coinBalance: profile.coinBalance,
         }}
         kyc={{
           kycStatus: profile.kycStatus,

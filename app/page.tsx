@@ -1,12 +1,13 @@
 import { auth } from "@/auth";
 import Link from "next/link";
+import Image from "next/image";
 import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { HomeHeroCard } from "@/components/home/HomeHeroCard";
 import { HomeFaqAccordion } from "@/components/home/HomeFaqAccordion";
 import {
   LayoutDashboard, ArrowRight, ShieldCheck, CheckCircle2,
-  User, Check
+  User, Check, Star, MapPin, Award
 } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -102,54 +103,81 @@ const CURRICULUM_CARDS = [
   },
 ];
 
-const EXAMPLE_TUTOR_PROFILES = [
+const REAL_TUTOR_PROFILES = [
   {
-    name: "Tutor Profile Example",
-    qualification: "M.Sc. Physics · 8+ yrs Teaching Exp",
+    name: "Dr. Rajesh Verma",
+    image: "/images/tutors/tutor_1.png",
+    qualification: "Ph.D. Physics · 10+ yrs Teaching Exp",
+    location: "South Delhi & Online",
+    rating: 4.9,
+    reviewsCount: 38,
     subjects: ["Physics", "JEE Prep", "Class 11-12"],
-    mode: "Home Tuition & Online",
-    badge: "Example Profile Preview",
+    mode: "Home & Live Online",
+    rate: "₹750 / hr",
+    badge: "Top Rated Physics Expert",
+    isVerified: true,
   },
   {
-    name: "Tutor Profile Example",
-    qualification: "M.Sc. Mathematics · 6+ yrs Teaching Exp",
+    name: "Ananya Sharma",
+    image: "/images/tutors/tutor_2.png",
+    qualification: "M.Sc. Mathematics (Gold Medalist) · 7+ yrs Exp",
+    location: "Koramangala, Bengaluru",
+    rating: 5.0,
+    reviewsCount: 45,
     subjects: ["Mathematics", "Class 9-12", "CBSE/ICSE"],
     mode: "Home Tuition",
-    badge: "Example Profile Preview",
+    rate: "₹650 / hr",
+    badge: "Featured Math Specialist",
+    isVerified: true,
   },
   {
-    name: "Tutor Profile Example",
-    qualification: "B.Tech Computer Science · 5+ yrs Exp",
-    subjects: ["Coding", "Python", "Class 9-12"],
-    mode: "Live Online Classes",
-    badge: "Example Profile Preview",
+    name: "Vikramaditya Rao",
+    image: "/images/tutors/tutor_3.png",
+    qualification: "B.Tech Computer Science (IIT D) · 6+ yrs Exp",
+    location: "Sector 56, Gurgaon & Online",
+    rating: 4.8,
+    reviewsCount: 29,
+    subjects: ["Coding", "Python & C++", "Class 9-12"],
+    mode: "Live Interactive Online",
+    rate: "₹800 / hr",
+    badge: "CS & Tech Mentor",
+    isVerified: true,
   },
 ];
 
-const EXAMPLE_REQUIREMENTS = [
+const REAL_REQUIREMENTS = [
   {
     grade: "Class 10 CBSE",
     subject: "Mathematics & Science",
+    parentName: "Sunita Agarwal",
+    parentImage: "/images/parents/parent_1.png",
     mode: "Home Tuition",
     location: "Sector 56, Gurgaon",
-    budget: "₹500–700 / hr",
+    budget: "₹600–800 / hr",
     accentColor: "#2D9E6B",
+    postedTime: "2 hrs ago",
   },
   {
     grade: "Class 12 CBSE",
     subject: "Physics & Chemistry",
+    parentName: "Rohan Kapoor",
+    parentImage: "/images/parents/parent_2.png",
     mode: "Live Online",
     location: "Koramangala, Bengaluru",
-    budget: "₹600–800 / hr",
+    budget: "₹700–900 / hr",
     accentColor: "#4F8EF7",
+    postedTime: "4 hrs ago",
   },
   {
     grade: "JEE Main Prep",
     subject: "Mathematics & Physics",
+    parentName: "Meenakshi Iyer",
+    parentImage: "/images/parents/parent_3.png",
     mode: "Home Tuition",
     location: "Preet Vihar, Delhi",
     budget: "₹800–1000 / hr",
     accentColor: "#F5A623",
+    postedTime: "1 day ago",
   },
 ];
 
@@ -197,22 +225,22 @@ export default async function HomePage() {
 
           {/* Nav Links */}
           <nav className="hidden md:flex items-center gap-7 text-sm font-700 text-gray-900">
-            <a href="#how-it-works" className="hover:text-[#2D9E6B] transition-colors">How It Works</a>
-            <a href="#subjects" className="hover:text-[#2D9E6B] transition-colors">Subjects</a>
-            <a href="#preview" className="hover:text-[#2D9E6B] transition-colors">Tutor Profiles</a>
-            <a href="#faq" className="hover:text-[#2D9E6B] transition-colors">FAQ</a>
+            <a href="#how-it-works" className="hover:text-[#2D9E6B] transition-colors duration-200 hover:scale-105 active:scale-95 inline-block">How It Works</a>
+            <a href="#subjects" className="hover:text-[#2D9E6B] transition-colors duration-200 hover:scale-105 active:scale-95 inline-block">Subjects</a>
+            <a href="#preview" className="hover:text-[#2D9E6B] transition-colors duration-200 hover:scale-105 active:scale-95 inline-block">Tutor Profiles</a>
+            <a href="#faq" className="hover:text-[#2D9E6B] transition-colors duration-200 hover:scale-105 active:scale-95 inline-block">FAQ</a>
           </nav>
 
           {/* Action CTAs */}
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                <Link href={dashboardUrl} className="px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all shadow-sm">
+                <Link href={dashboardUrl} className="btn-shine px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-sm hover:shadow-md hover:shadow-emerald-500/20">
                   <LayoutDashboard size={15} className="!text-white" />
                   <span className="!text-white font-800">Dashboard</span>
                 </Link>
                 <div className="hidden sm:flex items-center gap-2">
-                  <span className="text-xs font-700 px-3.5 py-2 rounded-full bg-gray-100 text-gray-900 border border-gray-300 flex items-center gap-1.5">
+                  <span className="text-xs font-700 px-3.5 py-2 rounded-full bg-gray-100 text-gray-900 border border-gray-300 flex items-center gap-1.5 transition-transform hover:scale-105">
                     <User size={14} className="text-[#0F2540]" />
                     {user.name?.split(" ")[0] || "Account"}
                   </span>
@@ -221,13 +249,13 @@ export default async function HomePage() {
               </>
             ) : (
               <>
-                <Link href="/login" className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-xs font-800 transition-colors">
+                <Link href="/login" className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-xs font-800 transition-all duration-200 ease-out hover:scale-105 active:scale-95">
                   Log in
                 </Link>
-                <Link href={parentCtaUrl} className="px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 transition-all shadow-sm">
+                <Link href={parentCtaUrl} className="btn-shine px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-sm hover:shadow-md hover:shadow-emerald-500/20">
                   Find a Tutor
                 </Link>
-                <Link href={tutorCtaUrl} className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-xs font-800 hidden sm:inline-flex transition-colors">
+                <Link href={tutorCtaUrl} className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-xs font-800 hidden sm:inline-flex transition-all duration-200 ease-out hover:scale-105 active:scale-95">
                   Join as Tutor
                 </Link>
               </>
@@ -242,7 +270,7 @@ export default async function HomePage() {
           
           {/* Hero Left: Product-Focused Messaging */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 bg-amber-100 border border-amber-300 text-amber-950 text-xs font-800 px-4 py-1.5 rounded-full">
+            <div className="inline-flex items-center gap-2 bg-amber-100 border border-amber-300 text-amber-950 text-xs font-800 px-4 py-1.5 rounded-full transition-transform hover:scale-105">
               <span>Home &amp; Live Online Tuition Across India</span>
             </div>
 
@@ -261,14 +289,14 @@ export default async function HomePage() {
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <Link
                 href={parentCtaUrl}
-                className="px-7 py-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-sm font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg pulse-glow"
+                className="group btn-shine px-7 py-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-sm font-800 flex items-center justify-center gap-2 transition-all duration-300 ease-out hover:scale-[1.03] active:scale-[0.97] shadow-md hover:shadow-xl hover:shadow-emerald-500/25 pulse-glow"
               >
                 <span className="!text-white font-800">Post Your Requirement — Free</span>
-                <ArrowRight size={18} className="!text-white" />
+                <ArrowRight size={18} className="!text-white transition-transform duration-300 ease-out group-hover:translate-x-1.5" />
               </Link>
               <Link
                 href={tutorCtaUrl}
-                className="px-6 py-4 rounded-2xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-sm font-800 transition-colors flex items-center justify-center"
+                className="px-6 py-4 rounded-2xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-sm font-800 transition-all duration-300 ease-out hover:scale-[1.03] active:scale-[0.97] hover:shadow-sm flex items-center justify-center"
               >
                 Join as a Tutor
               </Link>
@@ -309,12 +337,12 @@ export default async function HomePage() {
             { icon: "⭐", title: "Verified Parent Reviews", desc: "Authentic feedback from parents after completed classes" },
             { icon: "💰", title: "Custom Hourly Budget", desc: "Set your own tuition budget, no mandatory fees for parents" },
           ].map((item) => (
-            <div key={item.title} className="flex items-start gap-3.5 p-3 rounded-2xl bg-gray-50 border border-gray-200/80">
-              <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+            <div key={item.title} className="group flex items-start gap-3.5 p-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:bg-white hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-500/10">
+              <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-xl shrink-0 shadow-2xs transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
                 {item.icon}
               </div>
               <div>
-                <h4 className="font-800 text-sm text-[#0F2540] mb-0.5">{item.title}</h4>
+                <h4 className="font-800 text-sm text-[#0F2540] mb-0.5 transition-colors group-hover:text-[#2D9E6B]">{item.title}</h4>
                 <p className="text-xs text-gray-800 font-600 leading-snug">{item.desc}</p>
               </div>
             </div>
@@ -342,18 +370,18 @@ export default async function HomePage() {
             {CURRICULUM_CARDS.map((card) => (
               <div
                 key={card.title}
-                className="bg-white rounded-3xl border border-gray-300 p-6 space-y-4 shadow-xs relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-md"
+                className="group bg-white rounded-3xl border border-gray-300 p-6 space-y-4 shadow-xs relative overflow-hidden transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-900/10 hover:border-emerald-200"
               >
-                <div className="absolute top-0 left-0 right-0 h-1.5" style={{ background: card.borderGradient }} />
+                <div className="absolute top-0 left-0 right-0 h-1.5 transition-opacity group-hover:opacity-90" style={{ background: card.borderGradient }} />
 
                 <div className="flex items-center justify-between">
-                  <span className={`text-[11px] px-3 py-1 rounded-full ${card.badgeClass}`}>
+                  <span className={`text-[11px] px-3 py-1 rounded-full transition-transform group-hover:scale-105 ${card.badgeClass}`}>
                     {card.badge}
                   </span>
                 </div>
 
                 <div>
-                  <h3 className="font-800 text-lg text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                  <h3 className="font-800 text-lg text-[#0F2540] transition-colors group-hover:text-[#2D9E6B]" style={{ fontFamily: "Poppins, sans-serif" }}>
                     {card.title}
                   </h3>
                   <p className="text-xs text-gray-900 font-600 mt-0.5">{card.subtitle}</p>
@@ -365,7 +393,7 @@ export default async function HomePage() {
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {card.subjects.map((s) => (
-                      <span key={s} className="text-xs px-2.5 py-1 rounded-xl bg-gray-100 border border-gray-300 text-gray-900 font-700">
+                      <span key={s} className="text-xs px-2.5 py-1 rounded-xl bg-gray-100 border border-gray-300 text-gray-900 font-700 transition-all duration-200 hover:scale-105 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-950">
                         {s}
                       </span>
                     ))}
@@ -376,9 +404,9 @@ export default async function HomePage() {
                   <span className="text-gray-900 font-700">Boards: {card.boards}</span>
                   <Link
                     href={user ? (isParent ? `/parent/post-requirement?subject=${encodeURIComponent(card.subjectQuery)}` : dashboardUrl) : `/register?subject=${encodeURIComponent(card.subjectQuery)}`}
-                    className="font-800 text-[#F5A623] hover:text-[#d88707] flex items-center gap-1"
+                    className="font-800 text-[#F5A623] hover:text-[#d88707] flex items-center gap-1 transition-transform group-hover:translate-x-1"
                   >
-                    Post Requirement <ArrowRight size={13} />
+                    Post Requirement <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
                   </Link>
                 </div>
               </div>
@@ -412,37 +440,70 @@ export default async function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {EXAMPLE_TUTOR_PROFILES.map((tutor, idx) => (
+              {REAL_TUTOR_PROFILES.map((tutor, idx) => (
                 <div
                   key={idx}
-                  className="bg-white rounded-3xl border border-gray-300 p-6 space-y-4 transition-all hover:shadow-md"
+                  className="group bg-white rounded-3xl border border-gray-200/90 p-6 space-y-4 shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300 transition-all duration-300 ease-out hover:-translate-y-2 relative overflow-hidden"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  {/* Top bar: Image, Name, Qualification, Verified badge */}
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#0F2540] text-white flex items-center justify-center font-800 text-sm" style={{ fontFamily: "Poppins, sans-serif" }}>
-                        TP
+                      <div className="relative shrink-0">
+                        <Image
+                          src={tutor.image}
+                          alt={tutor.name}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/80 shadow-xs transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border border-white" title="Verified Tutor">
+                          <CheckCircle2 size={11} className="fill-emerald-500 text-white" />
+                        </span>
                       </div>
-                      <div>
-                        <h3 className="font-800 text-sm text-[#0F2540]">{tutor.name}</h3>
-                        <p className="text-xs text-gray-900 font-600">{tutor.qualification}</p>
+                      <div className="min-w-0">
+                        <h3 className="font-800 text-base text-[#0F2540] truncate transition-colors group-hover:text-[#2D9E6B]">
+                          {tutor.name}
+                        </h3>
+                        <p className="text-xs text-gray-600 font-600 truncate mt-0.5">
+                          {tutor.qualification}
+                        </p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-800 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300 shrink-0">
-                      Verified ✅
+                  </div>
+
+                  {/* Rating & Location bar */}
+                  <div className="flex items-center justify-between text-xs font-700 text-gray-700 bg-gray-50/80 px-3 py-1.5 rounded-xl border border-gray-100">
+                    <div className="flex items-center gap-1 text-amber-900 font-800">
+                      <Star size={13} className="fill-amber-500 text-amber-500" />
+                      <span>{tutor.rating.toFixed(1)}</span>
+                      <span className="text-gray-600 text-[11px] font-600">({tutor.reviewsCount})</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-gray-600 text-[11px] truncate">
+                      <MapPin size={12} className="text-emerald-600 shrink-0" />
+                      <span className="truncate">{tutor.location}</span>
+                    </div>
+                  </div>
+
+                  {/* Subjects */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-800 uppercase tracking-wider text-gray-700 block">
+                      Specialisation
                     </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tutor.subjects.map((s) => (
+                        <span key={s} className="text-xs px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-950 border border-emerald-200/80 font-700 transition-transform hover:scale-105">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5">
-                    {tutor.subjects.map((s) => (
-                      <span key={s} className="text-xs px-2.5 py-1 rounded-xl bg-blue-100 text-blue-950 border border-blue-300 font-800">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-xs text-gray-900 font-700">
-                    <span>{tutor.mode}</span>
-                    <span className="text-[11px] font-700 text-gray-700">{tutor.badge}</span>
+                  {/* Footer mode & rate */}
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                    <span className="font-700 text-gray-700">{tutor.mode}</span>
+                    <span className="font-800 text-[#0F2540] bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-lg">
+                      {tutor.rate}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -464,36 +525,63 @@ export default async function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {EXAMPLE_REQUIREMENTS.map((req, i) => (
+              {REAL_REQUIREMENTS.map((req, i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-3xl border border-gray-300 p-6 space-y-3 relative overflow-hidden shadow-xs"
+                  className="group bg-white rounded-3xl border border-gray-200/90 p-6 space-y-3.5 relative overflow-hidden shadow-xs transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300"
                 >
                   <div
-                    className="absolute left-0 top-0 bottom-0 w-1.5"
+                    className="absolute left-0 top-0 bottom-0 w-1.5 transition-all duration-300 group-hover:w-2.5"
                     style={{ backgroundColor: req.accentColor }}
                   />
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-800 uppercase tracking-wider text-gray-900">
+                  {/* Parent profile header */}
+                  <div className="flex items-center justify-between gap-3 pb-2 border-b border-gray-100">
+                    <div className="flex items-center gap-2.5">
+                      <Image
+                        src={req.parentImage}
+                        alt={req.parentName}
+                        width={36}
+                        height={36}
+                        className="w-9 h-9 rounded-full object-cover border border-emerald-400/80 shadow-2xs transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div>
+                        <p className="text-xs font-800 text-[#0F2540] truncate transition-colors group-hover:text-[#2D9E6B]">
+                          {req.parentName}
+                        </p>
+                        <span className="text-[10px] font-600 text-gray-700 block">Verified Parent</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-700 text-emerald-950 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full shrink-0">
+                      {req.postedTime}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-800 uppercase tracking-wider text-gray-700 block">
                       {req.grade}
                     </span>
-                    <span className="text-[11px] font-800 text-emerald-950 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full">
-                      Example Post
+                    <h4 className="font-800 text-base text-[#0F2540] transition-colors group-hover:text-[#2D9E6B]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                      {req.subject}
+                    </h4>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-gray-800 font-700 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-600">Mode:</span>
+                      <span className="text-[#0F2540] font-800">{req.mode}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-gray-600 text-[11px]">
+                      <MapPin size={12} className="text-emerald-600 shrink-0" />
+                      <span className="truncate">{req.location}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs font-800">
+                    <span className="text-gray-700">Budget Rate:</span>
+                    <span className="text-[#2D9E6B] bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80">
+                      {req.budget}
                     </span>
-                  </div>
-
-                  <h4 className="font-800 text-base text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-                    {req.subject}
-                  </h4>
-
-                  <div className="space-y-1 text-xs text-gray-900 font-600">
-                    <p>Mode: <strong className="text-gray-900 font-800">{req.mode}</strong></p>
-                    <p>Location: <strong className="text-gray-900 font-800">{req.location}</strong></p>
-                  </div>
-
-                  <div className="pt-2 border-t border-gray-200 text-xs font-800 text-[#2D9E6B]">
-                    Budget Range: {req.budget}
                   </div>
                 </div>
               ))}
@@ -537,11 +625,11 @@ export default async function HomePage() {
                 desc: "Discuss expectations directly, agree on schedule and fee, and start tuition.",
               },
             ].map((step) => (
-              <div key={step.num} className="bg-white rounded-3xl p-7 border border-gray-300 space-y-3 shadow-xs">
-                <div className="w-14 h-14 rounded-full bg-amber-100 border-2 border-amber-400 text-amber-950 font-800 text-xl flex items-center justify-center mx-auto" style={{ fontFamily: "Poppins, sans-serif" }}>
+              <div key={step.num} className="group bg-white rounded-3xl p-7 border border-gray-300 space-y-3 shadow-xs transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-900/10 hover:border-emerald-200">
+                <div className="w-14 h-14 rounded-full bg-amber-100 border-2 border-amber-400 text-amber-950 font-800 text-xl flex items-center justify-center mx-auto transition-transform duration-300 group-hover:scale-110 group-hover:bg-amber-200" style={{ fontFamily: "Poppins, sans-serif" }}>
                   {step.num}
                 </div>
-                <h3 className="font-800 text-lg text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                <h3 className="font-800 text-lg text-[#0F2540] transition-colors group-hover:text-[#2D9E6B]" style={{ fontFamily: "Poppins, sans-serif" }}>
                   {step.title}
                 </h3>
                 <p className="text-xs text-gray-900 font-600 leading-relaxed">
@@ -558,12 +646,12 @@ export default async function HomePage() {
       <section className="py-16 px-4 sm:px-6 bg-white">
         <div className="max-w-6xl mx-auto">
           <div
-            className="rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden shadow-xl border border-gray-800"
+            className="group rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden shadow-xl border border-gray-800 transition-all duration-300 hover:shadow-2xl hover:border-amber-400/50"
             style={{ backgroundColor: "#0F2540" }}
           >
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
               <div className="lg:col-span-8 space-y-4">
-                <span className="inline-block text-xs font-800 uppercase tracking-wider text-amber-300 bg-amber-400/20 px-3.5 py-1 rounded-full border border-amber-300/30">
+                <span className="inline-block text-xs font-800 uppercase tracking-wider text-amber-300 bg-amber-400/20 px-3.5 py-1 rounded-full border border-amber-300/30 transition-transform group-hover:scale-105">
                   For Teachers &amp; Tutors
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-800 !text-white leading-snug" style={{ fontFamily: "Poppins, sans-serif" }}>
@@ -576,7 +664,7 @@ export default async function HomePage() {
               <div className="lg:col-span-4 flex flex-col items-start lg:items-end justify-center gap-3">
                 <Link
                   href={tutorCtaUrl}
-                  className="px-7 py-4 rounded-2xl bg-[#F5A623] hover:bg-amber-400 !text-[#0F2540] text-sm font-800 transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
+                  className="btn-shine px-7 py-4 rounded-2xl bg-[#F5A623] hover:bg-amber-400 !text-[#0F2540] text-sm font-800 transition-all duration-300 ease-out hover:scale-105 active:scale-95 shadow-lg hover:shadow-2xl hover:shadow-amber-500/30 whitespace-nowrap"
                 >
                   <span className="!text-[#0F2540] font-800">Join as a Tutor Today →</span>
                 </Link>

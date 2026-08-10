@@ -29,6 +29,12 @@ export default async function TutorProfilePageRoute() {
     availability: tutorProfile.availability,
   });
 
+  // Fetch coin balance from wallet
+  const wallet = await prisma.wallet.findUnique({
+    where: { tutorProfileId: tutorProfile.id },
+    select: { balance: true },
+  });
+
   const profileExt = tutorProfile as typeof tutorProfile & {
     pincode?: string | null;
     address?: string | null;
@@ -60,8 +66,10 @@ export default async function TutorProfilePageRoute() {
         kycSelfieUrl: tutorProfile.kycSelfieUrl ?? null,
         isVerified: tutorProfile.isVerified,
         profileScore: tutorProfile.profileScore,
+        coinBalance: wallet?.balance ?? 0,
       }}
       scoreBreakdown={scoreBreakdown}
     />
   );
 }
+

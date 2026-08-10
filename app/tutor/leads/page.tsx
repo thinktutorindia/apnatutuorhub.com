@@ -154,8 +154,10 @@ export default async function TutorLeadsPage() {
           lead.longitude
         );
 
-        const effectiveRadius = Math.max(tutorProfile.teachingRadius, 50);
-        if (distanceKm > effectiveRadius) continue;
+        // Respect the tutor's own teaching radius exactly — no override.
+        // The matching engine uses Math.max(tutor.radius, lead.radiusKm) when
+        // a parent's search radius is wider, but the tutor's cap is honored here.
+        if (distanceKm > tutorProfile.teachingRadius) continue;
       }
     }
 

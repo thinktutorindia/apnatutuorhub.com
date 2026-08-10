@@ -24,7 +24,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 const ALL_NAV_ITEMS = [
   { label: "Dashboard",        href: "/admin/dashboard",                      icon: LayoutGrid,        roles: null, iconColor: "text-blue-400" },
@@ -64,12 +64,6 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
 
   const effectiveRole = userRole === "SUB_ADMIN" ? (subAdminRole ?? "") : userRole;
   const roleLabel = SUB_ADMIN_ROLE_LABELS[effectiveRole] ?? { label: effectiveRole.toLowerCase(), color: "#34D399" };
-
-  const handleSignOut = () => {
-    setMobileOpen(false);
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    signOut({ callbackUrl: `${origin}/login` });
-  };
 
   const visibleNavItems = ALL_NAV_ITEMS.filter(({ roles, href }) => {
     if (href === "/admin/dashboard") return true;
@@ -201,13 +195,11 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole 
           </div>
         </div>
 
-        <button
-          onClick={handleSignOut}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-800 text-rose-300 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 transition-colors cursor-pointer"
-        >
-          <LogOut size={15} />
-          <span>Sign Out Admin</span>
-        </button>
+        <SignOutButton
+          text="Sign Out Admin"
+          iconSize={15}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-800 text-rose-300 bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/30 shadow-2xs hover:shadow-md hover:shadow-rose-500/20 text-rose-200"
+        />
       </div>
     </div>
   );

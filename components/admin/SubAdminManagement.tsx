@@ -20,6 +20,7 @@ import {
   deleteSubAdminAction,
   updateSubAdminRoleAction,
 } from "@/app/actions/sub-admin.actions";
+import { ActionOverlay } from "@/components/ui/LoadingState";
 
 type SubAdmin = {
   id: string;
@@ -180,6 +181,11 @@ export function SubAdminManagement({ initialSubAdmins, roleBadges }: SubAdminMan
 
   return (
     <>
+      <ActionOverlay
+        isOpen={isPending}
+        title="Processing Sub-Admin Account"
+        subtitle="Updating team member access permissions and roles..."
+      />
       {/* Toast message */}
       {message && (
         <div

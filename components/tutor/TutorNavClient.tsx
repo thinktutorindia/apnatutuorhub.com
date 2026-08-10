@@ -4,11 +4,11 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   LayoutDashboard, Search, Calendar, MessageSquare,
   Wallet, User, LogOut, X, Menu, ChevronRight,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
 
 const NAV_ITEMS = [
   { href: "/tutor/dashboard", label: "Home", icon: LayoutDashboard },
@@ -45,12 +45,6 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
     document.body.style.overflow = drawerOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [drawerOpen]);
-
-  const handleSignOut = () => {
-    setDrawerOpen(false);
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    signOut({ callbackUrl: `${origin}/login` });
-  };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -123,13 +117,7 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
 
         {/* Sign out */}
         <div className="p-4 border-t border-gray-100">
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-red-600 font-700 hover:bg-red-50 transition-colors"
-          >
-            <LogOut size={18} />
-            <span className="text-sm">Sign out</span>
-          </button>
+          <SignOutButton variant="full" text="Sign out" iconSize={18} />
         </div>
       </div>
     </div>
@@ -145,13 +133,13 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-700 transition-colors whitespace-nowrap ${
+              className={`group flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-700 transition-all duration-200 ease-out hover:scale-105 active:scale-95 whitespace-nowrap ${
                 active
                   ? "bg-emerald-50 text-[#2D9E6B] font-800 border border-emerald-200/80 shadow-2xs"
-                  : "text-gray-800 hover:bg-gray-100 hover:text-gray-900"
+                  : "text-gray-800 hover:bg-gray-100 hover:text-gray-900 hover:shadow-2xs"
               }`}
             >
-              <item.icon size={15} />
+              <item.icon size={15} className="transition-transform duration-200 ease-out group-hover:scale-110 group-hover:-rotate-6" />
               <span>{item.label}</span>
             </Link>
           );
@@ -161,7 +149,7 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
       {/* Mobile hamburger */}
       <button
         onClick={() => setDrawerOpen(true)}
-        className="flex items-center justify-center w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 md:hidden transition-colors"
+        className="flex items-center justify-center w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-90 text-gray-800 md:hidden transition-all duration-200 ease-out"
         aria-label="Open navigation"
       >
         <Menu size={19} />
@@ -179,24 +167,24 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex-1 flex flex-col items-center justify-center py-2.5 relative transition-colors min-w-0 ${
+                className={`group flex-1 flex flex-col items-center justify-center py-2.5 relative transition-all duration-200 ease-out active:scale-90 min-w-0 ${
                   active ? "text-[#2D9E6B] font-800" : "text-gray-600 hover:text-gray-900 font-600"
                 }`}
               >
-                <div className="relative">
+                <div className="relative transition-transform duration-200 group-hover:scale-110">
                   <tab.icon size={21} strokeWidth={active ? 2.3 : 1.8} />
                   {hasUnread && (
                     <span
-                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-800 bg-red-600 text-white flex items-center justify-center"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-800 bg-red-600 text-white flex items-center justify-center animate-pulse"
                     >
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] mt-1 truncate max-w-full px-1">{tab.label}</span>
+                <span className="text-[10px] mt-1 truncate max-w-full px-1 transition-colors">{tab.label}</span>
                 {active && (
                   <span
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-b-full bg-[#2D9E6B]"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-b-full bg-[#2D9E6B] animate-pulse"
                   />
                 )}
               </Link>

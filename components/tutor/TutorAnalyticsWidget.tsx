@@ -55,36 +55,36 @@ export async function TutorAnalyticsWidget({ tutorProfileId }: TutorAnalyticsWid
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {/* Metric 1 */}
-        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+        <div className="group rounded-2xl bg-slate-50 p-4 border border-slate-200 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-white hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/10">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <Unlock size={14} className="text-blue-500" /> Unlocked Leads
+            <Unlock size={14} className="text-blue-500 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" /> Unlocked Leads
           </div>
-          <p className="mt-2 text-2xl font-black text-slate-900">{totalUnlocked}</p>
+          <p className="mt-2 text-2xl font-black text-slate-900 transition-colors group-hover:text-blue-600">{totalUnlocked}</p>
         </div>
 
         {/* Metric 2 */}
-        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+        <div className="group rounded-2xl bg-slate-50 p-4 border border-slate-200 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-white hover:border-purple-200 hover:shadow-md hover:shadow-purple-500/10">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <Target size={14} className="text-purple-500" /> Conversion Rate
+            <Target size={14} className="text-purple-500 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" /> Conversion Rate
           </div>
-          <p className="mt-2 text-2xl font-black text-purple-700">{conversionRate}%</p>
+          <p className="mt-2 text-2xl font-black text-purple-700 transition-colors group-hover:text-purple-600">{conversionRate}%</p>
           <p className="text-[10px] text-slate-500 mt-0.5">{totalShortlisted} shortlisted</p>
         </div>
 
         {/* Metric 3 */}
-        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+        <div className="group rounded-2xl bg-slate-50 p-4 border border-slate-200 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-white hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-500/10">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <BookOpen size={14} className="text-emerald-500" /> Completed Tuitions
+            <BookOpen size={14} className="text-emerald-500 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" /> Completed Tuitions
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-700">{totalBookings}</p>
+          <p className="mt-2 text-2xl font-black text-emerald-700 transition-colors group-hover:text-emerald-600">{totalBookings}</p>
         </div>
 
         {/* Metric 4 */}
-        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+        <div className="group rounded-2xl bg-slate-50 p-4 border border-slate-200 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-white hover:border-amber-200 hover:shadow-md hover:shadow-amber-500/10">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <Star size={14} className="text-amber-500" /> Average Rating
+            <Star size={14} className="text-amber-500 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" /> Average Rating
           </div>
-          <p className="mt-2 text-2xl font-black text-amber-600">
+          <p className="mt-2 text-2xl font-black text-amber-600 transition-colors group-hover:text-amber-500">
             {profile.totalReviews > 0 ? profile.averageRating.toFixed(1) : "N/A"}
           </p>
           <p className="text-[10px] text-slate-500 mt-0.5">{profile.totalReviews} reviews</p>

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { UserPlus, X, AlertCircle, CheckCircle2, Copy, Key, Shield, User } from "lucide-react";
 import { adminCreateUserAction } from "@/app/actions/admin.actions";
+import { ActionOverlay } from "@/components/ui/LoadingState";
 
 import type { SubAdminRole } from "@prisma/client";
 
@@ -81,6 +82,12 @@ export function CreateUserModal() {
 
   return (
     <>
+      <ActionOverlay
+        isOpen={isPending}
+        title="Creating User Account"
+        subtitle="Setting up account, role permissions, and credentials..."
+      />
+
       <button
         type="button"
         onClick={handleOpen}

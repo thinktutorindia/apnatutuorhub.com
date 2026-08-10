@@ -3,11 +3,11 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   LayoutDashboard, BookOpen, Calendar, MessageSquare,
   User, LogOut, X, Menu, ChevronRight, PlusCircle,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
 
 const NAV_ITEMS = [
   { href: "/parent/dashboard", label: "Home", icon: LayoutDashboard },
@@ -41,12 +41,6 @@ export function ParentNavClient({ userName, userEmail }: ParentNavClientProps) {
     return () => { document.body.style.overflow = ""; };
   }, [drawerOpen]);
 
-  const handleSignOut = () => {
-    setDrawerOpen(false);
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    signOut({ callbackUrl: `${origin}/login` });
-  };
-
   const isActive = (href: string) => pathname === href || (href !== "/parent/dashboard" && pathname.startsWith(href));
 
   return (
@@ -63,9 +57,9 @@ export function ParentNavClient({ userName, userEmail }: ParentNavClientProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-800 bg-[#2D9E6B] text-white shadow-xs hover:bg-[#238357] transition-all whitespace-nowrap"
+                className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-800 bg-[#2D9E6B] text-white shadow-xs hover:bg-[#238357] hover:scale-105 active:scale-95 transition-all duration-200 ease-out whitespace-nowrap"
               >
-                <PlusCircle size={15} />
+                <PlusCircle size={15} className="transition-transform duration-200 group-hover:rotate-90" />
                 <span>{item.label}</span>
               </Link>
             );
@@ -75,13 +69,13 @@ export function ParentNavClient({ userName, userEmail }: ParentNavClientProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-800 transition-all whitespace-nowrap ${
+              className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-800 transition-all duration-200 ease-out hover:scale-105 active:scale-95 whitespace-nowrap ${
                 active
                   ? "bg-white text-[#0F2540] shadow-2xs border border-slate-200"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
               }`}
             >
-              <Icon size={15} className={active ? "text-[#2D9E6B]" : "text-slate-400"} />
+              <Icon size={15} className={`transition-transform duration-200 group-hover:scale-110 ${active ? "text-[#2D9E6B]" : "text-slate-400 group-hover:text-[#2D9E6B]"}`} />
               <span>{item.label}</span>
             </Link>
           );
@@ -155,13 +149,7 @@ export function ParentNavClient({ userName, userEmail }: ParentNavClientProps) {
             </nav>
 
             <div className="p-4 border-t border-slate-200 bg-slate-50">
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-800 text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer"
-              >
-                <LogOut size={16} />
-                <span>Sign Out Parent</span>
-              </button>
+              <SignOutButton variant="full" text="Sign Out Parent" iconSize={16} />
             </div>
           </div>
         </div>

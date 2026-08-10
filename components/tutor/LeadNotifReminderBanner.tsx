@@ -118,7 +118,7 @@ export function LeadNotifReminderBanner({ userId }: { userId?: string }) {
           type="button"
           onClick={handleEnablePush}
           disabled={status === "loading"}
-          className="neu-btn neu-btn-primary shrink-0 px-6 py-3.5 text-xs font-black flex items-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A]"
+          className="neu-btn neu-btn-primary btn-shine shrink-0 px-6 py-3.5 text-xs font-black flex items-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A] hover:scale-105 active:scale-95 transition-all duration-200 ease-out"
         >
           {status === "loading" ? (
             "Enabling Notifications..."

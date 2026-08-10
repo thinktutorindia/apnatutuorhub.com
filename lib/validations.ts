@@ -303,6 +303,14 @@ const leadCoreShape = {
   city: z.string().max(100, "City name is too long").optional(),
   area: z.string().max(120, "Area name is too long").optional(),
   pincode: pincodeField.optional(),
+  /** How far the parent is willing to have a tutor travel (OFFLINE/EITHER only). */
+  radiusKm: z
+    .number({ invalid_type_error: "Enter a valid radius" })
+    .int("Radius must be a whole number")
+    .min(1, "Minimum radius is 1 km")
+    .max(50, "Maximum radius is 50 km")
+    .optional()
+    .default(10),
 };
 
 /** Fields a parent may always change, even after tutors have unlocked the lead. */

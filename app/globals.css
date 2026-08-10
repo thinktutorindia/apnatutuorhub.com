@@ -86,7 +86,7 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: "Poppins", "Inter", system-ui, sans-serif;
   font-weight: 700;
-  color: var(--navy);
+  color: inherit;
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
@@ -97,6 +97,7 @@ a {
 }
 
 /* ── Custom Utility Buttons & Cards ───────────────────────── */
+/* ── Custom Utility Buttons & Cards ───────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -106,10 +107,24 @@ a {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   text-decoration: none;
   border: none;
   font-family: 'Inter', sans-serif;
+  user-select: none;
+}
+.btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px -4px rgba(26, 60, 94, 0.15);
+}
+.btn:active {
+  transform: translateY(0) scale(0.97);
+}
+.btn svg, .at-btn svg {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn:hover svg, .at-btn:hover svg {
+  transform: scale(1.1) translateX(2px);
 }
 
 .btn-outline {
@@ -120,6 +135,7 @@ a {
 .btn-outline:hover {
   background: var(--navy);
   color: #ffffff;
+  box-shadow: 0 8px 20px -4px rgba(26, 60, 94, 0.25);
 }
 
 .btn-green {
@@ -129,8 +145,8 @@ a {
 }
 .btn-green:hover {
   background: var(--green-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(45, 158, 107, 0.35);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(45, 158, 107, 0.4);
 }
 
 .btn-saffron {
@@ -140,7 +156,8 @@ a {
 }
 .btn-saffron:hover {
   background: #e8960f;
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(245, 166, 35, 0.35);
 }
 
 .btn-lg {
@@ -175,7 +192,17 @@ a {
   }
 }
 
-/* ── AT Components (Backwards Compatibility) ──────────────── */
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes shimmer-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── AT Components & Interactive Card Motion ───────── */
 .at-btn {
   display: inline-flex;
   align-items: center;
@@ -183,10 +210,17 @@ a {
   gap: 8px;
   font-weight: 600;
   border-radius: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   text-decoration: none;
   font-size: 14px;
+  user-select: none;
+}
+.at-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+.at-btn:active {
+  transform: translateY(0) scale(0.97);
 }
 .at-btn-primary {
   background-color: var(--green);
@@ -194,6 +228,7 @@ a {
 }
 .at-btn-primary:hover {
   background-color: var(--green-dark);
+  box-shadow: 0 8px 24px rgba(45, 158, 107, 0.35);
 }
 .at-btn-secondary {
   background-color: var(--navy);
@@ -201,6 +236,7 @@ a {
 }
 .at-btn-secondary:hover {
   background-color: var(--navy-dark);
+  box-shadow: 0 8px 24px rgba(26, 60, 94, 0.35);
 }
 .at-btn-outline {
   border: 1.5px solid var(--navy);
@@ -210,6 +246,7 @@ a {
 .at-btn-outline:hover {
   background-color: var(--navy);
   color: #FFFFFF;
+  box-shadow: 0 8px 24px rgba(26, 60, 94, 0.25);
 }
 .at-btn-accent {
   background-color: var(--saffron);
@@ -218,17 +255,81 @@ a {
 }
 .at-btn-accent:hover {
   background-color: #e8960f;
+  box-shadow: 0 8px 24px rgba(245, 166, 35, 0.35);
 }
 .at-btn-sm { padding: 6px 14px; font-size: 13px; }
 .at-btn-md { padding: 10px 20px; font-size: 14px; }
 .at-btn-lg { padding: 14px 26px; font-size: 15px; }
 
-.at-card {
+/* Dynamic Interactive Cards & Animations */
+.at-card, .card-hover {
   background-color: #FFFFFF;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.at-card:hover, .card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px -6px rgba(26, 60, 94, 0.12), 0 0 0 1px rgba(45, 158, 107, 0.15);
+  border-color: rgba(45, 158, 107, 0.25);
+}
+
+.card-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-glass:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 20px 40px 0 rgba(31, 38, 135, 0.12);
+  border-color: rgba(45, 158, 107, 0.3);
+}
+
+/* Button Shine Sweep Effect */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(25deg);
+  transition: transform 0.6s ease;
+  pointer-events: none;
+}
+.btn-shine:hover::after {
+  transform: translateX(350%) rotate(25deg);
+}
+
+/* Hover Glow Shadows */
+.hover-glow-green:hover {
+  box-shadow: 0 0 24px 0 rgba(45, 158, 107, 0.4);
+}
+.hover-glow-saffron:hover {
+  box-shadow: 0 0 24px 0 rgba(245, 166, 35, 0.4);
+}
+.hover-glow-navy:hover {
+  box-shadow: 0 0 24px 0 rgba(26, 60, 94, 0.4);
+}
+
+.hover-tilt {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-tilt:hover {
+  transform: translateY(-2px) rotate(1deg) scale(1.02);
 }
 
 .at-badge {
@@ -239,8 +340,13 @@ a {
   border-radius: 100px;
   font-size: 11px;
   font-weight: 600;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.at-badge:hover {
+  transform: scale(1.08);
 }
 .at-badge-primary { background-color: #DCFCE7; color: #15803D; }
 .at-badge-neutral { background-color: #F3F4F6; color: #374151; }
 .at-badge-accent  { background-color: #FEF3C7; color: #92400E; }
 .at-badge-info    { background-color: #EBF2FF; color: #2563EB; }
+

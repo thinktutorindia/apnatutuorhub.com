@@ -217,13 +217,13 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
       <button
         type="button"
         onClick={handleToggle}
-        className="relative flex h-9 w-9 items-center justify-center rounded-xl border-2 border-[#0F172A] bg-white text-[#0F172A] shadow-[2px_2px_0px_0px_#0F172A] transition-all hover:bg-slate-100 active:scale-95 cursor-pointer"
+        className="group relative flex h-9 w-9 items-center justify-center rounded-xl border-2 border-[#0F172A] bg-white text-[#0F172A] shadow-[2px_2px_0px_0px_#0F172A] transition-all duration-200 ease-out hover:bg-emerald-50 hover:border-emerald-700 hover:shadow-[3px_3px_0px_0px_#0F172A] active:scale-90 cursor-pointer"
         aria-label="Notifications"
       >
-        <Bell size={18} />
+        <Bell size={18} className="transition-transform duration-300 ease-out group-hover:rotate-12 group-hover:scale-110 group-hover:text-emerald-600" />
         {unreadCount > 0 && (
           <span
-            className="absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-black text-white border-2 border-[#0F172A]"
+            className="absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-black text-white border-2 border-[#0F172A] animate-bounce"
             style={{ minWidth: "18px", height: "18px", lineHeight: 1, padding: "0 3px" }}
           >
             {unreadCount > 99 ? "99+" : unreadCount}

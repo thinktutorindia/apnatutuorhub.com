@@ -8,7 +8,7 @@ import {
   User, Mail, Lock, ArrowRight,
   AlertCircle, CheckCircle, Loader2,
   GraduationCap, Users, ArrowLeft,
-  Eye, EyeOff, ShieldCheck, Check, Sparkles, Phone
+  Eye, EyeOff, ShieldCheck, Check, Sparkles, Phone, HelpCircle, ChevronDown
 } from "lucide-react";
 import Link from "next/link";
 import { LogoBrand } from "@/components/brand/Logo";
@@ -110,14 +110,32 @@ export default function RegisterPage() {
             className="text-2xl sm:text-3xl font-800 tracking-tight text-gray-900"
             style={{ fontFamily: "'Poppins', sans-serif" }}
           >
-            {isTutor ? "Teach & earn on ApnaTutorHub" : "Find the right tutor for your child"}
+            {isTutor ? "Teach & Earn on ApnaTutorHub" : "Find the Right Tutor for Your Child"}
           </h1>
-          <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+          <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-600">
             {isTutor
-              ? "Create your tutor profile and connect with students who need what you teach."
-              : "Post requirements, browse verified tutors, and connect directly."}
+              ? "If you have amazing teaching talent, we have amazing Online & Offline tutoring opportunities for you. Set your own rate, get paid fast, and make a difference."
+              : "Post requirements, browse verified tutors, and connect directly with top educators near you."}
           </p>
         </div>
+
+        {/* WhatsApp Support Helpline Banner for Tutors */}
+        {isTutor && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-emerald-950 font-700">
+              <span className="text-base">💬</span>
+              <span>Need help registering? Contact Tutor Support</span>
+            </div>
+            <a
+              href="https://wa.me/919911699699?text=Hi!%20I'm%20a%20tutor%20inquiring%20about%20registration%20on%20ApnaTutorHub"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white font-800 shrink-0 transition-transform hover:scale-105"
+            >
+              WhatsApp →
+            </a>
+          </div>
+        )}
 
         {/* Banners & Messages */}
         {state.success && (
@@ -221,7 +239,7 @@ export default function RegisterPage() {
 
           <div className="space-y-1">
             <label htmlFor="register-phone" className="text-xs font-700 text-gray-700">
-              Mobile number (for WhatsApp &amp; SMS updates)
+              WhatsApp / Mobile number
             </label>
             <div className="relative flex items-center">
               <div className="absolute left-3.5 flex items-center gap-1.5 pointer-events-none text-gray-500 font-600 text-xs">
@@ -241,7 +259,7 @@ export default function RegisterPage() {
               />
             </div>
             <p className="text-[11px] text-gray-500 font-500">
-              Valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.
+              10-digit Indian mobile number for instant WhatsApp lead notifications.
             </p>
           </div>
 
@@ -278,17 +296,17 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-13 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-700 text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-60 cursor-pointer mt-2"
+            className="btn-shine w-full h-13 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white font-800 text-sm flex items-center justify-center gap-2 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md hover:shadow-lg disabled:opacity-60 cursor-pointer mt-2"
           >
             {isLoading ? (
               <>
                 <Loader2 size={18} className="animate-spin text-white" />
-                <span>Creating account...</span>
+                <span className="!text-white font-800">Creating account...</span>
               </>
             ) : (
               <>
-                <span>Create {isTutor ? "Tutor" : "Parent"} Account</span>
-                <ArrowRight size={18} />
+                <span className="!text-white font-800">Create {isTutor ? "Tutor" : "Parent"} Account &amp; Get Started</span>
+                <ArrowRight size={18} className="!text-white" />
               </>
             )}
           </button>
@@ -309,9 +327,9 @@ export default function RegisterPage() {
 
         {/* Login Link */}
         <p className="text-center text-sm text-gray-600 pt-3 border-t border-gray-100">
-          Already have an account?{" "}
+          Already registered?{" "}
           <Link href="/login" className="font-700 text-[#1A3C5E] hover:underline">
-            Log in →
+            Sign In Here →
           </Link>
         </p>
 
@@ -325,6 +343,49 @@ export default function RegisterPage() {
         <span>•</span>
         <span>100% Free for Parents</span>
       </div>
+
+      {/* Competitor-Inspired Tutor FAQ Section */}
+      {isTutor && (
+        <div className="w-full bg-white rounded-3xl border border-gray-200/90 p-6 sm:p-8 space-y-4 shadow-xs">
+          <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+            <HelpCircle size={18} className="text-[#2D9E6B]" />
+            <h2 className="text-base font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+              Frequently Asked Questions for Tutors
+            </h2>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            {[
+              {
+                q: "1. What subjects can I tutor on ApnaTutorHub?",
+                a: "You can tutor any subject! We support Classes 1–12 (CBSE, ICSE, IB, State Boards), JEE/NEET Entrance Prep, Coding & Computer Science, Commerce, and Foreign Languages.",
+              },
+              {
+                q: "2. How do I get started?",
+                a: "Create your free tutor account, complete your teaching preferences (subjects, city, hourly rate), and upload your government ID for 100% KYC verification.",
+              },
+              {
+                q: "3. How do I get hired by clients & parents?",
+                a: "Once verified, your profile ranks at the top of parent search results. You receive instant WhatsApp alerts when new tuition requirements matching your subject and city are posted.",
+              },
+              {
+                q: "4. How do tutor payments work?",
+                a: "You set your own hourly or monthly tuition rates and get paid directly by parents. There are no hidden middleman commissions deducted from your teaching earnings.",
+              },
+            ].map((faq, i) => (
+              <details key={i} className="group rounded-2xl bg-gray-50/80 border border-gray-200/80 p-4 font-700 cursor-pointer">
+                <summary className="flex items-center justify-between text-gray-900 font-800 list-none group-open:text-[#2D9E6B]">
+                  <span>{faq.q}</span>
+                  <ChevronDown size={14} className="text-gray-400 transition-transform group-open:rotate-180 shrink-0" />
+                </summary>
+                <p className="text-gray-600 font-500 mt-2.5 leading-relaxed pt-2 border-t border-gray-200/60">
+                  {faq.a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      )}
 
     </div>
   );

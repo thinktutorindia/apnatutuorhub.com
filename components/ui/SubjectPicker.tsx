@@ -166,22 +166,35 @@ export function SubjectPicker({
         {/* Dropdown Menu */}
         {isOpen && !disabled && (
           <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-80 flex flex-col">
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1.5 p-3 border-b border-slate-200 overflow-x-auto bg-slate-50 shrink-0 [&::-webkit-scrollbar]:hidden">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-3 py-1 rounded-xl text-[11px] font-800 whitespace-nowrap transition-all cursor-pointer ${
-                    activeCategory === cat
-                      ? "bg-[#0F2540] text-white shadow-2xs"
-                      : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-200"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            {/* Category Filter Pills & Cute Close Button Bar */}
+            <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 border-b border-slate-200 bg-slate-50 shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden py-0.5 flex-1 pr-1">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-3 py-1 rounded-xl text-[11px] font-800 whitespace-nowrap transition-all cursor-pointer ${
+                      activeCategory === cat
+                        ? "bg-[#0F2540] text-white shadow-2xs"
+                        : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-200"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Cute Animated Close Button */}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                title="Close dropdown"
+                aria-label="Close subject selector dropdown"
+                className="group relative flex items-center justify-center w-7 h-7 rounded-full bg-white hover:bg-rose-500 text-slate-500 hover:text-white border border-slate-200 hover:border-rose-500 transition-all duration-200 hover:scale-115 active:scale-90 shadow-2xs shrink-0 cursor-pointer"
+              >
+                <X size={14} className="transition-transform duration-200 group-hover:rotate-90" />
+              </button>
             </div>
 
             {/* Subject Options List */}

@@ -114,112 +114,133 @@ export function WalletPageClient({
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-8">
         {/* Header */}
-        <div className="flex items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl border border-gray-200/90 shadow-xs">
           <div>
-            <h1 className="text-2xl font-700 mb-0.5" style={{ color: "#111827" }}>
+            <span className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B] block mb-1">
+              Tutor Wallet &amp; Credits
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
               Coin Wallet
             </h1>
-            <p className="text-sm" style={{ color: "#6B7280" }}>
-              Use coins to connect with interested parents and unlock student enquiries.
+            <p className="text-sm text-gray-600 font-600 mt-1">
+              Use coins to connect with interested parents and unlock direct tuition enquiries.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setTopUpOpen(true)}
-            className="at-btn at-btn-primary at-btn-sm shrink-0"
+            className="btn-shine px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 shrink-0 flex items-center gap-2 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer"
           >
             <Plus size={16} />
-            Top Up Coins
+            <span className="!text-white font-800">Top Up Coins</span>
           </button>
         </div>
 
         {/* Balance Card + Stats */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div
-            className="col-span-1 rounded-xl p-5 text-center flex flex-col items-center justify-center space-y-2"
-            style={{ backgroundColor: "#FEF3C7", border: "1px solid #FDE68A" }}
-          >
-            <p className="text-xs font-600" style={{ color: "#92400e" }}>
-              CURRENT BALANCE
-            </p>
-            <p className="text-4xl font-800" style={{ color: "#111827" }}>
-              {liveBalance} <span className="text-2xl font-600">🪙</span>
-            </p>
+        <div className="grid gap-5 sm:grid-cols-3">
+          {/* Current Balance */}
+          <div className="group col-span-1 rounded-3xl p-6 text-center flex flex-col items-center justify-center space-y-3 bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-amber-500/15 border border-amber-300/80 shadow-xs hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300 ease-out hover:-translate-y-1.5 relative overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 text-amber-700 flex items-center justify-center text-2xl shadow-2xs transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
+              🪙
+            </div>
+            <div>
+              <p className="text-xs font-800 uppercase tracking-wider text-amber-900">
+                Current Balance
+              </p>
+              <p className="text-4xl font-800 text-[#0F2540] tracking-tight mt-1" style={{ fontFamily: "Poppins, sans-serif" }}>
+                {liveBalance} <span className="text-2xl font-700 text-amber-600">Coins</span>
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => setTopUpOpen(true)}
-              className="at-btn at-btn-accent at-btn-sm w-full mt-2"
+              className="btn-shine w-full py-2.5 px-4 rounded-xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center justify-center gap-1.5 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md cursor-pointer mt-1"
             >
               <Plus size={14} />
-              Buy Coins
+              <span className="!text-white font-800">Buy Coins Now</span>
             </button>
           </div>
 
-          <div
-            className="rounded-xl p-5 text-center flex flex-col items-center justify-center space-y-1"
-            style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
-          >
-            <p className="text-xs font-500" style={{ color: "#6B7280" }}>TOTAL PURCHASED</p>
-            <p className="text-2xl font-700" style={{ color: "#111827" }}>{totalPurchased} 🪙</p>
+          {/* Total Purchased */}
+          <div className="group rounded-3xl p-6 bg-white border border-gray-200/90 shadow-xs hover:shadow-xl hover:shadow-slate-900/10 hover:border-emerald-300 transition-all duration-300 ease-out hover:-translate-y-1.5 flex flex-col items-center justify-center text-center space-y-2">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2D9E6B] flex items-center justify-center font-800 text-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
+              <ArrowUpRight size={20} />
+            </div>
+            <p className="text-xs font-800 uppercase tracking-wider text-gray-500">Total Purchased</p>
+            <p className="text-3xl font-800 text-[#0F2540] tracking-tight group-hover:text-[#2D9E6B] transition-colors" style={{ fontFamily: "Poppins, sans-serif" }}>
+              {totalPurchased} <span className="text-lg font-700 text-gray-500">🪙</span>
+            </p>
           </div>
 
-          <div
-            className="rounded-xl p-5 text-center flex flex-col items-center justify-center space-y-1"
-            style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
-          >
-            <p className="text-xs font-500" style={{ color: "#6B7280" }}>TOTAL SPENT</p>
-            <p className="text-2xl font-700" style={{ color: "#111827" }}>{totalSpent} 🪙</p>
+          {/* Total Spent */}
+          <div className="group rounded-3xl p-6 bg-white border border-gray-200/90 shadow-xs hover:shadow-xl hover:shadow-slate-900/10 hover:border-emerald-200 transition-all duration-300 ease-out hover:-translate-y-1.5 flex flex-col items-center justify-center text-center space-y-2">
+            <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-800 text-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
+              <ArrowDownLeft size={20} />
+            </div>
+            <p className="text-xs font-800 uppercase tracking-wider text-gray-500">Total Spent</p>
+            <p className="text-3xl font-800 text-[#0F2540] tracking-tight group-hover:text-blue-600 transition-colors" style={{ fontFamily: "Poppins, sans-serif" }}>
+              {totalSpent} <span className="text-lg font-700 text-gray-500">🪙</span>
+            </p>
           </div>
         </div>
 
         {/* Transaction History */}
-        <section
-          className="rounded-xl p-5 space-y-4"
-          style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-base font-700" style={{ color: "#111827" }}>
-              Transaction History
-            </h2>
+        <section className="rounded-3xl p-6 bg-white border border-gray-200/90 shadow-xs space-y-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-gray-100">
+            <div>
+              <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                Transaction History
+              </h2>
+              <p className="text-xs text-gray-600 font-600">Track all coin top-ups, unlocks, refunds, and bonuses</p>
+            </div>
 
             {/* Filter pills */}
             <div className="flex flex-wrap gap-1.5">
-              {ALL_TYPES.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => {
-                    setFilter(type);
-                    setPage(1);
-                  }}
-                  className="px-3 py-1 rounded-full text-xs font-500 transition-colors"
-                  style={{
-                    backgroundColor: filter === type ? "#1A7F5A" : "#F3F4F6",
-                    color: filter === type ? "#FFFFFF" : "#374151",
-                  }}
-                >
-                  {FILTER_LABELS[type]}
-                </button>
-              ))}
+              {ALL_TYPES.map((type) => {
+                const isActive = filter === type;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setFilter(type);
+                      setPage(1);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-800 transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? "bg-[#2D9E6B] text-white shadow-xs scale-105"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105"
+                    }`}
+                  >
+                    {FILTER_LABELS[type]}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {paginated.length === 0 ? (
-            <div className="py-10 text-center space-y-2">
-              <p className="text-2xl">🪙</p>
-              <p className="text-sm font-500" style={{ color: "#6B7280" }}>No transactions yet</p>
+            <div className="py-12 text-center space-y-3 bg-gray-50/60 rounded-2xl border border-dashed border-gray-200">
+              <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-2xl mx-auto">
+                🪙
+              </div>
+              <p className="text-sm font-700 text-gray-800">No transactions recorded yet</p>
+              <p className="text-xs text-gray-500 max-w-xs mx-auto">
+                Top up your coin wallet to start unlocking parent contacts and receiving tuition leads.
+              </p>
               <button
                 type="button"
                 onClick={() => setTopUpOpen(true)}
-                className="at-btn at-btn-primary at-btn-sm"
+                className="btn-shine px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 inline-flex items-center gap-1.5 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow cursor-pointer mt-2"
               >
-                Buy Your First Coins
+                <Plus size={14} />
+                <span className="!text-white font-800">Buy Your First Coins</span>
               </button>
             </div>
           ) : (
-            <div className="divide-y" style={{ borderColor: "#F3F4F6" }}>
+            <div className="divide-y divide-gray-100">
               {paginated.map((tx) => {
                 const config = TX_CONFIG[tx.type] ?? TX_CONFIG.PURCHASE;
                 const Icon = config.icon;
@@ -228,21 +249,21 @@ export function WalletPageClient({
                   tx.description === "REFUND_REQUEST_PENDING";
 
                 return (
-                  <div key={tx.id} className="flex items-center gap-3.5 py-3.5">
+                  <div key={tx.id} className="flex items-center gap-4 py-4 hover:bg-gray-50/80 px-2 rounded-xl transition-colors">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs"
                       style={{ backgroundColor: config.bg, color: config.color }}
                     >
-                      <Icon size={16} />
+                      <Icon size={18} />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-600" style={{ color: "#111827" }}>
+                      <p className="truncate text-sm font-800 text-[#0F2540]">
                         {isPending
                           ? "Refund Request — Pending Review"
                           : (tx.description ?? config.label)}
                       </p>
-                      <p className="text-xs" style={{ color: "#9CA3AF" }}>
+                      <p className="text-xs font-600 text-gray-500 mt-0.5">
                         {new Date(tx.createdAt).toLocaleString("en-IN", {
                           day: "numeric",
                           month: "short",
@@ -254,11 +275,11 @@ export function WalletPageClient({
                     </div>
 
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-700" style={{ color: config.color }}>
+                      <p className="text-sm font-800" style={{ color: config.color }}>
                         {config.sign}{tx.amount} 🪙
                       </p>
-                      <p className="text-[11px]" style={{ color: "#9CA3AF" }}>
-                        Bal: {tx.balanceAfter}
+                      <p className="text-[11px] font-600 text-gray-500">
+                        Balance: {tx.balanceAfter} 🪙
                       </p>
                     </div>
                   </div>
@@ -269,23 +290,23 @@ export function WalletPageClient({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
+            <div className="flex items-center justify-center gap-3 pt-3 border-t border-gray-100">
               <button
                 type="button"
                 disabled={page === 1}
                 onClick={() => setPage((p) => p - 1)}
-                className="at-btn at-btn-outline at-btn-sm"
+                className="px-4 py-2 rounded-xl text-xs font-800 bg-gray-100 text-gray-800 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 ← Prev
               </button>
-              <span className="text-xs font-500" style={{ color: "#6B7280" }}>
+              <span className="text-xs font-700 text-gray-700">
                 Page {page} of {totalPages}
               </span>
               <button
                 type="button"
                 disabled={page === totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                className="at-btn at-btn-outline at-btn-sm"
+                className="px-4 py-2 rounded-xl text-xs font-800 bg-gray-100 text-gray-800 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 Next →
               </button>
@@ -293,28 +314,34 @@ export function WalletPageClient({
           )}
         </section>
 
-        {/* Coin cost guide */}
-        <section
-          className="rounded-xl p-5 space-y-3"
-          style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
-        >
-          <h2 className="text-sm font-700" style={{ color: "#111827" }}>
-            Coin Cost Guide
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-3">
+        {/* Coin Cost Guide */}
+        <section className="rounded-3xl p-6 bg-white border border-gray-200/90 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                Coin Cost Guide
+              </h2>
+              <p className="text-xs text-gray-600 font-600">Standard coin deduction rates per student lead unlock</p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
             {[
-              { label: "Class 1–8", cost: 20, bg: "#E8F5F0" },
-              { label: "Class 9–12", cost: 30, bg: "#EFF6FF" },
-              { label: "JEE / NEET / Coding", cost: 50, bg: "#FEF3C7" },
+              { label: "Class 1–8", cost: 20, badge: "Primary & Middle", bg: "bg-emerald-50 border-emerald-200", textColor: "text-emerald-950" },
+              { label: "Class 9–12", cost: 30, badge: "Board Prep", bg: "bg-blue-50 border-blue-200", textColor: "text-blue-950" },
+              { label: "JEE / NEET / Coding", cost: 50, badge: "Entrance & Tech", bg: "bg-amber-50 border-amber-200", textColor: "text-amber-950" },
             ].map((tier) => (
               <div
                 key={tier.label}
-                className="rounded-xl p-3.5 text-center space-y-0.5"
-                style={{ backgroundColor: tier.bg }}
+                className={`group rounded-2xl p-5 text-center space-y-1.5 border ${tier.bg} shadow-2xs hover:shadow-md transition-all duration-300 hover:-translate-y-1`}
               >
-                <p className="text-xs font-500" style={{ color: "#374151" }}>{tier.label}</p>
-                <p className="text-2xl font-700" style={{ color: "#111827" }}>{tier.cost} 🪙</p>
-                <p className="text-[11px]" style={{ color: "#6B7280" }}>per student enquiry</p>
+                <span className="text-[10px] font-800 uppercase tracking-wider text-gray-700 block">
+                  {tier.badge}
+                </span>
+                <p className="text-sm font-800 text-[#0F2540]">{tier.label}</p>
+                <p className="text-3xl font-800 text-[#0F2540] tracking-tight group-hover:scale-105 transition-transform" style={{ fontFamily: "Poppins, sans-serif" }}>
+                  {tier.cost} <span className="text-lg font-700 text-amber-600">🪙</span>
+                </p>
+                <p className="text-[11px] font-600 text-gray-500">per unlocked contact</p>
               </div>
             ))}
           </div>

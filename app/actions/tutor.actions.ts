@@ -8,12 +8,122 @@ import {
   actionSuccess,
   type ActionResult,
 } from "@/lib/action-result";
-import { formInt, formList, formString } from "@/lib/form-data";
+import { formFloat, formInt, formList, formString } from "@/lib/form-data";
 import { tutorProfileSchema } from "@/lib/validations";
 import { getProfileScore } from "@/lib/profile-score";
 import { geocodeLocation } from "@/lib/geocoding";
 
 export type TutorProfileState = ActionResult<{ updated: true }>;
+export type TutorStepState = ActionResult<{ updated: true; nextStep?: number }>;
+
+// ────────────────────────────────────────────────
+// Save Tutor Profile Step (partial — all fields optional)
+// Called on every "Save & Continue" click to persist progress to DB.
+// ────────────────────────────────────────────────
+
+export async function saveTutorStepAction(
+  _prevState: TutorStepState,
+  formData: FormData
+): Promise<TutorStepState> {
+  const auth = await resolveTutorContext();
+  if (!auth.ok) return auth.result;
+
+  // Read whichever fields are present in this step's form
+  const subjects = formList(formData, "subjects");
+  const classLevels = formList(formData, "classLevels");
+  const teachingMode = formString(formData, "teachingMode");
+  const teachingRadius = formInt(formData, "teachingRadius");
+  const feeMin = formInt(formData, "feeMin");
+  const feeMax = formInt(formData, "feeMax");
+  const city = formString(formData, "city");
+  const state = formString(formData, "state");
+  const pincode = formString(formData, "pincode");
+  const address = formString(formData, "address");
+  const bio = formString(formData, "bio");
+  const qualification = formString(formData, "qualification");
+  const experience = formInt(formData, "experience");
+  const introVideoUrl = formString(formData, "introVideoUrl");
+  const formLat = formFloat(formData, "latitude");
+  const formLng = formFloat(formData, "longitude");
+  const nextStep = formInt(formData, "nextStep");
+
+  // Fetch current profile to preserve existing data and coords
+  const current = await prisma.tutorProfile.findUnique({
+    where: { id: auth.context.tutorProfileId },
+    select: {
+      latitude: true,
+      longitude: true,
+      kycStatus: true,
+      isVerified: true,
+      availability: true,
+    },
+  });
+
+  // Geocode if we have text location but no explicit coords
+  let lat: number | null = formLat ?? current?.latitude ?? null;
+  let lng: number | null = formLng ?? current?.longitude ?? null;
+
+  if (
+    (lat == null || lng == null) &&
+    (city || state || pincode || address)
+  ) {
+    const geo = await geocodeLocation({ address, city, state, pincode });
+    if (geo) { lat = geo.lat; lng = geo.lng; }
+  }
+
+  // Build update payload — only include fields that were actually submitted
+  const updateData: Record<string, unknown> = {};
+  if (subjects.length > 0) updateData.subjects = subjects;
+  if (classLevels.length > 0) updateData.classLevels = classLevels;
+  if (teachingMode) updateData.teachingMode = teachingMode;
+  if (teachingRadius != null) updateData.teachingRadius = teachingRadius;
+  if (feeMin != null) updateData.feeMin = feeMin;
+  if (feeMax != null) updateData.feeMax = feeMax;
+  if (city !== undefined) updateData.city = city ?? null;
+  if (state !== undefined) updateData.state = state ?? null;
+  if (pincode !== undefined) updateData.pincode = pincode ?? null;
+  if (address !== undefined) updateData.address = address ?? null;
+  if (bio !== undefined) updateData.bio = bio ?? null;
+  if (qualification) updateData.qualification = qualification;
+  if (experience != null) updateData.experience = experience;
+  if (introVideoUrl !== undefined) updateData.introVideoUrl = introVideoUrl || null;
+  if (lat != null) updateData.latitude = lat;
+  if (lng != null) updateData.longitude = lng;
+
+  if (Object.keys(updateData).length > 0) {
+    // Recalculate profile score with current + new data
+    const merged = {
+      subjects: subjects.length > 0 ? subjects : [],
+      classLevels: classLevels.length > 0 ? classLevels : [],
+      teachingMode: teachingMode ?? "EITHER",
+      bio: bio ?? null,
+      qualification: qualification ?? null,
+      experience: experience ?? null,
+      city: city ?? null,
+      feeMin: feeMin ?? null,
+      feeMax: feeMax ?? null,
+      introVideoUrl: introVideoUrl ?? null,
+      latitude: lat,
+      kycStatus: current?.kycStatus ?? "NOT_SUBMITTED",
+      isVerified: current?.isVerified ?? false,
+      availability: current?.availability ?? [],
+    };
+    const profileScore = getProfileScore(merged);
+    updateData.profileScore = profileScore;
+
+    await prisma.tutorProfile.update({
+      where: { id: auth.context.tutorProfileId },
+      data: updateData as Parameters<typeof prisma.tutorProfile.update>[0]["data"],
+    });
+  }
+
+  revalidatePath("/tutor/profile");
+  revalidatePath("/tutor/dashboard");
+
+  return actionSuccess({ updated: true as const, nextStep: nextStep ?? undefined });
+}
+
+
 
 // ────────────────────────────────────────────────
 // Save Tutor Profile
@@ -39,6 +149,10 @@ export async function saveTutorProfileAction(
     address: formString(formData, "address"),
     introVideoUrl: formString(formData, "introVideoUrl"),
   });
+
+  // Explicit lat/lon from map picker — takes priority over geocoding
+  const formLat = formFloat(formData, "latitude");
+  const formLng = formFloat(formData, "longitude");
 
   if (!parsed.success) {
     return actionFieldErrors(parsed.error.flatten().fieldErrors);
@@ -76,11 +190,15 @@ export async function saveTutorProfileAction(
     },
   });
 
-  // Geocode location using address, city, state, pincode
-  let lat = current?.latitude ?? null;
-  let lng = current?.longitude ?? null;
+  // If explicit lat/lng came from the map picker/GPS, use those directly.
+  // Otherwise fall back to geocoding from text fields (city/state/pincode).
+  let lat = formLat ?? current?.latitude ?? null;
+  let lng = formLng ?? current?.longitude ?? null;
 
-  if (parsed.data.city || parsed.data.state || parsed.data.pincode || parsed.data.address) {
+  if (
+    (lat == null || lng == null) &&
+    (parsed.data.city || parsed.data.state || parsed.data.pincode || parsed.data.address)
+  ) {
     const geo = await geocodeLocation({
       address: parsed.data.address,
       city: parsed.data.city,

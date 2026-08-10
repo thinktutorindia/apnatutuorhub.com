@@ -66,7 +66,7 @@ export function CouponInput({ orderAmountInr, onCouponApplied }: CouponInputProp
               type="button"
               onClick={handleApply}
               disabled={isPending || !code.trim()}
-              className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold text-white transition-all duration-200 ease-out hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-slate-900/20 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
               style={{ background: "linear-gradient(135deg, #0F172A, #1E293B)" }}
             >
               {isPending ? <Loader2 size={14} className="animate-spin" /> : "Apply"}

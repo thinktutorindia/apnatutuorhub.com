@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { ShieldCheck, ShieldX, Loader2 } from "lucide-react";
 import { approveKycAction, rejectKycAction } from "@/app/actions/admin.actions";
+import { ActionOverlay } from "@/components/ui/LoadingState";
 
 interface KycRowActionsProps {
   tutorProfileId: string;
@@ -35,6 +36,16 @@ export function KycRowActions({ tutorProfileId, tutorName }: KycRowActionsProps)
 
   return (
     <div className="space-y-3 pt-2">
+      <ActionOverlay
+        isOpen={isApproving}
+        title="Approving KYC Verification"
+        subtitle={`Verifying tutor ID & issuing badge for ${tutorName}...`}
+      />
+      <ActionOverlay
+        isOpen={isRejecting}
+        title="Rejecting KYC Verification"
+        subtitle={`Updating tutor status & sending notification for ${tutorName}...`}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"

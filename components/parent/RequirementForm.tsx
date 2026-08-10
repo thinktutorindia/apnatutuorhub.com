@@ -18,6 +18,7 @@ import { FieldError, FormAlert } from "@/components/ui/FieldError";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { OptionPills } from "@/components/ui/OptionPills";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
+import { LocationSearchInput, type LocationResult } from "@/components/ui/LocationSearchInput";
 import {
   BOARDS,
   CLASS_LEVELS,
@@ -106,6 +107,13 @@ export function RequirementForm({
   });
   const [geoStatus, setGeoStatus] = useState<"idle" | "loading" | "error">("idle");
 
+  const [city, setCity] = useState(defaults.city || "");
+  const [area, setArea] = useState(defaults.area || "");
+  const [pincode, setPincode] = useState(defaults.pincode || "");
+  const [address, setAddress] = useState("");
+  // Tutor search radius — only relevant for OFFLINE/EITHER mode
+  const [radiusKm, setRadiusKm] = useState(10);
+
   const applyStudent = (id: string) => {
     setStudentProfileId(id);
     const target = students.find((s) => s.id === id);
@@ -145,6 +153,7 @@ export function RequirementForm({
       {leadId && <input type="hidden" name="leadId" value={leadId} />}
       <input type="hidden" name="latitude" value={coordinates.latitude} />
       <input type="hidden" name="longitude" value={coordinates.longitude} />
+      {!isOnlineOnly && <input type="hidden" name="radiusKm" value={radiusKm} />}
 
       {locked && (
         <div className="flex items-start gap-3 p-5 rounded-3xl bg-amber-50 border border-amber-300 text-amber-950 shadow-2xs">
@@ -351,6 +360,25 @@ export function RequirementForm({
         }
         background="#EA580C"
       >
+        <div className="space-y-1.5 pb-2">
+          <label className="block text-xs font-800 uppercase tracking-wider text-[#0F2540] flex items-center justify-between">
+            <span>Search Location via API / GPS</span>
+            <span className="text-[11px] font-700 text-[#2D9E6B]">Live Auto-Fill ✨</span>
+          </label>
+          <LocationSearchInput
+            onSelectLocation={(res) => {
+              if (res.city) setCity(res.city);
+              if (res.area) setArea(res.area);
+              if (res.pincode) setPincode(res.pincode);
+              if (res.fullAddress) setAddress(res.fullAddress);
+              if (res.lat && res.lon) {
+                setCoordinates({ latitude: res.lat.toString(), longitude: res.lon.toString() });
+              }
+            }}
+            placeholder="Type City, Area, Pincode or Landmark (e.g. Koramangala, Sector 56 Gurgaon, 400001)..."
+          />
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label
@@ -369,7 +397,8 @@ export function RequirementForm({
                 name="city"
                 type="text"
                 placeholder="e.g. Pune, Delhi, Mumbai"
-                defaultValue={defaults.city}
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
                 disabled={locked}
                 className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
@@ -389,7 +418,8 @@ export function RequirementForm({
               name="area"
               type="text"
               placeholder="e.g. Kothrud, Bandra West"
-              defaultValue={defaults.area}
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
               disabled={locked}
               className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
@@ -410,7 +440,8 @@ export function RequirementForm({
               inputMode="numeric"
               maxLength={6}
               placeholder="411038"
-              defaultValue={defaults.pincode}
+              value={pincode}
+              onChange={(e) => setPincode(e.target.value)}
               disabled={locked}
               className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
@@ -447,6 +478,38 @@ export function RequirementForm({
             )}
           </div>
         </div>
+
+        {/* Tutor Search Radius Slider — OFFLINE/EITHER only */}
+        {!isOnlineOnly && !locked && (
+          <div className="pt-2 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-800 uppercase tracking-wider text-slate-700">
+                Tutor Search Radius
+              </label>
+              <span className="text-sm font-800 text-[#2D9E6B] bg-[#2D9E6B]/10 px-2.5 py-0.5 rounded-full">
+                {radiusKm} km
+              </span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={25}
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(Number(e.target.value))}
+              className="w-full h-2 rounded-lg bg-slate-200 accent-[#2D9E6B] cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] font-700 text-slate-400">
+              <span>1 km (hyper-local)</span>
+              <span>25 km (city-wide)</span>
+            </div>
+            <p className="text-[11px] font-600 text-slate-500 leading-relaxed">
+              Only tutors within <strong className="text-[#0F2540]">{radiusKm} km</strong> of your location will be shown this requirement.
+              {radiusKm <= 5 && " 🎯 Very precise — you'll get highly local tutors."}
+              {radiusKm > 5 && radiusKm <= 15 && " ✅ Balanced — good mix of nearby verified tutors."}
+              {radiusKm > 15 && " 📍 Wide search — tutors from across the city will see this."}
+            </p>
+          </div>
+        )}
       </SectionCard>
 
       {/* 4. Preferences & Notes */}

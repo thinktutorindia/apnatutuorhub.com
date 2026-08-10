@@ -16,7 +16,7 @@ import {
   User,
   LogOut,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 const LINKS = [
   { href: "/parent/dashboard", label: "Dashboard", shortLabel: "Dashboard", icon: LayoutDashboard },
@@ -52,12 +52,6 @@ export function ParentNav({ userName, userEmail }: ParentNavProps) {
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
-
-  const handleSignOut = () => {
-    setMobileMenuOpen(false);
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    signOut({ callbackUrl: `${origin}/login` });
-  };
 
   const drawerJSX = (
     <div className="fixed inset-0 z-[999999] flex justify-end md:hidden">
@@ -120,14 +114,11 @@ export function ParentNav({ userName, userEmail }: ParentNavProps) {
 
         {/* Sign Out Button */}
         <div className="mt-6 pt-4 border-t-2 border-[#0F172A]">
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-[#0F172A] bg-[#FCE7F3] py-3.5 text-xs font-black text-[#EF4444] shadow-[3px_3px_0px_0px_#0F172A] hover:bg-red-100 active:scale-95 transition-all cursor-pointer"
-          >
-            <LogOut size={18} />
-            Sign Out
-          </button>
+          <SignOutButton
+            text="Sign Out"
+            iconSize={18}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-[#0F172A] bg-[#FCE7F3] py-3.5 text-xs font-black text-[#EF4444] shadow-[3px_3px_0px_0px_#0F172A] hover:bg-red-100"
+          />
         </div>
       </div>
     </div>

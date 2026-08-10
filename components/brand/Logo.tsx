@@ -44,14 +44,14 @@ export function LogoBrand({
   return (
     <Link
       href={href}
-      className={`inline-flex items-center no-underline shrink-0 ${className}`}
+      className={`group inline-flex items-center no-underline shrink-0 transition-transform duration-300 ease-out hover:scale-105 active:scale-95 ${className}`}
     >
       <Image
         src="/icons/Gemini_Generated_Image_f4d61ef4d61ef4d6_no_bg.png"
         alt="ApnaTutorHub"
         width={360}
         height={80}
-        className={`${heightClass} w-auto object-contain ${light ? "brightness-0 invert" : ""
+        className={`${heightClass} w-auto object-contain transition-transform duration-300 group-hover:drop-shadow-md ${light ? "brightness-0 invert" : ""
           }`}
         priority
       />

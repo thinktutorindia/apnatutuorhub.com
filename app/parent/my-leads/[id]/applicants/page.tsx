@@ -146,7 +146,7 @@ export default async function ApplicantsPage({
             <ArrowLeft size={14} />
             <span>Back to My Requirements</span>
           </Link>
-          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+          <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540] break-words" style={{ fontFamily: "Poppins, sans-serif" }}>
             Tutor Applicants for {lead.subjects.join(", ")}
           </h1>
           <p className="text-xs text-slate-600 font-600">
@@ -179,9 +179,9 @@ export default async function ApplicantsPage({
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#0F2540] to-[#1E3A5F] text-white font-800 text-base flex items-center justify-center shrink-0 shadow-2xs">
                       {(tutor.user.name || tutor.user.email).charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-800 text-base text-[#0F2540]">{tutor.user.name || "Verified Tutor"}</h3>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-800 text-base text-[#0F2540] min-w-0 break-words">{tutor.user.name || "Verified Tutor"}</h3>
                         {tutor.isVerified && (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-800 bg-emerald-100 text-emerald-950 border border-emerald-300 flex items-center gap-1">
                             <ShieldCheck size={12} />
@@ -195,7 +195,7 @@ export default async function ApplicantsPage({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs font-800">
+                  <div className="flex flex-wrap gap-2 text-xs font-800">
                     <div className="flex items-center gap-1 text-amber-500 bg-amber-50 px-3 py-1.5 rounded-2xl border border-amber-200">
                       <Star size={14} className="fill-amber-400 text-amber-400" />
                       <span>{tutor.averageRating.toFixed(1)} ({tutor.totalReviews})</span>

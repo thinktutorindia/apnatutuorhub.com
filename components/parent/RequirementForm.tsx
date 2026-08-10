@@ -361,7 +361,7 @@ export function RequirementForm({
         background="#EA580C"
       >
         <div className="space-y-1.5 pb-2">
-          <label className="block text-xs font-800 uppercase tracking-wider text-[#0F2540] flex items-center justify-between">
+          <label className="block text-xs font-800 uppercase tracking-wider text-[#0F2540] flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <span>Search Location via API / GPS</span>
             <span className="text-[11px] font-700 text-[#2D9E6B]">Live Auto-Fill ✨</span>
           </label>
@@ -468,7 +468,7 @@ export function RequirementForm({
               </span>
             </button>
             {coordinates.latitude && coordinates.longitude ? (
-              <p className="text-[11px] font-800 text-emerald-600">
+              <p className="text-[11px] font-800 text-emerald-600 break-all">
                 ✓ Pinned at {coordinates.latitude}, {coordinates.longitude}
               </p>
             ) : (

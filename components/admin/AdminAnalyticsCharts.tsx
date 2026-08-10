@@ -157,7 +157,7 @@ export function AdminAnalyticsCharts({
       {/* TAB 1: Financials & Revenue */}
       {activeTab === "revenue" && (
         <div className="space-y-6">
-          <div className="rounded-3xl bg-white p-7 border border-slate-200 shadow-xs space-y-6">
+          <div className="rounded-3xl bg-white p-4 sm:p-7 border border-slate-200 shadow-xs space-y-6">
             <SectionHeader
               icon={TrendingUp}
               title="Monthly Revenue & Coin Sales (GMV)"
@@ -209,7 +209,7 @@ export function AdminAnalyticsCharts({
       {/* TAB 2: Lead Matching Engine */}
       {activeTab === "leads" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-3xl bg-white p-7 border border-slate-200 shadow-xs space-y-6">
+          <div className="rounded-3xl bg-white p-4 sm:p-7 border border-slate-200 shadow-xs space-y-6">
             <SectionHeader
               icon={Zap}
               title="Subject Requirement Demand"
@@ -220,7 +220,7 @@ export function AdminAnalyticsCharts({
                 <BarChart data={data?.subjectDemand ?? []} layout="vertical">
                   <CartesianGrid {...gridStyle} />
                   <XAxis type="number" {...tickStyle} />
-                  <YAxis dataKey="subject" type="category" width={120} {...tickStyle} />
+                  <YAxis dataKey="subject" type="category" width={72} {...tickStyle} />
                   <Tooltip content={<LightTooltip />} />
                   <Bar dataKey="count" name="Requirements" fill={ACCENT_AMBER} radius={[0, 8, 8, 0]} />
                 </BarChart>
@@ -228,7 +228,7 @@ export function AdminAnalyticsCharts({
             </div>
           </div>
 
-          <div className="rounded-3xl bg-white p-7 border border-slate-200 shadow-xs space-y-6">
+          <div className="rounded-3xl bg-white p-4 sm:p-7 border border-slate-200 shadow-xs space-y-6">
             <SectionHeader
               icon={Layers}
               title="Class Level Distribution"
@@ -264,7 +264,7 @@ export function AdminAnalyticsCharts({
       {/* TAB 3: Demographics */}
       {activeTab === "demographics" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-3xl bg-white p-7 border border-slate-200 shadow-xs space-y-6">
+          <div className="rounded-3xl bg-white p-4 sm:p-7 border border-slate-200 shadow-xs space-y-6">
             <SectionHeader
               icon={MapPin}
               title="Top Tuition Cities"
@@ -283,7 +283,7 @@ export function AdminAnalyticsCharts({
             </div>
           </div>
 
-          <div className="rounded-3xl bg-white p-7 border border-slate-200 shadow-xs space-y-6">
+          <div className="rounded-3xl bg-white p-4 sm:p-7 border border-slate-200 shadow-xs space-y-6">
             <SectionHeader
               icon={Star}
               title="Verified Tutor Rating Spread"
@@ -306,7 +306,7 @@ export function AdminAnalyticsCharts({
 
       {/* TAB 4: Sub-Admin Audit Metrics */}
       {activeTab === "subadmins" && (
-        <div className="rounded-3xl bg-white p-7 border border-slate-200 shadow-xs space-y-6">
+        <div className="rounded-3xl bg-white p-4 sm:p-7 border border-slate-200 shadow-xs space-y-6">
           <SectionHeader
             icon={ShieldCheck}
             title="Sub-Admin Team Governance Audit"

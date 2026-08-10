@@ -111,7 +111,7 @@ export default async function AdminLeadsPage({
 
       {/* Filters */}
       <form method="GET" className="flex flex-wrap gap-3 p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
-        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-slate-50 border border-slate-300 min-w-[200px]">
+        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-slate-50 border border-slate-300 min-w-0 w-full sm:min-w-[200px] sm:flex-1">
           <Search size={16} className="text-slate-500" />
           <input
             name="q"
@@ -263,7 +263,7 @@ export default async function AdminLeadsPage({
         </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-200 text-xs font-700 text-slate-700">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 bg-slate-50 border-t border-slate-200 text-xs font-700 text-slate-700">
             <p>Page {page} of {totalPages}</p>
             <div className="flex gap-2">
               {page > 1 && (

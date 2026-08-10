@@ -109,7 +109,7 @@ export default async function AdminUsersPage({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
         <div className="space-y-1">
           <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">User Management</span>
-          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+          <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             Account &amp; Role Directory
           </h1>
           <p className="text-xs text-slate-600 font-600">
@@ -240,7 +240,7 @@ export default async function AdminUsersPage({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-200 text-xs font-700 text-slate-700">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 bg-slate-50 border-t border-slate-200 text-xs font-700 text-slate-700">
             <p>
               Page {page} of {totalPages} · {total} users
             </p>

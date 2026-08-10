@@ -432,14 +432,14 @@ export function ChatThreadView({
         rel="noopener noreferrer"
         className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black text-[#0F172A] shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] hover:bg-slate-50"
       >
-        <FileText size={14} className="text-slate-500" />
-        <span>View File ({content})</span>
+        <FileText size={14} className="text-slate-500 shrink-0" />
+        <span className="max-w-full truncate">View File ({content})</span>
       </a>
     );
   };
 
   return (
-    <div className="neu-card flex flex-col h-[520px] bg-white p-4">
+    <div className="neu-card flex flex-col h-[60vh] min-h-[320px] sm:h-[520px] bg-white p-4">
       {/* Presence and status bar */}
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 text-xs font-bold text-slate-500">
         <div className="flex items-center gap-1.5">
@@ -521,9 +521,9 @@ export function ChatThreadView({
       <div className="mt-3 pt-3 border-t-2 border-slate-100">
         {isRecording ? (
           <div className="flex items-center justify-between bg-red-50 border-2 border-red-200 rounded-2xl px-4 py-2.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-red-500 animate-pulse">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-              <span>Recording Voice Note: {formatTime(recordingSeconds)}</span>
+            <div className="flex min-w-0 items-center gap-2 text-xs font-bold text-red-500 animate-pulse">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" />
+              <span className="min-w-0 truncate">Recording Voice Note: {formatTime(recordingSeconds)}</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -570,7 +570,7 @@ export function ChatThreadView({
                 handleTyping();
               }}
               placeholder="Type your message..."
-              className="neu-input flex-1 text-xs py-2.5"
+              className="neu-input flex-1 min-w-0 text-xs py-2.5"
               disabled={isPending}
             />
 
@@ -590,7 +590,7 @@ export function ChatThreadView({
               className="neu-btn neu-btn-primary px-4 py-2.5 text-xs shrink-0"
             >
               <Send size={14} />
-              <span>Send</span>
+              <span className="hidden sm:inline">Send</span>
             </button>
           </form>
         )}

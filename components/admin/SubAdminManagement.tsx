@@ -199,7 +199,7 @@ export function SubAdminManagement({ initialSubAdmins, roleBadges }: SubAdminMan
       )}
 
       {/* Toolbar */}
-      <div className="mb-6 flex items-center justify-between gap-4 p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
         <p className="text-xs font-800 text-slate-900">
           {subAdmins.length} staff account{subAdmins.length !== 1 ? "s" : ""} configured
         </p>
@@ -350,8 +350,8 @@ export function SubAdminManagement({ initialSubAdmins, roleBadges }: SubAdminMan
 
       {/* Create Sub-Admin Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 space-y-5 border border-slate-300 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 space-y-5 border border-slate-300 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <h3 className="text-xl font-800 text-[#0F2540]">Create Sub-Admin Staff</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-slate-500 hover:text-black">
@@ -406,11 +406,11 @@ export function SubAdminManagement({ initialSubAdmins, roleBadges }: SubAdminMan
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="px-5 py-2.5 rounded-2xl border border-slate-300 text-xs font-800 hover:bg-slate-100"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-slate-300 text-xs font-800 hover:bg-slate-100"
               >
                 Cancel
               </button>
@@ -418,7 +418,7 @@ export function SubAdminManagement({ initialSubAdmins, roleBadges }: SubAdminMan
                 type="button"
                 onClick={handleCreate}
                 disabled={isPending}
-                className="px-6 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 cursor-pointer shadow-md"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 cursor-pointer shadow-md"
               >
                 Create Staff Account
               </button>

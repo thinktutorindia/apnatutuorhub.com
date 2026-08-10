@@ -35,7 +35,7 @@ export async function TutorAnalyticsWidget({ tutorProfileId }: TutorAnalyticsWid
       className="rounded-3xl p-6 shadow-[5px_5px_0px_0px_rgba(15,23,42,1)]"
       style={{ background: "#FFFFFF", border: "2.5px solid #0F172A" }}
     >
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <TrendingUp className="text-emerald-600" size={20} />
           <h2
@@ -53,7 +53,7 @@ export async function TutorAnalyticsWidget({ tutorProfileId }: TutorAnalyticsWid
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:grid-cols-4">
         {/* Metric 1 */}
         <div className="group rounded-2xl bg-slate-50 p-4 border border-slate-200 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-white hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/10">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">

@@ -263,7 +263,7 @@ function LeadCard({
           </div>
         ) : (
           /* Masked Details for Unlocked Leads */
-          <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
+          <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
             {(lead.area || lead.city) && (
               <span className="flex items-center gap-1">
                 <MapPin size={12} className="text-slate-400" />
@@ -295,7 +295,7 @@ function LeadCard({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 border-t-2 border-[#E2E8F0] pt-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t-2 border-[#E2E8F0] pt-3">
           <div className="flex items-center gap-2">
             <span className="rounded-full border-2 border-[#0F172A] bg-[#FEF3C7] px-3 py-1 text-sm font-black">
               🪙 {lead.coinCost}

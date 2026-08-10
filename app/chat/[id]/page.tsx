@@ -57,7 +57,7 @@ export default async function ChatThreadPage({
     : conversation.parentProfile.user;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4 py-6 px-4">
+    <div className="max-w-3xl mx-auto space-y-4 py-6">
       <div className="flex items-center justify-between">
         <Link
           href="/chat"
@@ -69,17 +69,17 @@ export default async function ChatThreadPage({
       </div>
 
       {/* Header */}
-      <header className="neu-card flex items-center justify-between bg-[#FEF3C7] p-4">
-        <div className="flex items-center gap-3">
+      <header className="neu-card flex flex-wrap items-center justify-between gap-2 bg-[#FEF3C7] p-4">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-white text-xl shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
             {isParent ? "🧑‍🏫" : "🏠"}
           </div>
-          <div>
-            <h1 className="font-black text-[#0F172A]">
+          <div className="min-w-0">
+            <h1 className="font-black text-[#0F172A] truncate">
               {otherUser.name ?? "User"}
             </h1>
             {conversation.lead && (
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-600 line-clamp-2">
                 Requirement: {conversation.lead.classLevel} (
                 {conversation.lead.subjects.join(", ")})
               </p>

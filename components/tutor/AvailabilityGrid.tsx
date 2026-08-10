@@ -60,7 +60,7 @@ export function AvailabilityGrid({
           return (
             <div
               key={day}
-              className={`flex items-center gap-3 rounded-xl border-[2.5px] border-[#0F172A] p-3 transition-colors ${
+              className={`flex flex-wrap items-center gap-3 rounded-xl border-[2.5px] border-[#0F172A] p-3 transition-colors ${
                 slot.enabled ? "bg-[#DCFCE7]" : "bg-white opacity-60"
               }`}
             >

@@ -85,11 +85,11 @@ function ResetPasswordForm() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-[#0F172A] tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
           Set New Password 🔐
         </h1>
         <p className="text-sm font-semibold text-slate-600 mt-1">
-          Enter a new secure password for <strong className="text-[#0F172A]">{email}</strong>
+          Enter a new secure password for <strong className="text-[#0F172A] break-all">{email}</strong>
         </p>
       </div>
 

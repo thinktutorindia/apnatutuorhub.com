@@ -184,7 +184,7 @@ export function LeadPurchaseModal({
               />
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
               <button
                 type="button"
                 disabled={!canAfford || isPurchasing}
@@ -243,11 +243,11 @@ export function LeadPurchaseModal({
                   </span>
                   {contact.phone && <CopyButton text={contact.phone} />}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="w-16 text-[11px] font-black uppercase text-slate-500">
                     Email
                   </span>
-                  <span className="break-all font-extrabold text-[#0F172A]">
+                  <span className="flex-1 min-w-0 break-all font-extrabold text-[#0F172A]">
                     {contact.email}
                   </span>
                   <CopyButton text={contact.email} />
@@ -304,7 +304,7 @@ export function LeadPurchaseModal({
               </div>
               <FieldError messages={appState.fieldErrors?.proposalNote} />
 
-              <div className="flex gap-3">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <button
                   type="submit"
                   disabled={appPending}

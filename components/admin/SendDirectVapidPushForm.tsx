@@ -14,7 +14,7 @@ export function SendDirectVapidPushForm() {
 
   return (
     <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-5">
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2">
           <Zap size={20} className="text-amber-600" />
           <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>

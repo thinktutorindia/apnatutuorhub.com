@@ -213,7 +213,7 @@ export default async function TutorDashboardPage() {
       )}
 
       {/* Metrics Row (4 Cards) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Wallet Balance */}
         <Link
           href="/tutor/wallet"
@@ -308,7 +308,7 @@ export default async function TutorDashboardPage() {
         <div className="p-6 rounded-3xl bg-white border border-gray-200/80 shadow-xs hover:shadow-md transition-all duration-300 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-800 text-gray-900 flex items-center gap-2">
+              <h2 className="text-base font-800 text-gray-900 flex items-center gap-2 flex-wrap">
                 Profile Completeness Score ({profileScore}%)
                 {isKycApproved && (
                   <span className="text-xs font-700 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -356,7 +356,7 @@ export default async function TutorDashboardPage() {
 
       {/* Live Active Leads Preview */}
       <div className="p-6 rounded-3xl bg-white border border-gray-200/80 shadow-xs hover:shadow-md transition-all duration-300 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-800 text-gray-900 flex items-center gap-2">
               <Zap size={18} className="text-[#F5A623]" />
@@ -422,7 +422,7 @@ export default async function TutorDashboardPage() {
       </div>
 
       {/* Command Shortcuts Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           {
             title: "Find Students",

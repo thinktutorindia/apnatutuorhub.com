@@ -60,7 +60,7 @@ export function ParentProfileForm({
       <input type="hidden" name="latitude" value={coordinates.latitude} />
       <input type="hidden" name="longitude" value={coordinates.longitude} />
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <User size={18} />
           <h2 className="text-xl font-black text-[#0F172A]">Contact & Location Details</h2>
@@ -264,7 +264,7 @@ export function ParentProfileForm({
             </button>
           </div>
           {coordinates.latitude && coordinates.longitude ? (
-            <p className="text-[11px] font-bold text-[#22C55E]">
+            <p className="text-[11px] font-bold text-[#22C55E] break-all">
               📍 Pinned at {coordinates.latitude}, {coordinates.longitude}
             </p>
           ) : (

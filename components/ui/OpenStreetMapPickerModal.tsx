@@ -190,7 +190,7 @@ export function OpenStreetMapPickerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center overflow-y-auto p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-3xl rounded-3xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header Bar */}
         <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
@@ -199,7 +199,7 @@ export function OpenStreetMapPickerModal({
               <Compass size={20} />
             </div>
             <div>
-              <h3 className="text-base font-800 text-[#0F2540] flex items-center gap-2">
+              <h3 className="text-base font-800 text-[#0F2540] flex flex-wrap items-center gap-2 gap-y-1">
                 <span>Pick Location on Map</span>
                 <span className="text-[10px] font-800 bg-emerald-50 text-[#2D9E6B] px-2.5 py-0.5 rounded-full border border-emerald-200">
                   OpenStreetMap 🗺️
@@ -240,7 +240,7 @@ export function OpenStreetMapPickerModal({
           </button>
 
           {/* Floating Instruction Banner */}
-          <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-20 bg-slate-900/80 text-white text-[11px] font-700 px-3.5 py-2 rounded-2xl backdrop-blur-xs flex items-center gap-2 border border-white/10 shadow-lg">
+          <div className="absolute bottom-14 sm:bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-20 bg-slate-900/80 text-white text-[11px] font-700 px-3.5 py-2 rounded-2xl backdrop-blur-xs flex items-center gap-2 border border-white/10 shadow-lg">
             <MapPin size={14} className="text-[#2D9E6B] shrink-0" />
             <span>Click map or drag marker pin to update location</span>
           </div>

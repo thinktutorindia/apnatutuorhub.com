@@ -156,7 +156,7 @@ export function ParentNavClient({ userName, userEmail }: ParentNavClientProps) {
       )}
 
       {/* Mobile Bottom Fixed Tab Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
+      <div className="at-bottom-safe md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
         {BOTTOM_TABS.map((tab) => {
           const active = isActive(tab.href);
           const Icon = tab.icon;
@@ -164,12 +164,12 @@ export function ParentNavClient({ userName, userEmail }: ParentNavClientProps) {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
+              className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl transition-all min-w-0 ${
                 active ? "text-[#2D9E6B] font-800" : "text-slate-500 font-600"
               }`}
             >
               <Icon size={18} className={active ? "text-[#2D9E6B]" : "text-slate-400"} />
-              <span className="text-[10px]">{tab.label}</span>
+              <span className="text-[10px] min-w-0 truncate max-w-full">{tab.label}</span>
             </Link>
           );
         })}

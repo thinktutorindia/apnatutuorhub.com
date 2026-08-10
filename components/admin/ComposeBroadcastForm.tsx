@@ -20,7 +20,7 @@ export function ComposeBroadcastForm() {
         title="Dispatching Broadcast"
         subtitle="Sending push notifications, emails, and in-app alerts..."
       />
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2">
           <Radio size={20} className="text-[#2D9E6B]" />
           <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
@@ -46,7 +46,7 @@ export function ComposeBroadcastForm() {
           <label className="mb-1.5 block text-xs font-800 text-slate-900">
             Target Audience
           </label>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 xs:grid-cols-3 gap-2.5">
             {[
               { value: "ALL", label: "All Users", icon: Users },
               { value: "PARENTS", label: "Parents", icon: GraduationCap },

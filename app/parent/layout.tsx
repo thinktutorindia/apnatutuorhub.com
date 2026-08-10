@@ -34,7 +34,7 @@ export default async function ParentLayout({
             <LogoBrand size={30} href="/parent/dashboard" hideWordmarkOnMobile={true} />
           </div>
 
-          <div className="flex-1 flex items-center justify-end md:justify-center">
+          <div className="flex-1 min-w-0 flex items-center justify-end md:justify-center">
             <ParentNavClient
               userName={userName}
               userEmail={userEmail}
@@ -52,7 +52,7 @@ export default async function ParentLayout({
       </header>
 
       {/* Main Page Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 md:pb-12">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24 md:pb-12">
         {children}
       </main>
     </div>

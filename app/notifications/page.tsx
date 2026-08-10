@@ -60,7 +60,7 @@ export default async function NotificationsPage({
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-700 mb-0.5" style={{ color: "#111827" }}>
               Notifications
             </h1>
@@ -75,7 +75,7 @@ export default async function NotificationsPage({
         </div>
 
         {/* Filter tabs + Mark all */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-1.5">
             {["all", "unread"].map((f) => (
               <a

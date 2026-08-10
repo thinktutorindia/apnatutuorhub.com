@@ -166,7 +166,7 @@ export function TopUpModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="topup-modal-title"
-        className="relative z-10 w-full max-w-2xl rounded-2xl bg-white p-6 space-y-5 shadow-xl border border-gray-200"
+        className="relative z-10 w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-6 space-y-5 shadow-xl border border-gray-200"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 pb-3 border-b border-gray-100">
@@ -205,7 +205,7 @@ export function TopUpModal({
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
@@ -221,7 +221,7 @@ export function TopUpModal({
                 type="button"
                 onClick={() => handleApplyCoupon(500)}
                 disabled={couponLoading || !couponCode.trim()}
-                className="at-btn at-btn-accent at-btn-sm shrink-0"
+                className="at-btn at-btn-accent at-btn-sm shrink-0 w-full sm:w-auto"
               >
                 {couponLoading ? "Checking..." : "Apply Coupon"}
               </button>
@@ -258,10 +258,10 @@ export function TopUpModal({
 
             {/* Applied Coupon Badge */}
             {appliedCoupon && (
-              <div className="flex items-center justify-between rounded-lg bg-green-50 border border-green-200 p-2.5 text-xs text-gray-900">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-green-600" />
-                  <span>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-green-50 border border-green-200 p-2.5 text-xs text-gray-900">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                  <span className="min-w-0">
                     Coupon <strong>"{appliedCoupon.code}"</strong> Applied! Discount: ₹{appliedCoupon.discountAmountInr} OFF
                   </span>
                 </div>

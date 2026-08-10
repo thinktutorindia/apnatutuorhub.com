@@ -92,13 +92,13 @@ export default async function AdminBookingsPage({
       </div>
 
       {/* Search */}
-      <form method="GET" className="flex gap-3 p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <form method="GET" className="flex flex-col gap-3 sm:flex-row p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
         <input type="hidden" name="status" value={statusFilter} />
         <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-slate-50 border border-slate-300">
           <Search size={16} className="text-slate-500" />
           <input name="q" defaultValue={q} placeholder="Search by subject, parent name, or tutor name…" className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-500" />
         </div>
-        <button type="submit" className="rounded-2xl px-6 py-2.5 text-xs font-800 bg-[#2D9E6B] text-white hover:bg-[#238357] transition-all cursor-pointer">
+        <button type="submit" className="w-full sm:w-auto rounded-2xl px-6 py-2.5 text-xs font-800 bg-[#2D9E6B] text-white hover:bg-[#238357] transition-all cursor-pointer">
           Search
         </button>
       </form>
@@ -147,7 +147,7 @@ export default async function AdminBookingsPage({
                       {b.createdAt ? new Date(b.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {b.status !== "CANCELLED" && (
                           <form action={async () => { "use server"; await adminCancelBookingAction(b.id); }}>
                             <button type="submit" className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-800 cursor-pointer">

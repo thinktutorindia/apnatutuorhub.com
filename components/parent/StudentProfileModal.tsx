@@ -46,7 +46,7 @@ export function StudentProfileModal({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0F172A]/40 p-4 py-10 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0F172A]/40 p-4 py-4 sm:py-10 backdrop-blur-sm">
       <button
         type="button"
         aria-label="Close dialog"
@@ -58,7 +58,7 @@ export function StudentProfileModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="student-modal-title"
-        className="neu-card relative z-10 w-full max-w-2xl bg-white p-6"
+        className="neu-card relative z-10 w-full max-w-2xl bg-white p-6 max-h-[90vh] overflow-y-auto"
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="flex items-center gap-2">

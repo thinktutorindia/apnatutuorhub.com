@@ -75,7 +75,7 @@ export function AuditLogFilterBar({
       {/* Search Input & Select Dropdowns */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search Action */}
-        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] min-w-[220px]">
+        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] min-w-0 w-full sm:min-w-[220px]">
           <Search size={16} className="text-slate-500 shrink-0" />
           <input
             type="text"
@@ -110,7 +110,7 @@ export function AuditLogFilterBar({
             setEntity(val);
             updateFilters(action, val, adminId, subAdminOnly);
           }}
-          className="rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
+          className="w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
         >
           <option value="">All Entity Types</option>
           {ENTITIES.map((ent) => (
@@ -126,7 +126,7 @@ export function AuditLogFilterBar({
             setAdminId(val);
             updateFilters(action, entity, val, subAdminOnly);
           }}
-          className="rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
+          className="w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
         >
           <option value="">All Admin &amp; Staff Members</option>
           {adminUsers.map((u) => (

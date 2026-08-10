@@ -388,12 +388,12 @@ export function LocationSearchInput({
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-col xs:flex-row items-stretch gap-2 shrink-0">
           {/* Pick on Map */}
           <button
             type="button"
             onClick={() => setIsMapModalOpen(true)}
-            className="h-12 px-3.5 sm:px-4 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs flex items-center justify-center gap-2 shrink-0 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
+            className="h-12 w-full xs:w-auto px-3.5 sm:px-4 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs flex items-center justify-center gap-2 shrink-0 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
           >
             <MapIcon size={15} className="text-[#2D9E6B]" />
             <span>🗺️ Pick on Map</span>
@@ -404,7 +404,7 @@ export function LocationSearchInput({
             type="button"
             onClick={handleUseGPS}
             disabled={gpsLoading}
-            className="h-12 px-3.5 sm:px-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 font-800 text-xs flex items-center justify-center gap-2 shrink-0 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+            className="h-12 w-full xs:w-auto px-3.5 sm:px-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 font-800 text-xs flex items-center justify-center gap-2 shrink-0 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
           >
             {gpsLoading ? (
               <Loader2 size={16} className="animate-spin text-emerald-700" />

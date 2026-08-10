@@ -114,7 +114,7 @@ export default async function AdminWalletsPage({
             <Coins size={16} className="text-[#2D9E6B]" />
             <span>Circulating Balance</span>
           </div>
-          <p className="text-2xl font-800 text-[#2D9E6B]">
+          <p className="text-xl sm:text-2xl font-800 text-[#2D9E6B]">
             {(walletAgg._sum.balance ?? 0).toLocaleString("en-IN")} Coins
           </p>
         </div>
@@ -124,7 +124,7 @@ export default async function AdminWalletsPage({
             <TrendingUp size={16} className="text-[#2563EB]" />
             <span>Total Purchased</span>
           </div>
-          <p className="text-2xl font-800 text-[#2563EB]">
+          <p className="text-xl sm:text-2xl font-800 text-[#2563EB]">
             {(walletAgg._sum.totalPurchased ?? 0).toLocaleString("en-IN")} Coins
           </p>
         </div>
@@ -134,7 +134,7 @@ export default async function AdminWalletsPage({
             <TrendingDown size={16} className="text-[#7C3AED]" />
             <span>Total Spent on Leads</span>
           </div>
-          <p className="text-2xl font-800 text-[#7C3AED]">
+          <p className="text-xl sm:text-2xl font-800 text-[#7C3AED]">
             {(walletAgg._sum.totalSpent ?? 0).toLocaleString("en-IN")} Coins
           </p>
         </div>
@@ -227,7 +227,7 @@ export default async function AdminWalletsPage({
                     })}
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 xs:flex-row xs:items-center">
                       <form action={async (fd) => { "use server"; await adminCreditCoinsAction(fd); }} className="flex items-center gap-1">
                         <input type="hidden" name="tutorProfileId" value={w.tutorProfile.id} />
                         <input type="hidden" name="description" value="Admin Manual Credit" />

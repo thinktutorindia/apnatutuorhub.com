@@ -132,7 +132,7 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto max-h-72">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="flex flex-col gap-2 p-4">
             {[1, 2, 3].map((i) => (
@@ -237,7 +237,7 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
           {/* Mobile Overlay */}
           <div className="md:hidden">
             {createPortal(
-              <div className="fixed inset-0 z-[999999] flex items-start justify-center pt-16 px-4">
+              <div className="fixed inset-0 z-[999999] flex items-start justify-center pt-16 px-4 pb-[env(safe-area-inset-bottom)]">
                 <div
                   className="fixed inset-0 bg-black/60 backdrop-blur-xs cursor-pointer"
                   onClick={() => setIsOpen(false)}

@@ -3,6 +3,14 @@
 
 @import "tailwindcss";
 
+/* ── Custom theme extensions (Tailwind v4) ───────────────── */
+@theme {
+  /* Extra small breakpoint used by responsive utilities (xs:) */
+  --breakpoint-xs: 30rem; /* 480px */
+  /* Heading font family utility (font-heading) */
+  --font-heading: "Poppins", "Inter", system-ui, sans-serif;
+}
+
 /* ============================================================
    ApnaTutorHub Premium Design System
    Brand Colors: Navy (#1A3C5E), Saffron (#F5A623), Green (#2D9E6B)
@@ -62,6 +70,7 @@
 /* ── Base Reset & Typography ──────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
@@ -70,6 +79,8 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -81,6 +92,34 @@ body {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   font-size: 16px;
   line-height: 1.6;
+  /* Prevent accidental horizontal scroll on mobile without breaking
+     position: sticky (clip does not create a scroll container). */
+  overflow-x: clip;
+}
+
+/* Media never forces the page wider than the viewport */
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+/* Prevent iOS Safari auto-zoom on focus for small inputs while keeping
+   the visual size controlled by utility classes on larger screens. */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -349,4 +388,134 @@ a {
 .at-badge-neutral { background-color: #F3F4F6; color: #374151; }
 .at-badge-accent  { background-color: #FEF3C7; color: #92400E; }
 .at-badge-info    { background-color: #EBF2FF; color: #2563EB; }
+.at-badge-success { background-color: #DCFCE7; color: #15803D; }
+.at-badge-warning { background-color: #FEF3C7; color: #92400E; }
+.at-badge-error   { background-color: #FEE2E2; color: #B91C1C; }
+
+/* ============================================================
+   Neobrutalist App Interior System (neu-*)
+   Used across chat, bookings, leads, auth, forms & modals.
+   Declared in @layer components so per-element Tailwind
+   utilities (bg-*, border-*, shadow-*, rounded-*) always win.
+   ============================================================ */
+@layer components {
+  .neu-card {
+    background-color: #ffffff;
+    border: 2px solid #0F172A;
+    border-radius: 16px;
+    box-shadow: 4px 4px 0 0 #0F172A;
+  }
+
+  .neu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 2px solid #0F172A;
+    font-weight: 800;
+    font-size: 14px;
+    line-height: 1.1;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 3px 3px 0 0 #0F172A;
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+                background-color 0.15s ease;
+  }
+  .neu-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 0 #0F172A;
+  }
+  .neu-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 0 #0F172A;
+  }
+  .neu-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 2px 2px 0 0 #0F172A;
+  }
+
+  .neu-btn-primary {
+    background-color: #2D9E6B;
+    color: #ffffff;
+  }
+  .neu-btn-primary:hover { background-color: #22885a; }
+
+  .neu-btn-white {
+    background-color: #ffffff;
+    color: #0F172A;
+  }
+  .neu-btn-white:hover { background-color: #F8FAFC; }
+
+  .neu-input {
+    display: block;
+    width: 100%;
+    background-color: #ffffff;
+    border: 2px solid #0F172A;
+    border-radius: 12px;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+    box-shadow: 2px 2px 0 0 rgba(15, 23, 42, 0.12);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .neu-input::placeholder { color: #94A3B8; font-weight: 500; }
+  .neu-input:focus {
+    outline: none;
+    border-color: #0F172A;
+    box-shadow: 3px 3px 0 0 #0F172A;
+  }
+
+  .neu-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    border: 1.5px solid #0F172A;
+    background-color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+}
+
+/* Loading skeleton shimmer */
+.at-skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #E5E7EB;
+}
+.at-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.65) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer-slide 1.5s infinite;
+}
+
+/* iOS / notch safe-area padding for fixed bottom nav bars */
+.at-bottom-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Numeric font-weight utilities used throughout the app */
+.font-400 { font-weight: 400; }
+.font-500 { font-weight: 500; }
+.font-600 { font-weight: 600; }
+.font-700 { font-weight: 700; }
+.font-800 { font-weight: 800; }
+.font-900 { font-weight: 900; }
 

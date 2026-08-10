@@ -104,7 +104,7 @@ export default async function AdminChatSupportPage({
           <p className="text-xs font-800 uppercase tracking-wider text-slate-900">
             Total Chat Threads
           </p>
-          <p className="text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+          <p className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             {totalConversations}
           </p>
           <p className="text-xs font-600 text-slate-600">All active parent-tutor conversations</p>
@@ -114,7 +114,7 @@ export default async function AdminChatSupportPage({
           <p className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B]">
             Messages Sent
           </p>
-          <p className="text-3xl font-800 text-[#2D9E6B]" style={{ fontFamily: "Poppins, sans-serif" }}>
+          <p className="text-2xl sm:text-3xl font-800 text-[#2D9E6B]" style={{ fontFamily: "Poppins, sans-serif" }}>
             {totalMessages.toLocaleString("en-IN")}
           </p>
           <p className="text-xs font-600 text-slate-600">Instant messages processed</p>
@@ -132,7 +132,7 @@ export default async function AdminChatSupportPage({
       </div>
 
       {/* Search Input */}
-      <form method="GET" className="flex items-center gap-3 p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <form method="GET" className="flex flex-col gap-3 sm:flex-row sm:items-center p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
@@ -145,7 +145,7 @@ export default async function AdminChatSupportPage({
         </div>
         <button
           type="submit"
-          className="rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] px-6 py-3 text-xs font-800 text-white transition-all shadow-md cursor-pointer"
+          className="w-full sm:w-auto rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] px-6 py-3 text-xs font-800 text-white transition-all shadow-md cursor-pointer"
         >
           Search Threads
         </button>
@@ -153,7 +153,7 @@ export default async function AdminChatSupportPage({
 
       {/* Conversations List */}
       <div className="rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-800 text-[#0F2540] text-base" style={{ fontFamily: "Poppins, sans-serif" }}>
             Active Support &amp; Chat Threads
           </h2>

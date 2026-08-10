@@ -49,7 +49,7 @@ export default function LoginPage() {
       
       {/* Top Header with Centered Logo & Back Button */}
       <div className="flex items-center justify-between w-full">
-        <LogoBrand />
+        <LogoBrand heightClass="h-10 sm:h-16" />
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-xs font-600 text-gray-600 hover:text-[#1A3C5E] transition-all px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow"

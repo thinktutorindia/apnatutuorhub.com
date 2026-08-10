@@ -158,7 +158,7 @@ export default async function ParentDashboardPage() {
 
       {/* Requirements List Card Section */}
       <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
           <div>
             <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
               Your Posted Requirements

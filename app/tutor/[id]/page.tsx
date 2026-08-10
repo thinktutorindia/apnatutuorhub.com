@@ -242,7 +242,7 @@ export default async function PublicTutorProfilePage({
         {/* Reviews */}
         {profile.reviews.length > 0 && (
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h2 className="flex items-center gap-2 text-lg font-700 text-gray-900">
                 <Star size={20} className="fill-amber-400 text-amber-400" />
                 Student Reviews ({profile.reviews.length})
@@ -259,7 +259,7 @@ export default async function PublicTutorProfilePage({
                   className="rounded-xl p-5 space-y-2.5"
                   style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB" }}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Star

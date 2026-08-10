@@ -175,7 +175,7 @@ export default async function MyLeadsPage({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Link
                       href={`/parent/my-leads/${lead.id}/applicants`}
                       className="px-4 py-2 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 shadow-md flex items-center gap-1"
@@ -191,22 +191,22 @@ export default async function MyLeadsPage({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-700 text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                  <div>
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-700 text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                  <div className="min-w-0">
                     <span className="text-[10px] font-800 uppercase text-slate-900">Budget</span>
-                    <p className="font-800 text-slate-900">₹{lead.budgetMin || 0} - ₹{lead.budgetMax || "Negotiable"}</p>
+                    <p className="font-800 text-slate-900 break-words">₹{lead.budgetMin || 0} - ₹{lead.budgetMax || "Negotiable"}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] font-800 uppercase text-slate-900">Board</span>
-                    <p className="font-800 text-slate-900">{lead.board || "Not specified"}</p>
+                    <p className="font-800 text-slate-900 break-words">{lead.board || "Not specified"}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] font-800 uppercase text-slate-900">Max Tutors Limit</span>
-                    <p className="font-800 text-slate-900">{lead.maxTutors} Tutors</p>
+                    <p className="font-800 text-slate-900 break-words">{lead.maxTutors} Tutors</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] font-800 uppercase text-slate-900">Posted Date</span>
-                    <p className="font-800 text-slate-900">{new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                    <p className="font-800 text-slate-900 break-words">{new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
                   </div>
                 </div>
               </div>

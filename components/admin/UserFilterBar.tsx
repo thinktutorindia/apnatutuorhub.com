@@ -80,7 +80,7 @@ export function UserFilterBar({
       {/* Search Input & Selectors */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search Input */}
-        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] min-w-[240px]">
+        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] min-w-0 w-full sm:min-w-[240px]">
           <Search size={16} className="text-slate-500 shrink-0" />
           <input
             type="text"
@@ -114,7 +114,7 @@ export function UserFilterBar({
             setRole(val);
             updateFilters(q, val, status);
           }}
-          className="rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
+          className="w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
         >
           <option value="">All Roles</option>
           <option value="PARENT">Parents Only</option>
@@ -131,7 +131,7 @@ export function UserFilterBar({
             setStatus(val);
             updateFilters(q, role, val);
           }}
-          className="rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
+          className="w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
         >
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active Users</option>

@@ -236,14 +236,14 @@ export function AdminEditUserForm({
             >
               Edit User &amp; Documents: {user.name || user.email}
             </h1>
-            <p className="text-xs text-slate-700 font-bold mt-1 font-mono">
+            <p className="text-xs text-slate-700 font-bold mt-1 font-mono break-all">
               User ID: <span className="text-slate-900 font-black">{user.id}</span> · Registered:{" "}
               <span className="text-slate-900 font-black">
                 {new Date(user.createdAt).toLocaleDateString("en-IN")}
               </span>
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span
               className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-2xs ${
                 role === "SUPER_ADMIN"
@@ -455,7 +455,7 @@ export function AdminEditUserForm({
 
           {/* GPS Location Pin display badge */}
           {coordLat && coordLng ? (
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-extrabold text-emerald-300">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-extrabold text-emerald-300">
               <span className="flex items-center gap-2">
                 <Check size={16} className="text-emerald-400" />
                 📍 GPS Coordinates Pinned: {parseFloat(coordLat).toFixed(5)}, {parseFloat(coordLng).toFixed(5)}
@@ -469,7 +469,7 @@ export function AdminEditUserForm({
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs font-extrabold text-amber-300">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs font-extrabold text-amber-300">
               <span>⚠️ No exact GPS coordinates pinned yet</span>
               <button
                 type="button"
@@ -816,7 +816,7 @@ export function AdminEditUserForm({
         <button
           type="submit"
           disabled={isPending}
-          className="flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-base font-extrabold transition-all hover:opacity-90 active:scale-98 cursor-pointer shadow-xl text-[#0F172A] disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-sm sm:text-base font-extrabold transition-all hover:opacity-90 active:scale-98 cursor-pointer shadow-xl text-[#0F172A] disabled:opacity-50"
           style={{ background: "linear-gradient(135deg, #22C55E, #16A34A)" }}
         >
           {isPending ? (

@@ -209,7 +209,7 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* System Health Pulse Row */}
-        <div className="pt-4 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-800">
+        <div className="pt-4 border-t border-white/15 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-800">
           <div className="flex items-center gap-2 text-emerald-300">
             <Database size={16} />
             <span>Database: Connected</span>
@@ -318,7 +318,7 @@ export default async function AdminDashboardPage() {
         
         {/* Left 7 Columns: Live Student Leads Stream */}
         <div className="lg:col-span-7 bg-white rounded-3xl border border-gray-200 p-6 sm:p-7 space-y-6 shadow-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-gray-200">
             <div className="space-y-0.5">
               <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Realtime Feed</span>
               <h2 className="text-xl font-800 text-[#0F2540] flex items-center gap-2">
@@ -349,7 +349,7 @@ export default async function AdminDashboardPage() {
             {recentLeads.map((lead) => (
               <div
                 key={lead.id}
-                className="p-4 rounded-2xl bg-slate-50 border border-gray-200 hover:border-gray-300 transition-colors flex items-center justify-between gap-4"
+                className="p-4 rounded-2xl bg-slate-50 border border-gray-200 hover:border-gray-300 transition-colors flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -377,7 +377,7 @@ export default async function AdminDashboardPage() {
         <div className="lg:col-span-5 space-y-6">
           {/* KYC Priority Queue Box */}
           <div className="bg-white rounded-3xl border border-gray-200 p-6 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-gray-200">
               <h2 className="text-lg font-800 text-[#0F2540] flex items-center gap-2">
                 <ShieldCheck size={20} className="text-[#2D9E6B]" />
                 KYC Verification Priority Queue
@@ -402,7 +402,7 @@ export default async function AdminDashboardPage() {
 
           {/* Security Audit Feed */}
           <div className="bg-white rounded-3xl border border-gray-200 p-6 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-gray-200">
               <h2 className="text-lg font-800 text-[#0F2540] flex items-center gap-2">
                 <Activity size={20} className="text-[#2563EB]" />
                 Recent Governance Actions

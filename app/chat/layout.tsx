@@ -54,7 +54,7 @@ export default async function ChatLayout({
             </span>
           </div>
 
-          <div className="flex-1 flex items-center justify-end md:justify-center">
+          <div className="flex-1 min-w-0 flex items-center justify-end md:justify-center">
             {isTutor ? (
               <TutorNavClient
                 userName={userName}

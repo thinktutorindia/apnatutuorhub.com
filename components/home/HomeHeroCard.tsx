@@ -29,7 +29,7 @@ export function HomeHeroCard({ user, dashboardUrl, isParent }: HomeHeroCardProps
     : "/register?role=tutor";
 
   return (
-    <div className="hero-card bg-white rounded-3xl shadow-xl p-7 border border-gray-300 relative overflow-hidden hero-bob">
+    <div className="hero-card bg-white rounded-3xl shadow-xl p-4 sm:p-7 border border-gray-300 relative overflow-hidden hero-bob">
       {/* Top Gradient Bar */}
       <div
         className="absolute top-0 left-0 right-0 h-1.5"
@@ -46,7 +46,7 @@ export function HomeHeroCard({ user, dashboardUrl, isParent }: HomeHeroCardProps
       </div>
 
       {/* Subject Pill Grid */}
-      <div className="grid grid-cols-2 gap-2 mb-5">
+      <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 mb-5">
         {SUBJECT_OPTIONS.map((subject) => {
           const isActive = selectedSubject === subject;
           return (
@@ -95,9 +95,9 @@ export function HomeHeroCard({ user, dashboardUrl, isParent }: HomeHeroCardProps
       {/* Primary CTA */}
       <Link
         href={postUrl}
-        className="w-full py-4 px-4 rounded-2xl text-xs font-800 bg-[#2D9E6B] hover:bg-[#238357] !text-white flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
+        className="w-full py-4 px-4 rounded-2xl text-xs font-800 bg-[#2D9E6B] hover:bg-[#238357] !text-white flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg text-center"
       >
-        <span className="!text-white font-800">Post Requirement for {selectedSubject} →</span>
+        <span className="!text-white font-800 break-words min-w-0">Post Requirement for {selectedSubject} →</span>
         <ArrowRight size={16} className="!text-white" />
       </Link>
 

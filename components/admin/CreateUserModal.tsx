@@ -99,11 +99,11 @@ export function CreateUserModal() {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F172A]/70 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto p-4 py-4 bg-[#0F172A]/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div
             role="dialog"
             aria-modal="true"
-            className="neu-card relative z-10 w-full max-w-lg bg-[#0F172A] p-6 space-y-5 border border-[#1E293B] shadow-2xl text-white rounded-2xl"
+            className="neu-card relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#0F172A] p-6 space-y-5 border border-[#1E293B] shadow-2xl text-white rounded-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[#1E293B] pb-4">
@@ -187,7 +187,7 @@ export function CreateUserModal() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block font-semibold text-slate-300">Email Address *</label>
                     <input
@@ -211,7 +211,7 @@ export function CreateUserModal() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block font-semibold text-slate-300">Account Role *</label>
                     <select

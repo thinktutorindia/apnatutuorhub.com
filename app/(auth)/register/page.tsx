@@ -57,7 +57,7 @@ export default function RegisterPage() {
       
       {/* Top Header with Centered Logo & Back Button */}
       <div className="flex items-center justify-between w-full">
-        <LogoBrand />
+        <LogoBrand heightClass="h-10 sm:h-16" />
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-xs font-600 text-gray-600 hover:text-[#1A3C5E] transition-all px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow"
@@ -121,7 +121,7 @@ export default function RegisterPage() {
 
         {/* WhatsApp Support Helpline Banner for Tutors */}
         {isTutor && (
-          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-between gap-3 text-xs">
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs">
             <div className="flex items-center gap-2 text-emerald-950 font-700">
               <span className="text-base">💬</span>
               <span>Need help registering? Contact Tutor Support</span>
@@ -375,7 +375,7 @@ export default function RegisterPage() {
             ].map((faq, i) => (
               <details key={i} className="group rounded-2xl bg-gray-50/80 border border-gray-200/80 p-4 font-700 cursor-pointer">
                 <summary className="flex items-center justify-between text-gray-900 font-800 list-none group-open:text-[#2D9E6B]">
-                  <span>{faq.q}</span>
+                  <span className="flex-1 min-w-0 pr-2">{faq.q}</span>
                   <ChevronDown size={14} className="text-gray-400 transition-transform group-open:rotate-180 shrink-0" />
                 </summary>
                 <p className="text-gray-600 font-500 mt-2.5 leading-relaxed pt-2 border-t border-gray-200/60">

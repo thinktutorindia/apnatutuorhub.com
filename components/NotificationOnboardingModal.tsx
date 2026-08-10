@@ -108,11 +108,11 @@ export function NotificationOnboardingModal({ userId }: { userId?: string }) {
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[999999] flex items-start sm:items-center justify-center overflow-y-auto py-4 p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div
             role="dialog"
             aria-modal="true"
-            className="neu-card relative z-10 w-full max-w-lg bg-white p-6 sm:p-8 space-y-6 shadow-[8px_8px_0px_0px_#0F172A]"
+            className="neu-card relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white p-6 sm:p-8 space-y-6 shadow-[8px_8px_0px_0px_#0F172A]"
           >
             {/* Close Button */}
             <button

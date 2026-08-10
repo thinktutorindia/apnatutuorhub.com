@@ -46,13 +46,23 @@ export function LogoBrand({
       href={href}
       className={`group inline-flex items-center no-underline shrink-0 transition-transform duration-300 ease-out hover:scale-105 active:scale-95 ${className}`}
     >
+      {/* Compact square mark — shown on mobile when the wide wordmark would overflow */}
+      {hideWordmarkOnMobile && (
+        <Image
+          src="/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png"
+          alt="ApnaTutorHub"
+          width={80}
+          height={80}
+          className={`${heightClass} w-auto object-contain sm:hidden transition-transform duration-300 group-hover:drop-shadow-md ${light ? "brightness-0 invert" : ""}`}
+          priority
+        />
+      )}
       <Image
         src="/icons/Gemini_Generated_Image_f4d61ef4d61ef4d6_no_bg.png"
         alt="ApnaTutorHub"
         width={360}
         height={80}
-        className={`${heightClass} w-auto object-contain transition-transform duration-300 group-hover:drop-shadow-md ${light ? "brightness-0 invert" : ""
-          }`}
+        className={`${heightClass} w-auto object-contain transition-transform duration-300 group-hover:drop-shadow-md ${light ? "brightness-0 invert" : ""} ${hideWordmarkOnMobile ? "hidden sm:block" : ""}`}
         priority
       />
     </Link>

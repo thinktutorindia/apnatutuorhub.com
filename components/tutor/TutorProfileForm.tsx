@@ -302,7 +302,7 @@ export function TutorProfileForm({
       <ActionOverlay isOpen={availPending} title="Saving Schedule" subtitle="Updating weekly teaching availability..." />
 
       {/* ── STEP NAVIGATION TABS ── */}
-      <div className="p-1.5 rounded-3xl bg-gray-200 border border-gray-300 grid grid-cols-3 md:grid-cols-6 gap-1.5 shadow-2xs">
+      <div className="p-1.5 rounded-3xl bg-gray-200 border border-gray-300 grid grid-cols-2 xs:grid-cols-3 md:grid-cols-6 gap-1.5 shadow-2xs">
         {steps.map((s) => {
           const isActive = activeStep === s.id;
           return (
@@ -539,12 +539,12 @@ export function TutorProfileForm({
               className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all" />
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <button type="button" onClick={() => setActiveStep(1)} className="px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center gap-1.5 hover:bg-gray-100 transition-colors">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
+            <button type="button" onClick={() => setActiveStep(1)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
               <ArrowLeft size={16} /><span>Back</span>
             </button>
             <button type="submit" disabled={stepPending}
-              className="px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer">
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer">
               <CloudUpload size={15} className="!text-white" />
               <span className="!text-white font-800">Save & Continue to Coins</span>
               <ArrowRight size={15} className="!text-white" />
@@ -603,10 +603,10 @@ export function TutorProfileForm({
             {COIN_PACKAGES.map((pkg) => (
               <div
                 key={pkg.id}
-                className={`relative rounded-3xl border-2 p-5 space-y-4 transition-all ${pkg.bg} ${pkg.popular ? "ring-2 ring-amber-400 shadow-lg scale-[1.02]" : "shadow-xs"}`}
+                className={`relative rounded-3xl border-2 p-5 space-y-4 transition-all ${pkg.bg} ${pkg.popular ? "ring-2 ring-amber-400 shadow-lg sm:scale-[1.02]" : "shadow-xs"}`}
               >
                 {pkg.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-amber-400 text-amber-950 text-[10px] font-800 whitespace-nowrap shadow-sm">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 max-w-full px-3 py-1 rounded-full bg-amber-400 text-amber-950 text-[10px] font-800 whitespace-nowrap shadow-sm">
                     {pkg.badge}
                   </div>
                 )}
@@ -640,17 +640,17 @@ export function TutorProfileForm({
           </div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-between pt-2">
-            <button type="button" onClick={() => setActiveStep(2)} className="px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center gap-1.5 hover:bg-gray-100 transition-colors">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
+            <button type="button" onClick={() => setActiveStep(2)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
               <ArrowLeft size={16} /><span>Back</span>
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:gap-3">
               <button type="button" onClick={() => setActiveStep(4)}
                 className="text-xs font-700 text-gray-500 hover:text-gray-800 underline underline-offset-2 transition-colors">
                 Skip for now →
               </button>
               <button type="button" onClick={() => setActiveStep(4)}
-                className="px-5 py-3 rounded-2xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center gap-1.5 transition-all">
+                className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center justify-center gap-1.5 transition-all">
                 <span className="!text-white">Continue to Bio →</span>
               </button>
             </div>
@@ -704,12 +704,12 @@ export function TutorProfileForm({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <button type="button" onClick={() => setActiveStep(3)} className="px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center gap-1.5 hover:bg-gray-100 transition-colors">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
+            <button type="button" onClick={() => setActiveStep(3)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
               <ArrowLeft size={16} /><span>Back</span>
             </button>
             <button type="submit" disabled={stepPending}
-              className="px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer">
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer">
               <CloudUpload size={15} className="!text-white" />
               <span className="!text-white font-800">Save & Continue to Schedule</span>
               <ArrowRight size={15} className="!text-white" />
@@ -739,18 +739,18 @@ export function TutorProfileForm({
 
           <AvailabilityGrid defaultSlots={defaults.availability} />
 
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <button type="button" onClick={() => setActiveStep(4)} className="px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center gap-1.5 hover:bg-gray-100 transition-colors">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
+            <button type="button" onClick={() => setActiveStep(4)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
               <ArrowLeft size={16} /><span>Back</span>
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-2">
               <button type="submit" disabled={availPending}
-                className="px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-60 cursor-pointer">
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-60 cursor-pointer">
                 <Save size={16} className="!text-white" />
                 <span className="!text-white font-800">Save Schedule</span>
               </button>
               <button type="button" onClick={() => setActiveStep(6)}
-                className="px-4 py-3 rounded-2xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center gap-1 transition-all">
+                className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center justify-center gap-1 transition-all">
                 <span className="!text-white font-800">Next: KYC Badge →</span>
               </button>
             </div>
@@ -815,11 +815,11 @@ export function TutorProfileForm({
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-              <button type="button" onClick={() => setActiveStep(5)} className="px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center gap-1.5 hover:bg-gray-100 transition-colors">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
+              <button type="button" onClick={() => setActiveStep(5)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
                 <ArrowLeft size={16} /><span>Back</span>
               </button>
-              <span className="text-xs text-gray-500 font-700">💡 Documents are encrypted & reviewed within 24 hours.</span>
+              <span className="text-xs text-gray-500 font-700 text-center sm:text-right">💡 Documents are encrypted & reviewed within 24 hours.</span>
             </div>
           </div>
         </div>

@@ -48,7 +48,7 @@ export default async function AdminAnalyticsPage({
       </div>
 
       {/* Advanced KPI Cards Grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-1 xs:grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {/* Estimated Revenue */}
         <div className="rounded-2xl bg-white p-5 border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center gap-1.5 text-slate-800 text-xs font-800">

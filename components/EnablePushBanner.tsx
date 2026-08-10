@@ -82,7 +82,7 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
 
   if (permission === "granted" || status === "success") {
     return (
-      <div className="neu-card flex items-center justify-between bg-[#DCFCE7] p-4 text-xs font-bold text-[#0F172A]">
+      <div className="neu-card flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-[#DCFCE7] p-4 text-xs font-bold text-[#0F172A]">
         <div className="flex items-center gap-2">
           <CheckCircle2 size={16} className="text-[#22C55E]" />
           <span>VAPID Web Push Notifications Active on this Device ✅</span>
@@ -120,7 +120,7 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
           type="button"
           onClick={enablePush}
           disabled={status === "loading"}
-          className="neu-btn neu-btn-primary btn-shine shrink-0 px-6 py-3.5 text-xs font-black flex items-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A] hover:scale-105 active:scale-95 transition-all duration-200 ease-out"
+          className="neu-btn neu-btn-primary btn-shine shrink-0 w-full sm:w-auto whitespace-normal text-center px-6 py-3.5 text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A] hover:scale-105 active:scale-95 transition-all duration-200 ease-out"
         >
           {status === "loading" ? (
             "Enabling Notifications..."

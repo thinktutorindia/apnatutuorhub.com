@@ -86,7 +86,7 @@ export default async function EditRequirementPage({
             {statusMeta.label}
           </span>
         </div>
-        <h1 className="text-3xl font-black text-[#0F172A] md:text-4xl">
+        <h1 className="text-xl sm:text-3xl font-black text-[#0F172A] md:text-4xl break-words">
           {lead.subjects.join(", ")}
         </h1>
         <p className="text-sm font-semibold text-slate-700">

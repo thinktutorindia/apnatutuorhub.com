@@ -93,7 +93,7 @@ export default async function AdminReviewsPage({
       </div>
 
       {/* Search */}
-      <form method="GET" className="flex gap-3 p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <form method="GET" className="flex flex-col gap-3 sm:flex-row p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
         {ratingFilter && <input type="hidden" name="rating" value={ratingFilter} />}
         <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-slate-50 border border-slate-300">
           <Search size={16} className="text-slate-500" />

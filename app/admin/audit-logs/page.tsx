@@ -241,7 +241,7 @@ export default async function AdminAuditLogsPage({
         )}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-200 text-xs font-700 text-slate-700">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 bg-slate-50 border-t border-slate-200 text-xs font-700 text-slate-700">
             <p>Page {page} of {totalPages} · {total} audit records</p>
             <div className="flex gap-2">
               {page > 1 && (

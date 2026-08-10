@@ -13,11 +13,11 @@ export function UnblockGuideModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-[#0F172A]/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[999999] flex items-start sm:items-center justify-center overflow-y-auto py-4 p-4 bg-[#0F172A]/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         role="dialog"
         aria-modal="true"
-        className="neu-card relative z-10 w-full max-w-md bg-white p-6 space-y-5 shadow-[8px_8px_0px_0px_#0F172A]"
+        className="neu-card relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto bg-white p-6 space-y-5 shadow-[8px_8px_0px_0px_#0F172A]"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b-2 border-[#0F172A] pb-3">

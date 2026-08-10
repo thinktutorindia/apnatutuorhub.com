@@ -44,7 +44,7 @@ export function CouponInput({ orderAmountInr, onCouponApplied }: CouponInputProp
     <div className="w-full">
       {!appliedCoupon ? (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <input
                 type="text"
@@ -66,7 +66,7 @@ export function CouponInput({ orderAmountInr, onCouponApplied }: CouponInputProp
               type="button"
               onClick={handleApply}
               disabled={isPending || !code.trim()}
-              className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold text-white transition-all duration-200 ease-out hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-slate-900/20 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold text-white transition-all duration-200 ease-out hover:scale-105 active:scale-95 hover:shadow-md hover:shadow-slate-900/20 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
               style={{ background: "linear-gradient(135deg, #0F172A, #1E293B)" }}
             >
               {isPending ? <Loader2 size={14} className="animate-spin" /> : "Apply"}
@@ -82,7 +82,7 @@ export function CouponInput({ orderAmountInr, onCouponApplied }: CouponInputProp
         </div>
       ) : (
         <div
-          className="flex items-center justify-between rounded-xl p-3.5"
+          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl p-3.5"
           style={{ background: "rgba(34,197,94,0.08)", border: "1.5px dashed #22C55E" }}
         >
           <div className="flex items-center gap-2.5">

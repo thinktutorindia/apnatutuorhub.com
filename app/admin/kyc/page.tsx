@@ -66,7 +66,7 @@ export default async function AdminKycPage({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
         <div className="space-y-1">
           <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">KYC Verification Governance</span>
-          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+          <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             Identity &amp; Government ID Review Queue
           </h1>
           <p className="text-xs text-slate-600 font-600">
@@ -131,7 +131,7 @@ export default async function AdminKycPage({
                     {(tutor.user.name || tutor.user.email).charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-800 text-base text-[#0F2540]">{tutor.user.name || "Tutor Profile"}</h3>
                       {tutor.user.phone && (
                         <a
@@ -151,7 +151,7 @@ export default async function AdminKycPage({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 text-xs font-700 text-slate-700">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-700 text-slate-700">
                   <div className="text-right">
                     <p className="text-xs font-800 text-[#2D9E6B]">
                       {tutor.experience ?? 0} yrs exp

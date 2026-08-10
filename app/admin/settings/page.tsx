@@ -165,10 +165,10 @@ export default async function AdminSettingsPage() {
                         "use server";
                         await updatePlatformSettingAction(formData);
                       }}
-                      className="px-6 py-4 hover:bg-slate-50/60 transition-colors"
+                      className="px-4 sm:px-6 py-4 hover:bg-slate-50/60 transition-colors"
                     >
                       <input type="hidden" name="key" value={key} />
-                      <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0 flex-1 space-y-0.5">
                           <div className="flex items-center gap-2">
                             <p className="font-800 text-[#0F2540] text-sm">{meta.label}</p>
@@ -198,7 +198,7 @@ export default async function AdminSettingsPage() {
                           </span>
                           <button
                             type="submit"
-                            className="flex items-center gap-1.5 rounded-2xl px-4 py-2 text-xs font-800 bg-[#2D9E6B] hover:bg-[#238357] text-white shadow-xs transition-all cursor-pointer"
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 rounded-2xl px-4 py-2 text-xs font-800 bg-[#2D9E6B] hover:bg-[#238357] text-white shadow-xs transition-all cursor-pointer"
                           >
                             <Save size={13} />
                             Save

@@ -213,7 +213,7 @@ export function AdminEditUserForm({
   const parentProfile = user.parentProfile;
 
   return (
-    <div className="max-w-4xl space-y-6" style={{ color: "#F8FAFC" }}>
+    <div className="max-w-4xl space-y-6">
       <ActionOverlay
         isOpen={isPending}
         title="Saving User Changes"
@@ -224,41 +224,44 @@ export function AdminEditUserForm({
       <div>
         <Link
           href="/admin/users"
-          className="inline-flex items-center gap-2 text-xs font-bold transition-colors hover:underline text-[#22C55E]"
+          className="inline-flex items-center gap-2 text-xs font-black transition-colors hover:underline text-[#2D9E6B]"
         >
           <ArrowLeft size={14} /> Back to User Directory
         </Link>
         <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1
-              className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight"
+              className="text-2xl sm:text-3xl font-extrabold text-[#0F2540] tracking-tight"
               style={{ fontFamily: "'Poppins', sans-serif" }}
             >
-              Edit User & Documents: {user.name || user.email}
+              Edit User &amp; Documents: {user.name || user.email}
             </h1>
-            <p className="text-xs text-slate-400 mt-1 font-mono">
-              User ID: {user.id} · Registered: {new Date(user.createdAt).toLocaleDateString("en-IN")}
+            <p className="text-xs text-slate-700 font-bold mt-1 font-mono">
+              User ID: <span className="text-slate-900 font-black">{user.id}</span> · Registered:{" "}
+              <span className="text-slate-900 font-black">
+                {new Date(user.createdAt).toLocaleDateString("en-IN")}
+              </span>
             </p>
           </div>
           <div className="flex items-center gap-2">
             <span
-              className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider shadow-2xs ${
                 role === "SUPER_ADMIN"
-                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                  ? "bg-purple-100 text-purple-950 border border-purple-300"
                   : role === "SUB_ADMIN"
-                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
+                    ? "bg-amber-100 text-amber-950 border border-amber-300"
                     : role === "TUTOR"
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                      : "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                      ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
+                      : "bg-blue-100 text-blue-950 border border-blue-300"
               }`}
             >
               {role}
             </span>
             <span
-              className={`px-3 py-1 rounded-full text-xs font-black ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold shadow-2xs ${
                 user.isActive
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                  : "bg-red-500/10 text-red-400 border border-red-500/30"
+                  ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
+                  : "bg-red-100 text-red-950 border border-red-300"
               }`}
             >
               {user.isActive ? "Active Account" : "Suspended"}
@@ -333,12 +336,12 @@ export function AdminEditUserForm({
                 name="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value as any)}
-                className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-blue-500 font-bold"
+                className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-blue-500 font-bold cursor-pointer"
               >
-                <option value="PARENT">PARENT (Student / Guardian)</option>
-                <option value="TUTOR">TUTOR (Educator)</option>
-                <option value="SUPER_ADMIN">SUPER_ADMIN (Owner / Master)</option>
-                <option value="SUB_ADMIN">SUB_ADMIN (Staff Member)</option>
+                <option value="PARENT" className="bg-[#1E293B] text-white">PARENT (Student / Guardian)</option>
+                <option value="TUTOR" className="bg-[#1E293B] text-white">TUTOR (Educator)</option>
+                <option value="SUPER_ADMIN" className="bg-[#1E293B] text-white">SUPER_ADMIN (Owner / Master)</option>
+                <option value="SUB_ADMIN" className="bg-[#1E293B] text-white">SUB_ADMIN (Staff Member)</option>
               </select>
             </div>
             <div>
@@ -347,14 +350,14 @@ export function AdminEditUserForm({
                 name="subAdminRole"
                 defaultValue={user.subAdminRole || ""}
                 disabled={role !== "SUB_ADMIN"}
-                className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-blue-500 font-bold disabled:opacity-40"
+                className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-blue-500 font-bold disabled:opacity-40 cursor-pointer"
               >
-                <option value="">None (Standard User)</option>
-                <option value="SUPPORT">SUPPORT (User Desk)</option>
-                <option value="VERIFICATION">VERIFICATION (KYC Team)</option>
-                <option value="FINANCE">FINANCE (Wallets / Refunds)</option>
-                <option value="OPERATIONS">OPERATIONS (Leads / Bookings)</option>
-                <option value="MARKETING">MARKETING (Coupons / Alerts)</option>
+                <option value="" className="bg-[#1E293B] text-white">None (Standard User)</option>
+                <option value="SUPPORT" className="bg-[#1E293B] text-white">SUPPORT (User Desk)</option>
+                <option value="VERIFICATION" className="bg-[#1E293B] text-white">VERIFICATION (KYC Team)</option>
+                <option value="FINANCE" className="bg-[#1E293B] text-white">FINANCE (Wallets / Refunds)</option>
+                <option value="OPERATIONS" className="bg-[#1E293B] text-white">OPERATIONS (Leads / Bookings)</option>
+                <option value="MARKETING" className="bg-[#1E293B] text-white">MARKETING (Coupons / Alerts)</option>
               </select>
             </div>
           </div>
@@ -364,10 +367,10 @@ export function AdminEditUserForm({
             <select
               name="isActive"
               defaultValue={user.isActive ? "true" : "false"}
-              className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-blue-500 font-bold"
+              className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-blue-500 font-bold cursor-pointer"
             >
-              <option value="true">Active (Normal Platform Access)</option>
-              <option value="false">Suspended (Blocked from Login & Services)</option>
+              <option value="true" className="bg-[#1E293B] text-white">Active (Normal Platform Access)</option>
+              <option value="false" className="bg-[#1E293B] text-white">Suspended (Blocked from Login &amp; Services)</option>
             </select>
           </div>
         </div>
@@ -416,11 +419,11 @@ export function AdminEditUserForm({
                 name="state"
                 value={stateVal}
                 onChange={(e) => setStateVal(e.target.value)}
-                className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-emerald-500 font-bold"
+                className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-emerald-500 font-bold cursor-pointer"
               >
-                <option value="">Select State</option>
+                <option value="" className="bg-[#1E293B] text-white">Select State</option>
                 {INDIAN_STATES.map((st) => (
-                  <option key={st} value={st}>
+                  <option key={st} value={st} className="bg-[#1E293B] text-white">
                     {st}
                   </option>
                 ))}
@@ -577,12 +580,12 @@ export function AdminEditUserForm({
               <select
                 name="kycStatus"
                 defaultValue={tutorProfile?.kycStatus || "NOT_SUBMITTED"}
-                className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-amber-500 font-bold"
+                className="w-full rounded-2xl px-3.5 py-3 text-sm text-white outline-none bg-[#1E293B] border border-[#334155] focus:border-amber-500 font-bold cursor-pointer"
               >
-                <option value="NOT_SUBMITTED">NOT_SUBMITTED (No docs uploaded)</option>
-                <option value="PENDING">PENDING (Submitted &amp; In Admin Queue)</option>
-                <option value="APPROVED">APPROVED (Verified Tutor Badge ✅)</option>
-                <option value="REJECTED">REJECTED (Requires Re-submission)</option>
+                <option value="NOT_SUBMITTED" className="bg-[#1E293B] text-white">NOT_SUBMITTED (No docs uploaded)</option>
+                <option value="PENDING" className="bg-[#1E293B] text-white">PENDING (Submitted &amp; In Admin Queue)</option>
+                <option value="APPROVED" className="bg-[#1E293B] text-white">APPROVED (Verified Tutor Badge ✅)</option>
+                <option value="REJECTED" className="bg-[#1E293B] text-white">REJECTED (Requires Re-submission)</option>
               </select>
             </div>
             {isTutor && (

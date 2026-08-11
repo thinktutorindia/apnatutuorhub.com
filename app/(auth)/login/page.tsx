@@ -19,16 +19,15 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
-  const [redirecting, setRedirecting] = React.useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
   const justRegistered = searchParams.get("registered") === "true";
   const errorParam = searchParams.get("error");
+  const redirecting = Boolean(state.success && state.redirectTo);
 
   React.useEffect(() => {
     if (state.success && state.redirectTo) {
-      setRedirecting(true);
       const timer = setTimeout(() => {
         router.push(state.redirectTo!);
         router.refresh();

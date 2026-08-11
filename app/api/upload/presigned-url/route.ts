@@ -39,9 +39,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { docType, contentType, filename, conversationId } = body as Record<string, string>;
+  const { docType, contentType, filename, conversationId, fileSize } = body as Record<string, unknown>;
 
-  if (!docType || !contentType) {
+  if (typeof fileSize === "number" && fileSize > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `File size exceeds maximum allowed limit of ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB.` },
+      { status: 400 }
+    );
+  }
+
+  if (!docType || !contentType || typeof docType !== "string" || typeof contentType !== "string") {
     return NextResponse.json(
       { error: "docType and contentType are required" },
       { status: 400 }
@@ -66,9 +73,8 @@ export async function POST(request: Request) {
 
   const mimeType = contentType as AllowedMimeType;
   const ext = MIME_EXTENSIONS[mimeType];
-  const safeName = (filename ?? "attachment")
-    .replace(/[^a-z0-9._-]/gi, "_")
-    .slice(0, 80);
+  const rawFilename = typeof filename === "string" ? filename : "attachment";
+  const safeName = rawFilename.replace(/[^a-z0-9._-]/gi, "_").slice(0, 80);
 
   let objectKey: string;
 
@@ -91,12 +97,12 @@ export async function POST(request: Request) {
     }
     objectKey = certObjectKey(tutorProfile.id, `${safeName}.${ext}`);
   } else if (docType === "chat") {
-    if (!conversationId) {
+    if (typeof conversationId !== "string" || !conversationId) {
       return NextResponse.json({ error: "conversationId is required for chat uploads" }, { status: 400 });
     }
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
-      select: {
+      include: {
         parentProfile: { select: { userId: true } },
         tutorProfile: { select: { userId: true } },
       },

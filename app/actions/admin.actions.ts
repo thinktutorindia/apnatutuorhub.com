@@ -31,6 +31,18 @@ async function requireSuperAdmin() {
   return requirePermission("settings:manage");
 }
 
+const PRIVILEGED_ROLES = new Set(["SUPER_ADMIN", "SUB_ADMIN"]);
+
+/**
+ * Security guard against privilege escalation: only a SUPER_ADMIN may create,
+ * assign or modify SUPER_ADMIN / SUB_ADMIN accounts. Sub-admins holding
+ * `users:manage` (e.g. SUPPORT) can manage PARENT/TUTOR users but must never be
+ * able to mint or take over admin accounts.
+ */
+function isSuperAdmin(session: { user?: { role?: string | null } } | null): boolean {
+  return session?.user?.role === "SUPER_ADMIN";
+}
+
 
 
 // ── User Management ────────────────────────────────────────────────────────────
@@ -114,6 +126,10 @@ export async function adminCreateUserAction(
 ): Promise<ActionResult<{ userId: string; email: string; temporaryPassword?: string }>> {
   const { error, session } = await requirePermission("users:manage");
   if (error) return actionError(error);
+
+  if (PRIVILEGED_ROLES.has(input.role) && !isSuperAdmin(session)) {
+    return actionError("Forbidden: only a Super Admin can create admin accounts.");
+  }
 
   const emailClean = input.email.trim().toLowerCase();
   const existing = await prisma.user.findUnique({
@@ -600,13 +616,22 @@ export async function approveRefundAction(
       amount: true,
       referenceId: true,
       walletId: true,
-      wallet: { select: { tutorProfileId: true, balance: true } },
+      wallet: {
+        select: {
+          tutorProfileId: true,
+          balance: true,
+          tutorProfile: { select: { userId: true } },
+        },
+      },
     },
   });
 
   if (!txRecord || txRecord.type !== "REFUND" || txRecord.description !== "REFUND_REQUEST_PENDING") {
     return actionError("Refund request not found or already processed.");
   }
+
+  // Notification.userId references User.id — NOT TutorProfile.id.
+  const tutorUserId = txRecord.wallet.tutorProfile?.userId;
 
   await prisma.$transaction(async (tx) => {
     const wallet = await tx.wallet.findUniqueOrThrow({
@@ -630,14 +655,16 @@ export async function approveRefundAction(
     });
 
     // Notify the tutor
-    await tx.notification.create({
-      data: {
-        userId: wallet.tutorProfileId,
-        title: "✅ Refund Approved!",
-        message: `Your refund of ${txRecord.amount} coins has been approved and credited to your wallet.`,
-        actionUrl: "/tutor/wallet",
-      },
-    });
+    if (tutorUserId) {
+      await tx.notification.create({
+        data: {
+          userId: tutorUserId,
+          title: "✅ Refund Approved!",
+          message: `Your refund of ${txRecord.amount} coins has been approved and credited to your wallet.`,
+          actionUrl: "/tutor/wallet",
+        },
+      });
+    }
 
     await tx.auditLog.create({
       data: {
@@ -669,13 +696,16 @@ export async function rejectRefundAction(
       description: true,
       amount: true,
       walletId: true,
-      wallet: { select: { tutorProfileId: true } },
+      wallet: { select: { tutorProfile: { select: { userId: true } } } },
     },
   });
 
   if (!txRecord || txRecord.type !== "REFUND" || txRecord.description !== "REFUND_REQUEST_PENDING") {
     return actionError("Refund request not found or already processed.");
   }
+
+  // Notification.userId references User.id — NOT TutorProfile.id.
+  const tutorUserId = txRecord.wallet.tutorProfile?.userId;
 
   await prisma.$transaction(async (tx) => {
     // Mark refund as rejected (no coins credited)
@@ -687,16 +717,18 @@ export async function rejectRefundAction(
     });
 
     // Notify the tutor
-    await tx.notification.create({
-      data: {
-        userId: txRecord.wallet.tutorProfileId,
-        title: "❌ Refund Request Rejected",
-        message: reason
-          ? `Your refund request was rejected: ${reason}`
-          : "Your refund request was reviewed and could not be approved. Contact support for details.",
-        actionUrl: "/tutor/wallet",
-      },
-    });
+    if (tutorUserId) {
+      await tx.notification.create({
+        data: {
+          userId: tutorUserId,
+          title: "❌ Refund Request Rejected",
+          message: reason
+            ? `Your refund request was rejected: ${reason}`
+            : "Your refund request was reviewed and could not be approved. Contact support for details.",
+          actionUrl: "/tutor/wallet",
+        },
+      });
+    }
 
     await tx.auditLog.create({
       data: {
@@ -906,6 +938,19 @@ export async function adminEditUserAction(
     return actionError("User ID, name, and email are required.");
   }
 
+  // Prevent privilege escalation: assigning an admin role, or editing an account
+  // that is already an admin, requires SUPER_ADMIN.
+  const targetBefore = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (
+    (PRIVILEGED_ROLES.has(role) || (targetBefore && PRIVILEGED_ROLES.has(targetBefore.role))) &&
+    !isSuperAdmin(session)
+  ) {
+    return actionError("Forbidden: only a Super Admin can modify admin accounts or roles.");
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
@@ -939,6 +984,16 @@ export async function adminResetUserPasswordAction(
 ): Promise<ActionResult<{ updated: true; tempPassword?: string }>> {
   const { error, session } = await requirePermission("users:manage");
   if (error) return actionError(error);
+
+  // Prevent account takeover: a non-super-admin must not be able to reset the
+  // password of a SUPER_ADMIN / SUB_ADMIN account.
+  const targetUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (targetUser && PRIVILEGED_ROLES.has(targetUser.role) && !isSuperAdmin(session)) {
+    return actionError("Forbidden: only a Super Admin can reset an admin's password.");
+  }
 
   const pwdToSet = newPassword || `EduPass${Math.floor(100000 + Math.random() * 900000)}!`;
   const passwordHash = await bcrypt.hash(pwdToSet, 10);
@@ -1058,6 +1113,19 @@ export async function adminUpdateFullUserAction(
 
   if (!userId || !name || !email) {
     return actionError("User ID, name, and email are required.");
+  }
+
+  // Prevent privilege escalation via the full-edit form.
+  const fullTargetBefore = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (
+    (PRIVILEGED_ROLES.has(role) ||
+      (fullTargetBefore && PRIVILEGED_ROLES.has(fullTargetBefore.role))) &&
+    !isSuperAdmin(session)
+  ) {
+    return actionError("Forbidden: only a Super Admin can modify admin accounts or roles.");
   }
 
   const subjects = subjectsRaw ? subjectsRaw.split(",").map((s) => s.trim()).filter(Boolean) : undefined;

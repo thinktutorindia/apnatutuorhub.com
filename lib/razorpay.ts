@@ -111,6 +111,23 @@ export async function createRazorpayOrder(
   };
 }
 
+/** Fetch an existing order from Razorpay (used to bind a payment to its plan/amount). */
+export async function fetchRazorpayOrder(orderId: string): Promise<{
+  id: string;
+  amount: number;
+  status: string;
+  notes: Record<string, string>;
+} | null> {
+  const client = getRazorpayClient();
+  const order = await client.orders.fetch(orderId);
+  return {
+    id: order.id,
+    amount: Number(order.amount),
+    status: order.status,
+    notes: (order.notes ?? {}) as Record<string, string>,
+  };
+}
+
 // ── Signature verification ────────────────────────────────────────────────────
 
 /** Verify the `razorpay-signature` header on incoming webhooks. */

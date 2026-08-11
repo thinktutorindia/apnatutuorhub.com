@@ -84,7 +84,7 @@ export function CoinPackageGrid({
                     </span>
                   </div>
                   <p className="text-[10px] font-600 text-green-700 uppercase tracking-wider mt-0.5">
-                    Discounted with "{appliedCoupon?.code}"
+                    Discounted with &quot;{appliedCoupon?.code}&quot;
                   </p>
                 </div>
               ) : (

@@ -16,17 +16,14 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function LeadNotifReminderBanner({ userId }: { userId?: string }) {
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return "unsupported";
+    }
+    return Notification.permission;
+  });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "denied">("idle");
   const [showGuideModal, setShowGuideModal] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setPermission("unsupported");
-      return;
-    }
-    setPermission(Notification.permission);
-  }, []);
 
   const handleEnablePush = async () => {
     if (!userId || typeof window === "undefined") return;

@@ -39,7 +39,8 @@ export function TutorNav({ userName, userEmail, walletBalance = 0 }: TutorNavPro
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // Lock body scroll when mobile drawer is open

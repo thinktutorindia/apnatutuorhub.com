@@ -41,6 +41,46 @@ export function OpenStreetMapPickerModal({
   }, []);
 
   // Initialize Leaflet Map on modal open
+  // Reverse Geocode Coords to Address
+  const fetchAddressFromCoords = async (lat: number, lon: number) => {
+    setReverseLoading(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const addr = data.address || {};
+        const city =
+          addr.city ||
+          addr.town ||
+          addr.city_district ||
+          addr.county ||
+          addr.state_district ||
+          "";
+        const state = addr.state || "";
+        const pincode = addr.postcode || "";
+        const area = addr.suburb || addr.neighbourhood || addr.road || addr.residential || "";
+
+        const result: LocationResult = {
+          city: city || "City",
+          state: state || "India",
+          pincode: pincode,
+          area: area || city,
+          fullAddress: data.display_name || `${area}, ${city}, ${state}`,
+          lat: lat,
+          lon: lon,
+        };
+
+        setSelectedResult(result);
+      }
+    } catch (e) {
+      console.error("OpenStreetMap Reverse Geocoding Error:", e);
+    } finally {
+      setReverseLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -114,47 +154,7 @@ export function OpenStreetMapPickerModal({
         mapInstanceRef.current = null;
       }
     };
-  }, [isOpen]);
-
-  // Reverse Geocode Coords to Address
-  const fetchAddressFromCoords = async (lat: number, lon: number) => {
-    setReverseLoading(true);
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const addr = data.address || {};
-        const city =
-          addr.city ||
-          addr.town ||
-          addr.city_district ||
-          addr.county ||
-          addr.state_district ||
-          "";
-        const state = addr.state || "";
-        const pincode = addr.postcode || "";
-        const area = addr.suburb || addr.neighbourhood || addr.road || addr.residential || "";
-
-        const result: LocationResult = {
-          city: city || "City",
-          state: state || "India",
-          pincode: pincode,
-          area: area || city,
-          fullAddress: data.display_name || `${area}, ${city}, ${state}`,
-          lat: lat,
-          lon: lon,
-        };
-
-        setSelectedResult(result);
-      }
-    } catch (e) {
-      console.error("OpenStreetMap Reverse Geocoding Error:", e);
-    } finally {
-      setReverseLoading(false);
-    }
-  };
+  }, [isOpen, currentLat, currentLon]);
 
   // GPS My Location in Modal
   const handleGPSDetect = () => {

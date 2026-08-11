@@ -5,6 +5,7 @@ import {
   COIN_PACKAGES,
 } from "@/lib/razorpay";
 import { creditCoinsToWallet } from "@/app/actions/wallet.actions";
+import { consumeCouponInTx } from "@/app/actions/coupon.actions";
 
 // POST /api/webhooks/razorpay
 // Called by Razorpay after a successful payment (payment.captured event).
@@ -101,6 +102,32 @@ export async function POST(request: Request) {
   if (!result.success) {
     console.error("[razorpay-webhook] creditCoinsToWallet failed", result);
     return NextResponse.json({ error: result.error }, { status: 500 });
+  }
+
+  // ── 7. Consume the coupon (if any) exactly once ────────────────────────────
+  // Enforces per-user (@@unique([couponId, userId])) and global usage limits.
+  // Failure here must NOT fail the webhook — coins are already credited.
+  const couponId = notes?.couponId;
+  if (couponId) {
+    try {
+      const tutor = await prisma.tutorProfile.findUnique({
+        where: { id: tutorProfileId },
+        select: { userId: true },
+      });
+      if (tutor?.userId) {
+        const discountPaise = Number(notes?.discountPaise ?? "0") || 0;
+        await prisma.$transaction((tx) =>
+          consumeCouponInTx(tx, {
+            couponId,
+            userId: tutor.userId,
+            orderId: paymentId,
+            discountPaise,
+          })
+        );
+      }
+    } catch (err) {
+      console.error("[razorpay-webhook] coupon consumption failed", { couponId, paymentId, err });
+    }
   }
 
   console.info("[razorpay-webhook] Credited coins", {

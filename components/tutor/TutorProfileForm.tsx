@@ -214,18 +214,31 @@ export function TutorProfileForm({
   // ── Auto-advance after step save ──
   useEffect(() => {
     if (stepState.success && stepState.data?.nextStep) {
-      setSavedToast(true);
-      setTimeout(() => setSavedToast(false), 2500);
-      setActiveStep(stepState.data.nextStep);
+      const next = stepState.data.nextStep;
+      const timer = setTimeout(() => {
+        setSavedToast(true);
+        setActiveStep(next);
+      }, 0);
+      const toastTimer = setTimeout(() => setSavedToast(false), 2500);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(toastTimer);
+      };
     }
   }, [stepState]);
 
   // ── Also show toast on final profile save success ──
   useEffect(() => {
     if (profileState.success) {
-      setSavedToast(true);
-      setTimeout(() => setSavedToast(false), 2500);
-      setActiveStep(5); // advance to schedule
+      const timer = setTimeout(() => {
+        setSavedToast(true);
+        setActiveStep(5); // advance to schedule
+      }, 0);
+      const toastTimer = setTimeout(() => setSavedToast(false), 2500);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(toastTimer);
+      };
     }
   }, [profileState]);
 
@@ -572,7 +585,7 @@ export function TutorProfileForm({
                 🪙 Buy Coins to Start<br />Receiving Student Enquiries
               </h2>
               <p className="text-sm text-gray-300 font-600 leading-relaxed max-w-xl">
-                Each student lead costs 10–15 coins to unlock the parent's phone number. Tutors with coins earn up to <strong className="text-emerald-400">₹45,000/month</strong> on our platform.
+                Each student lead costs 10–15 coins to unlock the parent&apos;s phone number. Tutors with coins earn up to <strong className="text-emerald-400">₹45,000/month</strong> on our platform.
               </p>
               {defaults.coinBalance != null && (
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 border border-white/20 text-white text-sm font-800">
@@ -799,7 +812,7 @@ export function TutorProfileForm({
                     {kyc.kycRejectionNote ? (
                       <div className="mt-2 p-3 rounded-2xl bg-red-100 border border-red-300 text-xs text-red-950">
                         <p className="font-800 text-red-900 uppercase tracking-wider text-[10px]">Rejection Reason:</p>
-                        <p className="font-700">"{kyc.kycRejectionNote}"</p>
+                        <p className="font-700">&quot;{kyc.kycRejectionNote}&quot;</p>
                       </div>
                     ) : (
                       <p className="text-xs text-gray-900 font-600 max-w-xl leading-relaxed">{kycConfig.description}</p>

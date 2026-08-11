@@ -108,6 +108,7 @@ export default async function ParentBookingsPage({
       })
     : [];
 
+  const nowMs = Date.now();
   const reviewMap = new Map<string, ExistingReview>(
     myReviews.map((r) => [
       r.bookingId,
@@ -118,7 +119,7 @@ export default async function ParentBookingsPage({
         communicationRating: r.communicationRating,
         punctualityRating: r.punctualityRating,
         comment: r.comment,
-        isEditable: Date.now() - r.createdAt.getTime() < 48 * 60 * 60 * 1000,
+        isEditable: nowMs - r.createdAt.getTime() < 48 * 60 * 60 * 1000,
         editLockedAt: new Date(r.createdAt.getTime() + 48 * 60 * 60 * 1000),
       },
     ])

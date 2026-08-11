@@ -262,7 +262,7 @@ export function TopUpModal({
                 <div className="flex items-center gap-2 min-w-0">
                   <CheckCircle2 size={16} className="text-green-600 shrink-0" />
                   <span className="min-w-0">
-                    Coupon <strong>"{appliedCoupon.code}"</strong> Applied! Discount: ₹{appliedCoupon.discountAmountInr} OFF
+                    Coupon <strong>&quot;{appliedCoupon.code}&quot;</strong> Applied! Discount: ₹{appliedCoupon.discountAmountInr} OFF
                   </span>
                 </div>
                 <button

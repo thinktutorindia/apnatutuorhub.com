@@ -188,9 +188,11 @@ export function LocationSearchInput({
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setSuggestions([]);
-      setIsOpen(false);
-      return;
+      const clearTimer = setTimeout(() => {
+        setSuggestions([]);
+        setIsOpen(false);
+      }, 0);
+      return () => clearTimeout(clearTimer);
     }
 
     const timer = setTimeout(async () => {

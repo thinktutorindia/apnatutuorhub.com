@@ -22,17 +22,20 @@ export function AuditLogFilterBar({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
+  const [prevParams, setPrevParams] = useState(searchParams.toString());
   const [action, setAction] = useState(initialAction);
   const [entity, setEntity] = useState(initialEntity);
   const [adminId, setAdminId] = useState(initialAdminId);
   const [subAdminOnly, setSubAdminOnly] = useState(initialSubAdminOnly);
 
-  useEffect(() => {
+  const currentParamsStr = searchParams.toString();
+  if (currentParamsStr !== prevParams) {
+    setPrevParams(currentParamsStr);
     setAction(searchParams.get("action") ?? "");
     setEntity(searchParams.get("entity") ?? "");
     setAdminId(searchParams.get("adminId") ?? "");
     setSubAdminOnly(searchParams.get("subAdminOnly") === "true");
-  }, [searchParams]);
+  }
 
   const updateFilters = (newAction: string, newEntity: string, newAdminId: string, newSubAdminOnly: boolean) => {
     const params = new URLSearchParams(searchParams.toString());

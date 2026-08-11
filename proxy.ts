@@ -9,6 +9,22 @@ const ROLE_ROUTES: Record<string, string[]> = {
   "/admin": ["SUPER_ADMIN", "SUB_ADMIN"],
 };
 
+// Reserved tutor app subpaths that must stay gated to the TUTOR role.
+// Everything else of the shape `/tutor/{id}` is a PUBLIC tutor profile page.
+const TUTOR_APP_SUBPATHS = new Set([
+  "dashboard",
+  "profile",
+  "leads",
+  "bookings",
+  "wallet",
+  "plans",
+]);
+
+function isPublicTutorProfile(pathname: string): boolean {
+  const m = pathname.match(/^\/tutor\/([^/]+)$/);
+  return !!m && !TUTOR_APP_SUBPATHS.has(m[1]);
+}
+
 const PUBLIC_ROUTES = [
   "/",
   "/login",
@@ -45,9 +61,10 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
   }
 
   // ── 2. Public route check ────────────────────────────────────────────────
-  const isPublic = PUBLIC_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(route + "/") || pathname.startsWith(route + "-")
-  );
+  const isPublic =
+    PUBLIC_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith(route + "/") || pathname.startsWith(route + "-")
+    ) || isPublicTutorProfile(pathname);
 
   // ── 3. CSRF origin guard on mutating API calls ──────────────────────────
   const isApiMutating =
@@ -97,7 +114,9 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
   }
 
   // ── 6. Role-Level & Sub-Admin Route Guard ────────────────────────────────
-  if (session?.user) {
+  // Public tutor profile (`/tutor/{id}`) is exempt from the TUTOR role gate so
+  // parents, admins and (via step 2) logged-out visitors can view it.
+  if (session?.user && !isPublicTutorProfile(pathname)) {
     for (const [routePrefix, allowedRoles] of Object.entries(ROLE_ROUTES)) {
       if (pathname.startsWith(routePrefix)) {
         if (!allowedRoles.includes(session.user.role)) {

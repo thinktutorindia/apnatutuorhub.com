@@ -212,8 +212,9 @@ export async function requestPasswordResetAction(
     return { success: true };
   }
 
-  // Generate 32-byte secure random token
-  const token = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+  // Generate a cryptographically secure 32-byte random token
+  const { randomBytes } = await import("crypto");
+  const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   await prisma.verificationToken.create({

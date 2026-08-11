@@ -41,7 +41,8 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setMounted(true);
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // Close dropdown when clicking outside (desktop)

@@ -23,17 +23,19 @@ export default function RegisterPage() {
   // Synchronize role with URL parameter
   const initialRole = roleParam === "tutor" ? "TUTOR" : "PARENT";
   const [selectedRole, setSelectedRole] = React.useState<string>(initialRole);
+  const [prevRoleParam, setPrevRoleParam] = React.useState<string | null>(roleParam);
   const [showPassword, setShowPassword] = React.useState<boolean>(false);
   const [state, formAction, isPending] = useActionState(registerAction, initialState);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
 
-  React.useEffect(() => {
+  if (roleParam !== prevRoleParam) {
+    setPrevRoleParam(roleParam);
     if (roleParam === "tutor") {
       setSelectedRole("TUTOR");
     } else if (roleParam === "parent") {
       setSelectedRole("PARENT");
     }
-  }, [roleParam]);
+  }
 
   React.useEffect(() => {
     if (state.success) {

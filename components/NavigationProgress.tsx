@@ -11,12 +11,17 @@ export function NavigationProgress() {
 
   // Reset loading progress on route change complete
   useEffect(() => {
-    setIsLoading(false);
-    setProgress(100);
     const timer = setTimeout(() => {
+      setIsLoading(false);
+      setProgress(100);
+    }, 0);
+    const resetTimer = setTimeout(() => {
       setProgress(0);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(resetTimer);
+    };
   }, [pathname, searchParams]);
 
   useEffect(() => {

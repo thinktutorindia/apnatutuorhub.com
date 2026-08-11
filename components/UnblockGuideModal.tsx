@@ -118,7 +118,7 @@ export function UnblockGuideModal({
           className="neu-btn neu-btn-primary w-full py-3.5 text-sm font-black flex items-center justify-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A]"
         >
           <RefreshCw size={16} />
-          <span>I've Turned It On — Refresh Page Now</span>
+          <span>I&apos;ve Turned It On — Refresh Page Now</span>
         </button>
       </div>
     </div>

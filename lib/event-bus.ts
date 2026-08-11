@@ -16,6 +16,7 @@
 import { EventEmitter } from "events";
 import { logActivity, type ActivityEventType } from "@/lib/activity-logger";
 import { createNotification } from "@/lib/notification-engine";
+import { initSearchEventHandlers } from "@/lib/search/events";
 
 // ── Singleton Event Bus ───────────────────────────────────────────────────────
 
@@ -93,7 +94,6 @@ export function initDomainEventHandlers(): void {
 
   // 4. Initialize Search Event Indexing Listeners
   try {
-    const { initSearchEventHandlers } = require("@/lib/search/events");
     initSearchEventHandlers();
   } catch (e) {
     console.error("[event-bus] Search event handlers init error:", e);

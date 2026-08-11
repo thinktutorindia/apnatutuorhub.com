@@ -70,6 +70,8 @@ export async function createCoinOrderAction(
     }
   }
 
+  const discountPaise = Math.max(0, pkg.priceInPaise - finalPricePaise);
+
   try {
     // Razorpay receipt length MUST be <= 40 characters
     const receipt = `rcpt_${Date.now()}_${tutorProfile.id.slice(-8)}`;
@@ -77,6 +79,9 @@ export async function createCoinOrderAction(
       tutorProfileId: tutorProfile.id,
       packageId,
       couponId: appliedCouponId ?? "",
+      // Persisted so the payment-success (webhook) path can atomically consume the
+      // coupon exactly once — enforcing per-user and global usage limits.
+      discountPaise: appliedCouponId ? String(discountPaise) : "0",
     });
 
     return actionSuccess({
@@ -166,7 +171,7 @@ export async function creditCoinsToWallet(
       // Idempotency guard: avoid double-crediting if webhook + client callback both run
       if (referenceId) {
         const existingTx = await tx.walletTransaction.findFirst({
-          where: { referenceId },
+          where: { referenceId, type: "PURCHASE" },
         });
         if (existingTx) {
           const wallet = await tx.wallet.findUnique({

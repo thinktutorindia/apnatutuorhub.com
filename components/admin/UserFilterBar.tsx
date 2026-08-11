@@ -18,15 +18,18 @@ export function UserFilterBar({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
+  const [prevParams, setPrevParams] = useState(searchParams.toString());
   const [q, setQ] = useState(initialQ);
   const [role, setRole] = useState(initialRole);
   const [status, setStatus] = useState(initialStatus);
 
-  useEffect(() => {
+  const currentParamsStr = searchParams.toString();
+  if (currentParamsStr !== prevParams) {
+    setPrevParams(currentParamsStr);
     setQ(searchParams.get("q") ?? "");
     setRole(searchParams.get("role") ?? "");
     setStatus(searchParams.get("status") ?? "");
-  }, [searchParams]);
+  }
 
   const updateFilters = (newQ: string, newRole: string, newStatus: string) => {
     const params = new URLSearchParams(searchParams.toString());

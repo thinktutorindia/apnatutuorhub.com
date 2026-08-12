@@ -270,6 +270,21 @@ model TutorProfile {
   subscriptionExpiresAt DateTime?
   leadsUsedThisMonth Int        @default(0)
   leadsResetAt     DateTime?
+
+  // ── Onboarding Wizard Fields ────────────────────────────────────────────────
+  onboardingStep      Int      @default(0)     // 0=not started, 1-7=step completed, 7=all done
+  gender              String?                  // "MALE" | "FEMALE"
+  teachingStartYear   Int?                     // Year they started teaching
+  educationCourse     String?                  // e.g., "BSc, B.Ed"
+  educationSubjects   String?                  // Subjects studied in college
+  educationUniversity String?                  // University name
+  educationYear       String?                  // Year of passing or "Pursuing"
+  profession          String?                  // Current profession
+  dateOfBirth         String?                  // Date of birth (stored as string)
+  referralSource      String?                  // How they found us
+  maritalStatus       String?                  // "MARRIED" | "UNMARRIED"
+  interestedIn        String[]                 // ["HOME_TUTORING", "ONLINE_TUTORING", ...]
+
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 

@@ -34,7 +34,9 @@ export async function createCouponAction(
     return actionError("Forbidden: Only Admin or Marketing can create coupons");
   }
 
-  const rawDiscountAmount = Number(formData.get("discountAmount"));
+  const rawDiscountAmount = Number(
+    formData.get("discountAmount") || formData.get("discountValue")
+  );
   const discountType = formData.get("discountType") as "PERCENTAGE" | "FLAT";
 
   // For FLAT type, input is in Rupees -> convert to Paise

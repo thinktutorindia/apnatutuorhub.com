@@ -81,6 +81,31 @@ export function OpenStreetMapPickerModal({
     }
   };
 
+  // Inject Leaflet CSS dynamically + essential inline fallback styles
+  useEffect(() => {
+    if (!document.getElementById("leaflet-css")) {
+      const link = document.createElement("link");
+      link.id = "leaflet-css";
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById("leaflet-inline-fallback-css")) {
+      const style = document.createElement("style");
+      style.id = "leaflet-inline-fallback-css";
+      style.textContent = `
+        .leaflet-container { width: 100%; height: 100%; position: relative; z-index: 1; outline: none; }
+        .leaflet-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-tile-container, .leaflet-layer { position: absolute; left: 0; top: 0; }
+        .leaflet-tile { width: 256px !important; height: 256px !important; }
+        .leaflet-tile-container { pointer-events: none; }
+        .leaflet-marker-icon, .leaflet-marker-shadow { display: block; pointer-events: auto; }
+        .leaflet-zoom-animated { transition: transform 0.25s cubic-bezier(0,0,0.25,1); }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
+  // Initialize Leaflet Map ONCE when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
@@ -99,7 +124,7 @@ export function OpenStreetMapPickerModal({
           shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
         });
 
-        // Small delay to ensure DOM container dimensions exist
+        // Ensure container exists
         setTimeout(() => {
           if (!mapContainerRef.current || !isMounted) return;
 
@@ -108,17 +133,33 @@ export function OpenStreetMapPickerModal({
             mapInstanceRef.current = null;
           }
 
-          const map = L.map(mapContainerRef.current).setView([currentLat, currentLon], 14);
+          const map = L.map(mapContainerRef.current, {
+            center: [initialLat, initialLon],
+            zoom: 15,
+            zoomControl: true,
+          });
 
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 19,
-          }).addTo(map);
+          // Esri World Street Map tiles (Unblocked, fast, high-res in India)
+          L.tileLayer(
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+            {
+              attribution: "Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012",
+              maxZoom: 19,
+            }
+          ).addTo(map);
 
-          const marker = L.marker([currentLat, currentLon], { draggable: true }).addTo(map);
+          const marker = L.marker([initialLat, initialLon], { draggable: true }).addTo(map);
+
+          mapInstanceRef.current = map;
+          markerInstanceRef.current = marker;
+
+          // Multiple invalidateSize calls to ensure map renders smoothly after modal animation
+          map.invalidateSize();
+          setTimeout(() => map.invalidateSize(), 150);
+          setTimeout(() => map.invalidateSize(), 400);
 
           // Handle Marker Drag
-          marker.on("dragend", async (e: any) => {
+          marker.on("dragend", (e: any) => {
             const { lat, lng } = e.target.getLatLng();
             setCurrentLat(lat);
             setCurrentLon(lng);
@@ -126,7 +167,7 @@ export function OpenStreetMapPickerModal({
           });
 
           // Handle Map Click
-          map.on("click", async (e: any) => {
+          map.on("click", (e: any) => {
             const { lat, lng } = e.latlng;
             marker.setLatLng([lat, lng]);
             setCurrentLat(lat);
@@ -134,12 +175,9 @@ export function OpenStreetMapPickerModal({
             fetchAddressFromCoords(lat, lng);
           });
 
-          mapInstanceRef.current = map;
-          markerInstanceRef.current = marker;
-
           // Initial reverse geocode
-          fetchAddressFromCoords(currentLat, currentLon);
-        }, 150);
+          fetchAddressFromCoords(initialLat, initialLon);
+        }, 100);
       } catch (err) {
         console.error("Leaflet Map init error:", err);
       }
@@ -154,7 +192,7 @@ export function OpenStreetMapPickerModal({
         mapInstanceRef.current = null;
       }
     };
-  }, [isOpen, currentLat, currentLon]);
+  }, [isOpen]);
 
   // GPS My Location in Modal
   const handleGPSDetect = () => {

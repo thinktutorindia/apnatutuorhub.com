@@ -28,6 +28,10 @@ export default async function TutorProfilePageRoute() {
     redirect("/tutor/dashboard");
   }
 
+  if (tutorProfile.onboardingStep < 7) {
+    redirect("/tutor/onboarding");
+  }
+
   const scoreBreakdown = calcProfileScore({
     ...tutorProfile,
     availability: tutorProfile.availability,
@@ -49,7 +53,7 @@ export default async function TutorProfilePageRoute() {
       profile={{
         id: tutorProfile.id,
         bio: tutorProfile.bio ?? "",
-        qualification: tutorProfile.qualification ?? "",
+        qualification: tutorProfile.qualification || tutorProfile.educationCourse || "",
         experience: tutorProfile.experience?.toString() ?? "0",
         subjects: tutorProfile.subjects,
         classLevels: tutorProfile.classLevels,
@@ -59,8 +63,10 @@ export default async function TutorProfilePageRoute() {
         feeMax: tutorProfile.feeMax?.toString() ?? "",
         city: tutorProfile.city ?? "",
         state: tutorProfile.state ?? "",
-        pincode: profileExt.pincode ?? "",
-        address: profileExt.address ?? "",
+        pincode: tutorProfile.pincode ?? "",
+        address: tutorProfile.address ?? "",
+        latitude: tutorProfile.latitude ?? null,
+        longitude: tutorProfile.longitude ?? null,
         introVideoUrl: tutorProfile.introVideoUrl ?? "",
         availability: tutorProfile.availability,
         kycStatus: tutorProfile.kycStatus,
@@ -71,6 +77,17 @@ export default async function TutorProfilePageRoute() {
         isVerified: tutorProfile.isVerified,
         profileScore: tutorProfile.profileScore,
         coinBalance: wallet?.balance ?? 0,
+        gender: tutorProfile.gender ?? "",
+        teachingStartYear: tutorProfile.teachingStartYear?.toString() ?? "",
+        educationCourse: tutorProfile.educationCourse ?? "",
+        educationSubjects: tutorProfile.educationSubjects ?? "",
+        educationUniversity: tutorProfile.educationUniversity ?? "",
+        educationYear: tutorProfile.educationYear ?? "",
+        profession: tutorProfile.profession ?? "",
+        dateOfBirth: tutorProfile.dateOfBirth ?? "",
+        referralSource: tutorProfile.referralSource ?? "",
+        maritalStatus: tutorProfile.maritalStatus ?? "",
+        interestedIn: tutorProfile.interestedIn ?? [],
       }}
       scoreBreakdown={scoreBreakdown}
     />

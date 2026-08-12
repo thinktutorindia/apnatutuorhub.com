@@ -55,6 +55,10 @@ export default async function TutorDashboardPage() {
     }
   }
 
+  if (tutorProfile && tutorProfile.onboardingStep < 7) {
+    redirect("/tutor/onboarding");
+  }
+
   const walletBalance = tutorProfile?.wallet?.balance ?? 0;
   const kycStatus = tutorProfile?.kycStatus ?? "NOT_SUBMITTED";
   const isKycApproved = kycStatus === "APPROVED";

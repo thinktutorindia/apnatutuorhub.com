@@ -2,13 +2,13 @@
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Search, X, Check, Plus } from "lucide-react";
-import { SUBJECT_TAXONOMY } from "@/lib/validations";
+import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 
 export function SubjectPicker({
   name = "subjects",
   value = [],
   onChange,
-  max = 10,
+  max = 50,
   disabled = false,
   hintText = "Select subjects from the dropdown or type to search automatically.",
 }: {
@@ -26,18 +26,33 @@ export function SubjectPicker({
 
   const allSubjects = useMemo(() => {
     const list: { subject: string; group: string }[] = [];
-    SUBJECT_TAXONOMY.forEach((g) => {
-      g.subjects.forEach((s) => {
-        list.push({ subject: s, group: g.group });
-      });
+    TRUEMYTUTOR_TREE.forEach((node) => {
+      if (node.subjects) {
+        node.subjects.forEach((s) => {
+          list.push({ subject: s, group: node.name });
+        });
+      }
+      if (node.subcategories) {
+        node.subcategories.forEach((sub) => {
+          sub.subjects.forEach((s) => {
+            list.push({ subject: s, group: `${node.name} > ${sub.name}` });
+          });
+        });
+      }
     });
     return list;
+  }, []);
+
+  const categories = useMemo(() => {
+    const set = new Set<string>(["ALL"]);
+    TRUEMYTUTOR_TREE.forEach((node) => set.add(node.name));
+    return Array.from(set);
   }, []);
 
   const filteredSubjects = useMemo(() => {
     let result = allSubjects;
     if (activeCategory !== "ALL") {
-      result = result.filter((item) => item.group === activeCategory);
+      result = result.filter((item) => item.group.startsWith(activeCategory));
     }
     if (search.trim()) {
       const q = search.toLowerCase().trim();
@@ -83,8 +98,6 @@ export function SubjectPicker({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const categories = ["ALL", ...SUBJECT_TAXONOMY.map((g) => g.group)];
 
   return (
     <div ref={containerRef} className="space-y-3 relative text-slate-900">

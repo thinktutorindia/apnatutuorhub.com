@@ -18,6 +18,7 @@ const TUTOR_APP_SUBPATHS = new Set([
   "bookings",
   "wallet",
   "plans",
+  "onboarding",
 ]);
 
 function isPublicTutorProfile(pathname: string): boolean {
@@ -94,20 +95,28 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
   }
 
   // ── 4. Unauthenticated user check ────────────────────────────────────────
-  if (!isPublic && !session?.user) {
+  if (!isPublic && !session?.user?.id) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // ── 5. Suspended / deleted user session kill ─────────────────────────────
-  if (session && !session.user?.isActive) {
+  if (session?.user?.id && session.user.isActive === false) {
+    if (pathname.startsWith("/login")) {
+      return NextResponse.next();
+    }
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("error", "AccountSuspended");
     const res = NextResponse.redirect(loginUrl);
-    ["authjs.session-token", "__Secure-authjs.session-token",
-     "authjs.csrf-token", "__Host-authjs.csrf-token",
-     "next-auth.session-token", "next-auth.csrf-token"].forEach((name) => {
+    [
+      "authjs.session-token",
+      "__Secure-authjs.session-token",
+      "authjs.csrf-token",
+      "__Host-authjs.csrf-token",
+      "next-auth.session-token",
+      "next-auth.csrf-token",
+    ].forEach((name) => {
       res.cookies.delete(name);
     });
     return res;
@@ -149,12 +158,12 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
 
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://app.posthog.com https://browser.sentry-cdn.com",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://app.posthog.com https://browser.sentry-cdn.com https://unpkg.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
     "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.amazonaws.com https://*.supabase.co",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://promoted-maggot-141911.upstash.io https://app.posthog.com https://*.sentry.io https://checkout.razorpay.com https://photon.komoot.io https://nominatim.openstreetmap.org https://api.opencagedata.com",
-    "frame-src https://api.razorpay.com https://checkout.razorpay.com",
+    "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.amazonaws.com https://*.supabase.co https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://unpkg.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://promoted-maggot-141911.upstash.io https://app.posthog.com https://*.sentry.io https://checkout.razorpay.com https://photon.komoot.io https://nominatim.openstreetmap.org https://*.openstreetmap.org https://api.opencagedata.com https://api.postalpincode.in",
+    "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://maps.google.com https://www.google.com https://www.openstreetmap.org",
     "media-src 'self'",
     "worker-src 'self' blob:",
     "manifest-src 'self'",

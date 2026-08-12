@@ -47,6 +47,16 @@ export async function saveTutorStepAction(
   const formLng = formFloat(formData, "longitude");
   const nextStep = formInt(formData, "nextStep");
 
+  const educationCourse = formString(formData, "educationCourse");
+  const educationSubjects = formString(formData, "educationSubjects");
+  const educationUniversity = formString(formData, "educationUniversity");
+  const educationYear = formString(formData, "educationYear");
+  const profession = formString(formData, "profession");
+  const dateOfBirth = formString(formData, "dateOfBirth");
+  const maritalStatus = formString(formData, "maritalStatus");
+  const gender = formString(formData, "gender");
+  const teachingStartYear = formInt(formData, "teachingStartYear");
+
   // Fetch current profile to preserve existing data and coords
   const current = await prisma.tutorProfile.findUnique({
     where: { id: auth.context.tutorProfileId },
@@ -89,6 +99,22 @@ export async function saveTutorStepAction(
   if (introVideoUrl !== undefined) updateData.introVideoUrl = introVideoUrl || null;
   if (lat != null) updateData.latitude = lat;
   if (lng != null) updateData.longitude = lng;
+
+  if (educationCourse !== undefined) {
+    updateData.educationCourse = educationCourse || null;
+    if (educationCourse) updateData.qualification = educationCourse;
+  }
+  if (educationSubjects !== undefined) updateData.educationSubjects = educationSubjects || null;
+  if (educationUniversity !== undefined) updateData.educationUniversity = educationUniversity || null;
+  if (educationYear !== undefined) updateData.educationYear = educationYear || null;
+  if (profession !== undefined) updateData.profession = profession || null;
+  if (dateOfBirth !== undefined) updateData.dateOfBirth = dateOfBirth || null;
+  if (maritalStatus) updateData.maritalStatus = maritalStatus;
+  if (gender) updateData.gender = gender;
+  if (teachingStartYear != null) {
+    updateData.teachingStartYear = teachingStartYear;
+    updateData.experience = new Date().getFullYear() - teachingStartYear;
+  }
 
   if (Object.keys(updateData).length > 0) {
     // Recalculate profile score with current + new data
@@ -293,4 +319,101 @@ export async function saveAvailabilityAction(
   revalidatePath("/tutor/profile");
 
   return actionSuccess({ updated: true as const });
+}
+
+// ────────────────────────────────────────────────
+// Tutor Onboarding Wizard — Auto-Save Action
+// Each step call saves its fields + advances onboardingStep in DB.
+// Admin can query onboardingStep to see where tutors dropped off.
+// ────────────────────────────────────────────────
+
+export type OnboardingStepResult = {
+  success: boolean;
+  error?: string;
+  step?: number;
+};
+
+export async function saveTutorOnboardingAction(
+  data: {
+    step: number;
+    locality?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    gender?: string;
+    teachingStartYear?: number;
+    subjects?: string[];
+    classLevels?: string[];
+    teachingMode?: string;
+    teachingRadius?: number;
+    educationCourse?: string;
+    educationSubjects?: string;
+    educationUniversity?: string;
+    educationYear?: string;
+    interestedIn?: string[];
+    profession?: string;
+    dateOfBirth?: string;
+    referralSource?: string;
+    maritalStatus?: string;
+    bio?: string;
+    photoUrl?: string;
+  }
+): Promise<OnboardingStepResult> {
+  const ctx = await resolveTutorContext();
+  if (!ctx.ok) return { success: false, error: "Not authenticated" };
+
+  const { tutorProfileId, userId } = ctx.context;
+  const { step, ...fields } = data;
+
+  try {
+    const updateData: Record<string, unknown> = { onboardingStep: step };
+
+    if (fields.city !== undefined) updateData.city = fields.city || null;
+    if (fields.state !== undefined) updateData.state = fields.state || null;
+    if (fields.pincode !== undefined) updateData.pincode = fields.pincode || null;
+    if (fields.address !== undefined) updateData.address = fields.address || null;
+    if (fields.latitude != null) updateData.latitude = fields.latitude;
+    if (fields.longitude != null) updateData.longitude = fields.longitude;
+
+    if (fields.gender) updateData.gender = fields.gender;
+    if (fields.teachingStartYear != null) {
+      updateData.teachingStartYear = fields.teachingStartYear;
+      updateData.experience = new Date().getFullYear() - fields.teachingStartYear;
+    }
+
+    if (fields.subjects && fields.subjects.length > 0) updateData.subjects = fields.subjects;
+    if (fields.classLevels && fields.classLevels.length > 0) updateData.classLevels = fields.classLevels;
+    if (fields.teachingMode) updateData.teachingMode = fields.teachingMode;
+    if (fields.teachingRadius != null) updateData.teachingRadius = fields.teachingRadius;
+
+    if (fields.educationCourse !== undefined) updateData.educationCourse = fields.educationCourse || null;
+    if (fields.educationSubjects !== undefined) updateData.educationSubjects = fields.educationSubjects || null;
+    if (fields.educationUniversity !== undefined) updateData.educationUniversity = fields.educationUniversity || null;
+    if (fields.educationYear !== undefined) updateData.educationYear = fields.educationYear || null;
+    if (fields.educationCourse) updateData.qualification = fields.educationCourse;
+
+    if (fields.interestedIn) updateData.interestedIn = fields.interestedIn;
+    if (fields.profession !== undefined) updateData.profession = fields.profession || null;
+    if (fields.dateOfBirth !== undefined) updateData.dateOfBirth = fields.dateOfBirth || null;
+    if (fields.referralSource !== undefined) updateData.referralSource = fields.referralSource || null;
+    if (fields.maritalStatus) updateData.maritalStatus = fields.maritalStatus;
+
+    if (fields.bio !== undefined) updateData.bio = fields.bio || null;
+
+    await prisma.tutorProfile.update({ where: { id: tutorProfileId }, data: updateData });
+
+    if (step === 7 && fields.photoUrl) {
+      await prisma.user.update({ where: { id: userId }, data: { image: fields.photoUrl } });
+    }
+
+    revalidatePath("/tutor/onboarding");
+    revalidatePath("/tutor/profile");
+    return { success: true, step };
+  } catch (err) {
+    console.error("[saveTutorOnboardingAction] error:", err);
+    return { success: false, error: "Failed to save. Please try again." };
+  }
 }

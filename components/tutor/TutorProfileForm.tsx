@@ -38,6 +38,8 @@ import { ActionOverlay } from "@/components/ui/LoadingState";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import { AvailabilityGrid } from "@/components/tutor/AvailabilityGrid";
 import { LocationSearchInput, type LocationResult } from "@/components/ui/LocationSearchInput";
+import { InlineLocationMap } from "@/components/tutor/onboarding/InlineLocationMap";
+import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import {
   CLASS_LEVELS,
   TEACHING_MODES,
@@ -114,9 +116,22 @@ type Defaults = {
   state: string;
   pincode: string;
   address: string;
+  latitude?: number | null;
+  longitude?: number | null;
   introVideoUrl: string;
   availability: { dayOfWeek: number; startTime: string; endTime: string }[];
   coinBalance?: number;
+  gender?: string;
+  teachingStartYear?: string;
+  educationCourse?: string;
+  educationSubjects?: string;
+  educationUniversity?: string;
+  educationYear?: string;
+  profession?: string;
+  dateOfBirth?: string;
+  referralSource?: string;
+  maritalStatus?: string;
+  interestedIn?: string[];
 };
 
 type KycProps = {
@@ -183,16 +198,20 @@ function SavedToast({ show }: { show: boolean }) {
 export function TutorProfileForm({
   defaults,
   kyc,
+  initialStep = 1,
+  onCloseModal,
 }: {
   defaults: Defaults;
   kyc: KycProps;
+  initialStep?: number;
+  onCloseModal?: () => void;
 }) {
   // ── Server action states ──
   const [stepState, stepAction, stepPending] = useActionState(saveTutorStepAction, stepInitial);
   const [profileState, profileAction, profilePending] = useActionState(saveTutorProfileAction, profileInitial);
   const [availState, availAction, availPending] = useActionState(saveAvailabilityAction, availInitial);
 
-  const [activeStep, setActiveStep] = useState<number>(1);
+  const [activeStep, setActiveStep] = useState<number>(initialStep);
   const [savedToast, setSavedToast] = useState(false);
 
   // ── Step 1 state ──
@@ -200,6 +219,33 @@ export function TutorProfileForm({
   const [classLevels, setClassLevels] = useState<string[]>(defaults.classLevels);
   const [classSearch, setClassSearch] = useState("");
   const [smartNotice, setSmartNotice] = useState<string | null>(null);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["Combo Subjects KG to 10th", "Science Subjects"]));
+
+  const toggleNode = (key: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleSubject = (subjName: string) => {
+    if (subjects.includes(subjName)) {
+      handleSubjectsChange(subjects.filter((s) => s !== subjName));
+    } else {
+      handleSubjectsChange([...subjects, subjName]);
+    }
+  };
+
+  const toggleSelectAll = (subjList: string[]) => {
+    const allSelected = subjList.every((s) => subjects.includes(s));
+    if (allSelected) {
+      handleSubjectsChange(subjects.filter((s) => !subjList.includes(s)));
+    } else {
+      handleSubjectsChange(Array.from(new Set([...subjects, ...subjList])));
+    }
+  };
 
   // ── Step 2 state ──
   const [teachingMode, setTeachingMode] = useState(defaults.teachingMode || "EITHER");
@@ -208,39 +254,50 @@ export function TutorProfileForm({
   const [state, setState] = useState(defaults.state || "");
   const [pincode, setPincode] = useState(defaults.pincode || "");
   const [address, setAddress] = useState(defaults.address || "");
-  const [coordLat, setCoordLat] = useState("");
-  const [coordLng, setCoordLng] = useState("");
+  const [coordLat, setCoordLat] = useState(defaults.latitude != null ? String(defaults.latitude) : "");
+  const [coordLng, setCoordLng] = useState(defaults.longitude != null ? String(defaults.longitude) : "");
 
-  // ── Auto-advance after step save ──
+  // ── Step 4 state (controlled so edits persist across re-renders) ──
+  const [educationCourse, setEducationCourse] = useState(defaults.educationCourse || defaults.qualification || "");
+  const [educationUniversity, setEducationUniversity] = useState(defaults.educationUniversity || "");
+  const [educationSubjects, setEducationSubjects] = useState(defaults.educationSubjects || "");
+  const [educationYear, setEducationYear] = useState(defaults.educationYear || "");
+  const [experience, setExperience] = useState(defaults.experience || "");
+  const [profession, setProfession] = useState(defaults.profession || "");
+  const [dateOfBirth, setDateOfBirth] = useState(defaults.dateOfBirth || "");
+  const [maritalStatus, setMaritalStatus] = useState(defaults.maritalStatus || "UNMARRIED");
+  const [bio, setBio] = useState(defaults.bio || "");
+  const [introVideoUrl, setIntroVideoUrl] = useState(defaults.introVideoUrl || "");
+
+  // ── Auto-advance or close modal after step save ──
   useEffect(() => {
-    if (stepState.success && stepState.data?.nextStep) {
-      const next = stepState.data.nextStep;
-      const timer = setTimeout(() => {
-        setSavedToast(true);
-        setActiveStep(next);
-      }, 0);
+    if (stepState.success) {
+      setSavedToast(true);
+      if (onCloseModal) {
+        onCloseModal();
+      } else if (stepState.data?.nextStep) {
+        setActiveStep(stepState.data.nextStep);
+      }
       const toastTimer = setTimeout(() => setSavedToast(false), 2500);
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(toastTimer);
-      };
+      return () => clearTimeout(toastTimer);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepState]);
 
-  // ── Also show toast on final profile save success ──
+  // ── Advance or close modal after availability save ──
   useEffect(() => {
-    if (profileState.success) {
-      const timer = setTimeout(() => {
-        setSavedToast(true);
-        setActiveStep(5); // advance to schedule
-      }, 0);
+    if (availState.success) {
+      setSavedToast(true);
+      if (onCloseModal) {
+        onCloseModal();
+      } else {
+        setActiveStep(6);
+      }
       const toastTimer = setTimeout(() => setSavedToast(false), 2500);
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(toastTimer);
-      };
+      return () => clearTimeout(toastTimer);
     }
-  }, [profileState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availState]);
 
   const handleLocationSelect = (res: LocationResult) => {
     if (res.city) setCity(res.city);
@@ -314,30 +371,32 @@ export function TutorProfileForm({
       <ActionOverlay isOpen={profilePending} title="Saving Profile Details" subtitle="Updating bio, qualifications, and experience..." />
       <ActionOverlay isOpen={availPending} title="Saving Schedule" subtitle="Updating weekly teaching availability..." />
 
-      {/* ── STEP NAVIGATION TABS ── */}
-      <div className="p-1.5 rounded-3xl bg-gray-200 border border-gray-300 grid grid-cols-2 xs:grid-cols-3 md:grid-cols-6 gap-1.5 shadow-2xs">
-        {steps.map((s) => {
-          const isActive = activeStep === s.id;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setActiveStep(s.id)}
-              className={`py-2.5 px-1.5 rounded-2xl text-[10px] transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                isActive
-                  ? "bg-[#0F2540] !text-white font-800 shadow-md ring-2 ring-[#0F2540]"
-                  : s.isDone
-                    ? "bg-emerald-100 !text-emerald-950 font-800 border border-emerald-300 hover:bg-emerald-200"
-                    : "bg-white !text-gray-900 font-700 border border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              <s.icon size={14} className={isActive ? "!text-emerald-400" : s.isDone ? "!text-emerald-700" : "!text-gray-600"} />
-              <span className="text-center leading-tight">{s.title}</span>
-              {s.isDone && !isActive && <Check size={10} className="!text-emerald-600 shrink-0" />}
-            </button>
-          );
-        })}
-      </div>
+      {/* ── STEP NAVIGATION TABS (Hidden when opened in focused badge modal) ── */}
+      {!onCloseModal && (
+        <div className="p-1.5 rounded-3xl bg-gray-200 border border-gray-300 grid grid-cols-2 xs:grid-cols-3 md:grid-cols-6 gap-1.5 shadow-2xs">
+          {steps.map((s) => {
+            const isActive = activeStep === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setActiveStep(s.id)}
+                className={`py-2.5 px-1.5 rounded-2xl text-[10px] transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                  isActive
+                    ? "bg-[#0F2540] !text-white font-800 shadow-md ring-2 ring-[#0F2540]"
+                    : s.isDone
+                      ? "bg-emerald-100 !text-emerald-950 font-800 border border-emerald-300 hover:bg-emerald-200"
+                      : "bg-white !text-gray-900 font-700 border border-gray-300 hover:bg-gray-100"
+                }`}
+              >
+                <s.icon size={14} className={isActive ? "!text-emerald-400" : s.isDone ? "!text-emerald-700" : "!text-gray-600"} />
+                <span className="text-center leading-tight">{s.title}</span>
+                {s.isDone && !isActive && <Check size={10} className="!text-emerald-600 shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Saved toast + form alerts */}
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -361,7 +420,9 @@ export function TutorProfileForm({
 
           <div className="flex items-center justify-between pb-3 border-b border-gray-200">
             <div className="space-y-0.5">
-              <span className="text-[11px] font-800 uppercase tracking-wider text-[#2D9E6B]">Step 1 of 6 · Auto-saves to profile</span>
+              <span className="text-[11px] font-800 uppercase tracking-wider text-[#2D9E6B]">
+                {!onCloseModal ? "Step 1 of 6 · Auto-saves to profile" : "Auto-saves to profile"}
+              </span>
               <h2 className="text-xl font-800 text-gray-900 flex items-center gap-2">
                 <BookOpen size={20} className="text-[#2D9E6B]" />
                 Teaching Expertise & Subjects
@@ -379,6 +440,152 @@ export function TutorProfileForm({
           <div className="space-y-2">
             <SubjectPicker value={subjects} onChange={handleSubjectsChange} />
             <FieldError messages={stepState.fieldErrors?.subjects} />
+          </div>
+
+          {/* ── ONBOARDING SUBJECT CATEGORIES TREE (Matching TryMyTutor Onboarding 1:1) ── */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-800 text-gray-900 uppercase tracking-wider">
+              Mark Your Skills &amp; Subjects (Category Tree)
+            </h3>
+            <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/50 space-y-3 max-h-[380px] overflow-y-auto">
+              {TRUEMYTUTOR_TREE.map((parent) => {
+                const isExpanded = expandedNodes.has(parent.name);
+                const hasSelectedSub =
+                  (parent.subjects && parent.subjects.some((s) => subjects.includes(s))) ||
+                  (parent.subcategories &&
+                    parent.subcategories.some((sub) => sub.subjects.some((s) => subjects.includes(s))));
+
+                return (
+                  <div key={parent.name} className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-2xs">
+                    <div
+                      onClick={() => toggleNode(parent.name)}
+                      className="flex items-center justify-between p-3 cursor-pointer hover:bg-emerald-50/50 transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm text-[#2D9E6B] w-4 text-center">
+                          {isExpanded ? "−" : "+"}
+                        </span>
+                        <span className="text-xs font-800 text-gray-900">{parent.name}</span>
+                      </div>
+                      {hasSelectedSub && (
+                        <span className="text-[10px] font-800 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300">
+                          Selected ✓
+                        </span>
+                      )}
+                    </div>
+
+                    {isExpanded && (
+                      <div className="p-3 border-t border-gray-100 bg-white space-y-3">
+                        {parent.subjects && (
+                          <>
+                            <label className="flex items-center gap-2 text-[11px] font-700 text-[#2D9E6B] cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  parent.subjects.length > 0 &&
+                                  parent.subjects.every((s) => subjects.includes(s))
+                                }
+                                onChange={() => toggleSelectAll(parent.subjects!)}
+                                className="w-3.5 h-3.5 rounded border-gray-300 text-[#2D9E6B] focus:ring-[#2D9E6B] cursor-pointer accent-[#2D9E6B]"
+                              />
+                              <span>Select all</span>
+                            </label>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {parent.subjects.map((s) => {
+                                const isChecked = subjects.includes(s);
+                                return (
+                                  <label
+                                    key={s}
+                                    className={`flex items-start gap-2 p-2 rounded-xl border text-[11px] font-700 cursor-pointer transition-all ${
+                                      isChecked
+                                        ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-800"
+                                        : "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => toggleSubject(s)}
+                                      className="w-3.5 h-3.5 mt-0.5 rounded border-gray-300 text-[#2D9E6B] focus:ring-[#2D9E6B] shrink-0 cursor-pointer accent-[#2D9E6B]"
+                                    />
+                                    <span className="leading-tight">{s}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+
+                        {parent.subcategories && (
+                          <div className="space-y-3">
+                            {parent.subcategories.map((sub) => {
+                              const subKey = `${parent.name} > ${sub.name}`;
+                              const isSubExpanded = expandedNodes.has(subKey);
+
+                              return (
+                                <div key={subKey} className="space-y-2 border-l-2 border-emerald-200 pl-3">
+                                  <div
+                                    onClick={() => toggleNode(subKey)}
+                                    className="flex items-center gap-2 text-xs font-800 text-gray-800 cursor-pointer hover:text-[#2D9E6B] select-none"
+                                  >
+                                    <span className="font-extrabold text-xs text-[#2D9E6B]">
+                                      {isSubExpanded ? "−" : "+"}
+                                    </span>
+                                    <span>{sub.name}</span>
+                                  </div>
+
+                                  {isSubExpanded && (
+                                    <div className="space-y-2 pt-1">
+                                      <label className="flex items-center gap-2 text-[11px] font-700 text-[#2D9E6B] cursor-pointer select-none">
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            sub.subjects.length > 0 &&
+                                            sub.subjects.every((s) => subjects.includes(s))
+                                          }
+                                          onChange={() => toggleSelectAll(sub.subjects)}
+                                          className="w-3.5 h-3.5 rounded border-gray-300 text-[#2D9E6B] focus:ring-[#2D9E6B] cursor-pointer accent-[#2D9E6B]"
+                                        />
+                                        <span>Select all</span>
+                                      </label>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                        {sub.subjects.map((s) => {
+                                          const isChecked = subjects.includes(s);
+                                          return (
+                                            <label
+                                              key={s}
+                                              className={`flex items-start gap-2 p-2 rounded-xl border text-[11px] font-700 cursor-pointer transition-all ${
+                                                isChecked
+                                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-800"
+                                                  : "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"
+                                              }`}
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => toggleSubject(s)}
+                                                className="w-3.5 h-3.5 mt-0.5 rounded border-gray-300 text-[#2D9E6B] focus:ring-[#2D9E6B] shrink-0 cursor-pointer accent-[#2D9E6B]"
+                                              />
+                                              <span className="leading-tight">{s}</span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -427,10 +634,12 @@ export function TutorProfileForm({
             <button
               type="submit"
               disabled={stepPending || subjects.length === 0 || classLevels.length === 0}
-              className="px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
             >
               <CloudUpload size={15} className="!text-white" />
-              <span className="!text-white font-800">Save & Continue to Location</span>
+              <span className="!text-white font-800">
+                {onCloseModal ? "Save Subjects & Skills" : "Save & Continue to Location"}
+              </span>
               <ArrowRight size={15} className="!text-white" />
             </button>
           </div>
@@ -445,12 +654,14 @@ export function TutorProfileForm({
           <input type="hidden" name="nextStep" value={3} />
           <input type="hidden" name="teachingMode" value={teachingMode} />
           <input type="hidden" name="teachingRadius" value={radius} />
-          {coordLat && <input type="hidden" name="latitude" value={coordLat} />}
-          {coordLng && <input type="hidden" name="longitude" value={coordLng} />}
+          <input type="hidden" name="latitude" value={coordLat} />
+          <input type="hidden" name="longitude" value={coordLng} />
 
           <div className="flex items-center justify-between pb-3 border-b border-gray-200">
             <div className="space-y-0.5">
-              <span className="text-[11px] font-800 uppercase tracking-wider text-[#2D9E6B]">Step 2 of 6 · Auto-saves to profile</span>
+              <span className="text-[11px] font-800 uppercase tracking-wider text-[#2D9E6B]">
+                {!onCloseModal ? "Step 2 of 6 · Auto-saves to profile" : "Auto-saves to profile"}
+              </span>
               <h2 className="text-xl font-800 text-gray-900 flex items-center gap-2">
                 <MapPin size={20} className="text-[#2D9E6B]" />
                 Teaching Mode, Location & Fees
@@ -514,13 +725,30 @@ export function TutorProfileForm({
             ))}
           </div>
 
-          {/* Location Search */}
-          <div className="space-y-1 pt-1">
+          {/* Location Search & Interactive Map Pin */}
+          <div className="space-y-3 pt-1">
             <label className="text-xs font-800 text-[#0F2540] flex items-center justify-between">
-              <span>Search Location (Live API)</span>
+              <span>Search Location & Pin on Map</span>
               <span className="text-[11px] font-700 text-[#2D9E6B]">Auto-Fill ✨</span>
             </label>
             <LocationSearchInput onSelectLocation={handleLocationSelect} placeholder="Type city, area or pincode (e.g. Koramangala, Sector 56 Gurgaon)..." />
+
+            {/* Interactive Leaflet Pin Map (Same as Onboarding) */}
+            <div className="pt-2">
+              <label className="text-xs font-800 text-gray-700 block mb-1.5">Drag Pin to Set Exact Location</label>
+              <InlineLocationMap
+                lat={coordLat ? Number(coordLat) : (defaults.latitude ?? 28.6139)}
+                lon={coordLng ? Number(coordLng) : (defaults.longitude ?? 77.209)}
+                onLocationChange={(res) => {
+                  if (res.city) setCity(res.city);
+                  if (res.state) setState(res.state);
+                  if (res.pincode) setPincode(res.pincode);
+                  if (res.fullAddress || res.area) setAddress(res.fullAddress || res.area);
+                  if (res.lat != null) setCoordLat(String(res.lat));
+                  if (res.lon != null) setCoordLng(String(res.lon));
+                }}
+              />
+            </div>
           </div>
 
           {/* City / State / Pincode */}
@@ -553,13 +781,17 @@ export function TutorProfileForm({
           </div>
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
-            <button type="button" onClick={() => setActiveStep(1)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
-              <ArrowLeft size={16} /><span>Back</span>
-            </button>
+            {!onCloseModal && (
+              <button type="button" onClick={() => setActiveStep(1)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
+                <ArrowLeft size={16} /><span>Back</span>
+              </button>
+            )}
             <button type="submit" disabled={stepPending}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer">
+              className="w-full sm:w-auto ml-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer">
               <CloudUpload size={15} className="!text-white" />
-              <span className="!text-white font-800">Save & Continue to Coins</span>
+              <span className="!text-white font-800">
+                {onCloseModal ? "Save Location & Fees" : "Save & Continue to Coins"}
+              </span>
               <ArrowRight size={15} className="!text-white" />
             </button>
           </div>
@@ -680,51 +912,152 @@ export function TutorProfileForm({
 
           <div className="flex items-center justify-between pb-3 border-b border-gray-200">
             <div className="space-y-0.5">
-              <span className="text-[11px] font-800 uppercase tracking-wider text-[#2D9E6B]">Step 4 of 6 · Auto-saves to profile</span>
+              <span className="text-[11px] font-800 uppercase tracking-wider text-[#2D9E6B]">
+                {!onCloseModal ? "Step 4 of 6 · Auto-saves to profile" : "Auto-saves to profile"}
+              </span>
               <h2 className="text-xl font-800 text-gray-900 flex items-center gap-2">
                 <GraduationCap size={20} className="text-[#2D9E6B]" />
-                Qualifications, Experience & Bio
+                Qualifications, Experience &amp; Bio
               </h2>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs font-800 text-gray-900">Years of Experience</label>
-              <input name="experience" type="number" defaultValue={defaults.experience} placeholder="e.g. 5"
-                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all" />
+              <label className="text-xs font-800 text-gray-900">Highest Qualification / Course</label>
+              <input
+                name="educationCourse"
+                type="text"
+                value={educationCourse}
+                onChange={(e) => setEducationCourse(e.target.value)}
+                placeholder="e.g. BSc, B.Tech, M.Sc Mathematics"
+                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all"
+              />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-800 text-gray-900">Highest Qualification</label>
-              <input name="qualification" type="text" defaultValue={defaults.qualification} placeholder="e.g. B.Tech CSE / M.Sc Mathematics"
-                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all" />
+              <label className="text-xs font-800 text-gray-900">University / College Name</label>
+              <input
+                name="educationUniversity"
+                type="text"
+                value={educationUniversity}
+                onChange={(e) => setEducationUniversity(e.target.value)}
+                placeholder="e.g. Delhi University, IIT Bombay"
+                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-800 text-gray-900">Subjects Studied in College</label>
+              <input
+                name="educationSubjects"
+                type="text"
+                value={educationSubjects}
+                onChange={(e) => setEducationSubjects(e.target.value)}
+                placeholder="e.g. Physics, Maths"
+                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-800 text-gray-900">Year of Passing</label>
+              <input
+                name="educationYear"
+                type="text"
+                value={educationYear}
+                onChange={(e) => setEducationYear(e.target.value)}
+                placeholder="e.g. 2022 or Pursuing"
+                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-800 text-gray-900">Years of Experience</label>
+              <input
+                name="experience"
+                type="number"
+                value={experience}
+                onChange={(e) => setExperience(e.target.value)}
+                placeholder="e.g. 5"
+                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-800 text-gray-900">Current Profession</label>
+              <input
+                name="profession"
+                type="text"
+                value={profession}
+                onChange={(e) => setProfession(e.target.value)}
+                placeholder="e.g. Full-time Tutor, Engineer"
+                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-800 text-gray-900">Date of Birth</label>
+              <input
+                name="dateOfBirth"
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all cursor-pointer"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-800 text-gray-900">Marital Status</label>
+              <select
+                name="maritalStatus"
+                value={maritalStatus}
+                onChange={(e) => setMaritalStatus(e.target.value)}
+                className="w-full h-12 px-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-700 text-gray-900 outline-none transition-all cursor-pointer"
+              >
+                <option value="UNMARRIED">Single / Unmarried</option>
+                <option value="MARRIED">Married</option>
+              </select>
             </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-xs font-800 text-gray-900">Bio Description (min 20 characters)</label>
-            <textarea name="bio" rows={4} defaultValue={defaults.bio}
+            <textarea
+              name="bio"
+              rows={4}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
               placeholder="Introduce yourself to parents: teaching style, achievements, exam results..."
-              className="w-full p-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-600 text-gray-900 outline-none transition-all resize-none" />
+              className="w-full p-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-600 text-gray-900 outline-none transition-all resize-none"
+            />
           </div>
 
           <div className="space-y-1">
             <label className="text-xs font-800 text-gray-900">Intro Video Link (YouTube / Drive — Optional)</label>
             <div className="relative">
               <Video size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" />
-              <input name="introVideoUrl" type="url" defaultValue={defaults.introVideoUrl} placeholder="https://youtube.com/watch?v=..."
-                className="w-full h-12 pl-11 pr-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-600 text-gray-900 outline-none transition-all" />
+              <input
+                name="introVideoUrl"
+                type="url"
+                value={introVideoUrl}
+                onChange={(e) => setIntroVideoUrl(e.target.value)}
+                placeholder="https://youtube.com/watch?v=..."
+                className="w-full h-12 pl-11 pr-4 rounded-2xl border border-gray-300 bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-600 text-gray-900 outline-none transition-all"
+              />
             </div>
           </div>
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
-            <button type="button" onClick={() => setActiveStep(3)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
-              <ArrowLeft size={16} /><span>Back</span>
-            </button>
+            {!onCloseModal && (
+              <button type="button" onClick={() => setActiveStep(3)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
+                <ArrowLeft size={16} /><span>Back</span>
+              </button>
+            )}
             <button type="submit" disabled={stepPending}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer">
+              className="w-full sm:w-auto ml-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer">
               <CloudUpload size={15} className="!text-white" />
-              <span className="!text-white font-800">Save & Continue to Schedule</span>
+              <span className="!text-white font-800">
+                {onCloseModal ? "Save Education & Bio" : "Save & Continue to Schedule"}
+              </span>
               <ArrowRight size={15} className="!text-white" />
             </button>
           </div>
@@ -738,7 +1071,9 @@ export function TutorProfileForm({
         <form action={availAction} className="bg-white rounded-3xl border border-gray-300 shadow-sm p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between pb-3 border-b border-gray-200">
             <div className="space-y-0.5">
-              <span className="text-[11px] font-800 uppercase tracking-wider text-[#2D9E6B]">Step 5 of 6 · Auto-saves to profile</span>
+              <span className="text-[11px] font-800 uppercase tracking-wider text-[#2D9E6B]">
+                {!onCloseModal ? "Step 5 of 6 · Auto-saves to profile" : "Auto-saves to profile"}
+              </span>
               <h2 className="text-xl font-800 text-gray-900 flex items-center gap-2">
                 <Calendar size={20} className="text-[#2D9E6B]" />
                 Weekly Teaching Schedule
@@ -753,19 +1088,23 @@ export function TutorProfileForm({
           <AvailabilityGrid defaultSlots={defaults.availability} />
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-gray-200">
-            <button type="button" onClick={() => setActiveStep(4)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
-              <ArrowLeft size={16} /><span>Back</span>
-            </button>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-2">
+            {!onCloseModal && (
+              <button type="button" onClick={() => setActiveStep(4)} className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-900 text-xs font-800 flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors">
+                <ArrowLeft size={16} /><span>Back</span>
+              </button>
+            )}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-2 ml-auto">
               <button type="submit" disabled={availPending}
                 className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-60 cursor-pointer">
                 <Save size={16} className="!text-white" />
                 <span className="!text-white font-800">Save Schedule</span>
               </button>
-              <button type="button" onClick={() => setActiveStep(6)}
-                className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center justify-center gap-1 transition-all">
-                <span className="!text-white font-800">Next: KYC Badge →</span>
-              </button>
+              {!onCloseModal && (
+                <button type="button" onClick={() => setActiveStep(6)}
+                  className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center justify-center gap-1 transition-all">
+                  <span className="!text-white font-800">Next: KYC Badge →</span>
+                </button>
+              )}
             </div>
           </div>
         </form>

@@ -140,15 +140,23 @@ export function verifyWebhookSignature(
     return false;
   }
 
-  const expected = crypto
-    .createHmac("sha256", WEBHOOK_SECRET)
-    .update(rawBody)
-    .digest("hex");
+  try {
+    const expected = crypto
+      .createHmac("sha256", WEBHOOK_SECRET)
+      .update(rawBody)
+      .digest("hex");
 
-  return crypto.timingSafeEqual(
-    Buffer.from(expected, "hex"),
-    Buffer.from(signature, "hex")
-  );
+    const expectedBuf = Buffer.from(expected, "hex");
+    const sigBuf = Buffer.from(signature || "", "hex");
+
+    if (expectedBuf.length === 0 || sigBuf.length === 0 || expectedBuf.length !== sigBuf.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(expectedBuf, sigBuf);
+  } catch (err) {
+    console.error("[verifyWebhookSignature] Signature comparison error:", err);
+    return false;
+  }
 }
 
 /** Verify the payment signature returned from the Razorpay checkout callback. */
@@ -157,14 +165,23 @@ export function verifyPaymentSignature(
   paymentId: string,
   signature: string
 ): boolean {
-  if (!KEY_SECRET) return false;
-  const payload = `${orderId}|${paymentId}`;
-  const expected = crypto
-    .createHmac("sha256", KEY_SECRET)
-    .update(payload)
-    .digest("hex");
-  return crypto.timingSafeEqual(
-    Buffer.from(expected, "hex"),
-    Buffer.from(signature, "hex")
-  );
+  if (!KEY_SECRET || !signature) return false;
+  try {
+    const payload = `${orderId}|${paymentId}`;
+    const expected = crypto
+      .createHmac("sha256", KEY_SECRET)
+      .update(payload)
+      .digest("hex");
+
+    const expectedBuf = Buffer.from(expected, "hex");
+    const sigBuf = Buffer.from(signature, "hex");
+
+    if (expectedBuf.length === 0 || sigBuf.length === 0 || expectedBuf.length !== sigBuf.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(expectedBuf, sigBuf);
+  } catch (err) {
+    console.error("[verifyPaymentSignature] Signature comparison error:", err);
+    return false;
+  }
 }

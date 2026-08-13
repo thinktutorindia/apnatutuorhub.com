@@ -177,7 +177,7 @@ export function TutorOnboardingWizard({
       case 6:
         return <Step6Bio {...props} />;
       case 7:
-        return <Step7Photo {...props} profileId={profile.id} isAdminMode={isAdminMode} />;
+        return <Step7Photo {...props} profileId={profile.id} isAdminMode={isAdminMode} targetUserId={targetUserId} />;
       default:
         return null;
     }

@@ -39,7 +39,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { docType, contentType, filename, conversationId, fileSize } = body as Record<string, unknown>;
+  const { docType, contentType, filename, conversationId, fileSize, targetUserId, tutorProfileId } = body as Record<string, unknown>;
+  const isAdmin = session.user.role === "SUPER_ADMIN" || session.user.role === "SUB_ADMIN";
+
+  async function resolveTargetTutorProfileId(): Promise<string> {
+    const reqProfileId = typeof tutorProfileId === "string" && tutorProfileId.trim() ? tutorProfileId.trim() : null;
+    const reqUserId = typeof targetUserId === "string" && targetUserId.trim() ? targetUserId.trim() : null;
+
+    if (isAdmin && reqProfileId) {
+      const tp = await prisma.tutorProfile.findUnique({
+        where: { id: reqProfileId },
+        select: { id: true },
+      });
+      if (tp) return tp.id;
+    }
+
+    const effectiveUserId = (isAdmin && reqUserId) ? reqUserId : session.user.id;
+
+    const tp = await prisma.tutorProfile.upsert({
+      where: { userId: effectiveUserId },
+      create: { userId: effectiveUserId },
+      update: {},
+      select: { id: true },
+    });
+
+    return tp.id;
+  }
 
   if (typeof fileSize === "number" && fileSize > MAX_UPLOAD_BYTES) {
     return NextResponse.json(
@@ -79,23 +104,11 @@ export async function POST(request: Request) {
   let objectKey: string;
 
   if (["id-proof", "address-proof", "selfie"].includes(docType)) {
-    const tutorProfile = await prisma.tutorProfile.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true },
-    });
-    if (!tutorProfile) {
-      return NextResponse.json({ error: "Tutor profile not found" }, { status: 403 });
-    }
-    objectKey = kycObjectKey(tutorProfile.id, docType as KycDocType, ext);
+    const profileId = await resolveTargetTutorProfileId();
+    objectKey = kycObjectKey(profileId, docType as KycDocType, ext);
   } else if (docType === "cert") {
-    const tutorProfile = await prisma.tutorProfile.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true },
-    });
-    if (!tutorProfile) {
-      return NextResponse.json({ error: "Tutor profile not found" }, { status: 403 });
-    }
-    objectKey = certObjectKey(tutorProfile.id, `${safeName}.${ext}`);
+    const profileId = await resolveTargetTutorProfileId();
+    objectKey = certObjectKey(profileId, `${safeName}.${ext}`);
   } else if (docType === "chat") {
     if (typeof conversationId !== "string" || !conversationId) {
       return NextResponse.json({ error: "conversationId is required for chat uploads" }, { status: 400 });

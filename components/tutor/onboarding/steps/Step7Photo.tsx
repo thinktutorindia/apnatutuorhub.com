@@ -11,6 +11,7 @@ interface Props {
   isLoading: boolean;
   profileId: string;
   isAdminMode?: boolean;
+  targetUserId?: string;
 }
 
 const MAX_SIZE_MB = 2;
@@ -18,7 +19,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 
 import { ImageCropModal } from "@/components/ui/ImageCropModal";
 
-export function Step7Photo({ formData, onNext, onBack, isLoading, profileId, isAdminMode }: Props) {
+export function Step7Photo({ formData, onNext, onBack, isLoading, profileId, isAdminMode, targetUserId }: Props) {
   const [photoUrl, setPhotoUrl] = useState(formData.photoUrl || "");
   const [preview, setPreview] = useState<string>(formData.photoUrl || "");
   const [uploading, setUploading] = useState(false);
@@ -70,7 +71,8 @@ export function Step7Photo({ formData, onNext, onBack, isLoading, profileId, isA
           docType: "selfie",
           contentType: "image/jpeg",
           fileSize: croppedBlob.size,
-          tutorProfileId: profileId,
+          tutorProfileId: profileId || undefined,
+          targetUserId: targetUserId || undefined,
         }),
       });
 

@@ -303,6 +303,15 @@ export async function selectUserRoleAction(
 
   const userId = session.user.id;
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+
+  if (!dbUser) {
+    return { success: false, error: "User session expired. Please sign in again.", redirectTo: "/login" };
+  }
+
   if (targetRole === "TUTOR") {
     // Check if tutor profile exists or create it
     let tutorProfile = await prisma.tutorProfile.findUnique({

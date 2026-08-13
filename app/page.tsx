@@ -189,11 +189,21 @@ export default async function HomePage() {
 
   if (user && user.role !== "SUPER_ADMIN" && user.role !== "SUB_ADMIN") {
     const { prisma } = await import("@/lib/prisma");
-    const [hasParent, hasTutor] = await Promise.all([
-      prisma.parentProfile.findUnique({ where: { userId: user.id } }),
-      prisma.tutorProfile.findUnique({ where: { userId: user.id } }),
-    ]);
-    if (!hasParent && !hasTutor) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        parentProfile: { select: { id: true } },
+        tutorProfile: { select: { id: true } },
+      },
+    });
+
+    if (!dbUser) {
+      const { redirect } = await import("next/navigation");
+      redirect("/login");
+    }
+
+    if (!dbUser.parentProfile && !dbUser.tutorProfile) {
       const { redirect } = await import("next/navigation");
       redirect("/select-role");
     }

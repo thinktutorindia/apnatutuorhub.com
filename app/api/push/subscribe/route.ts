@@ -60,6 +60,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    });
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "User record not found" }, { status: 404 });
+    }
+
     await prisma.user.update({
       where: { id: session.user.id },
       data: { pushSubscription: sub as object },

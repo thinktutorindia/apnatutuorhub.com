@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
-import { runCampaignPass, resolveCampaignTargets } from "@/lib/dummy-lead-engine";
+import { runCampaignPass, resolveCampaignTargets, generateDummyLead, getNearestLocalities, type DummyLead } from "@/lib/dummy-lead-engine";
 import type { DummyCampaignStatus, DummyTargetGroup } from "@prisma/client";
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
@@ -294,4 +294,73 @@ export async function previewCampaignTargetsAction(opts: {
     count: targets.length,
     sample: targets.slice(0, 10).map((u) => ({ id: u.id, name: u.name, email: u.email })),
   });
+}
+
+// ── Generate live lead preview for a campaign / user ──────────────────────────
+
+export async function generateLeadPreviewAction(opts: {
+  campaignId?: string;
+  targetGroup?: DummyTargetGroup;
+  overrideSubjects?: string[];
+  budgetMin?: number;
+  budgetMax?: number;
+  count?: number; // how many sample leads to generate
+}): Promise<ActionResult<{ leads: DummyLead[]; tutorCount: number }>> {
+  const { error } = await requireSuperAdmin();
+  if (error) return actionError(error);
+
+  const { campaignId, targetGroup = "ALL_TUTORS", overrideSubjects = [], budgetMin = 800, budgetMax = 3000, count = 5 } = opts;
+
+  // If campaignId given, load campaign settings
+  let campaign: any = null;
+  if (campaignId) {
+    campaign = await prisma.dummyCampaign.findUnique({ where: { id: campaignId } });
+  }
+
+  // Resolve a handful of real tutors to generate preview leads for
+  const targets = await resolveCampaignTargets({
+    targetGroup: campaign?.targetGroup ?? targetGroup,
+    customUserIds: campaign?.customUserIds ?? [],
+    excludeUserIds: campaign?.excludeUserIds ?? [],
+  });
+
+  const sample = targets.slice(0, count);
+  const leads: DummyLead[] = sample.map((u, i) => {
+    const userSeed = u.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    return generateDummyLead({
+      tutorLat: u.tutorProfile?.latitude,
+      tutorLng: u.tutorProfile?.longitude,
+      tutorCity: u.tutorProfile?.city,
+      tutorSubjects: u.tutorProfile?.subjects ?? [],
+      tutorClassLevels: u.tutorProfile?.classLevels ?? [],
+      teachingRadius: u.tutorProfile?.teachingRadius ?? 25,
+      budgetMin: campaign?.budgetMin ?? budgetMin,
+      budgetMax: campaign?.budgetMax ?? budgetMax,
+      overrideSubjects: campaign?.overrideSubjects ?? overrideSubjects,
+      userSeed: userSeed + i * 137,
+    });
+  });
+
+  return actionSuccess({ leads, tutorCount: targets.length });
+}
+
+// ── Get nearby localities preview for a city/coords ──────────────────────────
+
+export async function getLocalitiesPreviewAction(opts: {
+  lat?: number;
+  lng?: number;
+  city?: string;
+  radius?: number;
+}): Promise<ActionResult<Array<{ name: string; city: string; distKm: number }>>> {
+  const { error } = await requireSuperAdmin();
+  if (error) return actionError(error);
+
+  const { lat, lng, city = "Delhi", radius = 25 } = opts;
+  if (!lat || !lng) return actionSuccess([]);
+
+  const { getNearestLocalities: getNL } = await import("@/lib/dummy-lead-engine");
+  const localities = getNearestLocalities(lat, lng, city, radius, 20);
+  return actionSuccess(
+    localities.map((l) => ({ name: l.name, city: l.city, distKm: Math.round((l as any).dist ?? 0) }))
+  );
 }

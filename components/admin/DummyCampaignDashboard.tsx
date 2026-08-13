@@ -1,24 +1,27 @@
 "use client";
 
-import React, { useState, useTransition, useCallback } from "react";
+import React, { useState, useTransition, useCallback, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from "recharts";
 import {
   Play, Pause, Square, Trash2, Zap, Plus, RefreshCw,
-  Mail, Bell, Smartphone, Users, TrendingUp, Send,
-  AlertCircle, CheckCircle2, Clock, ChevronDown, ChevronRight,
-  Calendar, Target, Settings, BarChart2, Eye, Download,
-  Loader2, X, Filter,
+  Mail, Bell, Smartphone, TrendingUp, Send,
+  CheckCircle2, ChevronDown, ChevronRight, Eye,
+  Download, Loader2, X, MapPin, GraduationCap,
+  Clock, IndianRupee, Sparkles, BarChart2, Users,
+  Target, Settings2, BookOpen, Layers,
 } from "lucide-react";
 import {
   toggleCampaignStatusAction,
   deleteDummyCampaignAction,
   triggerCampaignNowAction,
+  generateLeadPreviewAction,
 } from "@/app/actions/dummy-campaign.actions";
 import { DummyCampaignForm } from "./DummyCampaignForm";
 import { DummyCampaignLogs } from "./DummyCampaignLogs";
+import type { DummyLead } from "@/lib/dummy-lead-engine";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,7 +40,6 @@ interface Campaign {
   endDate: string | null;
   lastRunAt: string | null;
   createdAt: string;
-  updatedAt: string;
 }
 
 interface Props {
@@ -53,76 +55,122 @@ interface Props {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  DRAFT:     { label: "Draft",     color: "#94A3B8", bg: "#F1F5F9", dot: "bg-slate-400" },
-  ACTIVE:    { label: "Active",    color: "#16A34A", bg: "#F0FDF4", dot: "bg-emerald-500 animate-pulse" },
-  PAUSED:    { label: "Paused",    color: "#D97706", bg: "#FFFBEB", dot: "bg-amber-400" },
-  STOPPED:   { label: "Stopped",   color: "#DC2626", bg: "#FEF2F2", dot: "bg-rose-500" },
-  COMPLETED: { label: "Completed", color: "#7C3AED", bg: "#F5F3FF", dot: "bg-purple-500" },
+  DRAFT:     { label: "Draft",     bg: "#F1F5F9", color: "#64748B", dot: "bg-slate-400" },
+  ACTIVE:    { label: "Active",    bg: "#DCFCE7", color: "#16A34A", dot: "bg-emerald-500 animate-pulse" },
+  PAUSED:    { label: "Paused",    bg: "#FEF9C3", color: "#CA8A04", dot: "bg-yellow-400" },
+  STOPPED:   { label: "Stopped",   bg: "#FEE2E2", color: "#DC2626", dot: "bg-rose-500" },
+  COMPLETED: { label: "Completed", bg: "#EDE9FE", color: "#7C3AED", dot: "bg-purple-500" },
 };
 
 const TARGET_LABELS: Record<string, string> = {
-  ALL_TUTORS: "All Tutors",
-  NEW_7D:     "New (7 days)",
-  NEW_14D:    "New (14 days)",
-  NEW_30D:    "New (30 days)",
-  VERIFIED:   "Verified Tutors",
-  UNVERIFIED: "Unverified Tutors",
-  SUBSCRIBED: "Subscribed (Paid)",
-  FREE_TIER:  "Free Tier",
-  CUSTOM:     "Custom Selection",
+  ALL_TUTORS:  "🌐 All Tutors",
+  NEW_7D:      "🆕 New (7 days)",
+  NEW_14D:     "🆕 New (14 days)",
+  NEW_30D:     "🆕 New (30 days)",
+  VERIFIED:    "✅ Verified",
+  UNVERIFIED:  "⏳ Unverified",
+  SUBSCRIBED:  "💎 Subscribed",
+  FREE_TIER:   "🆓 Free Tier",
+  CUSTOM:      "🎯 Custom",
 };
 
-const CHANNEL_ICONS: Record<string, React.ReactNode> = {
-  EMAIL:  <Mail size={12} />,
-  PUSH:   <Smartphone size={12} />,
-  IN_APP: <Bell size={12} />,
+const CHANNEL_META: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
+  EMAIL:  { icon: <Mail size={11} />,       color: "#2563EB", bg: "#DBEAFE", label: "Email" },
+  PUSH:   { icon: <Smartphone size={11} />, color: "#7C3AED", bg: "#EDE9FE", label: "Push" },
+  IN_APP: { icon: <Bell size={11} />,       color: "#D97706", bg: "#FEF3C7", label: "Bell" },
 };
 
-const PIE_COLORS = ["#16A34A", "#0EA5E9", "#F59E0B"];
+const MODE_LABELS: Record<string, string> = {
+  ONLINE:  "Online",
+  OFFLINE: "In-Person",
+  EITHER:  "Online / In-Person",
+};
 
-// ── Helper: format date ───────────────────────────────────────────────────────
+const PIE_COLORS = ["#2563EB", "#7C3AED", "#D97706"];
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
+// ── Lead Preview Card ─────────────────────────────────────────────────────────
 
-function fmtDateTime(iso: string | null): string {
-  if (!iso) return "Never";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) + " " +
-    d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-}
-
-// ── Sub-component: KPI Card ───────────────────────────────────────────────────
-
-function KpiCard({ icon, label, value, sub, color }: {
-  icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string;
-}) {
+function LeadPreviewCard({ lead, index }: { lead: DummyLead; index: number }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex items-start gap-4">
-      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white`} style={{ background: color }}>
-        {icon}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+      {/* Header strip */}
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-white">
+          <MapPin size={12} />
+          <span className="text-xs font-extrabold">{lead.locality}, {lead.city}</span>
+          {lead.distanceKm !== undefined && (
+            <span className="text-[10px] bg-white/20 rounded-full px-1.5 py-0.5 font-bold">
+              ~{lead.distanceKm} km away
+            </span>
+          )}
+        </div>
+        <span className="text-[10px] text-white/70 font-bold">Lead #{index + 1}</span>
       </div>
-      <div className="min-w-0">
-        <p className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 truncate">{label}</p>
-        <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{value}</p>
-        {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+
+      <div className="p-4 space-y-3">
+        {/* Subjects */}
+        <div className="flex flex-wrap gap-1">
+          {lead.subjects.map((s) => (
+            <span key={s} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold">
+              <BookOpen size={9} /> {s}
+            </span>
+          ))}
+        </div>
+
+        {/* Details grid */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Class & Board</p>
+            <p className="text-xs font-extrabold text-slate-700 mt-0.5">{lead.classLevel} · {lead.board}</p>
+          </div>
+          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Mode</p>
+            <p className="text-xs font-extrabold text-slate-700 mt-0.5">{MODE_LABELS[lead.mode]}</p>
+          </div>
+          <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 col-span-2">
+            <p className="text-[9px] font-extrabold uppercase tracking-widest text-emerald-400">Budget</p>
+            <p className="text-sm font-extrabold text-emerald-700 mt-0.5">
+              ₹{lead.budgetMin.toLocaleString("en-IN")} – ₹{lead.budgetMax.toLocaleString("en-IN")}/mo
+            </p>
+          </div>
+          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Days</p>
+            <p className="text-[11px] font-extrabold text-slate-700 mt-0.5">{lead.days}</p>
+          </div>
+          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Timing</p>
+            <p className="text-[11px] font-extrabold text-slate-700 mt-0.5">{lead.timing}</p>
+          </div>
+        </div>
+
+        {/* Dummy watermark */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-fuchsia-50 border border-fuchsia-200">
+          <Sparkles size={10} className="text-fuchsia-500" />
+          <p className="text-[10px] font-extrabold text-fuchsia-600">Dummy / Simulated Lead</p>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Sub-component: Campaign Card ──────────────────────────────────────────────
+// ── Campaign Row Card ─────────────────────────────────────────────────────────
 
-function CampaignCard({ campaign, onRefresh }: { campaign: Campaign; onRefresh: () => void }) {
+function CampaignCard({
+  campaign,
+  isSelected,
+  onSelect,
+  onRefresh,
+}: {
+  campaign: Campaign;
+  isSelected: boolean;
+  onSelect: () => void;
+  onRefresh: () => void;
+}) {
   const [isPending, startTransition] = useTransition();
-  const [triggerResult, setTriggerResult] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [trigMsg, setTrigMsg] = useState<string | null>(null);
   const sc = STATUS_CONFIG[campaign.status] ?? STATUS_CONFIG.DRAFT;
   const progress = campaign.totalLimit
-    ? Math.min((campaign.totalSent / campaign.totalLimit) * 100, 100)
-    : null;
+    ? Math.min((campaign.totalSent / campaign.totalLimit) * 100, 100) : null;
 
   const handleStatus = (newStatus: "ACTIVE" | "PAUSED" | "STOPPED") => {
     startTransition(async () => {
@@ -132,7 +180,7 @@ function CampaignCard({ campaign, onRefresh }: { campaign: Campaign; onRefresh: 
   };
 
   const handleDelete = () => {
-    if (!confirm(`Delete campaign "${campaign.name}"? This will also delete all delivery logs.`)) return;
+    if (!confirm(`Delete "${campaign.name}"?`)) return;
     startTransition(async () => {
       await deleteDummyCampaignAction(campaign.id);
       onRefresh();
@@ -141,305 +189,414 @@ function CampaignCard({ campaign, onRefresh }: { campaign: Campaign; onRefresh: 
 
   const handleTrigger = () => {
     startTransition(async () => {
-      const result = await triggerCampaignNowAction(campaign.id);
-      if (result.success) {
-        setTriggerResult(`✅ Sent ${result.data!.sent} notifications to ${result.data!.usersProcessed} tutors`);
-      } else {
-        setTriggerResult(`❌ ${result.error}`);
-      }
-      setTimeout(() => setTriggerResult(null), 5000);
+      const r = await triggerCampaignNowAction(campaign.id);
+      setTrigMsg(r.success
+        ? `✅ Sent to ${r.data!.usersProcessed} tutors (${r.data!.sent} notifications)`
+        : `❌ ${r.error}`);
+      setTimeout(() => setTrigMsg(null), 5000);
       onRefresh();
     });
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 p-5">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100">
-            <Send size={18} className="text-emerald-600" />
-          </div>
+    <div
+      className={`rounded-2xl border transition-all cursor-pointer ${
+        isSelected
+          ? "border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100"
+          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+      }`}
+      onClick={onSelect}
+    >
+      <div className="p-4">
+        {/* Title row */}
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-extrabold text-slate-900 text-sm truncate">{campaign.name}</h3>
+              <span className="font-extrabold text-slate-900 text-sm truncate">{campaign.name}</span>
               <span
-                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold"
                 style={{ background: sc.bg, color: sc.color }}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
                 {sc.label}
               </span>
             </div>
-            {campaign.description && (
-              <p className="text-[12px] text-slate-500 mt-0.5 truncate">{campaign.description}</p>
-            )}
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {TARGET_LABELS[campaign.targetGroup]} · {campaign.leadsPerDay}/day
+            </p>
           </div>
+          {isSelected && <ChevronDown size={14} className="text-emerald-500 shrink-0 mt-0.5" />}
         </div>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-        >
-          {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-        </button>
-      </div>
 
-      {/* Stats Strip */}
-      <div className="grid grid-cols-4 divide-x divide-slate-100 border-t border-slate-100">
-        {[
-          { label: "Target",    value: TARGET_LABELS[campaign.targetGroup] ?? campaign.targetGroup },
-          { label: "Per Day",   value: `${campaign.leadsPerDay} lead${campaign.leadsPerDay !== 1 ? "s" : ""}` },
-          { label: "Total Sent",value: campaign.totalSent.toLocaleString() },
-          { label: "Last Run",  value: fmtDateTime(campaign.lastRunAt) },
-        ].map((s) => (
-          <div key={s.label} className="px-4 py-2.5">
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{s.label}</p>
-            <p className="text-xs font-extrabold text-slate-700 mt-0.5 truncate">{s.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Channels */}
-      <div className="flex items-center gap-2 px-5 py-3 border-t border-slate-100">
-        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Channels:</span>
-        {campaign.channels.map((ch) => (
-          <span key={ch} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
-            {CHANNEL_ICONS[ch]} {ch}
-          </span>
-        ))}
-      </div>
-
-      {/* Progress Bar (if limited) */}
-      {progress !== null && (
-        <div className="px-5 pb-3">
-          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
-            <span>{campaign.totalSent.toLocaleString()} / {campaign.totalLimit!.toLocaleString()} total sends</span>
-            <span className="font-bold">{progress.toFixed(1)}%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-emerald-500 transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+        {/* Channel badges */}
+        <div className="flex gap-1 mt-2">
+          {campaign.channels.map((ch) => {
+            const m = CHANNEL_META[ch];
+            return (
+              <span key={ch} className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-bold" style={{ background: m?.bg, color: m?.color }}>
+                {m?.icon} {m?.label}
+              </span>
+            );
+          })}
         </div>
-      )}
 
-      {/* Trigger Result */}
-      {triggerResult && (
-        <div className={`mx-5 mb-3 p-3 rounded-xl text-xs font-bold ${triggerResult.startsWith("✅") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}`}>
-          {triggerResult}
+        {/* Stats row */}
+        <div className="flex items-center gap-3 mt-2.5 text-[11px] text-slate-500">
+          <span><strong className="text-slate-800">{campaign.totalSent.toLocaleString()}</strong> sent</span>
+          {campaign.totalLimit && <span>/ {campaign.totalLimit.toLocaleString()} limit</span>}
+          {campaign.lastRunAt && (
+            <span className="ml-auto">
+              Last: {new Date(campaign.lastRunAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+            </span>
+          )}
         </div>
-      )}
 
-      {/* Action Buttons */}
-      <div className="flex items-center gap-2 px-5 py-3 border-t border-slate-100 bg-slate-50 flex-wrap">
-        {campaign.status === "DRAFT" || campaign.status === "PAUSED" ? (
-          <button
-            onClick={() => handleStatus("ACTIVE")}
-            disabled={isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-          >
-            {isPending ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-            {campaign.status === "PAUSED" ? "Resume" : "Activate"}
-          </button>
-        ) : campaign.status === "ACTIVE" ? (
-          <button
-            onClick={() => handleStatus("PAUSED")}
-            disabled={isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-          >
-            {isPending ? <Loader2 size={12} className="animate-spin" /> : <Pause size={12} />}
-            Pause
-          </button>
-        ) : null}
-
-        {(campaign.status === "ACTIVE" || campaign.status === "PAUSED") && (
-          <button
-            onClick={() => handleStatus("STOPPED")}
-            disabled={isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-          >
-            <Square size={12} /> Stop
-          </button>
+        {/* Progress bar */}
+        {progress !== null && (
+          <div className="mt-2 h-1 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+          </div>
         )}
 
-        <button
-          onClick={handleTrigger}
-          disabled={isPending}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-        >
-          {isPending ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-          Fire Now
-        </button>
-
-        {(campaign.status === "DRAFT" || campaign.status === "STOPPED") && (
-          <button
-            onClick={handleDelete}
-            disabled={isPending}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 rounded-xl text-xs font-bold transition-all"
-          >
-            <Trash2 size={12} /> Delete
-          </button>
+        {/* Trigger result */}
+        {trigMsg && (
+          <div className={`mt-2 p-2 rounded-xl text-[11px] font-bold ${trigMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+            {trigMsg}
+          </div>
         )}
-      </div>
 
-      {/* Expanded: Logs Preview */}
-      {expanded && (
-        <div className="border-t border-slate-100 p-5">
-          <DummyCampaignLogs campaignId={campaign.id} />
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5 mt-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
+          {(campaign.status === "DRAFT" || campaign.status === "PAUSED") && (
+            <button onClick={() => handleStatus("ACTIVE")} disabled={isPending}
+              className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-extrabold transition-all disabled:opacity-50">
+              {isPending ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />}
+              {campaign.status === "PAUSED" ? "Resume" : "Activate"}
+            </button>
+          )}
+          {campaign.status === "ACTIVE" && (
+            <button onClick={() => handleStatus("PAUSED")} disabled={isPending}
+              className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[11px] font-extrabold transition-all disabled:opacity-50">
+              {isPending ? <Loader2 size={10} className="animate-spin" /> : <Pause size={10} />} Pause
+            </button>
+          )}
+          {(campaign.status === "ACTIVE" || campaign.status === "PAUSED") && (
+            <button onClick={() => handleStatus("STOPPED")} disabled={isPending}
+              className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-[11px] font-extrabold transition-all">
+              <Square size={10} /> Stop
+            </button>
+          )}
+          <button onClick={handleTrigger} disabled={isPending}
+            className="flex items-center gap-1 px-2.5 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-[11px] font-extrabold transition-all disabled:opacity-50">
+            {isPending ? <Loader2 size={10} className="animate-spin" /> : <Zap size={10} />} Fire Now
+          </button>
+          {(campaign.status === "DRAFT" || campaign.status === "STOPPED") && (
+            <button onClick={handleDelete} disabled={isPending}
+              className="ml-auto flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-500 rounded-xl text-[11px] font-bold transition-all">
+              <Trash2 size={10} />
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-// ── Main Dashboard Component ─────────────────────────────────────────────────
+// ── Right Panel: Campaign Detail + Lead Preview ───────────────────────────────
+
+function CampaignDetailPanel({ campaign }: { campaign: Campaign }) {
+  const [leads, setLeads] = useState<DummyLead[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [tutorCount, setTutorCount] = useState(0);
+  const [activeTab, setActiveTab] = useState<"preview" | "logs">("preview");
+
+  const loadPreview = useCallback(async () => {
+    setLoading(true);
+    const r = await generateLeadPreviewAction({ campaignId: campaign.id, count: 6 });
+    if (r.success && r.data) {
+      setLeads(r.data.leads);
+      setTutorCount(r.data.tutorCount);
+    }
+    setLoading(false);
+  }, [campaign.id]);
+
+  useEffect(() => {
+    loadPreview();
+  }, [loadPreview]);
+
+  const sc = STATUS_CONFIG[campaign.status] ?? STATUS_CONFIG.DRAFT;
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      {/* Panel Header */}
+      <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+        <div>
+          <h2 className="font-extrabold text-slate-900 text-base leading-tight">{campaign.name}</h2>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold" style={{ background: sc.bg, color: sc.color }}>
+              <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} /> {sc.label}
+            </span>
+            <span className="text-xs text-slate-500">{TARGET_LABELS[campaign.targetGroup]}</span>
+            <span className="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">
+              👥 {tutorCount.toLocaleString()} tutors
+            </span>
+          </div>
+        </div>
+        <button onClick={loadPreview} disabled={loading}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-all disabled:opacity-50">
+          {loading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} Refresh
+        </button>
+      </div>
+
+      {/* Stats strip */}
+      <div className="grid grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
+        {[
+          { label: "Total Sent",  value: campaign.totalSent.toLocaleString(),  icon: <Send size={11} className="text-emerald-500" /> },
+          { label: "Per Day",     value: `${campaign.leadsPerDay} lead${campaign.leadsPerDay > 1 ? "s" : ""}`, icon: <Clock size={11} className="text-blue-500" /> },
+          { label: "Channels",    value: campaign.channels.length,              icon: <Layers size={11} className="text-purple-500" /> },
+          { label: "Limit",       value: campaign.totalLimit ? campaign.totalLimit.toLocaleString() : "∞", icon: <Target size={11} className="text-amber-500" /> },
+        ].map((s) => (
+          <div key={s.label} className="px-3 py-2.5 text-center">
+            <div className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">
+              {s.icon} {s.label}
+            </div>
+            <p className="text-sm font-extrabold text-slate-800">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-slate-100 px-4">
+        {[
+          { key: "preview", label: "Lead Preview", icon: <Eye size={12} /> },
+          { key: "logs",    label: "Delivery Logs", icon: <BarChart2 size={12} /> },
+        ].map((tab) => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-extrabold border-b-2 transition-all ${
+              activeTab === tab.key
+                ? "border-emerald-500 text-emerald-600"
+                : "border-transparent text-slate-400 hover:text-slate-700"
+            }`}>
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === "preview" && (
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles size={13} className="text-fuchsia-500" />
+              <p className="text-xs font-extrabold text-slate-600">
+                Sample leads that real tutors will receive today (geo-matched)
+              </p>
+            </div>
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                <Loader2 size={24} className="animate-spin mb-2" />
+                <p className="text-xs font-bold">Generating location-aware previews...</p>
+              </div>
+            ) : leads.length === 0 ? (
+              <div className="flex flex-col items-center py-16 text-slate-400">
+                <MapPin size={32} className="mb-2 opacity-20" />
+                <p className="text-xs font-bold">No tutors in target group yet</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                {leads.map((lead, i) => (
+                  <LeadPreviewCard key={i} lead={lead} index={i} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {activeTab === "logs" && (
+          <div className="p-4">
+            <DummyCampaignLogs campaignId={campaign.id} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── KPI Card ──────────────────────────────────────────────────────────────────
+
+function KpiCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: color }}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{label}</p>
+        <p className="text-xl font-extrabold text-slate-900">{value}</p>
+        {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Dashboard ─────────────────────────────────────────────────────────────
 
 export function DummyCampaignDashboard(props: Props) {
   const [showForm, setShowForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "active" | "paused" | "stopped" | "draft">("all");
-  const [, startTransition] = useTransition();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [, startTransition] = useTransition();
+
+  const { campaigns, totalCampaigns, activeCampaigns, sentToday, sentThisMonth, dailyVolume, channelBreakdown } = props;
 
   const onRefresh = useCallback(() => {
     startTransition(() => setRefreshKey((k) => k + 1));
   }, []);
 
-  const { campaigns, totalCampaigns, activeCampaigns, sentToday, sentThisMonth, dailyVolume, channelBreakdown } = props;
-
-  const filteredCampaigns = campaigns.filter((c) => {
-    if (activeTab === "all") return true;
-    return c.status.toLowerCase() === activeTab;
+  const filtered = campaigns.filter((c) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "active") return c.status === "ACTIVE";
+    if (statusFilter === "paused") return c.status === "PAUSED";
+    if (statusFilter === "draft") return c.status === "DRAFT";
+    if (statusFilter === "stopped") return c.status === "STOPPED" || c.status === "COMPLETED";
+    return true;
   });
 
-  const pieData = Object.entries(channelBreakdown).map(([name, value]) => ({ name, value }));
+  const selectedCampaign = campaigns.find((c) => c.id === selectedId) ?? null;
+  const pieData = Object.entries(channelBreakdown).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value }));
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5 h-full">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            🎯 Dummy Lead Campaigns
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            <Sparkles size={20} className="text-fuchsia-500" /> Dummy Lead Campaigns
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Send location-aware dummy leads to tutors via Email, Push & In-App bell
+          <p className="text-xs text-slate-500 mt-0.5">
+            Send geo-matched dummy leads to tutors · Rotates daily by location
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-md shadow-emerald-500/25 transition-all active:scale-95"
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-extrabold text-sm shadow-md shadow-emerald-500/25 transition-all"
         >
-          <Plus size={16} /> New Campaign
+          <Plus size={15} /> New Campaign
         </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard icon={<BarChart2 size={20} />} label="Total Campaigns" value={totalCampaigns} color="#3B82F6" />
-        <KpiCard icon={<Play size={20} />} label="Active Now" value={activeCampaigns} sub="Running campaigns" color="#16A34A" />
-        <KpiCard icon={<Send size={20} />} label="Sent Today" value={sentToday.toLocaleString()} sub="Across all campaigns" color="#0EA5E9" />
-        <KpiCard icon={<TrendingUp size={20} />} label="This Month" value={sentThisMonth.toLocaleString()} sub="Total deliveries" color="#8B5CF6" />
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard icon={<BarChart2 size={18} />} label="Campaigns" value={totalCampaigns} color="#3B82F6" />
+        <KpiCard icon={<Play size={18} />} label="Active" value={activeCampaigns} sub="Live now" color="#16A34A" />
+        <KpiCard icon={<Send size={18} />} label="Sent Today" value={sentToday.toLocaleString()} color="#0EA5E9" />
+        <KpiCard icon={<TrendingUp size={18} />} label="This Month" value={sentThisMonth.toLocaleString()} color="#8B5CF6" />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Daily Volume Chart */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
-          <h3 className="font-extrabold text-slate-800 text-sm mb-4 flex items-center gap-2">
-            <BarChart2 size={16} className="text-blue-500" />
-            Daily Delivery Volume (Last 30 Days)
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={dailyVolume} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 9, fill: "#94A3B8" }}
-                tickFormatter={(v) => v.slice(5)}
-                interval={4}
-              />
-              <YAxis tick={{ fontSize: 9, fill: "#94A3B8" }} />
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 11 }}
-                formatter={(v) => [v ?? 0, "Delivered"]}
-                labelFormatter={(l) => `Date: ${l}`}
-              />
-              <Bar dataKey="count" fill="#16A34A" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Main Layout: Left (list) + Right (detail/preview) */}
+      <div className="flex gap-4 min-h-0" style={{ height: "calc(100vh - 260px)" }}>
 
-        {/* Channel Breakdown */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
-          <h3 className="font-extrabold text-slate-800 text-sm mb-4 flex items-center gap-2">
-            <Target size={16} className="text-emerald-500" />
-            Channel Breakdown
-          </h3>
-          {pieData.some((d) => d.value > 0) ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                  {pieData.map((_, index) => (
-                    <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Legend
-                  formatter={(v) => <span style={{ fontSize: 11, fontWeight: 700 }}>{v}</span>}
+        {/* LEFT: Campaign list */}
+        <div className="flex flex-col w-full lg:w-[380px] shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          {/* Charts */}
+          <div className="p-3 border-b border-slate-100">
+            <div className="grid grid-cols-2 gap-2">
+              {/* Mini bar chart */}
+              <div>
+                <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">30-Day Volume</p>
+                <ResponsiveContainer width="100%" height={55}>
+                  <BarChart data={dailyVolume.slice(-14)} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
+                    <XAxis dataKey="date" tick={false} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 8, fontSize: 10, border: "1px solid #E2E8F0" }}
+                      formatter={(v) => [v ?? 0, "Sent"]}
+                      labelFormatter={(l) => l.slice(5)}
+                    />
+                    <Bar dataKey="count" fill="#16A34A" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Mini pie */}
+              <div>
+                <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">Channel Split</p>
+                {pieData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={55}>
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" outerRadius={24} dataKey="value" paddingAngle={2}>
+                        {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: 8, fontSize: 10 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-14 text-[10px] text-slate-400">No data yet</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Filter tabs */}
+          <div className="flex gap-1 p-2.5 border-b border-slate-100 overflow-x-auto">
+            {[
+              { key: "all",     label: "All",     count: totalCampaigns },
+              { key: "active",  label: "Active",  count: campaigns.filter((c) => c.status === "ACTIVE").length },
+              { key: "paused",  label: "Paused",  count: campaigns.filter((c) => c.status === "PAUSED").length },
+              { key: "draft",   label: "Draft",   count: campaigns.filter((c) => c.status === "DRAFT").length },
+              { key: "stopped", label: "Stopped", count: campaigns.filter((c) => c.status === "STOPPED" || c.status === "COMPLETED").length },
+            ].map((tab) => (
+              <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-extrabold whitespace-nowrap transition-all ${
+                  statusFilter === tab.key ? "bg-emerald-500 text-white" : "text-slate-500 hover:bg-slate-100"
+                }`}>
+                {tab.label}
+                <span className={`h-3.5 min-w-3.5 flex items-center justify-center rounded-full text-[8px] font-extrabold px-0.5 ${statusFilter === tab.key ? "bg-white/30 text-white" : "bg-slate-200 text-slate-500"}`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Campaign list */}
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center py-12 text-slate-400">
+                <Send size={32} className="mb-2 opacity-20" />
+                <p className="text-xs font-bold">No campaigns yet</p>
+                <p className="text-[10px] mt-1">Click "New Campaign" above</p>
+              </div>
+            ) : (
+              filtered.map((c) => (
+                <CampaignCard
+                  key={c.id + refreshKey}
+                  campaign={c}
+                  isSelected={selectedId === c.id}
+                  onSelect={() => setSelectedId(selectedId === c.id ? null : c.id)}
+                  onRefresh={onRefresh}
                 />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-44 text-slate-400">
-              <BarChart2 size={32} className="mb-2 opacity-30" />
-              <p className="text-xs font-bold">No data yet</p>
-              <p className="text-[10px]">Run a campaign to see breakdown</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Campaign List */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm">
-        {/* Tabs */}
-        <div className="flex items-center gap-1 p-4 border-b border-slate-100 overflow-x-auto">
-          {[
-            { key: "all",      label: "All",       count: totalCampaigns },
-            { key: "active",   label: "Active",    count: campaigns.filter((c) => c.status === "ACTIVE").length },
-            { key: "paused",   label: "Paused",    count: campaigns.filter((c) => c.status === "PAUSED").length },
-            { key: "draft",    label: "Draft",     count: campaigns.filter((c) => c.status === "DRAFT").length },
-            { key: "stopped",  label: "Stopped",   count: campaigns.filter((c) => c.status === "STOPPED" || c.status === "COMPLETED").length },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap ${
-                activeTab === tab.key
-                  ? "bg-emerald-500 text-white shadow-sm"
-                  : "text-slate-500 hover:bg-slate-100"
-              }`}
-            >
-              {tab.label}
-              <span className={`flex h-4 min-w-4 items-center justify-center rounded-full text-[9px] font-extrabold px-1 ${activeTab === tab.key ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"}`}>
-                {tab.count}
-              </span>
-            </button>
-          ))}
+              ))
+            )}
+          </div>
         </div>
 
-        {/* Campaign Cards */}
-        <div className="p-4 space-y-4">
-          {filteredCampaigns.length === 0 ? (
-            <div className="flex flex-col items-center py-16 text-slate-400">
-              <Send size={40} className="mb-3 opacity-20" />
-              <p className="font-bold text-sm">No campaigns yet</p>
-              <p className="text-xs mt-1">Click "New Campaign" to create your first dummy lead campaign</p>
-            </div>
+        {/* RIGHT: Detail + Preview */}
+        <div className="flex-1 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden hidden lg:flex flex-col min-h-0">
+          {selectedCampaign ? (
+            <CampaignDetailPanel campaign={selectedCampaign} />
           ) : (
-            filteredCampaigns.map((campaign) => (
-              <CampaignCard key={campaign.id + refreshKey} campaign={campaign} onRefresh={onRefresh} />
-            ))
+            <div className="flex flex-col items-center justify-center flex-1 text-slate-400 p-8">
+              <div className="w-16 h-16 rounded-2xl bg-fuchsia-50 flex items-center justify-center mb-4">
+                <Sparkles size={28} className="text-fuchsia-400" />
+              </div>
+              <h3 className="font-extrabold text-slate-700 text-base mb-1">Select a Campaign</h3>
+              <p className="text-xs text-center max-w-xs text-slate-400">
+                Click any campaign on the left to see real lead previews — geo-matched to actual tutor locations
+              </p>
+              <div className="mt-6 flex flex-col gap-2 items-center text-[11px] text-slate-400">
+                <div className="flex items-center gap-1.5"><MapPin size={11} className="text-emerald-400" /> Leads rotate daily by tutor's neighbourhood</div>
+                <div className="flex items-center gap-1.5"><Sparkles size={11} className="text-fuchsia-400" /> Matched to tutor's subjects & class levels</div>
+                <div className="flex items-center gap-1.5"><Zap size={11} className="text-blue-400" /> Fire now to test instantly</div>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -448,13 +605,14 @@ export function DummyCampaignDashboard(props: Props) {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90dvh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <h2 className="font-extrabold text-slate-900 text-base">Create Dummy Lead Campaign</h2>
-              <button
-                onClick={() => setShowForm(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
-              >
+          <div className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white z-10">
+              <div>
+                <h2 className="font-extrabold text-slate-900 text-base">New Dummy Lead Campaign</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Geo-matched leads rotate daily per tutor location</p>
+              </div>
+              <button onClick={() => setShowForm(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
                 <X size={18} />
               </button>
             </div>

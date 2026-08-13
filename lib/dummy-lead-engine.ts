@@ -312,6 +312,7 @@ export function generateDummyLead(opts: {
   tutorLat?: number | null;
   tutorLng?: number | null;
   tutorCity?: string | null;
+  tutorAddress?: string | null;
   tutorSubjects?: string[];
   tutorClassLevels?: string[];
   teachingRadius?: number;

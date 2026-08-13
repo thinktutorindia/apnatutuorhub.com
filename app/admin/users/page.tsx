@@ -15,6 +15,7 @@ import { UserRowActions } from "@/components/admin/UserRowActions";
 import { UserFilterBar } from "@/components/admin/UserFilterBar";
 import { CreateUserModal } from "@/components/admin/CreateUserModal";
 import { UserAvatar } from "@/components/admin/UserAvatar";
+import { resolveDocViewUrl } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "User Management — Admin" };
@@ -103,6 +104,13 @@ export default async function AdminUsersPage({
     prisma.user.count({ where }),
   ]);
 
+  const resolvedUsers = await Promise.all(
+    users.map(async (u) => ({
+      ...u,
+      image: await resolveDocViewUrl(u.image),
+    }))
+  );
+
   const totalPages = Math.ceil(total / take);
 
   return (
@@ -152,14 +160,14 @@ export default async function AdminUsersPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {users.length === 0 ? (
+              {resolvedUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-sm font-700 text-slate-700">
                     No users match your query
                   </td>
                 </tr>
               ) : (
-                users.map((u) => {
+                resolvedUsers.map((u) => {
                   const roleStyle = ROLE_COLOR[u.role] ?? {
                     bg: "bg-slate-100",
                     text: "text-slate-900",

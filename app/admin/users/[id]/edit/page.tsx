@@ -1,23 +1,11 @@
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { generatePresignedViewUrl } from "@/lib/s3";
+import { resolveDocViewUrl } from "@/lib/s3";
 import { AdminEditUserForm } from "@/components/admin/AdminEditUserForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit User & Documents — Admin" };
-
-async function resolveDocViewUrl(url: string | null): Promise<string | null> {
-  if (!url) return null;
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-  try {
-    return await generatePresignedViewUrl(url);
-  } catch {
-    return null;
-  }
-}
 
 export default async function AdminEditUserPage({
   params,
@@ -49,12 +37,13 @@ export default async function AdminEditUserPage({
 
   if (!user) notFound();
 
-  // Generate presigned view URLs for KYC documents if available
-  const [idViewUrl, addressViewUrl, selfieViewUrl, introVideoViewUrl] = await Promise.all([
+  // Generate presigned view URLs for KYC documents & profile image if stored as private object keys
+  const [idViewUrl, addressViewUrl, selfieViewUrl, introVideoViewUrl, userImageViewUrl] = await Promise.all([
     resolveDocViewUrl(user.tutorProfile?.kycIdProofUrl ?? null),
     resolveDocViewUrl(user.tutorProfile?.kycAddressUrl ?? null),
     resolveDocViewUrl(user.tutorProfile?.kycSelfieUrl ?? null),
     resolveDocViewUrl(user.tutorProfile?.introVideoUrl ?? null),
+    resolveDocViewUrl(user.image ?? null),
   ]);
 
   const adminNotes = Array.isArray(rawNotes)
@@ -78,7 +67,7 @@ export default async function AdminEditUserPage({
         subAdminRole: user.subAdminRole,
         isActive: user.isActive,
         createdAt: user.createdAt.toISOString(),
-        image: user.image ?? null,
+        image: userImageViewUrl,
         parentProfile: user.parentProfile
           ? {
               city: user.parentProfile.city,

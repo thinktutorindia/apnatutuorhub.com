@@ -124,6 +124,32 @@ export async function generatePresignedViewUrl(
 }
 
 /**
+ * Safely resolves any storage URL or objectKey into a signed view URL.
+ * Handles object keys ("kyc/profileId/selfie.jpg"), full public URLs ("https://.../kyc-documents/kyc/..."),
+ * and external URLs ("https://lh3.googleusercontent.com/...").
+ */
+export async function resolveDocViewUrl(
+  urlOrKey: string | null | undefined,
+  expiresInSeconds = 60 * 60
+): Promise<string | null> {
+  if (!urlOrKey) return null;
+  const trimmed = urlOrKey.trim();
+  if (!trimmed) return null;
+
+  try {
+    let key = trimmed;
+    if (trimmed.includes("kyc-documents/")) {
+      key = trimmed.split("kyc-documents/")[1].split("?")[0];
+    } else if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed;
+    }
+    return await generatePresignedViewUrl(key, expiresInSeconds);
+  } catch {
+    return trimmed;
+  }
+}
+
+/**
  * Deletes a private object from Supabase Storage.
  */
 export async function deleteS3Object(objectKey: string): Promise<void> {

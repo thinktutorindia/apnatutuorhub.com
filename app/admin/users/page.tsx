@@ -95,6 +95,7 @@ export default async function AdminUsersPage({
         role: true,
         isActive: true,
         createdAt: true,
+        image: true,
         tutorProfile: { select: { kycStatus: true, averageRating: true } },
       },
     }),
@@ -171,9 +172,17 @@ export default async function AdminUsersPage({
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3.5">
-                          {/* Vibrant Gradient Avatar Pill */}
+                          {/* Avatar: real photo if available, else gradient letter */}
+                          {u.image ? (
+                            <img
+                              src={u.image}
+                              alt={u.name || u.email}
+                              className="h-10 w-10 shrink-0 rounded-2xl object-cover border border-slate-200 shadow-xs"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute("hidden"); }}
+                            />
+                          ) : null}
                           <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl font-800 text-xs ${roleStyle.avatarGrad}`}
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl font-800 text-xs ${roleStyle.avatarGrad}${u.image ? " hidden" : ""}`}
                           >
                             {(u.name || u.email).charAt(0).toUpperCase()}
                           </div>

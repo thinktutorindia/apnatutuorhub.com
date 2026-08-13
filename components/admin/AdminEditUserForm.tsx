@@ -72,6 +72,7 @@ interface UserData {
   role: "PARENT" | "TUTOR" | "SUPER_ADMIN" | "SUB_ADMIN";
   subAdminRole: string | null;
   isActive: boolean;
+  image?: string | null;
   createdAt: string;
   parentProfile?: {
     city: string | null;
@@ -264,19 +265,32 @@ export function AdminEditUserForm({
           <ArrowLeft size={14} /> Back to User Directory
         </Link>
         <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1
-              className="text-2xl sm:text-3xl font-black text-[#0F2540] tracking-tight"
-              style={{ fontFamily: "'Poppins', sans-serif" }}
-            >
-              User Management: {user.name || user.email}
-            </h1>
-            <p className="text-xs text-slate-600 font-bold mt-1 font-mono break-all">
-              User ID: <span className="text-[#0F2540] font-black">{user.id}</span> · Joined:{" "}
-              <span className="text-[#0F2540] font-black">
-                {new Date(user.createdAt).toLocaleDateString("en-IN")}
-              </span>
-            </p>
+          <div className="flex items-center gap-4">
+            {user.image ? (
+              <img
+                src={user.image}
+                alt={user.name || user.email}
+                className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md ring-2 ring-emerald-500/20 shrink-0"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white font-black text-xl flex items-center justify-center border-2 border-white shadow-md shrink-0">
+                {(user.name || user.email).charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <h1
+                className="text-2xl sm:text-3xl font-black text-[#0F2540] tracking-tight"
+                style={{ fontFamily: "'Poppins', sans-serif" }}
+              >
+                User Management: {user.name || user.email}
+              </h1>
+              <p className="text-xs text-slate-600 font-bold mt-1 font-mono break-all">
+                User ID: <span className="text-[#0F2540] font-black">{user.id}</span> · Joined:{" "}
+                <span className="text-[#0F2540] font-black">
+                  {new Date(user.createdAt).toLocaleDateString("en-IN")}
+                </span>
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span

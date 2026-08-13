@@ -78,6 +78,7 @@ export default async function AdminEditUserPage({
         subAdminRole: user.subAdminRole,
         isActive: user.isActive,
         createdAt: user.createdAt.toISOString(),
+        image: user.image ?? null,
         parentProfile: user.parentProfile
           ? {
               city: user.parentProfile.city,

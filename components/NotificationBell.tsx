@@ -119,6 +119,26 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     return "/tutor/leads";
   }
 
+  function handleNotificationItemClick(e: React.MouseEvent, n: Notification, targetUrl: string) {
+    if (!n.isRead) {
+      handleMarkRead(n.id);
+    }
+    setIsOpen(false);
+
+    if (typeof window !== "undefined") {
+      const currentPath = window.location.pathname;
+      const cleanTarget = targetUrl.split("?")[0].split("#")[0];
+
+      if (currentPath === cleanTarget) {
+        // Already on target page: force server refresh & scroll to top
+        router.refresh();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        router.push(targetUrl);
+      }
+    }
+  }
+
   const dropdownContent = (
     <div className="flex flex-col h-full max-h-[82vh] sm:max-h-[85vh] bg-white rounded-3xl sm:rounded-2xl overflow-hidden">
       {/* Header */}
@@ -180,10 +200,7 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
                 <li key={n.id}>
                   <Link
                     href={targetUrl}
-                    onClick={() => {
-                      setIsOpen(false);
-                      if (!n.isRead) handleMarkRead(n.id);
-                    }}
+                    onClick={(e) => handleNotificationItemClick(e, n, targetUrl)}
                     className={`group flex items-start gap-3 px-4 py-3.5 transition-all cursor-pointer select-none ${
                       n.isRead
                         ? "bg-white hover:bg-slate-50"

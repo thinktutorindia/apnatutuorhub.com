@@ -104,18 +104,33 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     if (!n.isRead) {
       handleMarkRead(n.id);
     }
-    const targetUrl = n.actionUrl || (
-      n.title.toLowerCase().includes("lead") ||
-      n.title.toLowerCase().includes("requirement")
-        ? "/tutor/leads"
-        : null
-    );
+
+    let targetUrl = n.actionUrl;
+
+    if (!targetUrl) {
+      const titleLower = n.title.toLowerCase();
+      const msgLower = n.message.toLowerCase();
+
+      if (titleLower.includes("kyc") || msgLower.includes("identity") || msgLower.includes("kyc")) {
+        targetUrl = "/tutor/profile";
+      } else if (
+        titleLower.includes("lead") ||
+        titleLower.includes("requirement") ||
+        msgLower.includes("student") ||
+        msgLower.includes("tutor")
+      ) {
+        targetUrl = "/tutor/leads";
+      } else if (titleLower.includes("booking") || titleLower.includes("tuition")) {
+        targetUrl = "/tutor/bookings";
+      } else if (titleLower.includes("wallet") || titleLower.includes("coin")) {
+        targetUrl = "/tutor/wallet";
+      }
+    }
 
     if (targetUrl) {
       setIsOpen(false);
       router.push(targetUrl);
     }
-    // If no targetUrl, do NOT close the modal — stay open so user can read!
   }
 
   const dropdownContent = (

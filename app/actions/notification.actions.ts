@@ -21,7 +21,6 @@ export async function markNotificationReadAction(
     data: { isRead: true },
   });
 
-  revalidatePath("/notifications");
   return actionSuccess({ updated: true });
 }
 
@@ -36,7 +35,6 @@ export async function markAllNotificationsReadAction(): Promise<ActionResult<{ u
     data: { isRead: true },
   });
 
-  revalidatePath("/notifications");
   return actionSuccess({ updated: true });
 }
 

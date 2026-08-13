@@ -14,6 +14,7 @@ import { exportUsersCsv } from "@/app/actions/analytics.actions";
 import { UserRowActions } from "@/components/admin/UserRowActions";
 import { UserFilterBar } from "@/components/admin/UserFilterBar";
 import { CreateUserModal } from "@/components/admin/CreateUserModal";
+import { UserAvatar } from "@/components/admin/UserAvatar";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "User Management — Admin" };
@@ -172,20 +173,12 @@ export default async function AdminUsersPage({
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3.5">
-                          {/* Avatar: real photo if available, else gradient letter */}
-                          {u.image ? (
-                            <img
-                              src={u.image}
-                              alt={u.name || u.email}
-                              className="h-10 w-10 shrink-0 rounded-2xl object-cover border border-slate-200 shadow-xs"
-                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute("hidden"); }}
-                            />
-                          ) : null}
-                          <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl font-800 text-xs ${roleStyle.avatarGrad}${u.image ? " hidden" : ""}`}
-                          >
-                            {(u.name || u.email).charAt(0).toUpperCase()}
-                          </div>
+                          <UserAvatar
+                            image={u.image}
+                            name={u.name}
+                            email={u.email}
+                            avatarGrad={roleStyle.avatarGrad}
+                          />
                           <div className="min-w-0">
                             <p className="truncate font-800 text-[#0F2540] text-sm">{u.name || "—"}</p>
                             <p className="truncate text-xs font-600 text-slate-600">{u.email}</p>

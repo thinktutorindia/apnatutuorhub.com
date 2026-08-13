@@ -189,6 +189,7 @@ export default async function HomePage() {
 
   if (user && user.role !== "SUPER_ADMIN" && user.role !== "SUB_ADMIN") {
     const { prisma } = await import("@/lib/prisma");
+    const { redirect } = await import("next/navigation");
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: {
@@ -199,12 +200,8 @@ export default async function HomePage() {
     });
 
     if (!dbUser) {
-      const { redirect } = await import("next/navigation");
       redirect("/login");
-    }
-
-    if (!dbUser.parentProfile && !dbUser.tutorProfile) {
-      const { redirect } = await import("next/navigation");
+    } else if (!dbUser.parentProfile && !dbUser.tutorProfile) {
       redirect("/select-role");
     }
   }

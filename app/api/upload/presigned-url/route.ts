@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   const { docType, contentType, filename, conversationId, fileSize, targetUserId, tutorProfileId } = body as Record<string, unknown>;
-  const isAdmin = session.user.role === "SUPER_ADMIN" || session.user.role === "SUB_ADMIN";
+  const isAdmin = session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "SUB_ADMIN";
 
   async function resolveTargetTutorProfileId(): Promise<string> {
     const reqProfileId = typeof tutorProfileId === "string" && tutorProfileId.trim() ? tutorProfileId.trim() : null;
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       if (tp) return tp.id;
     }
 
-    const effectiveUserId = (isAdmin && reqUserId) ? reqUserId : session.user.id;
+    const effectiveUserId = (isAdmin && reqUserId) ? reqUserId : session!.user.id;
 
     const tp = await prisma.tutorProfile.upsert({
       where: { userId: effectiveUserId },

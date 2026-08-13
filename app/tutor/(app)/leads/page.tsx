@@ -8,7 +8,16 @@ import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
 
-export default async function TutorLeadsPage() {
+export default async function TutorLeadsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ claimed?: string; locality?: string; subjects?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const isClaimedParam = params.claimed === "true";
+  const localityParam = params.locality;
+  const subjectsParam = params.subjects;
+
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -277,6 +286,11 @@ export default async function TutorLeadsPage() {
         leads={feedLeads}
         walletBalance={walletBalance}
         tutorSubjects={tutorProfile.subjects}
+        claimedBannerInfo={
+          isClaimedParam
+            ? { claimed: true, locality: localityParam, subjects: subjectsParam }
+            : null
+        }
       />
     </div>
   );

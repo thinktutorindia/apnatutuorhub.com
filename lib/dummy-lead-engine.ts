@@ -404,6 +404,7 @@ export async function deliverDummyLeadToTutor(opts: {
 
     try {
       if (channel === "IN_APP") {
+        const targetUrl = `/tutor/leads?claimed=true&locality=${encodeURIComponent(lead.locality)}&subjects=${encodeURIComponent(lead.subjects.join(", "))}`;
         await prisma.notification.create({
           data: {
             userId,
@@ -411,17 +412,18 @@ export async function deliverDummyLeadToTutor(opts: {
             priority: "HIGH",
             title: `📍 New Requirement Near ${lead.locality}`,
             message: `A student in ${lead.locality} needs a ${lead.subjects.join(", ")} tutor for ${lead.classLevel}. Budget: ₹${lead.budgetMin}–₹${lead.budgetMax}/mo.`,
-            actionUrl: "/tutor/leads",
+            actionUrl: targetUrl,
             isRead: false,
           },
         });
         status = "SENT";
         sent++;
       } else if (channel === "PUSH") {
+        const targetUrl = `${appUrl}/tutor/leads?claimed=true&locality=${encodeURIComponent(lead.locality)}&subjects=${encodeURIComponent(lead.subjects.join(", "))}`;
         await sendWebPush(userId, {
           title: `📍 Student near ${lead.locality} needs a tutor!`,
           body: `${lead.subjects.join(" & ")} · ${lead.classLevel} · ₹${lead.budgetMin}–₹${lead.budgetMax}/mo. Tap to view!`,
-          url: `${appUrl}/tutor/leads`,
+          url: targetUrl,
           tag: `dummy-lead-${campaignId}`,
         });
         status = "SENT";

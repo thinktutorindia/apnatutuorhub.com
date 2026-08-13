@@ -31,7 +31,14 @@ function getHistoryTargetUrl(n: { actionUrl: string | null; title: string; messa
   if (titleLower.includes("wallet") || titleLower.includes("coin") || msgLower.includes("coin")) {
     return "/tutor/wallet";
   }
-  return "/tutor/leads";
+
+  const match = n.title.match(/Near\s+([^!.\n]+)/i);
+  if (match && match[1]) {
+    const loc = match[1].trim();
+    return `/tutor/leads?claimed=true&locality=${encodeURIComponent(loc)}`;
+  }
+
+  return "/tutor/leads?claimed=true";
 }
 
 export default async function NotificationsPage({

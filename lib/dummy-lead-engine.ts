@@ -306,6 +306,88 @@ export interface DummyLead {
   generatedAt: string;
 }
 
+export function resolveLocalityDynamic(opts: {
+  tutorLat?: number | null;
+  tutorLng?: number | null;
+  tutorCity?: string | null;
+  tutorAddress?: string | null;
+  teachingRadius?: number;
+  userSeed?: number;
+}): { locality: string; city: string; distanceKm?: number } {
+  const { tutorLat, tutorLng, tutorCity, tutorAddress, teachingRadius = 25, userSeed = 0 } = opts;
+  const dayNum = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+  const rng = seededRandom(dayNum * 1337 + userSeed);
+
+  const city = (tutorCity && tutorCity.trim()) ? tutorCity.trim() : "Delhi";
+
+  // Step 1: Attempt GPS coordinates matching from GEO_LOCALITIES
+  if (tutorLat && tutorLng) {
+    const nearest = getNearestLocalities(tutorLat, tutorLng, city, teachingRadius, 15, tutorAddress ?? "");
+    if (nearest.length > 0) {
+      const picked = pickLocalityForToday(nearest, userSeed);
+      return {
+        locality: picked.name,
+        city: picked.city,
+        distanceKm: Math.round((picked as any).dist ?? 2),
+      };
+    }
+  }
+
+  // Step 2: Attempt address parsing (extract sub-locality from tutor's custom address string)
+  if (tutorAddress && tutorAddress.trim().length > 3) {
+    const parts = tutorAddress.split(",").map((p) => p.trim()).filter(Boolean);
+    const candidateParts = parts.filter(
+      (p) => !/^\d+$/.test(p) && !/^\d{6}$/.test(p) && p.toLowerCase() !== city.toLowerCase()
+    );
+
+    if (candidateParts.length > 0) {
+      const primaryArea = candidateParts[candidateParts.length - 1] || candidateParts[0];
+      const variations = [
+        primaryArea,
+        `Near ${primaryArea}`,
+        `${primaryArea} Main Market`,
+        `${primaryArea} Phase 1`,
+        `Block B, ${primaryArea}`,
+      ];
+      const idx = (dayNum + userSeed) % variations.length;
+      return {
+        locality: variations[idx],
+        city,
+        distanceKm: Math.floor(rng() * Math.min(teachingRadius, 5)) + 1,
+      };
+    }
+  }
+
+  // Step 3: Match known static localities in city if present
+  const cityLocalities = GEO_LOCALITIES.filter(
+    (l) => l.city.toLowerCase().includes(city.toLowerCase()) || city.toLowerCase().includes(l.city.toLowerCase())
+  );
+
+  if (cityLocalities.length > 0) {
+    const picked = pickLocalityForToday(cityLocalities, userSeed);
+    return {
+      locality: picked.name,
+      city: picked.city,
+      distanceKm: Math.floor(rng() * 4) + 1,
+    };
+  }
+
+  // Step 4: Universal Fallback for any unknown city worldwide
+  const cityAreaTemplates = [
+    `${city} Central`,
+    `Near ${city} Main Market`,
+    `${city} Civil Lines`,
+    `Near ${city} Model Town`,
+    `${city} Sector 1`,
+  ];
+  const idx = (dayNum + userSeed) % cityAreaTemplates.length;
+  return {
+    locality: cityAreaTemplates[idx],
+    city,
+    distanceKm: Math.floor(rng() * 4) + 1,
+  };
+}
+
 // ─── Core lead generator ───────────────────────────────────────────────────────
 
 export function generateDummyLead(opts: {
@@ -337,18 +419,15 @@ export function generateDummyLead(opts: {
 
   const rng = seededRandom(Math.floor(Date.now() / 86400000) * 1000 + userSeed);
 
-  // Resolve locality (geo-based or address-based matching strictly in radius)
-  let locality = "Nearby Area";
-  let city = tutorCity || "Delhi";
-  let distanceKm: number | undefined;
-
-  const nearest = getNearestLocalities(tutorLat, tutorLng, city, teachingRadius, 15, tutorAddress ?? "");
-  if (nearest.length > 0) {
-    const picked = pickLocalityForToday(nearest, userSeed);
-    locality = picked.name;
-    city = picked.city;
-    distanceKm = Math.round((picked as any).dist ?? 0);
-  }
+  // 100% Automatic Locality & City Resolution for ANY tutor
+  const { locality, city, distanceKm } = resolveLocalityDynamic({
+    tutorLat,
+    tutorLng,
+    tutorCity,
+    tutorAddress,
+    teachingRadius,
+    userSeed,
+  });
 
   // Subjects
   const subjectPool =

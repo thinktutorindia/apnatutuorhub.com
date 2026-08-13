@@ -16,6 +16,24 @@ function timeAgo(date: Date): string {
   return new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+function getHistoryTargetUrl(n: { actionUrl: string | null; title: string; message: string }): string {
+  if (n.actionUrl && n.actionUrl.trim()) return n.actionUrl.trim();
+
+  const titleLower = n.title.toLowerCase();
+  const msgLower = n.message.toLowerCase();
+
+  if (titleLower.includes("kyc") || msgLower.includes("identity") || msgLower.includes("kyc") || msgLower.includes("document")) {
+    return "/tutor/profile";
+  }
+  if (titleLower.includes("booking") || titleLower.includes("tuition") || msgLower.includes("booking")) {
+    return "/tutor/bookings";
+  }
+  if (titleLower.includes("wallet") || titleLower.includes("coin") || msgLower.includes("coin")) {
+    return "/tutor/wallet";
+  }
+  return "/tutor/leads";
+}
+
 export default async function NotificationsPage({
   searchParams,
 }: {
@@ -123,7 +141,7 @@ export default async function NotificationsPage({
         ) : (
           <ul className="space-y-3">
             {notifications.map((n) => {
-              const targetUrl = n.actionUrl || (n.title.toLowerCase().includes("lead") || n.title.toLowerCase().includes("requirement") ? "/tutor/leads" : null);
+              const targetUrl = getHistoryTargetUrl(n);
               return (
                 <li
                   key={n.id}

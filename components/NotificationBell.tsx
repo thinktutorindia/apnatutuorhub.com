@@ -126,16 +126,7 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     setIsOpen(false);
 
     if (typeof window !== "undefined") {
-      const currentPath = window.location.pathname;
-      const cleanTarget = targetUrl.split("?")[0].split("#")[0];
-
-      if (currentPath === cleanTarget) {
-        // Already on target page: force server refresh & scroll to top
-        router.refresh();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        router.push(targetUrl);
-      }
+      window.location.href = targetUrl;
     }
   }
 

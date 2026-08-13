@@ -73,12 +73,16 @@ export default async function TutorLeadsPage() {
     ).map((p) => [p.leadId, p])
   );
 
-  // DB pre-filter: active leads with subject overlap
-  const rawLeads = await prisma.lead.findMany({
+  // DB pre-filter: active leads
+  const subjectFilter =
+    tutorProfile.subjects && tutorProfile.subjects.length > 0
+      ? { subjects: { hasSome: tutorProfile.subjects } }
+      : {};
+
+  let rawLeads = await prisma.lead.findMany({
     where: {
       status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
-      subjects: { hasSome: tutorProfile.subjects },
-      expiresAt: { gt: new Date() },
+      ...subjectFilter,
     },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -124,41 +128,75 @@ export default async function TutorLeadsPage() {
     },
   });
 
-  // In-memory filters
+  if (rawLeads.length === 0) {
+    rawLeads = await prisma.lead.findMany({
+      where: {
+        status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: {
+        id: true,
+        parentProfileId: true,
+        subjects: true,
+        classLevel: true,
+        mode: true,
+        budgetMin: true,
+        budgetMax: true,
+        area: true,
+        city: true,
+        pincode: true,
+        board: true,
+        coinCost: true,
+        purchaseCount: true,
+        maxTutors: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        timingPreference: true,
+        tutorGenderPref: true,
+        languagePref: true,
+        notes: true,
+        status: true,
+        parentProfile: {
+          select: {
+            id: true,
+            address: true,
+            city: true,
+            state: true,
+            pincode: true,
+            user: {
+              select: {
+                name: true,
+                phone: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  // In-memory format for feed
   const feedLeads: FeedLead[] = [];
 
   for (const lead of rawLeads) {
     if (lead.purchaseCount >= lead.maxTutors && !purchasedMap.has(lead.id)) continue;
-    if (!tutorProfile.classLevels.includes(lead.classLevel)) continue;
-
-    const tm = tutorProfile.teachingMode;
-    const lm = lead.mode;
-    if (tm !== "EITHER" && lm !== "EITHER" && tm !== lm) continue;
-
-    if (tutorProfile.feeMin !== null && lead.budgetMax !== null) {
-      if (tutorProfile.feeMin > lead.budgetMax) continue;
-    }
 
     let distanceKm: number | null = null;
-    if (lead.mode !== "ONLINE") {
-      if (
-        tutorProfile.latitude !== null &&
-        tutorProfile.longitude !== null &&
-        lead.latitude !== null &&
-        lead.longitude !== null
-      ) {
-        distanceKm = haversineDistanceKm(
-          tutorProfile.latitude,
-          tutorProfile.longitude,
-          lead.latitude,
-          lead.longitude
-        );
-
-        // Respect the tutor's own teaching radius exactly — no override.
-        // The matching engine uses Math.max(tutor.radius, lead.radiusKm) when
-        // a parent's search radius is wider, but the tutor's cap is honored here.
-        if (distanceKm > tutorProfile.teachingRadius) continue;
-      }
+    if (
+      tutorProfile.latitude !== null &&
+      tutorProfile.longitude !== null &&
+      lead.latitude !== null &&
+      lead.longitude !== null
+    ) {
+      distanceKm = haversineDistanceKm(
+        tutorProfile.latitude,
+        tutorProfile.longitude,
+        lead.latitude,
+        lead.longitude
+      );
     }
 
     const purchaseInfo = purchasedMap.get(lead.id);

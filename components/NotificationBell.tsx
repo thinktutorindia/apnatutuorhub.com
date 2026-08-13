@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Bell, Check, CheckCheck, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import {
@@ -32,6 +33,7 @@ function timeAgo(date: Date): string {
 }
 
 export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(initialCount);
@@ -96,15 +98,26 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     });
   }
 
+  function handleNotificationItemClick(n: Notification) {
+    setIsOpen(false);
+    if (!n.isRead) {
+      handleMarkRead(n.id);
+    }
+    const targetUrl = n.actionUrl || (n.title.toLowerCase().includes("lead") || n.title.toLowerCase().includes("requirement") ? "/tutor/leads" : null);
+    if (targetUrl) {
+      router.push(targetUrl);
+    }
+  }
+
   const dropdownContent = (
-    <div className="flex flex-col h-full max-h-[85vh]">
+    <div className="flex flex-col h-full max-h-[82vh] sm:max-h-[85vh] bg-white rounded-3xl sm:rounded-2xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b-2 border-[#0F172A] bg-[#FAF8F5] px-4 py-3 shrink-0">
         <div className="flex items-center gap-2">
           <Bell size={16} className="text-[#22C55E]" />
           <span className="text-sm font-black text-[#0F172A]">Notifications</span>
           {unreadCount > 0 && (
-            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-600 border border-red-200">
+            <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-600 border border-red-200">
               {unreadCount} new
             </span>
           )}
@@ -115,60 +128,83 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
               type="button"
               onClick={handleMarkAllRead}
               disabled={isPending}
-              className="flex items-center gap-1 text-xs font-bold text-[#22C55E] hover:underline"
+              className="flex items-center gap-1 text-xs font-bold text-[#22C55E] hover:underline cursor-pointer"
               title="Mark all as read"
             >
               <CheckCheck size={13} />
-              All
+              Mark all read
             </button>
           )}
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 transition-colors"
+            className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
+            aria-label="Close notifications"
           >
             <X size={16} />
           </button>
         </div>
       </div>
 
-      {/* List */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* Notification List */}
+      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
         {isLoading ? (
-          <div className="flex flex-col gap-2 p-4">
+          <div className="flex flex-col gap-2.5 p-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-100" />
+              <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100" />
             ))}
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <Bell size={28} className="text-slate-300" />
-            <p className="text-sm font-semibold text-slate-400">You&apos;re all caught up!</p>
+          <div className="flex flex-col items-center gap-2 py-12 text-center px-4">
+            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-1">
+              <Bell size={24} />
+            </div>
+            <p className="text-sm font-bold text-slate-700">You&apos;re all caught up!</p>
+            <p className="text-xs text-slate-400">New notifications will appear here in real-time.</p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className={`flex items-start gap-3 px-4 py-3 transition-colors ${
-                  n.isRead ? "bg-white" : "bg-[#F0FDF4]"
+                onClick={() => handleNotificationItemClick(n)}
+                className={`group flex items-start gap-3 px-4 py-3.5 transition-all cursor-pointer select-none ${
+                  n.isRead
+                    ? "bg-white hover:bg-slate-50"
+                    : "bg-[#F0FDF4] hover:bg-[#E2F7E9]"
                 }`}
               >
-                <div className="mt-2 flex-shrink-0">
+                {/* Unread indicator dot */}
+                <div className="mt-1.5 flex-shrink-0">
                   <span
-                    className={`block h-2 w-2 rounded-full ${n.isRead ? "bg-slate-300" : "bg-[#22C55E]"}`}
+                    className={`block h-2.5 w-2.5 rounded-full transition-transform group-hover:scale-125 ${
+                      n.isRead ? "bg-slate-300" : "bg-[#22C55E] ring-2 ring-emerald-300/50"
+                    }`}
                   />
                 </div>
+
+                {/* Content */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-[#0F172A] leading-snug">{n.title}</p>
-                  <p className="mt-0.5 text-xs text-slate-600 leading-snug">
-                    {n.message.length > 80 ? n.message.slice(0, 80) + "…" : n.message}
+                  <p className="text-xs font-black text-[#0F172A] leading-snug group-hover:text-emerald-700 transition-colors">
+                    {n.title}
                   </p>
-                  <p className="mt-1 text-[10px] font-semibold text-slate-400">
-                    {timeAgo(n.createdAt)}
+                  <p className="mt-1 text-xs text-slate-600 leading-relaxed line-clamp-2">
+                    {n.message}
                   </p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {timeAgo(n.createdAt)}
+                    </span>
+                    {(n.actionUrl || n.title.toLowerCase().includes("lead")) && (
+                      <span className="text-[10px] font-extrabold text-emerald-600 group-hover:underline flex items-center gap-0.5">
+                        Tap to view <ExternalLink size={9} />
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-shrink-0 items-center gap-1">
+
+                {/* Right Action Icons */}
+                <div className="flex flex-shrink-0 items-center gap-1.5 mt-0.5" onClick={(e) => e.stopPropagation()}>
                   {n.actionUrl && (
                     <Link
                       href={n.actionUrl}
@@ -176,20 +212,24 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
                         setIsOpen(false);
                         if (!n.isRead) handleMarkRead(n.id);
                       }}
-                      className="flex h-6 w-6 items-center justify-center rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
+                      title="Open page"
                     >
-                      <ExternalLink size={11} />
+                      <ExternalLink size={12} />
                     </Link>
                   )}
                   {!n.isRead && (
                     <button
                       type="button"
-                      onClick={() => handleMarkRead(n.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkRead(n.id);
+                      }}
                       disabled={isPending}
-                      className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
                       title="Mark as read"
                     >
-                      <Check size={11} />
+                      <Check size={12} />
                     </button>
                   )}
                 </div>
@@ -204,7 +244,7 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
         <Link
           href="/notifications"
           onClick={() => setIsOpen(false)}
-          className="flex w-full items-center justify-center py-2.5 text-xs font-bold text-[#0F172A] hover:bg-slate-100 transition-colors"
+          className="flex w-full items-center justify-center py-3 text-xs font-black text-[#0F172A] hover:bg-slate-100 transition-colors"
         >
           View all notifications →
         </Link>
@@ -238,12 +278,12 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
           {/* Mobile Overlay */}
           <div className="md:hidden">
             {createPortal(
-              <div className="fixed inset-0 z-[999999] flex items-start justify-center pt-16 px-4 pb-[env(safe-area-inset-bottom)]">
+              <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 pb-[env(safe-area-inset-bottom)]">
                 <div
                   className="fixed inset-0 bg-black/60 backdrop-blur-xs cursor-pointer"
                   onClick={() => setIsOpen(false)}
                 />
-                <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border-4 border-[#0F172A] bg-white shadow-[6px_6px_0px_0px_#0F172A] z-[1000000]">
+                <div className="relative w-full max-w-sm sm:max-w-md overflow-hidden rounded-3xl border-4 border-[#0F172A] bg-white shadow-[6px_6px_0px_0px_#0F172A] z-[1000000]">
                   {dropdownContent}
                 </div>
               </div>,
@@ -252,7 +292,7 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
           </div>
 
           {/* Desktop Absolute Dropdown (md+) */}
-          <div className="hidden md:block absolute right-0 top-12 w-80 overflow-hidden rounded-2xl border-2 border-[#0F172A] bg-white shadow-[5px_5px_0px_0px_#0F172A] z-[99999]">
+          <div className="hidden md:block absolute right-0 top-12 w-96 overflow-hidden rounded-2xl border-2 border-[#0F172A] bg-white shadow-[5px_5px_0px_0px_#0F172A] z-[99999]">
             {dropdownContent}
           </div>
         </>
@@ -260,3 +300,4 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     </div>
   );
 }
+

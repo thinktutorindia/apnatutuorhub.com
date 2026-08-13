@@ -122,70 +122,72 @@ export default async function NotificationsPage({
           </div>
         ) : (
           <ul className="space-y-3">
-            {notifications.map((n) => (
-              <li
-                key={n.id}
-                className="rounded-xl p-4 transition-all"
-                style={{
-                  backgroundColor: n.isRead ? "#FFFFFF" : "#E8F5F0",
-                  border: `1px solid ${n.isRead ? "#E5E7EB" : "#cce9df"}`,
-                }}
-              >
-                <div className="flex items-start gap-3.5">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{
-                      backgroundColor: n.isRead ? "#F3F4F6" : "#FFFFFF",
-                      color: n.isRead ? "#6B7280" : "#1A7F5A",
-                    }}
-                  >
-                    <Bell size={16} />
-                  </div>
+            {notifications.map((n) => {
+              const targetUrl = n.actionUrl || (n.title.toLowerCase().includes("lead") || n.title.toLowerCase().includes("requirement") ? "/tutor/leads" : null);
+              return (
+                <li
+                  key={n.id}
+                  className="rounded-2xl p-4 transition-all hover:shadow-md border group"
+                  style={{
+                    backgroundColor: n.isRead ? "#FFFFFF" : "#F0FDF4",
+                    borderColor: n.isRead ? "#E5E7EB" : "#BBF7D0",
+                  }}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border"
+                      style={{
+                        backgroundColor: n.isRead ? "#F8FAFC" : "#DCFCE7",
+                        color: n.isRead ? "#64748B" : "#16A34A",
+                        borderColor: n.isRead ? "#E2E8F0" : "#86EFAC",
+                      }}
+                    >
+                      <Bell size={18} />
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-600" style={{ color: "#111827" }}>
-                        {n.title}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
+                          {n.title}
+                        </p>
+                        <span className="text-xs font-semibold text-slate-400 shrink-0">
+                          {timeAgo(n.createdAt)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        {n.message}
                       </p>
-                      <span className="text-xs shrink-0" style={{ color: "#9CA3AF" }}>
-                        {timeAgo(n.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-sm mt-0.5" style={{ color: "#374151" }}>
-                      {n.message}
-                    </p>
 
-                    <div className="mt-2.5 flex items-center gap-3">
-                      {n.actionUrl && (
-                        <Link
-                          href={n.actionUrl}
-                          className="at-btn at-btn-primary at-btn-sm"
-                          style={{ padding: "4px 10px", fontSize: 12 }}
-                        >
-                          View →
-                        </Link>
-                      )}
-                      {!n.isRead && (
-                        <form
-                          action={async () => {
-                            "use server";
-                            await markNotificationReadAction(n.id);
-                          }}
-                        >
-                          <button
-                            type="submit"
-                            className="text-xs font-500 hover:underline cursor-pointer"
-                            style={{ color: "#6B7280" }}
+                      <div className="mt-3 flex items-center gap-3">
+                        {targetUrl && (
+                          <Link
+                            href={targetUrl}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
                           >
-                            Mark read
-                          </button>
-                        </form>
-                      )}
+                            View Details →
+                          </Link>
+                        )}
+                        {!n.isRead && (
+                          <form
+                            action={async () => {
+                              "use server";
+                              await markNotificationReadAction(n.id);
+                            }}
+                          >
+                            <button
+                              type="submit"
+                              className="text-xs font-bold text-slate-500 hover:text-emerald-700 hover:underline cursor-pointer"
+                            >
+                              Mark read
+                            </button>
+                          </form>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
 

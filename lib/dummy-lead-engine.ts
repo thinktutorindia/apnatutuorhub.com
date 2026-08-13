@@ -494,11 +494,11 @@ export async function deliverDummyLeadToTutor(opts: {
   let sent = 0;
   let failed = 0;
 
-  const tutor = await prisma.tutorProfile.findUnique({
+  const tutor = (await prisma.tutorProfile.findUnique({
     where: { userId },
-    select: { marketingNotifsEnabled: true },
-  });
-  if (tutor && !tutor.marketingNotifsEnabled) {
+    select: { id: true },
+  }).catch(() => null)) as any;
+  if (tutor && tutor.marketingNotifsEnabled === false) {
     return { sent: 0, failed: 0 };
   }
 
@@ -596,9 +596,6 @@ export async function resolveCampaignTargets(campaign: {
   let where: Record<string, any> = {
     role: "TUTOR",
     isActive: true,
-    tutorProfile: {
-      marketingNotifsEnabled: true,
-    },
   };
 
   if (campaign.targetGroup === "NEW_7D") {
@@ -611,13 +608,13 @@ export async function resolveCampaignTargets(campaign: {
     const c = new Date(now); c.setDate(c.getDate() - 30);
     where.createdAt = { gte: c };
   } else if (campaign.targetGroup === "VERIFIED") {
-    where.tutorProfile.isVerified = true;
+    where.tutorProfile = { isVerified: true };
   } else if (campaign.targetGroup === "UNVERIFIED") {
-    where.tutorProfile.isVerified = false;
+    where.tutorProfile = { isVerified: false };
   } else if (campaign.targetGroup === "SUBSCRIBED") {
-    where.tutorProfile.subscriptionPlan = { not: "NONE" };
+    where.tutorProfile = { subscriptionPlan: { not: "NONE" } };
   } else if (campaign.targetGroup === "FREE_TIER") {
-    where.tutorProfile.subscriptionPlan = "NONE";
+    where.tutorProfile = { subscriptionPlan: "NONE" };
   } else if (campaign.targetGroup === "CUSTOM") {
     where.id = { in: campaign.customUserIds };
   }
@@ -630,6 +627,7 @@ export async function resolveCampaignTargets(campaign: {
       email: true,
       tutorProfile: {
         select: {
+          id: true,
           city: true,
           address: true,
           subjects: true,
@@ -637,13 +635,14 @@ export async function resolveCampaignTargets(campaign: {
           latitude: true,
           longitude: true,
           teachingRadius: true,
-          marketingNotifsEnabled: true,
         },
       },
     },
   });
 
-  return users.filter((u) => !excludeSet.has(u.id));
+  return users.filter(
+    (u) => !excludeSet.has(u.id) && (u.tutorProfile as any)?.marketingNotifsEnabled !== false
+  );
 }
 
 // ─── Run a full campaign pass ─────────────────────────────────────────────────

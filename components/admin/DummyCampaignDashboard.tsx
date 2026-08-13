@@ -362,7 +362,7 @@ export function DummyCampaignDashboard(props: Props) {
               <YAxis tick={{ fontSize: 9, fill: "#94A3B8" }} />
               <Tooltip
                 contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 11 }}
-                formatter={(v: number) => [v, "Delivered"]}
+                formatter={(v) => [v ?? 0, "Delivered"]}
                 labelFormatter={(l) => `Date: ${l}`}
               />
               <Bar dataKey="count" fill="#16A34A" radius={[4, 4, 0, 0]} />

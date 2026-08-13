@@ -55,7 +55,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
         customUserIds: customUserIds.split("\n").map((s) => s.trim()).filter(Boolean),
         excludeUserIds: excludeUserIds.split("\n").map((s) => s.trim()).filter(Boolean),
       });
-      if (result.success) setPreview(result.data);
+      if (result.success && result.data) setPreview(result.data);
       setPreviewLoading(false);
     }, 600);
     return () => clearTimeout(timeout);

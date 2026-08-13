@@ -36,7 +36,7 @@ const BOARDS = ["CBSE", "ICSE", "State Board", "IB", "IGCSE"];
 const CLASS_LEVELS = ["Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12", "Nursery", "KG", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5"];
 const DAYS_OPTIONS = ["Monday–Friday", "Monday & Wednesday", "Tuesday & Thursday", "Weekend only", "Saturday & Sunday", "Daily", "3 days/week", "Flexible"];
 const TIME_OPTIONS = ["Morning (7–9 AM)", "Afternoon (12–3 PM)", "Evening (5–8 PM)", "Late Evening (7–9 PM)", "Flexible timings"];
-const MODES = ["ONLINE", "OFFLINE", "EITHER"] as const;
+const MODES: Array<"ONLINE" | "OFFLINE" | "EITHER"> = ["ONLINE", "OFFLINE", "EITHER"];
 
 // ─── Deterministic Seeded Random (date-based) ─────────────────────────────────
 

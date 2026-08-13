@@ -494,6 +494,14 @@ export async function deliverDummyLeadToTutor(opts: {
   let sent = 0;
   let failed = 0;
 
+  const tutor = await prisma.tutorProfile.findUnique({
+    where: { userId },
+    select: { marketingNotifsEnabled: true },
+  });
+  if (tutor && !tutor.marketingNotifsEnabled) {
+    return { sent: 0, failed: 0 };
+  }
+
   for (const channel of channels) {
     let status = "FAILED";
     let errorMessage: string | undefined;
@@ -585,7 +593,13 @@ export async function resolveCampaignTargets(campaign: {
   const now = new Date();
   const excludeSet = new Set(campaign.excludeUserIds);
 
-  let where: Record<string, any> = { role: "TUTOR", isActive: true };
+  let where: Record<string, any> = {
+    role: "TUTOR",
+    isActive: true,
+    tutorProfile: {
+      marketingNotifsEnabled: true,
+    },
+  };
 
   if (campaign.targetGroup === "NEW_7D") {
     const c = new Date(now); c.setDate(c.getDate() - 7);
@@ -597,13 +611,13 @@ export async function resolveCampaignTargets(campaign: {
     const c = new Date(now); c.setDate(c.getDate() - 30);
     where.createdAt = { gte: c };
   } else if (campaign.targetGroup === "VERIFIED") {
-    where.tutorProfile = { isVerified: true };
+    where.tutorProfile.isVerified = true;
   } else if (campaign.targetGroup === "UNVERIFIED") {
-    where.tutorProfile = { isVerified: false };
+    where.tutorProfile.isVerified = false;
   } else if (campaign.targetGroup === "SUBSCRIBED") {
-    where.tutorProfile = { subscriptionPlan: { not: "NONE" } };
+    where.tutorProfile.subscriptionPlan = { not: "NONE" };
   } else if (campaign.targetGroup === "FREE_TIER") {
-    where.tutorProfile = { subscriptionPlan: "NONE" };
+    where.tutorProfile.subscriptionPlan = "NONE";
   } else if (campaign.targetGroup === "CUSTOM") {
     where.id = { in: campaign.customUserIds };
   }
@@ -623,6 +637,7 @@ export async function resolveCampaignTargets(campaign: {
           latitude: true,
           longitude: true,
           teachingRadius: true,
+          marketingNotifsEnabled: true,
         },
       },
     },

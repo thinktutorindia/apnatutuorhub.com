@@ -437,3 +437,22 @@ export async function saveTutorOnboardingAction(
     return { success: false, error: "Failed to save. Please try again." };
   }
 }
+
+export async function toggleTutorMarketingNotifsAction(targetUserId: string, enabled: boolean) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+  try {
+    await prisma.tutorProfile.update({
+      where: { userId: targetUserId },
+      data: { marketingNotifsEnabled: enabled },
+    });
+    revalidatePath("/admin/users");
+    revalidatePath(`/admin/users/${targetUserId}`);
+    revalidatePath("/tutor/profile");
+    return { success: true, enabled };
+  } catch (err) {
+    console.error("[toggleTutorMarketingNotifsAction] error:", err);
+    return { success: false, error: "Failed to update notification settings." };
+  }
+}

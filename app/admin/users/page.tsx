@@ -98,7 +98,7 @@ export default async function AdminUsersPage({
         isActive: true,
         createdAt: true,
         image: true,
-        tutorProfile: { select: { kycStatus: true, averageRating: true } },
+        tutorProfile: { select: { kycStatus: true, averageRating: true, marketingNotifsEnabled: true } },
       },
     }),
     prisma.user.count({ where }),

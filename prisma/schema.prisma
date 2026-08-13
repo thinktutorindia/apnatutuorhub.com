@@ -293,6 +293,7 @@ model TutorProfile {
   subscriptionExpiresAt DateTime?
   leadsUsedThisMonth Int        @default(0)
   leadsResetAt     DateTime?
+  marketingNotifsEnabled Boolean @default(true)
 
   // ── Onboarding Wizard Fields ────────────────────────────────────────────────
   onboardingStep      Int      @default(0)     // 0=not started, 1-7=step completed, 7=all done

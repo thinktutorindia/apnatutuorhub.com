@@ -9,6 +9,7 @@ import {
   adminResetUserPasswordAction,
   adminDeleteUserAction,
 } from "@/app/actions/admin.actions";
+import { toggleTutorMarketingNotifsAction } from "@/app/actions/tutor.actions";
 
 interface UserRowActionsProps {
   user: {
@@ -16,7 +17,7 @@ interface UserRowActionsProps {
     name: string | null;
     email: string;
     isActive: boolean;
-    tutorProfile?: { kycStatus: string; averageRating: number } | null;
+    tutorProfile?: { kycStatus: string; averageRating: number; marketingNotifsEnabled?: boolean } | null;
   };
 }
 
@@ -45,6 +46,32 @@ export function UserRowActions({ user }: UserRowActionsProps) {
           confirmTitle="Reactivate Account"
           confirmMessage={`Are you sure you want to reactivate ${user.name || user.email}? Their login access will be restored.`}
         />
+      )}
+
+      {user.tutorProfile && (
+        user.tutorProfile.marketingNotifsEnabled !== false ? (
+          <ActionButton
+            action={async () => {
+              await toggleTutorMarketingNotifsAction(user.id, false);
+            }}
+            label="🚫 Opt Out"
+            loadingLabel="Updating..."
+            variant="warning"
+            confirmTitle="Mark Tutor as Not Interested"
+            confirmMessage={`Disable marketing and lead notification campaigns for ${user.name || user.email}?`}
+          />
+        ) : (
+          <ActionButton
+            action={async () => {
+              await toggleTutorMarketingNotifsAction(user.id, true);
+            }}
+            label="🔔 Enable Notifs"
+            loadingLabel="Updating..."
+            variant="success"
+            confirmTitle="Enable Marketing Notifications"
+            confirmMessage={`Re-enable marketing and lead notifications for ${user.name || user.email}?`}
+          />
+        )
       )}
 
       <Link

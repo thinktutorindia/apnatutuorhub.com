@@ -342,7 +342,7 @@ export function generateDummyLead(opts: {
   let city = tutorCity || "Delhi";
   let distanceKm: number | undefined;
 
-  const nearest = getNearestLocalities(tutorLat, tutorLng, city, teachingRadius, 15, tutorAddress);
+  const nearest = getNearestLocalities(tutorLat, tutorLng, city, teachingRadius, 15, tutorAddress ?? "");
   if (nearest.length > 0) {
     const picked = pickLocalityForToday(nearest, userSeed);
     locality = picked.name;

@@ -100,37 +100,23 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     });
   }
 
-  function handleNotificationItemClick(n: Notification) {
-    if (!n.isRead) {
-      handleMarkRead(n.id);
+  function getNotificationTargetUrl(n: Notification): string {
+    if (n.actionUrl && n.actionUrl.trim()) return n.actionUrl.trim();
+
+    const titleLower = n.title.toLowerCase();
+    const msgLower = n.message.toLowerCase();
+
+    if (titleLower.includes("kyc") || msgLower.includes("identity") || msgLower.includes("kyc") || msgLower.includes("document")) {
+      return "/tutor/profile";
     }
-
-    let targetUrl = n.actionUrl;
-
-    if (!targetUrl) {
-      const titleLower = n.title.toLowerCase();
-      const msgLower = n.message.toLowerCase();
-
-      if (titleLower.includes("kyc") || msgLower.includes("identity") || msgLower.includes("kyc")) {
-        targetUrl = "/tutor/profile";
-      } else if (
-        titleLower.includes("lead") ||
-        titleLower.includes("requirement") ||
-        msgLower.includes("student") ||
-        msgLower.includes("tutor")
-      ) {
-        targetUrl = "/tutor/leads";
-      } else if (titleLower.includes("booking") || titleLower.includes("tuition")) {
-        targetUrl = "/tutor/bookings";
-      } else if (titleLower.includes("wallet") || titleLower.includes("coin")) {
-        targetUrl = "/tutor/wallet";
-      }
+    if (titleLower.includes("booking") || titleLower.includes("tuition") || msgLower.includes("booking")) {
+      return "/tutor/bookings";
     }
-
-    if (targetUrl) {
-      setIsOpen(false);
-      router.push(targetUrl);
+    if (titleLower.includes("wallet") || titleLower.includes("coin") || msgLower.includes("coin")) {
+      return "/tutor/wallet";
     }
+    // Default for lead / requirement / match / system alerts
+    return "/tutor/leads";
   }
 
   const dropdownContent = (
@@ -188,77 +174,71 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {notifications.map((n) => (
-              <li
-                key={n.id}
-                onClick={() => handleNotificationItemClick(n)}
-                className={`group flex items-start gap-3 px-4 py-3.5 transition-all cursor-pointer select-none ${
-                  n.isRead
-                    ? "bg-white hover:bg-slate-50"
-                    : "bg-[#F0FDF4] hover:bg-[#E2F7E9]"
-                }`}
-              >
-                {/* Unread indicator dot */}
-                <div className="mt-1.5 flex-shrink-0">
-                  <span
-                    className={`block h-2.5 w-2.5 rounded-full transition-transform group-hover:scale-125 ${
-                      n.isRead ? "bg-slate-300" : "bg-[#22C55E] ring-2 ring-emerald-300/50"
+            {notifications.map((n) => {
+              const targetUrl = getNotificationTargetUrl(n);
+              return (
+                <li key={n.id}>
+                  <Link
+                    href={targetUrl}
+                    onClick={() => {
+                      setIsOpen(false);
+                      if (!n.isRead) handleMarkRead(n.id);
+                    }}
+                    className={`group flex items-start gap-3 px-4 py-3.5 transition-all cursor-pointer select-none ${
+                      n.isRead
+                        ? "bg-white hover:bg-slate-50"
+                        : "bg-[#F0FDF4] hover:bg-[#E2F7E9]"
                     }`}
-                  />
-                </div>
+                  >
+                    {/* Unread indicator dot */}
+                    <div className="mt-1.5 flex-shrink-0">
+                      <span
+                        className={`block h-2.5 w-2.5 rounded-full transition-transform group-hover:scale-125 ${
+                          n.isRead ? "bg-slate-300" : "bg-[#22C55E] ring-2 ring-emerald-300/50"
+                        }`}
+                      />
+                    </div>
 
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-[#0F172A] leading-snug group-hover:text-emerald-700 transition-colors">
-                    {n.title}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-600 leading-relaxed line-clamp-2">
-                    {n.message}
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400">
-                      {timeAgo(n.createdAt)}
-                    </span>
-                    {(n.actionUrl || n.title.toLowerCase().includes("lead")) && (
-                      <span className="text-[10px] font-extrabold text-emerald-600 group-hover:underline flex items-center gap-0.5">
-                        Tap to view <ExternalLink size={9} />
-                      </span>
-                    )}
-                  </div>
-                </div>
+                    {/* Content */}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-[#0F172A] leading-snug group-hover:text-emerald-700 transition-colors">
+                        {n.title}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600 leading-relaxed line-clamp-2">
+                        {n.message}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-400">
+                          {timeAgo(n.createdAt)}
+                        </span>
+                        <span className="text-[10px] font-extrabold text-emerald-600 group-hover:underline flex items-center gap-0.5">
+                          Tap to view <ExternalLink size={9} />
+                        </span>
+                      </div>
+                    </div>
 
-                {/* Right Action Icons */}
-                <div className="flex flex-shrink-0 items-center gap-1.5 mt-0.5" onClick={(e) => e.stopPropagation()}>
-                  {n.actionUrl && (
-                    <Link
-                      href={n.actionUrl}
-                      onClick={() => {
-                        setIsOpen(false);
-                        if (!n.isRead) handleMarkRead(n.id);
-                      }}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
-                      title="Open page"
-                    >
-                      <ExternalLink size={12} />
-                    </Link>
-                  )}
-                  {!n.isRead && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMarkRead(n.id);
-                      }}
-                      disabled={isPending}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
-                      title="Mark as read"
-                    >
-                      <Check size={12} />
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
+                    {/* Right Action Icons */}
+                    <div className="flex flex-shrink-0 items-center gap-1.5 mt-0.5">
+                      {!n.isRead && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleMarkRead(n.id);
+                          }}
+                          disabled={isPending}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                          title="Mark as read"
+                        >
+                          <Check size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

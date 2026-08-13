@@ -47,11 +47,13 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Close dropdown when clicking outside (desktop)
+  // Close dropdown when clicking outside (desktop only — mobile backdrop handles its own clicks)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+      if (window.innerWidth >= 768) {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+          setIsOpen(false);
+        }
       }
     }
     if (isOpen) {
@@ -99,14 +101,21 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
   }
 
   function handleNotificationItemClick(n: Notification) {
-    setIsOpen(false);
     if (!n.isRead) {
       handleMarkRead(n.id);
     }
-    const targetUrl = n.actionUrl || (n.title.toLowerCase().includes("lead") || n.title.toLowerCase().includes("requirement") ? "/tutor/leads" : null);
+    const targetUrl = n.actionUrl || (
+      n.title.toLowerCase().includes("lead") ||
+      n.title.toLowerCase().includes("requirement")
+        ? "/tutor/leads"
+        : null
+    );
+
     if (targetUrl) {
+      setIsOpen(false);
       router.push(targetUrl);
     }
+    // If no targetUrl, do NOT close the modal — stay open so user can read!
   }
 
   const dropdownContent = (

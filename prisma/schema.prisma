@@ -114,6 +114,26 @@ enum ReferralStatus {
   REWARDED
 }
 
+enum DummyCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  STOPPED
+  COMPLETED
+}
+
+enum DummyTargetGroup {
+  ALL_TUTORS
+  NEW_7D
+  NEW_14D
+  NEW_30D
+  VERIFIED
+  UNVERIFIED
+  SUBSCRIBED
+  FREE_TIER
+  CUSTOM
+}
+
 // ────────────────────────────────────────────────
 // User & Auth
 // ────────────────────────────────────────────────
@@ -724,4 +744,58 @@ model Referral {
 
   @@index([referrerId])
   @@map("referrals")
+}
+
+// ────────────────────────────────────────────────
+// Dummy Lead Campaign System
+// ────────────────────────────────────────────────
+
+model DummyCampaign {
+  id              String                @id @default(cuid())
+  name            String
+  description     String?               @db.Text
+  status          DummyCampaignStatus   @default(DRAFT)
+  targetGroup     DummyTargetGroup      @default(ALL_TUTORS)
+  customUserIds   String[]              @default([])  // used when targetGroup = CUSTOM
+  excludeUserIds  String[]              @default([])  // never send to these users
+  channels        String[]              @default([])  // "EMAIL" | "PUSH" | "IN_APP"
+  leadsPerDay     Int                   @default(1)   // leads per tutor per day
+  randomizeDaily  Boolean               @default(true)// rotate lead content each day
+  overrideSubjects String[]             @default([])  // empty = use tutor's own subjects
+  budgetMin       Int                   @default(800)
+  budgetMax       Int                   @default(3000)
+  totalLimit      Int?                              // auto-stop after N total sends (null = unlimited)
+  startDate       DateTime?
+  endDate         DateTime?
+  totalSent       Int                   @default(0)
+  totalFailed     Int                   @default(0)
+  lastRunAt       DateTime?
+  createdById     String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  logs CampaignDeliveryLog[]
+
+  @@index([status, createdAt])
+  @@map("dummy_campaigns")
+}
+
+model CampaignDeliveryLog {
+  id           String   @id @default(cuid())
+  campaignId   String
+  userId       String
+  userName     String?
+  userEmail    String
+  channel      String   // "EMAIL" | "PUSH" | "IN_APP"
+  status       String   // "SENT" | "FAILED"
+  leadData     Json     // full dummy lead snapshot sent
+  errorMessage String?  @db.Text
+  sentAt       DateTime @default(now())
+
+  campaign DummyCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, sentAt])
+  @@index([userId, sentAt])
+  @@index([sentAt])
+  @@map("campaign_delivery_logs")
 }

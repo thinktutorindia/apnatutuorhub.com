@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/lead-expiry",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/dummy-leads",
+      "schedule": "30 3 * * *"
     }
   ]
 }

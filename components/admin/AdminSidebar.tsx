@@ -24,6 +24,7 @@ import {
   Menu,
   X,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { getAllowedSubAdminModules } from "@/lib/rbac";
@@ -44,6 +45,7 @@ const ALL_NAV_ITEMS = [
   { label: "Audit Logs",       href: "/admin/audit-logs",               icon: History,           roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"], iconColor: "text-purple-400" },
   { label: "Sub-Admins",       href: "/admin/sub-admins",               icon: UserCog,           roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
   { label: "Staff Analytics",  href: "/admin/sub-admins/analytics",     icon: TrendingUp,        roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
+  { label: "Dummy Campaigns",  href: "/admin/dummy-campaigns",           icon: Sparkles,          roles: ["SUPER_ADMIN"], iconColor: "text-fuchsia-400" },
 ] as const;
 
 const SUB_ADMIN_ROLE_LABELS: Record<string, { label: string; color: string }> = {

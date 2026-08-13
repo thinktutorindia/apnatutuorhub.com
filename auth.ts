@@ -181,32 +181,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async jwt({ token, user, trigger, session }) {
-      // On initial sign-in, `user` is populated. On subsequent requests, only `token` is present.
-      // We ALWAYS re-fetch from DB to ensure role/suspension changes take effect immediately.
-      const targetUserId = (user?.id ?? token.id) as string | undefined;
+      // Re-fetch from DB only:
+      //   a) On initial sign-in (user object present), OR
+      //   b) On explicit session update trigger (role change, suspension)
+      // This avoids hitting the DB on every middleware session read (prevents pool exhaustion).
+      const isSignIn = !!user?.id;
+      const isUpdate = trigger === "update";
 
-      if (targetUserId) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: targetUserId },
-          select: { id: true, role: true, subAdminRole: true, customPermissions: true, isActive: true },
-        });
+      if (isSignIn || isUpdate) {
+        const targetUserId = (user?.id ?? token.id) as string | undefined;
+        if (targetUserId) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: targetUserId },
+            select: { id: true, role: true, subAdminRole: true, customPermissions: true, isActive: true },
+          });
 
-        if (!dbUser || !dbUser.isActive) {
-          // Wipe entire token — Next-Auth treats an empty token as unauthenticated
-          return {} as typeof token;
+          if (!dbUser || !dbUser.isActive) {
+            return {} as typeof token;
+          }
+
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+          token.subAdminRole = dbUser.subAdminRole ?? null;
+          token.customPermissions = dbUser.customPermissions ?? [];
+          token.isActive = dbUser.isActive;
         }
 
-        // Always overwrite token fields with fresh DB values so role changes propagate instantly
-        token.id = dbUser.id;
-        token.role = dbUser.role;
-        token.subAdminRole = dbUser.subAdminRole ?? null;
-        token.customPermissions = dbUser.customPermissions ?? [];
-        token.isActive = dbUser.isActive;
-      }
-
-      // Handle server-triggered session updates (e.g. role promotion via update())
-      if (trigger === "update" && session?.role) {
-        token.role = session.role;
+        // If it's an explicit update with a role field, override
+        if (isUpdate && session?.role) {
+          token.role = session.role;
+        }
       }
 
       return token;

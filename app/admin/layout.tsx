@@ -16,7 +16,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row bg-[#F8FAFC] text-slate-900">
+    <div className="flex min-h-screen lg:min-h-screen flex-col lg:flex-row bg-[#F8FAFC] text-slate-900">
       <AdminSidebar
         userName={session.user.name || session.user.email || "Admin"}
         userRole={session.user.role}
@@ -24,9 +24,9 @@ export default async function AdminLayout({
         customPermissions={session.user.customPermissions ?? null}
       />
 
-      {/* Main scrollable area */}
-      <div className="flex flex-1 flex-col lg:ml-[260px] min-w-0 bg-[#F8FAFC]">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+      {/* Main scrollable area — account for sticky topbar height (56px) on mobile */}
+      <div className="flex flex-1 flex-col lg:ml-[260px] min-w-0 bg-[#F8FAFC] min-h-screen">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 lg:pb-8">{children}</main>
       </div>
     </div>
   );

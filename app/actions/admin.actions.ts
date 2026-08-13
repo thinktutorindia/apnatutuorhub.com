@@ -55,6 +55,8 @@ export async function suspendUserAction(
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id: userId }, data: { isActive: false } });
+    // Delete all active sessions to force immediate logout
+    await tx.session.deleteMany({ where: { userId } });
     await tx.auditLog.create({
       data: {
         adminId: session!.user.id,
@@ -1301,6 +1303,12 @@ export async function adminUpdateFullUserAction(
       },
     });
   });
+
+  // If the role was changed, invalidate all active sessions for this user so the
+  // new role takes effect immediately (not after JWT expiry).
+  if (fullTargetBefore && fullTargetBefore.role !== role) {
+    await prisma.session.deleteMany({ where: { userId } });
+  }
 
   revalidatePath("/admin/users");
   return actionSuccess({ updated: true });

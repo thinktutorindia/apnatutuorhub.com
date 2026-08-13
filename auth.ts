@@ -19,9 +19,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   session: {
     strategy: "jwt",
-    // Sessions expire after 7 days — JWT is re-validated against DB on every request via middleware
+    // Sessions expire after 7 days
     maxAge: 7 * 24 * 60 * 60, // 7 days
-    updateAge: 60 * 60, // Refresh token only once per hour (not on every request)
+    // Re-validate token from DB every 5 minutes — ensures role/suspension changes propagate quickly
+    updateAge: 5 * 60, // 5 minutes
   },
 
   cookies: {
@@ -180,31 +181,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async jwt({ token, user, trigger, session }) {
-      const targetUserId = (user?.id || token.id) as string | undefined;
+      // On initial sign-in, `user` is populated. On subsequent requests, only `token` is present.
+      // We ALWAYS re-fetch from DB to ensure role/suspension changes take effect immediately.
+      const targetUserId = (user?.id ?? token.id) as string | undefined;
 
       if (targetUserId) {
         const dbUser = await prisma.user.findUnique({
           where: { id: targetUserId },
-          // Only load the absolute minimum into the token — never include PII
           select: { id: true, role: true, subAdminRole: true, customPermissions: true, isActive: true },
         });
 
         if (!dbUser || !dbUser.isActive) {
-          // Wipe entire token — Next.js Auth treats empty token as unauthenticated
+          // Wipe entire token — Next-Auth treats an empty token as unauthenticated
           return {} as typeof token;
         }
 
-        // Store only non-sensitive identity fields in the JWT payload
+        // Always overwrite token fields with fresh DB values so role changes propagate instantly
         token.id = dbUser.id;
         token.role = dbUser.role;
         token.subAdminRole = dbUser.subAdminRole ?? null;
         token.customPermissions = dbUser.customPermissions ?? [];
         token.isActive = dbUser.isActive;
-        // Note: email/name/image are NOT stored in JWT to minimise exposure
-        // They are resolved from the session.user object when needed
       }
 
-      // Handle server-triggered session updates (e.g. role promotion)
+      // Handle server-triggered session updates (e.g. role promotion via update())
       if (trigger === "update" && session?.role) {
         token.role = session.role;
       }

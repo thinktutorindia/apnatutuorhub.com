@@ -510,7 +510,7 @@ export function DummyCampaignDashboard(props: Props) {
                     <Tooltip
                       contentStyle={{ borderRadius: 8, fontSize: 10, border: "1px solid #E2E8F0" }}
                       formatter={(v) => [v ?? 0, "Sent"]}
-                      labelFormatter={(l) => l.slice(5)}
+                      labelFormatter={(l) => String(l ?? "").slice(5)}
                     />
                     <Bar dataKey="count" fill="#16A34A" radius={[2, 2, 0, 0]} />
                   </BarChart>

@@ -87,18 +87,31 @@ export async function getSubAdminAnalyticsData(): Promise<SubAdminAnalyticsData 
 
   const subAdminIds = subAdminUsers.map((u) => u.id);
 
-  // Fetch all audit logs for sub-admins
-  const allLogs = await (prisma as any).auditLog.findMany({
-    where: { adminId: { in: subAdminIds } },
-    select: { id: true, adminId: true, action: true, entityType: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
-  }).catch(() => [] as any[]);
+  // Fetch all audit logs for sub-admins (safe fallback if model unavailable)
+  let allLogs: any[] = [];
+  try {
+    allLogs = await prisma.auditLog.findMany({
+      where: subAdminIds.length > 0 ? { adminId: { in: subAdminIds } } : {},
+      select: { id: true, adminId: true, action: true, entityType: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+    });
+  } catch {
+    allLogs = [];
+  }
 
-  // Fetch all admin notes authored by sub-admins
-  const allNotes = await (prisma as any).adminNote.findMany({
-    where: { authorUserId: { in: subAdminIds } },
-    select: { id: true, authorUserId: true, createdAt: true },
-  }).catch(() => [] as any[]);
+  // Fetch all admin notes authored by sub-admins (safe fallback)
+  let allNotes: any[] = [];
+  try {
+    if (subAdminIds.length > 0) {
+      allNotes = await prisma.adminNote.findMany({
+        where: { authorUserId: { in: subAdminIds } },
+        select: { id: true, authorUserId: true, createdAt: true },
+      });
+    }
+  } catch {
+    allNotes = [];
+  }
 
   // Team daily trend (last 30 days, all sub-admins combined)
   const teamDailyTrend = buildDailyMap(allLogs, 30);

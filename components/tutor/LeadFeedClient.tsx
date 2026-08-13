@@ -398,24 +398,24 @@ export function LeadFeedClient({
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white font-black text-xl shadow-sm">
-                ⚡
+                🔒
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-base sm:text-lg font-extrabold text-amber-950">
-                    Tuition Requirement Already Claimed
+                    Tuition Requirement Assigned & Closed
                   </h2>
                   <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-[11px] font-black text-amber-900 border border-amber-300">
-                    Fully Booked
+                    Tutor Assigned
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm font-medium text-amber-900 leading-relaxed">
                   {claimedBannerInfo?.locality
-                    ? `The ${claimedBannerInfo.subjects ? `${claimedBannerInfo.subjects} ` : ""}student requirement near ${claimedBannerInfo.locality} has already reached maximum tutor applications and is now closed.`
-                    : "This tuition requirement has reached maximum tutor responses and is no longer accepting new applications."}
+                    ? `The ${claimedBannerInfo.subjects ? `${claimedBannerInfo.subjects} ` : ""}student requirement near ${claimedBannerInfo.locality} has already been assigned to a verified tutor and is closed.`
+                    : "This tuition requirement has already assigned a verified tutor and is no longer accepting new applications."}
                 </p>
                 <p className="text-xs font-bold text-amber-800 pt-1">
-                  💡 <span className="underline">Tip:</span> Keep your Web Push notifications enabled so you can unlock new student inquiries within seconds of posting!
+                  💡 <span className="underline">Tip:</span> Keep your Web Push notifications active so you can unlock fresh student inquiries near your locality within seconds of posting!
                 </p>
               </div>
             </div>

@@ -27,8 +27,16 @@ interface GeoLocality {
 export const GEO_LOCALITIES: GeoLocality[] = [
   // ── DELHI ──────────────────────────────────────────────────────────────────
   { name: "Sangam Vihar",       city: "Delhi", lat: 28.5080, lng: 77.2590 },
+  { name: "Batra",              city: "Delhi", lat: 28.5100, lng: 77.2470 },
+  { name: "Batra Hospital",     city: "Delhi", lat: 28.5095, lng: 77.2485 },
+  { name: "Sainik Farm",        city: "Delhi", lat: 28.5152, lng: 77.2340 },
   { name: "Khanpur",            city: "Delhi", lat: 28.4986, lng: 77.2555 },
+  { name: "Devli",              city: "Delhi", lat: 28.5034, lng: 77.2419 },
+  { name: "Tigri",              city: "Delhi", lat: 28.5065, lng: 77.2460 },
   { name: "Govindpuri",         city: "Delhi", lat: 28.5252, lng: 77.2571 },
+  { name: "Hamdard Nagar",      city: "Delhi", lat: 28.5135, lng: 77.2500 },
+  { name: "Ambedkar Nagar",     city: "Delhi", lat: 28.5160, lng: 77.2455 },
+  { name: "Madangir",           city: "Delhi", lat: 28.5128, lng: 77.2170 },
   { name: "Okhla Phase I",      city: "Delhi", lat: 28.5361, lng: 77.2750 },
   { name: "Jaitpur",            city: "Delhi", lat: 28.4932, lng: 77.2712 },
   { name: "Badarpur",           city: "Delhi", lat: 28.4954, lng: 77.2841 },
@@ -39,13 +47,6 @@ export const GEO_LOCALITIES: GeoLocality[] = [
   { name: "Greater Kailash",    city: "Delhi", lat: 28.5478, lng: 77.2422 },
   { name: "Lajpat Nagar",       city: "Delhi", lat: 28.5668, lng: 77.2432 },
   { name: "Nehru Place",        city: "Delhi", lat: 28.5491, lng: 77.2519 },
-  { name: "Fatehpur Beri",      city: "Delhi", lat: 28.4722, lng: 77.2111 },
-  { name: "Mehrauli",           city: "Delhi", lat: 28.5233, lng: 77.1861 },
-  { name: "Chattarpur",         city: "Delhi", lat: 28.4973, lng: 77.1933 },
-  { name: "Jonapur",            city: "Delhi", lat: 28.4829, lng: 77.2083 },
-  { name: "Deoli",              city: "Delhi", lat: 28.5034, lng: 77.2419 },
-  { name: "Ambedkar Nagar",     city: "Delhi", lat: 28.5160, lng: 77.2455 },
-  { name: "Madangir",           city: "Delhi", lat: 28.5128, lng: 77.2170 },
   { name: "Pul Prahladpur",     city: "Delhi", lat: 28.5297, lng: 77.2680 },
   { name: "Dwarka Sector 10",   city: "Delhi", lat: 28.5838, lng: 77.0476 },
   { name: "Dwarka Sector 7",    city: "Delhi", lat: 28.5872, lng: 77.0612 },
@@ -200,8 +201,8 @@ export function getNearestLocalities(
     .filter((l) => l.dist <= radiusKm)
     .sort((a, b) => a.dist - b.dist);
 
-  // If not enough in radius, include all from city
-  const pool = withDistance.length >= 5 ? withDistance : cityLocalities
+  // If there are localities strictly within the tutor's radius, use them exclusively
+  const pool = withDistance.length > 0 ? withDistance : cityLocalities
     .map((l) => ({ ...l, dist: haversine(tutorLat, tutorLng, l.lat, l.lng) }))
     .sort((a, b) => a.dist - b.dist);
 

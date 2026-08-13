@@ -21,6 +21,7 @@ export default async function AdminLayout({
         userName={session.user.name || session.user.email || "Admin"}
         userRole={session.user.role}
         subAdminRole={session.user.subAdminRole ?? null}
+        customPermissions={session.user.customPermissions ?? null}
       />
 
       {/* Main scrollable area */}

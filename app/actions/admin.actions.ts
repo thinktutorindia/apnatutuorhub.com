@@ -1102,9 +1102,64 @@ export async function adminUpdateFullUserAction(
   const kycSelfieUrl = formData.get("kycSelfieUrl")?.toString().trim() || null;
   const introVideoUrl = formData.get("introVideoUrl")?.toString().trim() || null;
 
+  // Onboarding & Profile Detail Fields
+  const onboardingStepRaw = formData.get("onboardingStep");
+  const onboardingStep = onboardingStepRaw !== null && onboardingStepRaw !== "" ? Number(onboardingStepRaw) : 7;
+  const gender = formData.get("gender")?.toString().trim() || null;
+  const dateOfBirth = formData.get("dateOfBirth")?.toString().trim() || null;
+  const maritalStatus = formData.get("maritalStatus")?.toString().trim() || null;
+  const profession = formData.get("profession")?.toString().trim() || null;
+
+  const qualification = formData.get("qualification")?.toString().trim() || null;
+  const educationCourse = formData.get("educationCourse")?.toString().trim() || null;
+  const educationSubjects = formData.get("educationSubjects")?.toString().trim() || null;
+  const educationUniversity = formData.get("educationUniversity")?.toString().trim() || null;
+  const educationYear = formData.get("educationYear")?.toString().trim() || null;
+  const teachingStartYearRaw = formData.get("teachingStartYear");
+  const teachingStartYear = teachingStartYearRaw ? Number(teachingStartYearRaw) : null;
+
+  const teachingMode = (formData.get("teachingMode")?.toString().trim() as any) || "EITHER";
+  const teachingRadiusRaw = formData.get("teachingRadius");
+  const teachingRadius = teachingRadiusRaw ? Number(teachingRadiusRaw) : 10;
+
+  const interestedInRaw = formData.get("interestedIn")?.toString();
+  let interestedIn: string[] | undefined = undefined;
+  if (interestedInRaw) {
+    try {
+      interestedIn = JSON.parse(interestedInRaw);
+    } catch {
+      interestedIn = interestedInRaw.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const isVerifiedForm = formData.get("isVerified");
+  const isVerified = isVerifiedForm !== null ? isVerifiedForm === "true" : kycStatus === "APPROVED";
+  const isFeatured = formData.get("isFeatured") === "true";
+  const subscriptionPlan = (formData.get("subscriptionPlan")?.toString().trim() as any) || "NONE";
+
   const subjectsRaw = formData.get("subjects")?.toString();
   const classLevelsRaw = formData.get("classLevels")?.toString();
+  let subjects: string[] | undefined = undefined;
+  if (subjectsRaw) {
+    try {
+      subjects = JSON.parse(subjectsRaw);
+    } catch {
+      subjects = subjectsRaw.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  let classLevels: string[] | undefined = undefined;
+  if (classLevelsRaw) {
+    try {
+      classLevels = JSON.parse(classLevelsRaw);
+    } catch {
+      classLevels = classLevelsRaw.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
   const experience = formData.get("experience") ? Number(formData.get("experience")) : null;
+  const feeMin = formData.get("feeMin") ? Number(formData.get("feeMin")) : null;
+  const feeMax = formData.get("feeMax") ? Number(formData.get("feeMax")) : null;
   const hourlyRate = formData.get("hourlyRate") ? Number(formData.get("hourlyRate")) : null;
   const bio = formData.get("bio")?.toString().trim() || null;
 
@@ -1128,9 +1183,6 @@ export async function adminUpdateFullUserAction(
     return actionError("Forbidden: only a Super Admin can modify admin accounts or roles.");
   }
 
-  const subjects = subjectsRaw ? subjectsRaw.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
-  const classLevels = classLevelsRaw ? classLevelsRaw.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
-
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
@@ -1151,7 +1203,6 @@ export async function adminUpdateFullUserAction(
         update: { city, pincode },
       });
     } else if (role === "TUTOR") {
-      const isVerified = kycStatus === "APPROVED";
       const tp = await tx.tutorProfile.upsert({
         where: { userId },
         create: {
@@ -1162,8 +1213,24 @@ export async function adminUpdateFullUserAction(
           address,
           latitude,
           longitude,
-          kycStatus: kycStatus || "NOT_SUBMITTED",
+          onboardingStep,
+          gender,
+          dateOfBirth,
+          maritalStatus,
+          profession,
+          qualification,
+          educationCourse,
+          educationSubjects,
+          educationUniversity,
+          educationYear,
+          teachingStartYear,
+          interestedIn: interestedIn || [],
+          teachingMode,
+          teachingRadius,
           isVerified,
+          isFeatured,
+          subscriptionPlan,
+          kycStatus: kycStatus || "NOT_SUBMITTED",
           kycRejectionNote,
           kycIdProofUrl,
           kycAddressUrl,
@@ -1172,8 +1239,8 @@ export async function adminUpdateFullUserAction(
           subjects: subjects || [],
           classLevels: classLevels || [],
           experience,
-          feeMin: hourlyRate,
-          feeMax: hourlyRate,
+          feeMin: feeMin ?? hourlyRate,
+          feeMax: feeMax ?? hourlyRate,
           bio,
         },
         update: {
@@ -1183,7 +1250,24 @@ export async function adminUpdateFullUserAction(
           ...(address ? { address } : {}),
           ...(latitude !== null ? { latitude } : {}),
           ...(longitude !== null ? { longitude } : {}),
-          ...(kycStatus ? { kycStatus, isVerified } : {}),
+          onboardingStep,
+          gender,
+          dateOfBirth,
+          maritalStatus,
+          profession,
+          qualification,
+          educationCourse,
+          educationSubjects,
+          educationUniversity,
+          educationYear,
+          teachingStartYear,
+          ...(interestedIn ? { interestedIn } : {}),
+          teachingMode,
+          teachingRadius,
+          isVerified,
+          isFeatured,
+          subscriptionPlan,
+          ...(kycStatus ? { kycStatus } : {}),
           kycRejectionNote,
           kycIdProofUrl,
           kycAddressUrl,
@@ -1192,7 +1276,8 @@ export async function adminUpdateFullUserAction(
           ...(subjects ? { subjects } : {}),
           ...(classLevels ? { classLevels } : {}),
           ...(experience !== null ? { experience } : {}),
-          ...(hourlyRate !== null ? { feeMin: hourlyRate, feeMax: hourlyRate } : {}),
+          feeMin: feeMin ?? hourlyRate,
+          feeMax: feeMax ?? hourlyRate,
           ...(bio !== null ? { bio } : {}),
         },
       });
@@ -1291,4 +1376,83 @@ export async function adminDeleteCouponAction(
 
   revalidatePath("/admin/coupons");
   return actionSuccess({ deleted: true });
+}
+
+// ────────────────────────────────────────────────
+// Internal Admin Staff Notes & Audit Trail
+// ────────────────────────────────────────────────
+
+export async function addAdminUserNoteAction(
+  targetUserId: string,
+  content: string
+): Promise<ActionResult<{ id: string }>> {
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN")) {
+    return actionError("Unauthorized: Admin access required.");
+  }
+
+  if (!targetUserId || !content.trim()) {
+    return actionError("Note content cannot be empty.");
+  }
+
+  const note = await (prisma as any).adminNote.create({
+    data: {
+      targetUserId,
+      authorUserId: session.user.id,
+      authorName: session.user.name || session.user.email || "Admin Staff",
+      content: content.trim(),
+    },
+  });
+
+  revalidatePath(`/admin/users/${targetUserId}/edit`);
+  return actionSuccess({ id: note.id });
+}
+
+export async function getAdminUserNotesAction(targetUserId: string) {
+  const session = await auth();
+  if (!session?.user) return [];
+
+  return (prisma as any).adminNote.findMany({
+    where: { targetUserId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+// ────────────────────────────────────────────────
+// Send / Schedule Custom Notification to User
+// ────────────────────────────────────────────────
+
+export async function sendAdminCustomNotificationAction(data: {
+  targetUserId: string;
+  title: string;
+  message: string;
+  scheduledAt?: string;
+  channel?: "WEB" | "EMAIL" | "SMS" | "WHATSAPP" | "PUSH";
+}): Promise<ActionResult<{ id: string }>> {
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN")) {
+    return actionError("Unauthorized: Admin access required.");
+  }
+
+  if (!data.targetUserId || !data.title.trim() || !data.message.trim()) {
+    return actionError("Title and message are required.");
+  }
+
+  const schedDate = data.scheduledAt ? new Date(data.scheduledAt) : new Date();
+
+  const notif = await prisma.notification.create({
+    data: {
+      userId: data.targetUserId,
+      title: data.title.trim(),
+      message: data.message.trim(),
+      type: "ADMIN_ALERT",
+      channel: (data.channel as any) || "WEB",
+      scheduledAt: schedDate,
+      status: data.scheduledAt ? "PENDING" : "SENT",
+    },
+  });
+
+  revalidatePath(`/admin/users/${data.targetUserId}/edit`);
+  revalidatePath("/notifications");
+  return actionSuccess({ id: notif.id });
 }

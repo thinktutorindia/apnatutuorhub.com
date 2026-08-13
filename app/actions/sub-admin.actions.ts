@@ -25,10 +25,14 @@ async function requireSuperAdmin() {
 
 // ── Create Sub-Admin Account ───────────────────────────────────────────────────
 
+// ── Create Sub-Admin Account ───────────────────────────────────────────────────
+
 const createSubAdminSchema = z.object({
   name: z.string().min(2, "Name is required"),
-  email: z.string().email("Invalid email"),
-  phone: z.string().min(10, "Valid phone number required").max(15),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().optional().refine((val) => !val || (val.length >= 10 && val.length <= 15), {
+    message: "Phone number must be between 10 and 15 digits if provided",
+  }),
   password: z.string().min(6, "Password must be at least 6 characters"),
   subAdminRole: z.enum([
     "SUPPORT",
@@ -45,10 +49,23 @@ export async function createSubAdminAction(
   const { error, session } = await requireSuperAdmin();
   if (error) return actionError(error);
 
+  const rawPhone = (formData.get("phone") as string)?.trim();
+  const phoneVal = rawPhone && rawPhone.length > 0 ? rawPhone : undefined;
+
+  const rawPermissions = formData.get("customPermissions") as string;
+  let customPermissions: string[] = [];
+  if (rawPermissions) {
+    try {
+      customPermissions = JSON.parse(rawPermissions);
+    } catch {
+      customPermissions = [];
+    }
+  }
+
   const parsed = createSubAdminSchema.safeParse({
     name: formData.get("name"),
     email: (formData.get("email") as string)?.toLowerCase().trim(),
-    phone: (formData.get("phone") as string)?.trim(),
+    phone: phoneVal,
     password: formData.get("password"),
     subAdminRole: formData.get("subAdminRole"),
   });
@@ -59,9 +76,9 @@ export async function createSubAdminAction(
 
   const { name, email, phone, password, subAdminRole } = parsed.data;
 
-  // Check for existing user
+  // Check for existing user by email or phone
   const existingUser = await prisma.user.findFirst({
-    where: { OR: [{ email }, { phone }] },
+    where: phone ? { OR: [{ email }, { phone }] } : { email },
   });
   if (existingUser) {
     return actionError("A user with this email or phone already exists");
@@ -74,10 +91,11 @@ export async function createSubAdminAction(
       data: {
         name,
         email,
-        phone,
+        phone: phone || null,
         passwordHash,
         role: "SUB_ADMIN",
         subAdminRole,
+        customPermissions,
         isActive: true,
       },
     });
@@ -88,7 +106,7 @@ export async function createSubAdminAction(
         action: "CREATE_SUB_ADMIN",
         entityType: "User",
         entityId: user.id,
-        details: `Created ${subAdminRole} sub-admin account for ${email}`,
+        details: `Created ${subAdminRole} sub-admin account for ${email} with ${customPermissions.length} granted features`,
       },
     });
 
@@ -100,7 +118,47 @@ export async function createSubAdminAction(
   return actionSuccess({ userId: newUser.id });
 }
 
-// ── Update Sub-Admin Role ──────────────────────────────────────────────────────
+// ── Update Sub-Admin Role & Permissions ────────────────────────────────────────
+
+export async function updateSubAdminPermissionsAction(
+  userId: string,
+  customPermissions: string[],
+  subAdminRole?: string
+): Promise<ActionResult<{ updated: true }>> {
+  const { error, session } = await requireSuperAdmin();
+  if (error) return actionError(error);
+
+  const updateData: { customPermissions: string[]; subAdminRole?: "SUPPORT" | "VERIFICATION" | "FINANCE" | "OPERATIONS" | "MARKETING" } = {
+    customPermissions,
+  };
+
+  if (subAdminRole) {
+    const validRoles = ["SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"];
+    if (validRoles.includes(subAdminRole)) {
+      updateData.subAdminRole = subAdminRole as any;
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId, role: "SUB_ADMIN" },
+      data: updateData,
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session!.user.id,
+        action: "UPDATE_SUB_ADMIN_PERMISSIONS",
+        entityType: "User",
+        entityId: userId,
+        details: `Updated sub-admin permissions (${customPermissions.length} features granted)`,
+      },
+    });
+  });
+
+  revalidatePath("/admin/sub-admins");
+  return actionSuccess({ updated: true });
+}
 
 export async function updateSubAdminRoleAction(
   userId: string,
@@ -239,6 +297,7 @@ export async function getSubAdminsAction() {
       email: true,
       phone: true,
       subAdminRole: true,
+      customPermissions: true,
       isActive: true,
       createdAt: true,
     },

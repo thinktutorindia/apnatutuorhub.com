@@ -140,14 +140,17 @@ model User {
   parentProfile    ParentProfile?
   tutorProfile     TutorProfile?
   subAdminRole     SubAdminRole?
+  customPermissions String[]     @default([])
   couponUsages     CouponUsage[]
   referralsSent    Referral[]     @relation("ReferrerRel")
   referralReceived Referral?      @relation("RefereeRel")
 
   // Notifications & Messages
-  notifications    Notification[]
-  userActivities   UserActivity[]
-  sentMessages     Message[]
+  notifications      Notification[]
+  userActivities     UserActivity[]
+  sentMessages       Message[]
+  adminNotesReceived AdminNote[]   @relation("AdminNotesTarget")
+  adminNotesAuthored AdminNote[]   @relation("AdminNotesAuthor")
 
   @@map("users")
 }
@@ -569,6 +572,21 @@ model AuditLog {
 
   @@index([adminId, createdAt])
   @@map("audit_logs")
+}
+
+model AdminNote {
+  id           String   @id @default(cuid())
+  targetUserId String
+  authorUserId String
+  authorName   String
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+
+  targetUser User @relation("AdminNotesTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  authorUser User @relation("AdminNotesAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([targetUserId, createdAt])
+  @@map("admin_notes")
 }
 
 // ────────────────────────────────────────────────

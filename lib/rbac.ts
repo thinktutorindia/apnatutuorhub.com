@@ -77,6 +77,7 @@ const PERMISSION_MATRIX: Record<RbacRole, readonly Permission[]> = {
 export type RbacSubject = {
   role?: string | null;
   subAdminRole?: string | null;
+  customPermissions?: string[] | null;
 };
 
 export function resolveRbacRole(subject: RbacSubject): RbacRole | null {
@@ -98,12 +99,97 @@ export function getAllowedPermissions(subject: RbacSubject): readonly Permission
   return PERMISSION_MATRIX[role];
 }
 
-// Helper: map sub-admin role to sidebar-visible modules
+// ── Granular Admin Features Definition ───────────────────────────────────────
+
+export type AdminFeatureKey =
+  | "dashboard"
+  | "analytics"
+  | "users"
+  | "kyc"
+  | "leads"
+  | "bookings"
+  | "chat"
+  | "reviews"
+  | "wallets"
+  | "broadcast"
+  | "coupons"
+  | "settings"
+  | "audit-logs";
+
+export interface AdminFeatureDef {
+  key: AdminFeatureKey;
+  label: string;
+  category: "Overview" | "User Management" | "Operations" | "Growth & Finance" | "Governance";
+  description: string;
+  route: string;
+}
+
+export const ALL_ADMIN_FEATURES: AdminFeatureDef[] = [
+  { key: "dashboard", label: "Dashboard Overview", category: "Overview", description: "View top-level KPIs and activity overview", route: "/admin/dashboard" },
+  { key: "analytics", label: "Analytics & Metrics", category: "Overview", description: "View performance charts and platform metrics", route: "/admin/analytics" },
+  { key: "users", label: "User Directory & Staff", category: "User Management", description: "Manage parent and tutor user accounts", route: "/admin/users" },
+  { key: "kyc", label: "Tutor KYC Queue", category: "User Management", description: "Review and approve tutor verification documents", route: "/admin/kyc" },
+  { key: "leads", label: "Student Leads Feed", category: "Operations", description: "Manage student requirements and lead postings", route: "/admin/leads" },
+  { key: "bookings", label: "Tuition Bookings", category: "Operations", description: "Oversee trial classes and booking schedules", route: "/admin/bookings" },
+  { key: "chat", label: "Support Chat", category: "Operations", description: "Access live support chat and user messages", route: "/admin/chat" },
+  { key: "reviews", label: "Reviews Moderation", category: "Operations", description: "Moderate tutor reviews and parent ratings", route: "/admin/reviews" },
+  { key: "wallets", label: "Wallets & Coin Revenue", category: "Growth & Finance", description: "Manage tutor coin balances, refunds & credits", route: "/admin/wallets" },
+  { key: "broadcast", label: "Broadcast Notifications", category: "Growth & Finance", description: "Send web push broadcasts to tutors/parents", route: "/admin/notifications/broadcast" },
+  { key: "coupons", label: "Promo Coupons", category: "Growth & Finance", description: "Create and distribute discount coupon codes", route: "/admin/coupons" },
+  { key: "settings", label: "Platform Settings", category: "Governance", description: "Configure system pricing, coin packages & policies", route: "/admin/settings" },
+  { key: "audit-logs", label: "Audit Logs", category: "Governance", description: "Inspect system audit trails and security logs", route: "/admin/audit-logs" },
+];
+
+export const DEFAULT_ROLE_FEATURES: Record<string, AdminFeatureKey[]> = {
+  SUPPORT: ["dashboard", "users", "bookings", "chat", "reviews", "leads", "audit-logs"],
+  VERIFICATION: ["dashboard", "kyc", "users", "audit-logs"],
+  FINANCE: ["dashboard", "wallets", "audit-logs"],
+  OPERATIONS: ["dashboard", "leads", "bookings", "chat", "users", "audit-logs"],
+  MARKETING: ["dashboard", "settings", "coupons", "broadcast", "audit-logs"],
+};
+
+// Helper: map sub-admin role to sidebar-visible modules (legacy static map fallback)
 export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
-  SUPPORT: ["/admin/dashboard", "/admin/users", "/admin/bookings", "/admin/reviews", "/admin/audit-logs"],
+  SUPPORT: ["/admin/dashboard", "/admin/users", "/admin/bookings", "/admin/chat", "/admin/reviews", "/admin/leads", "/admin/audit-logs"],
   VERIFICATION: ["/admin/dashboard", "/admin/kyc", "/admin/users", "/admin/audit-logs"],
   FINANCE: ["/admin/dashboard", "/admin/wallets", "/admin/audit-logs"],
-  OPERATIONS: ["/admin/dashboard", "/admin/leads", "/admin/bookings", "/admin/users", "/admin/audit-logs"],
+  OPERATIONS: ["/admin/dashboard", "/admin/leads", "/admin/bookings", "/admin/chat", "/admin/users", "/admin/audit-logs"],
   MARKETING: ["/admin/dashboard", "/admin/settings", "/admin/coupons", "/admin/notifications/broadcast", "/admin/audit-logs"],
   SUPER_ADMIN: [], // Empty means all routes are accessible
 };
+
+/**
+ * Resolves full list of allowed module routes for a sub-admin, prioritizing customPermissions.
+ */
+export function getAllowedSubAdminModules(subject: RbacSubject): string[] {
+  if (subject.role === "SUPER_ADMIN") {
+    return []; // Empty means unrestricted super admin
+  }
+  if (subject.role !== "SUB_ADMIN") {
+    return [];
+  }
+
+  // If sub-admin has custom permissions explicitly saved
+  if (subject.customPermissions && subject.customPermissions.length > 0) {
+    const routes = new Set<string>(["/admin/dashboard"]);
+    for (const key of subject.customPermissions) {
+      const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
+      if (feat) {
+        routes.add(feat.route);
+      }
+    }
+    return Array.from(routes);
+  }
+
+  // Fallback to department role defaults
+  const role = subject.subAdminRole ?? "SUPPORT";
+  const defaultKeys = DEFAULT_ROLE_FEATURES[role] ?? DEFAULT_ROLE_FEATURES["SUPPORT"];
+  const routes = new Set<string>(["/admin/dashboard"]);
+  for (const key of defaultKeys) {
+    const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
+    if (feat) {
+      routes.add(feat.route);
+    }
+  }
+  return Array.from(routes);
+}

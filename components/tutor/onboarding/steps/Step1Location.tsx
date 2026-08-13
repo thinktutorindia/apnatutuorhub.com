@@ -23,7 +23,7 @@ interface Props {
     longitude: number | null;
   };
   onNext: (data: Partial<Props["formData"]>) => void;
-  onBack: () => void;
+  onBack?: () => void;
   isLoading: boolean;
 }
 
@@ -37,7 +37,7 @@ interface SearchResult {
   area: string;
 }
 
-export function Step1Location({ formData, onNext, isLoading }: Props) {
+export function Step1Location({ formData, onNext, onBack, isLoading }: Props) {
   const [city, setCity] = useState(formData.city || "");
   const [state, setState] = useState(formData.state || "");
   const [pincode, setPincode] = useState(formData.pincode || "");
@@ -189,11 +189,17 @@ export function Step1Location({ formData, onNext, isLoading }: Props) {
         }
       },
       (err) => {
-        console.error("GPS error:", err);
+        console.warn("GPS detection note:", err.message || err.code || err);
         setIsGpsLoading(false);
-        setErrors({ locality: "Unable to retrieve GPS location. Please search your locality manually." });
+        const userMsg =
+          err.code === 1
+            ? "GPS permission denied. Please search your locality or pick a location on the map."
+            : err.code === 3
+            ? "GPS request timed out. Please search your locality or pick a location on the map."
+            : "GPS location unavailable. Please search your locality or pick a location on the map.";
+        setErrors({ locality: userMsg });
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 15000, enableHighAccuracy: false, maximumAge: 60000 }
     );
   }
 
@@ -378,23 +384,35 @@ export function Step1Location({ formData, onNext, isLoading }: Props) {
         </div>
       </div>
 
-      {/* Next Action Button */}
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={isLoading}
-        className="w-full h-13 rounded-2xl bg-[#1A3C5E] hover:bg-[#15304f] text-white font-800 text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 shadow-lg disabled:opacity-60 cursor-pointer mt-4"
-      >
-        {isLoading ? (
-          <>
-            <Loader2 size={18} className="animate-spin" /> Saving Exact Location...
-          </>
-        ) : (
-          <>
-            Save Location & Continue to Step 2 <ArrowRight size={16} />
-          </>
+      {/* Action Buttons */}
+      <div className="flex gap-3 pt-2">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={isLoading}
+            className="flex-1 h-13 rounded-2xl border-2 border-gray-200 bg-white text-gray-700 font-800 text-xs flex items-center justify-center gap-2 hover:bg-gray-50 transition-all cursor-pointer"
+          >
+            &larr; Back
+          </button>
         )}
-      </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isLoading}
+          className={`${onBack ? "flex-[2]" : "w-full"} h-13 rounded-2xl bg-[#1A3C5E] hover:bg-[#15304f] text-white font-800 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 shadow-lg disabled:opacity-60 cursor-pointer`}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" /> Saving Location...
+            </>
+          ) : (
+            <>
+              Save Location &amp; Continue <ArrowRight size={16} />
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

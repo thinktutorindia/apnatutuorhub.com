@@ -29,13 +29,23 @@ export default async function AdminEditUserPage({
 
   const { id } = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { id },
-    include: {
-      parentProfile: true,
-      tutorProfile: { include: { wallet: true } },
-    },
-  });
+  const [user, rawNotes] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id },
+      include: {
+        parentProfile: true,
+        tutorProfile: { include: { wallet: true } },
+      },
+    }),
+    (prisma as any).adminNote
+      ? (prisma as any).adminNote
+          .findMany({
+            where: { targetUserId: id },
+            orderBy: { createdAt: "desc" },
+          })
+          .catch(() => [])
+      : Promise.resolve([]),
+  ]);
 
   if (!user) notFound();
 
@@ -47,8 +57,18 @@ export default async function AdminEditUserPage({
     resolveDocViewUrl(user.tutorProfile?.introVideoUrl ?? null),
   ]);
 
+  const adminNotes = Array.isArray(rawNotes)
+    ? rawNotes.map((n: any) => ({
+        id: n.id,
+        authorName: n.authorName,
+        content: n.content,
+        createdAt: n.createdAt ? new Date(n.createdAt).toISOString() : new Date().toISOString(),
+      }))
+    : [];
+
   return (
     <AdminEditUserForm
+      adminNotes={adminNotes}
       user={{
         id: user.id,
         name: user.name,
@@ -69,6 +89,23 @@ export default async function AdminEditUserPage({
           : null,
         tutorProfile: user.tutorProfile
           ? {
+              onboardingStep: user.tutorProfile.onboardingStep,
+              gender: user.tutorProfile.gender,
+              dateOfBirth: user.tutorProfile.dateOfBirth,
+              maritalStatus: user.tutorProfile.maritalStatus,
+              profession: user.tutorProfile.profession,
+              qualification: user.tutorProfile.qualification,
+              educationCourse: user.tutorProfile.educationCourse,
+              educationSubjects: user.tutorProfile.educationSubjects,
+              educationUniversity: user.tutorProfile.educationUniversity,
+              educationYear: user.tutorProfile.educationYear,
+              teachingStartYear: user.tutorProfile.teachingStartYear,
+              interestedIn: user.tutorProfile.interestedIn,
+              teachingMode: user.tutorProfile.teachingMode,
+              teachingRadius: user.tutorProfile.teachingRadius,
+              isVerified: user.tutorProfile.isVerified,
+              isFeatured: user.tutorProfile.isFeatured,
+              subscriptionPlan: user.tutorProfile.subscriptionPlan,
               city: user.tutorProfile.city,
               state: user.tutorProfile.state,
               pincode: user.tutorProfile.pincode,

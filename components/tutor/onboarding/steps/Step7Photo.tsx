@@ -10,6 +10,7 @@ interface Props {
   onBack: () => void;
   isLoading: boolean;
   profileId: string;
+  isAdminMode?: boolean;
 }
 
 const MAX_SIZE_MB = 2;
@@ -17,7 +18,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 
 import { ImageCropModal } from "@/components/ui/ImageCropModal";
 
-export function Step7Photo({ formData, onNext, onBack, isLoading, profileId }: Props) {
+export function Step7Photo({ formData, onNext, onBack, isLoading, profileId, isAdminMode }: Props) {
   const [photoUrl, setPhotoUrl] = useState(formData.photoUrl || "");
   const [preview, setPreview] = useState<string>(formData.photoUrl || "");
   const [uploading, setUploading] = useState(false);
@@ -191,7 +192,11 @@ export function Step7Photo({ formData, onNext, onBack, isLoading, profileId }: P
           disabled={isLoading || uploading}
           className="flex-[2] h-12 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 shadow-lg disabled:opacity-60 cursor-pointer"
         >
-          {isLoading ? <><Loader2 size={16} className="animate-spin" /> Completing...</> : <><CheckCircle size={16} /> Complete Profile & View Plans</>}
+          {isLoading ? (
+            <><Loader2 size={16} className="animate-spin" /> Saving...</>
+          ) : (
+            <><CheckCircle size={16} /> {isAdminMode ? "Save Profile & Finish Step 7" : "Complete Profile & View Plans"}</>
+          )}
         </button>
       </div>
 

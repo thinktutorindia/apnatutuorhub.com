@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 import { resolveTutorContext } from "@/lib/tutor-context";
 import {
   actionFieldErrors,
@@ -360,12 +361,30 @@ export async function saveTutorOnboardingAction(
     maritalStatus?: string;
     bio?: string;
     photoUrl?: string;
-  }
+  },
+  targetUserId?: string
 ): Promise<OnboardingStepResult> {
-  const ctx = await resolveTutorContext();
-  if (!ctx.ok) return { success: false, error: "Not authenticated" };
+  let targetTutorProfileId: string;
+  let targetUid: string;
 
-  const { tutorProfileId, userId } = ctx.context;
+  if (targetUserId) {
+    const session = await auth();
+    if (!session?.user || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN")) {
+      return { success: false, error: "Unauthorized: Super Admin or Sub Admin required." };
+    }
+    let tp = await prisma.tutorProfile.findUnique({ where: { userId: targetUserId } });
+    if (!tp) {
+      tp = await prisma.tutorProfile.create({ data: { userId: targetUserId } });
+    }
+    targetTutorProfileId = tp.id;
+    targetUid = targetUserId;
+  } else {
+    const ctx = await resolveTutorContext();
+    if (!ctx.ok) return { success: false, error: "Not authenticated" };
+    targetTutorProfileId = ctx.context.tutorProfileId;
+    targetUid = ctx.context.userId;
+  }
+
   const { step, ...fields } = data;
 
   try {
@@ -403,14 +422,15 @@ export async function saveTutorOnboardingAction(
 
     if (fields.bio !== undefined) updateData.bio = fields.bio || null;
 
-    await prisma.tutorProfile.update({ where: { id: tutorProfileId }, data: updateData });
+    await prisma.tutorProfile.update({ where: { id: targetTutorProfileId }, data: updateData });
 
     if (step === 7 && fields.photoUrl) {
-      await prisma.user.update({ where: { id: userId }, data: { image: fields.photoUrl } });
+      await prisma.user.update({ where: { id: targetUid }, data: { image: fields.photoUrl } });
     }
 
     revalidatePath("/tutor/onboarding");
     revalidatePath("/tutor/profile");
+    revalidatePath("/admin/users");
     return { success: true, step };
   } catch (err) {
     console.error("[saveTutorOnboardingAction] error:", err);

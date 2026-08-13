@@ -29,6 +29,7 @@ export default async function SubAdminsPage() {
       email: true,
       phone: true,
       subAdminRole: true,
+      customPermissions: true,
       isActive: true,
       createdAt: true,
     },
@@ -45,7 +46,7 @@ export default async function SubAdminsPage() {
             Sub-Admin Staff Management
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Create and manage staff accounts with department-level access control
+            Create and manage staff accounts with custom feature access controls
           </p>
         </div>
       </div>
@@ -68,6 +69,7 @@ export default async function SubAdminsPage() {
         initialSubAdmins={subAdmins.map((u) => ({
           ...u,
           subAdminRole: u.subAdminRole ?? null,
+          customPermissions: u.customPermissions ?? [],
           createdAt: u.createdAt.toISOString(),
         }))}
         roleBadges={ROLE_BADGES}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
-import { SUB_ADMIN_MODULE_MAP } from "@/lib/rbac";
+import { SUB_ADMIN_MODULE_MAP, getAllowedSubAdminModules } from "@/lib/rbac";
 
 const ROLE_ROUTES: Record<string, string[]> = {
   "/parent": ["PARENT"],
@@ -142,8 +142,7 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
     }
 
     if (session.user.role === "SUB_ADMIN" && pathname.startsWith("/admin")) {
-      const subRole = (session.user as { subAdminRole?: string | null }).subAdminRole ?? "";
-      const allowedModules = SUB_ADMIN_MODULE_MAP[subRole] ?? [];
+      const allowedModules = getAllowedSubAdminModules(session.user as any);
       const isAllowed = allowedModules.some(
         (mod) => pathname === mod || pathname.startsWith(mod + "/")
       );

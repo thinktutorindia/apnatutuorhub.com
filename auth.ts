@@ -186,7 +186,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const dbUser = await prisma.user.findUnique({
           where: { id: targetUserId },
           // Only load the absolute minimum into the token — never include PII
-          select: { id: true, role: true, subAdminRole: true, isActive: true },
+          select: { id: true, role: true, subAdminRole: true, customPermissions: true, isActive: true },
         });
 
         if (!dbUser || !dbUser.isActive) {
@@ -198,6 +198,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = dbUser.id;
         token.role = dbUser.role;
         token.subAdminRole = dbUser.subAdminRole ?? null;
+        token.customPermissions = dbUser.customPermissions ?? [];
         token.isActive = dbUser.isActive;
         // Note: email/name/image are NOT stored in JWT to minimise exposure
         // They are resolved from the session.user object when needed
@@ -220,6 +221,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.id = token.id as string;
       session.user.role = token.role as string;
       session.user.subAdminRole = (token.subAdminRole as string | null) ?? null;
+      session.user.customPermissions = (token.customPermissions as string[]) ?? [];
       session.user.isActive = token.isActive as boolean;
       // session.user.name and session.user.email are already in the JWT sub/name claims
       // We do NOT forward the raw JWT string to the browser

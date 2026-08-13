@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { getAllowedSubAdminModules } from "@/lib/rbac";
 
 const ALL_NAV_ITEMS = [
   { label: "Dashboard",        href: "/admin/dashboard",                      icon: LayoutGrid,        roles: null, iconColor: "text-blue-400" },
@@ -41,6 +42,7 @@ const ALL_NAV_ITEMS = [
   { label: "Platform Settings", href: "/admin/settings",                      icon: SlidersHorizontal, roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-slate-400" },
   { label: "Audit Logs",       href: "/admin/audit-logs",                     icon: History,           roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"], iconColor: "text-purple-400" },
   { label: "Sub-Admins",       href: "/admin/sub-admins",                      icon: UserCog,           roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
+  { label: "Staff Analytics",  href: "/admin/sub-admins/analytics",           icon: TrendingUp,        roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
 ] as const;
 
 const SUB_ADMIN_ROLE_LABELS: Record<string, { label: string; color: string }> = {
@@ -56,19 +58,24 @@ interface AdminSidebarProps {
   userName: string;
   userRole?: string;
   subAdminRole?: string | null;
+  customPermissions?: string[] | null;
 }
 
-export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole }: AdminSidebarProps) {
+export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole, customPermissions }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const effectiveRole = userRole === "SUB_ADMIN" ? (subAdminRole ?? "") : userRole;
   const roleLabel = SUB_ADMIN_ROLE_LABELS[effectiveRole] ?? { label: effectiveRole.toLowerCase(), color: "#34D399" };
 
+  const allowedModules = userRole === "SUB_ADMIN" 
+    ? getAllowedSubAdminModules({ role: userRole, subAdminRole, customPermissions })
+    : [];
+
   const visibleNavItems = ALL_NAV_ITEMS.filter(({ roles, href }) => {
     if (href === "/admin/dashboard") return true;
-    if (roles === null) return true;
-    return (roles as readonly string[]).includes(effectiveRole);
+    if (userRole === "SUPER_ADMIN") return true;
+    return allowedModules.some((mod) => href === mod || href.startsWith(mod + "/"));
   });
 
   const sidebarContent = (

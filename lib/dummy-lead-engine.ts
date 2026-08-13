@@ -48,18 +48,28 @@ export const GEO_LOCALITIES: GeoLocality[] = [
   { name: "Lajpat Nagar",       city: "Delhi", lat: 28.5668, lng: 77.2432 },
   { name: "Nehru Place",        city: "Delhi", lat: 28.5491, lng: 77.2519 },
   { name: "Pul Prahladpur",     city: "Delhi", lat: 28.5297, lng: 77.2680 },
+  { name: "Uttam Nagar",        city: "Delhi", lat: 28.6217, lng: 77.0556 },
+  { name: "Uttam Nagar West",   city: "Delhi", lat: 28.6210, lng: 77.0520 },
+  { name: "Uttam Nagar East",   city: "Delhi", lat: 28.6230, lng: 77.0580 },
+  { name: "Nawada",             city: "Delhi", lat: 28.6200, lng: 77.0420 },
+  { name: "Dwarka Mor",         city: "Delhi", lat: 28.6190, lng: 77.0320 },
+  { name: "Janakpuri",          city: "Delhi", lat: 28.6180, lng: 77.0827 },
+  { name: "Vikaspuri",          city: "Delhi", lat: 28.6360, lng: 77.0720 },
+  { name: "Tilak Nagar",        city: "Delhi", lat: 28.6366, lng: 77.0962 },
+  { name: "Subhash Nagar",      city: "Delhi", lat: 28.6402, lng: 77.1047 },
+  { name: "Rajouri Garden",     city: "Delhi", lat: 28.6446, lng: 77.1237 },
+  { name: "Paschim Vihar",      city: "Delhi", lat: 28.6680, lng: 77.1069 },
   { name: "Dwarka Sector 10",   city: "Delhi", lat: 28.5838, lng: 77.0476 },
   { name: "Dwarka Sector 7",    city: "Delhi", lat: 28.5872, lng: 77.0612 },
-  { name: "Janakpuri",          city: "Delhi", lat: 28.6180, lng: 77.0827 },
-  { name: "Rajouri Garden",     city: "Delhi", lat: 28.6446, lng: 77.1237 },
   { name: "Pitampura",          city: "Delhi", lat: 28.7053, lng: 77.1317 },
+  { name: "Rohini Sector 7",    city: "Delhi", lat: 28.7120, lng: 77.1200 },
   { name: "Rohini Sector 9",    city: "Delhi", lat: 28.7197, lng: 77.1109 },
+  { name: "Prashant Vihar",     city: "Delhi", lat: 28.7150, lng: 77.1350 },
   { name: "Karol Bagh",         city: "Delhi", lat: 28.6514, lng: 77.1907 },
   { name: "Preet Vihar",        city: "Delhi", lat: 28.6452, lng: 77.2967 },
+  { name: "Laxmi Nagar",        city: "Delhi", lat: 28.6304, lng: 77.2777 },
   { name: "Shahdara",           city: "Delhi", lat: 28.6728, lng: 77.2899 },
-  { name: "Uttam Nagar",        city: "Delhi", lat: 28.6217, lng: 77.0556 },
   { name: "Vasant Kunj",        city: "Delhi", lat: 28.5212, lng: 77.1558 },
-  { name: "Paschim Vihar",      city: "Delhi", lat: 28.6680, lng: 77.1069 },
 
   // ── MUMBAI ─────────────────────────────────────────────────────────────────
   { name: "Andheri West",       city: "Mumbai", lat: 19.1197, lng: 72.8464 },
@@ -180,33 +190,48 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 // ─── Get nearest localities for a tutor (sorted by distance) ─────────────────
 
 export function getNearestLocalities(
-  tutorLat: number,
-  tutorLng: number,
-  tutorCity: string,
+  tutorLat?: number | null,
+  tutorLng?: number | null,
+  tutorCity = "Delhi",
   radiusKm = 25,
-  maxResults = 15
+  maxResults = 15,
+  tutorAddress = ""
 ): GeoLocality[] {
+  let lat = tutorLat;
+  let lng = tutorLng;
+
+  if ((!lat || !lng) && tutorAddress) {
+    const matched = GEO_LOCALITIES.find(
+      (l) => tutorAddress.toLowerCase().includes(l.name.toLowerCase())
+    );
+    if (matched) {
+      lat = matched.lat;
+      lng = matched.lng;
+    }
+  }
+
   // Find city match
   const cityKey = Object.keys(
     GEO_LOCALITIES.reduce((acc, l) => { acc[l.city] = true; return acc; }, {} as Record<string, boolean>)
   ).find((c) => tutorCity.toLowerCase().includes(c.toLowerCase())) ?? "";
 
-  // Filter to same city first, then by radius
+  // Filter to same city first
   const cityLocalities = cityKey
     ? GEO_LOCALITIES.filter((l) => l.city === cityKey)
     : GEO_LOCALITIES;
 
-  const withDistance = cityLocalities
-    .map((l) => ({ ...l, dist: haversine(tutorLat, tutorLng, l.lat, l.lng) }))
-    .filter((l) => l.dist <= radiusKm)
-    .sort((a, b) => a.dist - b.dist);
+  if (lat && lng) {
+    const withDistance = cityLocalities
+      .map((l) => ({ ...l, dist: haversine(lat!, lng!, l.lat, l.lng) }))
+      .filter((l) => l.dist <= radiusKm)
+      .sort((a, b) => a.dist - b.dist);
 
-  // If there are localities strictly within the tutor's radius, use them exclusively
-  const pool = withDistance.length > 0 ? withDistance : cityLocalities
-    .map((l) => ({ ...l, dist: haversine(tutorLat, tutorLng, l.lat, l.lng) }))
-    .sort((a, b) => a.dist - b.dist);
+    if (withDistance.length > 0) {
+      return withDistance.slice(0, maxResults);
+    }
+  }
 
-  return pool.slice(0, maxResults);
+  return cityLocalities.slice(0, maxResults);
 }
 
 // ─── Pick locality for a specific day (rotates daily) ────────────────────────
@@ -299,6 +324,7 @@ export function generateDummyLead(opts: {
     tutorLat,
     tutorLng,
     tutorCity,
+    tutorAddress = "",
     tutorSubjects = [],
     tutorClassLevels = [],
     teachingRadius = 25,
@@ -310,28 +336,17 @@ export function generateDummyLead(opts: {
 
   const rng = seededRandom(Math.floor(Date.now() / 86400000) * 1000 + userSeed);
 
-  // Resolve locality (geo-based if coords available, city-based fallback)
+  // Resolve locality (geo-based or address-based matching strictly in radius)
   let locality = "Nearby Area";
   let city = tutorCity || "Delhi";
   let distanceKm: number | undefined;
 
-  if (tutorLat && tutorLng) {
-    const nearest = getNearestLocalities(tutorLat, tutorLng, city, teachingRadius);
-    if (nearest.length > 0) {
-      const picked = pickLocalityForToday(nearest, userSeed);
-      locality = picked.name;
-      city = picked.city;
-      distanceKm = Math.round((picked as any).dist ?? 0);
-    }
-  } else {
-    // Fallback: city pool
-    const cityLocalities = GEO_LOCALITIES.filter(
-      (l) => l.city.toLowerCase() === city.toLowerCase()
-    );
-    if (cityLocalities.length > 0) {
-      const picked = pickLocalityForToday(cityLocalities, userSeed);
-      locality = picked.name;
-    }
+  const nearest = getNearestLocalities(tutorLat, tutorLng, city, teachingRadius, 15, tutorAddress);
+  if (nearest.length > 0) {
+    const picked = pickLocalityForToday(nearest, userSeed);
+    locality = picked.name;
+    city = picked.city;
+    distanceKm = Math.round((picked as any).dist ?? 0);
   }
 
   // Subjects
@@ -522,6 +537,7 @@ export async function resolveCampaignTargets(campaign: {
       tutorProfile: {
         select: {
           city: true,
+          address: true,
           subjects: true,
           classLevels: true,
           latitude: true,
@@ -571,6 +587,7 @@ export async function runCampaignPass(campaignId: string): Promise<{
         tutorLat: user.tutorProfile?.latitude,
         tutorLng: user.tutorProfile?.longitude,
         tutorCity: user.tutorProfile?.city,
+        tutorAddress: user.tutorProfile?.address ?? "",
         tutorSubjects: user.tutorProfile?.subjects ?? [],
         tutorClassLevels: user.tutorProfile?.classLevels ?? [],
         teachingRadius: user.tutorProfile?.teachingRadius ?? 25,

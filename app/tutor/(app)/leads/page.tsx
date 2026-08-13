@@ -287,7 +287,7 @@ export default async function TutorLeadsPage({
         walletBalance={walletBalance}
         tutorSubjects={tutorProfile.subjects}
         claimedBannerInfo={
-          isClaimedParam
+          isClaimedParam || Boolean(localityParam)
             ? { claimed: true, locality: localityParam, subjects: subjectsParam }
             : null
         }

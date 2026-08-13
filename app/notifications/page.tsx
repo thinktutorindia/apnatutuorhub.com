@@ -17,7 +17,16 @@ function timeAgo(date: Date): string {
 }
 
 function getHistoryTargetUrl(n: { actionUrl: string | null; title: string; message: string }): string {
-  if (n.actionUrl && n.actionUrl.trim()) return n.actionUrl.trim();
+  if (n.actionUrl && n.actionUrl.trim()) {
+    const raw = n.actionUrl.trim();
+    if (raw.includes("claimed=true")) return raw;
+    if (raw === "/tutor/leads" || raw.startsWith("/tutor/leads?")) {
+      const match = n.title.match(/Near\s+([^!.\n]+)/i);
+      const loc = match && match[1] ? match[1].trim() : "";
+      return `/tutor/leads?claimed=true${loc ? `&locality=${encodeURIComponent(loc)}` : ""}`;
+    }
+    return raw;
+  }
 
   const titleLower = n.title.toLowerCase();
   const msgLower = n.message.toLowerCase();

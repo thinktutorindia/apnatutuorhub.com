@@ -1464,3 +1464,229 @@ export async function sendAdminCustomNotificationAction(data: {
   revalidatePath("/notifications");
   return actionSuccess({ id: notif.id });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin Bulk User Governance & Top-Up Control Actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface UserGovernanceFilterInput {
+  q?: string;
+  ageGroup?: "ALL" | "NEW" | "OLD";
+  kycStatus?: "ALL" | "VERIFIED" | "UNVERIFIED" | "PENDING";
+  plan?: "ALL" | "NONE" | "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
+  role?: "ALL" | "TUTOR" | "PARENT";
+  topupStatus?: "ALL" | "ENABLED" | "DISABLED";
+  page?: number;
+  take?: number;
+}
+
+export async function adminFetchFilteredUsersForGovernanceAction(
+  filters: UserGovernanceFilterInput
+): Promise<
+  ActionResult<{
+    users: Array<{
+      id: string;
+      name: string | null;
+      email: string;
+      phone: string | null;
+      role: string;
+      createdAt: string;
+      isVerified: boolean;
+      kycStatus: string;
+      subscriptionPlan: string;
+      canTopup: boolean;
+      isOldUser: boolean;
+      walletBalance: number;
+    }>;
+    total: number;
+  }>
+> {
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN")) {
+    return actionError("Unauthorized: Admin access required.");
+  }
+
+  const q = filters.q?.trim() ?? "";
+  const page = Math.max(1, filters.page ?? 1);
+  const take = Math.min(100, Math.max(5, filters.take ?? 20));
+  const skip = (page - 1) * take;
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const andConditions: any[] = [];
+
+  if (q) {
+    andConditions.push({
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  if (filters.role && filters.role !== "ALL") {
+    andConditions.push({ role: filters.role });
+  }
+
+  if (filters.ageGroup && filters.ageGroup !== "ALL") {
+    if (filters.ageGroup === "NEW") {
+      andConditions.push({ createdAt: { gte: thirtyDaysAgo } });
+    } else if (filters.ageGroup === "OLD") {
+      andConditions.push({
+        OR: [
+          { createdAt: { lt: thirtyDaysAgo } },
+          { tutorProfile: { isOldUser: true } },
+        ],
+      });
+    }
+  }
+
+  if (filters.kycStatus && filters.kycStatus !== "ALL") {
+    if (filters.kycStatus === "VERIFIED") {
+      andConditions.push({ tutorProfile: { isVerified: true } });
+    } else if (filters.kycStatus === "UNVERIFIED") {
+      andConditions.push({ tutorProfile: { isVerified: false } });
+    } else if (filters.kycStatus === "PENDING") {
+      andConditions.push({ tutorProfile: { kycStatus: "PENDING" } });
+    }
+  }
+
+  if (filters.plan && filters.plan !== "ALL") {
+    andConditions.push({ tutorProfile: { subscriptionPlan: filters.plan } });
+  }
+
+  if (filters.topupStatus && filters.topupStatus !== "ALL") {
+    if (filters.topupStatus === "ENABLED") {
+      andConditions.push({ tutorProfile: { canTopup: true } });
+    } else if (filters.topupStatus === "DISABLED") {
+      andConditions.push({ tutorProfile: { canTopup: false } });
+    }
+  }
+
+  const where = andConditions.length > 0 ? { AND: andConditions } : {};
+
+  const [rawUsers, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        createdAt: true,
+        tutorProfile: {
+          select: {
+            isVerified: true,
+            kycStatus: true,
+            subscriptionPlan: true,
+            canTopup: true,
+            isOldUser: true,
+            wallet: { select: { balance: true } },
+          },
+        },
+      },
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  const users = rawUsers.map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    role: u.role,
+    createdAt: u.createdAt.toISOString(),
+    isVerified: u.tutorProfile?.isVerified ?? false,
+    kycStatus: u.tutorProfile?.kycStatus ?? "NOT_SUBMITTED",
+    subscriptionPlan: u.tutorProfile?.subscriptionPlan ?? "NONE",
+    canTopup: u.tutorProfile?.canTopup ?? true,
+    isOldUser: u.tutorProfile?.isOldUser ?? false,
+    walletBalance: u.tutorProfile?.wallet?.balance ?? 0,
+  }));
+
+  return actionSuccess({ users, total });
+}
+
+export async function adminBulkUserGovernanceAction(data: {
+  userIds: string[];
+  actionType: "ENABLE_TOPUP" | "DISABLE_TOPUP" | "MARK_OLD_USER" | "MARK_NEW_USER" | "GRANT_COINS";
+  coinsAmount?: number;
+  reason?: string;
+}): Promise<ActionResult<{ affectedCount: number }>> {
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN")) {
+    return actionError("Unauthorized: Admin access required.");
+  }
+
+  if (!data.userIds || data.userIds.length === 0) {
+    return actionError("No users selected for bulk action.");
+  }
+
+  let affectedCount = 0;
+
+  if (data.actionType === "ENABLE_TOPUP") {
+    const res = await prisma.tutorProfile.updateMany({
+      where: { userId: { in: data.userIds } },
+      data: { canTopup: true },
+    });
+    affectedCount = res.count;
+  } else if (data.actionType === "DISABLE_TOPUP") {
+    const res = await prisma.tutorProfile.updateMany({
+      where: { userId: { in: data.userIds } },
+      data: { canTopup: false },
+    });
+    affectedCount = res.count;
+  } else if (data.actionType === "MARK_OLD_USER") {
+    const res = await prisma.tutorProfile.updateMany({
+      where: { userId: { in: data.userIds } },
+      data: { isOldUser: true, canTopup: true },
+    });
+    affectedCount = res.count;
+  } else if (data.actionType === "MARK_NEW_USER") {
+    const res = await prisma.tutorProfile.updateMany({
+      where: { userId: { in: data.userIds } },
+      data: { isOldUser: false, canTopup: false },
+    });
+    affectedCount = res.count;
+  } else if (data.actionType === "GRANT_COINS") {
+    const coins = data.coinsAmount ?? 50;
+    if (coins <= 0) return actionError("Coins amount must be greater than 0.");
+
+    const tutors = await prisma.tutorProfile.findMany({
+      where: { userId: { in: data.userIds } },
+      select: { id: true, userId: true, wallet: { select: { id: true, balance: true } } },
+    });
+
+    for (const tutor of tutors) {
+      if (tutor.wallet) {
+        const newBalance = tutor.wallet.balance + coins;
+        await prisma.$transaction([
+          prisma.wallet.update({
+            where: { id: tutor.wallet.id },
+            data: { balance: { increment: coins }, totalPurchased: { increment: coins } },
+          }),
+          prisma.walletTransaction.create({
+            data: {
+              walletId: tutor.wallet.id,
+              type: "ADMIN_CREDIT",
+              amount: coins,
+              balanceAfter: newBalance,
+              description: data.reason || `Bulk Admin Bonus (+${coins} coins)`,
+            },
+          }),
+        ]);
+        affectedCount++;
+      }
+    }
+  }
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/wallets");
+
+  return actionSuccess({ affectedCount });
+}

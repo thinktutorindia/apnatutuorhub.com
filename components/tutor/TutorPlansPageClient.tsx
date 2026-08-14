@@ -344,7 +344,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                     <Check size={11} />
                   </div>
-                  <span>30 Student Leads / month</span>
+                  <span>30 Student Leads / month (360/yr)</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
@@ -363,6 +363,12 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                     <Check size={11} />
                   </div>
                   <span>Verified Tutor Badge</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span><strong>Priority Feed (+1,500 Ranking Boost)</strong></span>
                 </li>
               </ul>
             </div>
@@ -414,25 +420,43 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
-                  <span>40 Student Leads / month</span>
+                  <span>40 Student Leads / month (480/yr)</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
-                  <span>High Priority Candidate Feed</span>
+                  <span>High Priority Feed (+3,000 Ranking Boost)</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
-                  <span>Instant WhatsApp Alerts</span>
+                  <span>Instant WhatsApp Notifications</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
-                  <span>Highlighted Profile Badge</span>
+                  <span>Expanded Matching Radius (up to 25 km)</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span><strong>⭐ Featured Search &amp; Homepage Placement</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span>Highlighted Gold Profile Badge</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span><strong>🪙 +50 Free Bonus Wallet Coins</strong></span>
                 </li>
               </ul>
             </div>
@@ -497,7 +521,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
-                  <span><strong>🥇 First Priority Lead Delivery</strong></span>
+                  <span><strong>🥇 First Priority Access (+10,000 Boost)</strong></span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
@@ -509,7 +533,37 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
-                  <span>Dedicated Support Manager</span>
+                  <span>Top #1 Position on Search &amp; Recommendations</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span><strong>🌐 Unlimited City-wide &amp; Online Radius</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span>Dedicated Relationship Manager &amp; Support</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span><strong>⭐ 1-on-1 Profile &amp; Bio Optimization</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span><strong>🪙 +100 Free Bonus Wallet Coins</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                    <Check size={11} />
+                  </div>
+                  <span><strong>📞 24/7 VIP Phone &amp; WhatsApp Helpline</strong></span>
                 </li>
               </ul>
             </div>
@@ -560,9 +614,16 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Client Lead Priority</td>
                   <td className="py-3.5 px-4 text-center text-slate-500">Standard</td>
-                  <td className="py-3.5 px-4 text-center text-slate-500">Standard</td>
-                  <td className="py-3.5 px-4 text-center font-bold text-amber-700 bg-yellow-50/30">High Priority</td>
-                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">🥇 1st Priority (#1 Rank)</td>
+                  <td className="py-3.5 px-4 text-center text-slate-500">+1,500 Boost</td>
+                  <td className="py-3.5 px-4 text-center font-bold text-amber-700 bg-yellow-50/30">High (+3,000 Boost)</td>
+                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">🥇 1st Priority (+10,000 Boost)</td>
+                </tr>
+                <tr>
+                  <td className="py-3.5 px-4 font-bold text-slate-900">Matching Radius</td>
+                  <td className="py-3.5 px-4 text-center font-bold text-slate-700">10 km</td>
+                  <td className="py-3.5 px-4 text-center font-bold text-slate-700">15 km</td>
+                  <td className="py-3.5 px-4 text-center font-bold text-amber-800 bg-yellow-50/30">25 km</td>
+                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">🌐 Unlimited City &amp; Online</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Parent Phone &amp; Address</td>
@@ -579,7 +640,21 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <td className="py-3.5 px-4 text-center bg-purple-50/30"><Check size={16} className="mx-auto text-purple-600 font-bold" /></td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Dedicated Support Manager</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-900">⭐ Featured Search &amp; Homepage</td>
+                  <td className="py-3.5 px-4 text-center text-slate-300">—</td>
+                  <td className="py-3.5 px-4 text-center text-slate-300">—</td>
+                  <td className="py-3.5 px-4 text-center bg-yellow-50/30"><Check size={16} className="mx-auto text-amber-600 font-bold" /></td>
+                  <td className="py-3.5 px-4 text-center bg-purple-50/30"><Check size={16} className="mx-auto text-purple-600 font-bold" /></td>
+                </tr>
+                <tr>
+                  <td className="py-3.5 px-4 font-bold text-slate-900">🪙 Free Bonus Wallet Coins</td>
+                  <td className="py-3.5 px-4 text-center text-slate-300">—</td>
+                  <td className="py-3.5 px-4 text-center text-slate-300">—</td>
+                  <td className="py-3.5 px-4 text-center font-black text-amber-700 bg-yellow-50/30">+50 Coins</td>
+                  <td className="py-3.5 px-4 text-center font-black text-purple-700 bg-purple-50/30">+100 Coins</td>
+                </tr>
+                <tr>
+                  <td className="py-3.5 px-4 font-bold text-slate-900">Dedicated Support &amp; VIP Helpline</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center text-slate-300 bg-yellow-50/30">—</td>

@@ -52,11 +52,15 @@ export async function createCoinOrderAction(
 
   const tutorProfile = await prisma.tutorProfile.findUnique({
     where: { userId: session.user.id },
-    select: { id: true },
+    select: { id: true, canTopup: true },
   });
 
   if (!tutorProfile) {
     return actionError("Tutor profile not found.");
+  }
+
+  if (!tutorProfile.canTopup) {
+    return actionError("Coin top-up is restricted for your account. Please upgrade to an annual membership plan.");
   }
 
   let finalPricePaise: number = pkg.priceInPaise;

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Wallet, ArrowUpRight, ArrowDownLeft, RotateCcw, Gift, ShieldCheck, Plus } from "lucide-react";
+import Link from "next/link";
+import { Wallet, ArrowUpRight, ArrowDownLeft, RotateCcw, Gift, ShieldCheck, Plus, Sparkles } from "lucide-react";
 import type { WalletTransactionType } from "@prisma/client";
 import { TopUpModal } from "@/components/wallet/TopUpModal";
 
@@ -86,6 +87,8 @@ export function WalletPageClient({
   transactions,
   userEmail,
   userName,
+  canTopup = true,
+  isOldUser = false,
 }: {
   balance: number;
   totalPurchased: number;
@@ -93,6 +96,8 @@ export function WalletPageClient({
   transactions: Transaction[];
   userEmail: string;
   userName: string;
+  canTopup?: boolean;
+  isOldUser?: boolean;
 }) {
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [filter, setFilter] = useState<WalletTransactionType | "ALL">("ALL");
@@ -115,6 +120,27 @@ export function WalletPageClient({
   return (
     <>
       <div className="space-y-6 pb-8">
+        {/* Top-up restriction banner if disabled */}
+        {!canTopup && (
+          <div className="p-4 rounded-3xl bg-amber-50 border border-amber-300 text-amber-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-base">⚠️</span>
+              <div>
+                <p className="font-black text-amber-950">Coin Top-Up Restricted for New Accounts</p>
+                <p className="text-amber-800 font-bold">
+                  Direct coin top-up is available for existing tutors &amp; active annual plan members. Upgrade to a plan for monthly lead quotas!
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/tutor/plans"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 !text-white font-extrabold shrink-0 shadow-sm transition-all"
+            >
+              View Membership Plans →
+            </Link>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl border border-gray-200/90 shadow-xs">
           <div>
@@ -128,14 +154,25 @@ export function WalletPageClient({
               Use coins to connect with interested parents and unlock direct tuition enquiries.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setTopUpOpen(true)}
-            className="btn-shine px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 shrink-0 flex items-center gap-2 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer"
-          >
-            <Plus size={16} />
-            <span className="!text-white font-800">Top Up Coins</span>
-          </button>
+
+          {canTopup ? (
+            <button
+              type="button"
+              onClick={() => setTopUpOpen(true)}
+              className="btn-shine px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 shrink-0 flex items-center gap-2 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer"
+            >
+              <Plus size={16} />
+              <span className="!text-white font-800">Top Up Coins</span>
+            </button>
+          ) : (
+            <Link
+              href="/tutor/plans"
+              className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 !text-white text-xs font-800 shrink-0 flex items-center gap-2 shadow-md transition-all"
+            >
+              <Sparkles size={15} />
+              <span>Upgrade Plan to Unlock Top-up</span>
+            </Link>
+          )}
         </div>
 
         {/* Balance Card + Stats */}
@@ -153,14 +190,23 @@ export function WalletPageClient({
                 {liveBalance} <span className="text-2xl font-700 text-amber-600">Coins</span>
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setTopUpOpen(true)}
-              className="btn-shine w-full py-2.5 px-4 rounded-xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center justify-center gap-1.5 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md cursor-pointer mt-1"
-            >
-              <Plus size={14} />
-              <span className="!text-white font-800">Buy Coins Now</span>
-            </button>
+            {canTopup ? (
+              <button
+                type="button"
+                onClick={() => setTopUpOpen(true)}
+                className="btn-shine w-full py-2.5 px-4 rounded-xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center justify-center gap-1.5 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md cursor-pointer mt-1"
+              >
+                <Plus size={14} />
+                <span className="!text-white font-800">Buy Coins Now</span>
+              </button>
+            ) : (
+              <Link
+                href="/tutor/plans"
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 !text-white text-xs font-800 flex items-center justify-center gap-1.5 transition-all shadow-md mt-1"
+              >
+                <span>Explore Membership Plans</span>
+              </Link>
+            )}
           </div>
 
           {/* Total Purchased */}

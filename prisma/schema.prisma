@@ -294,6 +294,8 @@ model TutorProfile {
   leadsUsedThisMonth Int        @default(0)
   leadsResetAt     DateTime?
   marketingNotifsEnabled Boolean @default(true)
+  canTopup            Boolean  @default(true)
+  isOldUser           Boolean  @default(false)
 
   // ── Onboarding Wizard Fields ────────────────────────────────────────────────
   onboardingStep      Int      @default(0)     // 0=not started, 1-7=step completed, 7=all done

@@ -5,6 +5,7 @@ import { Coins, TrendingUp, TrendingDown, Search, RotateCcw, Check, X } from "lu
 import { adminCreditCoinsAction, adminDebitCoinsAction, approveRefundAction, rejectRefundAction } from "@/app/actions/admin.actions";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportPaymentsCsv } from "@/app/actions/analytics.actions";
+import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Wallet Management — Admin" };
@@ -139,6 +140,9 @@ export default async function AdminWalletsPage({
           </p>
         </div>
       </div>
+
+      {/* Bulk Governance & Top-Up Access Control Panel */}
+      <AdminBulkUserTopupControl />
 
       {/* Pending Refunds Box */}
       {pendingRefunds.length > 0 && (

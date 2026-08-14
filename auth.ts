@@ -99,7 +99,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           response_type: "code",
         },
       },
-      allowDangerousEmailAccountLinking: true,
     }),
 
     Credentials({
@@ -240,9 +239,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { isActive: true },
+          select: { email: true, isActive: true },
         });
-        if (dbUser && !dbUser.isActive) return false;
+        if (dbUser) {
+          if (!dbUser.isActive) return false;
+          // Security Guard: Prevent account linking if OAuth email does not match DB user email
+          if (user.email && dbUser.email.toLowerCase() !== user.email.toLowerCase()) {
+            console.error(`[OAuth Guard] Mismatched OAuth email (${user.email}) for DB user (${dbUser.email})`);
+            return false;
+          }
+        }
       }
       return true;
     },

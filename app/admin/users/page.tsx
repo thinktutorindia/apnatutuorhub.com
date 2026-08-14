@@ -16,6 +16,7 @@ import { UserFilterBar } from "@/components/admin/UserFilterBar";
 import { CreateUserModal } from "@/components/admin/CreateUserModal";
 import { UserAvatar } from "@/components/admin/UserAvatar";
 import { resolveDocViewUrl } from "@/lib/s3";
+import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "User Management — Admin" };
@@ -142,6 +143,9 @@ export default async function AdminUsersPage({
         initialRole={roleFilter}
         initialStatus={statusFilter}
       />
+
+      {/* Bulk Governance & Top-Up Control Panel */}
+      <AdminBulkUserTopupControl />
 
       {/* Table */}
       <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs">

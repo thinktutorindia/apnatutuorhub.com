@@ -12,6 +12,8 @@ export default async function TutorWalletPage() {
   const tutorProfile = await prisma.tutorProfile.findUnique({
     where: { userId: session.user.id },
     select: {
+      canTopup: true,
+      isOldUser: true,
       wallet: {
         select: {
           balance: true,
@@ -50,6 +52,8 @@ export default async function TutorWalletPage() {
       }
       userEmail={session.user.email ?? ""}
       userName={session.user.name ?? "Tutor"}
+      canTopup={tutorProfile?.canTopup ?? true}
+      isOldUser={tutorProfile?.isOldUser ?? false}
     />
   );
 }

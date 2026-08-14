@@ -129,7 +129,7 @@ export default function RegisterPage() {
               <span>Need help registering? Contact Tutor Support</span>
             </div>
             <a
-              href="https://wa.me/919911699699?text=Hi!%20I'm%20a%20tutor%20inquiring%20about%20registration%20on%20ApnaTutorHub"
+              href="https://wa.me/917703801849?text=Hi!%20I'm%20a%20tutor%20inquiring%20about%20registration%20on%20ApnaTutorHub"
               target="_blank"
               rel="noopener noreferrer"
               className="px-3 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white font-800 shrink-0 transition-transform hover:scale-105"

@@ -8,12 +8,13 @@ interface Props {
   onNext: (data: { gender: string; teachingStartYear: number }) => void;
   onBack: () => void;
   isLoading: boolean;
+  isAdminMode?: boolean;
 }
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: currentYear - 1979 }, (_, i) => currentYear - i);
 
-export function Step2GenderYear({ formData, onNext, onBack, isLoading }: Props) {
+export function Step2GenderYear({ formData, onNext, onBack, isLoading, isAdminMode = false }: Props) {
   const [gender, setGender] = useState(formData.gender || "");
   const [teachingStartYear, setTeachingStartYear] = useState<number>(
     formData.teachingStartYear || currentYear
@@ -27,12 +28,14 @@ export function Step2GenderYear({ formData, onNext, onBack, isLoading }: Props) 
   }
 
   function handleSubmit() {
-    const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
+    if (!isAdminMode) {
+      const errs = validate();
+      if (Object.keys(errs).length > 0) {
+        setErrors(errs);
+        return;
+      }
     }
-    onNext({ gender, teachingStartYear });
+    onNext({ gender: gender || "MALE", teachingStartYear });
   }
 
   const experience = currentYear - teachingStartYear;

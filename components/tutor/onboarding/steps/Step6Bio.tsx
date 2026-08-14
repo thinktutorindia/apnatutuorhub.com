@@ -8,6 +8,7 @@ interface Props {
   onNext: (data: { bio: string }) => void;
   onBack: () => void;
   isLoading: boolean;
+  isAdminMode?: boolean;
 }
 
 const BIO_PROMPTS = [
@@ -20,7 +21,7 @@ const BIO_PROMPTS = [
 
 const MIN_LENGTH = 100;
 
-export function Step6Bio({ formData, onNext, onBack, isLoading }: Props) {
+export function Step6Bio({ formData, onNext, onBack, isLoading, isAdminMode = false }: Props) {
   const [bio, setBio] = useState(formData.bio || "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const charCount = bio.trim().length;
@@ -32,8 +33,10 @@ export function Step6Bio({ formData, onNext, onBack, isLoading }: Props) {
   }
 
   function handleSubmit() {
-    const errs = validate();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (!isAdminMode) {
+      const errs = validate();
+      if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    }
     onNext({ bio });
   }
 

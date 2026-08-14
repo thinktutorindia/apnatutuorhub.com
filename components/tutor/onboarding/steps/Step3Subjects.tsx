@@ -8,6 +8,7 @@ interface Props {
   onNext: (data: { subjects: string[]; classLevels: string[]; teachingMode: string; teachingRadius: number }) => void;
   onBack: () => void;
   isLoading: boolean;
+  isAdminMode?: boolean;
 }
 
 export type CategoryNode = {
@@ -1317,7 +1318,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
   },
 ];
 
-export function Step3Subjects({ formData, onNext, onBack, isLoading }: Props) {
+export function Step3Subjects({ formData, onNext, onBack, isLoading, isAdminMode = false }: Props) {
   const [subjects, setSubjects] = useState<string[]>(formData.subjects || []);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1348,7 +1349,7 @@ export function Step3Subjects({ formData, onNext, onBack, isLoading }: Props) {
   }
 
   function handleSubmit() {
-    if (subjects.length === 0) {
+    if (!isAdminMode && subjects.length === 0) {
       setErrors({ subjects: "Please select at least one subject." });
       return;
     }

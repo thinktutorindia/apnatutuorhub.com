@@ -162,6 +162,7 @@ export function TutorOnboardingWizard({
       onNext: handleNext,
       onBack: handleBack,
       isLoading: isPending,
+      isAdminMode,
     };
     switch (currentStep) {
       case 1:

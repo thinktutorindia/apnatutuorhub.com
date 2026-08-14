@@ -32,6 +32,7 @@ interface Props {
   }) => void;
   onBack: () => void;
   isLoading: boolean;
+  isAdminMode?: boolean;
 }
 
 const INTEREST_OPTIONS = [
@@ -50,7 +51,7 @@ const REFERRAL_SOURCES = [
   "Other",
 ];
 
-export function Step5Preferences({ formData, onNext, onBack, isLoading }: Props) {
+export function Step5Preferences({ formData, onNext, onBack, isLoading, isAdminMode = false }: Props) {
   const [interestedIn, setInterestedIn] = useState<string[]>(formData.interestedIn || []);
   const [profession, setProfession] = useState(formData.profession || "");
   const [dateOfBirth, setDateOfBirth] = useState(formData.dateOfBirth || "");
@@ -70,10 +71,12 @@ export function Step5Preferences({ formData, onNext, onBack, isLoading }: Props)
   }
 
   function handleSubmit() {
-    const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
+    if (!isAdminMode) {
+      const errs = validate();
+      if (Object.keys(errs).length > 0) {
+        setErrors(errs);
+        return;
+      }
     }
     onNext({ interestedIn, profession, dateOfBirth, referralSource, maritalStatus });
   }

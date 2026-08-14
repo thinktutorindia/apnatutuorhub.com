@@ -194,6 +194,17 @@ export function OpenStreetMapPickerModal({
     };
   }, [isOpen]);
 
+  // Sync map center & reverse geocode address when initialLat / initialLon props change
+  useEffect(() => {
+    if (isOpen && mapInstanceRef.current && markerInstanceRef.current) {
+      setCurrentLat(initialLat);
+      setCurrentLon(initialLon);
+      mapInstanceRef.current.setView([initialLat, initialLon], 15);
+      markerInstanceRef.current.setLatLng([initialLat, initialLon]);
+      fetchAddressFromCoords(initialLat, initialLon);
+    }
+  }, [initialLat, initialLon, isOpen]);
+
   // GPS My Location in Modal
   const handleGPSDetect = () => {
     if (!navigator.geolocation) return;

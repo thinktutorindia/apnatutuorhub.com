@@ -162,12 +162,13 @@ export function InlineLocationMap({ lat, lon, onLocationChange }: InlineLocation
     };
   }, []);
 
-  // Sync map center when external lat/lon changes
+  // Sync map center & reverse geocode address banner when external lat/lon changes
   useEffect(() => {
     if (mapRef.current && markerRef.current) {
       mapRef.current.setView([lat, lon], 16);
       markerRef.current.setLatLng([lat, lon]);
       setCurrentCoords({ lat, lon });
+      reverseGeocode(lat, lon, false);
     }
   }, [lat, lon]);
 

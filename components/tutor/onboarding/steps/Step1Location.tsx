@@ -25,6 +25,7 @@ interface Props {
   onNext: (data: Partial<Props["formData"]>) => void;
   onBack?: () => void;
   isLoading: boolean;
+  isAdminMode?: boolean;
 }
 
 interface SearchResult {
@@ -37,7 +38,13 @@ interface SearchResult {
   area: string;
 }
 
-export function Step1Location({ formData, onNext, onBack, isLoading }: Props) {
+export function Step1Location({
+  formData,
+  onNext,
+  onBack,
+  isLoading,
+  isAdminMode = false,
+}: Props) {
   const [city, setCity] = useState(formData.city || "");
   const [state, setState] = useState(formData.state || "");
   const [pincode, setPincode] = useState(formData.pincode || "");
@@ -218,10 +225,12 @@ export function Step1Location({ formData, onNext, onBack, isLoading }: Props) {
   }
 
   function handleSubmit() {
-    const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
+    if (!isAdminMode) {
+      const errs = validate();
+      if (Object.keys(errs).length > 0) {
+        setErrors(errs);
+        return;
+      }
     }
     onNext({
       city: city || searchQuery.split(",")[0] || "Delhi",

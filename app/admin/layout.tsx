@@ -18,7 +18,8 @@ export default async function AdminLayout({
   return (
     <div className="flex min-h-screen lg:min-h-screen flex-col lg:flex-row bg-[#F8FAFC] text-slate-900">
       <AdminSidebar
-        userName={session.user.name || session.user.email || "Admin"}
+        userName={session.user.name || "Admin"}
+        userEmail={session.user.email ?? ""}
         userRole={session.user.role}
         subAdminRole={session.user.subAdminRole ?? null}
         customPermissions={session.user.customPermissions ?? null}

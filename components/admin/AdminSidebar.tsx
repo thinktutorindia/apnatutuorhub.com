@@ -59,12 +59,13 @@ const SUB_ADMIN_ROLE_LABELS: Record<string, { label: string; color: string }> = 
 
 interface AdminSidebarProps {
   userName: string;
+  userEmail?: string;
   userRole?: string;
   subAdminRole?: string | null;
   customPermissions?: string[] | null;
 }
 
-export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole, customPermissions }: AdminSidebarProps) {
+export function AdminSidebar({ userName, userEmail, userRole = "SUPER_ADMIN", subAdminRole, customPermissions }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -199,7 +200,12 @@ export function AdminSidebar({ userName, userRole = "SUPER_ADMIN", subAdminRole,
             <p className="truncate text-xs font-extrabold text-white">
               {userName}
             </p>
-            <span className="inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider mt-0.5 text-emerald-300 bg-emerald-500/20 border border-emerald-400/30">
+            {userEmail && (
+              <p className="truncate text-[11px] font-medium text-slate-400">
+                {userEmail}
+              </p>
+            )}
+            <span className="inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider mt-1 text-emerald-300 bg-emerald-500/20 border border-emerald-400/30">
               {roleLabel.label}
             </span>
           </div>

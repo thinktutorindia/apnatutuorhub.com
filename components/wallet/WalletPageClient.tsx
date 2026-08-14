@@ -394,7 +394,7 @@ export function WalletPageClient({
         </section>
       </div>
 
-      {topUpOpen && (
+      {topUpOpen && canTopup && (
         <TopUpModal
           userEmail={userEmail}
           userName={userName}

@@ -124,6 +124,25 @@ export function AdminBulkUserTopupControl() {
     });
   };
 
+  const handleSingleToggleTopup = (userId: string, targetCanTopup: boolean) => {
+    startTransition(async () => {
+      const res = await adminBulkUserGovernanceAction({
+        userIds: [userId],
+        actionType: targetCanTopup ? "ENABLE_TOPUP" : "DISABLE_TOPUP",
+      });
+
+      if (res.success) {
+        setStatusMessage({
+          type: "success",
+          text: `Top-Up access ${targetCanTopup ? "ENABLED" : "RESTRICTED"} for user!`,
+        });
+        fetchUsers();
+      } else {
+        setStatusMessage({ type: "error", text: res.error || "Action failed." });
+      }
+    });
+  };
+
   const totalPages = Math.ceil(total / 20);
 
   return (
@@ -437,15 +456,27 @@ export function AdminBulkUserTopupControl() {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       {u.canTopup ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-950 border border-emerald-300">
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => handleSingleToggleTopup(u.id, false)}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black bg-emerald-100 hover:bg-red-100 text-emerald-950 hover:text-red-950 border border-emerald-300 hover:border-red-300 transition-all cursor-pointer shadow-xs"
+                          title="Click to restrict top-up access"
+                        >
                           <CheckCircle2 size={12} className="text-emerald-600" />
-                          <span>Top-Up Allowed</span>
-                        </span>
+                          <span>Allowed (Click to Restrict)</span>
+                        </button>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-950 border border-amber-300">
-                          <XCircle size={12} className="text-amber-600" />
-                          <span>Restricted</span>
-                        </span>
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => handleSingleToggleTopup(u.id, true)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-600 text-amber-950 hover:text-white border border-amber-400 transition-all cursor-pointer shadow-md hover:scale-105"
+                          title="Click to enable top-up access for this user"
+                        >
+                          <Sparkles size={13} />
+                          <span>Enable Top-Up Access</span>
+                        </button>
                       )}
                     </td>
                   </tr>

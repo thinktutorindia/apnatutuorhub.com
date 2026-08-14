@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { getAllowedSubAdminModules } from "@/lib/rbac";
+import { AdminCommandPalette } from "@/components/admin/AdminCommandPalette";
 
 const ALL_NAV_ITEMS = [
   { label: "Dashboard",        href: "/admin/dashboard",                icon: LayoutGrid,        roles: null, iconColor: "text-blue-400" },
@@ -162,6 +163,11 @@ export function AdminSidebar({ userName, userEmail, userRole = "SUPER_ADMIN", su
         >
           <X size={20} />
         </button>
+      </div>
+
+      {/* Universal Search & Command Palette Bar */}
+      <div className="p-3 bg-[#0F172A] border-b border-slate-700/80">
+        <AdminCommandPalette />
       </div>
 
       {/* Navigation Links */}

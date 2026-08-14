@@ -8,6 +8,7 @@ import {
   reactivateUserAction,
   adminResetUserPasswordAction,
   adminDeleteUserAction,
+  adminToggleUserTopupAction,
 } from "@/app/actions/admin.actions";
 import { toggleTutorMarketingNotifsAction } from "@/app/actions/tutor.actions";
 
@@ -17,7 +18,7 @@ interface UserRowActionsProps {
     name: string | null;
     email: string;
     isActive: boolean;
-    tutorProfile?: { kycStatus: string; averageRating: number; marketingNotifsEnabled?: boolean } | null;
+    tutorProfile?: { kycStatus: string; averageRating: number; marketingNotifsEnabled?: boolean; canTopup?: boolean } | null;
   };
 }
 
@@ -70,6 +71,32 @@ export function UserRowActions({ user }: UserRowActionsProps) {
             variant="success"
             confirmTitle="Enable Marketing Notifications"
             confirmMessage={`Re-enable marketing and lead notifications for ${user.name || user.email}?`}
+          />
+        )
+      )}
+
+      {user.tutorProfile && (
+        user.tutorProfile.canTopup !== false ? (
+          <ActionButton
+            action={async () => {
+              await adminToggleUserTopupAction(user.id, false);
+            }}
+            label="🛑 Restrict TopUp"
+            loadingLabel="Disabling..."
+            variant="warning"
+            confirmTitle="Disable Top-Up Access"
+            confirmMessage={`Restrict coin top-up access for ${user.name || user.email}?`}
+          />
+        ) : (
+          <ActionButton
+            action={async () => {
+              await adminToggleUserTopupAction(user.id, true);
+            }}
+            label="🪙 Allow TopUp"
+            loadingLabel="Enabling..."
+            variant="success"
+            confirmTitle="Enable Top-Up Access"
+            confirmMessage={`Enable coin top-up access for ${user.name || user.email}?`}
           />
         )
       )}

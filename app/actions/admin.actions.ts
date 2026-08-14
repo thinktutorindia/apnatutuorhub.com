@@ -1690,3 +1690,22 @@ export async function adminBulkUserGovernanceAction(data: {
 
   return actionSuccess({ affectedCount });
 }
+
+export async function adminToggleUserTopupAction(
+  userId: string,
+  canTopup: boolean
+): Promise<ActionResult<{ success: boolean }>> {
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN")) {
+    return actionError("Unauthorized: Admin access required.");
+  }
+
+  await prisma.tutorProfile.updateMany({
+    where: { userId },
+    data: { canTopup },
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/wallets");
+  return actionSuccess({ success: true });
+}

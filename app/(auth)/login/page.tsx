@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useActionState } from "react";
+import React, { useActionState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { loginAction, type LoginFormState } from "@/app/actions/auth.actions";
@@ -15,7 +15,7 @@ const initialState: LoginFormState = {
   success: false,
 };
 
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
@@ -249,3 +249,12 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-lg p-8 text-center text-xs font-600 text-gray-500">Loading sign in page...</div>}>
+      <LoginFormContent />
+    </Suspense>
+  );
+}
+

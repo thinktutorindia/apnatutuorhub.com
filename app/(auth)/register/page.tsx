@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useActionState } from "react";
+import React, { useActionState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { registerAction, type RegisterFormState } from "@/app/actions/auth.actions";
@@ -15,7 +15,7 @@ import { LogoBrand } from "@/components/brand/Logo";
 
 const initialState: RegisterFormState = { success: false };
 
-export default function RegisterPage() {
+function RegisterFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role");
@@ -392,3 +392,12 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-lg p-8 text-center text-xs font-600 text-gray-500">Loading registration page...</div>}>
+      <RegisterFormContent />
+    </Suspense>
+  );
+}
+

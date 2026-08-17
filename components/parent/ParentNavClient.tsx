@@ -29,10 +29,11 @@ const BOTTOM_TABS = [
 interface ParentNavClientProps {
   userName: string;
   userEmail: string;
+  userImage?: string | null;
   unreadCount: number;
 }
 
-export function ParentNavClient({ userName, userEmail }: ParentNavClientProps) {
+export function ParentNavClient({ userName, userEmail, userImage }: ParentNavClientProps) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -113,9 +114,17 @@ export function ParentNavClient({ userName, userEmail }: ParentNavClientProps) {
 
             <div className="p-4 border-b border-slate-200 bg-slate-50/50">
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                <div className="w-10 h-10 rounded-xl bg-[#0F2540] text-white flex items-center justify-center shrink-0 font-800 text-sm shadow-xs">
-                  {(userName?.[0] ?? "P").toUpperCase()}
-                </div>
+                {userImage ? (
+                  <img
+                    src={userImage}
+                    alt={userName}
+                    className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-xs"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-[#0F2540] text-white flex items-center justify-center shrink-0 font-800 text-sm shadow-xs">
+                    {(userName?.[0] ?? "P").toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="text-xs font-800 text-[#0F2540] truncate">{userName || "Parent"}</p>
                   <p className="text-[11px] font-600 text-slate-500 truncate">{userEmail}</p>

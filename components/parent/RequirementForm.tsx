@@ -19,9 +19,9 @@ import { ActionOverlay } from "@/components/ui/LoadingState";
 import { OptionPills } from "@/components/ui/OptionPills";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import { LocationSearchInput, type LocationResult } from "@/components/ui/LocationSearchInput";
+import { getMediaUrl } from "@/lib/s3";
 import {
   BOARDS,
-  CLASS_LEVELS,
   LANGUAGE_PREFERENCES,
   TEACHING_MODES,
   TIMING_PREFERENCES,
@@ -30,11 +30,6 @@ import {
 import type { ParentStudent, RequirementFormValues } from "@/types/parent";
 
 const initialState: RequirementState = { success: false };
-
-const CLASS_LEVEL_OPTIONS = CLASS_LEVELS.map((level) => ({
-  value: level,
-  label: level,
-}));
 
 const MODE_OPTIONS = TEACHING_MODES.map((mode) => ({
   value: mode.value,
@@ -130,14 +125,53 @@ export function RequirementForm({
     }
     setGeoStatus("loading");
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
         setCoordinates({
-          latitude: position.coords.latitude.toFixed(6),
-          longitude: position.coords.longitude.toFixed(6),
+          latitude: lat.toFixed(6),
+          longitude: lon.toFixed(6),
         });
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address || {};
+            const detectedCity =
+              addr.city ||
+              addr.town ||
+              addr.suburb ||
+              addr.city_district ||
+              addr.county ||
+              addr.state_district ||
+              "";
+            const detectedPincode = addr.postcode || "";
+            const detectedArea =
+              addr.suburb ||
+              addr.neighbourhood ||
+              addr.residential ||
+              addr.road ||
+              "";
+
+            if (detectedCity && !city) setCity(detectedCity);
+            if (detectedArea && !area) setArea(detectedArea);
+            if (detectedPincode && !pincode) setPincode(detectedPincode);
+            if (data.display_name && !address) {
+              setAddress(data.display_name);
+            }
+          }
+        } catch (e) {
+          console.warn("Reverse geocode warning:", e);
+        }
+
         setGeoStatus("idle");
       },
-      () => setGeoStatus("error")
+      () => setGeoStatus("error"),
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
@@ -151,6 +185,7 @@ export function RequirementForm({
         subtitle={leadId ? "Saving updated tuition details..." : "Matching nearby verified tutors for your subject..."}
       />
       {leadId && <input type="hidden" name="leadId" value={leadId} />}
+      <input type="hidden" name="classLevel" value={classLevel} />
       <input type="hidden" name="latitude" value={coordinates.latitude} />
       <input type="hidden" name="longitude" value={coordinates.longitude} />
       {!isOnlineOnly && <input type="hidden" name="radiusKm" value={radiusKm} />}
@@ -190,21 +225,35 @@ export function RequirementForm({
             >
               Not linked
             </button>
-            {students.map((student) => (
-              <button
-                key={student.id}
-                type="button"
-                aria-pressed={studentProfileId === student.id}
-                onClick={() => applyStudent(student.id)}
-                className={`px-4 py-2 rounded-2xl text-xs font-800 transition-all cursor-pointer border ${
-                  studentProfileId === student.id
-                    ? "bg-[#0F2540] !text-white border-[#0F2540] shadow-xs"
-                    : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                {student.name} · {student.classLevel}
-              </button>
-            ))}
+            {students.map((student) => {
+              const isEmoji = student.image && student.image.length <= 4 && !student.image.startsWith("http");
+              return (
+                <button
+                  key={student.id}
+                  type="button"
+                  aria-pressed={studentProfileId === student.id}
+                  onClick={() => applyStudent(student.id)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-800 transition-all cursor-pointer border ${
+                    studentProfileId === student.id
+                      ? "bg-[#0F2540] !text-white border-[#0F2540] shadow-xs"
+                      : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {isEmoji ? (
+                    <span className="text-sm">{student.image}</span>
+                  ) : student.image ? (
+                    <img
+                      src={getMediaUrl(student.image)}
+                      alt={student.name}
+                      className="w-4 h-4 rounded-full object-cover shrink-0"
+                    />
+                  ) : (
+                    <span>👦</span>
+                  )}
+                  <span>{student.name} · {student.classLevel}</span>
+                </button>
+              );
+            })}
           </div>
           <input
             type="hidden"
@@ -215,35 +264,20 @@ export function RequirementForm({
         </SectionCard>
       )}
 
-      {/* 1. Subject & Class Track */}
+      {/* 1. Subjects Needed */}
       <SectionCard
         title="What does your child need help with?"
-        description="Pick up to 6 subjects and select the target class or exam track."
+        description="Pick up to 6 subjects for your child."
         background="#2D9E6B"
       >
         <SubjectPicker
           value={subjects}
           onChange={setSubjects}
-          hintText="Select subjects your child needs help with from the dropdown or type to search automatically."
+          hintText="Browse categories or search to pick subjects your child needs help with."
           disabled={locked}
           max={6}
         />
         <FieldError messages={state.fieldErrors?.subjects} />
-
-        <div className="space-y-2 pt-3">
-          <span className="block text-xs font-800 uppercase tracking-wider text-slate-700">
-            Class / Exam Track
-          </span>
-          <OptionPills
-            name="classLevel"
-            options={CLASS_LEVEL_OPTIONS}
-            value={classLevel}
-            onChange={setClassLevel}
-            size="sm"
-            disabled={locked}
-          />
-          <FieldError messages={state.fieldErrors?.classLevel} />
-        </div>
 
         <div className="max-w-xs space-y-1.5 pt-3">
           <label

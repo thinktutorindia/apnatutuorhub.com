@@ -41,13 +41,22 @@ import {
   Info,
   History,
   Tag,
+  Trash2,
+  Edit3,
+  X as CloseIcon,
 } from "lucide-react";
 import { TutorOnboardingWizard } from "@/components/tutor/onboarding/TutorOnboardingWizard";
+import { OpenStreetMapPickerModal } from "@/components/ui/OpenStreetMapPickerModal";
+import { ProfilePhotoUpload } from "@/components/ui/ProfilePhotoUpload";
+import { SubjectPicker } from "@/components/ui/SubjectPicker";
+import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import {
   adminUpdateFullUserAction,
   addAdminUserNoteAction,
   sendAdminCustomNotificationAction,
+  adminUpsertStudentProfileAction,
+  adminDeleteStudentProfileAction,
 } from "@/app/actions/admin.actions";
 
 interface PresignedUrls {
@@ -76,10 +85,20 @@ interface UserData {
   createdAt: string;
   parentProfile?: {
     city: string | null;
+    state?: string | null;
     pincode: string | null;
     address: string | null;
     latitude: number | null;
     longitude: number | null;
+    students?: Array<{
+      id: string;
+      name: string;
+      classLevel?: string;
+      board?: string | null;
+      subjects?: string[];
+      notes?: string | null;
+      image?: string | null;
+    }>;
   } | null;
   tutorProfile?: {
     id?: string;
@@ -152,6 +171,111 @@ export function AdminEditUserForm({
   const [addressViewUrl] = useState<string | null>(presignedUrls.addressViewUrl);
   const [selfieViewUrl] = useState<string | null>(presignedUrls.selfieViewUrl);
   const [introVideoViewUrl] = useState<string | null>(presignedUrls.introVideoViewUrl);
+
+  // Parent profile state
+  const [parentCity, setParentCity] = useState<string>(parentProfile?.city || "");
+  const [parentState, setParentState] = useState<string>(parentProfile?.state || "");
+  const [parentPincode, setParentPincode] = useState<string>(parentProfile?.pincode || "");
+  const [parentAddress, setParentAddress] = useState<string>(parentProfile?.address || "");
+  const [parentLat, setParentLat] = useState<number | null>(parentProfile?.latitude ?? null);
+  const [parentLng, setParentLng] = useState<number | null>(parentProfile?.longitude ?? null);
+  const [isParentMapOpen, setIsParentMapOpen] = useState(false);
+
+  // Parent Students State
+  const [studentsList, setStudentsList] = useState<any[]>(parentProfile?.students || []);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [studentName, setStudentName] = useState("");
+  const [studentClass, setStudentClass] = useState("");
+  const [studentBoard, setStudentBoard] = useState("");
+  const [studentSubjects, setStudentSubjects] = useState<string[]>([]);
+  const [studentImage, setStudentImage] = useState("");
+  const [studentNotes, setStudentNotes] = useState("");
+  const [isSavingStudent, setIsSavingStudent] = useState(false);
+
+  const handleOpenAddStudent = () => {
+    setEditingStudentId(null);
+    setStudentName("");
+    setStudentClass("");
+    setStudentBoard("");
+    setStudentSubjects([]);
+    setStudentImage("");
+    setStudentNotes("");
+    setIsStudentModalOpen(true);
+  };
+
+  const handleOpenEditStudent = (s: any) => {
+    setEditingStudentId(s.id);
+    setStudentName(s.name || "");
+    setStudentClass(s.classLevel || "");
+    setStudentBoard(s.board || "");
+    setStudentSubjects(Array.isArray(s.subjects) ? s.subjects : []);
+    setStudentImage(s.image || "");
+    setStudentNotes(s.notes || "");
+    setIsStudentModalOpen(true);
+  };
+
+  const handleSaveStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingStudent(true);
+
+    const res = await adminUpsertStudentProfileAction(user.id, {
+      studentId: editingStudentId || undefined,
+      name: studentName,
+      classLevel: studentClass,
+      board: studentBoard,
+      subjects: studentSubjects,
+      notes: studentNotes,
+      image: studentImage || null,
+    });
+
+    setIsSavingStudent(false);
+    if (!res.success) {
+      alert(res.error || "Failed to save student.");
+    } else {
+      if (editingStudentId) {
+        setStudentsList((prev) =>
+          prev.map((item) =>
+            item.id === editingStudentId
+              ? {
+                  ...item,
+                  name: studentName || "Child",
+                  classLevel: studentClass || "General",
+                  board: studentBoard || null,
+                  subjects: studentSubjects,
+                  notes: studentNotes || null,
+                  image: studentImage || null,
+                }
+              : item
+          )
+        );
+      } else {
+        setStudentsList((prev) => [
+          ...prev,
+          {
+            id: res.data?.studentId || String(Date.now()),
+            name: studentName || "Child",
+            classLevel: studentClass || "General",
+            board: studentBoard || null,
+            subjects: studentSubjects,
+            notes: studentNotes || null,
+            image: studentImage || null,
+          },
+        ]);
+      }
+      setIsStudentModalOpen(false);
+    }
+  };
+
+  const handleDeleteStudent = async (studentId: string) => {
+    if (!confirm("Are you sure you want to remove this child profile?")) return;
+    const res = await adminDeleteStudentProfileAction(studentId, user.id);
+    if (!res.success) {
+      alert(res.error || "Failed to delete student.");
+    } else {
+      setStudentsList((prev) => prev.filter((item) => item.id !== studentId));
+    }
+  };
 
   // Internal Notes State
   const [notesList, setNotesList] = useState<AdminNoteItem[]>(adminNotes);
@@ -501,7 +625,202 @@ export function AdminEditUserForm({
             </div>
           )}
 
-          {/* Badges & KYC Controls */}
+          {/* ── PARENT ADDRESS & LOCATION CONTROLS ── */}
+          {role === "PARENT" && (
+            <div className="space-y-4 pt-4 border-t border-slate-100 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#2D9E6B] flex items-center justify-center font-bold">
+                    <MapPin size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-[#0F2540]">
+                      Parent Doorstep &amp; Residence Location
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-semibold">
+                      Edit city, pincode, doorstep address, and GPS coordinates on user's behalf
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsParentMapOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <MapIcon size={14} className="text-[#2D9E6B]" />
+                  <span>🗺️ Pick on Map</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div>
+                  <label className="mb-1.5 block text-xs font-extrabold text-slate-700">City</label>
+                  <input
+                    name="city"
+                    value={parentCity}
+                    onChange={(e) => setParentCity(e.target.value)}
+                    placeholder="e.g. South Delhi"
+                    className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-extrabold text-slate-700">State</label>
+                  <input
+                    name="state"
+                    value={parentState}
+                    onChange={(e) => setParentState(e.target.value)}
+                    placeholder="e.g. Delhi"
+                    className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Pincode</label>
+                  <input
+                    name="pincode"
+                    value={parentPincode}
+                    onChange={(e) => setParentPincode(e.target.value)}
+                    placeholder="e.g. 110080"
+                    className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Full Doorstep Address</label>
+                <textarea
+                  name="address"
+                  rows={2}
+                  value={parentAddress}
+                  onChange={(e) => setParentAddress(e.target.value)}
+                  placeholder="House / Flat No., Society / Apartment, Landmark, Locality"
+                  className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Latitude (GPS)</label>
+                  <input
+                    name="latitude"
+                    value={parentLat !== null ? parentLat : ""}
+                    onChange={(e) => setParentLat(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="e.g. 28.6139"
+                    className="w-full rounded-2xl px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Longitude (GPS)</label>
+                  <input
+                    name="longitude"
+                    value={parentLng !== null ? parentLng : ""}
+                    onChange={(e) => setParentLng(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="e.g. 77.2090"
+                    className="w-full rounded-2xl px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* ── REGISTERED CHILDREN / STUDENT PROFILES LIST ── */}
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap size={16} className="text-blue-600" />
+                    <h4 className="text-xs font-extrabold text-[#0F2540]">
+                      Registered Children ({studentsList.length})
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddStudent}
+                    className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                  >
+                    <Plus size={14} />
+                    <span>Add Child Profile</span>
+                  </button>
+                </div>
+
+                {studentsList.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {studentsList.map((student) => (
+                      <div
+                        key={student.id}
+                        className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 relative group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {student.image && student.image.length <= 4 && !student.image.startsWith("http") ? (
+                              <span className="text-base">{student.image}</span>
+                            ) : student.image ? (
+                              <img src={student.image} alt={student.name || "Child"} className="w-6 h-6 rounded-full object-cover border border-slate-200" />
+                            ) : (
+                              <span>🎓</span>
+                            )}
+                            <span className="text-xs font-extrabold text-[#0F2540]">{student.name || "Child"}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold bg-blue-100 text-blue-900 px-2 py-0.5 rounded-md border border-blue-200">
+                              {student.classLevel || "General"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditStudent(student)}
+                              className="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center transition-colors cursor-pointer"
+                              title="Edit Child Details"
+                            >
+                              <Edit3 size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStudent(student.id)}
+                              className="w-6 h-6 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors cursor-pointer"
+                              title="Delete Child Profile"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        {student.board && (
+                          <p className="text-[11px] font-bold text-slate-600">
+                            Board: <span className="text-slate-900 font-extrabold">{student.board}</span>
+                          </p>
+                        )}
+                        {student.subjects && student.subjects.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {student.subjects.map((sub: string, i: number) => (
+                              <span
+                                key={i}
+                                className="text-[10px] font-bold bg-emerald-50 text-[#15803D] px-1.5 py-0.5 rounded border border-emerald-200"
+                              >
+                                {sub}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {student.notes && (
+                          <p className="text-[10px] font-semibold text-slate-500 italic pt-0.5">
+                            &ldquo;{student.notes}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-500 font-bold flex flex-col items-center gap-2">
+                    <span>No child profiles added yet for this parent.</span>
+                    <button
+                      type="button"
+                      onClick={handleOpenAddStudent}
+                      className="text-blue-600 hover:underline font-bold text-xs cursor-pointer inline-flex items-center gap-1"
+                    >
+                      <Plus size={13} /> Add first child profile (optional)
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Badges & KYC Controls for Tutor */}
           {isTutor && (
             <div className="space-y-4 pt-3 border-t border-slate-100">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -566,18 +885,21 @@ export function AdminEditUserForm({
                   {isFeatured ? <CheckSquare size={20} className="text-amber-500" /> : <Square size={20} className="text-slate-400" />}
                 </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={isPending}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-xs sm:text-sm font-black text-white transition-all cursor-pointer shadow-lg hover:opacity-95 active:scale-98"
-                style={{ background: "linear-gradient(135deg, #2D9E6B, #1A3C5E)" }}
-              >
-                <Save size={18} />
-                <span>Save Admin Governance &amp; Controls</span>
-              </button>
             </div>
           )}
+
+          {/* Universal Submit Button for All Roles */}
+          <div className="pt-3 border-t border-slate-100">
+            <button
+              type="submit"
+              disabled={isPending}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-xs sm:text-sm font-black text-white transition-all cursor-pointer shadow-lg hover:opacity-95 active:scale-98"
+              style={{ background: "linear-gradient(135deg, #2D9E6B, #1A3C5E)" }}
+            >
+              <Save size={18} />
+              <span>Save Super Admin Controls &amp; User Details</span>
+            </button>
+          </div>
         </div>
       </form>
 
@@ -951,6 +1273,168 @@ export function AdminEditUserForm({
           </button>
         </form>
       </div>
+
+      {/* ── PARENT LEAFLET MAP PICKER MODAL (ADMIN ON-BEHALF) ── */}
+      <OpenStreetMapPickerModal
+        isOpen={isParentMapOpen}
+        onClose={() => setIsParentMapOpen(false)}
+        initialLat={parentLat || 28.6139}
+        initialLon={parentLng || 77.209}
+        onConfirmLocation={(result) => {
+          if (result.city) setParentCity(result.city);
+          if (result.state) setParentState(result.state);
+          if (result.pincode) setParentPincode(result.pincode);
+          if (result.fullAddress) setParentAddress(result.fullAddress);
+          if (result.lat != null) setParentLat(result.lat);
+          if (result.lon != null) setParentLng(result.lon);
+        }}
+      />
+
+      {/* ── CHILD / STUDENT PROFILE ADD/EDIT MODAL FOR ADMIN ── */}
+      {isStudentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 py-6 sm:py-10 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl border border-slate-200 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <GraduationCap size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-[#0F2540]">
+                    {editingStudentId ? "Edit Child / Student Profile" : "Add New Child / Student"}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    All fields below are optional &mdash; fill whatever information you have
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsStudentModalOpen(false)}
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <CloseIcon size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStudent} className="space-y-5">
+              {/* Child Profile Photo / Avatar Picker */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                <ProfilePhotoUpload
+                  name="studentImage"
+                  value={studentImage}
+                  onChange={setStudentImage}
+                  docType="student-avatar"
+                  fallbackName={studentName || "Student"}
+                  label="Child Profile Picture / Avatar"
+                  showPresets={true}
+                />
+              </div>
+
+              {/* Student Name */}
+              <div>
+                <label className="mb-1.5 block text-xs font-extrabold text-[#0F2540]">
+                  Child Name <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  placeholder="e.g. Aarav Sharma"
+                  className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold"
+                />
+              </div>
+
+              {/* Class Level & Board Dropdowns */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-extrabold text-[#0F2540]">
+                    Class / Grade <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <select
+                    value={studentClass}
+                    onChange={(e) => setStudentClass(e.target.value)}
+                    className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold cursor-pointer"
+                  >
+                    <option value="">Select Class / Grade (Optional)</option>
+                    {CLASS_LEVELS.map((lvl) => (
+                      <option key={lvl} value={lvl}>
+                        {lvl}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-extrabold text-[#0F2540]">
+                    Educational Board <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <select
+                    value={studentBoard}
+                    onChange={(e) => setStudentBoard(e.target.value)}
+                    className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold cursor-pointer"
+                  >
+                    <option value="">Select Board (Optional)</option>
+                    {BOARDS.map((board) => (
+                      <option key={board} value={board}>
+                        {board}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Real Interactive SubjectPicker */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-extrabold text-[#0F2540] flex items-center justify-between">
+                  <span>Subjects Needed <span className="text-slate-400 font-normal">(optional)</span></span>
+                  <span className="text-[11px] font-bold text-emerald-600">
+                    {studentSubjects.length} selected
+                  </span>
+                </label>
+                <SubjectPicker
+                  value={studentSubjects}
+                  onChange={setStudentSubjects}
+                  classLevel={studentClass}
+                />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="mb-1.5 block text-xs font-extrabold text-[#0F2540]">
+                  Notes / Learning Goals <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={studentNotes}
+                  onChange={(e) => setStudentNotes(e.target.value)}
+                  placeholder="e.g. Preparing for board exams, weak in physics numericals, school name..."
+                  className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold resize-none"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsStudentModalOpen(false)}
+                  className="px-5 py-3 rounded-2xl border border-slate-200 text-xs font-extrabold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingStudent}
+                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black shadow-lg shadow-blue-500/20 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 active:scale-95"
+                >
+                  {isSavingStudent ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  <span>{editingStudentId ? "Save Child Changes" : "Create Child Profile"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

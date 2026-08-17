@@ -21,7 +21,13 @@ export default async function AdminEditUserPage({
     prisma.user.findUnique({
       where: { id },
       include: {
-        parentProfile: true,
+        parentProfile: {
+          include: {
+            students: {
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
         tutorProfile: { include: { wallet: true } },
       },
     }),
@@ -71,10 +77,20 @@ export default async function AdminEditUserPage({
         parentProfile: user.parentProfile
           ? {
               city: user.parentProfile.city,
+              state: user.parentProfile.state ?? null,
               pincode: user.parentProfile.pincode,
               address: user.parentProfile.address ?? null,
               latitude: user.parentProfile.latitude ?? null,
               longitude: user.parentProfile.longitude ?? null,
+              students: user.parentProfile.students.map((s) => ({
+                id: s.id,
+                name: s.name,
+                classLevel: s.classLevel,
+                board: s.board,
+                subjects: s.subjects,
+                notes: s.notes,
+                image: s.image,
+              })),
             }
           : null,
         tutorProfile: user.tutorProfile

@@ -173,7 +173,8 @@ export function Step1Location({
 
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`,
+            { headers: { "Accept-Language": "en" } }
           );
           if (res.ok) {
             const data = await res.json();

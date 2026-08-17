@@ -18,6 +18,7 @@ export function ImageCropModal({
 }: ImageCropModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [baseScale, setBaseScale] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -25,12 +26,20 @@ export function ImageCropModal({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Load Image
+  // Load Image and calculate optimal base scale to fill 260px crop viewport
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = imageSrc;
-    img.onload = () => setImage(img);
+    img.onload = () => {
+      setImage(img);
+      const minDim = Math.min(img.width, img.height);
+      const initialFit = minDim > 0 ? 260 / minDim : 1;
+      setBaseScale(initialFit);
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      setRotation(0);
+    };
   }, [imageSrc]);
 
   // Draw Interactive Crop Canvas
@@ -49,12 +58,15 @@ export function ImageCropModal({
     // Save context
     ctx.save();
 
-    // Move to center of canvas
+    // 1. Move to center of canvas + current pan
     ctx.translate(width / 2 + pan.x, height / 2 + pan.y);
+    // 2. Rotate
     ctx.rotate((rotation * Math.PI) / 180);
-    ctx.scale(zoom, zoom);
+    // 3. Scale by baseScale * zoom
+    const currentScale = baseScale * zoom;
+    ctx.scale(currentScale, currentScale);
 
-    // Draw image centered
+    // 4. Draw image centered
     ctx.drawImage(image, -image.width / 2, -image.height / 2);
 
     ctx.restore();
@@ -63,10 +75,10 @@ export function ImageCropModal({
     ctx.save();
 
     // Semi-transparent dark overlay
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
     ctx.fillRect(0, 0, width, height);
 
-    // Cut out crop circle at center (size 260x260)
+    // Cut out crop circle at center (size 260x260, radius 130)
     const cropRadius = 130;
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
@@ -88,7 +100,7 @@ export function ImageCropModal({
 
   useEffect(() => {
     drawCanvas();
-  }, [image, zoom, rotation, pan]);
+  }, [image, baseScale, zoom, rotation, pan]);
 
   // Mouse / Touch Dragging
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -104,7 +116,24 @@ export function ImageCropModal({
     });
   };
 
-  const handleMouseUp = () => setIsDragging(false);
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      const touch = e.touches[0];
+      setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    setPan({
+      x: touch.clientX - dragStart.x,
+      y: touch.clientY - dragStart.y,
+    });
+  };
+
+  const handleDragEnd = () => setIsDragging(false);
 
   // Perform Final High-Res Crop
   const handleApplyCrop = async () => {
@@ -120,22 +149,18 @@ export function ImageCropModal({
 
       if (!ctx) return;
 
-      const displayCanvas = canvasRef.current;
-      if (!displayCanvas) return;
-
-      const cropRadius = 130;
-      const scaleFactor = 400 / (cropRadius * 2);
+      const cropDiameter = 260; // Diameter on 340px canvas
+      const ratio = 400 / cropDiameter;
+      const outputScale = baseScale * zoom * ratio;
 
       ctx.save();
-      ctx.translate(200, 200);
+      // 1. Move to center of 400x400 canvas + pan scaled by ratio
+      ctx.translate(200 + pan.x * ratio, 200 + pan.y * ratio);
+      // 2. Rotate
       ctx.rotate((rotation * Math.PI) / 180);
-      ctx.scale(zoom * scaleFactor, zoom * scaleFactor);
-
-      // Translate by pan scaled to output canvas
-      const relPanX = (pan.x / (displayCanvas.width / 2)) * 200;
-      const relPanY = (pan.y / (displayCanvas.height / 2)) * 200;
-      ctx.translate(relPanX, relPanY);
-
+      // 3. Scale
+      ctx.scale(outputScale, outputScale);
+      // 4. Draw image
       ctx.drawImage(image, -image.width / 2, -image.height / 2);
       ctx.restore();
 
@@ -182,12 +207,15 @@ export function ImageCropModal({
             height={340}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onMouseUp={handleDragEnd}
+            onMouseLeave={handleDragEnd}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleDragEnd}
             className="cursor-move touch-none"
           />
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[10px] font-700 px-3 py-1 rounded-full pointer-events-none">
-            🖐️ Drag pin to position · Scroll / Slider to zoom
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[10px] font-700 px-3 py-1 rounded-full pointer-events-none whitespace-nowrap">
+            🖐️ Drag to position · Slider to zoom
           </div>
         </div>
 
@@ -226,7 +254,7 @@ export function ImageCropModal({
                 setRotation(0);
                 setPan({ x: 0, y: 0 });
               }}
-              className="text-xs font-700 text-gray-500 hover:text-gray-900 underline"
+              className="text-xs font-700 text-gray-500 hover:text-gray-900 underline cursor-pointer"
             >
               Reset Controls
             </button>
@@ -238,7 +266,7 @@ export function ImageCropModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-700 text-xs font-800 hover:bg-gray-100 transition-colors"
+            className="px-5 py-2.5 rounded-2xl border border-gray-300 text-gray-700 text-xs font-800 hover:bg-gray-100 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -249,9 +277,7 @@ export function ImageCropModal({
             className="px-6 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
           >
             <Check size={16} className="!text-white" />
-            <span className="!text-white font-800">
-              {isProcessing ? "Cropping..." : "Crop & Save Photo"}
-            </span>
+            <span>{isProcessing ? "Processing..." : "Crop & Save Photo"}</span>
           </button>
         </div>
       </div>

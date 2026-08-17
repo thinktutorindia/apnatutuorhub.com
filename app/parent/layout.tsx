@@ -6,6 +6,7 @@ import { SignOutButton } from "@/components/auth/SignOutButton";
 import { ParentNavClient } from "@/components/parent/ParentNavClient";
 import { NotificationBell } from "@/components/NotificationBell";
 import { prisma } from "@/lib/prisma";
+import { getMediaUrl } from "@/lib/s3";
 
 export default async function ParentLayout({
   children,
@@ -18,12 +19,18 @@ export default async function ParentLayout({
     redirect("/login");
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { name: true, email: true, image: true },
+  });
+
   const unreadCount = await prisma.notification.count({
     where: { userId: session.user.id, isRead: false },
   });
 
-  const userName = session.user.name || session.user.email || "Parent";
-  const userEmail = session.user.email || "";
+  const userName = user?.name || session.user.name || session.user.email || "Parent";
+  const userEmail = user?.email || session.user.email || "";
+  const userImage = getMediaUrl(user?.image || session.user.image);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC] text-slate-900 font-sans">
@@ -38,6 +45,7 @@ export default async function ParentLayout({
             <ParentNavClient
               userName={userName}
               userEmail={userEmail}
+              userImage={userImage}
               unreadCount={unreadCount}
             />
           </div>

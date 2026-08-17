@@ -82,16 +82,10 @@ export default async function TutorLeadsPage({
     ).map((p) => [p.leadId, p])
   );
 
-  // DB pre-filter: active leads
-  const subjectFilter =
-    tutorProfile.subjects && tutorProfile.subjects.length > 0
-      ? { subjects: { hasSome: tutorProfile.subjects } }
-      : {};
-
-  let rawLeads = await prisma.lead.findMany({
+  // Fetch active student requirements
+  const rawLeads = await prisma.lead.findMany({
     where: {
       status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
-      ...subjectFilter,
     },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -137,55 +131,6 @@ export default async function TutorLeadsPage({
     },
   });
 
-  if (rawLeads.length === 0) {
-    rawLeads = await prisma.lead.findMany({
-      where: {
-        status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      select: {
-        id: true,
-        parentProfileId: true,
-        subjects: true,
-        classLevel: true,
-        mode: true,
-        budgetMin: true,
-        budgetMax: true,
-        area: true,
-        city: true,
-        pincode: true,
-        board: true,
-        coinCost: true,
-        purchaseCount: true,
-        maxTutors: true,
-        latitude: true,
-        longitude: true,
-        createdAt: true,
-        timingPreference: true,
-        tutorGenderPref: true,
-        languagePref: true,
-        notes: true,
-        status: true,
-        parentProfile: {
-          select: {
-            id: true,
-            address: true,
-            city: true,
-            state: true,
-            pincode: true,
-            user: {
-              select: {
-                name: true,
-                phone: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    });
-  }
 
   // In-memory format for feed
   const feedLeads: FeedLead[] = [];

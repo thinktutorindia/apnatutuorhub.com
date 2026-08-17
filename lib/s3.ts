@@ -124,6 +124,35 @@ export async function generatePresignedViewUrl(
 }
 
 /**
+ * Synchronously maps any objectKey or storage URL to the fast /api/media proxy.
+ */
+export function getMediaUrl(urlOrKey: string | null | undefined): string {
+  if (!urlOrKey) return "";
+  const trimmed = urlOrKey.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("data:") || (trimmed.length <= 4 && !trimmed.startsWith("http"))) {
+    return trimmed; // emoji or data URI
+  }
+  if (trimmed.startsWith("/api/media/")) {
+    return trimmed;
+  }
+  if (trimmed.includes("kyc-documents/")) {
+    const key = trimmed.split("kyc-documents/")[1].split("?")[0];
+    return `/api/media/${key}`;
+  }
+  if (
+    trimmed.startsWith("avatars/") ||
+    trimmed.startsWith("student-avatars/") ||
+    trimmed.startsWith("kyc/") ||
+    trimmed.startsWith("certificates/") ||
+    trimmed.startsWith("chats/")
+  ) {
+    return `/api/media/${trimmed}`;
+  }
+  return trimmed;
+}
+
+/**
  * Safely resolves any storage URL or objectKey into a signed view URL.
  * Handles object keys ("kyc/profileId/selfie.jpg"), full public URLs ("https://.../kyc-documents/kyc/..."),
  * and external URLs ("https://lh3.googleusercontent.com/...").

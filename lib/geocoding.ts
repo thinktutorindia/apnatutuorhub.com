@@ -1,9 +1,7 @@
 /**
  * lib/geocoding.ts
  * Auto-geocoding utility for converting City, State, Pincode, and Address
- * into (Latitude, Longitude) coordinates.
- *
- * Uses OpenStreetMap Nominatim API with fallback to Indian city centroid database.
+ * into (Latitude, Longitude) coordinates using OpenStreetMap Nominatim with centroid fallbacks.
  */
 
 const INDIAN_CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
@@ -60,7 +58,7 @@ export async function geocodeLocation(params: {
     );
 
     if (res.ok) {
-      const data = await res.json() as { lat: string; lon: string }[];
+      const data = (await res.json()) as { lat: string; lon: string }[];
       if (data.length > 0 && data[0].lat && data[0].lon) {
         return {
           lat: parseFloat(data[0].lat),

@@ -14,8 +14,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function PostRequirementPage() {
-  const session = await auth();
+export default async function PostRequirementPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ subject?: string; mode?: string; classLevel?: string; city?: string }>;
+}) {
+  const [session, params] = await Promise.all([
+    auth(),
+    searchParams ? searchParams : Promise.resolve({} as { subject?: string; mode?: string; classLevel?: string; city?: string }),
+  ]);
 
   if (!session?.user?.id) {
     redirect("/login");
@@ -37,6 +44,7 @@ export default async function PostRequirementPage() {
           board: true,
           subjects: true,
           notes: true,
+          image: true,
         },
       },
     },
@@ -45,6 +53,13 @@ export default async function PostRequirementPage() {
   if (!parentProfile) {
     redirect("/parent/dashboard");
   }
+
+  // Pre-fill parameters from landing pages / hero cards if provided
+  const initialSubjects: string[] = params?.subject?.trim() ? [params.subject.trim()] : [];
+  const rawMode = params?.mode?.toUpperCase();
+  const initialMode = rawMode === "ONLINE" ? "ONLINE" : rawMode === "EITHER" ? "EITHER" : "OFFLINE";
+  const initialClassLevel = params?.classLevel?.trim() || "Class 9-10";
+  const initialCity = params?.city?.trim() || parentProfile.city || "";
 
   return (
     <div className="space-y-6 text-slate-900">
@@ -66,16 +81,16 @@ export default async function PostRequirementPage() {
         students={parentProfile.students}
         defaults={{
           studentProfileId: "",
-          subjects: [],
-          classLevel: "Class 10",
+          subjects: initialSubjects,
+          classLevel: initialClassLevel,
           board: "CBSE",
-          mode: "OFFLINE",
+          mode: initialMode,
           tutorGenderPref: "ANY",
           timingPreference: "Evening (4 PM - 7 PM)",
           languagePref: "English & Hindi",
           budgetMin: "3000",
           budgetMax: "8000",
-          city: parentProfile.city ?? "",
+          city: initialCity,
           area: "",
           pincode: parentProfile.pincode ?? "",
           latitude: parentProfile.latitude?.toString() ?? "",
@@ -86,3 +101,4 @@ export default async function PostRequirementPage() {
     </div>
   );
 }
+

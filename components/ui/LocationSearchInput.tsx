@@ -24,52 +24,55 @@ interface LocationSearchInputProps {
 }
 
 // ── Photon API (Komoot) — OpenStreetMap-backed instant autocomplete
-// Free, fast, no API key, designed for autocomplete, returns lat/lon always
 async function searchPhoton(query: string): Promise<LocationResult[]> {
-  const res = await fetch(
-    `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lang=en&limit=8&bbox=68.7,8.1,97.4,37.1`,
-    { signal: AbortSignal.timeout(4000) }
-  );
-  if (!res.ok) return [];
-  const data = await res.json();
-  const results: LocationResult[] = [];
+  try {
+    const res = await fetch(
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lang=en&limit=8&bbox=68.7,8.1,97.4,37.1`,
+      { signal: AbortSignal.timeout(4000) }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results: LocationResult[] = [];
 
-  for (const feature of data.features ?? []) {
-    const p = feature.properties ?? {};
-    const [lon, lat] = feature.geometry?.coordinates ?? [null, null];
+    for (const feature of data.features ?? []) {
+      const p = feature.properties ?? {};
+      const [lon, lat] = feature.geometry?.coordinates ?? [null, null];
 
-    // Only accept Indian results
-    if (p.country !== "India" && p.countrycode !== "IN") continue;
+      // Only accept Indian results
+      if (p.country !== "India" && p.countrycode !== "IN") continue;
 
-    const city = p.city || p.name || p.county || p.state_district || "";
-    const state = p.state || "";
-    const area = p.name !== city ? (p.name || p.suburb || p.district || "") : (p.suburb || p.district || "");
-    const pincode = p.postcode || "";
+      const city = p.city || p.name || p.county || p.state_district || "";
+      const state = p.state || "";
+      const area =
+        p.name !== city ? p.name || p.suburb || p.district || "" : p.suburb || p.district || "";
+      const pincode = p.postcode || "";
 
-    if (!city && !state) continue;
+      if (!city && !state) continue;
 
-    // Build a clean label
-    const parts = [area, city, state].filter(Boolean);
-    const fullAddress = parts.join(", ") + (pincode ? ` - ${pincode}` : "") + ", India";
+      const parts = [area, city, state].filter(Boolean);
+      const fullAddress = parts.join(", ") + (pincode ? ` - ${pincode}` : "") + ", India";
 
-    results.push({
-      city,
-      state,
-      pincode,
-      area,
-      fullAddress,
-      lat: typeof lat === "number" ? lat : undefined,
-      lon: typeof lon === "number" ? lon : undefined,
-    });
+      results.push({
+        city,
+        state,
+        pincode,
+        area,
+        fullAddress,
+        lat: typeof lat === "number" ? lat : undefined,
+        lon: typeof lon === "number" ? lon : undefined,
+      });
+    }
+
+    // Deduplicate
+    return Array.from(
+      new Map(results.map((r) => [`${r.city}|${r.area}|${r.pincode}`, r])).values()
+    ).slice(0, 7);
+  } catch {
+    return [];
   }
-
-  // Deduplicate by city+area+pincode
-  return Array.from(
-    new Map(results.map((r) => [`${r.city}|${r.area}|${r.pincode}`, r])).values()
-  ).slice(0, 7);
 }
 
-// ── Indian Pincode API — for 6-digit pincode queries
+// ── Indian Postal Pincode API — for 6-digit pincode searches
 async function searchPincode(pincode: string): Promise<LocationResult[]> {
   try {
     const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
@@ -87,27 +90,14 @@ async function searchPincode(pincode: string): Promise<LocationResult[]> {
       const state = po.State || "";
       const area = po.Name || "";
 
-      // Geocode the pincode to get lat/lon via Photon
-      let lat: number | undefined;
-      let lon: number | undefined;
-      try {
-        const photon = await searchPhoton(`${area}, ${city}, ${state}, India`);
-        if (photon.length > 0 && photon[0].lat != null) {
-          lat = photon[0].lat;
-          lon = photon[0].lon;
-        }
-      } catch {
-        // lat/lon stays undefined — OK
-      }
-
       results.push({
         city,
         state,
         pincode,
         area,
         fullAddress: `${area}, ${city}, ${state} - ${pincode}, India`,
-        lat,
-        lon,
+        lat: undefined,
+        lon: undefined,
       });
     }
     return results;
@@ -116,42 +106,49 @@ async function searchPincode(pincode: string): Promise<LocationResult[]> {
   }
 }
 
-// ── Google Geocoding (optional, if API key is set)
-async function searchGoogle(query: string, apiKey: string): Promise<LocationResult[]> {
+// ── Nominatim Reverse Geocode for GPS
+async function reverseGeocodeGPS(lat: number, lon: number): Promise<LocationResult | null> {
   try {
     const res = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-        query + ", India"
-      )}&components=country:IN&key=${apiKey}`,
-      { signal: AbortSignal.timeout(4000) }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (data.status !== "OK" || !data.results?.length) return [];
-
-    return data.results.slice(0, 5).map((item: any) => {
-      let city = "", state = "", pincode = "", area = "";
-      for (const comp of item.address_components ?? []) {
-        if (comp.types.includes("locality")) city = comp.long_name;
-        if (comp.types.includes("administrative_area_level_1")) state = comp.long_name;
-        if (comp.types.includes("postal_code")) pincode = comp.long_name;
-        if (comp.types.includes("sublocality") || comp.types.includes("neighborhood") || comp.types.includes("route")) {
-          if (!area) area = comp.long_name;
-        }
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`,
+      {
+        headers: { "Accept-Language": "en" },
+        signal: AbortSignal.timeout(5000),
       }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const addr = data.address || {};
+      const city =
+        addr.city ||
+        addr.town ||
+        addr.city_district ||
+        addr.county ||
+        addr.state_district ||
+        "";
+      const state = addr.state || "";
+      const pincode = addr.postcode || "";
+      const area =
+        addr.suburb ||
+        addr.neighbourhood ||
+        addr.residential ||
+        addr.road ||
+        "";
+
       return {
         city: city || area || "City",
-        state: state || "India",
+        state,
         pincode,
-        area: area || city,
-        fullAddress: item.formatted_address,
-        lat: item.geometry?.location?.lat,
-        lon: item.geometry?.location?.lng,
+        area,
+        fullAddress: data.display_name || `${area}, ${city}, ${state}`,
+        lat,
+        lon,
       };
-    });
+    }
   } catch {
-    return [];
+    // silent
   }
+  return null;
 }
 
 export function LocationSearchInput({
@@ -171,7 +168,6 @@ export function LocationSearchInput({
   const [selectedText, setSelectedText] = useState("");
   const [selectedCoords, setSelectedCoords] = useState<{ lat?: number; lon?: number }>({});
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -184,7 +180,7 @@ export function LocationSearchInput({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ── Debounced live search
+  // Debounced live search
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
@@ -198,20 +194,14 @@ export function LocationSearchInput({
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
         let results: LocationResult[] = [];
 
-        // Priority 1: Google Places (if API key is set)
-        if (googleApiKey) {
-          results = await searchGoogle(trimmed, googleApiKey);
-        }
-
-        // Priority 2: 6-digit pincode — use postal API
-        if (results.length === 0 && /^\d{6}$/.test(trimmed)) {
+        // Priority 1: 6-digit pincode
+        if (/^\d{6}$/.test(trimmed)) {
           results = await searchPincode(trimmed);
         }
 
-        // Priority 3: Photon (Komoot) — free OSM-backed instant autocomplete
+        // Priority 2: Photon OSM search
         if (results.length === 0) {
           results = await searchPhoton(trimmed);
         }
@@ -223,12 +213,12 @@ export function LocationSearchInput({
       } finally {
         setLoading(false);
       }
-    }, 280);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [query]);
 
-  // ── GPS detection with reverse geocoding
+  // GPS detection with reverse geocoding
   const handleUseGPS = useCallback(async () => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser.");
@@ -238,88 +228,28 @@ export function LocationSearchInput({
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
         try {
-          // Try Google Reverse Geocoding first
-          if (googleApiKey) {
-            try {
-              const res = await fetch(
-                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleApiKey}`,
-                { signal: AbortSignal.timeout(4000) }
-              );
-              if (res.ok) {
-                const data = await res.json();
-                if (data.status === "OK" && data.results?.[0]) {
-                  const item = data.results[0];
-                  let city = "", state = "", pincode = "", area = "";
-                  for (const comp of item.address_components ?? []) {
-                    if (comp.types.includes("locality")) city = comp.long_name;
-                    if (comp.types.includes("administrative_area_level_1")) state = comp.long_name;
-                    if (comp.types.includes("postal_code")) pincode = comp.long_name;
-                    if (comp.types.includes("sublocality") || comp.types.includes("neighborhood")) {
-                      if (!area) area = comp.long_name;
-                    }
-                  }
-                  const result: LocationResult = {
-                    city: city || "City",
-                    state: state || "India",
-                    pincode,
-                    area: area || city,
-                    fullAddress: item.formatted_address,
-                    lat: latitude,
-                    lon: longitude,
-                  };
-                  const label = [area, city, pincode].filter(Boolean).join(", ");
-                  setSelectedText(label);
-                  setSelectedCoords({ lat: latitude, lon: longitude });
-                  onSelectLocation(result);
-                  setIsOpen(false);
-                  setGpsLoading(false);
-                  return;
-                }
-              }
-            } catch {
-              // fall through to OSM
-            }
-          }
-
-          // Fallback: OSM Nominatim reverse geocode
-          const osmRes = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
-            { signal: AbortSignal.timeout(4000) }
-          );
-          if (osmRes.ok) {
-            const data = await osmRes.json();
-            const addr = data.address || {};
-            const city = addr.city || addr.town || addr.city_district || addr.county || addr.state_district || "";
-            const state = addr.state || "";
-            const pincode = addr.postcode || "";
-            const area = addr.suburb || addr.neighbourhood || addr.road || "";
-            const result: LocationResult = {
-              city: city || "City",
-              state,
-              pincode,
-              area,
-              fullAddress: data.display_name || `${area}, ${city}, ${state}`,
-              lat: latitude,
-              lon: longitude,
-            };
-            setSelectedText([area, city, pincode].filter(Boolean).join(", "));
+          const result = await reverseGeocodeGPS(latitude, longitude);
+          if (result) {
+            const label = [result.area, result.city, result.pincode].filter(Boolean).join(", ");
+            setSelectedText(label);
             setSelectedCoords({ lat: latitude, lon: longitude });
             onSelectLocation(result);
             setIsOpen(false);
+            setGpsLoading(false);
+            return;
           }
-        } catch (e) {
-          console.error("GPS reverse geocode failed:", e);
-          alert("Could not get your location details. Please search manually.");
-        } finally {
-          setGpsLoading(false);
+        } catch {
+          // silent
         }
+        setSelectedText(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        setSelectedCoords({ lat: latitude, lon: longitude });
+        setGpsLoading(false);
       },
       (err) => {
         console.error("Geolocation error:", err);
         setGpsLoading(false);
-        alert("Location permission denied. Please search manually or pick on map.");
+        alert("Location access denied. Please search manually or pick on map.");
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
@@ -351,7 +281,7 @@ export function LocationSearchInput({
   return (
     <div ref={wrapperRef} className={`relative space-y-2 ${className}`}>
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        {/* ── Search Input */}
+        {/* Search Input */}
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             {loading ? (
@@ -449,7 +379,7 @@ export function LocationSearchInput({
               Location Suggestions
             </span>
             <span className="text-[#2D9E6B] font-700">
-              {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? "Google Maps" : "OpenStreetMap"}
+              OpenStreetMap
             </span>
           </div>
 

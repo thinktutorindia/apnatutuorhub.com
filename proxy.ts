@@ -157,14 +157,15 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
 
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://app.posthog.com https://browser.sentry-cdn.com https://unpkg.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://app.posthog.com https://browser.sentry-cdn.com https://unpkg.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.amazonaws.com https://*.supabase.co https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://unpkg.com",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://promoted-maggot-141911.upstash.io https://app.posthog.com https://*.sentry.io https://checkout.razorpay.com https://photon.komoot.io https://nominatim.openstreetmap.org https://*.openstreetmap.org https://api.opencagedata.com https://api.postalpincode.in",
-    "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://maps.google.com https://www.google.com https://www.openstreetmap.org",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://promoted-maggot-141911.upstash.io https://app.posthog.com https://*.sentry.io https://checkout.razorpay.com https://photon.komoot.io https://nominatim.openstreetmap.org https://api.postalpincode.in",
+    "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
     "media-src 'self'",
     "worker-src 'self' blob:",
+    "child-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

@@ -5,6 +5,7 @@ export type ParentStudent = {
   board: string | null;
   subjects: string[];
   notes: string | null;
+  image?: string | null;
 };
 
 /** Serialised lead values used to prefill the requirement form. */

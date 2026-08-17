@@ -106,6 +106,10 @@ export async function POST(request: Request) {
   if (["id-proof", "address-proof", "selfie"].includes(docType)) {
     const profileId = await resolveTargetTutorProfileId();
     objectKey = kycObjectKey(profileId, docType as KycDocType, ext);
+  } else if (docType === "avatar" || docType === "parent-avatar") {
+    objectKey = `avatars/${session.user.id}/${Date.now()}.${ext}`;
+  } else if (docType === "student-avatar") {
+    objectKey = `student-avatars/${session.user.id}/${Date.now()}.${ext}`;
   } else if (docType === "cert") {
     const profileId = await resolveTargetTutorProfileId();
     objectKey = certObjectKey(profileId, `${safeName}.${ext}`);

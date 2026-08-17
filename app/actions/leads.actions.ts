@@ -14,7 +14,7 @@ import {
   type ActionResult,
 } from "@/lib/action-result";
 import { formFloat, formInt, formList, formString } from "@/lib/form-data";
-import { createLeadSchema, updateLockedLeadSchema } from "@/lib/validations";
+import { createLeadSchema, updateLockedLeadSchema, inferClassLevelFromSubjects } from "@/lib/validations";
 import { captureEvent, Events } from "@/lib/posthog";
 import { logActivity, ActivityEvent } from "@/lib/activity-logger";
 import { createNotification } from "@/lib/notification-engine";
@@ -138,7 +138,8 @@ export async function createRequirementAction(
     );
   }
 
-  const commercials = await resolveLeadCommercials(input.classLevel);
+  const finalClassLevel = input.classLevel || inferClassLevelFromSubjects(input.subjects);
+  const commercials = await resolveLeadCommercials(finalClassLevel);
 
   // Auto-geocode lead location if lat/lng not provided directly
   let lat = input.latitude ?? null;
@@ -162,7 +163,7 @@ export async function createRequirementAction(
         parentProfileId: auth.context.parentProfileId,
         studentProfileId: input.studentProfileId ?? null,
         subjects: input.subjects,
-        classLevel: input.classLevel,
+        classLevel: finalClassLevel,
         board: input.board ?? null,
         mode: input.mode,
         budgetMin: input.budgetMin ?? null,
@@ -300,18 +301,20 @@ export async function updateRequirementAction(
       }
     }
 
+    const finalClassLevel = input.classLevel || inferClassLevelFromSubjects(input.subjects);
+
     // Re-price only when the class tier changed; the 48h expiry window is not extended.
     const commercials =
-      input.classLevel === lead.classLevel
+      finalClassLevel === lead.classLevel
         ? null
-        : await resolveLeadCommercials(input.classLevel);
+        : await resolveLeadCommercials(finalClassLevel);
 
     await prisma.lead.update({
       where: { id: lead.id },
       data: {
         studentProfileId: input.studentProfileId ?? null,
         subjects: input.subjects,
-        classLevel: input.classLevel,
+        classLevel: finalClassLevel,
         board: input.board ?? null,
         mode: input.mode,
         budgetMin: input.budgetMin ?? null,

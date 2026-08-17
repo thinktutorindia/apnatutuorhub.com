@@ -7,17 +7,12 @@ import {
   type StudentProfileState,
 } from "@/app/actions/parent.actions";
 import { FieldError, FormAlert } from "@/components/ui/FieldError";
-import { OptionPills } from "@/components/ui/OptionPills";
+import { ProfilePhotoUpload } from "@/components/ui/ProfilePhotoUpload";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
-import { BOARDS, CLASS_LEVELS } from "@/lib/validations";
+import { BOARDS } from "@/lib/validations";
 import type { ParentStudent } from "@/types/parent";
 
 const initialState: StudentProfileState = { success: false };
-
-const CLASS_LEVEL_OPTIONS = CLASS_LEVELS.map((level) => ({
-  value: level,
-  label: level,
-}));
 
 export function StudentProfileModal({
   student,
@@ -32,6 +27,7 @@ export function StudentProfileModal({
   );
   const [classLevel, setClassLevel] = useState(student?.classLevel ?? "");
   const [subjects, setSubjects] = useState<string[]>(student?.subjects ?? []);
+  const [image, setImage] = useState<string>(student?.image ?? "");
 
   useEffect(() => {
     if (state.success) onClose();
@@ -92,19 +88,32 @@ export function StudentProfileModal({
 
           {state.error && <FormAlert tone="error" message={state.error} />}
 
+          {/* Child Profile Photo / Avatar */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+            <ProfilePhotoUpload
+              name="image"
+              value={image}
+              onChange={setImage}
+              docType="student-avatar"
+              fallbackName={student?.name || "Student"}
+              label="Child Profile Picture / Avatar"
+              showPresets={true}
+            />
+            <FieldError messages={state.fieldErrors?.image} />
+          </div>
+
           <div className="space-y-1.5">
             <label
               htmlFor="student-name"
               className="block text-xs font-extrabold text-[#0F172A]"
             >
-              Student Name
+              Student Name <span className="text-slate-400 font-normal">(optional)</span>
             </label>
             <input
               id="student-name"
               name="name"
               type="text"
-              required
-              placeholder="e.g. Aarav Sharma"
+              placeholder="e.g. Child / Aarav Sharma"
               defaultValue={student?.name ?? ""}
               className="neu-input"
             />
@@ -113,17 +122,10 @@ export function StudentProfileModal({
 
           <div className="space-y-2">
             <span className="block text-xs font-extrabold text-[#0F172A]">
-              Class / Grade
+              Subjects Needed
             </span>
-            <OptionPills
-              name="classLevel"
-              options={CLASS_LEVEL_OPTIONS}
-              value={classLevel}
-              onChange={setClassLevel}
-              size="sm"
-              activeBackground="#E0F2FE"
-            />
-            <FieldError messages={state.fieldErrors?.classLevel} />
+            <SubjectPicker value={subjects} onChange={setSubjects} />
+            <FieldError messages={state.fieldErrors?.subjects} />
           </div>
 
           <div className="space-y-1.5">
@@ -147,14 +149,6 @@ export function StudentProfileModal({
               ))}
             </select>
             <FieldError messages={state.fieldErrors?.board} />
-          </div>
-
-          <div className="space-y-2">
-            <span className="block text-xs font-extrabold text-[#0F172A]">
-              Subjects Needed
-            </span>
-            <SubjectPicker value={subjects} onChange={setSubjects} />
-            <FieldError messages={state.fieldErrors?.subjects} />
           </div>
 
           <div className="space-y-1.5">

@@ -5,16 +5,27 @@ import { z } from "zod";
 // ────────────────────────────────────────────────
 
 export const CLASS_LEVELS = [
-  "Class 1-5",
-  "Class 6-8",
-  "Class 9-10",
-  "Class 11-12",
-  "JEE",
+  "Nursery / KG",
+  "Class 1",
+  "Class 2",
+  "Class 3",
+  "Class 4",
+  "Class 5",
+  "Class 6",
+  "Class 7",
+  "Class 8",
+  "Class 9",
+  "Class 10",
+  "Class 11",
+  "Class 12",
+  "College / Degree",
+  "IIT-JEE",
   "NEET",
-  "CA",
-  "Coding",
-  "Arts",
+  "CA / Commerce",
+  "Coding & IT",
   "Languages",
+  "Music & Arts",
+  "Competitive Exams",
 ] as const;
 
 export type ClassLevel = (typeof CLASS_LEVELS)[number];
@@ -223,24 +234,55 @@ const phoneField = z
   .string()
   .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number");
 
+export function inferClassLevelFromSubjects(subjects: string[]): string {
+  if (!subjects || subjects.length === 0) return "General";
+
+  for (const s of subjects) {
+    const raw = s.toLowerCase();
+    if (raw.includes("class xii") || raw.includes("class 12") || raw.includes("xii")) return "Class 12";
+    if (raw.includes("class xi") || raw.includes("class 11") || raw.includes("xi")) return "Class 11";
+    if (raw.includes("class x") || raw.includes("class 10") || raw.includes("class 10th")) return "Class 10";
+    if (raw.includes("class ix") || raw.includes("class 9") || raw.includes("class 9th")) return "Class 9";
+    if (raw.includes("class viii") || raw.includes("class 8") || raw.includes("class 8th")) return "Class 8";
+    if (raw.includes("class vii") || raw.includes("class 7") || raw.includes("class 7th")) return "Class 7";
+    if (raw.includes("class vi") || raw.includes("class 6") || raw.includes("class 6th")) return "Class 6";
+    if (raw.includes("class v") || raw.includes("class 5") || raw.includes("class 5th")) return "Class 5";
+    if (raw.includes("class iv") || raw.includes("class 4") || raw.includes("class 4th")) return "Class 4";
+    if (raw.includes("class iii") || raw.includes("class 3") || raw.includes("class 3rd")) return "Class 3";
+    if (raw.includes("class ii") || raw.includes("class 2") || raw.includes("class 2nd")) return "Class 2";
+    if (raw.includes("class i") || raw.includes("class 1") || raw.includes("class 1st")) return "Class 1";
+    if (raw.includes("kg") || raw.includes("nursery") || raw.includes("kindergarten") || raw.includes("preparatory")) return "Nursery / KG";
+    if (raw.includes("iit") || raw.includes("jee")) return "IIT-JEE";
+    if (raw.includes("neet") || raw.includes("medical")) return "NEET";
+    if (raw.includes("ca ") || raw.includes("commerce") || raw.includes("account")) return "CA / Commerce";
+    if (raw.includes("college") || raw.includes("graduation") || raw.includes("b.tech") || raw.includes("engineering")) return "College / Degree";
+    if (raw.includes("code") || raw.includes("python") || raw.includes("java") || raw.includes("programming")) return "Coding & IT";
+    if (raw.includes("french") || raw.includes("german") || raw.includes("spanish") || raw.includes("language")) return "Languages";
+    if (raw.includes("music") || raw.includes("guitar") || raw.includes("piano") || raw.includes("dance") || raw.includes("art")) return "Music & Arts";
+  }
+
+  return "General";
+}
+
 const classLevelField = z
-  .string({ required_error: "Class level is required" })
-  .min(1, "Class level is required")
-  .refine((value) => CLASS_LEVEL_SET.has(value), "Choose a class level from the list");
+  .string()
+  .trim()
+  .max(50, "Class level is too long")
+  .optional()
+  .or(z.literal(""));
 
 const boardField = z
   .string()
-  .refine((value) => BOARD_SET.has(value), "Choose a board from the list")
-  .optional();
+  .trim()
+  .max(50)
+  .optional()
+  .or(z.literal(""));
 
 const subjectsField = z
-  .array(z.string())
+  .array(z.string().trim().min(1, "Subject cannot be empty").max(100, "Subject is too long"))
   .min(1, "Select at least one subject")
-  .max(6, "Select up to 6 subjects")
-  .refine(
-    (values) => values.every((value) => SUBJECT_SET.has(value)),
-    "Choose subjects from the list"
-  );
+  .max(6, "Select up to 6 subjects");
+
 
 const budgetField = z
   .number({ invalid_type_error: "Enter a valid amount in ₹" })
@@ -255,25 +297,39 @@ const budgetField = z
 
 export const parentProfileSchema = z.object({
   name: z
-    .string({ required_error: "Name is required" })
-    .min(2, "Name must be at least 2 characters")
+    .string()
+    .trim()
+    .min(1, "Name is required")
     .max(100, "Name is too long"),
   phone: phoneField.optional(),
-  city: z.string({ required_error: "City is required" }).min(1, "City is required"),
-  state: z.string({ required_error: "State is required" }).min(1, "State is required"),
-  pincode: pincodeField,
-  address: z.string().max(300, "Address is too long").optional(),
+  image: z.string().optional().or(z.literal("")).or(z.null()),
+  city: z.string().max(100, "City name is too long").optional().or(z.literal("")),
+  state: z.string().max(100, "State name is too long").optional().or(z.literal("")),
+  pincode: z
+    .string()
+    .trim()
+    .refine((val) => !val || /^\d{6}$/.test(val), "Enter a valid 6-digit pincode")
+    .optional()
+    .or(z.literal("")),
+  address: z.string().max(300, "Address is too long").optional().or(z.literal("")),
 });
 
 export const studentProfileSchema = z.object({
   name: z
-    .string({ required_error: "Student name is required" })
-    .min(2, "Name must be at least 2 characters")
-    .max(100, "Name is too long"),
+    .string()
+    .trim()
+    .max(100, "Name is too long")
+    .optional()
+    .or(z.literal("")),
   classLevel: classLevelField,
   board: boardField,
-  subjects: subjectsField,
-  notes: z.string().max(500, "Keep notes under 500 characters").optional(),
+  subjects: z
+    .array(z.string().trim().max(100))
+    .max(15)
+    .optional()
+    .default([]),
+  notes: z.string().max(500, "Keep notes under 500 characters").optional().or(z.literal("")),
+  image: z.string().optional().or(z.literal("")).or(z.null()),
 });
 
 // ────────────────────────────────────────────────

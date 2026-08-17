@@ -1201,8 +1201,8 @@ export async function adminUpdateFullUserAction(
     if (role === "PARENT") {
       await tx.parentProfile.upsert({
         where: { userId },
-        create: { userId, city, pincode },
-        update: { city, pincode },
+        create: { userId, city, state, pincode, address, latitude, longitude },
+        update: { city, state, pincode, address, latitude, longitude },
       });
     } else if (role === "TUTOR") {
       const tp = await tx.tutorProfile.upsert({
@@ -1312,6 +1312,81 @@ export async function adminUpdateFullUserAction(
 
   revalidatePath("/admin/users");
   return actionSuccess({ updated: true });
+}
+
+export async function adminUpsertStudentProfileAction(
+  parentUserId: string,
+  input: {
+    studentId?: string;
+    name?: string;
+    classLevel?: string;
+    board?: string;
+    subjects?: string[];
+    notes?: string;
+    image?: string | null;
+  }
+): Promise<ActionResult<{ studentId: string }>> {
+  const { error } = await requirePermission("users:manage");
+  if (error) return actionError(error);
+
+  let parent = await prisma.parentProfile.findUnique({
+    where: { userId: parentUserId },
+  });
+
+  if (!parent) {
+    parent = await prisma.parentProfile.create({
+      data: { userId: parentUserId },
+    });
+  }
+
+  const finalClassLevel =
+    input.classLevel?.trim() ||
+    inferClassLevelFromSubjects(input.subjects || []) ||
+    "General";
+
+  const data = {
+    name: input.name?.trim() || "Child",
+    classLevel: finalClassLevel,
+    board: input.board?.trim() || null,
+    subjects: input.subjects || [],
+    notes: input.notes?.trim() || null,
+    image: input.image ?? null,
+  };
+
+  let student: { id: string };
+  if (input.studentId) {
+    student = await prisma.studentProfile.update({
+      where: { id: input.studentId },
+      data,
+      select: { id: true },
+    });
+  } else {
+    student = await prisma.studentProfile.create({
+      data: {
+        ...data,
+        parentProfileId: parent.id,
+      },
+      select: { id: true },
+    });
+  }
+
+  revalidatePath(`/admin/users/${parentUserId}/edit`);
+  return actionSuccess({ studentId: student.id });
+}
+
+export async function adminDeleteStudentProfileAction(
+  studentId: string,
+  parentUserId: string
+): Promise<ActionResult<{ deleted: true }>> {
+  const { error } = await requirePermission("users:manage");
+  if (error) return actionError(error);
+
+  await prisma.studentProfile.delete({
+    where: { id: studentId },
+  });
+
+  revalidatePath(`/admin/users/${parentUserId}/edit`);
+  return actionSuccess({ deleted: true });
 }
 
 export async function adminCreateCouponAction(

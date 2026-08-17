@@ -11,7 +11,7 @@ import {
   type ActionResult,
 } from "@/lib/action-result";
 import { formList, formString } from "@/lib/form-data";
-import { parentProfileSchema, studentProfileSchema } from "@/lib/validations";
+import { parentProfileSchema, studentProfileSchema, inferClassLevelFromSubjects } from "@/lib/validations";
 
 import { geocodeLocation } from "@/lib/geocoding";
 
@@ -29,6 +29,7 @@ export async function updateParentProfileAction(
   const parsed = parentProfileSchema.safeParse({
     name: formString(formData, "name"),
     phone: formString(formData, "phone"),
+    image: formString(formData, "image"),
     city: formString(formData, "city"),
     state: formString(formData, "state"),
     pincode: formString(formData, "pincode"),
@@ -42,7 +43,7 @@ export async function updateParentProfileAction(
   const auth = await resolveParentContext();
   if (!auth.ok) return auth.result;
 
-  const { name, phone, city, state, pincode, address } = parsed.data;
+  const { name, phone, image, city, state, pincode, address } = parsed.data;
 
   // Optional manual GPS coordinates from form
   const rawLat = formString(formData, "latitude");
@@ -63,7 +64,11 @@ export async function updateParentProfileAction(
     await prisma.$transaction([
       prisma.user.update({
         where: { id: auth.context.userId },
-        data: { name, phone: phone ?? null },
+        data: {
+          name,
+          phone: phone ?? null,
+          ...(image !== undefined ? { image: image || null } : {}),
+        },
       }),
       prisma.parentProfile.update({
         where: { id: auth.context.parentProfileId },
@@ -109,6 +114,7 @@ export async function upsertStudentProfileAction(
     board: formString(formData, "board"),
     subjects: formList(formData, "subjects"),
     notes: formString(formData, "notes"),
+    image: formString(formData, "image"),
   });
 
   if (!parsed.success) {
@@ -119,12 +125,18 @@ export async function upsertStudentProfileAction(
   if (!auth.ok) return auth.result;
 
   const studentId = formString(formData, "studentId");
+  const finalClassLevel =
+    parsed.data.classLevel?.trim() ||
+    inferClassLevelFromSubjects(parsed.data.subjects || []) ||
+    "General";
+
   const data = {
-    name: parsed.data.name,
-    classLevel: parsed.data.classLevel,
-    board: parsed.data.board ?? null,
-    subjects: parsed.data.subjects,
-    notes: parsed.data.notes ?? null,
+    name: parsed.data.name?.trim() || "Student",
+    classLevel: finalClassLevel,
+    board: parsed.data.board?.trim() || null,
+    subjects: parsed.data.subjects || [],
+    notes: parsed.data.notes?.trim() || null,
+    image: parsed.data.image ?? null,
   };
 
   let saved: { id: string };

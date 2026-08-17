@@ -21,6 +21,7 @@ export default async function ParentProfilePage() {
       name: true,
       email: true,
       phone: true,
+      image: true,
       parentProfile: {
         select: {
           city: true,
@@ -38,6 +39,7 @@ export default async function ParentProfilePage() {
               board: true,
               subjects: true,
               notes: true,
+              image: true,
             },
           },
         },
@@ -73,6 +75,7 @@ export default async function ParentProfilePage() {
             name: user.name ?? "",
             email: user.email,
             phone: user.phone ?? "",
+            image: user.image ?? "",
             city: parentProfile.city ?? "",
             state: parentProfile.state ?? "",
             pincode: parentProfile.pincode ?? "",

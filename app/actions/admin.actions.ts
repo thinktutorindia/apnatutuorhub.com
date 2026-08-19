@@ -115,8 +115,8 @@ export async function reactivateUserAction(
 import type { SubAdminRole, TeachingMode, KycStatus } from "@prisma/client";
 
 export type CreateUserInput = {
-  name: string;
-  email: string;
+  name?: string;
+  email?: string;
   phone?: string;
   password?: string;
   role: "PARENT" | "TUTOR" | "SUB_ADMIN" | "SUPER_ADMIN";
@@ -193,10 +193,15 @@ export async function adminCreateUserAction(
   const rawPassword = input.password?.trim() || "12345678";
   const passwordHash = await bcrypt.hash(rawPassword, 10);
 
+  const rawName = input.name?.trim() || "";
+  const cleanPhone = input.phone ? input.phone.replace(/\D/g, "") : "";
+  const roleLabel = input.role === "TUTOR" ? "Tutor" : input.role === "PARENT" ? "Parent" : "User";
+  const finalName = rawName || (cleanPhone.length >= 4 ? `${roleLabel} (${cleanPhone.slice(-4)})` : roleLabel);
+
   const newUser = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        name: input.name.trim(),
+        name: finalName,
         email: emailClean,
         phone: input.phone?.trim() || null,
         passwordHash,
@@ -236,7 +241,7 @@ export async function adminCreateUserAction(
         await tx.studentProfile.create({
           data: {
             parentProfileId: parent.id,
-            name: input.studentName?.trim() || "Child",
+            name: input.studentName?.trim() || `${finalName}'s Child`,
             classLevel: finalClassLevel,
             board: input.board?.trim() || null,
             subjects: studentSubjects,
@@ -289,7 +294,7 @@ export async function adminCreateUserAction(
         action: "CREATE_USER",
         entityType: "User",
         entityId: user.id,
-        details: `Created ${input.role} account for ${user.email} (${input.name.trim()})`,
+        details: `Created ${input.role} account for ${user.email} (${finalName})`,
       },
     });
 

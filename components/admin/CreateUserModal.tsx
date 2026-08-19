@@ -686,9 +686,14 @@ export function CreateUserModal({
     const effectivePincode = manualPincode.trim() || selectedLocation?.pincode || undefined;
     const effectiveAddress = manualAddress.trim() || selectedLocation?.fullAddress || undefined;
 
+    const rawName = name.trim();
+    const cleanPhone = phone.trim().replace(/\D/g, "");
+    const roleLabel = role === "TUTOR" ? "Tutor" : role === "PARENT" ? "Parent" : "User";
+    const displayName = rawName || (cleanPhone.length >= 4 ? `${roleLabel} (${cleanPhone.slice(-4)})` : roleLabel);
+
     const payload: CreateUserInput = {
-      name: name.trim(),
-      email: email.trim(),
+      name: rawName || undefined,
+      email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       password: autoPassword ? undefined : customPassword.trim() || undefined,
       role,
@@ -714,7 +719,7 @@ export function CreateUserModal({
       payload.isVerified = tutorAutoVerify;
       payload.kycStatus = tutorAutoVerify ? "APPROVED" : "PENDING";
     } else if (role === "PARENT") {
-      payload.studentName = parentStudentName.trim() || `${name.trim()}'s Child`;
+      payload.studentName = parentStudentName.trim() || `${displayName}'s Child`;
       payload.classLevel = parentClassLevel;
       payload.board = parentBoard;
       payload.subjects = parentSubjects;
@@ -732,7 +737,7 @@ export function CreateUserModal({
           email: res.data?.email ?? email,
           temporaryPassword: res.data?.temporaryPassword,
           role,
-          name: name.trim(),
+          name: displayName,
         });
       }
     });
@@ -1018,16 +1023,15 @@ export function CreateUserModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
                         <label className="mb-1.5 block font-bold text-slate-700">
-                          Full Name <span className="text-rose-500">*</span>
+                          Full Name <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
                         </label>
                         <div className="relative">
                           <User size={15} className="absolute left-3.5 top-3 text-slate-400" />
                           <input
                             type="text"
-                            required
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Ramesh Sharma"
+                            placeholder="e.g. Ramesh Sharma (or leave blank)"
                             className="w-full rounded-2xl pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] focus:ring-4 focus:ring-emerald-500/10 font-semibold transition-all shadow-2xs"
                           />
                         </div>

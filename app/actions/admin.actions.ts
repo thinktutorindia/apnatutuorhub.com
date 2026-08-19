@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { createNotification } from "@/lib/notification-engine";
+import { inferClassLevelFromSubjects } from "@/lib/validations";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins

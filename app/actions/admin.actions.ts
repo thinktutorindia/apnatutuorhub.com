@@ -112,7 +112,7 @@ export async function reactivateUserAction(
   return actionSuccess({ updated: true });
 }
 
-import type { SubAdminRole } from "@prisma/client";
+import type { SubAdminRole, TeachingMode, KycStatus } from "@prisma/client";
 
 export type CreateUserInput = {
   name: string;
@@ -121,7 +121,30 @@ export type CreateUserInput = {
   password?: string;
   role: "PARENT" | "TUTOR" | "SUB_ADMIN" | "SUPER_ADMIN";
   subAdminRole?: SubAdminRole;
+  // Shared Location Data
   city?: string;
+  state?: string;
+  pincode?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  // Tutor Specific
+  subjects?: string[];
+  classLevels?: string[];
+  teachingMode?: TeachingMode;
+  experience?: number;
+  qualification?: string;
+  feeMin?: number;
+  feeMax?: number;
+  gender?: string;
+  bio?: string;
+  isVerified?: boolean;
+  kycStatus?: KycStatus;
+  // Parent Specific
+  studentName?: string;
+  classLevel?: string;
+  board?: string;
+  notes?: string;
 };
 
 export async function adminCreateUserAction(
@@ -134,7 +157,31 @@ export async function adminCreateUserAction(
     return actionError("Forbidden: only a Super Admin can create admin accounts.");
   }
 
-  const emailClean = input.email.trim().toLowerCase();
+  let emailClean = input.email ? input.email.trim().toLowerCase() : "";
+
+  // Auto-generate sequential fallback email if not provided
+  if (!emailClean) {
+    const cleanPhone = input.phone ? input.phone.replace(/\D/g, "") : "";
+    if (cleanPhone && cleanPhone.length >= 10) {
+      const phoneCandidate = `user${cleanPhone}@apnatutorhub.com`;
+      const exists = await prisma.user.findUnique({ where: { email: phoneCandidate } });
+      if (!exists) {
+        emailClean = phoneCandidate;
+      }
+    }
+
+    if (!emailClean) {
+      const totalUsers = await prisma.user.count();
+      let num = totalUsers + 1;
+      let candidate = `user${num}@apnatutorhub.com`;
+      while (await prisma.user.findUnique({ where: { email: candidate } })) {
+        num++;
+        candidate = `user${num}@apnatutorhub.com`;
+      }
+      emailClean = candidate;
+    }
+  }
+
   const existing = await prisma.user.findUnique({
     where: { email: emailClean },
   });
@@ -143,7 +190,7 @@ export async function adminCreateUserAction(
     return actionError(`User with email "${emailClean}" already exists.`);
   }
 
-  const rawPassword = input.password?.trim() || (Math.random().toString(36).slice(-8) + "A1!");
+  const rawPassword = input.password?.trim() || "12345678";
   const passwordHash = await bcrypt.hash(rawPassword, 10);
 
   const newUser = await prisma.$transaction(async (tx) => {
@@ -161,20 +208,71 @@ export async function adminCreateUserAction(
     });
 
     if (input.role === "PARENT") {
-      await tx.parentProfile.create({
+      const parent = await tx.parentProfile.create({
         data: {
           userId: user.id,
           city: input.city?.trim() || null,
+          state: input.state?.trim() || null,
+          pincode: input.pincode?.trim() || null,
+          address: input.address?.trim() || null,
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
         },
       });
+
+      const studentSubjects = input.subjects && input.subjects.length > 0 ? input.subjects : [];
+      if (
+        input.studentName ||
+        input.classLevel ||
+        studentSubjects.length > 0 ||
+        input.board ||
+        input.notes
+      ) {
+        const finalClassLevel =
+          input.classLevel?.trim() ||
+          inferClassLevelFromSubjects(studentSubjects) ||
+          "General";
+
+        await tx.studentProfile.create({
+          data: {
+            parentProfileId: parent.id,
+            name: input.studentName?.trim() || "Child",
+            classLevel: finalClassLevel,
+            board: input.board?.trim() || null,
+            subjects: studentSubjects,
+            notes: input.notes?.trim() || null,
+          },
+        });
+      }
     } else if (input.role === "TUTOR") {
+      const tutorSubjects = input.subjects && input.subjects.length > 0 ? input.subjects : [];
+      const tutorClassLevels =
+        input.classLevels && input.classLevels.length > 0 ? input.classLevels : [];
+
       const tutor = await tx.tutorProfile.create({
         data: {
           userId: user.id,
           city: input.city?.trim() || null,
-          isVerified: true,
+          state: input.state?.trim() || null,
+          pincode: input.pincode?.trim() || null,
+          address: input.address?.trim() || null,
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
+          subjects: tutorSubjects,
+          classLevels: tutorClassLevels,
+          teachingMode: input.teachingMode ?? "EITHER",
+          experience: input.experience ?? null,
+          qualification: input.qualification?.trim() || null,
+          feeMin: input.feeMin ?? null,
+          feeMax: input.feeMax ?? null,
+          gender: input.gender?.trim() || null,
+          bio: input.bio?.trim() || null,
+          isVerified: input.isVerified !== undefined ? input.isVerified : true,
+          kycStatus: input.kycStatus ?? "APPROVED",
+          onboardingStep: 7, // Marks onboarding complete so tutor is instantly usable
         },
       });
+
       await tx.wallet.create({
         data: {
           tutorProfileId: tutor.id,
@@ -191,19 +289,49 @@ export async function adminCreateUserAction(
         action: "CREATE_USER",
         entityType: "User",
         entityId: user.id,
-        details: `Created ${input.role} account for ${user.email}`,
+        details: `Created ${input.role} account for ${user.email} (${input.name.trim()})`,
       },
     });
 
     return user;
   });
 
-  revalidatePath("/admin/users");
+    revalidatePath("/admin/users");
   return actionSuccess({
     userId: newUser.id,
     email: newUser.email,
     temporaryPassword: input.password ? undefined : rawPassword,
   });
+}
+
+export async function adminGetNextAutoEmailAction(
+  role: string = "USER",
+  phone?: string
+): Promise<ActionResult<{ email: string }>> {
+  try {
+    const { error } = await requirePermission("users:manage");
+    if (error) return actionError(error);
+
+    const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
+    if (cleanPhone && cleanPhone.length >= 10) {
+      const candidate = `${role.toLowerCase()}${cleanPhone}@apnatutorhub.com`;
+      const exists = await prisma.user.findUnique({ where: { email: candidate } });
+      if (!exists) return actionSuccess({ email: candidate });
+    }
+
+    const totalUsers = await prisma.user.count();
+    let num = totalUsers + 1;
+    let candidate = `${role.toLowerCase()}${num}@apnatutorhub.com`;
+
+    while (await prisma.user.findUnique({ where: { email: candidate } })) {
+      num++;
+      candidate = `${role.toLowerCase()}${num}@apnatutorhub.com`;
+    }
+
+    return actionSuccess({ email: candidate });
+  } catch (err: any) {
+    return actionError(err.message ?? "Failed to generate email.");
+  }
 }
 
 // ── KYC Management ─────────────────────────────────────────────────────────────

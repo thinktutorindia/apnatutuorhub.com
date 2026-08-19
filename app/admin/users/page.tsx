@@ -64,25 +64,30 @@ export default async function AdminUsersPage({
   const take = 20;
   const skip = (page - 1) * take;
 
-  const where = {
-    AND: [
-      q
-        ? {
-          OR: [
-            { email: { contains: q, mode: "insensitive" as const } },
-            { name: { contains: q, mode: "insensitive" as const } },
-            { phone: { contains: q, mode: "insensitive" as const } },
-          ],
-        }
-        : {},
-      roleFilter ? { role: roleFilter as "PARENT" | "TUTOR" | "SUPER_ADMIN" | "SUB_ADMIN" } : {},
-      statusFilter === "ACTIVE"
-        ? { isActive: true }
-        : statusFilter === "SUSPENDED"
-          ? { isActive: false }
-          : {},
-    ],
-  };
+  const where: any = {};
+  const andConditions: any[] = [];
+
+  if (q) {
+    andConditions.push({
+      OR: [
+        { email: { contains: q, mode: "insensitive" as const } },
+        { name: { contains: q, mode: "insensitive" as const } },
+        { phone: { contains: q, mode: "insensitive" as const } },
+      ],
+    });
+  }
+  if (roleFilter) {
+    andConditions.push({ role: roleFilter as "PARENT" | "TUTOR" | "SUPER_ADMIN" | "SUB_ADMIN" });
+  }
+  if (statusFilter === "ACTIVE") {
+    andConditions.push({ isActive: true });
+  } else if (statusFilter === "SUSPENDED") {
+    andConditions.push({ isActive: false });
+  }
+
+  if (andConditions.length > 0) {
+    where.AND = andConditions;
+  }
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -132,7 +137,7 @@ export default async function AdminUsersPage({
             <Users size={16} />
             <span>{total} Total Users</span>
           </div>
-          <CreateUserModal />
+          <CreateUserModal defaultQuery={q} />
           <ExportCsvButton label="Export CSV" action={exportUsersCsv} />
         </div>
       </div>
@@ -144,10 +149,7 @@ export default async function AdminUsersPage({
         initialStatus={statusFilter}
       />
 
-      {/* Bulk Governance & Top-Up Control Panel */}
-      <AdminBulkUserTopupControl />
-
-      {/* Table */}
+      {/* Main User Directory Table */}
       <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -166,8 +168,31 @@ export default async function AdminUsersPage({
             <tbody className="divide-y divide-slate-200">
               {resolvedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-sm font-700 text-slate-700">
-                    No users match your query
+                  <td colSpan={6} className="py-14 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3 px-4">
+                      <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-[#2D9E6B] flex items-center justify-center border border-emerald-200 shadow-xs">
+                        <Users size={22} />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[#0F2540] font-bold text-sm" style={{ fontFamily: "Poppins, sans-serif" }}>
+                          {q ? `No user found matching "${q}"` : "No users match your query"}
+                        </p>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {q
+                            ? `This email, phone, or name is not registered in our database yet. You can create a new account for them instantly with pre-filled details.`
+                            : `Try adjusting your search keywords or filter criteria.`}
+                        </p>
+                      </div>
+                      {q && (
+                        <div className="pt-2">
+                          <CreateUserModal
+                            defaultQuery={q}
+                            buttonText={`+ Create Account with "${q}"`}
+                            buttonClassName="inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] shadow-md hover:shadow-lg shadow-emerald-500/20 active:scale-95 cursor-pointer"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -279,6 +304,9 @@ export default async function AdminUsersPage({
           </div>
         )}
       </div>
+
+      {/* Bulk Governance & Top-Up Control Panel (Bottom Collapsible) */}
+      <AdminBulkUserTopupControl />
     </div>
   );
 }

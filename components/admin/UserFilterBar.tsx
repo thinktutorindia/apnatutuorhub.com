@@ -1,8 +1,8 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition, useState, useEffect } from "react";
-import { Search, X, Filter } from "lucide-react";
+import { useTransition, useState, useEffect, useRef } from "react";
+import { Search, X, Filter, Loader2 } from "lucide-react";
 
 export function UserFilterBar({
   initialQ,
@@ -18,45 +18,62 @@ export function UserFilterBar({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const [prevParams, setPrevParams] = useState(searchParams.toString());
   const [q, setQ] = useState(initialQ);
   const [role, setRole] = useState(initialRole);
   const [status, setStatus] = useState(initialStatus);
+  const isInitialMount = useRef(true);
 
-  const currentParamsStr = searchParams.toString();
-  if (currentParamsStr !== prevParams) {
-    setPrevParams(currentParamsStr);
+  // Sync internal state when URL search params change externally (e.g. browser back/forward)
+  useEffect(() => {
     setQ(searchParams.get("q") ?? "");
     setRole(searchParams.get("role") ?? "");
     setStatus(searchParams.get("status") ?? "");
-  }
+  }, [searchParams]);
 
-  const updateFilters = (newQ: string, newRole: string, newStatus: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    
+  // Push URL updates with debounce
+  const applyFiltersToUrl = (newQ: string, newRole: string, newStatus: string) => {
+    const params = new URLSearchParams();
+
     if (newQ.trim()) {
       params.set("q", newQ.trim());
-    } else {
-      params.delete("q");
     }
-
     if (newRole) {
       params.set("role", newRole);
-    } else {
-      params.delete("role");
     }
-
     if (newStatus) {
       params.set("status", newStatus);
-    } else {
-      params.delete("status");
     }
 
-    params.delete("page");
+    const queryStr = params.toString();
+    const targetUrl = queryStr ? `${pathname}?${queryStr}` : pathname;
 
     startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
+      router.replace(targetUrl, { scroll: false });
     });
+  };
+
+  // Debounced search when user types in the input
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      applyFiltersToUrl(q, role, status);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  const handleRoleChange = (newRole: string) => {
+    setRole(newRole);
+    applyFiltersToUrl(q, newRole, status);
+  };
+
+  const handleStatusChange = (newStatus: string) => {
+    setStatus(newStatus);
+    applyFiltersToUrl(q, role, newStatus);
   };
 
   const handleClear = () => {
@@ -64,8 +81,13 @@ export function UserFilterBar({
     setRole("");
     setStatus("");
     startTransition(() => {
-      router.push(pathname);
+      router.replace(pathname, { scroll: false });
     });
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    applyFiltersToUrl(q, role, status);
   };
 
   const hasActiveFilters = Boolean(q || role || status);
@@ -79,30 +101,32 @@ export function UserFilterBar({
   ];
 
   return (
-    <div className="mb-6 space-y-4">
+    <div className="mb-6 space-y-3.5">
       {/* Search Input & Selectors */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Search Input */}
-        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] min-w-0 w-full sm:min-w-[240px]">
-          <Search size={16} className="text-slate-500 shrink-0" />
+      <form onSubmit={handleFormSubmit} className="flex flex-wrap items-center gap-3">
+        {/* Search Input with instant clear */}
+        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] focus-within:ring-4 focus-within:ring-emerald-500/10 min-w-0 w-full sm:min-w-[260px] transition-all">
+          {isPending ? (
+            <Loader2 size={16} className="text-[#2D9E6B] animate-spin shrink-0" />
+          ) : (
+            <Search size={16} className="text-slate-400 shrink-0" />
+          )}
           <input
             type="text"
             value={q}
-            onChange={(e) => {
-              const val = e.target.value;
-              setQ(val);
-              updateFilters(val, role, status);
-            }}
-            placeholder="Search name, email, or phone number..."
-            className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-400"
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by name, email (e.g. zhaniesupport@gmail.com), or phone number…"
+            className="flex-1 bg-transparent text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400"
           />
           {q && (
             <button
+              type="button"
               onClick={() => {
                 setQ("");
-                updateFilters("", role, status);
+                applyFiltersToUrl("", role, status);
               }}
-              className="text-slate-400 hover:text-slate-700"
+              className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5 rounded-lg hover:bg-slate-100"
+              title="Clear search"
             >
               <X size={14} />
             </button>
@@ -112,12 +136,8 @@ export function UserFilterBar({
         {/* Role Selector */}
         <select
           value={role}
-          onChange={(e) => {
-            const val = e.target.value;
-            setRole(val);
-            updateFilters(q, val, status);
-          }}
-          className="w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
+          onChange={(e) => handleRoleChange(e.target.value)}
+          className="w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer focus:border-[#2D9E6B]"
         >
           <option value="">All Roles</option>
           <option value="PARENT">Parents Only</option>
@@ -129,12 +149,8 @@ export function UserFilterBar({
         {/* Status Selector */}
         <select
           value={status}
-          onChange={(e) => {
-            const val = e.target.value;
-            setStatus(val);
-            updateFilters(q, role, val);
-          }}
-          className="w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-800 text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer"
+          onChange={(e) => handleStatusChange(e.target.value)}
+          className="w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-900 bg-white border border-slate-300 shadow-xs outline-none cursor-pointer focus:border-[#2D9E6B]"
         >
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active Users</option>
@@ -144,19 +160,20 @@ export function UserFilterBar({
         {/* Clear Filters Button */}
         {hasActiveFilters && (
           <button
+            type="button"
             onClick={handleClear}
-            className="flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xs font-800 bg-slate-200 text-slate-800 hover:bg-slate-300 transition-colors"
+            className="flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer"
           >
             <X size={14} />
             <span>Reset</span>
           </button>
         )}
-      </div>
+      </form>
 
       {/* Quick Filter Pills */}
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <span className="flex items-center gap-1 text-xs font-800 text-slate-700">
-          <Filter size={13} />
+      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+        <span className="flex items-center gap-1 text-xs font-bold text-slate-500 mr-1">
+          <Filter size={13} className="text-[#2D9E6B]" />
           <span>Role:</span>
         </span>
         {ROLE_TABS.map((t) => {
@@ -164,14 +181,12 @@ export function UserFilterBar({
           return (
             <button
               key={t.value}
-              onClick={() => {
-                setRole(t.value);
-                updateFilters(q, t.value, status);
-              }}
-              className={`rounded-xl px-3 py-1.5 text-xs font-800 transition-all border cursor-pointer ${
+              type="button"
+              onClick={() => handleRoleChange(t.value)}
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all border cursor-pointer ${
                 isActive
                   ? "bg-[#2D9E6B] !text-white border-[#2D9E6B] shadow-xs"
-                  : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
               }`}
             >
               {t.label}

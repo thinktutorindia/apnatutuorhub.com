@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useTransition } from "react";
 import {
   Filter, Search, CheckSquare, Square, ShieldCheck, ShieldAlert, Sparkles,
-  Coins, CheckCircle2, XCircle, ArrowUpRight, UserCheck, UserX, Loader2, RefreshCw, ChevronLeft, ChevronRight
+  Coins, CheckCircle2, XCircle, ArrowUpRight, UserCheck, UserX, Loader2, RefreshCw, ChevronLeft, ChevronRight,
+  ChevronDown, ChevronUp
 } from "lucide-react";
 import {
   adminFetchFilteredUsersForGovernanceAction,
@@ -12,6 +13,7 @@ import {
 } from "@/app/actions/admin.actions";
 
 export function AdminBulkUserTopupControl() {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // Filters State
@@ -73,8 +75,10 @@ export function AdminBulkUserTopupControl() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, [q, ageGroup, kycStatus, plan, role, topupStatus, page]);
+    if (isExpanded) {
+      fetchUsers();
+    }
+  }, [isExpanded, q, ageGroup, kycStatus, plan, role, topupStatus, page]);
 
   // Selection Helpers
   const toggleSelectAll = () => {
@@ -145,8 +149,45 @@ export function AdminBulkUserTopupControl() {
 
   const totalPages = Math.ceil(total / 20);
 
+  if (!isExpanded) {
+    return (
+      <div className="rounded-3xl bg-white border border-slate-200 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-slate-900 transition-all">
+        <div className="flex items-center gap-3.5">
+          <div className="h-11 w-11 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-700 flex items-center justify-center shrink-0 shadow-2xs">
+            <Coins size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3
+                className="font-bold text-[#0F2540] text-sm"
+                style={{ fontFamily: "Poppins, sans-serif" }}
+              >
+                Bulk Top-Up Governance &amp; User Categorization
+              </h3>
+              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                Optional Tools
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Filter users by age, KYC status, or tier to enable/disable coin top-ups and grant bulk bonus coins.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsExpanded(true)}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shrink-0 cursor-pointer border border-slate-200 shadow-2xs active:scale-98"
+        >
+          <span>Open Bulk Controls</span>
+          <ChevronDown size={15} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-md text-slate-900">
+    <div className="space-y-6 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-md text-slate-900 animate-in fade-in duration-200">
       {/* Title & Status Message */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
         <div>
@@ -161,15 +202,26 @@ export function AdminBulkUserTopupControl() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchUsers}
-          disabled={isPending}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shrink-0 cursor-pointer"
-        >
-          <RefreshCw size={14} className={isPending ? "animate-spin text-[#2D9E6B]" : ""} />
-          <span>Refresh Data</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={fetchUsers}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shrink-0 cursor-pointer"
+          >
+            <RefreshCw size={14} className={isPending ? "animate-spin text-[#2D9E6B]" : ""} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsExpanded(false)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shrink-0 cursor-pointer border border-slate-200"
+          >
+            <span>Hide Controls</span>
+            <ChevronUp size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Alert Banner */}

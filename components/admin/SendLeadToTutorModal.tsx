@@ -43,6 +43,7 @@ import {
 } from "@/app/actions/admin.actions";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { ActionOverlay } from "@/components/ui/LoadingState";
+import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
 
 export function SendLeadToTutorModal({
   leadId,
@@ -90,6 +91,27 @@ export function SendLeadToTutorModal({
       if (res.success && res.data) {
         setLead(res.data.lead);
         setTutors(res.data.tutors);
+        const parentContact = res.data.lead?.parentProfile?.user;
+        const initialTemplate = formatLeadNotifyTemplate({
+          id: res.data.lead.id,
+          clientName: parentContact?.name || "Not Specified",
+          subjects: res.data.lead.subjects,
+          classLevel: res.data.lead.classLevel,
+          board: res.data.lead.board,
+          mode: res.data.lead.mode,
+          area: res.data.lead.area,
+          city: res.data.lead.city,
+          state: res.data.lead.state,
+          pincode: res.data.lead.pincode,
+          budgetMin: res.data.lead.budgetMin,
+          budgetMax: res.data.lead.budgetMax,
+          genderPreference: res.data.lead.genderPreference,
+          notes: res.data.lead.notes,
+          timingPreference: res.data.lead.timingPreference,
+          schedule: res.data.lead.timingPreference || "5 Days a Week",
+          contactWhatsApp: "62307 89155",
+        });
+        setCustomNotificationMsg((prev) => prev || initialTemplate);
       } else {
         setFeedbackMsg({ type: "error", text: res.error ?? "Failed to load matching tutors." });
       }
@@ -187,13 +209,43 @@ export function SendLeadToTutorModal({
   const generateWhatsAppText = (tutorName?: string) => {
     if (!lead) return "";
     const parentContact = lead.parentProfile?.user;
-    const loc = [lead.area, lead.city, lead.pincode].filter(Boolean).join(", ") || "Delhi NCR";
-    const greeting = tutorName ? `Hello ${tutorName} Sir/Mam! 👋\n` : "";
-    return `${greeting}🎓 *ApnaTutorHub — Student Tuition Lead* 🎯\n\n📚 *Subjects:* ${lead.subjects?.join(", ")}\n🏫 *Class:* ${lead.classLevel} (${lead.board || "CBSE"})\n📍 *Location:* ${loc}\n🚗 *Mode:* ${lead.mode === "OFFLINE" ? "Home Tuition (Offline)" : lead.mode === "ONLINE" ? "Online Only" : "Home or Online"}\n💰 *Budget:* ₹${lead.budgetMin ?? "Negotiable"} - ₹${lead.budgetMax ?? "Standard"}/month\n⏱ *Timing:* ${lead.timingPreference || "Flexible"}\n👤 *Parent:* ${parentContact?.name || "Verified Parent"}${parentContact?.phone ? ` (${parentContact.phone})` : ""}\n📝 *Notes:* ${lead.notes || "Student looking for dedicated personalized guidance."}\n\n🔗 *Unlock & View on Portal:* https://apnatutorhub.com/tutor/leads`;
+    const greeting = tutorName ? `Hello ${tutorName} Sir/Mam! 👋\n\n` : "";
+    const formatted = formatLeadNotifyTemplate({
+      id: lead.id,
+      clientName: parentContact?.name || "Not Specified",
+      subjects: lead.subjects,
+      classLevel: lead.classLevel,
+      board: lead.board,
+      mode: lead.mode,
+      area: lead.area,
+      city: lead.city,
+      state: lead.state,
+      pincode: lead.pincode,
+      budgetMin: lead.budgetMin,
+      budgetMax: lead.budgetMax,
+      genderPreference: lead.genderPreference,
+      notes: lead.notes,
+      timingPreference: lead.timingPreference,
+      schedule: lead.timingPreference || "5 Days a Week",
+      contactWhatsApp: "62307 89155",
+    });
+    return `${greeting}${formatted}`;
+  };
+
+  const buildSafeWhatsAppUrl = (phone: string, text: string) => {
+    let digits = phone.replace(/\D/g, "");
+    if (digits.startsWith("91") && digits.length === 12) {
+      // already has 91 country code
+    } else if (digits.length === 10) {
+      digits = `91${digits}`;
+    } else if (digits.startsWith("0") && digits.length === 11) {
+      digits = `91${digits.slice(1)}`;
+    }
+    return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
   };
 
   const handleCopyLeadText = () => {
-    const text = generateWhatsAppText();
+    const text = customNotificationMsg.trim() || generateWhatsAppText();
     navigator.clipboard.writeText(text);
     setCopiedLead(true);
     setTimeout(() => setCopiedLead(false), 2000);
@@ -414,10 +466,16 @@ export function SendLeadToTutorModal({
                     {lead.subjects?.join(", ")}
                   </span>
                   <span className="text-slate-300">•</span>
-                  <span className="text-slate-600 flex items-center gap-1">
-                    <MapPin size={12} className="text-[#2D9E6B]" />
-                    {[lead.area, lead.city].filter(Boolean).join(", ") || "—"}
-                  </span>
+                  {lead.mode === "ONLINE" ? (
+                    <span className="font-extrabold text-teal-800 bg-teal-100 px-2.5 py-0.5 rounded-md border border-teal-300 flex items-center gap-1">
+                      🌐 Online (Pan-India)
+                    </span>
+                  ) : (
+                    <span className="text-slate-600 flex items-center gap-1">
+                      <MapPin size={12} className="text-[#2D9E6B]" />
+                      {[lead.area, lead.city].filter(Boolean).join(", ") || "—"}
+                    </span>
+                  )}
                   <span className="text-slate-300">•</span>
                   <span className="font-mono font-bold text-[#0F2540]">
                     ₹{lead.budgetMin ?? "—"}-₹{lead.budgetMax ?? "—"}
@@ -561,10 +619,10 @@ export function SendLeadToTutorModal({
                   const isSelected = selectedUserIds.includes(tutor.userId);
                   const isDropdownOpen = activeDropdownTutorId === tutor.tutorProfileId;
                   const hasEnoughCoins = tutor.walletBalance >= (lead?.coinCost ?? 10);
+                  const whatsappMsg =
+                    customNotificationMsg.trim() || generateWhatsAppText(tutor.name);
                   const whatsappUrl = tutor.phone
-                    ? `https://wa.me/91${tutor.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
-                        generateWhatsAppText(tutor.name)
-                      )}`
+                    ? buildSafeWhatsAppUrl(tutor.phone, whatsappMsg)
                     : null;
 
                   return (
@@ -606,11 +664,15 @@ export function SendLeadToTutorModal({
                               </span>
                             )}
 
-                            {tutor.distanceKm !== null && (
+                            {lead?.mode === "ONLINE" ? (
+                              <span className="text-[11px] font-bold text-teal-800 bg-teal-50 px-2 py-0.2 rounded-md border border-teal-200 flex items-center gap-0.5">
+                                <Sparkles size={11} className="text-teal-600" /> Online (Pan-India)
+                              </span>
+                            ) : tutor.distanceKm !== null ? (
                               <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.2 rounded-md border border-blue-200 flex items-center gap-0.5">
                                 <MapPin size={11} /> {tutor.distanceKm} km away
                               </span>
-                            )}
+                            ) : null}
 
                             {tutor.alreadyPurchased ? (
                               <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
@@ -799,31 +861,201 @@ export function SendLeadToTutorModal({
             </div>
 
             {/* Footer / Batch Dispatch & Action Bar */}
-            <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-              <div className="space-y-1">
-                <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                  <span>{selectedUserIds.length} tutor(s) selected</span>
-                  {selectedUserIds.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomMsgInput(!showCustomMsgInput)}
-                      className="text-[11px] font-bold text-[#2D9E6B] hover:underline cursor-pointer"
-                    >
-                      {showCustomMsgInput ? "Hide custom text" : "Customize message ▾"}
-                    </button>
-                  )}
-                </div>
+            <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 space-y-3 shrink-0">
+              {/* Expandable 1-Click Customizer */}
+              {showCustomMsgInput && (
+                <div className="w-full rounded-2xl bg-white border border-slate-200 p-4 space-y-3 shadow-xs animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                        <Sparkles size={13} />
+                      </div>
+                      <span className="text-xs font-black text-[#0F2540]">1-Click Message Customizer &amp; Link Dispatch</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {customNotificationMsg && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomNotificationMsg("")}
+                          className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Clear Text
+                        </button>
+                      )}
+                      <span className="text-[10px] font-mono font-bold text-slate-400">
+                        {customNotificationMsg.length} chars
+                      </span>
+                    </div>
+                  </div>
 
-                {showCustomMsgInput && selectedUserIds.length > 0 && (
-                  <input
-                    type="text"
+                  {/* 1-Click Preset Templates */}
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                      ⚡ Quick Preset Templates (1-Click Fill)
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCustomNotificationMsg(generateWhatsAppText())}
+                        className="px-3 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-200 text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                      >
+                        🎯 Full Lead Template
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const leadNum = lead?.id ? (lead.id.replace(/\D/g, "").slice(-6) || lead.id.slice(-6).toUpperCase()) : "210984";
+                          const classStr = `${lead?.classLevel || "Standard"}${lead?.subjects?.length ? ` (${lead.subjects.slice(0, 2).join(", ")})` : ""}`;
+                          const locStr = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
+                          setCustomNotificationMsg(
+                            `🚨 URGENT REQUIREMENT: Lead #${leadNum} for ${classStr} in ${locStr}! Dm on WhatsApp 62307 89155 or unlock on portal.`
+                          );
+                        }}
+                        className="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                      >
+                        ⚡ Urgent Alert
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const leadNum = lead?.id ? (lead.id.replace(/\D/g, "").slice(-6) || lead.id.slice(-6).toUpperCase()) : "210984";
+                          const feesStr = lead?.budgetMin && lead?.budgetMax ? `₹${lead.budgetMin} - ₹${lead.budgetMax}/mo` : "₹5000/mo";
+                          const locStr = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
+                          setCustomNotificationMsg(
+                            `💎 HIGH BUDGET TUITION: Lead #${leadNum} offering ${feesStr} in ${locStr}. Dm on WhatsApp 62307 89155 to claim.`
+                          );
+                        }}
+                        className="px-3 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-950 border border-blue-200 text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                      >
+                        💰 High Budget Alert
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const leadNum = lead?.id ? (lead.id.replace(/\D/g, "").slice(-6) || lead.id.slice(-6).toUpperCase()) : "210984";
+                          setCustomNotificationMsg(
+                            `👑 VIP Plan Reminder: You can unlock lead #${leadNum} for 0 coins with your VIP Plan! View Membership Plans: https://apnatutorhub.com/tutor/plans`
+                          );
+                        }}
+                        className="px-3 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-950 border border-purple-200 text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                      >
+                        👑 VIP 0-Coin Unlock
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 1-Click Variable Insert Chips */}
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                      🧩 Insert Fields &amp; Links in Clicks
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const leadNum = lead?.id ? (lead.id.replace(/\D/g, "").slice(-6) || lead.id.slice(-6).toUpperCase()) : "210984";
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} #${leadNum}` : `Enquiry #${leadNum}`));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 cursor-pointer"
+                      >
+                        + Lead ID
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const name = lead?.parentProfile?.user?.name || "Client";
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} (Client: ${name})` : `Client: ${name}`));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 cursor-pointer"
+                      >
+                        + Client Name
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const str = `${lead?.classLevel || "Standard"}${lead?.subjects?.length ? ` (${lead.subjects.join(", ")})` : ""}`;
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} ${str}` : str));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 cursor-pointer"
+                      >
+                        + Class &amp; Subjects
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const loc = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} Location: ${loc}` : `Location: ${loc}`));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 cursor-pointer"
+                      >
+                        + Location
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fees = lead?.budgetMin && lead?.budgetMax ? `₹${lead.budgetMin} - ₹${lead.budgetMax}/mo` : "₹5000/mo";
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} Fees: ${fees}` : `Fees: ${fees}`));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 cursor-pointer"
+                      >
+                        + Fees
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} Dm on WhatsApp 62307 89155` : "Dm on WhatsApp 62307 89155"));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-950 text-[11px] font-extrabold border border-emerald-200 cursor-pointer"
+                      >
+                        + WhatsApp (62307 89155)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} 👑 VIP Membership: https://apnatutorhub.com/tutor/plans` : "👑 VIP Membership: https://apnatutorhub.com/tutor/plans"));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-950 text-[11px] font-extrabold border border-purple-200 cursor-pointer"
+                      >
+                        + Membership Plan Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} 🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads` : "🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads"));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-950 text-[11px] font-extrabold border border-blue-200 cursor-pointer"
+                      >
+                        + Portal Leads Link
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Message Input Box */}
+                  <textarea
+                    rows={3}
                     value={customNotificationMsg}
                     onChange={(e) => setCustomNotificationMsg(e.target.value)}
-                    placeholder="Custom push notification message (optional)..."
-                    className="w-full sm:w-80 rounded-xl px-3 py-1.5 bg-white border border-slate-200 text-xs font-medium outline-none focus:border-[#2D9E6B]"
+                    placeholder="Click preset templates or chips above, or customize message here..."
+                    className="w-full rounded-xl p-3 bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:border-[#2D9E6B] transition-all resize-y"
                   />
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Action Toolbar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-extrabold text-slate-800">
+                    {selectedUserIds.length} tutor(s) selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomMsgInput(!showCustomMsgInput)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#2D9E6B] hover:text-[#238357] hover:underline cursor-pointer"
+                  >
+                    <Sparkles size={13} />
+                    <span>{showCustomMsgInput ? "Hide customizer" : "Customize message with 1-click templates ▾"}</span>
+                  </button>
+                </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
                 {selectedUserIds.length > 0 && (
@@ -862,7 +1094,8 @@ export function SendLeadToTutorModal({
             </div>
           </div>
         </div>
-      )}
-    </>
-  );
+      </div>
+    )}
+  </>
+);
 }

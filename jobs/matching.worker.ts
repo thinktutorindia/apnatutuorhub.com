@@ -85,6 +85,7 @@ export async function processLeadMatching(
       ? lead.subjects.join(" & ")
       : `${lead.subjects[0]} +${lead.subjects.length - 1} more`;
 
+  const isOnline = lead.mode === "ONLINE";
   const locationLabel = [lead.area, lead.city].filter(Boolean).join(", ") || "your area";
 
   // Create in-app & tracked notifications for all matched tutors.
@@ -93,8 +94,10 @@ export async function processLeadMatching(
       userId: tutor.userId,
       type: "LEAD_MATCHED",
       priority: "HIGH",
-      title: "🎯 New Tuition Lead Matched!",
-      message: `A parent is looking for a ${lead.classLevel} ${subjectLabel} tutor in ${locationLabel}. Unlock now to claim contact details.`,
+      title: isOnline ? "🌐 New Online Tuition Lead Matched!" : "🎯 New Tuition Lead Matched!",
+      message: isOnline
+        ? `A parent is looking for an online ${lead.classLevel} (${subjectLabel}) tutor (Pan-India). Unlock now to start classes.`
+        : `A parent is looking for a ${lead.classLevel} ${subjectLabel} tutor in ${locationLabel}. Unlock now to claim contact details.`,
       actionUrl: "/tutor/leads",
       referenceId: lead.id,
     });

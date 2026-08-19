@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { KycRowActions } from "@/components/admin/KycRowActions";
 import Link from "next/link";
+import { maskPhoneNumber } from "@/lib/mask-utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "KYC Approval Queue — Admin" };
@@ -133,7 +134,7 @@ export default async function AdminKycPage({
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-800 text-base text-[#0F2540]">{tutor.user.name || "Tutor Profile"}</h3>
-                      {tutor.user.phone && (
+                      {tutor.user.phone && session.user.role === "SUPER_ADMIN" && (
                         <a
                           href={`https://wa.me/91${tutor.user.phone.replace(/\D/g, "")}?text=Hi%20${encodeURIComponent(tutor.user.name || "Tutor")},%20this%20is%20ApnaTutorHub%20Support%20regarding%20your%20KYC%20verification.`}
                           target="_blank"
@@ -146,7 +147,7 @@ export default async function AdminKycPage({
                       )}
                     </div>
                     <p className="text-xs font-600 text-slate-600">
-                      {tutor.user.email} {tutor.user.phone ? `· +91 ${tutor.user.phone}` : ""}
+                      {tutor.user.email} {tutor.user.phone ? `· +91 ${session.user.role === "SUPER_ADMIN" ? tutor.user.phone : maskPhoneNumber(tutor.user.phone)}` : ""}
                     </p>
                   </div>
                 </div>

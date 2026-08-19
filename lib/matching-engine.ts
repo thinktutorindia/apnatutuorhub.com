@@ -128,6 +128,8 @@ export function coversClassLevel(tutorClassLevels: string[], leadClassLevel: str
 /** Filter 3: Teaching mode compatibility. */
 export function isModeCompatible(tutorMode: TeachingMode, leadMode: TeachingMode): boolean {
   if (tutorMode === "EITHER" || leadMode === "EITHER") return true;
+  // Online classes are location-independent: any registered tutor who can teach the subject can take online classes
+  if (leadMode === "ONLINE") return true;
   return tutorMode === leadMode;
 }
 
@@ -149,7 +151,7 @@ export function computeDistance(
   tutor: CandidateTutor,
   lead: MatchableLead
 ): { passes: boolean; distanceKm: number | null } {
-  // Online leads don't require physical proximity
+  // Online leads don't require physical proximity — match all subject teachers nationwide
   if (lead.mode === "ONLINE") {
     return { passes: true, distanceKm: null };
   }

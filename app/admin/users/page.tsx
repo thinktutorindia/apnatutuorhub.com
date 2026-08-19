@@ -10,6 +10,7 @@ import {
   UserX,
   MapPin,
   Phone,
+  Lock,
 } from "lucide-react";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportUsersCsv } from "@/app/actions/analytics.actions";
@@ -20,6 +21,7 @@ import { UserAvatar } from "@/components/admin/UserAvatar";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { resolveDocViewUrl } from "@/lib/s3";
 import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
+import { maskPhoneNumber } from "@/lib/mask-utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "User Management — Admin" };
@@ -58,6 +60,7 @@ export default async function AdminUsersPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const isSuperAdmin = session.user.role === "SUPER_ADMIN";
 
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
@@ -167,7 +170,7 @@ export default async function AdminUsersPage({
             <span>{total} Total Users</span>
           </div>
           <CreateUserModal defaultQuery={q} />
-          <ExportCsvButton label="Export CSV" action={exportUsersCsv} />
+          {isSuperAdmin && <ExportCsvButton label="Export CSV" action={exportUsersCsv} />}
         </div>
       </div>
 
@@ -263,10 +266,20 @@ export default async function AdminUsersPage({
                             <p className="truncate font-800 text-[#0F2540] text-sm">{u.name || "—"}</p>
                             <p className="truncate text-xs font-semibold text-slate-500">{u.email}</p>
                             {u.phone && (
-                              <p className="text-[11px] font-mono text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
-                                <Phone size={10} />
-                                <span>{u.phone}</span>
-                              </p>
+                              isSuperAdmin ? (
+                                <p className="text-[11px] font-mono text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
+                                  <Phone size={10} />
+                                  <span>{u.phone}</span>
+                                </p>
+                              ) : (
+                                <p
+                                  className="text-[11px] font-mono text-slate-500 font-bold flex items-center gap-1 mt-0.5"
+                                  title="Phone number masked for staff. Full number visible to Super Admin."
+                                >
+                                  <Lock size={10} className="text-amber-500 shrink-0" />
+                                  <span>{maskPhoneNumber(u.phone)}</span>
+                                </p>
+                              )
                             )}
                           </div>
                         </div>
@@ -333,7 +346,7 @@ export default async function AdminUsersPage({
                         {new Date(u.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                       </td>
                       <td className="px-5 py-4">
-                        <UserRowActions user={u} />
+                        <UserRowActions user={u} isSuperAdmin={isSuperAdmin} />
                       </td>
                     </tr>
                   );

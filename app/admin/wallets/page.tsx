@@ -105,7 +105,9 @@ export default async function AdminWalletsPage({
             Monitor coin purchases, manual admin credits/debits, and refund requests
           </p>
         </div>
-        <ExportCsvButton label="Export Payments CSV" action={exportPaymentsCsv} />
+        {session.user.role === "SUPER_ADMIN" && (
+          <ExportCsvButton label="Export Payments CSV" action={exportPaymentsCsv} />
+        )}
       </div>
 
       {/* Aggregate Stats Cards */}

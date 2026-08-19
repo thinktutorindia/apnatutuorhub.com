@@ -4,6 +4,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { toCsvString } from "@/lib/csv-exporter";
 
+function requireSuperAdmin(role: string | undefined): boolean {
+  return role === "SUPER_ADMIN";
+}
+
 function requireAdmin(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "SUB_ADMIN";
 }
@@ -12,7 +16,7 @@ function requireAdmin(role: string | undefined): boolean {
 
 export async function exportUsersCsv(): Promise<{ csv: string; filename: string } | null> {
   const session = await auth();
-  if (!session?.user || !requireAdmin(session.user.role)) return null;
+  if (!session?.user || !requireSuperAdmin(session.user.role)) return null;
 
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
@@ -45,7 +49,7 @@ export async function exportUsersCsv(): Promise<{ csv: string; filename: string 
 
 export async function exportLeadsCsv(): Promise<{ csv: string; filename: string } | null> {
   const session = await auth();
-  if (!session?.user || !requireAdmin(session.user.role)) return null;
+  if (!session?.user || !requireSuperAdmin(session.user.role)) return null;
 
   const leads = await prisma.lead.findMany({
     orderBy: { createdAt: "desc" },
@@ -77,7 +81,7 @@ export async function exportLeadsCsv(): Promise<{ csv: string; filename: string 
 
 export async function exportPaymentsCsv(): Promise<{ csv: string; filename: string } | null> {
   const session = await auth();
-  if (!session?.user || !requireAdmin(session.user.role)) return null;
+  if (!session?.user || !requireSuperAdmin(session.user.role)) return null;
 
   const txns = await prisma.walletTransaction.findMany({
     orderBy: { createdAt: "desc" },
@@ -109,7 +113,7 @@ export async function exportPaymentsCsv(): Promise<{ csv: string; filename: stri
 
 export async function exportTutorRatingsCsv(): Promise<{ csv: string; filename: string } | null> {
   const session = await auth();
-  if (!session?.user || !requireAdmin(session.user.role)) return null;
+  if (!session?.user || !requireSuperAdmin(session.user.role)) return null;
 
   const tutors = await prisma.tutorProfile.findMany({
     where: { totalReviews: { gt: 0 } },

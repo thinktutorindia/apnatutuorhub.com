@@ -431,13 +431,34 @@ export async function notifyLowWalletBalance(opts: {
 
 // ── Email Template Builder ─────────────────────────────────────────────────────
 
+function formatEmailBody(message: string): string {
+  // Convert URLs into clickable HTML links
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  let formatted = message.replace(urlRegex, (url) => {
+    return `<a href="${url}" style="color:#16A34A;font-weight:700;text-decoration:underline;" target="_blank">${url}</a>`;
+  });
+
+  // Convert markdown bold *text* to <strong>text</strong>
+  formatted = formatted.replace(/\*([^*]+)\*/g, "<strong>$1</strong>");
+
+  // Convert linebreaks to <br/>
+  formatted = formatted.replace(/\n/g, "<br/>");
+
+  return formatted;
+}
+
 function buildEmailHtml(title: string, message: string, actionUrl?: string): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
+  const fullUrl = actionUrl
+    ? actionUrl.startsWith("http")
+      ? actionUrl
+      : `${appUrl}${actionUrl.startsWith("/") ? actionUrl : `/${actionUrl}`}`
+    : appUrl;
   const cta = actionUrl
-    ? `<a href="${appUrl}${actionUrl}"
-        style="display:inline-block;margin-top:20px;padding:12px 28px;background:#22C55E;color:#fff;
+    ? `<a href="${fullUrl}"
+        style="display:inline-block;margin-top:24px;padding:12px 28px;background:#22C55E;color:#fff;
                border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
-        View Now →
+        View & Unlock Lead Now →
        </a>`
     : "";
 
@@ -458,8 +479,10 @@ function buildEmailHtml(title: string, message: string, actionUrl?: string): str
         <!-- Body -->
         <tr>
           <td style="padding:36px 40px;">
-            <h2 style="margin:0 0 12px;color:#0F172A;font-size:20px;font-weight:700;">${title}</h2>
-            <p style="margin:0;color:#475569;font-size:15px;line-height:1.7;">${message}</p>
+            <h2 style="margin:0 0 16px;color:#0F172A;font-size:20px;font-weight:700;">${title}</h2>
+            <div style="margin:0;color:#334155;font-size:14px;line-height:1.8;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:20px;font-family:Arial,sans-serif;">
+              ${formatEmailBody(message)}
+            </div>
             ${cta}
           </td>
         </tr>

@@ -98,6 +98,7 @@ function SectionHeader({
 export function AdminAnalyticsCharts({
   data,
   range,
+  isSuperAdmin = false,
 }: {
   data: {
     monthlyRevenue: MonthlyRevenuePoint[];
@@ -110,6 +111,7 @@ export function AdminAnalyticsCharts({
     subAdminActivity: SubAdminActivityPoint[];
   };
   range: string;
+  isSuperAdmin?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<"revenue" | "leads" | "demographics" | "subadmins">("revenue");
 
@@ -145,13 +147,15 @@ export function AdminAnalyticsCharts({
           })}
         </div>
 
-        {/* CSV Exporters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <ExportCsvButton action={exportUsersCsv} label="Users CSV" />
-          <ExportCsvButton action={exportLeadsCsv} label="Leads CSV" />
-          <ExportCsvButton action={exportPaymentsCsv} label="Payments CSV" />
-          <ExportCsvButton action={exportTutorRatingsCsv} label="Ratings CSV" />
-        </div>
+        {/* CSV Exporters (Super Admin Only) */}
+        {isSuperAdmin && (
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportCsvButton action={exportUsersCsv} label="Users CSV" />
+            <ExportCsvButton action={exportLeadsCsv} label="Leads CSV" />
+            <ExportCsvButton action={exportPaymentsCsv} label="Payments CSV" />
+            <ExportCsvButton action={exportTutorRatingsCsv} label="Ratings CSV" />
+          </div>
+        )}
       </div>
 
       {/* TAB 1: Financials & Revenue */}

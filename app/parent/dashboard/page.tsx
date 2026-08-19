@@ -83,7 +83,7 @@ export default async function ParentDashboardPage() {
   return (
     <div className="space-y-6 text-slate-900">
       {/* Push Notification Opt-in */}
-      <EnablePushBanner userId={session.user.id} />
+      <EnablePushBanner userId={session.user.id} role="PARENT" />
 
       {/* Hero Welcome Banner */}
       <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#0F2540] via-[#1E3A5F] to-[#0F2540] text-white shadow-xs space-y-4">

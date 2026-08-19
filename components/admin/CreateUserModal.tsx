@@ -683,16 +683,32 @@ export function CreateUserModal({
     const effectiveState = manualState.trim() || selectedLocation?.state || undefined;
     const effectivePincode = manualPincode.trim() || selectedLocation?.pincode || undefined;
     const effectiveAddress = manualAddress.trim() || selectedLocation?.fullAddress || undefined;
-
     const rawName = name.trim();
-    const cleanPhone = phone.trim().replace(/\D/g, "");
+    let normalizedPhone: string | undefined = undefined;
+
+    if (phone.trim()) {
+      let digits = phone.trim().replace(/\D/g, "");
+      if (digits.startsWith("91") && digits.length === 12) digits = digits.slice(2);
+      else if (digits.startsWith("0") && digits.length === 11) digits = digits.slice(1);
+
+      if (digits.length !== 10) {
+        setErrorMsg("Mobile number must be exactly 10 digits.");
+        return;
+      }
+      if (!/^[6-9]\d{9}$/.test(digits)) {
+        setErrorMsg("Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.");
+        return;
+      }
+      normalizedPhone = digits;
+    }
+
     const roleLabel = role === "TUTOR" ? "Tutor" : role === "PARENT" ? "Parent" : "User";
-    const displayName = rawName || (cleanPhone.length >= 4 ? `${roleLabel} (${cleanPhone.slice(-4)})` : roleLabel);
+    const displayName = rawName || (normalizedPhone ? `${roleLabel} (${normalizedPhone.slice(-4)})` : roleLabel);
 
     const payload: CreateUserInput = {
       name: rawName || undefined,
       email: email.trim() || undefined,
-      phone: phone.trim() || undefined,
+      phone: normalizedPhone,
       password: autoPassword ? undefined : customPassword.trim() || undefined,
       role,
       subAdminRole: role === "SUB_ADMIN" ? subAdminRole : undefined,
@@ -1071,17 +1087,37 @@ export function CreateUserModal({
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block font-bold text-slate-700">
-                          Phone Number <span className="text-slate-400 font-normal text-[11px]">(WhatsApp)</span>
-                        </label>
-                        <div className="relative">
-                          <Phone size={15} className="absolute left-3.5 top-3 text-slate-400" />
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block font-bold text-slate-700">
+                            Mobile Number <span className="text-slate-400 font-normal text-[11px]">(WhatsApp)</span>
+                          </label>
+                          {phone.trim() && (
+                            <span
+                              className={`text-[10px] font-bold ${
+                                phone.replace(/\D/g, "").length === 10 &&
+                                /^[6-9]/.test(phone.replace(/\D/g, ""))
+                                  ? "text-emerald-700 font-extrabold"
+                                  : "text-amber-700"
+                              }`}
+                            >
+                              {phone.replace(/\D/g, "").length}/10 digits
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative flex items-center">
+                          <div className="absolute left-3.5 flex items-center gap-1 text-slate-500 font-bold text-xs pointer-events-none">
+                            <span>🇮🇳 +91</span>
+                          </div>
                           <input
-                            type="text"
+                            type="tel"
                             value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            placeholder="+91 98765 43210"
-                            className="w-full rounded-2xl pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] focus:ring-4 focus:ring-emerald-500/10 font-semibold transition-all shadow-2xs"
+                            maxLength={10}
+                            onChange={(e) => {
+                              const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                              setPhone(digitsOnly);
+                            }}
+                            placeholder="98765 43210"
+                            className="w-full rounded-2xl pl-16 pr-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] focus:ring-4 focus:ring-emerald-500/10 font-bold font-mono tracking-wide transition-all shadow-2xs"
                           />
                         </div>
                       </div>

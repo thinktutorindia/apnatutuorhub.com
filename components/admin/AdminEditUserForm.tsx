@@ -58,6 +58,7 @@ import {
   adminUpsertStudentProfileAction,
   adminDeleteStudentProfileAction,
 } from "@/app/actions/admin.actions";
+import { maskPhoneNumber } from "@/lib/mask-utils";
 
 interface PresignedUrls {
   idViewUrl: string | null;
@@ -145,10 +146,12 @@ export function AdminEditUserForm({
   user,
   presignedUrls,
   adminNotes = [],
+  isSuperAdmin = false,
 }: {
   user: UserData;
   presignedUrls: PresignedUrls;
   adminNotes?: AdminNoteItem[];
+  isSuperAdmin?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -513,13 +516,31 @@ export function AdminEditUserForm({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Phone Number</label>
-              <input
-                name="phone"
-                defaultValue={user.phone || ""}
-                placeholder="+91 9876543210"
-                className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 transition-all font-bold"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-extrabold text-slate-700">Phone Number</label>
+                {!isSuperAdmin && (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                    🔒 Masked for Staff
+                  </span>
+                )}
+              </div>
+              {isSuperAdmin ? (
+                <input
+                  name="phone"
+                  defaultValue={user.phone || ""}
+                  placeholder="+91 9876543210"
+                  className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 transition-all font-bold"
+                />
+              ) : (
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={user.phone ? maskPhoneNumber(user.phone) || "—" : "—"}
+                  className="w-full rounded-2xl px-4 py-3 text-sm text-slate-500 bg-slate-100 border border-slate-200 cursor-not-allowed font-mono font-bold"
+                  title="Phone number is masked for staff. Only Super Admin can view or modify raw phone numbers."
+                />
+              )}
             </div>
           </div>
 

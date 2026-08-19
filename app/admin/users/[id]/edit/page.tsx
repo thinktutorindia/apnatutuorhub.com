@@ -61,9 +61,12 @@ export default async function AdminEditUserPage({
       }))
     : [];
 
+  const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+
   return (
     <AdminEditUserForm
       adminNotes={adminNotes}
+      isSuperAdmin={isSuperAdmin}
       user={{
         id: user.id,
         name: user.name,

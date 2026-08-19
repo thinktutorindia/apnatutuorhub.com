@@ -41,9 +41,10 @@ interface UserRowActionsProps {
       canTopup?: boolean;
     } | null;
   };
+  isSuperAdmin?: boolean;
 }
 
-export function UserRowActions({ user }: UserRowActionsProps) {
+export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -119,8 +120,8 @@ export function UserRowActions({ user }: UserRowActionsProps) {
             Account Management
           </div>
 
-          {/* WhatsApp Direct */}
-          {whatsappUrl && (
+          {/* WhatsApp Direct (Super Admin Only) */}
+          {whatsappUrl && isSuperAdmin && (
             <a
               href={whatsappUrl}
               target="_blank"
@@ -255,23 +256,25 @@ export function UserRowActions({ user }: UserRowActionsProps) {
             <span>Reset Password</span>
           </button>
 
-          {/* Delete User */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsOpen(false);
-              setConfirmDialog({
-                title: "Permanently Delete User",
-                message: `Are you sure you want to PERMANENTLY DELETE ${user.name || user.email}? All associated data, bookings, and profiles will be erased. This action CANNOT be undone.`,
-                action: () => adminDeleteUserAction(user.id),
-                danger: true,
-              });
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-700 font-bold text-left cursor-pointer transition-colors"
-          >
-            <Trash2 size={14} className="text-rose-600" />
-            <span>Delete User</span>
-          </button>
+          {/* Delete User (Super Admin Only) */}
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                setConfirmDialog({
+                  title: "Permanently Delete User",
+                  message: `Are you sure you want to PERMANENTLY DELETE ${user.name || user.email}? All associated data, bookings, and profiles will be erased. This action CANNOT be undone.`,
+                  action: () => adminDeleteUserAction(user.id),
+                  danger: true,
+                });
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-700 font-bold text-left cursor-pointer transition-colors"
+            >
+              <Trash2 size={14} className="text-rose-600" />
+              <span>Delete User</span>
+            </button>
+          )}
         </div>
       )}
 

@@ -15,15 +15,24 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export function EnablePushBanner({ userId }: { userId?: string }) {
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      return "unsupported";
-    }
-    return Notification.permission;
-  });
+export function EnablePushBanner({
+  userId,
+  role = "TUTOR",
+}: {
+  userId?: string;
+  role?: "PARENT" | "TUTOR";
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "denied">("idle");
   const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPermission(Notification.permission);
+    }
+  }, []);
 
   const enablePush = async () => {
     if (!userId || typeof window === "undefined") return;
@@ -75,14 +84,20 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
     }
   };
 
-  if (permission === "unsupported") return null;
+  if (!mounted || permission === "unsupported") return null;
+
+  const isParent = role === "PARENT";
 
   if (permission === "granted" || status === "success") {
     return (
       <div className="neu-card flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-[#DCFCE7] p-4 text-xs font-bold text-[#0F172A]">
         <div className="flex items-center gap-2">
           <CheckCircle2 size={16} className="text-[#22C55E]" />
-          <span>VAPID Web Push Notifications Active on this Device ✅</span>
+          <span>
+            {isParent
+              ? "Instant Tutor Applications & Class Update Notifications Active on this Device ✅"
+              : "Instant Student Lead & Inquiries Alerts Active on this Device ✅"}
+          </span>
         </div>
         <span className="rounded-full border-2 border-[#0F172A] bg-white px-2.5 py-0.5 text-[10px] font-black">
           Connected
@@ -101,42 +116,52 @@ export function EnablePushBanner({ userId }: { userId?: string }) {
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wide">
-                ⚠️ Turn On Notifications to Get Instant Student Leads & Inquiries
+                {isParent
+                  ? "⚠️ Turn On Notifications for Instant Tutor Responses & Applications"
+                  : "⚠️ Turn On Notifications to Get Instant Student Leads & Inquiries"}
               </h2>
               <span className="neu-badge bg-red-100 text-red-700 border-red-300 text-[10px] font-extrabold">
-                MUST ENABLE
+                REQUIRED
               </span>
             </div>
-            <p className="text-xs font-semibold text-slate-700 max-w-2xl leading-relaxed">
-              Without notification permission enabled, you will NOT get instant alerts when parents post tuition requirements in your area. Enable now so you never miss student leads!
+            <p className="text-xs font-bold text-slate-700">
+              {isParent
+                ? "Allow notifications to receive instant updates when verified tutors apply for your tuition requirement."
+                : "Allow notifications to get instant popups and leads whenever a parent posts a new tuition requirement in your area."}
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={enablePush}
-          disabled={status === "loading"}
-          className="neu-btn neu-btn-primary btn-shine shrink-0 w-full sm:w-auto whitespace-normal text-center px-6 py-3.5 text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A] hover:scale-105 active:scale-95 transition-all duration-200 ease-out"
-        >
-          {status === "loading" ? (
-            "Enabling Notifications..."
-          ) : status === "denied" || permission === "denied" ? (
-            <>
-              <BellOff size={15} />
-              <span>Permission Denied in Browser — Click for Guide</span>
-            </>
-          ) : (
-            <>
-              <Bell size={15} />
-              <span>Turn On Notifications Now</span>
-            </>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {permission === "denied" && (
+            <button
+              onClick={() => setShowGuide(true)}
+              className="neu-button-ghost text-xs font-extrabold flex items-center gap-1.5 text-rose-700 border-rose-300 bg-rose-50 hover:bg-rose-100 cursor-pointer"
+            >
+              <BellOff size={14} />
+              Blocked — How to Unblock
+            </button>
           )}
-        </button>
+
+          <button
+            onClick={enablePush}
+            disabled={status === "loading"}
+            className="neu-button-accent text-xs font-black shrink-0 flex items-center gap-1.5 cursor-pointer bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md"
+          >
+            <Bell size={14} />
+            {status === "loading"
+              ? "Enabling..."
+              : isParent
+              ? "Turn On Tutor Alerts"
+              : "Turn On Lead Alerts"}
+          </button>
+        </div>
       </div>
 
-      {/* Visual Guide Modal */}
-      <UnblockGuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />
+      <UnblockGuideModal
+        isOpen={showGuide}
+        onClose={() => setShowGuide(false)}
+      />
     </>
   );
 }

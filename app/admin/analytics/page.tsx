@@ -135,7 +135,11 @@ export default async function AdminAnalyticsPage({
       </div>
 
       {/* Interactive Charts Section */}
-      <AdminAnalyticsCharts data={data} range={range} />
+      <AdminAnalyticsCharts
+        data={data}
+        range={range}
+        isSuperAdmin={session.user.role === "SUPER_ADMIN"}
+      />
     </div>
   );
 }

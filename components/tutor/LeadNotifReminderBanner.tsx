@@ -16,14 +16,17 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function LeadNotifReminderBanner({ userId }: { userId?: string }) {
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      return "unsupported";
-    }
-    return Notification.permission;
-  });
+  const [mounted, setMounted] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "denied">("idle");
   const [showGuideModal, setShowGuideModal] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPermission(Notification.permission);
+    }
+  }, []);
 
   const handleEnablePush = async () => {
     if (!userId || typeof window === "undefined") return;
@@ -74,7 +77,7 @@ export function LeadNotifReminderBanner({ userId }: { userId?: string }) {
     }
   };
 
-  if (permission === "unsupported") return null;
+  if (!mounted || permission === "unsupported") return null;
 
   if (permission === "granted" || status === "success") {
     return (

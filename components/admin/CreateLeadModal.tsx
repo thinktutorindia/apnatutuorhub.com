@@ -37,6 +37,7 @@ import {
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
+import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
 import type { TeachingMode } from "@prisma/client";
 
 export type ResolvedLocation = {
@@ -255,10 +256,27 @@ export function CreateLeadModal({
     const effectiveArea = manualArea.trim() || selectedLocation?.area || undefined;
     const effectivePincode = manualPincode.trim() || selectedLocation?.pincode || undefined;
 
+    let normalizedParentPhone: string | undefined = undefined;
+    if (parentMode === "NEW" && parentPhone.trim()) {
+      let digits = parentPhone.trim().replace(/\D/g, "");
+      if (digits.startsWith("91") && digits.length === 12) digits = digits.slice(2);
+      else if (digits.startsWith("0") && digits.length === 11) digits = digits.slice(1);
+
+      if (digits.length !== 10) {
+        setErrorMsg("Parent mobile number must be exactly 10 digits.");
+        return;
+      }
+      if (!/^[6-9]\d{9}$/.test(digits)) {
+        setErrorMsg("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
+        return;
+      }
+      normalizedParentPhone = digits;
+    }
+
     const payload: AdminCreateLeadInput = {
       parentProfileId: parentMode === "EXISTING" ? selectedParentId || undefined : undefined,
       parentName: parentMode === "NEW" ? parentName.trim() || undefined : undefined,
-      parentPhone: parentMode === "NEW" ? parentPhone.trim() || undefined : undefined,
+      parentPhone: normalizedParentPhone,
       parentEmail: parentMode === "NEW" ? parentEmail.trim() || undefined : undefined,
       studentName: studentName.trim() || undefined,
       subjects: selectedSubjects,
@@ -296,10 +314,25 @@ export function CreateLeadModal({
   };
 
   const handleCopyWhatsAppText = () => {
-    const loc = [selectedLocation?.area, selectedLocation?.city, selectedLocation?.pincode]
-      .filter(Boolean)
-      .join(", ") || manualCity || "Local Area";
-    const text = `🎓 *ApnaTutorHub — New Student Tuition Enquiry* 🎯\n\n📚 *Subjects:* ${selectedSubjects.join(", ")}\n🏫 *Class:* ${classLevel} (${board || "CBSE"})\n📍 *Location:* ${loc}\n🚗 *Mode:* ${mode === "OFFLINE" ? "Home Tuition (Offline)" : mode === "ONLINE" ? "Online Only" : "Home or Online"}\n💰 *Budget:* ₹${budgetMin} - ₹${budgetMax}/month\n⏱ *Timing:* ${timingPreference || "Flexible"}\n👤 *Parent/Student:* ${parentName || "Verified Parent"}${parentPhone ? ` (${parentPhone})` : ""}\n📝 *Notes:* ${notes || "Student looking for dedicated personalized guidance."}\n\n🔗 *Unlock & View on Portal:* https://apnatutorhub.com/tutor/leads`;
+    const text = formatLeadNotifyTemplate({
+      id: createdLeadId !== "created" ? createdLeadId : undefined,
+      clientName: parentName || "Not Specified",
+      subjects: selectedSubjects,
+      classLevel,
+      board,
+      mode,
+      area: selectedLocation?.area ?? undefined,
+      city: selectedLocation?.city || manualCity || undefined,
+      state: selectedLocation?.state ?? undefined,
+      pincode: selectedLocation?.pincode ?? undefined,
+      budgetMin: Number(budgetMin) || null,
+      budgetMax: Number(budgetMax) || null,
+      genderPreference: "Any",
+      notes,
+      timingPreference,
+      schedule: timingPreference || "5 Days a Week",
+      contactWhatsApp: "62307 89155",
+    });
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -542,17 +575,37 @@ export function CreateLeadModal({
                         </div>
 
                         <div>
-                          <label className="mb-1.5 block font-bold text-slate-700 text-xs">
-                            Parent Phone Number <span className="text-emerald-700 font-bold text-[10px]">(WhatsApp)</span>
-                          </label>
-                          <div className="relative">
-                            <Phone size={15} className="absolute left-3.5 top-3 text-slate-400" />
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="block font-bold text-slate-700 text-xs">
+                              Parent Mobile Number <span className="text-emerald-700 font-bold text-[10px]">(WhatsApp)</span>
+                            </label>
+                            {parentPhone.trim() && (
+                              <span
+                                className={`text-[10px] font-bold ${
+                                  parentPhone.replace(/\D/g, "").length === 10 &&
+                                  /^[6-9]/.test(parentPhone.replace(/\D/g, ""))
+                                    ? "text-emerald-700 font-extrabold"
+                                    : "text-amber-700"
+                                }`}
+                              >
+                                {parentPhone.replace(/\D/g, "").length}/10 digits
+                              </span>
+                            )}
+                          </div>
+                          <div className="relative flex items-center">
+                            <div className="absolute left-3.5 flex items-center gap-1 text-slate-500 font-bold text-xs pointer-events-none">
+                              <span>🇮🇳 +91</span>
+                            </div>
                             <input
-                              type="text"
+                              type="tel"
                               value={parentPhone}
-                              onChange={(e) => setParentPhone(e.target.value)}
-                              placeholder="+91 98765 43210"
-                              className="w-full rounded-2xl pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-semibold text-xs shadow-2xs"
+                              maxLength={10}
+                              onChange={(e) => {
+                                const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                                setParentPhone(digitsOnly);
+                              }}
+                              placeholder="98765 43210"
+                              className="w-full rounded-2xl pl-16 pr-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-bold font-mono tracking-wide text-xs shadow-2xs"
                             />
                           </div>
                         </div>

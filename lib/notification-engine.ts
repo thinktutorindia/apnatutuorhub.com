@@ -8,7 +8,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { sendNotification as sendResendNotification } from "@/lib/aws-notification";
+import { sendNotification as sendResendNotification, dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush, isWebPushConfigured } from "@/lib/web-push";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -28,6 +28,10 @@ export type CreateNotificationInput = {
   metadata?: Record<string, unknown>;
   /** If provided, prevents duplicate notifications for same user+type+referenceId */
   referenceId?: string;
+  /** If true, bypasses duplicate idempotency check and forces new notification dispatch */
+  forceSend?: boolean;
+  /** If true, dispatches an email via Resend in addition to in-app / push */
+  sendEmail?: boolean;
 };
 
 // ── Notification Creation ─────────────────────────────────────────────────────
@@ -50,11 +54,13 @@ export async function createNotification(
     expiresInHours = 48,
     metadata,
     referenceId,
+    forceSend = false,
+    sendEmail = false,
   } = input;
 
   try {
-    // Idempotency: skip duplicate if same user+type+referenceId exists within 24h
-    if (referenceId) {
+    // Idempotency: skip duplicate if same user+type+referenceId exists within 24h (unless forceSend)
+    if (referenceId && !forceSend) {
       const existing = await prisma.notification.findFirst({
         where: {
           userId,
@@ -88,7 +94,15 @@ export async function createNotification(
     });
 
     // Dispatch channel delivery asynchronously
-    void dispatchNotification(notification.id, channel, userId, title, message, actionUrl ?? undefined);
+    void dispatchNotification(
+      notification.id,
+      channel,
+      userId,
+      title,
+      message,
+      actionUrl ?? undefined,
+      { sendEmail, priority }
+    );
 
     return notification.id;
   } catch (err) {
@@ -109,39 +123,19 @@ async function dispatchNotification(
   userId: string,
   title: string,
   message: string,
-  actionUrl?: string
+  actionUrl?: string,
+  options?: { sendEmail?: boolean; priority?: NotificationPriority }
 ): Promise<void> {
-  // Fetch user contact details for non-WEB channels
+  // Fetch user contact details
   let userEmail: string | null = null;
-
-  if (channel !== "WEB") {
-    // For chat messages, suppress external notification if already read.
-    // We check immediately (no delay) — if read between creation and dispatch
-    // the notification is safely suppressed.
-    const notification = await prisma.notification.findUnique({
-      where: { id: notificationId },
-      select: { type: true, metadata: true },
-    });
-
-    if (notification?.type === "NEW_CHAT_MESSAGE") {
-      const messageId = (notification.metadata as { messageId?: string })?.messageId;
-      if (messageId) {
-        const msg = await prisma.message.findUnique({
-          where: { id: messageId },
-          select: { isRead: true },
-        });
-        if (msg?.isRead) {
-          console.info(`[notification-engine] Suppression: message ${messageId} already read. Skipping ${channel} delivery.`);
-          return;
-        }
-      }
-    }
-
+  try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { email: true, phone: true },
     });
     userEmail = user?.email ?? null;
+  } catch (err) {
+    console.warn("[notification-engine] Failed to fetch user contact:", err);
   }
 
   const deliveryData = {
@@ -166,6 +160,8 @@ async function dispatchNotification(
           where: { id: notificationId },
           data: { status: "SENT", sentAt: new Date() },
         });
+
+        // 1. Web Push Dispatch
         if (isWebPushConfigured()) {
           try {
             await sendWebPush(userId, {
@@ -176,6 +172,21 @@ async function dispatchNotification(
             });
           } catch (err) {
             console.warn("[notification-engine] Background web-push failed:", err);
+          }
+        }
+
+        // 2. Email Dispatch if requested or High Priority
+        if (userEmail && (options?.sendEmail || options?.priority === "HIGH" || options?.priority === "CRITICAL")) {
+          try {
+            await sendResendNotification({
+              userId,
+              email: userEmail,
+              title,
+              message,
+              actionUrl,
+            });
+          } catch (err) {
+            console.warn("[notification-engine] Background email delivery error:", err);
           }
         }
         break;
@@ -228,99 +239,37 @@ async function dispatchNotification(
     });
     await prisma.notification.update({
       where: { id: notificationId },
-      data: { status: "FAILED", retryCount: { increment: 1 } },
+      data: { status: "FAILED" },
     });
   }
 }
 
-// ── Helper: Mark Delivered ────────────────────────────────────────────────────
+// ── Status Updates ────────────────────────────────────────────────────────────
 
 async function markDelivered(
   notificationId: string,
   deliveryId: string
 ): Promise<void> {
-  const now = new Date();
-  await Promise.all([
-    prisma.notificationDelivery.update({
-      where: { id: deliveryId },
-      data: { status: "DELIVERED" },
-    }),
-    prisma.notification.update({
-      where: { id: notificationId },
-      data: { status: "DELIVERED", sentAt: now, deliveredAt: now },
-    }),
-  ]);
+  await prisma.notificationDelivery.update({
+    where: { id: deliveryId },
+    data: { status: "DELIVERED" },
+  });
+  await prisma.notification.update({
+    where: { id: notificationId },
+    data: { status: "DELIVERED", deliveredAt: new Date() },
+  });
 }
-
-// ── Helper: Resolve Provider Name ─────────────────────────────────────────────
 
 function resolveProvider(channel: NotificationChannel): string {
   switch (channel) {
-    case "WEB":      return "INTERNAL_DB";
-    case "EMAIL":    return "RESEND";
-    case "PUSH":     return "VAPID_WEB_PUSH";
-    case "WHATSAPP": return "RESEND";
+    case "EMAIL":
+      return "RESEND";
+    case "PUSH":
+      return "VAPID";
+    case "WHATSAPP":
+      return "RESEND_FALLBACK";
+    case "WEB":
+    default:
+      return "INTERNAL";
   }
-}
-
-// ── Mark Seen / Clicked ───────────────────────────────────────────────────────
-
-export async function markNotificationSeen(
-  notificationId: string,
-  userId: string
-): Promise<void> {
-  await prisma.notification.updateMany({
-    where: { id: notificationId, userId, seenAt: null },
-    data: {
-      isRead: true,
-      seenAt: new Date(),
-      status: "SEEN",
-    },
-  });
-}
-
-export async function markNotificationClicked(
-  notificationId: string,
-  userId: string
-): Promise<void> {
-  await prisma.notification.updateMany({
-    where: { id: notificationId, userId, clickedAt: null },
-    data: {
-      clickedAt: new Date(),
-      status: "CLICKED",
-    },
-  });
-}
-
-export async function markAllNotificationsRead(userId: string): Promise<void> {
-  const now = new Date();
-  await prisma.notification.updateMany({
-    where: { userId, isRead: false },
-    data: { isRead: true, seenAt: now, status: "SEEN" },
-  });
-}
-
-// ── Analytics Helpers ─────────────────────────────────────────────────────────
-
-export async function getNotificationStats(days = 7) {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
-  const [total, delivered, seen, clicked, failed] = await Promise.all([
-    prisma.notification.count({ where: { createdAt: { gte: since } } }),
-    prisma.notification.count({ where: { createdAt: { gte: since }, status: "DELIVERED" } }),
-    prisma.notification.count({ where: { createdAt: { gte: since }, status: "SEEN" } }),
-    prisma.notification.count({ where: { createdAt: { gte: since }, status: "CLICKED" } }),
-    prisma.notification.count({ where: { createdAt: { gte: since }, status: "FAILED" } }),
-  ]);
-
-  return {
-    total,
-    delivered,
-    seen,
-    clicked,
-    failed,
-    deliveryRate: total > 0 ? ((delivered / total) * 100).toFixed(1) + "%" : "—",
-    openRate: delivered > 0 ? ((seen / delivered) * 100).toFixed(1) + "%" : "—",
-    ctr: seen > 0 ? ((clicked / seen) * 100).toFixed(1) + "%" : "—",
-  };
 }

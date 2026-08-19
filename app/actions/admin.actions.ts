@@ -15,6 +15,8 @@ import { createNotification } from "@/lib/notification-engine";
 import { inferClassLevelFromSubjects } from "@/lib/validations";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
+import { maskPhoneNumber } from "@/lib/mask-utils";
+import { hasSubjectOverlap, coversClassLevel } from "@/lib/matching-engine";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins
@@ -161,11 +163,38 @@ export async function adminCreateUserAction(
 
   let emailClean = input.email ? input.email.trim().toLowerCase() : "";
 
+  // 10-Digit Mobile Number Validation & Normalization
+  let phoneToStore: string | null = null;
+  if (input.phone && input.phone.trim()) {
+    let cleanPhone = input.phone.trim().replace(/\D/g, "");
+    if (cleanPhone.startsWith("91") && cleanPhone.length === 12) {
+      cleanPhone = cleanPhone.slice(2);
+    } else if (cleanPhone.startsWith("0") && cleanPhone.length === 11) {
+      cleanPhone = cleanPhone.slice(1);
+    }
+
+    if (cleanPhone.length !== 10) {
+      return actionError("Mobile number must be exactly 10 digits (e.g. 9876543210).");
+    }
+
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      return actionError("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
+    }
+
+    const existingPhone = await prisma.user.findUnique({
+      where: { phone: cleanPhone },
+    });
+    if (existingPhone) {
+      return actionError(`User with mobile number "${cleanPhone}" already exists.`);
+    }
+
+    phoneToStore = cleanPhone;
+  }
+
   // Auto-generate sequential fallback email if not provided
   if (!emailClean) {
-    const cleanPhone = input.phone ? input.phone.replace(/\D/g, "") : "";
-    if (cleanPhone && cleanPhone.length >= 10) {
-      const phoneCandidate = `user${cleanPhone}@apnatutorhub.com`;
+    if (phoneToStore) {
+      const phoneCandidate = `user${phoneToStore}@apnatutorhub.com`;
       const exists = await prisma.user.findUnique({ where: { email: phoneCandidate } });
       if (!exists) {
         emailClean = phoneCandidate;
@@ -196,16 +225,15 @@ export async function adminCreateUserAction(
   const passwordHash = await bcrypt.hash(rawPassword, 10);
 
   const rawName = input.name?.trim() || "";
-  const cleanPhone = input.phone ? input.phone.replace(/\D/g, "") : "";
   const roleLabel = input.role === "TUTOR" ? "Tutor" : input.role === "PARENT" ? "Parent" : "User";
-  const finalName = rawName || (cleanPhone.length >= 4 ? `${roleLabel} (${cleanPhone.slice(-4)})` : roleLabel);
+  const finalName = rawName || (phoneToStore ? `${roleLabel} (${phoneToStore.slice(-4)})` : roleLabel);
 
   const newUser = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         name: finalName,
         email: emailClean,
-        phone: input.phone?.trim() || null,
+        phone: phoneToStore,
         passwordHash,
         role: input.role,
         subAdminRole: input.role === "SUB_ADMIN" ? (input.subAdminRole ?? "SUPPORT") : null,
@@ -721,8 +749,10 @@ export async function adminGetMatchingTutorsForLeadAction(
   leadId: string,
   search?: string
 ): Promise<ActionResult<{ lead: any; tutors: MatchedTutorSummary[] }>> {
-  const { error } = await requirePermission("leads:manage");
+  const { error, session } = await requirePermission("leads:manage");
   if (error) return actionError(error);
+
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
 
   const lead = await prisma.lead.findUnique({
     where: { id: leadId },
@@ -767,32 +797,28 @@ export async function adminGetMatchingTutorsForLeadAction(
       },
       wallet: { select: { balance: true } },
     },
-    take: 100,
+    take: 300,
   });
 
+  const isOnlineLead = lead.mode === "ONLINE";
   const leadSubjLower = lead.subjects.map((s) => s.toLowerCase());
   const leadClassLower = lead.classLevel.toLowerCase();
 
   const ranked: MatchedTutorSummary[] = tutors.map((tp) => {
     let subjectMatchCount = 0;
     for (const s of tp.subjects) {
-      if (
-        leadSubjLower.some(
-          (ls) => ls.includes(s.toLowerCase()) || s.toLowerCase().includes(ls)
-        )
-      ) {
+      if (hasSubjectOverlap([s], lead.subjects)) {
         subjectMatchCount++;
       }
     }
+    // Also check if any tutor subject matches the lead
+    const hasAnySubjectMatch = hasSubjectOverlap(tp.subjects, lead.subjects);
+    if (hasAnySubjectMatch && subjectMatchCount === 0) subjectMatchCount = 1;
 
-    let classMatch = tp.classLevels.some(
-      (cl) =>
-        cl.toLowerCase().includes(leadClassLower) ||
-        leadClassLower.includes(cl.toLowerCase())
-    );
+    const classMatch = coversClassLevel(tp.classLevels, lead.classLevel);
 
     let distanceKm: number | null = null;
-    if (lead.latitude && lead.longitude && tp.latitude && tp.longitude) {
+    if (!isOnlineLead && lead.latitude && lead.longitude && tp.latitude && tp.longitude) {
       distanceKm =
         Math.round(
           haversineDistanceKm(
@@ -807,9 +833,16 @@ export async function adminGetMatchingTutorsForLeadAction(
     let score = 0;
     if (subjectMatchCount > 0) score += subjectMatchCount * 30;
     if (classMatch) score += 25;
-    if (distanceKm !== null && distanceKm <= (lead.radiusKm || 10)) {
+    
+    if (isOnlineLead) {
+      // Online leads: award full location points (+30) to all tutors nationwide without distance penalty
+      score += 30;
+    } else if (distanceKm !== null && distanceKm <= (lead.radiusKm || 10)) {
       score += Math.max(0, 30 - Math.round(distanceKm * 2));
+    } else if (tp.city && lead.city && tp.city.trim().toLowerCase() === lead.city.trim().toLowerCase()) {
+      score += 20; // Same city bonus if GPS missing
     }
+
     if (tp.kycStatus === "APPROVED") score += 10;
     if (tp.averageRating >= 4.0) score += 5;
 
@@ -818,7 +851,7 @@ export async function adminGetMatchingTutorsForLeadAction(
       userId: tp.user.id,
       name: tp.user.name || "Tutor",
       email: tp.user.email,
-      phone: tp.user.phone,
+      phone: isSuperAdmin ? tp.user.phone : maskPhoneNumber(tp.user.phone),
       image: tp.user.image,
       city: tp.city,
       area: tp.address,
@@ -839,7 +872,25 @@ export async function adminGetMatchingTutorsForLeadAction(
     return b.matchScore - a.matchScore;
   });
 
-  return actionSuccess({ lead, tutors: ranked });
+  // Mask parent phone for staff view
+  const formattedLead = {
+    ...lead,
+    parentProfile: lead.parentProfile
+      ? {
+          ...lead.parentProfile,
+          user: lead.parentProfile.user
+            ? {
+                ...lead.parentProfile.user,
+                phone: isSuperAdmin
+                  ? lead.parentProfile.user.phone
+                  : maskPhoneNumber(lead.parentProfile.user.phone),
+              }
+            : null,
+        }
+      : null,
+  };
+
+  return actionSuccess({ lead: formattedLead, tutors: ranked });
 }
 
 export async function adminSendLeadNotificationAction(
@@ -874,16 +925,21 @@ export async function adminSendLeadNotificationAction(
 
   let sentCount = 0;
   for (const userId of tutorUserIds) {
+    const notifMsg =
+      customMessage ||
+      `New verified requirement for ${lead.classLevel} (${subjectLabel}) in ${locationLabel}. Unlock with ${lead.coinCost} coins now!`;
+
     await createNotification({
       userId,
       type: "LEAD_MATCHED",
       priority: "HIGH",
-      title: "🎯 Admin Dispatched Tuition Enquiry!",
-      message:
-        customMessage ||
-        `New verified requirement for ${lead.classLevel} (${subjectLabel}) in ${locationLabel}. Unlock with ${lead.coinCost} coins now!`,
+      channel: "WEB",
+      title: "🎯 New Student Tuition Enquiry!",
+      message: notifMsg,
       actionUrl: "/tutor/leads",
       referenceId: lead.id,
+      forceSend: true,
+      sendEmail: true,
     });
     sentCount++;
   }
@@ -1652,6 +1708,11 @@ export async function adminDeleteUserAction(
 ): Promise<ActionResult<{ deleted: true }>> {
   const { error, session } = await requirePermission("users:manage");
   if (error) return actionError(error);
+
+  // Security guard: Only the main Super Admin has privileges to permanently delete users
+  if (session!.user.role !== "SUPER_ADMIN") {
+    return actionError("Permission Denied: Only the Super Admin can permanently delete user accounts.");
+  }
 
   if (session!.user.id === userId) {
     return actionError("You cannot delete your own admin account.");
@@ -2567,11 +2628,13 @@ export async function adminFetchFilteredUsersForGovernanceAction(
     prisma.user.count({ where }),
   ]);
 
+  const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+
   const users = rawUsers.map((u) => ({
     id: u.id,
     name: u.name,
     email: u.email,
-    phone: u.phone,
+    phone: isSuperAdmin ? u.phone : maskPhoneNumber(u.phone),
     role: u.role,
     createdAt: u.createdAt.toISOString(),
     isVerified: u.tutorProfile?.isVerified ?? false,

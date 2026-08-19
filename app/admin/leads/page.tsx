@@ -11,6 +11,8 @@ import {
   Maximize2,
   Trash2,
   RefreshCw,
+  Phone,
+  Send,
 } from "lucide-react";
 import {
   forceCloseLeadAction,
@@ -20,6 +22,8 @@ import {
 } from "@/app/actions/admin.actions";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportLeadsCsv } from "@/app/actions/analytics.actions";
+import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
+import { SendLeadToTutorModal } from "@/components/admin/SendLeadToTutorModal";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lead Management — Admin" };
@@ -84,7 +88,7 @@ export default async function AdminLeadsPage({
         area: true,
         createdAt: true,
         expiresAt: true,
-        parentProfile: { select: { user: { select: { name: true, email: true } } } },
+        parentProfile: { select: { user: { select: { name: true, email: true, phone: true } } } },
       },
     }),
     prisma.lead.count({ where }),
@@ -106,7 +110,10 @@ export default async function AdminLeadsPage({
             {total.toLocaleString("en-IN")} total parent tuition requirement posts
           </p>
         </div>
-        <ExportCsvButton label="Export Leads CSV" action={exportLeadsCsv} />
+        <div className="flex flex-wrap items-center gap-3">
+          <CreateLeadModal />
+          <ExportCsvButton label="Export Leads CSV" action={exportLeadsCsv} />
+        </div>
       </div>
 
       {/* Filters */}
@@ -171,7 +178,9 @@ export default async function AdminLeadsPage({
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-800 text-[#0F2540] text-xs">{lead.parentProfile.user.name || "—"}</p>
-                      <p className="text-xs font-600 text-slate-600">{lead.parentProfile.user.email}</p>
+                      <p className="text-xs font-600 text-slate-600">
+                        {lead.parentProfile.user.phone ? `📱 ${lead.parentProfile.user.phone}` : lead.parentProfile.user.email}
+                      </p>
                     </td>
                     <td className="px-5 py-4">
                       <span className={`rounded-full px-3 py-1 text-xs font-800 border ${style.bg} ${style.text} ${style.border}`}>
@@ -209,6 +218,11 @@ export default async function AdminLeadsPage({
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap items-center gap-1.5">
+                        <SendLeadToTutorModal
+                          leadId={lead.id}
+                          leadTitle={`${lead.classLevel} - ${lead.subjects.join(", ")}`}
+                        />
+
                         {isOpen && (
                           <>
                             <form
@@ -249,8 +263,8 @@ export default async function AdminLeadsPage({
                             await adminDeleteLeadAction(lead.id);
                           }}
                         >
-                          <button type="submit" className="flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-800 bg-red-100 text-red-950 border border-red-300 hover:bg-red-200 cursor-pointer">
-                            <Trash2 size={11} /> Delete
+                          <button type="submit" className="flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-800 bg-slate-100 text-slate-700 border border-slate-300 hover:bg-red-50 hover:text-red-700 hover:border-red-300 cursor-pointer transition-colors" title="Delete lead permanently">
+                            <Trash2 size={11} />
                           </button>
                         </form>
                       </div>

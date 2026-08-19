@@ -13,6 +13,8 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { createNotification } from "@/lib/notification-engine";
 import { inferClassLevelFromSubjects } from "@/lib/validations";
+import { haversineDistanceKm } from "@/lib/haversine";
+import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins
@@ -512,8 +514,770 @@ export async function forceRadiusExpandAction(
     });
   });
 
-  revalidatePath("/admin/leads");
+    revalidatePath("/admin/leads");
   return actionSuccess({ updated: true });
+}
+
+// ── Lead Creation & Direct Tutor Dispatch ─────────────────────────────────────
+// Requires: leads:manage (SUPER_ADMIN + OPERATIONS sub-admin)
+
+export type AdminCreateLeadInput = {
+  parentProfileId?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
+  studentName?: string;
+  subjects: string[];
+  classLevel: string;
+  board?: string;
+  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  budgetMin?: number;
+  budgetMax?: number;
+  city?: string;
+  area?: string;
+  pincode?: string;
+  latitude?: number;
+  longitude?: number;
+  timingPreference?: string;
+  tutorGenderPref?: string;
+  languagePref?: string;
+  notes?: string;
+  coinCost?: number;
+  maxTutors?: number;
+  radiusKm?: number;
+  notifyMatchingTutors?: boolean;
+};
+
+export async function adminCreateLeadAction(
+  input: AdminCreateLeadInput
+): Promise<ActionResult<{ leadId: string }>> {
+  const { error, session } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  if (!input.subjects || input.subjects.length === 0) {
+    return actionError("Please select at least one subject.");
+  }
+  if (!input.classLevel) {
+    return actionError("Please specify a class level.");
+  }
+
+  // 1. Resolve Parent Profile ID
+  let targetParentProfileId = input.parentProfileId;
+
+  if (!targetParentProfileId) {
+    const cleanPhone = input.parentPhone ? input.parentPhone.trim() : null;
+    const cleanEmail = input.parentEmail ? input.parentEmail.trim().toLowerCase() : null;
+    const cleanName = input.parentName ? input.parentName.trim() : "";
+
+    let existingUser = null;
+    if (cleanEmail) {
+      existingUser = await prisma.user.findUnique({
+        where: { email: cleanEmail },
+        include: { parentProfile: true },
+      });
+    } else if (cleanPhone) {
+      existingUser = await prisma.user.findFirst({
+        where: { phone: cleanPhone },
+        include: { parentProfile: true },
+      });
+    }
+
+    if (existingUser?.parentProfile) {
+      targetParentProfileId = existingUser.parentProfile.id;
+    } else if (existingUser && !existingUser.parentProfile) {
+      const newParent = await prisma.parentProfile.create({
+        data: {
+          userId: existingUser.id,
+          city: input.city ?? null,
+          pincode: input.pincode ?? null,
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
+        },
+      });
+      targetParentProfileId = newParent.id;
+    } else {
+      // Auto-create parent user with default 12345678 credentials
+      const finalEmail =
+        cleanEmail ||
+        (cleanPhone
+          ? `parent${cleanPhone.replace(/\D/g, "")}@apnatutorhub.com`
+          : `parent${Date.now().toString().slice(-6)}@apnatutorhub.com`);
+      const finalName =
+        cleanName ||
+        (cleanPhone ? `Parent (${cleanPhone.slice(-4)})` : "Parent User");
+      const defaultPasswordHash = await bcrypt.hash("12345678", 10);
+
+      const newUser = await prisma.user.create({
+        data: {
+          name: finalName,
+          email: finalEmail,
+          phone: cleanPhone,
+          passwordHash: defaultPasswordHash,
+          role: "PARENT",
+          isActive: true,
+          emailVerified: new Date(),
+          parentProfile: {
+            create: {
+              city: input.city ?? null,
+              pincode: input.pincode ?? null,
+              latitude: input.latitude ?? null,
+              longitude: input.longitude ?? null,
+            },
+          },
+        },
+        include: { parentProfile: true },
+      });
+      targetParentProfileId = newUser.parentProfile!.id;
+    }
+  }
+
+  // 2. Create Student Profile if studentName is given
+  let studentProfileId: string | null = null;
+  if (input.studentName?.trim()) {
+    const student = await prisma.studentProfile.create({
+      data: {
+        parentProfileId: targetParentProfileId,
+        name: input.studentName.trim(),
+        classLevel: input.classLevel,
+        board: input.board ?? null,
+        subjects: input.subjects,
+      },
+    });
+    studentProfileId = student.id;
+  }
+
+  // 3. Create Lead Record
+  const newLead = await prisma.lead.create({
+    data: {
+      parentProfileId: targetParentProfileId,
+      studentProfileId,
+      subjects: input.subjects,
+      classLevel: input.classLevel,
+      board: input.board ?? null,
+      mode: input.mode,
+      budgetMin: input.budgetMin ?? null,
+      budgetMax: input.budgetMax ?? null,
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
+      city: input.city ?? null,
+      area: input.area ?? null,
+      pincode: input.pincode ?? null,
+      timingPreference: input.timingPreference ?? null,
+      tutorGenderPref: input.tutorGenderPref ?? null,
+      languagePref: input.languagePref ?? null,
+      notes: input.notes ?? null,
+      status: "ACTIVE",
+      coinCost: input.coinCost && input.coinCost > 0 ? input.coinCost : 10,
+      maxTutors: input.maxTutors && input.maxTutors > 0 ? input.maxTutors : 5,
+      radiusKm: input.radiusKm && input.radiusKm > 0 ? input.radiusKm : 10,
+    },
+  });
+
+  // 4. Audit Log
+  await prisma.auditLog.create({
+    data: {
+      adminId: session!.user.id,
+      action: "ADMIN_CREATE_LEAD",
+      entityType: "Lead",
+      entityId: newLead.id,
+      details: `Created lead for ${input.classLevel} (${input.subjects.join(", ")}) in ${input.city || "unspecified location"}`,
+    },
+  });
+
+  // 5. Match Dispatcher Trigger (if enabled)
+  if (input.notifyMatchingTutors !== false) {
+    try {
+      await dispatchLeadMatching(newLead.id);
+    } catch (err) {
+      console.error("[adminCreateLeadAction] Error dispatching matching:", err);
+    }
+  }
+
+  revalidatePath("/admin/leads");
+  return actionSuccess({ leadId: newLead.id });
+}
+
+export type MatchedTutorSummary = {
+  tutorProfileId: string;
+  userId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  image: string | null;
+  city: string | null;
+  area: string | null;
+  subjects: string[];
+  classLevels: string[];
+  averageRating: number;
+  totalReviews: number;
+  kycStatus: string;
+  walletBalance: number;
+  distanceKm: number | null;
+  alreadyPurchased: boolean;
+  matchScore: number;
+};
+
+export async function adminGetMatchingTutorsForLeadAction(
+  leadId: string,
+  search?: string
+): Promise<ActionResult<{ lead: any; tutors: MatchedTutorSummary[] }>> {
+  const { error } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  const lead = await prisma.lead.findUnique({
+    where: { id: leadId },
+    include: {
+      parentProfile: {
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+        },
+      },
+      purchases: { select: { tutorProfileId: true } },
+    },
+  });
+
+  if (!lead) return actionError("Lead not found.");
+
+  const purchasedTutorSet = new Set(lead.purchases.map((p) => p.tutorProfileId));
+
+  const tutors = await prisma.tutorProfile.findMany({
+    where: {
+      user: {
+        isActive: true,
+        ...(search?.trim()
+          ? {
+              OR: [
+                { name: { contains: search.trim(), mode: "insensitive" } },
+                { email: { contains: search.trim(), mode: "insensitive" } },
+                { phone: { contains: search.trim(), mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          image: true,
+        },
+      },
+      wallet: { select: { balance: true } },
+    },
+    take: 100,
+  });
+
+  const leadSubjLower = lead.subjects.map((s) => s.toLowerCase());
+  const leadClassLower = lead.classLevel.toLowerCase();
+
+  const ranked: MatchedTutorSummary[] = tutors.map((tp) => {
+    let subjectMatchCount = 0;
+    for (const s of tp.subjects) {
+      if (
+        leadSubjLower.some(
+          (ls) => ls.includes(s.toLowerCase()) || s.toLowerCase().includes(ls)
+        )
+      ) {
+        subjectMatchCount++;
+      }
+    }
+
+    let classMatch = tp.classLevels.some(
+      (cl) =>
+        cl.toLowerCase().includes(leadClassLower) ||
+        leadClassLower.includes(cl.toLowerCase())
+    );
+
+    let distanceKm: number | null = null;
+    if (lead.latitude && lead.longitude && tp.latitude && tp.longitude) {
+      distanceKm =
+        Math.round(
+          haversineDistanceKm(
+            lead.latitude,
+            lead.longitude,
+            tp.latitude,
+            tp.longitude
+          ) * 10
+        ) / 10;
+    }
+
+    let score = 0;
+    if (subjectMatchCount > 0) score += subjectMatchCount * 30;
+    if (classMatch) score += 25;
+    if (distanceKm !== null && distanceKm <= (lead.radiusKm || 10)) {
+      score += Math.max(0, 30 - Math.round(distanceKm * 2));
+    }
+    if (tp.kycStatus === "APPROVED") score += 10;
+    if (tp.averageRating >= 4.0) score += 5;
+
+    return {
+      tutorProfileId: tp.id,
+      userId: tp.user.id,
+      name: tp.user.name || "Tutor",
+      email: tp.user.email,
+      phone: tp.user.phone,
+      image: tp.user.image,
+      city: tp.city,
+      area: tp.address,
+      subjects: tp.subjects,
+      classLevels: tp.classLevels,
+      averageRating: tp.averageRating,
+      totalReviews: tp.totalReviews,
+      kycStatus: tp.kycStatus,
+      walletBalance: tp.wallet?.balance ?? 0,
+      distanceKm,
+      alreadyPurchased: purchasedTutorSet.has(tp.id),
+      matchScore: score,
+    };
+  });
+
+  ranked.sort((a, b) => {
+    if (a.alreadyPurchased !== b.alreadyPurchased) return a.alreadyPurchased ? 1 : -1;
+    return b.matchScore - a.matchScore;
+  });
+
+  return actionSuccess({ lead, tutors: ranked });
+}
+
+export async function adminSendLeadNotificationAction(
+  leadId: string,
+  tutorUserIds: string[],
+  customMessage?: string
+): Promise<ActionResult<{ sentCount: number }>> {
+  const { error, session } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  if (!tutorUserIds || tutorUserIds.length === 0) {
+    return actionError("No tutors selected.");
+  }
+
+  const lead = await prisma.lead.findUnique({
+    where: { id: leadId },
+    select: {
+      id: true,
+      subjects: true,
+      classLevel: true,
+      city: true,
+      area: true,
+      coinCost: true,
+    },
+  });
+
+  if (!lead) return actionError("Lead not found.");
+
+  const subjectLabel = lead.subjects.slice(0, 2).join(", ");
+  const locationLabel =
+    [lead.area, lead.city].filter(Boolean).join(", ") || "your area";
+
+  let sentCount = 0;
+  for (const userId of tutorUserIds) {
+    await createNotification({
+      userId,
+      type: "LEAD_MATCHED",
+      priority: "HIGH",
+      title: "🎯 Admin Dispatched Tuition Enquiry!",
+      message:
+        customMessage ||
+        `New verified requirement for ${lead.classLevel} (${subjectLabel}) in ${locationLabel}. Unlock with ${lead.coinCost} coins now!`,
+      actionUrl: "/tutor/leads",
+      referenceId: lead.id,
+    });
+    sentCount++;
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      adminId: session!.user.id,
+      action: "ADMIN_DISPATCH_LEAD_NOTIFS",
+      entityType: "Lead",
+      entityId: lead.id,
+      details: `Sent lead notification to ${sentCount} tutor(s)`,
+    },
+  });
+
+  return actionSuccess({ sentCount });
+}
+
+export async function adminAssignLeadDirectlyAction(
+  leadId: string,
+  tutorProfileId: string
+): Promise<ActionResult<{ purchaseId: string }>> {
+  const { error, session } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  const [lead, tutor] = await Promise.all([
+    prisma.lead.findUnique({
+      where: { id: leadId },
+      include: { parentProfile: { include: { user: true } } },
+    }),
+    prisma.tutorProfile.findUnique({
+      where: { id: tutorProfileId },
+      include: { user: true },
+    }),
+  ]);
+
+  if (!lead) return actionError("Lead not found.");
+  if (!tutor) return actionError("Tutor profile not found.");
+
+  const existingPurchase = await prisma.leadPurchase.findUnique({
+    where: { leadId_tutorProfileId: { leadId, tutorProfileId } },
+  });
+
+  if (existingPurchase) {
+    return actionError("This tutor has already unlocked this lead.");
+  }
+
+  const purchase = await prisma.$transaction(async (tx) => {
+    const p = await tx.leadPurchase.create({
+      data: {
+        leadId,
+        tutorProfileId,
+        coinsSpent: 0, // Admin granted complimentary unlock
+      },
+    });
+
+    const updatedLead = await tx.lead.update({
+      where: { id: leadId },
+      data: {
+        purchaseCount: { increment: 1 },
+      },
+    });
+
+    if (updatedLead.purchaseCount >= updatedLead.maxTutors) {
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { status: "APPLICATIONS_RECEIVED" },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session!.user.id,
+        action: "ADMIN_DIRECT_LEAD_ALLOCATION",
+        entityType: "LeadPurchase",
+        entityId: p.id,
+        details: `Directly allocated lead ${leadId} to tutor ${tutor.user.name || tutor.user.email} (0 coins charged)`,
+      },
+    });
+
+    return p;
+  });
+
+  // Notify tutor
+  await createNotification({
+    userId: tutor.userId,
+    type: "LEAD_UNLOCKED",
+    priority: "HIGH",
+    title: "🎁 Lead Unlocked by Admin!",
+    message: `Admin has assigned you a verified ${lead.classLevel} (${lead.subjects.join(", ")}) lead for free! Check parent contact info in Unlocked Leads.`,
+    actionUrl: "/tutor/leads",
+    referenceId: lead.id,
+  });
+
+  revalidatePath("/admin/leads");
+  return actionSuccess({ purchaseId: purchase.id });
+}
+
+export async function adminAssignLeadWithCoinsDeductionAction(
+  leadId: string,
+  tutorProfileId: string
+): Promise<ActionResult<{ purchaseId: string }>> {
+  const { error, session } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  const [lead, tutor] = await Promise.all([
+    prisma.lead.findUnique({
+      where: { id: leadId },
+      include: { parentProfile: { include: { user: true } } },
+    }),
+    prisma.tutorProfile.findUnique({
+      where: { id: tutorProfileId },
+      include: { user: true, wallet: true },
+    }),
+  ]);
+
+  if (!lead) return actionError("Lead not found.");
+  if (!tutor) return actionError("Tutor profile not found.");
+
+  const existingPurchase = await prisma.leadPurchase.findUnique({
+    where: { leadId_tutorProfileId: { leadId, tutorProfileId } },
+  });
+
+  if (existingPurchase) {
+    return actionError("This tutor has already unlocked this lead.");
+  }
+
+  const wallet = tutor.wallet;
+  if (!wallet || wallet.balance < lead.coinCost) {
+    return actionError(
+      `Insufficient coins. Tutor has ${wallet?.balance ?? 0} coins, but this lead requires ${lead.coinCost} coins. Please top-up their wallet first or assign for free.`
+    );
+  }
+
+  const purchase = await prisma.$transaction(async (tx) => {
+    // 1. Deduct coins from wallet
+    const updatedWallet = await tx.wallet.update({
+      where: { id: wallet.id },
+      data: {
+        balance: { decrement: lead.coinCost },
+        totalSpent: { increment: lead.coinCost },
+      },
+    });
+
+    // 2. Record wallet transaction
+    await tx.walletTransaction.create({
+      data: {
+        walletId: wallet.id,
+        type: "DEDUCTION",
+        amount: lead.coinCost,
+        balanceAfter: updatedWallet.balance,
+        description: `Lead unlock (${lead.classLevel} - ${lead.subjects.slice(0, 2).join(", ")})`,
+        referenceId: leadId,
+      },
+    });
+
+    // 3. Record purchase
+    const p = await tx.leadPurchase.create({
+      data: {
+        leadId,
+        tutorProfileId,
+        coinsSpent: lead.coinCost,
+      },
+    });
+
+    // 4. Update lead purchase count
+    const updatedLead = await tx.lead.update({
+      where: { id: leadId },
+      data: {
+        purchaseCount: { increment: 1 },
+      },
+    });
+
+    if (updatedLead.purchaseCount >= updatedLead.maxTutors) {
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { status: "APPLICATIONS_RECEIVED" },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session!.user.id,
+        action: "ADMIN_PAID_LEAD_ALLOCATION",
+        entityType: "LeadPurchase",
+        entityId: p.id,
+        details: `Assigned lead ${leadId} to tutor ${tutor.user.name || tutor.user.email} (${lead.coinCost} coins deducted)`,
+      },
+    });
+
+    return p;
+  });
+
+  // Notify tutor
+  await createNotification({
+    userId: tutor.userId,
+    type: "LEAD_UNLOCKED",
+    priority: "HIGH",
+    title: "🎯 Lead Unlocked & Ready!",
+    message: `Admin has unlocked a ${lead.classLevel} (${lead.subjects.join(", ")}) lead for your account. You can now contact the parent directly!`,
+    actionUrl: "/tutor/leads",
+    referenceId: lead.id,
+  });
+
+  revalidatePath("/admin/leads");
+  return actionSuccess({ purchaseId: purchase.id });
+}
+
+export async function adminQuickCreditCoinsAction(
+  tutorProfileId: string,
+  amount: number,
+  note?: string
+): Promise<ActionResult<{ newBalance: number }>> {
+  const { error, session } = await requirePermission("wallets:manage");
+  if (error) return actionError(error);
+
+  if (!amount || amount <= 0) return actionError("Amount must be greater than 0.");
+
+  const tutor = await prisma.tutorProfile.findUnique({
+    where: { id: tutorProfileId },
+    include: { wallet: true, user: true },
+  });
+
+  if (!tutor) return actionError("Tutor profile not found.");
+
+  let wallet = tutor.wallet;
+  if (!wallet) {
+    wallet = await prisma.wallet.create({
+      data: { tutorProfileId, balance: 0 },
+    });
+  }
+
+  const updatedWallet = await prisma.$transaction(async (tx) => {
+    const w = await tx.wallet.update({
+      where: { id: wallet.id },
+      data: {
+        balance: { increment: amount },
+        totalPurchased: { increment: amount },
+      },
+    });
+
+    await tx.walletTransaction.create({
+      data: {
+        walletId: wallet.id,
+        type: "ADMIN_CREDIT",
+        amount,
+        balanceAfter: w.balance,
+        description: note || `Admin quick credit: +${amount} coins`,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session!.user.id,
+        action: "ADMIN_QUICK_COIN_CREDIT",
+        entityType: "Wallet",
+        entityId: w.id,
+        details: `Credited ${amount} coins to ${tutor.user.name || tutor.user.email}`,
+      },
+    });
+
+    return w;
+  });
+
+  await createNotification({
+    userId: tutor.userId,
+    type: "WALLET_CREDITED",
+    priority: "HIGH",
+    title: "💰 Coins Added to Wallet!",
+    message: `Admin has credited ${amount} coins to your wallet. Current balance: ${updatedWallet.balance} coins.`,
+    actionUrl: "/tutor/wallet",
+  });
+
+  revalidatePath("/admin/leads");
+  revalidatePath("/admin/wallets");
+  return actionSuccess({ newBalance: updatedWallet.balance });
+}
+
+export async function adminBatchAssignLeadFreeAction(
+  leadId: string,
+  tutorProfileIds: string[]
+): Promise<ActionResult<{ assignedCount: number }>> {
+  const { error, session } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  if (!tutorProfileIds || tutorProfileIds.length === 0) {
+    return actionError("No tutors selected.");
+  }
+
+  const lead = await prisma.lead.findUnique({
+    where: { id: leadId },
+    select: { id: true, classLevel: true, subjects: true, maxTutors: true, purchaseCount: true },
+  });
+  if (!lead) return actionError("Lead not found.");
+
+  let assignedCount = 0;
+  for (const tutorProfileId of tutorProfileIds) {
+    const existing = await prisma.leadPurchase.findUnique({
+      where: { leadId_tutorProfileId: { leadId, tutorProfileId } },
+    });
+    if (existing) continue;
+
+    const tutor = await prisma.tutorProfile.findUnique({
+      where: { id: tutorProfileId },
+      select: { userId: true },
+    });
+    if (!tutor) continue;
+
+    await prisma.$transaction(async (tx) => {
+      const p = await tx.leadPurchase.create({
+        data: {
+          leadId,
+          tutorProfileId,
+          coinsSpent: 0,
+        },
+      });
+
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { purchaseCount: { increment: 1 } },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          adminId: session!.user.id,
+          action: "ADMIN_BATCH_FREE_ALLOCATION",
+          entityType: "LeadPurchase",
+          entityId: p.id,
+          details: `Batch allocated lead ${leadId} to tutor ${tutorProfileId} (0 coins)`,
+        },
+      });
+    });
+
+    await createNotification({
+      userId: tutor.userId,
+      type: "LEAD_UNLOCKED",
+      priority: "HIGH",
+      title: "🎁 Complimentary Lead Granted!",
+      message: `Admin has assigned you a verified ${lead.classLevel} (${lead.subjects.join(", ")}) lead for free!`,
+      actionUrl: "/tutor/leads",
+      referenceId: lead.id,
+    });
+
+    assignedCount++;
+  }
+
+  revalidatePath("/admin/leads");
+  return actionSuccess({ assignedCount });
+}
+
+export async function adminSearchParentsForLeadAction(
+  query: string
+): Promise<
+  ActionResult<{
+    parents: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string | null;
+      city: string | null;
+    }[];
+  }>
+> {
+  const { error } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  const clean = query.trim();
+  const parents = await prisma.parentProfile.findMany({
+    where: clean
+      ? {
+          user: {
+            OR: [
+              { name: { contains: clean, mode: "insensitive" } },
+              { email: { contains: clean, mode: "insensitive" } },
+              { phone: { contains: clean, mode: "insensitive" } },
+            ],
+          },
+        }
+      : undefined,
+    include: {
+      user: { select: { id: true, name: true, email: true, phone: true } },
+    },
+    take: 20,
+    orderBy: { createdAt: "desc" },
+  });
+
+  return actionSuccess({
+    parents: parents.map((p) => ({
+      id: p.id,
+      name: p.user.name || "Parent User",
+      email: p.user.email,
+      phone: p.user.phone,
+      city: p.city,
+    })),
+  });
 }
 
 // ── Wallet Management ──────────────────────────────────────────────────────────

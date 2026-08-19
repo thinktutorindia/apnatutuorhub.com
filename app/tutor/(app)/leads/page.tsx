@@ -4,6 +4,7 @@ import { ShieldAlert, Wallet, Sparkles, ArrowRight } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { haversineDistanceKm } from "@/lib/haversine";
+import { getSubscriptionPlan } from "@/lib/subscription-plans";
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
@@ -33,11 +34,23 @@ export default async function TutorLeadsPage({
       latitude: true,
       longitude: true,
       kycStatus: true,
+      subscriptionPlan: true,
       wallet: { select: { balance: true } },
     },
   });
 
   if (!tutorProfile) redirect("/tutor/dashboard");
+
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const monthlyPurchasesCount = await prisma.leadPurchase.count({
+    where: {
+      tutorProfileId: tutorProfile.id,
+      createdAt: { gte: startOfMonth },
+    },
+  });
 
   // KYC gate
   if (tutorProfile.kycStatus !== "APPROVED") {
@@ -162,6 +175,7 @@ export default async function TutorLeadsPage({
       subjects: lead.subjects,
       classLevel: lead.classLevel,
       mode: lead.mode,
+      board: lead.board,
       budgetMin: lead.budgetMin,
       budgetMax: lead.budgetMax,
       area: lead.area,
@@ -172,6 +186,9 @@ export default async function TutorLeadsPage({
       distanceKm: distanceKm !== null ? Math.round(distanceKm * 10) / 10 : null,
       createdAt: lead.createdAt.toISOString(),
       timingPreference: lead.timingPreference,
+      tutorGenderPref: lead.tutorGenderPref,
+      languagePref: lead.languagePref,
+      notes: lead.notes,
       isPurchased,
       isShortlisted: purchaseInfo?.isShortlisted ?? false,
       isRejected: purchaseInfo?.isRejected ?? false,
@@ -196,41 +213,26 @@ export default async function TutorLeadsPage({
   }
 
   const walletBalance = tutorProfile.wallet?.balance ?? 0;
+  const hasActivePlan = Boolean(tutorProfile.subscriptionPlan && tutorProfile.subscriptionPlan !== "NONE");
+  const planConfig = hasActivePlan ? getSubscriptionPlan(tutorProfile.subscriptionPlan) : null;
+  const monthlyLeadQuota = planConfig?.monthlyLeads ?? 0;
+  const quotaRemaining = Math.max(0, monthlyLeadQuota - monthlyPurchasesCount);
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-700 uppercase tracking-wider text-[#2D9E6B] bg-[#2D9E6B]/10 px-2.5 py-0.5 rounded-full mb-1">
-            <Sparkles size={12} /> Student Enquiries
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-800 text-gray-900 tracking-tight">
-            Find Student Requirements
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-600">
-            Matched with your subjects, teaching mode, and city location.
-          </p>
-        </div>
-
-        {/* Coin Balance Pill */}
-        <Link
-          href="/tutor/wallet"
-          className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200/80 hover:bg-amber-100/70 transition-all shadow-xs shrink-0"
-        >
-          <div className="flex items-center gap-2">
-            <Wallet size={16} className="text-amber-700" />
-            <span className="text-xs font-600 text-amber-900">Coin Balance:</span>
-            <span className="text-sm font-800 text-amber-950">{walletBalance} 🪙</span>
-          </div>
-          <span className="text-xs font-700 text-[#2D9E6B]">Top Up →</span>
-        </Link>
-      </div>
-
+    <div className="py-1">
       <LeadFeedClient
         leads={feedLeads}
         walletBalance={walletBalance}
         tutorSubjects={tutorProfile.subjects}
+        subscriptionInfo={{
+          planId: tutorProfile.subscriptionPlan,
+          planName: planConfig?.name ?? null,
+          badge: planConfig?.badge ?? null,
+          monthlyQuota: monthlyLeadQuota,
+          quotaUsed: monthlyPurchasesCount,
+          quotaRemaining,
+          hasActivePlan,
+        }}
         claimedBannerInfo={
           isClaimedParam || Boolean(localityParam)
             ? { claimed: true, locality: localityParam, subjects: subjectsParam }

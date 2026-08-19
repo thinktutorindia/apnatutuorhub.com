@@ -8,6 +8,8 @@ import {
   ShieldOff,
   UserCheck,
   UserX,
+  MapPin,
+  Phone,
 } from "lucide-react";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportUsersCsv } from "@/app/actions/analytics.actions";
@@ -15,6 +17,7 @@ import { UserRowActions } from "@/components/admin/UserRowActions";
 import { UserFilterBar } from "@/components/admin/UserFilterBar";
 import { CreateUserModal } from "@/components/admin/CreateUserModal";
 import { UserAvatar } from "@/components/admin/UserAvatar";
+import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { resolveDocViewUrl } from "@/lib/s3";
 import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
 
@@ -104,7 +107,33 @@ export default async function AdminUsersPage({
         isActive: true,
         createdAt: true,
         image: true,
-        tutorProfile: { select: { id: true, kycStatus: true, averageRating: true, canTopup: true } },
+        tutorProfile: {
+          select: {
+            id: true,
+            kycStatus: true,
+            averageRating: true,
+            canTopup: true,
+            marketingNotifsEnabled: true,
+            subjects: true,
+            city: true,
+            address: true,
+            pincode: true,
+          },
+        },
+        parentProfile: {
+          select: {
+            id: true,
+            city: true,
+            address: true,
+            pincode: true,
+            students: {
+              select: {
+                subjects: true,
+                classLevel: true,
+              },
+            },
+          },
+        },
       },
     }),
     prisma.user.count({ where }),
@@ -155,7 +184,7 @@ export default async function AdminUsersPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                {["User", "Role", "KYC", "Status", "Joined", "Actions"].map((h) => (
+                {["User", "Role", "KYC", "Location & Subjects", "Status", "Joined", "Actions"].map((h) => (
                   <th
                     key={h}
                     className="px-5 py-4 text-left text-xs font-800 uppercase tracking-wider text-slate-900"
@@ -168,7 +197,7 @@ export default async function AdminUsersPage({
             <tbody className="divide-y divide-slate-200">
               {resolvedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-14 text-center">
+                  <td colSpan={7} className="py-14 text-center">
                     <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3 px-4">
                       <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-[#2D9E6B] flex items-center justify-center border border-emerald-200 shadow-xs">
                         <Users size={22} />
@@ -203,6 +232,20 @@ export default async function AdminUsersPage({
                     border: "border-slate-300",
                     avatarGrad: "bg-gradient-to-tr from-slate-600 to-slate-800 text-white",
                   };
+
+                  const locationText = u.tutorProfile?.city
+                    ? [u.tutorProfile.address, u.tutorProfile.city, u.tutorProfile.pincode].filter(Boolean).join(", ")
+                    : u.parentProfile?.city
+                    ? [u.parentProfile.address, u.parentProfile.city, u.parentProfile.pincode].filter(Boolean).join(", ")
+                    : null;
+
+                  const subjectsList: string[] =
+                    u.tutorProfile?.subjects && u.tutorProfile.subjects.length > 0
+                      ? u.tutorProfile.subjects
+                      : u.parentProfile?.students && u.parentProfile.students.length > 0
+                      ? Array.from(new Set(u.parentProfile.students.flatMap((sp: { subjects: string[] }) => sp.subjects || [])))
+                      : [];
+
                   return (
                     <tr
                       key={u.id}
@@ -218,7 +261,13 @@ export default async function AdminUsersPage({
                           />
                           <div className="min-w-0">
                             <p className="truncate font-800 text-[#0F2540] text-sm">{u.name || "—"}</p>
-                            <p className="truncate text-xs font-600 text-slate-600">{u.email}</p>
+                            <p className="truncate text-xs font-semibold text-slate-500">{u.email}</p>
+                            {u.phone && (
+                              <p className="text-[11px] font-mono text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
+                                <Phone size={10} />
+                                <span>{u.phone}</span>
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -250,6 +299,23 @@ export default async function AdminUsersPage({
                         ) : (
                           <span className="text-xs font-600 text-slate-400">N/A</span>
                         )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="space-y-1 max-w-xs">
+                          {locationText ? (
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 truncate" title={locationText}>
+                              <MapPin size={13} className="text-[#2D9E6B] shrink-0" />
+                              <span className="truncate">{locationText}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium">
+                              <MapPin size={12} className="text-slate-300" />
+                              <span>Location not set</span>
+                            </div>
+                          )}
+
+                          <UserSubjectChips subjects={subjectsList} maxVisible={2} />
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         <span

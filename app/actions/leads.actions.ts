@@ -19,6 +19,7 @@ import { captureEvent, Events } from "@/lib/posthog";
 import { logActivity, ActivityEvent } from "@/lib/activity-logger";
 import { createNotification } from "@/lib/notification-engine";
 import { geocodeLocation } from "@/lib/geocoding";
+import { getSubscriptionPlan } from "@/lib/subscription-plans";
 
 export type RequirementState = ActionResult<{ leadId: string; coinCost?: number }>;
 
@@ -396,7 +397,7 @@ export async function purchaseLeadAction(
 
   const tutorProfileId = authCtx.context.tutorProfileId;
 
-  const [lead, wallet, tutorKyc] = await Promise.all([
+  const [lead, wallet, tutorProfile] = await Promise.all([
     prisma.lead.findUnique({
       where: { id: leadId },
       select: {
@@ -423,7 +424,7 @@ export async function purchaseLeadAction(
     }),
     prisma.tutorProfile.findUnique({
       where: { id: tutorProfileId },
-      select: { kycStatus: true },
+      select: { kycStatus: true, subscriptionPlan: true },
     }),
   ]);
 
@@ -439,16 +440,34 @@ export async function purchaseLeadAction(
     );
   }
 
-  if (tutorKyc?.kycStatus !== "APPROVED") {
+  if (tutorProfile?.kycStatus !== "APPROVED") {
     return actionError(
       "Your KYC must be approved before you can unlock leads."
     );
   }
 
+  const hasActivePlan = tutorProfile?.subscriptionPlan && tutorProfile.subscriptionPlan !== "NONE";
+  const planConfig = hasActivePlan ? getSubscriptionPlan(tutorProfile.subscriptionPlan) : null;
+
+  // Calculate monthly lead usage for this tutor
+  let quotaRemaining = 0;
+  if (planConfig && planConfig.monthlyLeads > 0) {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const usedThisMonth = await prisma.leadPurchase.count({
+      where: { tutorProfileId, createdAt: { gte: startOfMonth } },
+    });
+    quotaRemaining = Math.max(0, planConfig.monthlyLeads - usedThisMonth);
+  }
+
+  const isFreePlanUnlock = hasActivePlan && quotaRemaining > 0;
+  const effectiveCoinCost = isFreePlanUnlock ? 0 : lead.coinCost;
+
   const walletBalance = wallet?.balance ?? 0;
-  if (walletBalance < lead.coinCost) {
+  if (!isFreePlanUnlock && walletBalance < effectiveCoinCost) {
     return actionError(
-      `Insufficient coins. You have ${walletBalance} coins but this lead costs ${lead.coinCost}. Please top up your wallet.`
+      `Insufficient coins. You have ${walletBalance} coins but this lead costs ${effectiveCoinCost}. Please top up your wallet.`
     );
   }
 
@@ -458,34 +477,25 @@ export async function purchaseLeadAction(
   });
   if (alreadyPurchased) return actionError("You have already unlocked this lead.");
 
-  // ── Enterprise Upgrade: Move balance guard INSIDE the transaction ─────────
-  // Previously, the wallet balance was checked BEFORE the transaction began.
-  // Under concurrent requests (double-click / race), both checks could pass
-  // before the first decrement committed, causing negative wallet balances.
-  // Now the check and decrement happen atomically within the same transaction.
-
   // Atomic transaction with database-level balance and capacity guards
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Atomic Wallet Balance Guard: Decrement balance ONLY if balance >= coinCost
-    const walletUpdate = await tx.wallet.updateMany({
-      where: {
-        tutorProfileId,
-        balance: { gte: lead.coinCost },
-      },
-      data: {
-        balance: { decrement: lead.coinCost },
-        totalSpent: { increment: lead.coinCost },
-      },
-    });
+    // 1. Atomic Wallet Balance Guard (if coins are required)
+    if (effectiveCoinCost > 0) {
+      const walletUpdate = await tx.wallet.updateMany({
+        where: {
+          tutorProfileId,
+          balance: { gte: effectiveCoinCost },
+        },
+        data: {
+          balance: { decrement: effectiveCoinCost },
+          totalSpent: { increment: effectiveCoinCost },
+        },
+      });
 
-    if (walletUpdate.count === 0) {
-      throw new Error(`INSUFFICIENT_COINS: Insufficient balance to purchase lead.`);
+      if (walletUpdate.count === 0) {
+        throw new Error(`INSUFFICIENT_COINS: Insufficient balance to purchase lead.`);
+      }
     }
-
-    const updatedWallet = await tx.wallet.findUniqueOrThrow({
-      where: { tutorProfileId },
-      select: { id: true, balance: true },
-    });
 
     // 2. Atomic Lead Capacity Guard: Increment purchaseCount ONLY if purchaseCount < maxTutors and active
     const leadUpdate = await tx.lead.updateMany({
@@ -520,22 +530,28 @@ export async function purchaseLeadAction(
       });
     }
 
-    // 3. Record purchase (fails if duplicate tutor+lead due to @@unique([leadId, tutorProfileId]))
+    // 3. Record purchase with effective coin cost
     const purchase = await tx.leadPurchase.create({
-      data: { leadId, tutorProfileId, coinsSpent: lead.coinCost },
-    });
-
-    // 4. Record wallet transaction (fails if duplicate (walletId, referenceId, type) due to @@unique([walletId, referenceId, type]))
-    await tx.walletTransaction.create({
       data: {
-        walletId: updatedWallet.id,
-        type: "DEDUCTION",
-        amount: lead.coinCost,
-        balanceAfter: updatedWallet.balance,
-        description: `Lead unlock — ${lead.city ?? "location"}`,
-        referenceId: leadId,
+        leadId,
+        tutorProfileId,
+        coinsSpent: effectiveCoinCost,
       },
     });
+
+    if (effectiveCoinCost > 0 && wallet) {
+      const updatedW = await tx.wallet.findUnique({ where: { id: wallet.id } });
+      await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          type: "DEDUCTION",
+          amount: effectiveCoinCost,
+          balanceAfter: updatedW?.balance ?? 0,
+          description: `Unlocked lead: ${lead.classLevel} (${lead.subjects.slice(0, 2).join(", ")})`,
+          referenceId: leadId,
+        },
+      });
+    }
 
     return purchase;
   }, { timeout: 15000, maxWait: 10000 }).catch((err: Error) => {

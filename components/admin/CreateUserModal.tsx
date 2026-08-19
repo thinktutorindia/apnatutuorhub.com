@@ -2,7 +2,6 @@
 
 import React, { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import {
   UserPlus,
   X,
@@ -214,7 +213,6 @@ export function CreateUserModal({
   buttonClassName?: string;
   triggerIcon?: React.ReactNode;
 } = {}) {
-  const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -553,7 +551,7 @@ export function CreateUserModal({
 
   const handleOpen = (queryOverride?: string) => {
     resetForm();
-    const rawQ = queryOverride ?? defaultQuery ?? searchParams.get("q") ?? "";
+    const rawQ = queryOverride ?? defaultQuery ?? "";
     const trimmed = rawQ.trim();
     if (trimmed) {
       if (trimmed.includes("@")) {

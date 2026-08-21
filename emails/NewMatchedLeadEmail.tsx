@@ -11,7 +11,7 @@ export type NewMatchedLeadEmailProps = {
   subjects: string[];
   classLevel: string;
   city: string | null;
-  teachingMode: "ONLINE" | "OFFLINE" | "EITHER";
+  teachingMode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   coinCost: number;
   leadUrl: string;
 };
@@ -19,6 +19,7 @@ export type NewMatchedLeadEmailProps = {
 const modeLabel: Record<string, string> = {
   ONLINE: "Online",
   OFFLINE: "In-Person",
+  COACHING: "Coaching / Institute",
   EITHER: "Online / In-Person",
 };
 

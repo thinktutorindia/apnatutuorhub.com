@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import type { TeachingMode } from "@prisma/client";
 import type {
   SearchEngineType,
   TutorSearchDoc,
@@ -128,7 +129,7 @@ export async function searchTutors(
     OR?: Array<Record<string, unknown>>;
     subjects?: { hasSome: string[] };
     classLevels?: { hasSome: string[] };
-    teachingMode?: "ONLINE" | "OFFLINE" | "EITHER";
+    teachingMode?: TeachingMode;
     experience?: { gte: number };
     feeMin?: { gte: number };
     feeMax?: { lte: number };
@@ -196,7 +197,7 @@ export async function searchTutors(
       qualification: t.qualification ?? "",
       experience: t.experience ?? 0,
       board: [],
-      teachingMode: t.teachingMode as "ONLINE" | "OFFLINE" | "EITHER",
+      teachingMode: t.teachingMode,
       feeMin: t.feeMin ?? 0,
       feeMax: t.feeMax ?? 0,
       city: t.city ?? "",
@@ -328,7 +329,7 @@ export async function searchLeads(
       subjects: l.subjects,
       classLevel: l.classLevel,
       board: l.board ?? "",
-      mode: l.mode as "ONLINE" | "OFFLINE" | "EITHER",
+      mode: l.mode,
       budgetMin: l.budgetMin ?? 0,
       budgetMax: l.budgetMax ?? 0,
       city: l.city ?? "",

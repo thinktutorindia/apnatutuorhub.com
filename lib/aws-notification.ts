@@ -188,7 +188,7 @@ export async function notifyTutorNewLead(opts: {
   subjects: string[];
   classLevel: string;
   city: string | null;
-  teachingMode: "ONLINE" | "OFFLINE" | "EITHER";
+  teachingMode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   coinCost: number;
 }) {
   const subjectStr = opts.subjects.slice(0, 2).join(", ");
@@ -328,7 +328,7 @@ export async function notifyBookingConfirmation(opts: {
   bookingId: string;
   subject: string;
   classLevel: string;
-  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  mode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   agreedFee?: number | null;
   classFrequency?: string | null;
   meetLink?: string | null;

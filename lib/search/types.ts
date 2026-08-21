@@ -7,6 +7,8 @@ export type SearchEngineType = "TYPESENSE" | "POSTGRES_FTS";
 
 // ── Searchable Document Schemas ──────────────────────────────────────────────
 
+import type { TeachingMode } from "@prisma/client";
+
 export type TutorSearchDoc = {
   id: string; // tutorProfileId
   userId: string;
@@ -16,7 +18,7 @@ export type TutorSearchDoc = {
   qualification: string;
   experience: number;
   board: string[];
-  teachingMode: "ONLINE" | "OFFLINE" | "EITHER";
+  teachingMode: TeachingMode;
   feeMin: number;
   feeMax: number;
   city: string;
@@ -40,7 +42,7 @@ export type LeadSearchDoc = {
   subjects: string[];
   classLevel: string;
   board: string;
-  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  mode: TeachingMode;
   budgetMin: number;
   budgetMax: number;
   city: string;
@@ -53,6 +55,19 @@ export type LeadSearchDoc = {
   status: string; // ACTIVE, MATCHING, etc.
   createdAt: number;
   expiresAt: number;
+};
+
+// ── Facet / Aggregation Types ────────────────────────────────────────────────
+
+export type SearchFacetItem = {
+  value: string;
+  count: number;
+  highlighted?: string;
+};
+
+export type SearchFacet = {
+  field: string;
+  counts: SearchFacetItem[];
 };
 
 export type ParentSearchDoc = {
@@ -84,7 +99,7 @@ export type TutorSearchFilters = {
   subjects?: string[];
   classLevels?: string[];
   boards?: string[];
-  teachingMode?: "ONLINE" | "OFFLINE" | "EITHER";
+  teachingMode?: TeachingMode;
   minExperience?: number;
   minRating?: number;
   isVerified?: boolean;
@@ -100,7 +115,7 @@ export type TutorSearchFilters = {
 export type LeadSearchFilters = {
   subjects?: string[];
   classLevel?: string;
-  teachingMode?: "ONLINE" | "OFFLINE" | "EITHER";
+  teachingMode?: TeachingMode;
   minBudget?: number;
   maxBudget?: number;
   city?: string;

@@ -271,7 +271,7 @@ const TIME_OPTIONS = [
   "Morning (7–9 AM)", "Afternoon (12–3 PM)", "Evening (5–8 PM)",
   "Late Evening (7–9 PM)", "Flexible timings",
 ];
-const MODES: Array<"ONLINE" | "OFFLINE" | "EITHER"> = ["ONLINE", "OFFLINE", "EITHER"];
+const MODES: Array<"ONLINE" | "OFFLINE" | "EITHER" | "COACHING"> = ["ONLINE", "OFFLINE", "EITHER", "COACHING"];
 
 // ─── Seeded random helpers ────────────────────────────────────────────────────
 
@@ -297,7 +297,7 @@ export interface DummyLead {
   classLevel: string;
   board: string;
   subjects: string[];
-  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  mode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   budgetMin: number;
   budgetMax: number;
   days: string;

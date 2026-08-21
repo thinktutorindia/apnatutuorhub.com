@@ -117,7 +117,7 @@ export async function createBookingAction(
       tutorName: tutorProfile.user.name ?? null,
       subject: lead.subjects.join(", "),
       classLevel: lead.classLevel,
-      mode: lead.mode as "ONLINE" | "OFFLINE" | "EITHER",
+      mode: lead.mode,
       isTrial,
       startDate,
       classFrequency: classFrequency ?? null,

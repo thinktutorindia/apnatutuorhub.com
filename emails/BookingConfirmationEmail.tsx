@@ -10,7 +10,7 @@ export type BookingConfirmationEmailProps = {
   parentName: string;
   subject: string;
   classLevel: string;
-  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  mode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   agreedFee?: number | null;
   classFrequency?: string | null;
   meetLink?: string | null;
@@ -21,6 +21,7 @@ export type BookingConfirmationEmailProps = {
 const modeLabel: Record<string, string> = {
   ONLINE: "Online",
   OFFLINE: "In-Person",
+  COACHING: "Coaching / Institute",
   EITHER: "Online / In-Person",
 };
 

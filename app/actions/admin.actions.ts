@@ -551,7 +551,7 @@ export type AdminUpdateLeadInput = {
   subjects: string[];
   classLevel: string;
   board?: string;
-  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  mode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   budgetMin?: number;
   budgetMax?: number;
   city?: string;
@@ -690,7 +690,7 @@ export type AdminCreateLeadInput = {
   subjects: string[];
   classLevel: string;
   board?: string;
-  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  mode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   budgetMin?: number;
   budgetMax?: number;
   city?: string;

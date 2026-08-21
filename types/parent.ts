@@ -1,3 +1,5 @@
+import type { TeachingMode } from "@prisma/client";
+
 export type ParentStudent = {
   id: string;
   name: string;
@@ -13,7 +15,7 @@ export type RequirementFormValues = {
   subjects: string[];
   classLevel: string;
   board: string;
-  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  mode: TeachingMode;
   budgetMin: string;
   budgetMax: string;
   latitude: string;

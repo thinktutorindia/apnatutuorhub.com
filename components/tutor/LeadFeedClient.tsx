@@ -785,7 +785,7 @@ export function LeadFeedClient({
 
           {/* Mode Filter Pills */}
           <div className="flex items-center rounded-2xl bg-slate-50 p-1 border border-slate-200">
-            {(["ALL", "ONLINE", "OFFLINE", "EITHER"] as const).map((m) => (
+            {(["ALL", "ONLINE", "OFFLINE", "COACHING", "EITHER"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -796,7 +796,7 @@ export function LeadFeedClient({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                {m === "ALL" ? "All Modes" : m === "OFFLINE" ? "Offline" : m === "ONLINE" ? "Online" : "Either"}
+                {m === "ALL" ? "All Modes" : m === "OFFLINE" ? "Offline" : m === "ONLINE" ? "Online" : m === "COACHING" ? "Coaching" : "Either"}
               </button>
             ))}
           </div>

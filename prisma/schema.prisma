@@ -50,6 +50,7 @@ enum TeachingMode {
   ONLINE
   OFFLINE
   EITHER
+  COACHING
 }
 
 enum LeadStatus {

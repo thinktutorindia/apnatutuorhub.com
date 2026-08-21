@@ -308,27 +308,12 @@ export function TutorProfileForm({
     if (res.lon != null) setCoordLng(String(res.lon));
   };
 
-  // 🧠 Form Intelligence
   const handleSubjectsChange = (newSubjects: string[]) => {
     setSubjects(newSubjects);
-    const hasSeniorSub = newSubjects.some((s) => ["Physics", "Chemistry", "Biology"].includes(s));
-    const hasSeniorLevel = classLevels.some((c) => ["Class 9-10", "Class 11-12", "JEE", "NEET"].includes(c));
-    if (hasSeniorSub && !hasSeniorLevel) {
-      setClassLevels((prev) => Array.from(new Set([...prev, "Class 9-10", "Class 11-12"])));
-      setSmartNotice("🧠 Added Class 9-10 & Class 11-12 to match Physics/Chemistry/Biology.");
-    }
   };
 
   const handleClassLevelsChange = (newLevels: string[]) => {
     setClassLevels(newLevels);
-    if (newLevels.includes("JEE") || newLevels.includes("NEET")) {
-      const needed = ["Physics", "Chemistry", newLevels.includes("JEE") ? "Mathematics" : "Biology"];
-      const missing = needed.filter((s) => !subjects.includes(s));
-      if (missing.length > 0) {
-        setSubjects((prev) => Array.from(new Set([...prev, ...needed])).slice(0, 10));
-        setSmartNotice(`🧠 Added ${missing.join(", ")} to match your target competitive exam.`);
-      }
-    }
   };
 
   const filteredClassLevels = CLASS_LEVEL_OPTIONS.filter((opt) =>
@@ -672,7 +657,7 @@ export function TutorProfileForm({
           {/* Teaching Mode */}
           <div className="space-y-2">
             <label className="block text-xs font-800 text-gray-900">Preferred Teaching Mode</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {MODE_OPTIONS.map((m) => {
                 const isSel = teachingMode === m.value;
                 return (

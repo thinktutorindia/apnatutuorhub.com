@@ -103,6 +103,7 @@ const BOARD_SET = new Set<string>(BOARDS);
 export const TEACHING_MODES = [
   { value: "ONLINE", label: "Online" },
   { value: "OFFLINE", label: "Offline (At Home)" },
+  { value: "COACHING", label: "Coaching / Institute" },
   { value: "EITHER", label: "Either" },
 ] as const;
 
@@ -340,7 +341,7 @@ const leadCoreShape = {
   subjects: subjectsField,
   classLevel: classLevelField,
   board: boardField,
-  mode: z.enum(["ONLINE", "OFFLINE", "EITHER"], {
+  mode: z.enum(["ONLINE", "OFFLINE", "EITHER", "COACHING"], {
     required_error: "Select a teaching mode",
     invalid_type_error: "Select a teaching mode",
   }),
@@ -378,7 +379,7 @@ const leadPreferenceShape = {
 };
 
 type LeadBudgetAndLocation = {
-  mode?: "ONLINE" | "OFFLINE" | "EITHER";
+  mode?: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   budgetMin?: number;
   budgetMax?: number;
   city?: string;
@@ -436,7 +437,7 @@ export const tutorProfileSchema = z.object({
   experience: z.number().int().min(0).max(50),
   subjects: subjectsField,
   classLevels: z.array(z.string()).min(1, "Select at least one class level"),
-  teachingMode: z.enum(["ONLINE", "OFFLINE", "EITHER"]),
+  teachingMode: z.enum(["ONLINE", "OFFLINE", "EITHER", "COACHING"]),
   teachingRadius: z.number().int().min(1).max(50).default(10),
   feeMin: budgetField,
   feeMax: budgetField,

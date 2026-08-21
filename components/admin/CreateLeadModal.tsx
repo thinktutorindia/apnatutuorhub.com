@@ -81,10 +81,10 @@ export function CreateLeadModal({
   const [studentName, setStudentName] = useState("");
 
   // Lead Requirements
-  const [classLevel, setClassLevel] = useState("Class 10");
+  const [classLevel, setClassLevel] = useState("");
   const [board, setBoard] = useState("CBSE");
   const [mode, setMode] = useState<TeachingMode>("OFFLINE");
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>(["Mathematics"]);
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [customSubjectInput, setCustomSubjectInput] = useState("");
   const [subjectSearchQuery, setSubjectSearchQuery] = useState("");
   const [showCategoryTree, setShowCategoryTree] = useState(false);
@@ -247,6 +247,11 @@ export function CreateLeadModal({
     e.preventDefault();
     setErrorMsg(null);
 
+    if (!classLevel) {
+      setErrorMsg("Please select a class level.");
+      return;
+    }
+
     if (selectedSubjects.length === 0) {
       setErrorMsg("Please select at least one subject for this lead enquiry.");
       return;
@@ -278,7 +283,7 @@ export function CreateLeadModal({
       parentName: parentMode === "NEW" ? parentName.trim() || undefined : undefined,
       parentPhone: normalizedParentPhone,
       parentEmail: parentMode === "NEW" ? parentEmail.trim() || undefined : undefined,
-      studentName: studentName.trim() || undefined,
+      studentName: studentName.trim() || (parentName.trim() ? `${parentName.trim()}'s Child` : undefined),
       subjects: selectedSubjects,
       classLevel,
       board: board || undefined,
@@ -557,10 +562,10 @@ export function CreateLeadModal({
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                         <div>
                           <label className="mb-1.5 block font-bold text-slate-700 text-xs">
-                            Parent Name <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
+                            Parent / Client Full Name
                           </label>
                           <div className="relative">
                             <User size={15} className="absolute left-3.5 top-3 text-slate-400" />
@@ -612,19 +617,6 @@ export function CreateLeadModal({
 
                         <div>
                           <label className="mb-1.5 block font-bold text-slate-700 text-xs">
-                            Student Name <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={studentName}
-                            onChange={(e) => setStudentName(e.target.value)}
-                            placeholder="e.g. Aryan Sharma"
-                            className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-semibold text-xs shadow-2xs"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1.5 block font-bold text-slate-700 text-xs">
                             Email <span className="text-slate-400 font-normal text-[10px]">(Auto-generated if blank)</span>
                           </label>
                           <input
@@ -660,6 +652,7 @@ export function CreateLeadModal({
                           onChange={(e) => setClassLevel(e.target.value)}
                           className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 outline-none focus:border-[#2D9E6B] font-semibold text-xs shadow-2xs"
                         >
+                          <option value="">Select Class Level</option>
                           {CLASS_LEVELS.map((cl) => (
                             <option key={cl} value={cl}>{cl}</option>
                           ))}
@@ -692,6 +685,7 @@ export function CreateLeadModal({
                         >
                           <option value="OFFLINE">Home Tuition (Offline)</option>
                           <option value="ONLINE">Online Only</option>
+                          <option value="COACHING">Coaching / Institute</option>
                           <option value="EITHER">Either (Home / Online)</option>
                         </select>
                       </div>

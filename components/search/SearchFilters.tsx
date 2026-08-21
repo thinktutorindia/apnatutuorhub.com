@@ -26,6 +26,7 @@ const MODE_OPTIONS = [
   { label: "All Modes", value: undefined },
   { label: "Online", value: "ONLINE" },
   { label: "Home (Offline)", value: "OFFLINE" },
+  { label: "Coaching / Institute", value: "COACHING" },
 ];
 
 export function SearchFilters({

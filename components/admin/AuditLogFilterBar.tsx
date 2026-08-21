@@ -22,22 +22,52 @@ export function AuditLogFilterBar({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const [prevParams, setPrevParams] = useState(searchParams.toString());
   const [action, setAction] = useState(initialAction);
   const [entity, setEntity] = useState(initialEntity);
   const [adminId, setAdminId] = useState(initialAdminId);
   const [subAdminOnly, setSubAdminOnly] = useState(initialSubAdminOnly);
 
-  const currentParamsStr = searchParams.toString();
-  if (currentParamsStr !== prevParams) {
-    setPrevParams(currentParamsStr);
-    setAction(searchParams.get("action") ?? "");
-    setEntity(searchParams.get("entity") ?? "");
-    setAdminId(searchParams.get("adminId") ?? "");
-    setSubAdminOnly(searchParams.get("subAdminOnly") === "true");
-  }
+  const lastAppliedRef = useRef({
+    action: initialAction,
+    entity: initialEntity,
+    adminId: initialAdminId,
+    subAdminOnly: initialSubAdminOnly,
+  });
+  const isInitialMount = useRef(true);
+
+  // Sync internal state ONLY when URL search params change externally (e.g. browser back/forward)
+  useEffect(() => {
+    const urlAction = searchParams.get("action") ?? "";
+    const urlEntity = searchParams.get("entity") ?? "";
+    const urlAdminId = searchParams.get("adminId") ?? "";
+    const urlSubAdminOnly = searchParams.get("subAdminOnly") === "true";
+
+    if (urlAction !== lastAppliedRef.current.action) {
+      setAction(urlAction);
+      lastAppliedRef.current.action = urlAction;
+    }
+    if (urlEntity !== lastAppliedRef.current.entity) {
+      setEntity(urlEntity);
+      lastAppliedRef.current.entity = urlEntity;
+    }
+    if (urlAdminId !== lastAppliedRef.current.adminId) {
+      setAdminId(urlAdminId);
+      lastAppliedRef.current.adminId = urlAdminId;
+    }
+    if (urlSubAdminOnly !== lastAppliedRef.current.subAdminOnly) {
+      setSubAdminOnly(urlSubAdminOnly);
+      lastAppliedRef.current.subAdminOnly = urlSubAdminOnly;
+    }
+  }, [searchParams]);
 
   const updateFilters = (newAction: string, newEntity: string, newAdminId: string, newSubAdminOnly: boolean) => {
+    lastAppliedRef.current = {
+      action: newAction,
+      entity: newEntity,
+      adminId: newAdminId,
+      subAdminOnly: newSubAdminOnly,
+    };
+
     const params = new URLSearchParams(searchParams.toString());
 
     if (newAction.trim()) params.set("action", newAction.trim());
@@ -59,14 +89,26 @@ export function AuditLogFilterBar({
     });
   };
 
+  // Debounced search when action keyword changes
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      updateFilters(action, entity, adminId, subAdminOnly);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [action]);
+
   const handleReset = () => {
     setAction("");
     setEntity("");
     setAdminId("");
     setSubAdminOnly(false);
-    startTransition(() => {
-      router.push(pathname);
-    });
+    updateFilters("", "", "", false);
   };
 
   const hasActiveFilters = Boolean(action || entity || adminId || subAdminOnly);
@@ -83,11 +125,7 @@ export function AuditLogFilterBar({
           <input
             type="text"
             value={action}
-            onChange={(e) => {
-              const val = e.target.value;
-              setAction(val);
-              updateFilters(val, entity, adminId, subAdminOnly);
-            }}
+            onChange={(e) => setAction(e.target.value)}
             placeholder="Search action keyword (e.g. KYC, SUSPEND)..."
             className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-400"
           />

@@ -44,30 +44,37 @@ const PERMISSION_MATRIX: Record<RbacRole, readonly Permission[]> = {
   SUPPORT: [
     "users:read",         // View user search / contact details
     "users:suspend",      // Suspend/reactivate user accounts
-    "users:manage",
+    "users:manage",       // Create/edit parent and tutor accounts
     "leads:read",         // View active lead feed for support context
+    "leads:manage",       // Assist parents and tutors with leads
     "audit:read",         // Read audit logs (read-only)
   ],
   VERIFICATION: [
     "kyc:review",         // Approve / reject tutor KYC documents
-    "users:read",
+    "users:read",         // View tutor accounts
+    "users:manage",       // Register/verify tutor and parent accounts
+    "users:suspend",      // Suspend fraudulent tutors
     "audit:read",
   ],
   FINANCE: [
     "wallet:refund",      // Credit / debit wallet coins
     "wallets:manage",     // Full wallet management panel
     "wallets:read",
+    "users:read",
     "audit:read",
   ],
   OPERATIONS: [
     "leads:manage",       // Close/expire/adjust leads
     "leads:read",
+    "users:manage",       // Register parents and tutors
     "users:read",
+    "users:suspend",
     "audit:read",
   ],
   MARKETING: [
     "settings:manage",    // Platform settings / coin package pricing
     "leads:read",
+    "users:read",
     "audit:read",
   ],
 
@@ -80,6 +87,22 @@ export type RbacSubject = {
   customPermissions?: string[] | null;
 };
 
+export const FEATURE_PERMISSION_MAP: Record<AdminFeatureKey, readonly Permission[]> = {
+  dashboard: ["audit:read"],
+  analytics: ["audit:read"],
+  users: ["users:read", "users:manage", "users:suspend"],
+  kyc: ["kyc:review", "users:read", "users:manage"],
+  leads: ["leads:read", "leads:manage", "users:read"],
+  bookings: ["leads:read", "leads:manage", "users:read"],
+  chat: ["users:read", "users:manage"],
+  reviews: ["users:read"],
+  wallets: ["wallets:read", "wallets:manage", "wallet:refund", "wallet:topup", "users:read"],
+  broadcast: ["settings:manage"],
+  coupons: ["settings:manage"],
+  settings: ["settings:manage"],
+  "audit-logs": ["audit:read"],
+};
+
 export function resolveRbacRole(subject: RbacSubject): RbacRole | null {
   const role = subject.role === "SUB_ADMIN" ? subject.subAdminRole : subject.role;
   if (!role) return null;
@@ -87,6 +110,18 @@ export function resolveRbacRole(subject: RbacSubject): RbacRole | null {
 }
 
 export function can(subject: RbacSubject, permission: Permission): boolean {
+  if (subject.role === "SUPER_ADMIN") return true;
+
+  // Check custom granted feature permissions first
+  if (subject.customPermissions && subject.customPermissions.length > 0) {
+    for (const featKey of subject.customPermissions) {
+      const perms = FEATURE_PERMISSION_MAP[featKey as AdminFeatureKey];
+      if (perms && perms.includes(permission)) {
+        return true;
+      }
+    }
+  }
+
   const role = resolveRbacRole(subject);
   if (!role) return false;
   return (PERMISSION_MATRIX[role] as readonly string[]).includes(permission);
@@ -94,9 +129,24 @@ export function can(subject: RbacSubject, permission: Permission): boolean {
 
 // Helper: return all allowed permissions for a subject (used for sidebar rendering)
 export function getAllowedPermissions(subject: RbacSubject): readonly Permission[] {
+  if (subject.role === "SUPER_ADMIN") return PERMISSIONS;
+  const set = new Set<Permission>();
+
+  if (subject.customPermissions && subject.customPermissions.length > 0) {
+    for (const featKey of subject.customPermissions) {
+      const perms = FEATURE_PERMISSION_MAP[featKey as AdminFeatureKey];
+      if (perms) {
+        perms.forEach((p) => set.add(p));
+      }
+    }
+  }
+
   const role = resolveRbacRole(subject);
-  if (!role) return [];
-  return PERMISSION_MATRIX[role];
+  if (role && PERMISSION_MATRIX[role]) {
+    PERMISSION_MATRIX[role].forEach((p) => set.add(p));
+  }
+
+  return Array.from(set);
 }
 
 // ── Granular Admin Features Definition ───────────────────────────────────────

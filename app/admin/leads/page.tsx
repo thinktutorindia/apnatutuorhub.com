@@ -22,16 +22,10 @@ import {
   ExternalLink,
   MessageCircle,
 } from "lucide-react";
-import {
-  forceCloseLeadAction,
-  forceExpireLeadAction,
-  forceRadiusExpandAction,
-  adminDeleteLeadAction,
-} from "@/app/actions/admin.actions";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportLeadsCsv } from "@/app/actions/analytics.actions";
 import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
-import { SendLeadToTutorModal } from "@/components/admin/SendLeadToTutorModal";
+import { LeadRowActions } from "@/components/admin/LeadRowActions";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 
@@ -108,6 +102,8 @@ export default async function AdminLeadsPage({
         city: true,
         area: true,
         pincode: true,
+        latitude: true,
+        longitude: true,
         timingPreference: true,
         tutorGenderPref: true,
         languagePref: true,
@@ -419,80 +415,9 @@ export default async function AdminLeadsPage({
                       </td>
 
                       {/* 6. Actions & Dispatch */}
-                      <td className="px-5 py-4">
-                        <div className="flex flex-col items-end gap-1.5">
-                          <SendLeadToTutorModal
-                            leadId={lead.id}
-                            leadTitle={`${lead.classLevel} - ${lead.subjects.join(", ")}`}
-                            triggerClassName="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] hover:from-[#238357] hover:to-[#186843] text-white text-xs font-bold shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
-                            triggerText="Send to Tutors"
-                          />
-
-                          <div className="flex items-center gap-1">
-                            {isOpen && (
-                              <>
-                                <form
-                                  action={async () => {
-                                    "use server";
-                                    await forceRadiusExpandAction(lead.id);
-                                  }}
-                                >
-                                  <button
-                                    type="submit"
-                                    className="flex items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-bold bg-emerald-50 text-emerald-950 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition-colors shadow-2xs"
-                                    title="Expand radius by +5km"
-                                  >
-                                    <Maximize2 size={11} /> +5km
-                                  </button>
-                                </form>
-                                <form
-                                  action={async () => {
-                                    "use server";
-                                    await forceCloseLeadAction(lead.id);
-                                  }}
-                                >
-                                  <button
-                                    type="submit"
-                                    className="flex items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-bold bg-red-50 text-red-950 border border-red-300 hover:bg-red-100 cursor-pointer transition-colors shadow-2xs"
-                                    title="Force close this requirement"
-                                  >
-                                    <X size={11} /> Close
-                                  </button>
-                                </form>
-                                <form
-                                  action={async () => {
-                                    "use server";
-                                    await forceExpireLeadAction(lead.id);
-                                  }}
-                                >
-                                  <button
-                                    type="submit"
-                                    className="flex items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200 cursor-pointer transition-colors shadow-2xs"
-                                    title="Force expire this requirement"
-                                  >
-                                    <Clock size={11} /> Expire
-                                  </button>
-                                </form>
-                              </>
-                            )}
-
-                            {isSuperAdmin && (
-                              <form
-                                action={async () => {
-                                  "use server";
-                                  await adminDeleteLeadAction(lead.id);
-                                }}
-                              >
-                                <button
-                                  type="submit"
-                                  className="p-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-300 hover:bg-red-50 hover:text-red-700 hover:border-red-300 cursor-pointer transition-colors shadow-2xs"
-                                  title="Delete lead permanently (Super Admin)"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </form>
-                            )}
-                          </div>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end">
+                          <LeadRowActions lead={lead} isSuperAdmin={isSuperAdmin} />
                         </div>
                       </td>
                     </tr>

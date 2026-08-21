@@ -546,6 +546,138 @@ export async function forceRadiusExpandAction(
   return actionSuccess({ updated: true });
 }
 
+export type AdminUpdateLeadInput = {
+  leadId: string;
+  subjects: string[];
+  classLevel: string;
+  board?: string;
+  mode: "ONLINE" | "OFFLINE" | "EITHER";
+  budgetMin?: number;
+  budgetMax?: number;
+  city?: string;
+  area?: string;
+  pincode?: string;
+  latitude?: number;
+  longitude?: number;
+  timingPreference?: string;
+  tutorGenderPref?: string;
+  languagePref?: string;
+  notes?: string;
+  coinCost?: number;
+  maxTutors?: number;
+  radiusKm?: number;
+  status?: "ACTIVE" | "MATCHING" | "APPLICATIONS_RECEIVED" | "BOOKED" | "COMPLETED" | "EXPIRED" | "CLOSED";
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
+};
+
+export async function adminUpdateLeadAction(
+  input: AdminUpdateLeadInput
+): Promise<ActionResult<{ updated: true }>> {
+  const { error, session } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  if (!input.leadId) {
+    return actionError("Lead ID is required.");
+  }
+  if (!input.subjects || input.subjects.length === 0) {
+    return actionError("Please select at least one subject.");
+  }
+  if (!input.classLevel) {
+    return actionError("Please specify a class level.");
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.lead.findUnique({
+        where: { id: input.leadId },
+        include: { parentProfile: { include: { user: true } } },
+      });
+
+      if (!existing) {
+        throw new Error("Lead requirement not found.");
+      }
+
+      // Update parent contact info if provided
+      if (existing.parentProfile?.user) {
+        const userUpdates: any = {};
+        if (input.parentName !== undefined && input.parentName.trim()) {
+          userUpdates.name = input.parentName.trim();
+        }
+        if (input.parentPhone !== undefined) {
+          userUpdates.phone = input.parentPhone.trim() || null;
+        }
+        if (input.parentEmail !== undefined && input.parentEmail.trim()) {
+          userUpdates.email = input.parentEmail.trim().toLowerCase();
+        }
+        if (Object.keys(userUpdates).length > 0) {
+          await tx.user.update({
+            where: { id: existing.parentProfile.user.id },
+            data: userUpdates,
+          });
+        }
+      }
+
+      // Update parent profile location if changed
+      if (existing.parentProfileId && (input.city !== undefined || input.pincode !== undefined || input.latitude !== undefined || input.longitude !== undefined)) {
+        const profileUpdates: any = {};
+        if (input.city !== undefined) profileUpdates.city = input.city || null;
+        if (input.pincode !== undefined) profileUpdates.pincode = input.pincode || null;
+        if (input.latitude !== undefined) profileUpdates.latitude = input.latitude || null;
+        if (input.longitude !== undefined) profileUpdates.longitude = input.longitude || null;
+        if (Object.keys(profileUpdates).length > 0) {
+          await tx.parentProfile.update({
+            where: { id: existing.parentProfileId },
+            data: profileUpdates,
+          });
+        }
+      }
+
+      // Update the Lead record
+      await tx.lead.update({
+        where: { id: input.leadId },
+        data: {
+          subjects: input.subjects,
+          classLevel: input.classLevel,
+          board: input.board ?? null,
+          mode: input.mode,
+          budgetMin: input.budgetMin ?? null,
+          budgetMax: input.budgetMax ?? null,
+          city: input.city ?? null,
+          area: input.area ?? null,
+          pincode: input.pincode ?? null,
+          latitude: input.latitude !== undefined ? input.latitude : existing.latitude,
+          longitude: input.longitude !== undefined ? input.longitude : existing.longitude,
+          timingPreference: input.timingPreference ?? null,
+          tutorGenderPref: input.tutorGenderPref ?? null,
+          languagePref: input.languagePref ?? null,
+          notes: input.notes ?? null,
+          coinCost: input.coinCost !== undefined ? input.coinCost : existing.coinCost,
+          maxTutors: input.maxTutors !== undefined ? input.maxTutors : existing.maxTutors,
+          radiusKm: input.radiusKm !== undefined ? input.radiusKm : existing.radiusKm,
+          status: input.status ?? existing.status,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          adminId: session!.user.id,
+          action: "LEAD_UPDATE",
+          entityType: "Lead",
+          entityId: input.leadId,
+          details: `Admin updated lead ${input.leadId} (${input.classLevel} - ${input.subjects.join(", ")})`,
+        },
+      });
+    });
+
+    revalidatePath("/admin/leads");
+    return actionSuccess({ updated: true });
+  } catch (err: any) {
+    return actionError(err.message || "Failed to update lead requirement");
+  }
+}
+
 // ── Lead Creation & Direct Tutor Dispatch ─────────────────────────────────────
 // Requires: leads:manage (SUPER_ADMIN + OPERATIONS sub-admin)
 

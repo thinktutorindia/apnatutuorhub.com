@@ -244,11 +244,8 @@ export function CreateUserModal({
 
   // Tutor Specific State
   const [tutorTeachingMode, setTutorTeachingMode] = useState<TeachingMode>("EITHER");
-  const [tutorClassLevels, setTutorClassLevels] = useState<string[]>(["Class 9", "Class 10"]);
-  const [tutorSubjects, setTutorSubjects] = useState<string[]>([
-    "Maths for Class X",
-    "Science for Class X",
-  ]);
+  const [tutorClassLevels, setTutorClassLevels] = useState<string[]>([]);
+  const [tutorSubjects, setTutorSubjects] = useState<string[]>([]);
   const [tutorSubjectSearch, setTutorSubjectSearch] = useState("");
   const [tutorCustomSubject, setTutorCustomSubject] = useState("");
   const [isCategoryTreeOpen, setIsCategoryTreeOpen] = useState(false);
@@ -257,22 +254,18 @@ export function CreateUserModal({
   );
   const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
 
-  const [tutorExperience, setTutorExperience] = useState<string>("3");
-  const [tutorQualification, setTutorQualification] = useState("B.Tech / Graduate");
-  const [tutorFeeMin, setTutorFeeMin] = useState("500");
-  const [tutorFeeMax, setTutorFeeMax] = useState("1200");
+  const [tutorExperience, setTutorExperience] = useState<string>("");
+  const [tutorQualification, setTutorQualification] = useState("");
+  const [tutorFeeMin, setTutorFeeMin] = useState("");
+  const [tutorFeeMax, setTutorFeeMax] = useState("");
   const [tutorGender, setTutorGender] = useState("MALE");
   const [tutorBio, setTutorBio] = useState("");
   const [tutorAutoVerify, setTutorAutoVerify] = useState(true);
 
   // Parent Specific State
-  const [parentStudentName, setParentStudentName] = useState("");
-  const [parentClassLevel, setParentClassLevel] = useState("Class 10");
+  const [parentClassLevel, setParentClassLevel] = useState("");
   const [parentBoard, setParentBoard] = useState("CBSE");
-  const [parentSubjects, setParentSubjects] = useState<string[]>([
-    "Maths for Class X",
-    "Science for Class X",
-  ]);
+  const [parentSubjects, setParentSubjects] = useState<string[]>([]);
   const [parentSubjectSearch, setParentSubjectSearch] = useState("");
   const [parentCustomSubject, setParentCustomSubject] = useState("");
   const [parentNotes, setParentNotes] = useState("");
@@ -524,23 +517,22 @@ export function CreateUserModal({
     setShowManualAddress(false);
 
     setTutorTeachingMode("EITHER");
-    setTutorClassLevels(["Class 9", "Class 10"]);
-    setTutorSubjects(["Maths for Class X", "Science for Class X"]);
+    setTutorClassLevels([]);
+    setTutorSubjects([]);
     setTutorSubjectSearch("");
     setTutorCustomSubject("");
     setIsCategoryTreeOpen(false);
-    setTutorExperience("3");
-    setTutorQualification("B.Tech / Graduate");
-    setTutorFeeMin("500");
-    setTutorFeeMax("1200");
+    setTutorExperience("");
+    setTutorQualification("");
+    setTutorFeeMin("");
+    setTutorFeeMax("");
     setTutorGender("MALE");
     setTutorBio("");
     setTutorAutoVerify(true);
 
-    setParentStudentName("");
-    setParentClassLevel("Class 10");
+    setParentClassLevel("");
     setParentBoard("CBSE");
-    setParentSubjects(["Maths for Class X", "Science for Class X"]);
+    setParentSubjects([]);
     setParentSubjectSearch("");
     setParentCustomSubject("");
     setParentNotes("");
@@ -733,7 +725,7 @@ export function CreateUserModal({
       payload.isVerified = tutorAutoVerify;
       payload.kycStatus = tutorAutoVerify ? "APPROVED" : "PENDING";
     } else if (role === "PARENT") {
-      payload.studentName = parentStudentName.trim() || `${displayName}'s Child`;
+      payload.studentName = rawName ? `${rawName}'s Child` : undefined;
       payload.classLevel = parentClassLevel;
       payload.board = parentBoard;
       payload.subjects = parentSubjects;
@@ -1353,11 +1345,12 @@ export function CreateUserModal({
                         <label className="mb-1.5 block font-bold text-slate-700">
                           Teaching Mode Preference
                         </label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {[
                             { value: "EITHER", label: "Both (Home & Online)" },
                             { value: "OFFLINE", label: "Home / Offline" },
                             { value: "ONLINE", label: "Online Only" },
+                            { value: "COACHING", label: "Coaching / Institute" },
                           ].map((m) => (
                             <button
                               key={m.value}
@@ -1830,18 +1823,7 @@ export function CreateUserModal({
                         </label>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="mb-1 block font-bold text-slate-700">Student Name</label>
-                          <input
-                            type="text"
-                            value={parentStudentName}
-                            onChange={(e) => setParentStudentName(e.target.value)}
-                            placeholder="e.g. Aarav Sharma"
-                            className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs font-semibold outline-none focus:border-blue-500 shadow-2xs"
-                          />
-                        </div>
-
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="mb-1 block font-bold text-slate-700">Class / Grade</label>
                           <select
@@ -1849,6 +1831,7 @@ export function CreateUserModal({
                             onChange={(e) => setParentClassLevel(e.target.value)}
                             className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 text-xs font-semibold outline-none cursor-pointer focus:border-blue-500 shadow-2xs"
                           >
+                            <option value="">Select Class / Grade Level</option>
                             {INDIVIDUAL_CLASSES.map((lvl) => (
                               <option key={lvl} value={lvl}>
                                 {lvl}

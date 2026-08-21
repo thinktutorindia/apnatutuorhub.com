@@ -21,17 +21,43 @@ export function UserFilterBar({
   const [q, setQ] = useState(initialQ);
   const [role, setRole] = useState(initialRole);
   const [status, setStatus] = useState(initialStatus);
+
+  // Keep track of the last applied values so internal URL transitions don't overwrite active typing
+  const lastAppliedRef = useRef({
+    q: initialQ,
+    role: initialRole,
+    status: initialStatus,
+  });
   const isInitialMount = useRef(true);
 
-  // Sync internal state when URL search params change externally (e.g. browser back/forward)
+  // Sync internal state ONLY when URL search params change externally (e.g. browser back/forward)
   useEffect(() => {
-    setQ(searchParams.get("q") ?? "");
-    setRole(searchParams.get("role") ?? "");
-    setStatus(searchParams.get("status") ?? "");
+    const urlQ = searchParams.get("q") ?? "";
+    const urlRole = searchParams.get("role") ?? "";
+    const urlStatus = searchParams.get("status") ?? "";
+
+    if (urlQ !== lastAppliedRef.current.q) {
+      setQ(urlQ);
+      lastAppliedRef.current.q = urlQ;
+    }
+    if (urlRole !== lastAppliedRef.current.role) {
+      setRole(urlRole);
+      lastAppliedRef.current.role = urlRole;
+    }
+    if (urlStatus !== lastAppliedRef.current.status) {
+      setStatus(urlStatus);
+      lastAppliedRef.current.status = urlStatus;
+    }
   }, [searchParams]);
 
   // Push URL updates with debounce
   const applyFiltersToUrl = (newQ: string, newRole: string, newStatus: string) => {
+    lastAppliedRef.current = {
+      q: newQ,
+      role: newRole,
+      status: newStatus,
+    };
+
     const params = new URLSearchParams();
 
     if (newQ.trim()) {
@@ -61,7 +87,7 @@ export function UserFilterBar({
 
     const timer = setTimeout(() => {
       applyFiltersToUrl(q, role, status);
-    }, 250);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [q]);
@@ -80,9 +106,7 @@ export function UserFilterBar({
     setQ("");
     setRole("");
     setStatus("");
-    startTransition(() => {
-      router.replace(pathname, { scroll: false });
-    });
+    applyFiltersToUrl("", "", "");
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {

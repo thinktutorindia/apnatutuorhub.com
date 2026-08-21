@@ -278,6 +278,17 @@ export function CreateUserModal({
     temporaryPassword?: string;
     role: string;
     name: string;
+    phone?: string;
+    subjects?: string[];
+    classLevels?: string[];
+    classLevel?: string;
+    board?: string;
+    teachingMode?: string;
+    feeMin?: number;
+    feeMax?: number;
+    qualification?: string;
+    experience?: number;
+    locationSummary?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -738,12 +749,29 @@ export function CreateUserModal({
       if (!res.success) {
         setErrorMsg(res.error ?? "Failed to create user account.");
       } else {
+        const locSummary = selectedLocation
+          ? `${selectedLocation.area ? selectedLocation.area + ", " : ""}${selectedLocation.city || ""}${selectedLocation.pincode ? ` (${selectedLocation.pincode})` : ""}`
+          : effectiveCity
+          ? `${effectiveCity}${effectiveState ? `, ${effectiveState}` : ""}${effectivePincode ? ` (${effectivePincode})` : ""}`
+          : undefined;
+
         setCreatedResult({
           userId: res.data?.userId,
           email: res.data?.email ?? email,
           temporaryPassword: res.data?.temporaryPassword,
           role,
           name: displayName,
+          phone: normalizedPhone,
+          subjects: role === "TUTOR" ? tutorSubjects : role === "PARENT" ? parentSubjects : undefined,
+          classLevels: role === "TUTOR" ? tutorClassLevels : undefined,
+          classLevel: role === "PARENT" ? parentClassLevel : undefined,
+          board: role === "PARENT" ? parentBoard : undefined,
+          teachingMode: role === "TUTOR" ? tutorTeachingMode : undefined,
+          feeMin: role === "TUTOR" && tutorFeeMin ? parseInt(tutorFeeMin, 10) : undefined,
+          feeMax: role === "TUTOR" && tutorFeeMax ? parseInt(tutorFeeMax, 10) : undefined,
+          qualification: role === "TUTOR" ? tutorQualification.trim() || undefined : undefined,
+          experience: role === "TUTOR" && tutorExperience ? parseInt(tutorExperience, 10) : undefined,
+          locationSummary: locSummary,
         });
       }
     });
@@ -752,7 +780,48 @@ export function CreateUserModal({
   const handleCopyCredentials = () => {
     if (!createdResult) return;
     const pwd = createdResult.temporaryPassword || (customPassword ? customPassword : "12345678");
-    const text = `🎉 Welcome to ApnaTutorHub!\n\nHere are your login credentials:\n👤 Name: ${createdResult.name}\n🔑 Role: ${createdResult.role}\n📧 Email: ${createdResult.email}\n🔒 Password: ${pwd}\n🌐 Login URL: https://apnatutorhub.com/login\n\nPlease log in and complete your profile.`;
+    let text = `🎉 Welcome to ApnaTutorHub!\n\nHere are your login credentials:\n👤 Name: ${createdResult.name}\n🔑 Role: ${createdResult.role}\n📧 Email: ${createdResult.email}\n🔒 Password: ${pwd}`;
+
+    if (createdResult.phone) {
+      text += `\n📱 Mobile: +91 ${createdResult.phone}`;
+    }
+
+    if (createdResult.role === "TUTOR") {
+      if (createdResult.classLevels && createdResult.classLevels.length > 0) {
+        text += `\n🎓 Classes: ${createdResult.classLevels.join(", ")}`;
+      }
+      if (createdResult.subjects && createdResult.subjects.length > 0) {
+        text += `\n📚 Subjects: ${createdResult.subjects.join(", ")}`;
+      }
+      if (createdResult.teachingMode) {
+        const modeTxt =
+          createdResult.teachingMode === "ONLINE"
+            ? "Online Only"
+            : createdResult.teachingMode === "OFFLINE"
+            ? "Home Tuition"
+            : "Home & Online";
+        text += `\n💻 Mode: ${modeTxt}`;
+      }
+      if (createdResult.feeMin) {
+        text += `\n💰 Min Fee: ₹${createdResult.feeMin.toLocaleString("en-IN")}/mo`;
+      }
+    } else if (createdResult.role === "PARENT") {
+      if (createdResult.classLevel) {
+        text += `\n🎓 Class: ${createdResult.classLevel}`;
+      }
+      if (createdResult.board) {
+        text += `\n🏛️ Board: ${createdResult.board}`;
+      }
+      if (createdResult.subjects && createdResult.subjects.length > 0) {
+        text += `\n📚 Required Subjects: ${createdResult.subjects.join(", ")}`;
+      }
+    }
+
+    if (createdResult.locationSummary) {
+      text += `\n📍 Location: ${createdResult.locationSummary}`;
+    }
+
+    text += `\n\n🌐 Login URL: https://apnatutorhub.com/login\n\nPlease log in to access your dashboard.`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -847,32 +916,132 @@ export function CreateUserModal({
                   </div>
 
                   {/* Summary Box */}
-                  <div className="space-y-3 rounded-2xl bg-white p-5 text-xs border border-emerald-200/60 shadow-xs text-slate-800">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-4 rounded-2xl bg-white p-5 text-xs border border-emerald-200/60 shadow-xs text-slate-800">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
                         <span className="text-slate-500 font-semibold block text-[11px]">Full Name</span>
                         <span className="font-bold text-[#0F2540] text-sm">{createdResult.name}</span>
                       </div>
                       <div>
                         <span className="text-slate-500 font-semibold block text-[11px]">Account Role</span>
-                        <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-900 text-xs">
+                        <span className="inline-flex items-center gap-1 font-bold px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-900 text-xs">
                           {createdResult.role}
                         </span>
                       </div>
-                      <div className="sm:col-span-2">
+                      <div>
                         <span className="text-slate-500 font-semibold block text-[11px]">Login Email</span>
                         <span className="font-bold font-mono text-[#0F2540]">{createdResult.email}</span>
                       </div>
+                      {createdResult.phone && (
+                        <div>
+                          <span className="text-slate-500 font-semibold block text-[11px]">Mobile Number</span>
+                          <span className="font-bold font-mono text-[#0F2540]">+91 {createdResult.phone}</span>
+                        </div>
+                      )}
                       <div className="sm:col-span-2">
                         <span className="text-slate-500 font-semibold block text-[11px]">Temporary Password</span>
                         <span className="inline-block font-bold font-mono text-emerald-900 bg-emerald-100/90 px-3 py-1 rounded-xl border border-emerald-300">
                           {createdResult.temporaryPassword || customPassword || "12345678"}
                         </span>
                       </div>
-                      {selectedLocation && (
-                        <div className="sm:col-span-2 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                          <strong className="text-slate-700">Verified Location:</strong> 📍 {selectedLocation.area},{" "}
-                          {selectedLocation.city} ({selectedLocation.pincode})
+
+                      {/* Location Summary */}
+                      {createdResult.locationSummary && (
+                        <div className="sm:col-span-2 text-[11px] text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-1.5">
+                          <strong className="text-slate-900 shrink-0">📍 Verified Location:</strong>
+                          <span>{createdResult.locationSummary}</span>
+                        </div>
+                      )}
+
+                      {/* Parent Class & Board */}
+                      {createdResult.role === "PARENT" && (createdResult.classLevel || createdResult.board) && (
+                        <div className="sm:col-span-2 text-[11px] bg-blue-50/80 border border-blue-200 p-2.5 rounded-xl text-blue-950 flex flex-wrap items-center gap-3">
+                          {createdResult.classLevel && (
+                            <div>
+                              <span className="text-blue-600 font-medium">Student Class: </span>
+                              <strong className="font-bold">{createdResult.classLevel}</strong>
+                            </div>
+                          )}
+                          {createdResult.board && (
+                            <div>
+                              <span className="text-blue-600 font-medium">Board: </span>
+                              <strong className="font-bold">{createdResult.board}</strong>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Tutor Classes Taught */}
+                      {createdResult.role === "TUTOR" && createdResult.classLevels && createdResult.classLevels.length > 0 && (
+                        <div className="sm:col-span-2 space-y-1.5 pt-1">
+                          <span className="text-slate-500 font-bold block text-[11px]">
+                            🎓 Classes Taught ({createdResult.classLevels.length}):
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {createdResult.classLevels.map((cls) => (
+                              <span
+                                key={cls}
+                                className="px-2 py-0.5 rounded-lg bg-purple-50 border border-purple-200 text-purple-900 font-bold text-[11px]"
+                              >
+                                {cls}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Subjects (Tutor or Parent) */}
+                      {createdResult.subjects && createdResult.subjects.length > 0 && (
+                        <div className="sm:col-span-2 space-y-1.5 pt-1">
+                          <span className="text-slate-500 font-bold block text-[11px]">
+                            📚 {createdResult.role === "TUTOR" ? "Selected Subjects Taught" : "Required Subjects"} ({createdResult.subjects.length}):
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {createdResult.subjects.map((subj) => (
+                              <span
+                                key={subj}
+                                className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 font-bold text-[11px]"
+                              >
+                                {subj}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tutor Extra Highlights */}
+                      {createdResult.role === "TUTOR" && (createdResult.teachingMode || createdResult.feeMin || createdResult.qualification) && (
+                        <div className="sm:col-span-2 text-[11px] bg-purple-50/60 border border-purple-200/80 p-2.5 rounded-xl text-purple-950 flex flex-wrap items-center gap-3">
+                          {createdResult.teachingMode && (
+                            <div>
+                              <span className="text-purple-600 font-medium">Mode: </span>
+                              <strong className="font-bold">
+                                {createdResult.teachingMode === "ONLINE"
+                                  ? "Online Only"
+                                  : createdResult.teachingMode === "OFFLINE"
+                                  ? "Home Tuition"
+                                  : "Home & Online"}
+                              </strong>
+                            </div>
+                          )}
+                          {createdResult.qualification && (
+                            <div>
+                              <span className="text-purple-600 font-medium">Qualification: </span>
+                              <strong className="font-bold">{createdResult.qualification}</strong>
+                            </div>
+                          )}
+                          {createdResult.experience !== undefined && (
+                            <div>
+                              <span className="text-purple-600 font-medium">Experience: </span>
+                              <strong className="font-bold">{createdResult.experience} yrs</strong>
+                            </div>
+                          )}
+                          {createdResult.feeMin && (
+                            <div>
+                              <span className="text-purple-600 font-medium">Min Fee: </span>
+                              <strong className="font-bold">₹{createdResult.feeMin.toLocaleString("en-IN")}/mo</strong>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

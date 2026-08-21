@@ -28,11 +28,14 @@ function isPublicTutorProfile(pathname: string): boolean {
 
 const PUBLIC_ROUTES = [
   "/",
+  "/find-tutor",
   "/login",
   "/register",
   "/forgot-password",
   "/reset-password",
   "/select-role",
+  "/tutor-wizard",
+  "/inquiry",
   "/api/auth",
   "/api/webhooks",
   "/api/health",

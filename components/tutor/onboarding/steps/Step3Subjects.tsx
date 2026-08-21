@@ -329,6 +329,8 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Political Science",
         subjects: [
+          "Political Science for Class XI",
+          "Political Science for Class XII",
           "Political Science for Class XI - XII",
           "Political Science for College",
           "International Relations",
@@ -337,15 +339,28 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       },
       {
         name: "Sociology",
-        subjects: ["Sociology", "Sociology for College", "African Studies"],
+        subjects: [
+          "Sociology for Class XI",
+          "Sociology for Class XII",
+          "Sociology",
+          "Sociology for College",
+          "African Studies",
+        ],
       },
       {
         name: "Home Science",
-        subjects: ["Home Science"],
+        subjects: [
+          "Home Science for Class XI",
+          "Home Science for Class XII",
+          "Home Science",
+          "Home Science for College",
+        ],
       },
       {
         name: "Philosophy",
         subjects: [
+          "Philosophy for Class XI",
+          "Philosophy for Class XII",
           "Philosophy for class XI or XII",
           "Philosophy for Graduation",
           "Philosophical Logic",
@@ -357,6 +372,9 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Psychology",
         subjects: [
+          "Psychology for Class XI",
+          "Psychology for Class XII",
+          "Psychology for School Level",
           "Psychology",
           "Psychology for College",
           "Clinical Psychology",
@@ -838,6 +856,8 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Economics",
         subjects: [
+          "Economics for Class XI",
+          "Economics for Class XII",
           "Economics",
           "Economics for IX - X",
           "Economics for XI",
@@ -862,6 +882,17 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
           "Political Economy",
           "Engineering Economics",
           "Land Economics",
+        ],
+      },
+      {
+        name: "Business Studies",
+        subjects: [
+          "Business Studies for Class XI",
+          "Business Studies for Class XII",
+          "Business Studies",
+          "Business Administration",
+          "Management Studies",
+          "Commerce",
         ],
       },
       {
@@ -922,6 +953,8 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Accounts",
         subjects: [
+          "Accountancy for Class XI",
+          "Accountancy for Class XII",
           "Accounts for IX",
           "Accounts for X",
           "Accounts for XI",

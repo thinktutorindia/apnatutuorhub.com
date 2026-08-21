@@ -77,17 +77,17 @@ export default async function SubjectTutorPage({ params }: SubjectPageProps) {
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/parent/post-requirement"
+              href={`/find-tutor?subject=${encodeURIComponent(subjectName)}`}
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-sm font-black transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Post Requirement for {subjectName}</span>
+              <span>Find {subjectName} Tutors — Free</span>
               <ArrowRight size={18} />
             </Link>
             <Link
-              href="/parent/requirements"
+              href="/find-tutor"
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-900 text-sm font-black transition-all shadow-sm flex items-center justify-center"
             >
-              View Student Feed
+              Browse All Tutors
             </Link>
           </div>
         </div>

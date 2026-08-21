@@ -13,6 +13,7 @@ import {
   Loader2,
   ShieldAlert,
   Sparkles,
+  History,
 } from "lucide-react";
 import {
   forceCloseLeadAction,
@@ -22,6 +23,7 @@ import {
 } from "@/app/actions/admin.actions";
 import { EditLeadModal } from "@/components/admin/EditLeadModal";
 import { SendLeadToTutorModal } from "@/components/admin/SendLeadToTutorModal";
+import { LeadHistoryModal } from "@/components/admin/LeadHistoryModal";
 
 export interface LeadRowActionsProps {
   lead: {
@@ -59,6 +61,7 @@ export interface LeadRowActionsProps {
 export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
@@ -160,6 +163,19 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
             <span>Edit Requirement</span>
           </button>
 
+          {/* View Audit & Edit History */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              setIsHistoryModalOpen(true);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-indigo-50 text-indigo-900 font-semibold text-left cursor-pointer transition-colors"
+          >
+            <History size={14} className="text-indigo-600" />
+            <span>Activity &amp; Correction History</span>
+          </button>
+
           {/* Expand Radius */}
           <button
             type="button"
@@ -255,6 +271,14 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
         lead={lead}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
+      />
+
+      {/* Lead History & Correction Modal */}
+      <LeadHistoryModal
+        leadId={lead.id}
+        leadCode={lead.id.slice(-6).toUpperCase()}
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
       />
 
       {/* Confirmation Dialog */}

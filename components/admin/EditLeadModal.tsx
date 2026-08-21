@@ -30,6 +30,7 @@ import {
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
+import { LeadHistoryModal } from "@/components/admin/LeadHistoryModal";
 import type { TeachingMode, LeadStatus } from "@prisma/client";
 
 export type ResolvedLocation = {
@@ -129,6 +130,8 @@ export function EditLeadModal({
   const [timingPreference, setTimingPreference] = useState(lead.timingPreference || "");
   const [languagePref, setLanguagePref] = useState(lead.languagePref || "Hindi & English");
   const [notes, setNotes] = useState(lead.notes || "");
+  const [resolutionReason, setResolutionReason] = useState("");
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   // Error / Success state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -144,7 +147,6 @@ export function EditLeadModal({
       setBoard(lead.board || "CBSE");
       setMode((lead.mode as TeachingMode) || "OFFLINE");
       setSelectedSubjects(lead.subjects || []);
-      setStatus((lead.status as LeadStatus) || "ACTIVE");
       setBudgetMin(lead.budgetMin ? String(lead.budgetMin) : "");
       setBudgetMax(lead.budgetMax ? String(lead.budgetMax) : "");
       setCoinCost(String(lead.coinCost ?? 10));
@@ -157,11 +159,13 @@ export function EditLeadModal({
       setTimingPreference(lead.timingPreference || "");
       setLanguagePref(lead.languagePref || "Hindi & English");
       setNotes(lead.notes || "");
+      setStatus((lead.status as LeadStatus) || "ACTIVE");
+      setResolutionReason("");
       setErrorMsg(null);
       setSuccessMsg(null);
       setSelectedLocation(null);
     }
-  }, [lead, isOpen]);
+  }, [isOpen, lead]);
 
   // Location Autocomplete
   useEffect(() => {
@@ -316,6 +320,7 @@ export function EditLeadModal({
       parentName: parentName.trim() || undefined,
       parentPhone: normalizedParentPhone,
       parentEmail: parentEmail.trim() || undefined,
+      resolutionReason: resolutionReason.trim() || undefined,
     };
 
     startTransition(async () => {
@@ -383,6 +388,30 @@ export function EditLeadModal({
               <span>{successMsg}</span>
             </div>
           )}
+
+          {/* Activity & Correction History Quick Action Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-950">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shrink-0">
+                <Sparkles size={16} />
+              </div>
+              <div>
+                <p className="text-xs font-black text-[#0F2540]">
+                  Staff Audit Trail &amp; Edit History
+                </p>
+                <p className="text-[11px] font-semibold text-slate-500">
+                  Track who originally entered this lead and see all staff corrections.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsHistoryModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer text-center"
+            >
+              View Full History Log →
+            </button>
+          </div>
 
           {/* Section 1: Lead Status & Teaching Mode */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
@@ -813,6 +842,26 @@ export function EditLeadModal({
             </div>
           </div>
 
+          {/* Section: Staff Correction Note / Resolution Reason */}
+          <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-300 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-amber-950 flex items-center gap-1.5">
+                <Edit3 size={14} className="text-amber-700" />
+                Staff Correction Note / Reason for Edit <span className="text-amber-700 font-normal">(optional)</span>
+              </label>
+              <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                Logged to Audit Trail
+              </span>
+            </div>
+            <input
+              type="text"
+              value={resolutionReason}
+              onChange={(e) => setResolutionReason(e.target.value)}
+              placeholder="e.g. Corrected parent phone & subject from Maths to Science as requested on WhatsApp"
+              className="w-full rounded-xl px-3.5 py-2.5 bg-white border border-amber-300 text-xs font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+
           {/* Modal Footer */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
             <button
@@ -837,6 +886,14 @@ export function EditLeadModal({
           </div>
         </form>
       </div>
+
+      {/* Embedded Lead History Timeline Modal */}
+      <LeadHistoryModal
+        leadId={lead.id}
+        leadCode={lead.id.slice(-6).toUpperCase()}
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+      />
     </div>
   );
 }

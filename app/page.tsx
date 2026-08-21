@@ -261,7 +261,7 @@ export default async function HomePage() {
                 <Link href="/login" className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-xs font-800 transition-all duration-200 ease-out hover:scale-105 active:scale-95">
                   Log in
                 </Link>
-                <Link href={parentCtaUrl} className="btn-shine px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-sm hover:shadow-md hover:shadow-emerald-500/20">
+                <Link href="/find-tutor" className="btn-shine px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-sm hover:shadow-md hover:shadow-emerald-500/20">
                   Find a Tutor
                 </Link>
                 <Link href={tutorCtaUrl} className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100 text-xs font-800 hidden sm:inline-flex transition-all duration-200 ease-out hover:scale-105 active:scale-95">
@@ -297,10 +297,10 @@ export default async function HomePage() {
             {/* Hero CTAs */}
             <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <Link
-                href={parentCtaUrl}
+                href={user ? parentCtaUrl : "/find-tutor"}
                 className="group btn-shine px-7 py-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-sm font-800 flex items-center justify-center gap-2 transition-all duration-300 ease-out hover:scale-[1.03] active:scale-[0.97] shadow-md hover:shadow-xl hover:shadow-emerald-500/25 pulse-glow"
               >
-                <span className="!text-white font-800">Post Your Requirement — Free</span>
+                <span className="!text-white font-800">{user ? "Post Your Requirement — Free" : "Find a Tutor — Free"}</span>
                 <ArrowRight size={18} className="!text-white transition-transform duration-300 ease-out group-hover:translate-x-1.5" />
               </Link>
               <Link

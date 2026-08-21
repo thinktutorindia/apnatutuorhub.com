@@ -21,6 +21,8 @@ import {
   Copy,
   ExternalLink,
   MessageCircle,
+  Edit3,
+  History,
 } from "lucide-react";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportLeadsCsv } from "@/app/actions/analytics.actions";
@@ -124,6 +126,91 @@ export default async function AdminLeadsPage({
     }),
     prisma.lead.count({ where }),
   ]);
+
+  const leadIds = leads.map((l) => l.id);
+  const auditLogs = leadIds.length > 0
+    ? await prisma.auditLog.findMany({
+        where: {
+          entityType: "Lead",
+          entityId: { in: leadIds },
+        },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
+
+  const adminIds = Array.from(new Set(auditLogs.map((a) => a.adminId).filter(Boolean)));
+  const adminUsers = adminIds.length > 0
+    ? await prisma.user.findMany({
+        where: { id: { in: adminIds } },
+        select: { id: true, name: true, email: true, role: true, subAdminRole: true },
+      })
+    : [];
+  const adminMap = new Map(adminUsers.map((u) => [u.id, u]));
+
+  // Build a map of leadId -> { creator, lastEditor, editCount, hasCorrections }
+  const leadAuditMap = new Map<
+    string,
+    {
+      creator?: { name: string; role: string; date: string };
+      lastEditor?: { name: string; role: string; date: string; summary?: string; resolutionReason?: string };
+      editCount: number;
+      hasCorrections: boolean;
+    }
+  >();
+
+  leadIds.forEach((id) => {
+    const logs = auditLogs.filter((l) => l.entityId === id);
+    const creationLog = logs.find((l) => l.action === "ADMIN_CREATE_LEAD" || l.action === "LEAD_CREATED");
+    const editLogs = logs.filter((l) => l.action === "LEAD_UPDATE");
+
+    let creator: { name: string; role: string; date: string } | undefined = undefined;
+    if (creationLog) {
+      const admin = adminMap.get(creationLog.adminId);
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(creationLog.details || "");
+      } catch {}
+      creator = {
+        name: parsed?.creatorName || admin?.name || admin?.email || "Staff",
+        role:
+          parsed?.creatorRole ||
+          (admin?.role === "SUB_ADMIN" && admin?.subAdminRole
+            ? `${admin.subAdminRole} Sub-Admin`
+            : admin?.role || "Staff"),
+        date: creationLog.createdAt.toISOString(),
+      };
+    }
+
+    let lastEditor:
+      | { name: string; role: string; date: string; summary?: string; resolutionReason?: string }
+      | undefined = undefined;
+    if (editLogs.length > 0) {
+      const latestEdit = editLogs[editLogs.length - 1];
+      const admin = adminMap.get(latestEdit.adminId);
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(latestEdit.details || "");
+      } catch {}
+      lastEditor = {
+        name: parsed?.editorName || admin?.name || admin?.email || "Staff",
+        role:
+          parsed?.editorRole ||
+          (admin?.role === "SUB_ADMIN" && admin?.subAdminRole
+            ? `${admin.subAdminRole} Sub-Admin`
+            : admin?.role || "Staff"),
+        date: latestEdit.createdAt.toISOString(),
+        summary: parsed?.summary,
+        resolutionReason: parsed?.resolutionReason,
+      };
+    }
+
+    leadAuditMap.set(id, {
+      creator,
+      lastEditor,
+      editCount: editLogs.length,
+      hasCorrections: editLogs.length > 0,
+    });
+  });
 
   const totalPages = Math.ceil(total / take);
   const ALL_STATUSES = [
@@ -292,6 +379,39 @@ export default async function AdminLeadsPage({
                             &quot;{lead.notes}&quot;
                           </p>
                         )}
+
+                        {/* Staff Entry & Resolution Audit Trail Badge */}
+                        {(() => {
+                          const auditSummary = leadAuditMap.get(lead.id);
+                          if (!auditSummary || (!auditSummary.creator && !auditSummary.lastEditor)) return null;
+                          return (
+                            <div className="pt-1 text-[10px] space-y-1">
+                              {auditSummary.creator && (
+                                <div className="flex items-center gap-1.5 text-slate-600 font-semibold bg-slate-50 px-2 py-1 rounded-lg border border-slate-200/60">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                  <span>
+                                    Entered by: <strong className="text-[#0F2540]">{auditSummary.creator.name}</strong> ({auditSummary.creator.role})
+                                  </span>
+                                </div>
+                              )}
+                              {auditSummary.lastEditor && (
+                                <div className="flex items-start gap-1.5 text-amber-900 bg-amber-50 p-1.5 rounded-lg border border-amber-200/80 font-semibold">
+                                  <Edit3 size={11} className="text-amber-700 shrink-0 mt-0.5" />
+                                  <div className="space-y-0.5">
+                                    <span>
+                                      Corrected by: <strong className="text-amber-950">{auditSummary.lastEditor.name}</strong> ({auditSummary.lastEditor.role})
+                                    </span>
+                                    {auditSummary.lastEditor.resolutionReason && (
+                                      <p className="text-[10px] text-amber-900 font-bold italic">
+                                        &quot;{auditSummary.lastEditor.resolutionReason}&quot;
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* 2. Budget & Fees */}

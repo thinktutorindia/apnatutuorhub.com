@@ -570,6 +570,7 @@ export type AdminUpdateLeadInput = {
   parentName?: string;
   parentPhone?: string;
   parentEmail?: string;
+  resolutionReason?: string;
 };
 
 export async function adminUpdateLeadAction(
@@ -597,6 +598,70 @@ export async function adminUpdateLeadAction(
 
       if (!existing) {
         throw new Error("Lead requirement not found.");
+      }
+
+      // Track precise field diffs to document what was corrected or changed
+      const changes: Array<{
+        field: string;
+        label: string;
+        oldValue: any;
+        newValue: any;
+      }> = [];
+
+      if (input.classLevel && input.classLevel !== existing.classLevel) {
+        changes.push({ field: "classLevel", label: "Class Level", oldValue: existing.classLevel, newValue: input.classLevel });
+      }
+
+      const oldSubs = [...existing.subjects].sort().join(", ");
+      const newSubs = [...input.subjects].sort().join(", ");
+      if (oldSubs !== newSubs) {
+        changes.push({ field: "subjects", label: "Subjects", oldValue: existing.subjects, newValue: input.subjects });
+      }
+
+      if (input.board !== undefined && (input.board || null) !== existing.board) {
+        changes.push({ field: "board", label: "School Board", oldValue: existing.board || "None", newValue: input.board || "None" });
+      }
+
+      if (input.mode && input.mode !== existing.mode) {
+        changes.push({ field: "mode", label: "Teaching Mode", oldValue: existing.mode, newValue: input.mode });
+      }
+
+      if (input.budgetMin !== undefined && (input.budgetMin || null) !== existing.budgetMin) {
+        changes.push({ field: "budgetMin", label: "Min Budget", oldValue: existing.budgetMin, newValue: input.budgetMin });
+      }
+
+      if (input.budgetMax !== undefined && (input.budgetMax || null) !== existing.budgetMax) {
+        changes.push({ field: "budgetMax", label: "Max Budget", oldValue: existing.budgetMax, newValue: input.budgetMax });
+      }
+
+      if (input.city !== undefined && (input.city || null) !== existing.city) {
+        changes.push({ field: "city", label: "City", oldValue: existing.city || "None", newValue: input.city || "None" });
+      }
+
+      if (input.area !== undefined && (input.area || null) !== existing.area) {
+        changes.push({ field: "area", label: "Area / Locality", oldValue: existing.area || "None", newValue: input.area || "None" });
+      }
+
+      if (input.pincode !== undefined && (input.pincode || null) !== existing.pincode) {
+        changes.push({ field: "pincode", label: "Pincode", oldValue: existing.pincode || "None", newValue: input.pincode || "None" });
+      }
+
+      if (input.status && input.status !== existing.status) {
+        changes.push({ field: "status", label: "Lead Status", oldValue: existing.status, newValue: input.status });
+      }
+
+      if (input.notes !== undefined && (input.notes || null) !== existing.notes) {
+        changes.push({ field: "notes", label: "Notes", oldValue: existing.notes || "None", newValue: input.notes || "None" });
+      }
+
+      const existingParentName = existing.parentProfile?.user?.name || null;
+      if (input.parentName !== undefined && input.parentName.trim() !== (existingParentName || "")) {
+        changes.push({ field: "parentName", label: "Parent Name", oldValue: existingParentName || "None", newValue: input.parentName.trim() });
+      }
+
+      const existingParentPhone = existing.parentProfile?.user?.phone || null;
+      if (input.parentPhone !== undefined && (input.parentPhone.trim() || null) !== existingParentPhone) {
+        changes.push({ field: "parentPhone", label: "Parent Phone", oldValue: existingParentPhone || "None", newValue: input.parentPhone.trim() || "None" });
       }
 
       // Update parent contact info if provided
@@ -660,13 +725,31 @@ export async function adminUpdateLeadAction(
         },
       });
 
+      const editorName = session!.user.name || session!.user.email || "Staff Admin";
+      const editorRole = session!.user.role === "SUB_ADMIN" && session!.user.subAdminRole
+        ? `${session!.user.subAdminRole} Sub-Admin`
+        : session!.user.role === "SUPER_ADMIN"
+          ? "Super Admin"
+          : session!.user.role;
+
+      const changeSummary = changes.length > 0
+        ? changes.map((c) => `${c.label}: "${Array.isArray(c.oldValue) ? c.oldValue.join(", ") : c.oldValue}" ➔ "${Array.isArray(c.newValue) ? c.newValue.join(", ") : c.newValue}"`).join("; ")
+        : `Updated lead details (${input.classLevel} - ${input.subjects.join(", ")})`;
+
       await tx.auditLog.create({
         data: {
           adminId: session!.user.id,
           action: "LEAD_UPDATE",
           entityType: "Lead",
           entityId: input.leadId,
-          details: `Admin updated lead ${input.leadId} (${input.classLevel} - ${input.subjects.join(", ")})`,
+          details: JSON.stringify({
+            summary: changeSummary,
+            editorName,
+            editorRole,
+            resolutionReason: input.resolutionReason?.trim() || null,
+            changesCount: changes.length,
+            changes,
+          }),
         },
       });
     });
@@ -676,6 +759,80 @@ export async function adminUpdateLeadAction(
   } catch (err: any) {
     return actionError(err.message || "Failed to update lead requirement");
   }
+}
+
+export type LeadAuditHistoryItem = {
+  id: string;
+  action: string;
+  adminId: string;
+  adminName: string;
+  adminRole: string;
+  createdAt: string;
+  summary: string;
+  resolutionReason?: string | null;
+  changes?: Array<{
+    field: string;
+    label: string;
+    oldValue: any;
+    newValue: any;
+  }>;
+  initialData?: any;
+};
+
+export async function getLeadHistoryAction(
+  leadId: string
+): Promise<ActionResult<{ history: LeadAuditHistoryItem[] }>> {
+  const { error } = await requirePermission("audit:read");
+  if (error) return actionError(error);
+
+  const logs = await prisma.auditLog.findMany({
+    where: {
+      entityType: "Lead",
+      entityId: leadId,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const adminIds = Array.from(new Set(logs.map((l) => l.adminId).filter(Boolean)));
+  const adminUsers = await prisma.user.findMany({
+    where: { id: { in: adminIds } },
+    select: { id: true, name: true, email: true, role: true, subAdminRole: true },
+  });
+  const adminMap = new Map(adminUsers.map((u) => [u.id, u]));
+
+  const history: LeadAuditHistoryItem[] = logs.map((log) => {
+    const admin = adminMap.get(log.adminId);
+    const adminName = admin?.name || admin?.email || "Staff Admin";
+    const adminRole = admin?.role === "SUB_ADMIN" && admin?.subAdminRole
+      ? `${admin.subAdminRole} Sub-Admin`
+      : admin?.role === "SUPER_ADMIN"
+        ? "Super Admin"
+        : admin?.role || "Staff";
+
+    let parsedDetails: any = null;
+    if (log.details) {
+      try {
+        parsedDetails = JSON.parse(log.details);
+      } catch {
+        parsedDetails = null;
+      }
+    }
+
+    return {
+      id: log.id,
+      action: log.action,
+      adminId: log.adminId,
+      adminName: parsedDetails?.editorName || parsedDetails?.creatorName || adminName,
+      adminRole: parsedDetails?.editorRole || parsedDetails?.creatorRole || adminRole,
+      createdAt: log.createdAt.toISOString(),
+      summary: parsedDetails?.summary || log.details || "Updated lead record",
+      resolutionReason: parsedDetails?.resolutionReason || null,
+      changes: parsedDetails?.changes || undefined,
+      initialData: parsedDetails?.initialData || undefined,
+    };
+  });
+
+  return actionSuccess({ history });
 }
 
 // ── Lead Creation & Direct Tutor Dispatch ─────────────────────────────────────
@@ -834,13 +991,38 @@ export async function adminCreateLeadAction(
   });
 
   // 4. Audit Log
+  const creatorName = session!.user.name || session!.user.email || "Staff Admin";
+  const creatorRole = session!.user.role === "SUB_ADMIN" && session!.user.subAdminRole
+    ? `${session!.user.subAdminRole} Sub-Admin`
+    : session!.user.role === "SUPER_ADMIN"
+      ? "Super Admin"
+      : session!.user.role;
+
   await prisma.auditLog.create({
     data: {
       adminId: session!.user.id,
       action: "ADMIN_CREATE_LEAD",
       entityType: "Lead",
       entityId: newLead.id,
-      details: `Created lead for ${input.classLevel} (${input.subjects.join(", ")}) in ${input.city || "unspecified location"}`,
+      details: JSON.stringify({
+        summary: `Created lead for ${input.classLevel} (${input.subjects.join(", ")}) in ${input.city || "unspecified location"}`,
+        creatorName,
+        creatorRole,
+        initialData: {
+          classLevel: input.classLevel,
+          subjects: input.subjects,
+          board: input.board || null,
+          mode: input.mode,
+          budgetMin: input.budgetMin || null,
+          budgetMax: input.budgetMax || null,
+          city: input.city || null,
+          area: input.area || null,
+          pincode: input.pincode || null,
+          parentName: input.parentName || null,
+          parentPhone: input.parentPhone || null,
+          notes: input.notes || null,
+        },
+      }),
     },
   });
 
@@ -2233,7 +2415,7 @@ export async function adminUpdateFullUserAction(
   const subjectsRaw = formData.get("subjects")?.toString();
   const classLevelsRaw = formData.get("classLevels")?.toString();
   let subjects: string[] | undefined = undefined;
-  if (subjectsRaw) {
+  if (subjectsRaw !== undefined && subjectsRaw !== null) {
     try {
       subjects = JSON.parse(subjectsRaw);
     } catch {
@@ -2242,7 +2424,7 @@ export async function adminUpdateFullUserAction(
   }
 
   let classLevels: string[] | undefined = undefined;
-  if (classLevelsRaw) {
+  if (classLevelsRaw !== undefined && classLevelsRaw !== null) {
     try {
       classLevels = JSON.parse(classLevelsRaw);
     } catch {
@@ -2366,8 +2548,8 @@ export async function adminUpdateFullUserAction(
           kycAddressUrl,
           kycSelfieUrl,
           introVideoUrl,
-          ...(subjects ? { subjects } : {}),
-          ...(classLevels ? { classLevels } : {}),
+          ...(subjects !== undefined ? { subjects } : {}),
+          ...(classLevels !== undefined ? { classLevels } : {}),
           ...(experience !== null ? { experience } : {}),
           feeMin: feeMin ?? hourlyRate,
           feeMax: feeMax ?? hourlyRate,
@@ -2402,7 +2584,53 @@ export async function adminUpdateFullUserAction(
   }
 
   revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}/edit`);
   return actionSuccess({ updated: true });
+}
+
+export async function adminUpdateTutorSubjectsAndClassesAction(
+  userId: string,
+  subjects: string[],
+  classLevels: string[]
+): Promise<ActionResult<{ updated: true; subjects: string[]; classLevels: string[] }>> {
+  const { error, session } = await requirePermission("users:manage");
+  if (error) return actionError(error);
+
+  if (!userId) {
+    return actionError("User ID is required.");
+  }
+
+  const cleanSubjects = Array.from(new Set(subjects.map((s) => s.trim()).filter(Boolean)));
+  const cleanClassLevels = Array.from(new Set(classLevels.map((c) => c.trim()).filter(Boolean)));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tutorProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        subjects: cleanSubjects,
+        classLevels: cleanClassLevels,
+      },
+      update: {
+        subjects: cleanSubjects,
+        classLevels: cleanClassLevels,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session!.user.id,
+        action: "EDIT_USER_SUBJECTS",
+        entityType: "User",
+        entityId: userId,
+        details: `Updated subjects (${cleanSubjects.length}) & class levels (${cleanClassLevels.length})`,
+      },
+    });
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}/edit`);
+  return actionSuccess({ updated: true, subjects: cleanSubjects, classLevels: cleanClassLevels });
 }
 
 export async function adminUpsertStudentProfileAction(

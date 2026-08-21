@@ -57,6 +57,7 @@ import {
   sendAdminCustomNotificationAction,
   adminUpsertStudentProfileAction,
   adminDeleteStudentProfileAction,
+  adminUpdateTutorSubjectsAndClassesAction,
 } from "@/app/actions/admin.actions";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 
@@ -174,6 +175,124 @@ export function AdminEditUserForm({
   const [addressViewUrl] = useState<string | null>(presignedUrls.addressViewUrl);
   const [selfieViewUrl] = useState<string | null>(presignedUrls.selfieViewUrl);
   const [introVideoViewUrl] = useState<string | null>(presignedUrls.introVideoViewUrl);
+
+  // Tutor Subjects & Class Levels State
+  const [tutorSubjects, setTutorSubjects] = useState<string[]>(
+    Array.isArray(tutorProfile?.subjects) ? tutorProfile.subjects : []
+  );
+  const [tutorClassLevels, setTutorClassLevels] = useState<string[]>(
+    Array.isArray(tutorProfile?.classLevels) ? tutorProfile.classLevels : []
+  );
+  const [isSavingSubjects, setIsSavingSubjects] = useState(false);
+  const [subjectFeedback, setSubjectFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
+  const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
+  const [customSubjectInput, setCustomSubjectInput] = useState("");
+  const [customClassInput, setCustomClassInput] = useState("");
+
+  const handleRemoveSubject = async (subjectToRemove: string) => {
+    const nextSubjects = tutorSubjects.filter((s) => s !== subjectToRemove);
+    setTutorSubjects(nextSubjects);
+    setIsSavingSubjects(true);
+    const res = await adminUpdateTutorSubjectsAndClassesAction(user.id, nextSubjects, tutorClassLevels);
+    setIsSavingSubjects(false);
+    if (res.success) {
+      setSubjectFeedback({ type: "success", message: `Removed subject "${subjectToRemove}"` });
+      setTimeout(() => setSubjectFeedback(null), 3000);
+    } else {
+      setSubjectFeedback({ type: "error", message: res.error || "Failed to remove subject." });
+    }
+  };
+
+  const handleRemoveClassLevel = async (classToRemove: string) => {
+    const nextClasses = tutorClassLevels.filter((c) => c !== classToRemove);
+    setTutorClassLevels(nextClasses);
+    setIsSavingSubjects(true);
+    const res = await adminUpdateTutorSubjectsAndClassesAction(user.id, tutorSubjects, nextClasses);
+    setIsSavingSubjects(false);
+    if (res.success) {
+      setSubjectFeedback({ type: "success", message: `Removed class "${classToRemove}"` });
+      setTimeout(() => setSubjectFeedback(null), 3000);
+    } else {
+      setSubjectFeedback({ type: "error", message: res.error || "Failed to remove class level." });
+    }
+  };
+
+  const handleAddCustomSubject = async () => {
+    const trimmed = customSubjectInput.trim();
+    if (!trimmed) return;
+    if (tutorSubjects.includes(trimmed)) {
+      alert("This subject is already added.");
+      return;
+    }
+    const nextSubjects = [...tutorSubjects, trimmed];
+    setTutorSubjects(nextSubjects);
+    setCustomSubjectInput("");
+    setIsSavingSubjects(true);
+    const res = await adminUpdateTutorSubjectsAndClassesAction(user.id, nextSubjects, tutorClassLevels);
+    setIsSavingSubjects(false);
+    if (res.success) {
+      setSubjectFeedback({ type: "success", message: `Added subject "${trimmed}"` });
+      setTimeout(() => setSubjectFeedback(null), 3000);
+    } else {
+      setSubjectFeedback({ type: "error", message: res.error || "Failed to add subject." });
+    }
+  };
+
+  const handleToggleClassLevel = async (classLevel: string) => {
+    const exists = tutorClassLevels.includes(classLevel);
+    const nextClasses = exists
+      ? tutorClassLevels.filter((c) => c !== classLevel)
+      : [...tutorClassLevels, classLevel];
+    setTutorClassLevels(nextClasses);
+    setIsSavingSubjects(true);
+    const res = await adminUpdateTutorSubjectsAndClassesAction(user.id, tutorSubjects, nextClasses);
+    setIsSavingSubjects(false);
+    if (res.success) {
+      setSubjectFeedback({
+        type: "success",
+        message: exists ? `Removed "${classLevel}"` : `Added "${classLevel}"`,
+      });
+      setTimeout(() => setSubjectFeedback(null), 3000);
+    } else {
+      setSubjectFeedback({ type: "error", message: res.error || "Failed to update class levels." });
+    }
+  };
+
+  const handleAddCustomClassLevel = async () => {
+    const trimmed = customClassInput.trim();
+    if (!trimmed) return;
+    if (tutorClassLevels.includes(trimmed)) {
+      alert("This class level is already in the list.");
+      return;
+    }
+    const nextClasses = [...tutorClassLevels, trimmed];
+    setTutorClassLevels(nextClasses);
+    setCustomClassInput("");
+    setIsSavingSubjects(true);
+    const res = await adminUpdateTutorSubjectsAndClassesAction(user.id, tutorSubjects, nextClasses);
+    setIsSavingSubjects(false);
+    if (res.success) {
+      setSubjectFeedback({ type: "success", message: `Added class level "${trimmed}"` });
+      setTimeout(() => setSubjectFeedback(null), 3000);
+    } else {
+      setSubjectFeedback({ type: "error", message: res.error || "Failed to add class level." });
+    }
+  };
+
+  const handleSaveModalSubjects = async (selectedSubjects: string[]) => {
+    setTutorSubjects(selectedSubjects);
+    setIsSavingSubjects(true);
+    const res = await adminUpdateTutorSubjectsAndClassesAction(user.id, selectedSubjects, tutorClassLevels);
+    setIsSavingSubjects(false);
+    setIsAddSubjectModalOpen(false);
+    if (res.success) {
+      setSubjectFeedback({ type: "success", message: "Subjects updated successfully!" });
+      setTimeout(() => setSubjectFeedback(null), 3000);
+    } else {
+      setSubjectFeedback({ type: "error", message: res.error || "Failed to update subjects." });
+    }
+  };
 
   // Parent profile state
   const [parentCity, setParentCity] = useState<string>(parentProfile?.city || "");
@@ -474,6 +593,8 @@ export function AdminEditUserForm({
       {/* ── CARD 1: SUPER ADMIN GOVERNANCE & ACCOUNT CONTROLS (CLEAN LIGHT CARD) ── */}
       <form onSubmit={handleAdminControlsSubmit} className="space-y-6">
         <input type="hidden" name="userId" value={user.id} />
+        <input type="hidden" name="subjects" value={JSON.stringify(tutorSubjects)} />
+        <input type="hidden" name="classLevels" value={JSON.stringify(tutorClassLevels)} />
 
         <div className="rounded-3xl p-6 sm:p-8 space-y-6 bg-white border border-slate-200 shadow-xl shadow-slate-200/50">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -1070,28 +1191,176 @@ export function AdminEditUserForm({
 
         {/* Subjects & Class Levels Pill Grid */}
         {isTutor && (
-          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-            <h3 className="font-black text-[#0F2540] text-xs uppercase tracking-wider flex items-center gap-2">
-              <BookOpen size={16} className="text-[#2D9E6B]" />
-              Selected Taught Subjects &amp; Class Levels
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {tutorProfile?.subjects && tutorProfile.subjects.length > 0 ? (
-                tutorProfile.subjects.map((sub) => (
-                  <span key={sub} className="px-3.5 py-1.5 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black shadow-2xs">
-                    📚 {sub}
+          <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="font-black text-[#0F2540] text-sm uppercase tracking-wider flex items-center gap-2">
+                  <BookOpen size={18} className="text-[#2D9E6B]" />
+                  Selected Taught Subjects &amp; Class Levels
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  Click the <span className="text-red-500 font-black">✕</span> on any chip to remove it, or use the buttons to add more.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddSubjectModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Plus size={14} /> Add Subjects
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddClassModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-black flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Plus size={14} /> Add Classes
+                </button>
+              </div>
+            </div>
+
+            {/* Feedback Message Banner */}
+            {subjectFeedback && (
+              <div
+                className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  subjectFeedback.type === "success"
+                    ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                    : "bg-red-100 text-red-900 border border-red-300"
+                }`}
+              >
+                {subjectFeedback.type === "success" ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+                <span>{subjectFeedback.message}</span>
+              </div>
+            )}
+
+            {/* Quick Add Inline Subject Input */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-2xs">
+              <input
+                type="text"
+                value={customSubjectInput}
+                onChange={(e) => setCustomSubjectInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCustomSubject();
+                  }
+                }}
+                placeholder="Type any subject (e.g. Maths for Class X, Physics for NEET) and press Enter..."
+                className="flex-1 px-3.5 py-2 text-xs font-bold text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
+              />
+              <button
+                type="button"
+                disabled={!customSubjectInput.trim() || isSavingSubjects}
+                onClick={handleAddCustomSubject}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] disabled:opacity-40 text-white text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                {isSavingSubjects ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                Add Subject
+              </button>
+            </div>
+
+            {/* Subjects List */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  Taught Subjects ({tutorSubjects.length})
+                </span>
+                {tutorSubjects.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm("Are you sure you want to clear all subjects for this tutor?")) return;
+                      setTutorSubjects([]);
+                      setIsSavingSubjects(true);
+                      await adminUpdateTutorSubjectsAndClassesAction(user.id, [], tutorClassLevels);
+                      setIsSavingSubjects(false);
+                      setSubjectFeedback({ type: "success", message: "All subjects cleared." });
+                    }}
+                    className="text-[11px] font-bold text-red-500 hover:text-red-700 hover:underline cursor-pointer"
+                  >
+                    Clear All Subjects
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {tutorSubjects.length > 0 ? (
+                  tutorSubjects.map((sub) => (
+                    <span
+                      key={sub}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-950 border border-emerald-300 text-xs font-black shadow-2xs group hover:bg-emerald-200 transition-all"
+                    >
+                      <span>📚 {sub}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSubject(sub)}
+                        disabled={isSavingSubjects}
+                        title={`Remove "${sub}"`}
+                        className="w-4 h-4 rounded-full bg-emerald-200 text-emerald-800 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <CloseIcon size={11} strokeWidth={3} />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-400 text-xs italic font-semibold">
+                    No subjects added yet. Type a subject above or click &quot;Add Subjects&quot;.
                   </span>
-                ))
-              ) : (
-                <span className="text-slate-400 text-xs italic font-semibold">No subjects selected yet</span>
-              )}
-              {tutorProfile?.classLevels && tutorProfile.classLevels.length > 0 && (
-                tutorProfile.classLevels.map((lvl) => (
-                  <span key={lvl} className="px-3.5 py-1.5 rounded-xl bg-cyan-100 text-cyan-900 border border-cyan-300 text-xs font-black shadow-2xs">
-                    🎯 {lvl}
+                )}
+              </div>
+            </div>
+
+            {/* Class Levels List */}
+            <div className="space-y-2 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  Target Class Levels ({tutorClassLevels.length})
+                </span>
+                {tutorClassLevels.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm("Are you sure you want to clear all class levels for this tutor?")) return;
+                      setTutorClassLevels([]);
+                      setIsSavingSubjects(true);
+                      await adminUpdateTutorSubjectsAndClassesAction(user.id, tutorSubjects, []);
+                      setIsSavingSubjects(false);
+                      setSubjectFeedback({ type: "success", message: "All class levels cleared." });
+                    }}
+                    className="text-[11px] font-bold text-red-500 hover:text-red-700 hover:underline cursor-pointer"
+                  >
+                    Clear All Classes
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {tutorClassLevels.length > 0 ? (
+                  tutorClassLevels.map((lvl) => (
+                    <span
+                      key={lvl}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-100 text-cyan-950 border border-cyan-300 text-xs font-black shadow-2xs group hover:bg-cyan-200 transition-all"
+                    >
+                      <span>🎯 {lvl}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveClassLevel(lvl)}
+                        disabled={isSavingSubjects}
+                        title={`Remove "${lvl}"`}
+                        className="w-4 h-4 rounded-full bg-cyan-200 text-cyan-800 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <CloseIcon size={11} strokeWidth={3} />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-400 text-xs italic font-semibold">
+                    No class levels selected yet. Click &quot;Add Classes&quot; to pick levels.
                   </span>
-                ))
-              )}
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1453,6 +1722,165 @@ export function AdminEditUserForm({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: ADD / EDIT SUBJECTS (SUBJECTPICKER) ── */}
+      {isAddSubjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <BookOpen size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-[#0F2540]">
+                    Select Taught Subjects
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    Pick from the full subject taxonomy or search by name.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddSubjectModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <CloseIcon size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              <SubjectPicker
+                value={tutorSubjects}
+                onChange={setTutorSubjects}
+                max={60}
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-4 border-t border-slate-100 bg-slate-50">
+              <span className="text-xs font-bold text-slate-600">
+                {tutorSubjects.length} subjects selected
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddSubjectModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingSubjects}
+                  onClick={() => handleSaveModalSubjects(tutorSubjects)}
+                  className="px-5 py-2 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  {isSavingSubjects ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save Subjects
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: ADD / EDIT CLASS LEVELS ── */}
+      {isAddClassModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold">
+                  <GraduationCap size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-[#0F2540]">
+                    Select Target Class Levels
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    Toggle which classes and exam levels this tutor teaches.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddClassModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <CloseIcon size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {/* Standard Class Levels Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {CLASS_LEVELS.map((cl) => {
+                  const isSelected = tutorClassLevels.includes(cl);
+                  return (
+                    <button
+                      key={cl}
+                      type="button"
+                      onClick={() => handleToggleClassLevel(cl)}
+                      className={`p-3 rounded-2xl border-2 text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? "bg-cyan-50 border-cyan-500 text-cyan-950 shadow-2xs"
+                          : "bg-slate-50 border-slate-200 text-slate-700 hover:border-cyan-300 hover:bg-white"
+                      }`}
+                    >
+                      <span>🎯 {cl}</span>
+                      {isSelected && <Check size={14} className="text-cyan-600 shrink-0" strokeWidth={3} />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Class Level Input */}
+              <div className="pt-3 border-t border-slate-200 space-y-2">
+                <label className="text-xs font-black text-slate-700 block">
+                  Add Custom Class / Competitive Exam:
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customClassInput}
+                    onChange={(e) => setCustomClassInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCustomClassLevel();
+                      }
+                    }}
+                    placeholder="e.g. UPSC, SAT, Olympiad, Grade 11-12..."
+                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-cyan-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={!customClassInput.trim() || isSavingSubjects}
+                    onClick={handleAddCustomClassLevel}
+                    className="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white text-xs font-black flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={14} /> Add
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border-t border-slate-100 bg-slate-50">
+              <span className="text-xs font-bold text-slate-600">
+                {tutorClassLevels.length} class levels selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAddClassModalOpen(false)}
+                className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-black cursor-pointer shadow-xs"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

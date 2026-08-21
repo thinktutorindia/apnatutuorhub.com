@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition, useState, useEffect, useRef } from "react";
+import { useTransition, useState, useEffect, useRef, useCallback } from "react";
 import { Search, X, Filter, Loader2 } from "lucide-react";
 
 export function UserFilterBar({
@@ -22,61 +22,70 @@ export function UserFilterBar({
   const [role, setRole] = useState(initialRole);
   const [status, setStatus] = useState(initialStatus);
 
-  // Keep track of the last applied values so internal URL transitions don't overwrite active typing
-  const lastAppliedRef = useRef({
-    q: initialQ,
-    role: initialRole,
-    status: initialStatus,
-  });
+  const isFocusedRef = useRef(false);
+  const latestQRef = useRef(initialQ);
+  latestQRef.current = q;
   const isInitialMount = useRef(true);
 
-  // Sync internal state ONLY when URL search params change externally (e.g. browser back/forward)
+  // Push URL updates with transition
+  const applyFiltersToUrl = useCallback(
+    (newQ: string, newRole: string, newStatus: string) => {
+      const params = new URLSearchParams();
+
+      if (newQ.trim()) {
+        params.set("q", newQ.trim());
+      }
+      if (newRole) {
+        params.set("role", newRole);
+      }
+      if (newStatus) {
+        params.set("status", newStatus);
+      }
+
+      const queryStr = params.toString();
+      const targetUrl = queryStr ? `${pathname}?${queryStr}` : pathname;
+
+      startTransition(() => {
+        router.replace(targetUrl, { scroll: false });
+      });
+    },
+    [pathname, router]
+  );
+
+  // Handle true browser Back / Forward navigation
   useEffect(() => {
-    const urlQ = searchParams.get("q") ?? "";
+    const handlePopState = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const urlQ = sp.get("q") ?? "";
+      const urlRole = sp.get("role") ?? "";
+      const urlStatus = sp.get("status") ?? "";
+
+      setQ(urlQ);
+      latestQRef.current = urlQ;
+      setRole(urlRole);
+      setStatus(urlStatus);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Sync role & status if searchParams changes from outside, but NEVER overwrite q while user is focused/typing
+  useEffect(() => {
     const urlRole = searchParams.get("role") ?? "";
     const urlStatus = searchParams.get("status") ?? "";
 
-    if (urlQ !== lastAppliedRef.current.q) {
-      setQ(urlQ);
-      lastAppliedRef.current.q = urlQ;
-    }
-    if (urlRole !== lastAppliedRef.current.role) {
-      setRole(urlRole);
-      lastAppliedRef.current.role = urlRole;
-    }
-    if (urlStatus !== lastAppliedRef.current.status) {
-      setStatus(urlStatus);
-      lastAppliedRef.current.status = urlStatus;
+    setRole((prev) => (prev !== urlRole ? urlRole : prev));
+    setStatus((prev) => (prev !== urlStatus ? urlStatus : prev));
+
+    if (!isFocusedRef.current) {
+      const urlQ = searchParams.get("q") ?? "";
+      if (urlQ !== latestQRef.current) {
+        setQ(urlQ);
+        latestQRef.current = urlQ;
+      }
     }
   }, [searchParams]);
-
-  // Push URL updates with debounce
-  const applyFiltersToUrl = (newQ: string, newRole: string, newStatus: string) => {
-    lastAppliedRef.current = {
-      q: newQ,
-      role: newRole,
-      status: newStatus,
-    };
-
-    const params = new URLSearchParams();
-
-    if (newQ.trim()) {
-      params.set("q", newQ.trim());
-    }
-    if (newRole) {
-      params.set("role", newRole);
-    }
-    if (newStatus) {
-      params.set("status", newStatus);
-    }
-
-    const queryStr = params.toString();
-    const targetUrl = queryStr ? `${pathname}?${queryStr}` : pathname;
-
-    startTransition(() => {
-      router.replace(targetUrl, { scroll: false });
-    });
-  };
 
   // Debounced search when user types in the input
   useEffect(() => {
@@ -87,10 +96,10 @@ export function UserFilterBar({
 
     const timer = setTimeout(() => {
       applyFiltersToUrl(q, role, status);
-    }, 400);
+    }, 350);
 
     return () => clearTimeout(timer);
-  }, [q]);
+  }, [q, applyFiltersToUrl, role, status]);
 
   const handleRoleChange = (newRole: string) => {
     setRole(newRole);
@@ -139,6 +148,12 @@ export function UserFilterBar({
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onFocus={() => {
+              isFocusedRef.current = true;
+            }}
+            onBlur={() => {
+              isFocusedRef.current = false;
+            }}
             placeholder="Search by name, email (e.g. zhaniesupport@gmail.com), or phone number…"
             className="flex-1 bg-transparent text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400"
           />

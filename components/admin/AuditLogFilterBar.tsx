@@ -27,47 +27,51 @@ export function AuditLogFilterBar({
   const [adminId, setAdminId] = useState(initialAdminId);
   const [subAdminOnly, setSubAdminOnly] = useState(initialSubAdminOnly);
 
-  const lastAppliedRef = useRef({
-    action: initialAction,
-    entity: initialEntity,
-    adminId: initialAdminId,
-    subAdminOnly: initialSubAdminOnly,
-  });
+  const isFocusedRef = useRef(false);
+  const latestActionRef = useRef(initialAction);
+  latestActionRef.current = action;
   const isInitialMount = useRef(true);
 
-  // Sync internal state ONLY when URL search params change externally (e.g. browser back/forward)
+  // Handle browser popstate
   useEffect(() => {
-    const urlAction = searchParams.get("action") ?? "";
+    const handlePopState = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const urlAction = sp.get("action") ?? "";
+      const urlEntity = sp.get("entity") ?? "";
+      const urlAdminId = sp.get("adminId") ?? "";
+      const urlSubAdminOnly = sp.get("subAdminOnly") === "true";
+
+      setAction(urlAction);
+      latestActionRef.current = urlAction;
+      setEntity(urlEntity);
+      setAdminId(urlAdminId);
+      setSubAdminOnly(urlSubAdminOnly);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Sync state if searchParams changes from outside, but never overwrite while typing
+  useEffect(() => {
     const urlEntity = searchParams.get("entity") ?? "";
     const urlAdminId = searchParams.get("adminId") ?? "";
     const urlSubAdminOnly = searchParams.get("subAdminOnly") === "true";
 
-    if (urlAction !== lastAppliedRef.current.action) {
-      setAction(urlAction);
-      lastAppliedRef.current.action = urlAction;
-    }
-    if (urlEntity !== lastAppliedRef.current.entity) {
-      setEntity(urlEntity);
-      lastAppliedRef.current.entity = urlEntity;
-    }
-    if (urlAdminId !== lastAppliedRef.current.adminId) {
-      setAdminId(urlAdminId);
-      lastAppliedRef.current.adminId = urlAdminId;
-    }
-    if (urlSubAdminOnly !== lastAppliedRef.current.subAdminOnly) {
-      setSubAdminOnly(urlSubAdminOnly);
-      lastAppliedRef.current.subAdminOnly = urlSubAdminOnly;
+    setEntity((prev) => (prev !== urlEntity ? urlEntity : prev));
+    setAdminId((prev) => (prev !== urlAdminId ? urlAdminId : prev));
+    setSubAdminOnly((prev) => (prev !== urlSubAdminOnly ? urlSubAdminOnly : prev));
+
+    if (!isFocusedRef.current) {
+      const urlAction = searchParams.get("action") ?? "";
+      if (urlAction !== latestActionRef.current) {
+        setAction(urlAction);
+        latestActionRef.current = urlAction;
+      }
     }
   }, [searchParams]);
 
   const updateFilters = (newAction: string, newEntity: string, newAdminId: string, newSubAdminOnly: boolean) => {
-    lastAppliedRef.current = {
-      action: newAction,
-      entity: newEntity,
-      adminId: newAdminId,
-      subAdminOnly: newSubAdminOnly,
-    };
-
     const params = new URLSearchParams(searchParams.toString());
 
     if (newAction.trim()) params.set("action", newAction.trim());
@@ -85,7 +89,7 @@ export function AuditLogFilterBar({
     params.delete("page");
 
     startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     });
   };
 
@@ -98,13 +102,14 @@ export function AuditLogFilterBar({
 
     const timer = setTimeout(() => {
       updateFilters(action, entity, adminId, subAdminOnly);
-    }, 400);
+    }, 350);
 
     return () => clearTimeout(timer);
   }, [action]);
 
   const handleReset = () => {
     setAction("");
+    latestActionRef.current = "";
     setEntity("");
     setAdminId("");
     setSubAdminOnly(false);
@@ -126,6 +131,12 @@ export function AuditLogFilterBar({
             type="text"
             value={action}
             onChange={(e) => setAction(e.target.value)}
+            onFocus={() => {
+              isFocusedRef.current = true;
+            }}
+            onBlur={() => {
+              isFocusedRef.current = false;
+            }}
             placeholder="Search action keyword (e.g. KYC, SUSPEND)..."
             className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-400"
           />

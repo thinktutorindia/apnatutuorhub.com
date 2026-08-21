@@ -118,6 +118,31 @@ export default function AdminError({
             </div>
           )}
 
+          {/* Special Stale Deployment / Action Not Found Notification */}
+          {(error?.name === "UnrecognizedActionError" ||
+            error?.message?.includes("was not found on the server") ||
+            error?.message?.includes("failed-to-find-server-action")) && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 space-y-2 text-amber-950">
+              <div className="flex items-center gap-2">
+                <RefreshCw size={16} className="text-amber-700 animate-spin" />
+                <span className="text-xs font-black uppercase tracking-wider text-amber-800">
+                  New Version Deployed
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-amber-900 leading-relaxed">
+                A new platform update was recently deployed. Your browser was running an earlier session bundle. Please click the button below to reload and fetch the latest build.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-1 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <RefreshCw size={13} />
+                <span>Reload Application Now</span>
+              </button>
+            </div>
+          )}
+
           {/* Error Message Card */}
           <div className="p-4 rounded-2xl bg-rose-50/90 border border-rose-200 space-y-1.5 text-rose-950">
             <span className="text-[10px] uppercase font-black tracking-wider text-rose-700 block">

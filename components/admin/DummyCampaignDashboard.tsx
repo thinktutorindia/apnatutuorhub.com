@@ -828,9 +828,9 @@ export function DummyCampaignDashboard(props: Props) {
 
       {/* ── Create Campaign Modal ── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="relative z-10 w-full sm:max-w-3xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] overflow-hidden flex flex-col my-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="relative z-10 w-full sm:max-w-3xl bg-white rounded-3xl shadow-2xl h-[90vh] max-h-[850px] overflow-hidden flex flex-col my-auto">
+            <div className="shrink-0 flex items-center justify-between p-5 border-b border-slate-100 bg-white z-10">
               <div>
                 <h2 className="font-black text-slate-900 text-base">New Dummy Lead Campaign</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Geo-matched leads rotate daily per tutor location &amp; class levels</p>

@@ -276,9 +276,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
   ];
 
   return (
-    <div className="flex flex-col bg-white">
-      {/* ── Top Step Header Progress Bar ── */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100 bg-slate-50/50">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white">
+      {/* ── Top Step Header Progress Bar (Pinned) ── */}
+      <div className="shrink-0 flex items-center justify-between px-6 pt-4 pb-3 border-b border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-2 sm:gap-4 w-full">
           {stepTitles.map((st, i) => {
             const done = step > st.num;
@@ -318,8 +318,8 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
         </div>
       </div>
 
-      {/* ── Main Content Area ── */}
-      <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+      {/* ── Main Content Area (Scrollable Body) ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-5">
 
         {/* ── STEP 1: Who & Channels ── */}
         {step === 1 && (
@@ -975,12 +975,12 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
         )}
       </div>
 
-      {/* ── Modal Footer Navigation ── */}
-      <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+      {/* ── Modal Footer Navigation (Always Visible & Pinned) ── */}
+      <div className="shrink-0 sticky bottom-0 z-20 flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-lg">
         <button
           type="button"
           onClick={step === 1 ? onCancel : () => setStep((s) => (s - 1) as any)}
-          className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-extrabold text-xs hover:bg-slate-100 transition-all"
+          className="px-5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-extrabold text-xs hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
         >
           {step === 1 ? "Cancel" : "← Back"}
         </button>
@@ -1003,7 +1003,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 setError(null);
                 setStep((s) => (s + 1) as any);
               }}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs transition-all shadow-sm"
+              className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs transition-all shadow-md cursor-pointer"
             >
               <span>Next Step</span>
               <ChevronRight size={14} />
@@ -1013,7 +1013,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
               type="button"
               disabled={isPending}
               onClick={handleLaunchCampaign}
-              className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs shadow-md shadow-emerald-500/20 transition-all disabled:opacity-60"
+              className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs shadow-md shadow-emerald-500/20 transition-all disabled:opacity-60 cursor-pointer"
             >
               {isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} className="stroke-[3]" />}
               <span>{isPending ? "Creating Campaign..." : autoActivate ? "🚀 Create & Launch Campaign" : "💾 Save Campaign as Draft"}</span>

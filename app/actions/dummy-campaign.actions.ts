@@ -280,7 +280,8 @@ export async function previewCampaignTargetsAction(opts: {
   targetGroup: DummyTargetGroup;
   customUserIds?: string[];
   excludeUserIds?: string[];
-}): Promise<ActionResult<{ count: number; sample: Array<{ id: string; name: string | null; email: string }> }>> {
+  emailFilter?: "GENUINE_ONLY" | "DUMMY_ONLY" | "ALL";
+}): Promise<ActionResult<{ count: number; genuineCount: number; dummyCount: number; sample: Array<{ id: string; name: string | null; email: string }> }>> {
   const { error } = await requireSuperAdmin();
   if (error) return actionError(error);
 
@@ -288,10 +289,16 @@ export async function previewCampaignTargetsAction(opts: {
     targetGroup: opts.targetGroup,
     customUserIds: opts.customUserIds ?? [],
     excludeUserIds: opts.excludeUserIds ?? [],
+    emailFilter: opts.emailFilter,
   });
+
+  const genuineCount = targets.filter((u) => !u.email.toLowerCase().includes("apnatutorhub.com")).length;
+  const dummyCount = targets.length - genuineCount;
 
   return actionSuccess({
     count: targets.length,
+    genuineCount,
+    dummyCount,
     sample: targets.slice(0, 10).map((u) => ({ id: u.id, name: u.name, email: u.email })),
   });
 }
@@ -304,12 +311,13 @@ export async function generateLeadPreviewAction(opts: {
   overrideSubjects?: string[];
   budgetMin?: number;
   budgetMax?: number;
-  count?: number; // how many sample leads to generate
+  count?: number;
+  emailFilter?: "GENUINE_ONLY" | "DUMMY_ONLY" | "ALL";
 }): Promise<ActionResult<{ leads: DummyLead[]; tutorCount: number }>> {
   const { error } = await requireSuperAdmin();
   if (error) return actionError(error);
 
-  const { campaignId, targetGroup = "ALL_TUTORS", overrideSubjects = [], budgetMin = 800, budgetMax = 3000, count = 5 } = opts;
+  const { campaignId, targetGroup = "ALL_TUTORS", overrideSubjects = [], budgetMin = 800, budgetMax = 3000, count = 5, emailFilter } = opts;
 
   // If campaignId given, load campaign settings
   let campaign: any = null;
@@ -322,6 +330,7 @@ export async function generateLeadPreviewAction(opts: {
     targetGroup: campaign?.targetGroup ?? targetGroup,
     customUserIds: campaign?.customUserIds ?? [],
     excludeUserIds: campaign?.excludeUserIds ?? [],
+    emailFilter: emailFilter,
   });
 
   const sample = targets.slice(0, count);

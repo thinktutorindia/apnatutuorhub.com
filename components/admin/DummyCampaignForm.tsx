@@ -44,6 +44,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
   const [description, setDescription] = useState("");
   const [targetGroup, setTargetGroup] = useState<DummyTargetGroup>("NEW_7D");
   const [customUserIds, setCustomUserIds] = useState("");
+  const [emailFilter, setEmailFilter] = useState<"GENUINE_ONLY" | "DUMMY_ONLY" | "ALL">("GENUINE_ONLY");
   const [channels, setChannels] = useState<string[]>(["IN_APP", "PUSH"]);
   const [leadsPerDay, setLeadsPerDay] = useState(1);
   const [overrideSubjects, setOverrideSubjects] = useState<string[]>([]);
@@ -55,7 +56,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
   const [autoActivate, setAutoActivate] = useState(true);
 
   // Preview
-  const [preview, setPreview] = useState<{ count: number; sample: Array<{ id: string; name: string | null; email: string }> } | null>(null);
+  const [preview, setPreview] = useState<{ count: number; genuineCount?: number; dummyCount?: number; sample: Array<{ id: string; name: string | null; email: string }> } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
@@ -64,12 +65,13 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
       const result = await previewCampaignTargetsAction({
         targetGroup,
         customUserIds: customUserIds.split("\n").map((s) => s.trim()).filter(Boolean),
+        emailFilter,
       });
       if (result.success && result.data) setPreview(result.data);
       setPreviewLoading(false);
     }, 500);
     return () => clearTimeout(timeout);
-  }, [targetGroup, customUserIds]);
+  }, [targetGroup, customUserIds, emailFilter]);
 
   const toggleChannel = (ch: string) => {
     setChannels((prev) => prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]);
@@ -175,6 +177,44 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
               </div>
             </div>
 
+            {/* Email Quota Saver / Authenticity Filter */}
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className={labelCls + " mb-0"}>Email Quota Protection &amp; Targeting</label>
+                <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Resend Quota Saver
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                {[
+                  { value: "GENUINE_ONLY", label: "✨ Genuine Emails Only", sub: "Real Gmail/Yahoo (Quota Saver)" },
+                  { value: "ALL", label: "🌐 All Tutors", sub: "Include placeholder accounts" },
+                  { value: "DUMMY_ONLY", label: "🤖 Dummy Accounts Only", sub: "@apnatutorhub.com test accounts" },
+                ].map((item) => (
+                  <label
+                    key={item.value}
+                    onClick={() => setEmailFilter(item.value as any)}
+                    className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                      emailFilter === item.value
+                        ? "bg-white border-emerald-500 shadow-xs ring-2 ring-emerald-500/20 font-extrabold text-slate-900"
+                        : "bg-white/60 border-slate-200 hover:bg-white text-slate-600 font-semibold"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="emailFilter"
+                      value={item.value}
+                      checked={emailFilter === item.value}
+                      onChange={() => {}}
+                      className="sr-only"
+                    />
+                    <p className="text-xs">{item.label}</p>
+                    <p className="text-[10px] text-slate-400 font-normal mt-0.5">{item.sub}</p>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {targetGroup === "CUSTOM" && (
               <div>
                 <label className={labelCls}>User IDs (one per line)</label>
@@ -190,10 +230,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 <p className={`text-xs font-extrabold ${previewLoading ? "text-slate-500" : "text-blue-700"}`}>
                   {previewLoading ? "Counting tutors..." : `${preview?.count ?? 0} tutors will receive this campaign`}
                 </p>
-                {preview && preview.sample.length > 0 && (
-                  <p className="text-[10px] text-blue-500 mt-0.5">
-                    e.g. {preview.sample.slice(0, 3).map((u) => u.name || u.email).join(", ")}
-                    {preview.count > 3 ? ` and ${preview.count - 3} more...` : ""}
+                {preview && (
+                  <p className="text-[10px] text-blue-600 mt-0.5 font-medium">
+                    ✨ {preview.genuineCount ?? preview.count} Genuine Tutors · {preview.dummyCount ?? 0} Auto-assigned (Quota Safe)
                   </p>
                 )}
               </div>

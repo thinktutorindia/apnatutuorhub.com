@@ -272,6 +272,12 @@ export function CreateUserModal({
 
   // Result state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [existingUserMatch, setExistingUserMatch] = useState<{
+    id: string;
+    name?: string;
+    email: string;
+    role: string;
+  } | null>(null);
   const [createdResult, setCreatedResult] = useState<{
     userId?: string;
     email: string;
@@ -748,6 +754,18 @@ export function CreateUserModal({
 
       if (!res.success) {
         setErrorMsg(res.error ?? "Failed to create user account.");
+        const idMatch = res.error?.match(/User ID:\s*([a-zA-Z0-9_-]+)/);
+        const roleMatch = res.error?.match(/already exists as a ([A-Z_]+)/);
+        if (idMatch && idMatch[1]) {
+          setExistingUserMatch({
+            id: idMatch[1],
+            email: email.trim(),
+            role: roleMatch ? roleMatch[1] : "USER",
+            name: name.trim() || undefined,
+          });
+        } else {
+          setExistingUserMatch(null);
+        }
       } else {
         const locSummary = selectedLocation
           ? `${selectedLocation.area ? selectedLocation.area + ", " : ""}${selectedLocation.city || ""}${selectedLocation.pincode ? ` (${selectedLocation.pincode})` : ""}`
@@ -888,11 +906,27 @@ export function CreateUserModal({
               </button>
             </div>
 
-            {/* Error Message */}
+            {/* Error Message & Match Banner */}
             {errorMsg && (
-              <div className="mx-6 mt-4 flex items-center gap-2.5 rounded-2xl bg-rose-50 border border-rose-200 p-3.5 text-xs font-bold text-rose-800 shrink-0">
-                <AlertCircle size={16} className="shrink-0 text-rose-600" />
-                <span>{errorMsg}</span>
+              <div className="mx-6 mt-4 rounded-2xl p-4 bg-amber-50 border border-amber-300 text-amber-950 text-xs font-semibold space-y-3 animate-in fade-in shadow-xs">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-slate-900">{errorMsg}</p>
+                  </div>
+                </div>
+
+                {existingUserMatch && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-amber-200/80">
+                    <Link
+                      href={`/admin/users/${existingUserMatch.id}/edit`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white text-xs font-extrabold shadow-sm transition-all"
+                    >
+                      <ExternalLink size={14} className="text-[#2D9E6B]" />
+                      <span>Open Existing Profile &amp; Promote to Sub-Admin →</span>
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 

@@ -112,14 +112,16 @@ export async function sendNotification(
 // ── Bulk Broadcast ─────────────────────────────────────────────────────────────
 
 export type BroadcastTarget = "ALL" | "TUTORS" | "PARENTS";
+export type BroadcastEmailFilter = "GENUINE_ONLY" | "ALL" | "AUTO_GENERATED_ONLY" | "SKIP_EMAIL";
 
 export async function broadcastNotification(opts: {
   target: BroadcastTarget;
   title: string;
   message: string;
   actionUrl?: string;
+  emailFilter?: BroadcastEmailFilter;
 }) {
-  const { target, title, message, actionUrl } = opts;
+  const { target, title, message, actionUrl, emailFilter = "GENUINE_ONLY" } = opts;
 
   const roleFilter =
     target === "TUTORS"
@@ -133,7 +135,7 @@ export async function broadcastNotification(opts: {
     select: { id: true, email: true },
   });
 
-  // 1. Create in-app notifications
+  // 1. Create in-app notifications (always for all targeted accounts)
   await prisma.notification.createMany({
     data: users.map((u) => ({
       userId: u.id,
@@ -155,23 +157,35 @@ export async function broadcastNotification(opts: {
     console.error("[broadcastNotification] VAPID push broadcast error:", err);
   }
 
-  // 3. Dispatch batch email using Resend Batch API
-  const htmlBody = buildEmailHtml(title, message, actionUrl);
-  const emailTargets = users
-    .filter((u) => Boolean(u.email))
-    .map((u) => ({
-      to: u.email!,
-      subject: title,
-      html: htmlBody,
-      text: message,
-    }));
+  // 3. Dispatch batch email with Quota Guard Filter (protects against exhausting Resend on placeholder accounts)
+  if (emailFilter !== "SKIP_EMAIL") {
+    const htmlBody = buildEmailHtml(title, message, actionUrl);
+    const emailTargets = users
+      .filter((u) => {
+        if (!u.email) return false;
+        const isPlaceholder = u.email.toLowerCase().includes("apnatutorhub.com");
+        if (emailFilter === "GENUINE_ONLY") {
+          return !isPlaceholder; // Genuine real personal emails only
+        }
+        if (emailFilter === "AUTO_GENERATED_ONLY") {
+          return isPlaceholder; // Auto-assigned test accounts only
+        }
+        return true; // ALL
+      })
+      .map((u) => ({
+        to: u.email!,
+        subject: title,
+        html: htmlBody,
+        text: message,
+      }));
 
-  if (emailTargets.length > 0) {
-    const { sendBatchEmails } = await import("@/lib/resend-service");
-    try {
-      await sendBatchEmails(emailTargets);
-    } catch (err) {
-      console.error("[broadcastNotification] Resend batch email error:", err);
+    if (emailTargets.length > 0) {
+      const { sendBatchEmails } = await import("@/lib/resend-service");
+      try {
+        await sendBatchEmails(emailTargets);
+      } catch (err) {
+        console.error("[broadcastNotification] Resend batch email error:", err);
+      }
     }
   }
 

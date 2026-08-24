@@ -533,32 +533,42 @@ export async function deliverDummyLeadToTutor(opts: {
         status = "SENT";
         sent++;
       } else if (channel === "EMAIL") {
-        const html = renderDummyLeadEmail({
-          tutorName: userName || "Tutor",
-          locality: lead.locality,
-          city: lead.city,
-          subjects: lead.subjects,
-          classLevel: lead.classLevel,
-          board: lead.board,
-          mode: modeLabel[lead.mode] || lead.mode,
-          budgetMin: lead.budgetMin,
-          budgetMax: lead.budgetMax,
-          days: lead.days,
-          timing: lead.timing,
-          studentName: lead.studentName,
-          leadUrl: `${appUrl}/tutor/leads`,
-        });
-        const result = await dispatchEmail(
-          userEmail,
-          `📍 New Student Requirement Near ${lead.locality} — ApnaTutorHub`,
-          html
-        );
-        if (result.success) {
+        const isPlaceholderEmail = userEmail.toLowerCase().includes("apnatutorhub.com");
+
+        if (isPlaceholderEmail) {
+          // Quota Protection: Do not call external Resend API for placeholder test mailboxes!
+          // Marks delivery as completed without consuming Resend monthly sending quota.
           status = "SENT";
+          errorMessage = "Simulated In-App (Skipped external Resend API for placeholder test account)";
           sent++;
         } else {
-          errorMessage = result.error;
-          failed++;
+          const html = renderDummyLeadEmail({
+            tutorName: userName || "Tutor",
+            locality: lead.locality,
+            city: lead.city,
+            subjects: lead.subjects,
+            classLevel: lead.classLevel,
+            board: lead.board,
+            mode: modeLabel[lead.mode] || lead.mode,
+            budgetMin: lead.budgetMin,
+            budgetMax: lead.budgetMax,
+            days: lead.days,
+            timing: lead.timing,
+            studentName: lead.studentName,
+            leadUrl: `${appUrl}/tutor/leads`,
+          });
+          const result = await dispatchEmail(
+            userEmail,
+            `📍 New Student Requirement Near ${lead.locality} — ApnaTutorHub`,
+            html
+          );
+          if (result.success) {
+            status = "SENT";
+            sent++;
+          } else {
+            errorMessage = result.error;
+            failed++;
+          }
         }
       }
     } catch (err) {
@@ -589,6 +599,7 @@ export async function resolveCampaignTargets(campaign: {
   targetGroup: string;
   customUserIds: string[];
   excludeUserIds: string[];
+  emailFilter?: "GENUINE_ONLY" | "DUMMY_ONLY" | "ALL";
 }) {
   const now = new Date();
   const excludeSet = new Set(campaign.excludeUserIds);
@@ -597,6 +608,12 @@ export async function resolveCampaignTargets(campaign: {
     role: "TUTOR",
     isActive: true,
   };
+
+  if (campaign.emailFilter === "GENUINE_ONLY") {
+    where.email = { not: { contains: "apnatutorhub.com" } };
+  } else if (campaign.emailFilter === "DUMMY_ONLY") {
+    where.email = { contains: "apnatutorhub.com" };
+  }
 
   if (campaign.targetGroup === "NEW_7D") {
     const c = new Date(now); c.setDate(c.getDate() - 7);

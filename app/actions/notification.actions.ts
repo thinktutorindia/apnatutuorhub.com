@@ -77,6 +77,7 @@ const broadcastSchema = z.object({
   title: z.string().min(3, "Title is required"),
   message: z.string().min(10, "Message must be at least 10 characters"),
   actionUrl: z.string().optional(),
+  emailFilter: z.enum(["GENUINE_ONLY", "ALL", "AUTO_GENERATED_ONLY", "SKIP_EMAIL"]).default("GENUINE_ONLY"),
 });
 
 export type BroadcastActionResult = ActionResult<{ sent: number }>;
@@ -96,6 +97,7 @@ export async function adminBroadcastAction(
     title: formData.get("title"),
     message: formData.get("message"),
     actionUrl: formData.get("actionUrl") || undefined,
+    emailFilter: formData.get("emailFilter") || "GENUINE_ONLY",
   });
 
   if (!parsed.success) {
@@ -107,6 +109,7 @@ export async function adminBroadcastAction(
     title: parsed.data.title,
     message: parsed.data.message,
     actionUrl: parsed.data.actionUrl,
+    emailFilter: parsed.data.emailFilter,
   });
 
   // Audit log
@@ -115,7 +118,7 @@ export async function adminBroadcastAction(
       adminId: session.user.id,
       action: "BROADCAST_NOTIFICATION",
       entityType: "Notification",
-      details: `Sent "${parsed.data.title}" to ${parsed.data.target} (${result.sent} users)`,
+      details: `Sent "${parsed.data.title}" to ${parsed.data.target} [Email Filter: ${parsed.data.emailFilter}] (${result.sent} users)`,
     },
   });
 

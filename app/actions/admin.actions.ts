@@ -190,9 +190,12 @@ export async function adminCreateUserAction(
 
     const existingPhone = await prisma.user.findUnique({
       where: { phone: cleanPhone },
+      select: { id: true, name: true, email: true, phone: true, role: true, subAdminRole: true },
     });
     if (existingPhone) {
-      return actionError(`User with mobile number "${cleanPhone}" already exists.`);
+      return actionError(
+        `User with mobile number "${cleanPhone}" already exists as a ${existingPhone.role} (${existingPhone.name || existingPhone.email}). User ID: ${existingPhone.id}`
+      );
     }
 
     phoneToStore = cleanPhone;
@@ -222,10 +225,13 @@ export async function adminCreateUserAction(
 
   const existing = await prisma.user.findUnique({
     where: { email: emailClean },
+    select: { id: true, name: true, email: true, phone: true, role: true, subAdminRole: true },
   });
 
   if (existing) {
-    return actionError(`User with email "${emailClean}" already exists.`);
+    return actionError(
+      `User with email "${emailClean}" already exists as a ${existing.role} (${existing.name || existing.email}). User ID: ${existing.id}`
+    );
   }
 
   const rawPassword = input.password?.trim() || "12345678";

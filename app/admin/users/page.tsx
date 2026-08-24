@@ -197,6 +197,89 @@ export default async function AdminUsersPage({
     }))
   );
 
+  // ── Resolve Staff Creator / Sub-Admin Attribution ──
+  const userIds = users.map((u) => u.id);
+
+  const [auditLogs, adminNotes] = await Promise.all([
+    prisma.auditLog.findMany({
+      where: {
+        entityId: { in: userIds },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.adminNote.findMany({
+      where: {
+        targetUserId: { in: userIds },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const adminIds = Array.from(new Set(auditLogs.map((l) => l.adminId)));
+  const adminUsers = await prisma.user.findMany({
+    where: { id: { in: adminIds } },
+    select: { id: true, name: true, email: true, role: true, subAdminRole: true },
+  });
+  const adminMap = new Map(adminUsers.map((a) => [a.id, a]));
+
+  const userAttributionMap = new Map<
+    string,
+    {
+      createdBy?: { name: string; role: string; email: string };
+      lastEditedBy?: { name: string; role: string; email: string; action: string };
+    }
+  >();
+
+  for (const log of auditLogs) {
+    const targetUserId = log.entityId;
+    if (!targetUserId) continue;
+
+    const existing = userAttributionMap.get(targetUserId) || {};
+    const admin = adminMap.get(log.adminId);
+
+    if (admin) {
+      const adminRoleLabel =
+        admin.role === "SUPER_ADMIN"
+          ? "Super Admin"
+          : admin.subAdminRole
+          ? `Sub-Admin (${admin.subAdminRole})`
+          : "Sub-Admin";
+
+      const staffInfo = {
+        name: admin.name || admin.email.split("@")[0],
+        role: adminRoleLabel,
+        email: admin.email,
+      };
+
+      if (log.action === "CREATE_USER" || log.action === "ADMIN_CREATE_USER") {
+        existing.createdBy = staffInfo;
+      } else if (
+        !existing.lastEditedBy &&
+        (log.action.includes("EDIT") ||
+          log.action.includes("UPDATE") ||
+          log.action.includes("KYC") ||
+          log.action.includes("SUSPEND"))
+      ) {
+        existing.lastEditedBy = { ...staffInfo, action: log.action.replace(/_/g, " ") };
+      }
+    }
+
+    userAttributionMap.set(targetUserId, existing);
+  }
+
+  // Fallback check from admin notes author if createdBy wasn't in auditLog
+  for (const note of adminNotes) {
+    const existing = userAttributionMap.get(note.targetUserId) || {};
+    if (!existing.createdBy && note.authorName) {
+      existing.createdBy = {
+        name: note.authorName,
+        role: "Staff Member",
+        email: "",
+      };
+      userAttributionMap.set(note.targetUserId, existing);
+    }
+  }
+
   const totalPages = Math.ceil(total / take);
 
   return (
@@ -306,6 +389,10 @@ export default async function AdminUsersPage({
                       ? Array.from(new Set(u.parentProfile.students.flatMap((sp: { subjects: string[] }) => sp.subjects || [])))
                       : [];
 
+                  const attribution = userAttributionMap.get(u.id);
+                  const createdBy = attribution?.createdBy;
+                  const lastEditedBy = attribution?.lastEditedBy;
+
                   return (
                     <tr
                       key={u.id}
@@ -349,6 +436,37 @@ export default async function AdminUsersPage({
                                 </p>
                               )
                             )}
+
+                            {/* Staff / Sub-Admin Creator Attribution */}
+                            <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[10px]">
+                              {createdBy ? (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200"
+                                  title={`Entry created by ${createdBy.name} (${createdBy.role})`}
+                                >
+                                  <span className="text-slate-400">Added by:</span>
+                                  <span className="font-extrabold text-[#0F2540]">👤 {createdBy.name}</span>
+                                  <span className="text-[9px] text-[#2D9E6B] font-extrabold">({createdBy.role})</span>
+                                </span>
+                              ) : isGenuineEmail ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50/80 px-2 py-0.5 rounded-md border border-blue-200/60">
+                                  <span>🌐 Direct Online Signup</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200">
+                                  <span>✍️ Staff Manual Onboard</span>
+                                </span>
+                              )}
+
+                              {lastEditedBy && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200"
+                                  title={`Last updated by ${lastEditedBy.name} (${lastEditedBy.role})`}
+                                >
+                                  <span>✏️ Updated by {lastEditedBy.name}</span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -410,8 +528,13 @@ export default async function AdminUsersPage({
                           {u.isActive ? "Active" : "Suspended"}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-xs font-700 text-slate-700">
-                        {new Date(u.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      <td className="px-5 py-4 text-xs">
+                        <p className="font-extrabold text-[#0F2540]">
+                          {new Date(u.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-semibold truncate max-w-[120px]" title={createdBy ? `Created by ${createdBy.name} (${createdBy.role})` : isGenuineEmail ? "Direct Online Signup" : "Staff Onboard"}>
+                          {createdBy ? `by ${createdBy.name}` : isGenuineEmail ? "via Online Portal" : "via Staff Onboard"}
+                        </p>
                       </td>
                       <td className="px-5 py-4">
                         <UserRowActions user={u} isSuperAdmin={isSuperAdmin} />

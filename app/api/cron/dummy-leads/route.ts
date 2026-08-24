@@ -8,7 +8,11 @@ export async function GET(req: Request) {
   // Validate cron secret to prevent unauthorized triggers
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET ?? "";
+  const isProd = process.env.NODE_ENV === "production";
 
+  if (isProd && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

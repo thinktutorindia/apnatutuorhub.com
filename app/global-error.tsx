@@ -14,7 +14,31 @@ export default function GlobalError({
 
   useEffect(() => {
     console.error("[Global Error]:", error);
+
+    const isChunkError =
+      error?.name === "ChunkLoadError" ||
+      error?.message?.includes("Failed to load chunk") ||
+      error?.message?.includes("Loading chunk") ||
+      error?.message?.includes("Cannot find module") ||
+      error?.message?.includes("CSS chunk");
+
+    if (isChunkError && typeof window !== "undefined") {
+      const lastReload = sessionStorage.getItem("chunk_reload_ts");
+      const now = Date.now();
+      if (!lastReload || now - Number(lastReload) > 15000) {
+        sessionStorage.setItem("chunk_reload_ts", String(now));
+        window.location.reload();
+      }
+    }
   }, [error]);
+
+  const handleReload = () => {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    } else {
+      reset();
+    }
+  };
 
   const errorLocation = useMemo(() => {
     if (!error?.stack) return null;
@@ -105,7 +129,7 @@ export default function GlobalError({
 
           <div className="flex gap-3 pt-2">
             <button
-              onClick={() => reset()}
+              onClick={handleReload}
               className="flex-1 py-3 px-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-bold text-xs shadow-md cursor-pointer transition-all"
             >
               Reload Application

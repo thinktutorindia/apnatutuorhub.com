@@ -6,6 +6,7 @@ import {
 } from "@/lib/razorpay";
 import { creditCoinsToWallet } from "@/app/actions/wallet.actions";
 import { consumeCouponInTx } from "@/app/actions/coupon.actions";
+import { getSubscriptionPlan } from "@/lib/subscription-plans";
 
 // POST /api/webhooks/razorpay
 // Called by Razorpay after a successful payment (payment.captured event).
@@ -28,38 +29,98 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  let payload: Record<string, unknown>;
+  let payload: any;
   try {
-    payload = JSON.parse(rawBody) as Record<string, unknown>;
+    payload = JSON.parse(rawBody);
   } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const event = payload.event as string | undefined;
-
-  // ── 2. Handle payment.captured ────────────────────────────────────────────
+  // Only handle captured payments
+  const event = payload.event;
   if (event !== "payment.captured") {
-    // Other events (e.g. refund, dispute) handled in Phase 9 Admin
+    // Acknowledge other events (e.g. payment.failed, order.paid) without action
     return NextResponse.json({ received: true });
   }
 
-  const paymentEntity = (
-    (payload.payload as Record<string, unknown>)?.payment as Record<string, unknown>
-  )?.entity as Record<string, unknown> | undefined;
-
+  const paymentEntity = payload?.payload?.payment?.entity;
   if (!paymentEntity) {
     return NextResponse.json({ error: "Missing payment entity" }, { status: 400 });
   }
 
-  const orderId = paymentEntity.order_id as string | undefined;
-  const paymentId = paymentEntity.id as string | undefined;
-  const amountPaise = paymentEntity.amount as number | undefined;
+  const paymentId = paymentEntity.id as string;
+  const amountPaise = paymentEntity.amount as number;
+  const orderId = paymentEntity.order_id as string;
 
-  if (!orderId || !paymentId || !amountPaise) {
-    return NextResponse.json({ error: "Incomplete payment data" }, { status: 400 });
+  // ── 2. Guard against test/mock payments on production ───────────────────────
+  if (!paymentId || paymentId.startsWith("pay_mock_")) {
+    return NextResponse.json({ error: "Mock payment not allowed" }, { status: 400 });
   }
 
-  // ── 3. Idempotency — skip if already processed ─────────────────────────────
+  const notes = paymentEntity.notes as Record<string, string> | undefined;
+
+  // ── 3. Check for Subscription Plan Purchase ─────────────────────────────────
+  const planIdFromNotes = notes?.planId;
+  if (planIdFromNotes) {
+    const plan = getSubscriptionPlan(planIdFromNotes);
+    if (!plan) {
+      console.error("[razorpay-webhook] Unknown subscription plan", { planIdFromNotes, orderId });
+      return NextResponse.json({ error: "Unknown plan" }, { status: 400 });
+    }
+
+    const tutorProfileId = notes?.tutorProfileId;
+    if (!tutorProfileId) {
+      console.error("[razorpay-webhook] Cannot resolve tutor for subscription order", { orderId });
+      return NextResponse.json({ error: "Cannot resolve tutor profile" }, { status: 400 });
+    }
+
+    // Idempotency: check if subscription was already activated
+    const existingSub = await prisma.tutorSubscription.findFirst({
+      where: { razorpayPaymentId: paymentId },
+    });
+
+    if (existingSub) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+
+    const now = new Date();
+    const expiresAt = new Date();
+    expiresAt.setFullYear(now.getFullYear() + 1);
+
+    await prisma.$transaction([
+      prisma.tutorProfile.update({
+        where: { id: tutorProfileId },
+        data: {
+          subscriptionPlan: plan.id as any,
+          subscriptionExpiresAt: expiresAt,
+          leadsUsedThisMonth: 0,
+          leadsResetAt: now,
+        },
+      }),
+      prisma.tutorSubscription.create({
+        data: {
+          tutorProfileId,
+          plan: plan.id as any,
+          priceInr: plan.priceInr,
+          razorpayOrderId: orderId ?? null,
+          razorpayPaymentId: paymentId,
+          startDate: now,
+          endDate: expiresAt,
+          isActive: true,
+        },
+      }),
+    ]);
+
+    console.info("[razorpay-webhook] Activated tutor subscription via webhook", {
+      tutorProfileId,
+      plan: plan.id,
+      paymentId,
+    });
+
+    return NextResponse.json({ received: true, subscription: plan.id });
+  }
+
+  // ── 4. Idempotency for Coin Package — skip if already processed ────────────
   const alreadyProcessed = await prisma.walletTransaction.findFirst({
     where: { referenceId: paymentId },
   });
@@ -68,8 +129,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
-  // ── 4. Match package by notes or amount ───────────────────────────────────
-  const notes = paymentEntity.notes as Record<string, string> | undefined;
+  // ── 5. Match coin package by notes or amount ───────────────────────────────
   const packageIdFromNotes = notes?.packageId;
   const pkg =
     (packageIdFromNotes ? COIN_PACKAGES.find((p) => p.id === packageIdFromNotes) : null) ??

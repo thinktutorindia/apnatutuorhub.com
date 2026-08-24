@@ -17,6 +17,8 @@ import { haversineDistanceKm } from "@/lib/haversine";
 import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { hasSubjectOverlap, coversClassLevel } from "@/lib/matching-engine";
+import { processReferralRewardOnKyc } from "@/app/actions/referral.actions";
+import { getNextInquiryNumber, getInquiryDisplayCode } from "@/lib/lead-utils";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins
@@ -33,7 +35,12 @@ async function requirePermission(permission: Permission) {
 
 // Keep a super-admin-only guard for truly privileged operations (sub-admin management, etc.)
 async function requireSuperAdmin() {
-  return requirePermission("settings:manage");
+  const session = await auth();
+  if (!session?.user) return { error: "Unauthenticated" as const, session: null };
+  if (session.user.role !== "SUPER_ADMIN") {
+    return { error: "Forbidden: Super Admin only" as const, session: null };
+  }
+  return { error: null, session };
 }
 
 const PRIVILEGED_ROLES = new Set(["SUPER_ADMIN", "SUB_ADMIN"]);
@@ -399,6 +406,13 @@ export async function approveKycAction(
   });
 
   if (profile?.userId) {
+    // Process referral reward for referrer and referee
+    try {
+      await processReferralRewardOnKyc(profile.userId);
+    } catch (err) {
+      console.error("[approveKycAction] Referral reward processing error:", err);
+    }
+
     await createNotification({
       userId: profile.userId,
       type: "KYC_APPROVED",
@@ -963,9 +977,12 @@ export async function adminCreateLeadAction(
     studentProfileId = student.id;
   }
 
-  // 3. Create Lead Record
+  // 3. Create Lead Record with Sequential Inquiry Number
+  const nextInquiryNumber = await getNextInquiryNumber(prisma);
+
   const newLead = await prisma.lead.create({
     data: {
+      inquiryNumber: nextInquiryNumber,
       parentProfileId: targetParentProfileId,
       studentProfileId,
       subjects: input.subjects,
@@ -1057,12 +1074,50 @@ export type MatchedTutorSummary = {
   distanceKm: number | null;
   alreadyPurchased: boolean;
   matchScore: number;
+  hasNotificationSent?: boolean;
+  lastNotifiedAt?: string | null;
+  notificationStatus?: string | null;
 };
 
-export async function adminGetMatchingTutorsForLeadAction(
-  leadId: string,
-  search?: string
-): Promise<ActionResult<{ lead: any; tutors: MatchedTutorSummary[] }>> {
+export type TargetedTutorNotificationDetail = {
+  notificationId?: string;
+  userId: string;
+  tutorProfileId?: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  image: string | null;
+  city: string | null;
+  area: string | null;
+  subjects: string[];
+  classLevels: string[];
+  averageRating: number;
+  totalReviews: number;
+  kycStatus: string;
+  walletBalance: number;
+  distanceKm: number | null;
+  // Notification details
+  channel: string;
+  notificationStatus: string;
+  title: string;
+  message: string;
+  sentAt: string;
+  deliveredAt?: string | null;
+  isRead: boolean;
+  // Purchase & Proposal Status
+  isUnlocked: boolean;
+  coinsSpent?: number;
+  unlockedAt?: string | null;
+  proposalNote?: string | null;
+  feeQuote?: number | null;
+  isShortlisted: boolean;
+  isHired: boolean;
+  isRejected: boolean;
+};
+
+export async function adminGetLeadNotificationDetailsAction(
+  leadId: string
+): Promise<ActionResult<{ lead: any; targetedTutors: TargetedTutorNotificationDetail[]; totalNotified: number }>> {
   const { error, session } = await requirePermission("leads:manage");
   if (error) return actionError(error);
 
@@ -1076,13 +1131,218 @@ export async function adminGetMatchingTutorsForLeadAction(
           user: { select: { id: true, name: true, email: true, phone: true } },
         },
       },
-      purchases: { select: { tutorProfileId: true } },
+      purchases: {
+        include: {
+          tutorProfile: {
+            include: {
+              user: { select: { id: true, name: true, email: true, phone: true, image: true } },
+              wallet: { select: { balance: true } },
+            },
+          },
+        },
+      },
     },
   });
 
   if (!lead) return actionError("Lead not found.");
 
+  // Fetch all notifications associated with this lead
+  const notifications = await prisma.notification.findMany({
+    where: {
+      OR: [
+        { metadata: { path: ["referenceId"], equals: leadId } },
+        { actionUrl: { contains: leadId } },
+      ],
+    },
+    include: {
+      user: {
+        include: {
+          tutorProfile: {
+            include: {
+              wallet: { select: { balance: true } },
+            },
+          },
+        },
+      },
+      deliveries: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const purchaseMap = new Map(
+    lead.purchases.map((p) => [p.tutorProfileId, p])
+  );
+
+  const tutorDetailsMap = new Map<string, TargetedTutorNotificationDetail>();
+
+  // Process notifications
+  for (const notif of notifications) {
+    const user = notif.user;
+    const tp = user.tutorProfile;
+    const purchase = tp ? purchaseMap.get(tp.id) : undefined;
+
+    let distanceKm: number | null = null;
+    if (lead.mode !== "ONLINE" && lead.latitude && lead.longitude && tp?.latitude && tp?.longitude) {
+      distanceKm =
+        Math.round(
+          haversineDistanceKm(lead.latitude, lead.longitude, tp.latitude, tp.longitude) * 10
+        ) / 10;
+    }
+
+    tutorDetailsMap.set(user.id, {
+      notificationId: notif.id,
+      userId: user.id,
+      tutorProfileId: tp?.id,
+      name: user.name || "Tutor",
+      email: user.email,
+      phone: isSuperAdmin ? user.phone : maskPhoneNumber(user.phone),
+      image: user.image,
+      city: tp?.city || null,
+      area: tp?.address || null,
+      subjects: tp?.subjects || [],
+      classLevels: tp?.classLevels || [],
+      averageRating: tp?.averageRating ?? 5.0,
+      totalReviews: tp?.totalReviews ?? 0,
+      kycStatus: tp?.kycStatus || "NOT_SUBMITTED",
+      walletBalance: tp?.wallet?.balance ?? 0,
+      distanceKm,
+      channel: notif.channel,
+      notificationStatus: notif.status,
+      title: notif.title,
+      message: notif.message,
+      sentAt: notif.createdAt.toISOString(),
+      deliveredAt: notif.deliveredAt ? notif.deliveredAt.toISOString() : null,
+      isRead: notif.isRead,
+      isUnlocked: !!purchase,
+      coinsSpent: purchase?.coinsSpent,
+      unlockedAt: purchase ? purchase.createdAt.toISOString() : null,
+      proposalNote: purchase?.proposalNote,
+      feeQuote: purchase?.feeQuote,
+      isShortlisted: purchase?.isShortlisted ?? false,
+      isHired: purchase?.isHired ?? false,
+      isRejected: purchase?.isRejected ?? false,
+    });
+  }
+
+  // Also include any tutors who purchased the lead but might not have had a matching notification
+  for (const purchase of lead.purchases) {
+    const user = purchase.tutorProfile.user;
+    const tp = purchase.tutorProfile;
+    if (!tutorDetailsMap.has(user.id)) {
+      let distanceKm: number | null = null;
+      if (lead.mode !== "ONLINE" && lead.latitude && lead.longitude && tp?.latitude && tp?.longitude) {
+        distanceKm =
+          Math.round(
+            haversineDistanceKm(lead.latitude, lead.longitude, tp.latitude, tp.longitude) * 10
+          ) / 10;
+      }
+
+      tutorDetailsMap.set(user.id, {
+        userId: user.id,
+        tutorProfileId: tp.id,
+        name: user.name || "Tutor",
+        email: user.email,
+        phone: isSuperAdmin ? user.phone : maskPhoneNumber(user.phone),
+        image: user.image,
+        city: tp.city,
+        area: tp.address,
+        subjects: tp.subjects,
+        classLevels: tp.classLevels,
+        averageRating: tp.averageRating,
+        totalReviews: tp.totalReviews,
+        kycStatus: tp.kycStatus,
+        walletBalance: tp.wallet?.balance ?? 0,
+        distanceKm,
+        channel: "WEB",
+        notificationStatus: "UNLOCKED",
+        title: "Lead Unlocked",
+        message: "Tutor unlocked lead directly",
+        sentAt: purchase.createdAt.toISOString(),
+        isRead: true,
+        isUnlocked: true,
+        coinsSpent: purchase.coinsSpent,
+        unlockedAt: purchase.createdAt.toISOString(),
+        proposalNote: purchase.proposalNote,
+        feeQuote: purchase.feeQuote,
+        isShortlisted: purchase.isShortlisted,
+        isHired: purchase.isHired,
+        isRejected: purchase.isRejected,
+      });
+    }
+  }
+
+  const targetedTutors = Array.from(tutorDetailsMap.values());
+
+  const formattedLead = {
+    ...lead,
+    parentProfile: lead.parentProfile
+      ? {
+          ...lead.parentProfile,
+          user: lead.parentProfile.user
+            ? {
+                ...lead.parentProfile.user,
+                phone: isSuperAdmin
+                  ? lead.parentProfile.user.phone
+                  : maskPhoneNumber(lead.parentProfile.user.phone),
+              }
+            : null,
+        }
+      : null,
+  };
+
+  return actionSuccess({
+    lead: formattedLead,
+    targetedTutors,
+    totalNotified: targetedTutors.length,
+  });
+}
+
+export async function adminGetMatchingTutorsForLeadAction(
+  leadId: string,
+  search?: string
+): Promise<ActionResult<{ lead: any; tutors: MatchedTutorSummary[] }>> {
+  const { error, session } = await requirePermission("leads:manage");
+  if (error) return actionError(error);
+
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+
+  const [lead, leadNotifications] = await Promise.all([
+    prisma.lead.findUnique({
+      where: { id: leadId },
+      include: {
+        parentProfile: {
+          include: {
+            user: { select: { id: true, name: true, email: true, phone: true } },
+          },
+        },
+        purchases: { select: { tutorProfileId: true } },
+      },
+    }),
+    prisma.notification.findMany({
+      where: {
+        OR: [
+          { metadata: { path: ["referenceId"], equals: leadId } },
+          { actionUrl: { contains: leadId } },
+        ],
+      },
+      select: {
+        userId: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  if (!lead) return actionError("Lead not found.");
+
   const purchasedTutorSet = new Set(lead.purchases.map((p) => p.tutorProfileId));
+  const notificationMap = new Map<string, { status: string; sentAt: string }>();
+  for (const n of leadNotifications) {
+    if (!notificationMap.has(n.userId)) {
+      notificationMap.set(n.userId, { status: n.status, sentAt: n.createdAt.toISOString() });
+    }
+  }
 
   const tutors = await prisma.tutorProfile.findMany({
     where: {
@@ -1125,7 +1385,6 @@ export async function adminGetMatchingTutorsForLeadAction(
         subjectMatchCount++;
       }
     }
-    // Also check if any tutor subject matches the lead
     const hasAnySubjectMatch = hasSubjectOverlap(tp.subjects, lead.subjects);
     if (hasAnySubjectMatch && subjectMatchCount === 0) subjectMatchCount = 1;
 
@@ -1149,16 +1408,17 @@ export async function adminGetMatchingTutorsForLeadAction(
     if (classMatch) score += 25;
     
     if (isOnlineLead) {
-      // Online leads: award full location points (+30) to all tutors nationwide without distance penalty
       score += 30;
     } else if (distanceKm !== null && distanceKm <= (lead.radiusKm || 10)) {
       score += Math.max(0, 30 - Math.round(distanceKm * 2));
     } else if (tp.city && lead.city && tp.city.trim().toLowerCase() === lead.city.trim().toLowerCase()) {
-      score += 20; // Same city bonus if GPS missing
+      score += 20;
     }
 
     if (tp.kycStatus === "APPROVED") score += 10;
     if (tp.averageRating >= 4.0) score += 5;
+
+    const notifInfo = notificationMap.get(tp.user.id);
 
     return {
       tutorProfileId: tp.id,
@@ -1178,6 +1438,9 @@ export async function adminGetMatchingTutorsForLeadAction(
       distanceKm,
       alreadyPurchased: purchasedTutorSet.has(tp.id),
       matchScore: score,
+      hasNotificationSent: !!notifInfo,
+      lastNotifiedAt: notifInfo?.sentAt ?? null,
+      notificationStatus: notifInfo?.status ?? null,
     };
   });
 

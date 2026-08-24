@@ -28,4 +28,5 @@ export type RequirementFormValues = {
   languagePref: string;
   notes: string;
   studentProfileId: string;
+  radiusKm?: number;
 };

@@ -20,6 +20,7 @@
 
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // ── VAPID Configuration ───────────────────────────────────────────────────────
 
@@ -117,7 +118,7 @@ export async function sendWebPush(userId: string, payload: PushPayload): Promise
       // Subscription expired/unregistered — clean up
       await prisma.user.update({
         where: { id: userId },
-        data: { pushSubscription: undefined },
+        data: { pushSubscription: Prisma.DbNull },
       });
       console.info("[web-push] Removed stale subscription for user", userId);
     } else {

@@ -208,10 +208,20 @@ export async function subscribePushAction(
   body: unknown
 ): Promise<ActionResult<{ subscribed: true }>> {
   const session = await auth();
-  if (!session?.user) return actionError("Unauthenticated");
+  if (!session?.user?.id) return actionError("Unauthenticated");
 
   const parsed = subscribeSchema.safeParse(body);
   if (!parsed.success) return actionError("Invalid subscription data");
+
+  try {
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { pushSubscription: parsed.data as any },
+    });
+  } catch (err) {
+    console.error("[subscribePushAction] Error saving push subscription:", err);
+    return actionError("Failed to save push subscription");
+  }
 
   return actionSuccess({ subscribed: true });
 }
@@ -263,3 +273,61 @@ export async function sendTestEmailAction(
 
   return actionSuccess({ sent: true, recipient: parsed.data.recipientEmail });
 }
+
+// ── Notification & Communication Usage & Limits Actions ───────────────────────
+
+import { getNotificationUsageMetrics, type NotificationUsageReport } from "@/lib/notification-usage";
+
+export async function getNotificationUsageReportAction(): Promise<ActionResult<NotificationUsageReport>> {
+  const session = await auth();
+  if (!session?.user) return actionError("Unauthenticated");
+  if (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN") {
+    return actionError("Forbidden");
+  }
+
+  try {
+    const report = await getNotificationUsageMetrics();
+    return actionSuccess(report);
+  } catch (err) {
+    console.error("[getNotificationUsageReportAction] Failed to calculate metrics:", err);
+    return actionError("Failed to calculate communication usage report");
+  }
+}
+
+export async function updateNotificationLimitsAction(
+  limits: Record<string, number>
+): Promise<ActionResult<{ updated: true }>> {
+  const session = await auth();
+  if (!session?.user) return actionError("Unauthenticated");
+  if (session.user.role !== "SUPER_ADMIN") {
+    return actionError("Only Super Admins can configure quota limits");
+  }
+
+  try {
+    for (const [key, value] of Object.entries(limits)) {
+      if (typeof value === "number" && value > 0) {
+        await prisma.platformSetting.upsert({
+          where: { key },
+          update: { value: String(value) },
+          create: { key, value: String(value), label: `Quota Limit: ${key}` },
+        });
+      }
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        adminId: session.user.id,
+        action: "UPDATE_NOTIFICATION_LIMITS",
+        entityType: "PlatformSetting",
+        details: `Updated communication quota limits: ${JSON.stringify(limits)}`,
+      },
+    });
+
+    revalidatePath("/admin/notifications");
+    return actionSuccess({ updated: true });
+  } catch (err) {
+    console.error("[updateNotificationLimitsAction] Failed to update limits:", err);
+    return actionError("Failed to save updated quota limits");
+  }
+}
+

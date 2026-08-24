@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { GraduationCap, Users, ArrowRight, Loader2, Sparkles, Check } from "lucide-react";
 import { selectUserRoleAction } from "@/app/actions/auth.actions";
 
 export default function SelectRolePage() {
   const router = useRouter();
+  const { update } = useSession();
   const [selectedRole, setSelectedRole] = useState<"PARENT" | "TUTOR">("PARENT");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -18,6 +20,11 @@ export default function SelectRolePage() {
     try {
       const res = await selectUserRoleAction(selectedRole);
       if (res.success && res.redirectTo) {
+        try {
+          await update({ role: selectedRole });
+        } catch {
+          // Continue even if update throws
+        }
         window.location.href = res.redirectTo;
       } else {
         setError(res.error || "Failed to set role. Please try again.");

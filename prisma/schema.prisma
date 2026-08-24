@@ -413,6 +413,7 @@ model CoinPackage {
 
 model Lead {
   id               String     @id @default(cuid())
+  inquiryNumber    Int?       @unique
   parentProfileId  String
   studentProfileId String?
   subjects         String[]
@@ -447,6 +448,7 @@ model Lead {
   @@index([parentProfileId, createdAt])
   @@index([status, createdAt])
   @@index([classLevel, status])
+  @@index([inquiryNumber])
   @@map("leads")
 }
 

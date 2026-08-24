@@ -36,6 +36,7 @@ import { LeadPurchaseModal, type SubscriptionInfo } from "@/components/tutor/Lea
 import { StartChatButton } from "@/components/chat/StartChatButton";
 import { LeadNotifReminderBanner } from "@/components/tutor/LeadNotifReminderBanner";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
+import { getInquiryDisplayCode } from "@/lib/lead-utils";
 
 export type ParentDetails = {
   name: string;
@@ -55,6 +56,7 @@ export type ParentDetails = {
 
 export type FeedLead = {
   id: string;
+  inquiryNumber?: number | null;
   parentProfileId?: string;
   subjects: string[];
   classLevel: string;
@@ -162,6 +164,10 @@ function LeadCard({
           {/* Top Row: Class, Board, Mode & Timestamp */}
           <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
             <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-mono font-extrabold text-[11px] text-[#0F2540] bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                #{getInquiryDisplayCode(lead)}
+              </span>
+
               <span className="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-[#0F2540] text-white shadow-2xs">
                 {lead.classLevel}
               </span>

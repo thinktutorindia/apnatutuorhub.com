@@ -20,6 +20,7 @@ import { logActivity, ActivityEvent } from "@/lib/activity-logger";
 import { createNotification } from "@/lib/notification-engine";
 import { geocodeLocation } from "@/lib/geocoding";
 import { getSubscriptionPlan } from "@/lib/subscription-plans";
+import { getNextInquiryNumber } from "@/lib/lead-utils";
 
 export type RequirementState = ActionResult<{ leadId: string; coinCost?: number }>;
 
@@ -158,9 +159,17 @@ export async function createRequirementAction(
     }
   }
 
+  const parentUser = await prisma.user.findUnique({
+    where: { id: auth.context.userId },
+    select: { name: true, email: true, phone: true },
+  });
+
   const lead = await prisma.$transaction(async (tx) => {
+    const nextInquiryNumber = await getNextInquiryNumber(tx);
+
     const created = await tx.lead.create({
       data: {
+        inquiryNumber: nextInquiryNumber,
         parentProfileId: auth.context.parentProfileId,
         studentProfileId: input.studentProfileId ?? null,
         subjects: input.subjects,
@@ -184,7 +193,38 @@ export async function createRequirementAction(
         maxTutors: commercials.maxTutors,
         expiresAt: commercials.expiresAt,
       },
-      select: { id: true, coinCost: true },
+      select: { id: true, inquiryNumber: true, coinCost: true },
+    });
+
+    // Create AuditLog entry for lead creation
+    await tx.auditLog.create({
+      data: {
+        adminId: auth.context.userId,
+        action: "LEAD_CREATED",
+        entityType: "Lead",
+        entityId: created.id,
+        details: JSON.stringify({
+          summary: `Parent posted requirement for ${finalClassLevel} (${input.subjects.join(", ")}) in ${input.city || "local area"}`,
+          creatorName: parentUser?.name || "Verified Parent",
+          creatorRole: "PARENT",
+          initialData: {
+            classLevel: finalClassLevel,
+            subjects: input.subjects,
+            board: input.board || null,
+            mode: input.mode,
+            budgetMin: input.budgetMin || null,
+            budgetMax: input.budgetMax || null,
+            city: input.city || null,
+            area: input.area || null,
+            pincode: input.pincode || null,
+            radiusKm: input.radiusKm || 10,
+            timingPreference: input.timingPreference || null,
+            tutorGenderPref: input.tutorGenderPref || null,
+            languagePref: input.languagePref || null,
+            notes: input.notes || null,
+          },
+        }),
+      },
     });
 
     // First requirement doubles as onboarding: seed the parent's saved location.
@@ -203,11 +243,17 @@ export async function createRequirementAction(
 
   after(() => dispatchLeadMatching(lead.id));
 
+  // Multi-feed cache revalidation across Parent, Admin, and Tutor apps
   revalidatePath("/parent/dashboard");
   revalidatePath("/parent/my-leads");
+  revalidatePath("/admin/leads");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/tutor/leads");
+  revalidatePath("/");
 
   captureEvent(auth.context.userId, Events.LEAD_POSTED, {
     leadId: lead.id,
+    inquiryNumber: lead.inquiryNumber,
     coinCost: lead.coinCost,
     subjects: input.subjects,
     classLevel: input.classLevel,
@@ -220,7 +266,7 @@ export async function createRequirementAction(
     logActivity({
       userId: auth.context.userId,
       event: ActivityEvent.LEAD_CREATED,
-      metadata: { leadId: lead.id, coinCost: lead.coinCost, subjects: input.subjects, classLevel: input.classLevel },
+      metadata: { leadId: lead.id, inquiryNumber: lead.inquiryNumber, coinCost: lead.coinCost, subjects: input.subjects, classLevel: input.classLevel },
     })
   );
 

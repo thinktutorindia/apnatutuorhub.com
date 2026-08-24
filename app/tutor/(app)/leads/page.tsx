@@ -104,6 +104,7 @@ export default async function TutorLeadsPage({
     take: 200,
     select: {
       id: true,
+      inquiryNumber: true,
       parentProfileId: true,
       subjects: true,
       classLevel: true,
@@ -171,6 +172,7 @@ export default async function TutorLeadsPage({
 
     feedLeads.push({
       id: lead.id,
+      inquiryNumber: lead.inquiryNumber,
       parentProfileId: lead.parentProfileId,
       subjects: lead.subjects,
       classLevel: lead.classLevel,

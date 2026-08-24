@@ -30,6 +30,7 @@ import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
 import { LeadRowActions } from "@/components/admin/LeadRowActions";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
+import { getInquiryDisplayCode } from "@/lib/lead-utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lead Management — Admin" };
@@ -95,6 +96,7 @@ export default async function AdminLeadsPage({
       take,
       select: {
         id: true,
+        inquiryNumber: true,
         subjects: true,
         classLevel: true,
         board: true,
@@ -346,9 +348,7 @@ export default async function AdminLeadsPage({
                       : maskPhoneNumber(rawPhone)
                     : null;
 
-                  const leadCode = lead.id
-                    .replace(/\D/g, "")
-                    .slice(-6) || lead.id.slice(-6).toUpperCase();
+                  const leadCode = getInquiryDisplayCode(lead);
 
                   const slotsLeft = Math.max(0, lead.maxTutors - lead.purchaseCount);
 

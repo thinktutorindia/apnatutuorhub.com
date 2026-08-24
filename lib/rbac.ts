@@ -97,6 +97,7 @@ export const FEATURE_PERMISSION_MAP: Record<AdminFeatureKey, readonly Permission
   chat: ["users:read", "users:manage"],
   reviews: ["users:read"],
   wallets: ["wallets:read", "wallets:manage", "wallet:refund", "wallet:topup", "users:read"],
+  notifications: ["settings:manage", "audit:read"],
   broadcast: ["settings:manage"],
   coupons: ["settings:manage"],
   settings: ["settings:manage"],
@@ -161,6 +162,7 @@ export type AdminFeatureKey =
   | "chat"
   | "reviews"
   | "wallets"
+  | "notifications"
   | "broadcast"
   | "coupons"
   | "settings"
@@ -184,6 +186,7 @@ export const ALL_ADMIN_FEATURES: AdminFeatureDef[] = [
   { key: "chat", label: "Support Chat", category: "Operations", description: "Access live support chat and user messages", route: "/admin/chat" },
   { key: "reviews", label: "Reviews Moderation", category: "Operations", description: "Moderate tutor reviews and parent ratings", route: "/admin/reviews" },
   { key: "wallets", label: "Wallets & Coin Revenue", category: "Growth & Finance", description: "Manage tutor coin balances, refunds & credits", route: "/admin/wallets" },
+  { key: "notifications", label: "Notification Hub & Schedule", category: "Growth & Finance", description: "Inspect all past, present & scheduled notifications and delivery logs", route: "/admin/notifications" },
   { key: "broadcast", label: "Broadcast Notifications", category: "Growth & Finance", description: "Send web push broadcasts to tutors/parents", route: "/admin/notifications/broadcast" },
   { key: "coupons", label: "Promo Coupons", category: "Growth & Finance", description: "Create and distribute discount coupon codes", route: "/admin/coupons" },
   { key: "settings", label: "Platform Settings", category: "Governance", description: "Configure system pricing, coin packages & policies", route: "/admin/settings" },
@@ -195,7 +198,7 @@ export const DEFAULT_ROLE_FEATURES: Record<string, AdminFeatureKey[]> = {
   VERIFICATION: ["dashboard", "kyc", "users", "audit-logs"],
   FINANCE: ["dashboard", "wallets", "audit-logs"],
   OPERATIONS: ["dashboard", "leads", "bookings", "chat", "users", "audit-logs"],
-  MARKETING: ["dashboard", "settings", "coupons", "broadcast", "audit-logs"],
+  MARKETING: ["dashboard", "settings", "coupons", "notifications", "broadcast", "audit-logs"],
 };
 
 // Helper: map sub-admin role to sidebar-visible modules (legacy static map fallback)
@@ -204,7 +207,7 @@ export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
   VERIFICATION: ["/admin/dashboard", "/admin/kyc", "/admin/users", "/admin/audit-logs"],
   FINANCE: ["/admin/dashboard", "/admin/wallets", "/admin/audit-logs"],
   OPERATIONS: ["/admin/dashboard", "/admin/leads", "/admin/bookings", "/admin/chat", "/admin/users", "/admin/audit-logs"],
-  MARKETING: ["/admin/dashboard", "/admin/settings", "/admin/coupons", "/admin/notifications/broadcast", "/admin/audit-logs"],
+  MARKETING: ["/admin/dashboard", "/admin/settings", "/admin/coupons", "/admin/notifications", "/admin/notifications/broadcast", "/admin/audit-logs"],
   SUPER_ADMIN: [], // Empty means all routes are accessible
 };
 

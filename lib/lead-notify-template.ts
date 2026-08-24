@@ -16,8 +16,11 @@
  * 🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads
  */
 
+import { getInquiryDisplayCode } from "@/lib/lead-utils";
+
 export interface LeadTemplateData {
   id?: string | null;
+  inquiryNumber?: number | null;
   clientName?: string | null;
   subjects?: string[];
   classLevel?: string | null;
@@ -40,13 +43,7 @@ export interface LeadTemplateData {
 
 export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
   // Format Lead ID code (6 digit or clean identifier)
-  const rawId = data.id || "";
-  const digitsOnly = rawId.replace(/\D/g, "");
-  const leadNum = digitsOnly.length >= 4 
-    ? digitsOnly.slice(-6) 
-    : rawId.length >= 6 
-      ? rawId.slice(-6).toUpperCase() 
-      : "210984";
+  const leadNum = getInquiryDisplayCode(data);
 
   const clientName = data.clientName?.trim() || "Not Specified";
 

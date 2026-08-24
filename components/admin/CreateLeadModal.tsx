@@ -720,22 +720,43 @@ export function CreateLeadModal({
                         )}
                       </div>
 
-                      {/* Quick subject chips */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {["All Subjects", "Mathematics", "Physics", "Chemistry", "Biology", "English", "Science", "Social Science", "Computer Science", "Accounts", "Economics"].map((subj) => (
-                          <button
-                            key={subj}
-                            type="button"
-                            onClick={() => toggleSubject(subj)}
-                            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
-                              selectedSubjects.includes(subj)
-                                ? "bg-[#2D9E6B] text-white border-[#2D9E6B]"
-                                : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                            }`}
-                          >
-                            + {subj}
-                          </button>
-                        ))}
+                      {/* Quick subject chips with streams */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">Science:</span>
+                          {["Chemistry", "Physics", "Mathematics", "Biology", "General Science", "Vedic Maths"].map((subj) => (
+                            <button
+                              key={subj}
+                              type="button"
+                              onClick={() => toggleSubject(subj)}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                                selectedSubjects.includes(subj)
+                                  ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                                  : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                              }`}
+                            >
+                              {selectedSubjects.includes(subj) ? "✓" : "+"} {subj}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">Commerce &amp; Arts:</span>
+                          {["Accounts", "Economics", "Business Studies", "English", "Hindi", "Social Science", "Computer Science"].map((subj) => (
+                            <button
+                              key={subj}
+                              type="button"
+                              onClick={() => toggleSubject(subj)}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                                selectedSubjects.includes(subj)
+                                  ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                                  : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                              }`}
+                            >
+                              {selectedSubjects.includes(subj) ? "✓" : "+"} {subj}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       {/* Search / Add custom subject */}
@@ -957,11 +978,32 @@ export function CreateLeadModal({
                         <label className="mb-1 block font-bold text-slate-700 text-xs">Radius (km)</label>
                         <input
                           type="number"
+                          min={1}
+                          max={50}
                           value={radiusKm}
                           onChange={(e) => setRadiusKm(e.target.value)}
                           className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
                         />
                       </div>
+                    </div>
+
+                    {/* Radius quick preset pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Radius Preset:</span>
+                      {[5, 10, 15, 25, 50].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setRadiusKm(String(r))}
+                          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                            radiusKm === String(r)
+                              ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                              : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                          }`}
+                        >
+                          {r} km {r === 50 ? "(Metro/NCR)" : r === 5 ? "(Local)" : ""}
+                        </button>
+                      ))}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
@@ -1023,6 +1065,34 @@ export function CreateLeadModal({
                       <label htmlFor="notifyMatchingTutors" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
                         ⚡ Automatically notify matching tutors in this area immediately upon publication
                       </label>
+                    </div>
+                  </div>
+
+                  {/* Live Requirement Summary Preview Card */}
+                  <div className="p-4 rounded-3xl bg-gradient-to-r from-emerald-50 via-teal-50/50 to-blue-50 border border-emerald-200/80 space-y-1.5 shadow-xs">
+                    <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#2D9E6B]">
+                      <Sparkles size={13} />
+                      <span>Live Requirement Summary Preview</span>
+                    </div>
+                    <div className="text-xs text-slate-800 space-y-1 font-semibold">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-[#0F2540] font-extrabold text-sm">
+                          {selectedSubjects.length > 0 ? selectedSubjects.join(", ") : "Select Subject(s)"}
+                        </strong>
+                        <span className="text-slate-400">•</span>
+                        <span>{classLevel || "Class Level"} ({board || "CBSE"})</span>
+                        <span className="text-slate-400">•</span>
+                        <span className="text-emerald-800 font-bold bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                          {mode === "OFFLINE" ? "Home Tuition" : mode === "ONLINE" ? "Online Only" : "Home / Online"} ({radiusKm} km radius)
+                        </span>
+                      </div>
+                      <div className="text-slate-600 text-[11px] flex flex-wrap items-center gap-2">
+                        <span>📍 Location: {[manualArea, manualCity || selectedLocation?.city].filter(Boolean).join(", ") || "Location pending"}</span>
+                        <span>•</span>
+                        <span>💰 Budget: ₹{budgetMin || "0"} - ₹{budgetMax || "0"}/mo</span>
+                        <span>•</span>
+                        <span>🪙 {coinCost || "10"} coins to unlock</span>
+                      </div>
                     </div>
                   </div>
 

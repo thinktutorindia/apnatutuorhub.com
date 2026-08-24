@@ -15,9 +15,13 @@ import { processLeadExpiry } from "@/jobs/lead-expiry.worker";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = process.env.CRON_SECRET ?? "";
+  const isProd = process.env.NODE_ENV === "production";
 
-  // Verify cron authorization if CRON_SECRET is set
+  // Verify cron authorization
+  if (isProd && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

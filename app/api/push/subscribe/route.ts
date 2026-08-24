@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { isWebPushConfigured } from "@/lib/web-push";
 
 // ── GET: return VAPID public key ──────────────────────────────────────────────
@@ -91,7 +92,7 @@ export async function DELETE() {
   try {
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { pushSubscription: undefined },
+      data: { pushSubscription: Prisma.DbNull },
     });
   } catch {
     return NextResponse.json({ error: "User record not found" }, { status: 404 });

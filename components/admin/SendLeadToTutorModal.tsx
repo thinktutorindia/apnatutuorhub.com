@@ -44,6 +44,7 @@ import {
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
+import { getInquiryDisplayCode, getInquiryHashTag } from "@/lib/lead-utils";
 
 export function SendLeadToTutorModal({
   leadId,
@@ -683,6 +684,16 @@ export function SendLeadToTutorModal({
                                 Score: {tutor.matchScore}
                               </span>
                             )}
+
+                            {tutor.hasNotificationSent && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-blue-50 text-blue-800 px-2 py-0.5 rounded-md border border-blue-200"
+                                title={`Dispatched: ${tutor.lastNotifiedAt ? new Date(tutor.lastNotifiedAt).toLocaleString("en-IN") : "Recently"}`}
+                              >
+                                <BellRing size={10} className="text-blue-600" />
+                                <span>Notified ({tutor.notificationStatus || "Delivered"})</span>
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 font-medium">
@@ -904,7 +915,7 @@ export function SendLeadToTutorModal({
                       <button
                         type="button"
                         onClick={() => {
-                          const leadNum = lead?.id ? (lead.id.replace(/\D/g, "").slice(-6) || lead.id.slice(-6).toUpperCase()) : "210984";
+                          const leadNum = getInquiryDisplayCode(lead);
                           const classStr = `${lead?.classLevel || "Standard"}${lead?.subjects?.length ? ` (${lead.subjects.slice(0, 2).join(", ")})` : ""}`;
                           const locStr = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
                           setCustomNotificationMsg(
@@ -918,7 +929,7 @@ export function SendLeadToTutorModal({
                       <button
                         type="button"
                         onClick={() => {
-                          const leadNum = lead?.id ? (lead.id.replace(/\D/g, "").slice(-6) || lead.id.slice(-6).toUpperCase()) : "210984";
+                          const leadNum = getInquiryDisplayCode(lead);
                           const feesStr = lead?.budgetMin && lead?.budgetMax ? `₹${lead.budgetMin} - ₹${lead.budgetMax}/mo` : "₹5000/mo";
                           const locStr = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
                           setCustomNotificationMsg(
@@ -932,7 +943,7 @@ export function SendLeadToTutorModal({
                       <button
                         type="button"
                         onClick={() => {
-                          const leadNum = lead?.id ? (lead.id.replace(/\D/g, "").slice(-6) || lead.id.slice(-6).toUpperCase()) : "210984";
+                          const leadNum = getInquiryDisplayCode(lead);
                           setCustomNotificationMsg(
                             `👑 VIP Plan Reminder: You can unlock lead #${leadNum} for 0 coins with your VIP Plan! View Membership Plans: https://apnatutorhub.com/tutor/plans`
                           );
@@ -953,7 +964,7 @@ export function SendLeadToTutorModal({
                       <button
                         type="button"
                         onClick={() => {
-                          const leadNum = lead?.id ? (lead.id.replace(/\D/g, "").slice(-6) || lead.id.slice(-6).toUpperCase()) : "210984";
+                          const leadNum = getInquiryDisplayCode(lead);
                           setCustomNotificationMsg((prev) => (prev ? `${prev} #${leadNum}` : `Enquiry #${leadNum}`));
                         }}
                         className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 cursor-pointer"

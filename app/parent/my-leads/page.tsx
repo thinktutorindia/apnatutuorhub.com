@@ -18,6 +18,7 @@ import {
   LEAD_STATUS_FILTERS,
   type LeadStatusKey,
 } from "@/lib/validations";
+import { getInquiryDisplayCode } from "@/lib/lead-utils";
 
 export const metadata = {
   title: "My Requirements | ApnaTutorHub",
@@ -56,6 +57,7 @@ export default async function MyLeadsPage({
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        inquiryNumber: true,
         subjects: true,
         classLevel: true,
         board: true,
@@ -64,6 +66,7 @@ export default async function MyLeadsPage({
         budgetMax: true,
         city: true,
         area: true,
+        radiusKm: true,
         status: true,
         coinCost: true,
         maxTutors: true,
@@ -159,6 +162,9 @@ export default async function MyLeadsPage({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono font-extrabold text-xs text-[#0F2540] bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                        #{getInquiryDisplayCode(lead)}
+                      </span>
                       <h2 className="text-lg font-800 text-[#0F2540]">
                         {lead.subjects.join(", ")}
                       </h2>
@@ -169,9 +175,21 @@ export default async function MyLeadsPage({
                         {lead.status.replace(/_/g, " ")}
                       </span>
                     </div>
-                    <p className="text-xs font-700 text-slate-600 flex items-center gap-1">
-                      <MapPin size={14} className="text-[#2D9E6B]" />
-                      {[lead.area, lead.city].filter(Boolean).join(", ") || "Location Private"} · {lead.mode}
+                    <p className="text-xs font-700 text-slate-600 flex items-center gap-1.5 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <MapPin size={14} className="text-[#2D9E6B]" />
+                        {[lead.area, lead.city].filter(Boolean).join(", ") || "Location Private"}
+                      </span>
+                      <span>·</span>
+                      <span>{lead.mode === "OFFLINE" ? "Home Tuition" : lead.mode === "ONLINE" ? "Online Only" : "Home / Online"}</span>
+                      {lead.radiusKm && (
+                        <>
+                          <span>·</span>
+                          <span className="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.2 rounded-md border border-emerald-200">
+                            {lead.radiusKm} km radius
+                          </span>
+                        </>
+                      )}
                     </p>
                   </div>
 

@@ -68,21 +68,24 @@ export function moderateText(text: string): ModerationResult {
   let sanitizedContent = text;
 
   // Check 1: Phone Numbers
-  if (PHONE_PATTERN.test(text)) {
+  const withPhoneRedacted = sanitizedContent.replace(PHONE_PATTERN, "[REDACTED PHONE]");
+  if (withPhoneRedacted !== sanitizedContent) {
     flaggedReasons.push("CONTACT_LEAK_PHONE");
-    sanitizedContent = sanitizedContent.replace(PHONE_PATTERN, "[REDACTED PHONE]");
+    sanitizedContent = withPhoneRedacted;
   }
 
   // Check 2: Emails
-  if (EMAIL_PATTERN.test(text)) {
+  const withEmailRedacted = sanitizedContent.replace(EMAIL_PATTERN, "[REDACTED EMAIL]");
+  if (withEmailRedacted !== sanitizedContent) {
     flaggedReasons.push("CONTACT_LEAK_EMAIL");
-    sanitizedContent = sanitizedContent.replace(EMAIL_PATTERN, "[REDACTED EMAIL]");
+    sanitizedContent = withEmailRedacted;
   }
 
   // Check 3: External URLs
-  if (URL_PATTERN.test(text)) {
+  const withUrlRedacted = sanitizedContent.replace(URL_PATTERN, "[REDACTED LINK]");
+  if (withUrlRedacted !== sanitizedContent) {
     flaggedReasons.push("EXTERNAL_URL");
-    sanitizedContent = sanitizedContent.replace(URL_PATTERN, "[REDACTED LINK]");
+    sanitizedContent = withUrlRedacted;
   }
 
   // Check 4: Profanity

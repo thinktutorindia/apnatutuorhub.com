@@ -27,6 +27,24 @@ export default function RootError({
 
   useEffect(() => {
     console.error("[Application Error]:", error);
+
+    // Auto-recover from ChunkLoadError (new deployments or stale chunks)
+    const isChunkError =
+      error?.name === "ChunkLoadError" ||
+      error?.message?.includes("Failed to load chunk") ||
+      error?.message?.includes("Loading chunk") ||
+      error?.message?.includes("Cannot find module") ||
+      error?.message?.includes("CSS chunk");
+
+    if (isChunkError && typeof window !== "undefined") {
+      const lastReload = sessionStorage.getItem("chunk_reload_ts");
+      const now = Date.now();
+      // Only auto-reload once every 15 seconds to prevent reload loops
+      if (!lastReload || now - Number(lastReload) > 15000) {
+        sessionStorage.setItem("chunk_reload_ts", String(now));
+        window.location.reload();
+      }
+    }
   }, [error]);
 
   // Extract the most relevant file location from the stack trace
@@ -56,6 +74,14 @@ export default function RootError({
     navigator.clipboard.writeText(errorDetails);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleReload = () => {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    } else {
+      reset();
+    }
   };
 
   return (
@@ -146,7 +172,7 @@ export default function RootError({
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => reset()}
+              onClick={handleReload}
               className="flex-1 min-w-[130px] flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-bold text-xs shadow-md shadow-emerald-500/20 active:scale-98 transition-all cursor-pointer"
             >
               <RefreshCw size={15} />

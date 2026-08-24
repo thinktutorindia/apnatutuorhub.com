@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Compass,
   IndianRupee,
@@ -8,6 +9,8 @@ import {
   MapPin,
   Send,
   Sparkles,
+  Check,
+  BookOpen,
 } from "lucide-react";
 import {
   createRequirementAction,
@@ -81,10 +84,21 @@ export function RequirementForm({
   leadId?: string;
   locked?: boolean;
 }) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     mode === "create" ? createRequirementAction : updateRequirementAction,
     initialState
   );
+
+  useEffect(() => {
+    if (state.success && state.data?.leadId) {
+      if (mode === "create") {
+        router.push("/parent/my-leads?posted=true");
+      } else {
+        router.push("/parent/my-leads?updated=true");
+      }
+    }
+  }, [state, mode, router]);
 
   const [studentProfileId, setStudentProfileId] = useState(
     defaults.studentProfileId
@@ -107,7 +121,7 @@ export function RequirementForm({
   const [pincode, setPincode] = useState(defaults.pincode || "");
   const [address, setAddress] = useState("");
   // Tutor search radius — only relevant for OFFLINE/EITHER mode
-  const [radiusKm, setRadiusKm] = useState(10);
+  const [radiusKm, setRadiusKm] = useState(defaults.radiusKm || 10);
 
   const applyStudent = (id: string) => {
     setStudentProfileId(id);
@@ -270,6 +284,68 @@ export function RequirementForm({
         description="Pick up to 6 subjects for your child."
         background="#2D9E6B"
       >
+        {/* Quick Stream Shortcuts */}
+        {!locked && (
+          <div className="space-y-2 pb-2">
+            <span className="block text-[11px] font-800 uppercase tracking-wider text-slate-500">
+              ⚡ Quick Select Popular Subjects:
+            </span>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className="text-[10px] font-800 uppercase text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">Science:</span>
+              {["Chemistry", "Physics", "Mathematics", "Biology", "Science"].map((s) => {
+                const isSel = subjects.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      if (isSel) {
+                        setSubjects(subjects.filter((item) => item !== s));
+                      } else if (subjects.length < 6) {
+                        setSubjects([...subjects, s]);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      isSel
+                        ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    {isSel ? "✓" : "+"} {s}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className="text-[10px] font-800 uppercase text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">Commerce &amp; Arts:</span>
+              {["Accounts", "Economics", "Business Studies", "English", "Hindi", "Computer Science", "Social Science"].map((s) => {
+                const isSel = subjects.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      if (isSel) {
+                        setSubjects(subjects.filter((item) => item !== s));
+                      } else if (subjects.length < 6) {
+                        setSubjects([...subjects, s]);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      isSel
+                        ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    {isSel ? "✓" : "+"} {s}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <SubjectPicker
           value={subjects}
           onChange={setSubjects}
@@ -515,32 +591,53 @@ export function RequirementForm({
 
         {/* Tutor Search Radius Slider — OFFLINE/EITHER only */}
         {!isOnlineOnly && !locked && (
-          <div className="pt-2 space-y-2.5">
+          <div className="pt-2 space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-800 uppercase tracking-wider text-slate-700">
-                Tutor Search Radius
+                Tutor Search Radius (Distance)
               </label>
-              <span className="text-sm font-800 text-[#2D9E6B] bg-[#2D9E6B]/10 px-2.5 py-0.5 rounded-full">
-                {radiusKm} km
+              <span className="text-sm font-800 text-[#2D9E6B] bg-[#2D9E6B]/10 px-3 py-0.5 rounded-full border border-[#2D9E6B]/20">
+                {radiusKm} km radius
               </span>
             </div>
+
+            {/* Quick Radius Preset Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-800 uppercase text-slate-400">Quick Distance:</span>
+              {[5, 10, 15, 25, 50].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRadiusKm(r)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    radiusKm === r
+                      ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {r} km {r === 50 ? "(Metro/NCR)" : r === 5 ? "(Nearby)" : ""}
+                </button>
+              ))}
+            </div>
+
             <input
               type="range"
               min={1}
-              max={25}
+              max={50}
               value={radiusKm}
               onChange={(e) => setRadiusKm(Number(e.target.value))}
-              className="w-full h-2 rounded-lg bg-slate-200 accent-[#2D9E6B] cursor-pointer"
+              className="w-full h-2.5 rounded-lg bg-slate-200 accent-[#2D9E6B] cursor-pointer"
             />
             <div className="flex justify-between text-[10px] font-700 text-slate-400">
               <span>1 km (hyper-local)</span>
               <span>25 km (city-wide)</span>
+              <span>50 km (entire NCR / metro)</span>
             </div>
             <p className="text-[11px] font-600 text-slate-500 leading-relaxed">
-              Only tutors within <strong className="text-[#0F2540]">{radiusKm} km</strong> of your location will be shown this requirement.
-              {radiusKm <= 5 && " 🎯 Very precise — you'll get highly local tutors."}
-              {radiusKm > 5 && radiusKm <= 15 && " ✅ Balanced — good mix of nearby verified tutors."}
-              {radiusKm > 15 && " 📍 Wide search — tutors from across the city will see this."}
+              Only verified tutors within <strong className="text-[#0F2540]">{radiusKm} km</strong> of your location will receive notifications.
+              {radiusKm <= 5 && " 🎯 Highly local — nearest neighborhood tutors."}
+              {radiusKm > 5 && radiusKm <= 20 && " ✅ Balanced — excellent reach of verified local tutors."}
+              {radiusKm > 20 && " 📍 Wide search — encompasses extensive metro & NCR coverage."}
             </p>
           </div>
         )}
@@ -633,6 +730,38 @@ export function RequirementForm({
           <FieldError messages={state.fieldErrors?.notes} />
         </div>
       </SectionCard>
+
+      {/* Live Requirement Summary Preview Card */}
+      <div className="rounded-3xl bg-gradient-to-r from-emerald-50 via-teal-50/50 to-blue-50 border border-emerald-200/80 p-5 sm:p-6 space-y-2 shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#2D9E6B]">
+          <Sparkles size={14} />
+          <span>Requirement Summary Preview (What Tutors Will See)</span>
+        </div>
+        <div className="text-xs text-slate-800 space-y-1.5 font-semibold">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-extrabold text-[#0F2540]">
+              {subjects.length > 0 ? subjects.join(", ") : "Select Subject(s)"}
+            </span>
+            <span className="text-slate-400">•</span>
+            <span>{classLevel || "Class Level"}{board ? ` (${board})` : ""}</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-emerald-800 font-bold bg-emerald-100/90 px-2.5 py-0.5 rounded-md">
+              {teachingMode === "OFFLINE" ? "Home Tuition" : teachingMode === "ONLINE" ? "Online Only" : "Home / Online"} ({radiusKm} km radius)
+            </span>
+          </div>
+          <div className="text-slate-600 text-xs flex flex-wrap items-center gap-2 font-medium">
+            <span>📍 Location: {[area, city].filter(Boolean).join(", ") || "Location details"}</span>
+            <span>•</span>
+            <span>Budget: ₹{defaults.budgetMin || "3,000"} - ₹{defaults.budgetMax || "8,000"}/mo</span>
+            {genderPref !== "ANY" && (
+              <>
+                <span>•</span>
+                <span className="text-purple-700 font-bold">{genderPref === "FEMALE" ? "Female Tutor Preferred" : "Male Tutor Preferred"}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Form Submission Action Card */}
       <div className="rounded-3xl bg-emerald-50 border border-emerald-300 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">

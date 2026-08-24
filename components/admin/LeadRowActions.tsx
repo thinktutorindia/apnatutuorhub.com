@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   Sparkles,
   History,
+  Users,
 } from "lucide-react";
 import {
   forceCloseLeadAction,
@@ -24,10 +25,13 @@ import {
 import { EditLeadModal } from "@/components/admin/EditLeadModal";
 import { SendLeadToTutorModal } from "@/components/admin/SendLeadToTutorModal";
 import { LeadHistoryModal } from "@/components/admin/LeadHistoryModal";
+import { TargetedTutorsModal } from "@/components/admin/TargetedTutorsModal";
+import { getInquiryDisplayCode, getInquiryHashTag } from "@/lib/lead-utils";
 
 export interface LeadRowActionsProps {
   lead: {
     id: string;
+    inquiryNumber?: number | null;
     subjects: string[];
     classLevel: string;
     board?: string | null;
@@ -62,6 +66,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
   const [isOpen, setIsOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isTargetedModalOpen, setIsTargetedModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
@@ -161,6 +166,19 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
           >
             <Edit3 size={14} className="text-[#2D9E6B]" />
             <span>Edit Requirement</span>
+          </button>
+
+          {/* View Targeted & Notified Tutors */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              setIsTargetedModalOpen(true);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-blue-50 text-blue-900 font-semibold text-left cursor-pointer transition-colors"
+          >
+            <Users size={14} className="text-blue-600" />
+            <span>Targeted Tutors &amp; Dispatch</span>
           </button>
 
           {/* View Audit & Edit History */}
@@ -276,9 +294,18 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
       {/* Lead History & Correction Modal */}
       <LeadHistoryModal
         leadId={lead.id}
-        leadCode={lead.id.slice(-6).toUpperCase()}
+        leadCode={getInquiryDisplayCode(lead)}
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
+      />
+
+      {/* Targeted & Notified Tutors Modal */}
+      <TargetedTutorsModal
+        leadId={lead.id}
+        leadCode={getInquiryDisplayCode(lead)}
+        leadTitle={leadTitle}
+        isOpen={isTargetedModalOpen}
+        onClose={() => setIsTargetedModalOpen(false)}
       />
 
       {/* Confirmation Dialog */}

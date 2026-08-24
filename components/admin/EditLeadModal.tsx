@@ -31,6 +31,7 @@ import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import { LeadHistoryModal } from "@/components/admin/LeadHistoryModal";
+import { getInquiryDisplayCode } from "@/lib/lead-utils";
 import type { TeachingMode, LeadStatus } from "@prisma/client";
 
 export type ResolvedLocation = {
@@ -55,6 +56,7 @@ const QUICK_CLASS_GROUPS = [
 export interface EditLeadModalProps {
   lead: {
     id: string;
+    inquiryNumber?: number | null;
     subjects: string[];
     classLevel: string;
     board?: string | null;
@@ -355,8 +357,8 @@ export function EditLeadModal({
                 <h3 className="font-extrabold text-base tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
                   Edit Lead Requirement
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/30">
-                  #{lead.id.slice(-6).toUpperCase()}
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/30">
+                  #{getInquiryDisplayCode(lead)}
                 </span>
               </div>
               <p className="text-xs text-slate-300 font-medium">
@@ -662,11 +664,32 @@ export function EditLeadModal({
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Radius (Km)</label>
                 <input
                   type="number"
+                  min={1}
+                  max={50}
                   value={radiusKm}
                   onChange={(e) => setRadiusKm(e.target.value)}
                   className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-bold text-slate-900 outline-none focus:border-[#2D9E6B]"
                 />
               </div>
+            </div>
+
+            {/* Quick Radius Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Quick Radius:</span>
+              {[5, 10, 15, 25, 50].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRadiusKm(String(r))}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                    radiusKm === String(r)
+                      ? "bg-[#2D9E6B] text-white border-[#2D9E6B]"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {r} km {r === 50 ? "(Metro/NCR)" : r === 5 ? "(Hyperlocal)" : ""}
+                </button>
+              ))}
             </div>
           </div>
 

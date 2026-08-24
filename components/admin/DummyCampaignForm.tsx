@@ -12,7 +12,7 @@ import {
   getTutorsForCampaignTargetAction,
   toggleCampaignStatusAction,
 } from "@/app/actions/dummy-campaign.actions";
-import { CLASS_FEE_RATES } from "@/lib/dummy-lead-engine";
+import { CLASS_FEE_RATES } from "@/lib/dummy-campaign-types";
 import { isGenuineEmail } from "@/lib/lead-utils";
 import type { DummyTargetGroup } from "@prisma/client";
 

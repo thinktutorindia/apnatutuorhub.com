@@ -28,8 +28,8 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Server external packages for Prisma
-  serverExternalPackages: ["@prisma/client", "bcryptjs"],
+  // Server external packages for Prisma & Node-only libraries
+  serverExternalPackages: ["@prisma/client", "bcryptjs", "web-push"],
 };
 
 export default withSentryConfig(nextConfig, {

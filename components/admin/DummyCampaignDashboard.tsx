@@ -22,7 +22,7 @@ import {
 } from "@/app/actions/dummy-campaign.actions";
 import { DummyCampaignForm } from "./DummyCampaignForm";
 import { DummyCampaignLogs } from "./DummyCampaignLogs";
-import type { DummyLead } from "@/lib/dummy-lead-engine";
+import type { DummyLead } from "@/lib/dummy-campaign-types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

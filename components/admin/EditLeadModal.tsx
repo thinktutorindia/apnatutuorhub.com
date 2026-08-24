@@ -31,7 +31,7 @@ import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import { LeadHistoryModal } from "@/components/admin/LeadHistoryModal";
-import { getInquiryDisplayCode } from "@/lib/lead-utils";
+import { getInquiryDisplayCode, getLeadRateType } from "@/lib/lead-utils";
 import type { TeachingMode, LeadStatus } from "@prisma/client";
 
 export type ResolvedLocation = {
@@ -109,14 +109,35 @@ export function EditLeadModal({
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>(lead.subjects || []);
   const [customSubjectInput, setCustomSubjectInput] = useState("");
   const [subjectSearchQuery, setSubjectSearchQuery] = useState("");
+  const [showCategoryTree, setShowCategoryTree] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState<LeadStatus>((lead.status as LeadStatus) || "ACTIVE");
 
   // Commercials & Location
-  const [budgetMin, setBudgetMin] = useState<string>(lead.budgetMin ? String(lead.budgetMin) : "");
-  const [budgetMax, setBudgetMax] = useState<string>(lead.budgetMax ? String(lead.budgetMax) : "");
-  const [coinCost, setCoinCost] = useState<string>(String(lead.coinCost ?? 10));
-  const [maxTutors, setMaxTutors] = useState<string>(String(lead.maxTutors ?? 5));
-  const [radiusKm, setRadiusKm] = useState<string>(String(lead.radiusKm ?? 10));
+  const [budgetRateType, setBudgetRateType] = useState<"MONTHLY" | "HOURLY">(getLeadRateType(lead));
+  const [budgetMin, setBudgetMin] = useState(lead.budgetMin ? String(lead.budgetMin) : "");
+  const [budgetMax, setBudgetMax] = useState(lead.budgetMax ? String(lead.budgetMax) : "");
+  const [coinCost, setCoinCost] = useState(String(lead.coinCost ?? 10));
+  const [maxTutors, setMaxTutors] = useState(String(lead.maxTutors ?? 5));
+  const [radiusKm, setRadiusKm] = useState(String(lead.radiusKm ?? 10));
+
+  const handleBudgetRateTypeChange = (newType: "MONTHLY" | "HOURLY") => {
+    if (newType === budgetRateType) return;
+    setBudgetRateType(newType);
+    if (newType === "HOURLY") {
+      const minNum = parseInt(budgetMin, 10);
+      if (isNaN(minNum) || minNum >= 2000) {
+        setBudgetMin("500");
+        setBudgetMax("800");
+      }
+    } else {
+      const minNum = parseInt(budgetMin, 10);
+      if (isNaN(minNum) || minNum <= 1500) {
+        setBudgetMin("4000");
+        setBudgetMax("8000");
+      }
+    }
+  };
 
   // Location search state
   const [locationQuery, setLocationQuery] = useState("");
@@ -149,6 +170,7 @@ export function EditLeadModal({
       setBoard(lead.board || "CBSE");
       setMode((lead.mode as TeachingMode) || "OFFLINE");
       setSelectedSubjects(lead.subjects || []);
+      setBudgetRateType(getLeadRateType(lead));
       setBudgetMin(lead.budgetMin ? String(lead.budgetMin) : "");
       setBudgetMax(lead.budgetMax ? String(lead.budgetMax) : "");
       setCoinCost(String(lead.coinCost ?? 10));
@@ -298,6 +320,18 @@ export function EditLeadModal({
       normalizedParentPhone = digits;
     }
 
+    let finalNotes = notes.trim();
+    if (budgetRateType === "HOURLY") {
+      if (!finalNotes.toLowerCase().includes("hourly") && !finalNotes.toLowerCase().includes("/hr")) {
+        finalNotes = finalNotes ? `[HOURLY RATE] ${finalNotes}` : `[HOURLY RATE]`;
+      }
+    } else if (budgetRateType === "MONTHLY") {
+      finalNotes = finalNotes.replace(/\[HOURLY RATE\]\s*/gi, "").trim();
+      if (!finalNotes.toLowerCase().includes("monthly") && !finalNotes.toLowerCase().includes("/mo")) {
+        finalNotes = finalNotes ? `[MONTHLY RATE] ${finalNotes}` : `[MONTHLY RATE]`;
+      }
+    }
+
     const payload: AdminUpdateLeadInput = {
       leadId: lead.id,
       subjects: selectedSubjects,
@@ -314,7 +348,7 @@ export function EditLeadModal({
       timingPreference: timingPreference.trim() || undefined,
       tutorGenderPref: tutorGenderPref || undefined,
       languagePref: languagePref.trim() || undefined,
-      notes: notes.trim() || undefined,
+      notes: finalNotes || undefined,
       coinCost: coinCost ? parseInt(coinCost, 10) : 10,
       maxTutors: maxTutors ? parseInt(maxTutors, 10) : 5,
       radiusKm: radiusKm ? parseInt(radiusKm, 10) : 10,
@@ -613,29 +647,67 @@ export function EditLeadModal({
 
           {/* Section 3: Commercials & Dispatch Settings */}
           <div className="space-y-3">
-            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <Coins size={14} className="text-[#2D9E6B]" /> Commercials, Coin Cost &amp; Quotas
-            </h4>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Coins size={14} className="text-[#2D9E6B]" /> Commercials, Coin Cost &amp; Quotas
+              </h4>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {/* Hourly vs Monthly Toggle Tabs */}
+              <div className="inline-flex p-1 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => handleBudgetRateTypeChange("MONTHLY")}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    budgetRateType === "MONTHLY"
+                      ? "bg-[#2D9E6B] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>📅 Monthly Rate</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                    budgetRateType === "MONTHLY" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                  }`}>₹/mo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBudgetRateTypeChange("HOURLY")}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    budgetRateType === "HOURLY"
+                      ? "bg-purple-600 text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>⏱️ Hourly Rate</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                    budgetRateType === "HOURLY" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                  }`}>₹/hr</span>
+                </button>
+              </div>
+            </div>
+
+            <div className={`grid gap-3 ${mode === "ONLINE" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-5"}`}>
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Min Budget (₹)</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Min Budget ({budgetRateType === "HOURLY" ? "₹/hr" : "₹/mo"})
+                </label>
                 <input
                   type="number"
                   value={budgetMin}
                   onChange={(e) => setBudgetMin(e.target.value)}
-                  placeholder="e.g. 5000"
+                  placeholder={budgetRateType === "HOURLY" ? "500" : "4000"}
                   className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-bold text-slate-900 outline-none focus:border-[#2D9E6B]"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Max Budget (₹)</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Max Budget ({budgetRateType === "HOURLY" ? "₹/hr" : "₹/mo"})
+                </label>
                 <input
                   type="number"
                   value={budgetMax}
                   onChange={(e) => setBudgetMax(e.target.value)}
-                  placeholder="e.g. 10000"
+                  placeholder={budgetRateType === "HOURLY" ? "800" : "8000"}
                   className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-bold text-slate-900 outline-none focus:border-[#2D9E6B]"
                 />
               </div>
@@ -660,112 +732,208 @@ export function EditLeadModal({
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Radius (Km)</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={radiusKm}
-                  onChange={(e) => setRadiusKm(e.target.value)}
-                  className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-bold text-slate-900 outline-none focus:border-[#2D9E6B]"
-                />
-              </div>
-            </div>
-
-            {/* Quick Radius Pills */}
-            <div className="flex items-center gap-1.5 flex-wrap pt-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Quick Radius:</span>
-              {[5, 10, 15, 25, 50].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRadiusKm(String(r))}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
-                    radiusKm === String(r)
-                      ? "bg-[#2D9E6B] text-white border-[#2D9E6B]"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  {r} km {r === 50 ? "(Metro/NCR)" : r === 5 ? "(Hyperlocal)" : ""}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Section 4: Location & Address */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <MapPin size={14} className="text-[#2D9E6B]" /> Location &amp; Tuition Area
-            </h4>
-
-            <div className="relative">
-              <input
-                type="text"
-                value={locationQuery}
-                onChange={(e) => setLocationQuery(e.target.value)}
-                placeholder="Search area / pincode (e.g. Sangam Vihar, Delhi 110080)..."
-                className="w-full rounded-xl pl-8 pr-3 py-2 bg-white border border-slate-300 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B]"
-              />
-              <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
-              {isSearchingLocation && (
-                <Loader2 size={14} className="absolute right-3 top-2.5 animate-spin text-[#2D9E6B]" />
-              )}
-
-              {locationSuggestions.length > 0 && (
-                <div className="absolute left-0 right-0 top-10 z-20 max-h-48 overflow-y-auto rounded-xl bg-white border border-slate-200 shadow-xl p-1 space-y-1">
-                  {locationSuggestions.map((loc, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleSelectLocation(loc)}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 transition-colors cursor-pointer"
-                    >
-                      <MapPin size={14} className="text-[#2D9E6B] shrink-0" />
-                      <div className="truncate">
-                        <p className="font-bold text-slate-900">{loc.area || loc.city}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{loc.fullAddress}</p>
-                      </div>
-                    </button>
-                  ))}
+              {mode !== "ONLINE" && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Radius (Km)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(e.target.value)}
+                    className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-bold text-slate-900 outline-none focus:border-[#2D9E6B]"
+                  />
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">City</label>
-                <input
-                  type="text"
-                  value={manualCity}
-                  onChange={(e) => setManualCity(e.target.value)}
-                  placeholder="e.g. South Delhi"
-                  className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Locality / Area</label>
-                <input
-                  type="text"
-                  value={manualArea}
-                  onChange={(e) => setManualArea(e.target.value)}
-                  placeholder="e.g. Sangam Vihar"
-                  className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Postal Pincode</label>
-                <input
-                  type="text"
-                  value={manualPincode}
-                  onChange={(e) => setManualPincode(e.target.value)}
-                  placeholder="e.g. 110080"
-                  className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B]"
-                />
-              </div>
+            {/* Quick Budget Presets */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                {budgetRateType === "HOURLY" ? "⏱️ Hourly Presets:" : "📅 Monthly Presets:"}
+              </span>
+              {budgetRateType === "HOURLY"
+                ? [
+                    { label: "₹300 - ₹500/hr", min: "300", max: "500" },
+                    { label: "₹500 - ₹800/hr", min: "500", max: "800" },
+                    { label: "₹800 - ₹1200/hr", min: "800", max: "1200" },
+                    { label: "₹1000 - ₹1500/hr", min: "1000", max: "1500" },
+                    { label: "₹1500 - ₹2500/hr", min: "1500", max: "2500" },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setBudgetMin(p.min);
+                        setBudgetMax(p.max);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                        budgetMin === p.min && budgetMax === p.max
+                          ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                          : "bg-white text-purple-900 border-purple-200 hover:border-purple-300"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))
+                : [
+                    { label: "₹3k - ₹5k/mo", min: "3000", max: "5000" },
+                    { label: "₹4k - ₹8k/mo", min: "4000", max: "8000" },
+                    { label: "₹6k - ₹10k/mo", min: "6000", max: "10000" },
+                    { label: "₹8k - ₹15k/mo", min: "8000", max: "15000" },
+                    { label: "₹15k - ₹25k/mo", min: "15000", max: "25000" },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setBudgetMin(p.min);
+                        setBudgetMax(p.max);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                        budgetMin === p.min && budgetMax === p.max
+                          ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                          : "bg-white text-emerald-900 border-emerald-200 hover:border-emerald-300"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
             </div>
+
+            {/* Quick Radius Pills - only for OFFLINE/EITHER */}
+            {mode !== "ONLINE" && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-200/60">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Quick Radius:</span>
+                {[5, 10, 15, 25, 50].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRadiusKm(String(r))}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                      radiusKm === String(r)
+                        ? "bg-[#2D9E6B] text-white border-[#2D9E6B]"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {r} km {r === 50 ? "(Metro/NCR)" : r === 5 ? "(Hyperlocal)" : ""}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section 4: Location & Address */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin size={14} className="text-[#2D9E6B]" /> Location &amp; Tuition Area
+              </h4>
+              {mode === "ONLINE" && (
+                <span className="text-[10px] text-teal-800 font-extrabold bg-teal-100 px-2.5 py-0.5 rounded-full border border-teal-300">
+                  🌐 Pan-India Remote
+                </span>
+              )}
+            </div>
+
+            {mode === "ONLINE" ? (
+              <div className="p-4 rounded-2xl bg-teal-50/90 border border-teal-200/90 flex items-start gap-3">
+                <div className="h-8 w-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 shadow-2xs">
+                  <Sparkles size={16} />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-black text-teal-950">Online / Remote Tuition Listing</h4>
+                    <span className="bg-teal-200 text-teal-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                      All India
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-teal-800 font-medium">
+                    Physical GPS pinning and neighborhood radius limits are disabled for online tuition. All matching verified online tutors across India are eligible.
+                  </p>
+                  <div className="pt-2 flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-600">Student City (Optional):</span>
+                    <input
+                      type="text"
+                      value={manualCity}
+                      onChange={(e) => setManualCity(e.target.value)}
+                      placeholder="e.g. New Delhi / Mumbai (optional)"
+                      className="rounded-xl px-3 py-1.5 bg-white border border-teal-200 text-slate-900 text-xs font-semibold outline-none focus:border-teal-500 shadow-2xs w-full max-w-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={locationQuery}
+                    onChange={(e) => setLocationQuery(e.target.value)}
+                    placeholder="Search area / pincode (e.g. Sangam Vihar, Delhi 110080)..."
+                    className="w-full rounded-xl pl-8 pr-3 py-2 bg-white border border-slate-300 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B]"
+                  />
+                  <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                  {isSearchingLocation && (
+                    <Loader2 size={14} className="absolute right-3 top-2.5 animate-spin text-[#2D9E6B]" />
+                  )}
+
+                  {locationSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-10 z-20 max-h-48 overflow-y-auto rounded-xl bg-white border border-slate-200 shadow-xl p-1 space-y-1">
+                      {locationSuggestions.map((loc, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleSelectLocation(loc)}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 transition-colors cursor-pointer"
+                        >
+                          <MapPin size={14} className="text-[#2D9E6B] shrink-0" />
+                          <div className="truncate">
+                            <p className="font-bold text-slate-900">{loc.area || loc.city}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{loc.fullAddress}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">City</label>
+                    <input
+                      type="text"
+                      value={manualCity}
+                      onChange={(e) => setManualCity(e.target.value)}
+                      placeholder="e.g. New Delhi"
+                      className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-bold text-slate-900 outline-none focus:border-[#2D9E6B]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Area / Locality</label>
+                    <input
+                      type="text"
+                      value={manualArea}
+                      onChange={(e) => setManualArea(e.target.value)}
+                      placeholder="e.g. Sangam Vihar"
+                      className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-bold text-slate-900 outline-none focus:border-[#2D9E6B]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Pincode</label>
+                    <input
+                      type="text"
+                      value={manualPincode}
+                      onChange={(e) => setManualPincode(e.target.value)}
+                      placeholder="e.g. 110080"
+                      className="w-full rounded-xl px-3 py-2 bg-white border border-slate-300 text-xs font-bold text-slate-900 outline-none focus:border-[#2D9E6B]"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Section 5: Parent / Contact Info */}

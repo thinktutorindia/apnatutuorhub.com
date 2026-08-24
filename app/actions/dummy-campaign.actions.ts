@@ -175,6 +175,11 @@ export async function getDummyCampaignStats() {
         targetGroup: true,
         channels: true,
         leadsPerDay: true,
+        overrideSubjects: true,
+        budgetMin: true,
+        budgetMax: true,
+        customUserIds: true,
+        excludeUserIds: true,
         totalSent: true,
         totalFailed: true,
         totalLimit: true,
@@ -234,10 +239,12 @@ export async function getDummyCampaignStats() {
   };
 }
 
-// ── Get Campaign Logs (paginated) ─────────────────────────────────────────────
+// ── Get Campaign Logs (paginated & searchable with message payloads) ───────────
 
 export async function getDummyCampaignLogs(opts: {
   campaignId?: string;
+  search?: string;
+  emailFilter?: "GENUINE_ONLY" | "DUMMY_ONLY" | "ALL";
   page?: number;
   pageSize?: number;
   from?: string;
@@ -248,7 +255,7 @@ export async function getDummyCampaignLogs(opts: {
   const { error } = await requireSuperAdmin();
   if (error) return { logs: [], total: 0, error };
 
-  const { campaignId, page = 1, pageSize = 50, from, to, channel, status } = opts;
+  const { campaignId, search, emailFilter = "ALL", page = 1, pageSize = 50, from, to, channel, status } = opts;
 
   const where: Record<string, any> = {};
   if (campaignId) where.campaignId = campaignId;
@@ -260,13 +267,27 @@ export async function getDummyCampaignLogs(opts: {
   if (channel) where.channel = channel;
   if (status) where.status = status;
 
+  if (emailFilter === "GENUINE_ONLY") {
+    where.userEmail = { not: { contains: "apnatutorhub.com" } };
+  } else if (emailFilter === "DUMMY_ONLY") {
+    where.userEmail = { contains: "apnatutorhub.com" };
+  }
+
+  if (search && search.trim()) {
+    const q = search.trim();
+    where.OR = [
+      { userName: { contains: q, mode: "insensitive" } },
+      { userEmail: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
   const [logs, total] = await Promise.all([
     prisma.campaignDeliveryLog.findMany({
       where,
       orderBy: { sentAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { campaign: { select: { name: true } } },
+      include: { campaign: { select: { name: true, targetGroup: true } } },
     }),
     prisma.campaignDeliveryLog.count({ where }),
   ]);
@@ -373,3 +394,112 @@ export async function getLocalitiesPreviewAction(opts: {
     localities.map((l) => ({ name: l.name, city: l.city, distKm: Math.round((l as any).dist ?? 0) }))
   );
 }
+
+// ── Search & Filter Tutors for Interactive Selection ───────────────────────────
+
+export async function getTutorsForCampaignTargetAction(opts: {
+  search?: string;
+  city?: string;
+  subject?: string;
+  classLevel?: string;
+  kycVerifiedOnly?: boolean;
+  emailFilter?: "GENUINE_ONLY" | "DUMMY_ONLY" | "ALL";
+  limit?: number;
+}): Promise<ActionResult<{
+  tutors: Array<{
+    id: string;
+    name: string | null;
+    email: string;
+    phone: string | null;
+    city: string | null;
+    subjects: string[];
+    classLevels: string[];
+    isVerified: boolean;
+    isGenuine: boolean;
+  }>;
+  totalCount: number;
+}>> {
+  const { error } = await requireSuperAdmin();
+  if (error) return actionError(error);
+
+  const { search, city, subject, classLevel, kycVerifiedOnly, emailFilter = "ALL", limit = 100 } = opts;
+
+  const where: Record<string, any> = {
+    role: "TUTOR",
+    isActive: true,
+  };
+
+  if (emailFilter === "GENUINE_ONLY") {
+    where.email = { not: { contains: "apnatutorhub.com" } };
+  } else if (emailFilter === "DUMMY_ONLY") {
+    where.email = { contains: "apnatutorhub.com" };
+  }
+
+  if (search && search.trim()) {
+    const q = search.trim();
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { phone: { contains: q } },
+      { tutorProfile: { city: { contains: q, mode: "insensitive" } } },
+      { tutorProfile: { address: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+
+  const profileWhere: Record<string, any> = {};
+  if (kycVerifiedOnly) {
+    profileWhere.isVerified = true;
+  }
+  if (city && city.trim()) {
+    profileWhere.city = { contains: city.trim(), mode: "insensitive" };
+  }
+  if (subject && subject.trim()) {
+    profileWhere.subjects = { has: subject.trim() };
+  }
+  if (classLevel && classLevel.trim()) {
+    profileWhere.classLevels = { has: classLevel.trim() };
+  }
+
+  if (Object.keys(profileWhere).length > 0) {
+    where.tutorProfile = profileWhere;
+  }
+
+  const [tutors, totalCount] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        tutorProfile: {
+          select: {
+            city: true,
+            subjects: true,
+            classLevels: true,
+            isVerified: true,
+          },
+        },
+      },
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return actionSuccess({
+    tutors: tutors.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      city: u.tutorProfile?.city ?? null,
+      subjects: u.tutorProfile?.subjects ?? [],
+      classLevels: u.tutorProfile?.classLevels ?? [],
+      isVerified: u.tutorProfile?.isVerified ?? false,
+      isGenuine: !u.email.toLowerCase().includes("apnatutorhub.com"),
+    })),
+    totalCount,
+  });
+}
+

@@ -13,6 +13,7 @@ export type DummyLeadEmailProps = {
   mode: string;
   budgetMin: number;
   budgetMax: number;
+  rateType?: "HOURLY" | "MONTHLY";
   days: string;
   timing: string;
   studentName: string;
@@ -20,7 +21,7 @@ export type DummyLeadEmailProps = {
 };
 
 export function renderDummyLeadEmail(props: DummyLeadEmailProps): string {
-  const { tutorName, locality, city, subjects, classLevel, board, mode, budgetMin, budgetMax, days, timing, leadUrl } = props;
+  const { tutorName, locality, city, subjects, classLevel, board, mode, budgetMin, budgetMax, rateType = "MONTHLY", days, timing, leadUrl } = props;
 
   const subjectBadges = subjects
     .map((s) => `<span style="display:inline-block;background:#DCFCE7;color:#166534;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;margin:2px 3px;">${s}</span>`)
@@ -103,7 +104,7 @@ export function renderDummyLeadEmail(props: DummyLeadEmailProps): string {
               <span style="font-size:11px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.8px;">Budget</span>
             </td>
             <td style="padding:8px 0;">
-              <span style="font-size:16px;font-weight:800;color:#16A34A;">₹${budgetMin.toLocaleString("en-IN")} – ₹${budgetMax.toLocaleString("en-IN")}/mo</span>
+              <span style="font-size:16px;font-weight:800;color:#16A34A;">₹${budgetMin.toLocaleString("en-IN")} – ₹${budgetMax.toLocaleString("en-IN")}${rateType === "HOURLY" ? " / hr" : " / mo"}</span>
             </td>
           </tr>
           <tr>

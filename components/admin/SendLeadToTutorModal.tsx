@@ -31,6 +31,11 @@ import {
   Filter,
   SlidersHorizontal,
   BellRing,
+  MailCheck,
+  MailX,
+  Zap,
+  CheckCheck,
+  ShieldAlert,
 } from "lucide-react";
 import {
   adminGetMatchingTutorsForLeadAction,
@@ -44,7 +49,7 @@ import {
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
-import { getInquiryDisplayCode, getInquiryHashTag } from "@/lib/lead-utils";
+import { getInquiryDisplayCode, getInquiryHashTag, isGenuineEmail, isSystemGeneratedEmail } from "@/lib/lead-utils";
 
 export function SendLeadToTutorModal({
   leadId,
@@ -66,6 +71,7 @@ export function SendLeadToTutorModal({
   const [isLoadingTutors, setIsLoadingTutors] = useState(false);
 
   // Filters & Sorting
+  const [emailCategoryFilter, setEmailCategoryFilter] = useState<"ALL" | "GENUINE_ONLY" | "SYSTEM_ONLY">("GENUINE_ONLY");
   const [filterType, setFilterType] = useState<
     "ALL" | "TOP_MATCH" | "NEARBY" | "VERIFIED" | "HAS_COINS" | "TOP_RATED" | "UNCLAIMED"
   >("ALL");
@@ -140,11 +146,25 @@ export function SendLeadToTutorModal({
     fetchTutors(searchQuery);
   };
 
+  // Counts
+  const genuineCount = useMemo(() => tutors.filter((t) => isGenuineEmail(t.email)).length, [tutors]);
+  const systemCount = useMemo(() => tutors.filter((t) => isSystemGeneratedEmail(t.email)).length, [tutors]);
+  const selectedTutors = useMemo(() => tutors.filter((t) => selectedUserIds.includes(t.userId)), [tutors, selectedUserIds]);
+  const selectedGenuineCount = useMemo(() => selectedTutors.filter((t) => isGenuineEmail(t.email)).length, [selectedTutors]);
+  const selectedSystemCount = useMemo(() => selectedTutors.filter((t) => isSystemGeneratedEmail(t.email)).length, [selectedTutors]);
+
   // Filtered & Sorted Tutors List
   const displayedTutors = useMemo(() => {
     let list = [...tutors];
 
-    // Search query filter (client-side instantaneous)
+    // 1. Email Authenticity Filter
+    if (emailCategoryFilter === "GENUINE_ONLY") {
+      list = list.filter((t) => isGenuineEmail(t.email));
+    } else if (emailCategoryFilter === "SYSTEM_ONLY") {
+      list = list.filter((t) => isSystemGeneratedEmail(t.email));
+    }
+
+    // 2. Search query filter (client-side instantaneous)
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter(
@@ -157,7 +177,7 @@ export function SendLeadToTutorModal({
       );
     }
 
-    // Filter type
+    // 3. Match / Eligibility filter
     if (filterType === "TOP_MATCH") {
       list = list.filter((t) => t.matchScore >= 40);
     } else if (filterType === "NEARBY") {
@@ -172,7 +192,7 @@ export function SendLeadToTutorModal({
       list = list.filter((t) => !t.alreadyPurchased);
     }
 
-    // Sorting
+    // 4. Sorting
     list.sort((a, b) => {
       if (a.alreadyPurchased !== b.alreadyPurchased) {
         return a.alreadyPurchased ? 1 : -1;
@@ -190,7 +210,7 @@ export function SendLeadToTutorModal({
     });
 
     return list;
-  }, [tutors, searchQuery, filterType, sortType, lead?.coinCost]);
+  }, [tutors, emailCategoryFilter, searchQuery, filterType, sortType, lead?.coinCost]);
 
   const toggleSelectTutor = (userId: string) => {
     setSelectedUserIds((prev) =>
@@ -205,6 +225,27 @@ export function SendLeadToTutorModal({
     } else {
       setSelectedUserIds(unpurchased.map((t) => t.userId));
     }
+  };
+
+  const selectTopN = (n: number, genuineOnly: boolean = false) => {
+    let pool = displayedTutors.filter((t) => !t.alreadyPurchased);
+    if (genuineOnly) {
+      pool = pool.filter((t) => isGenuineEmail(t.email));
+    }
+    const targetIds = pool.slice(0, n).map((t) => t.userId);
+    setSelectedUserIds(targetIds);
+  };
+
+  const selectAllFiltered = (genuineOnly: boolean = false) => {
+    let pool = displayedTutors.filter((t) => !t.alreadyPurchased);
+    if (genuineOnly) {
+      pool = pool.filter((t) => isGenuineEmail(t.email));
+    }
+    setSelectedUserIds(pool.map((t) => t.userId));
+  };
+
+  const deselectAll = () => {
+    setSelectedUserIds([]);
   };
 
   const generateWhatsAppText = (tutorName?: string) => {
@@ -532,71 +573,191 @@ export function SendLeadToTutorModal({
             )}
 
             {/* Filter & Search Toolbar */}
-            <div className="p-4 sm:px-6 bg-white border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
-              <div className="flex flex-wrap items-center gap-2.5 flex-1">
-                {/* Search */}
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search size={14} className="absolute left-3.5 top-2.5 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search tutor name, phone, city, subject..."
-                    className="w-full rounded-2xl pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-semibold text-xs"
-                  />
+            <div className="p-4 sm:px-6 bg-white border-b border-slate-100 space-y-3 shrink-0">
+              {/* Row 1: Email Authenticity Tabs (Genuine vs System vs All) */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pb-1 border-b border-slate-100">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-2xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setEmailCategoryFilter("GENUINE_ONLY")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                      emailCategoryFilter === "GENUINE_ONLY"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                    }`}
+                    title="Real, verified user emails (Safe to notify, protects sending credits)"
+                  >
+                    <MailCheck size={13} />
+                    <span>🌟 Genuine Real Emails</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        emailCategoryFilter === "GENUINE_ONLY"
+                          ? "bg-emerald-800 text-emerald-100"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {genuineCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEmailCategoryFilter("SYSTEM_ONLY")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                      emailCategoryFilter === "SYSTEM_ONLY"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                    }`}
+                    title="Auto-generated placeholder emails (@apnatutorhub.com test accounts)"
+                  >
+                    <MailX size={13} />
+                    <span>🤖 System Accounts</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        emailCategoryFilter === "SYSTEM_ONLY"
+                          ? "bg-amber-800 text-amber-100"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {systemCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEmailCategoryFilter("ALL")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                      emailCategoryFilter === "ALL"
+                        ? "bg-slate-800 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                    }`}
+                    title="Show all matched accounts (Genuine + System)"
+                  >
+                    <Users size={13} />
+                    <span>👥 All Accounts</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        emailCategoryFilter === "ALL"
+                          ? "bg-slate-950 text-slate-200"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {tutors.length}
+                    </span>
+                  </button>
                 </div>
 
-                {/* Filter Dropdown */}
-                <div className="flex items-center gap-1 bg-slate-50 rounded-2xl px-3 py-1.5 border border-slate-200">
-                  <Filter size={13} className="text-slate-500" />
-                  <select
-                    value={filterType}
-                    onChange={(e: any) => setFilterType(e.target.value)}
-                    className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fetchTutors()}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer transition-colors"
+                    title="Refresh Tutor Matches"
                   >
-                    <option value="ALL">All Matched Tutors ({tutors.length})</option>
-                    <option value="TOP_MATCH">🎯 High Match Score (&gt;40)</option>
-                    <option value="NEARBY">📍 Near Location (&lt;15 km)</option>
-                    <option value="VERIFIED">🛡️ Verified KYC Only</option>
-                    <option value="HAS_COINS">💰 Has Sufficient Coins (&gt;={lead?.coinCost ?? 10})</option>
-                    <option value="TOP_RATED">⭐ Top Rated (4.0+ ⭐)</option>
-                    <option value="UNCLAIMED">🔓 Unclaimed Leads Only</option>
-                  </select>
-                </div>
-
-                {/* Sort Dropdown */}
-                <div className="flex items-center gap-1 bg-slate-50 rounded-2xl px-3 py-1.5 border border-slate-200">
-                  <SlidersHorizontal size={13} className="text-slate-500" />
-                  <select
-                    value={sortType}
-                    onChange={(e: any) => setSortType(e.target.value)}
-                    className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
-                  >
-                    <option value="MATCH_SCORE">Sort: Best Match Score</option>
-                    <option value="DISTANCE">Sort: Nearest Distance</option>
-                    <option value="COINS">Sort: Highest Coins</option>
-                    <option value="RATING">Sort: Highest Rating</option>
-                    <option value="NAME">Sort: Alphabetical (A-Z)</option>
-                  </select>
+                    <RefreshCw size={13} className={isLoadingTutors ? "animate-spin text-[#2D9E6B]" : ""} />
+                    <span>Refresh</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Row 2: Search, Filters & Sorting */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2 flex-1">
+                  {/* Search */}
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search size={14} className="absolute left-3.5 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search tutor name, phone, city, subject..."
+                      className="w-full rounded-2xl pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-semibold text-xs"
+                    />
+                  </div>
+
+                  {/* Filter Dropdown */}
+                  <div className="flex items-center gap-1 bg-slate-50 rounded-2xl px-3 py-1.5 border border-slate-200">
+                    <Filter size={13} className="text-slate-500" />
+                    <select
+                      value={filterType}
+                      onChange={(e: any) => setFilterType(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    >
+                      <option value="ALL">All Matches ({displayedTutors.length})</option>
+                      <option value="TOP_MATCH">🎯 High Match Score (&gt;40)</option>
+                      <option value="NEARBY">📍 Near Location (&lt;15 km)</option>
+                      <option value="VERIFIED">🛡️ Verified KYC Only</option>
+                      <option value="HAS_COINS">💰 Has Sufficient Coins (&gt;={lead?.coinCost ?? 10})</option>
+                      <option value="TOP_RATED">⭐ Top Rated (4.0+ ⭐)</option>
+                      <option value="UNCLAIMED">🔓 Unclaimed Leads Only</option>
+                    </select>
+                  </div>
+
+                  {/* Sort Dropdown */}
+                  <div className="flex items-center gap-1 bg-slate-50 rounded-2xl px-3 py-1.5 border border-slate-200">
+                    <SlidersHorizontal size={13} className="text-slate-500" />
+                    <select
+                      value={sortType}
+                      onChange={(e: any) => setSortType(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    >
+                      <option value="MATCH_SCORE">Sort: Best Match Score</option>
+                      <option value="DISTANCE">Sort: Nearest Distance</option>
+                      <option value="COINS">Sort: Highest Coins</option>
+                      <option value="RATING">Sort: Highest Rating</option>
+                      <option value="NAME">Sort: Alphabetical (A-Z)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Quick Multi-Select Pills (High Speed Bulk Dispatch) */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                  <Zap size={11} className="text-amber-500" /> Quick Select:
+                </span>
+
                 <button
                   type="button"
-                  onClick={toggleSelectAll}
-                  className="px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                  onClick={() => selectTopN(10, true)}
+                  className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[11px] font-bold cursor-pointer transition-colors"
                 >
-                  {selectedUserIds.length > 0 ? "Deselect All" : "Select All Unclaimed"}
+                  Top 10 Genuine
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => fetchTutors()}
-                  className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer transition-colors"
-                  title="Refresh Tutor Matches"
+                  onClick={() => selectTopN(25, true)}
+                  className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[11px] font-bold cursor-pointer transition-colors"
                 >
-                  <RefreshCw size={14} className={isLoadingTutors ? "animate-spin text-[#2D9E6B]" : ""} />
+                  Top 25 Genuine
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => selectTopN(50, true)}
+                  className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[11px] font-bold cursor-pointer transition-colors"
+                >
+                  Top 50 Genuine
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => selectAllFiltered(false)}
+                  className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-[11px] font-bold cursor-pointer transition-colors"
+                >
+                  Select All Filtered ({displayedTutors.filter((t) => !t.alreadyPurchased).length})
+                </button>
+
+                {selectedUserIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={deselectAll}
+                    className="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-[11px] font-bold cursor-pointer transition-colors ml-auto"
+                  >
+                    ✕ Deselect All ({selectedUserIds.length})
+                  </button>
+                )}
               </div>
             </div>
 
@@ -612,7 +773,7 @@ export function SendLeadToTutorModal({
                   <Users size={34} className="text-slate-300 mx-auto" />
                   <p className="text-sm font-bold text-[#0F2540]">No tutors found matching this filter</p>
                   <p className="text-xs text-slate-500 font-medium">
-                    Try changing your filter dropdown or searching with another keyword.
+                    Try switching tabs above (e.g. Genuine vs System vs All) or searching with another keyword.
                   </p>
                 </div>
               ) : (
@@ -620,6 +781,7 @@ export function SendLeadToTutorModal({
                   const isSelected = selectedUserIds.includes(tutor.userId);
                   const isDropdownOpen = activeDropdownTutorId === tutor.tutorProfileId;
                   const hasEnoughCoins = tutor.walletBalance >= (lead?.coinCost ?? 10);
+                  const isReal = isGenuineEmail(tutor.email);
                   const whatsappMsg =
                     customNotificationMsg.trim() || generateWhatsAppText(tutor.name);
                   const whatsappUrl = tutor.phone
@@ -651,6 +813,23 @@ export function SendLeadToTutorModal({
                         <div className="min-w-0 flex-1 space-y-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-sm text-[#0F2540]">{tutor.name}</span>
+
+                            {/* Email Authenticity Badge */}
+                            {isReal ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[10px] font-extrabold bg-emerald-100 text-emerald-900 px-2 py-0.2 rounded-md border border-emerald-300"
+                                title="Real, genuine verified email address (Safe for credit use)"
+                              >
+                                <MailCheck size={11} className="text-emerald-700" /> Real Email
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[10px] font-extrabold bg-amber-100 text-amber-950 px-2 py-0.2 rounded-md border border-amber-300"
+                                title="System placeholder email account (@apnatutorhub.com)"
+                              >
+                                <MailX size={11} className="text-amber-700" /> System Account
+                              </span>
+                            )}
 
                             {tutor.kycStatus === "APPROVED" && (
                               <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-md border border-emerald-200">
@@ -714,7 +893,9 @@ export function SendLeadToTutorModal({
                             <span>•</span>
                             <span className="truncate">{tutor.city || "Delhi NCR"}</span>
                             <span>•</span>
-                            <span className="text-slate-500 font-semibold">{tutor.email}</span>
+                            <span className="text-slate-600 font-medium truncate max-w-[220px] sm:max-w-none">
+                              {tutor.email}
+                            </span>
                           </div>
 
                           {/* Subject Chips */}
@@ -1054,56 +1235,67 @@ export function SendLeadToTutorModal({
 
               {/* Action Toolbar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-extrabold text-slate-800">
-                    {selectedUserIds.length} tutor(s) selected
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowCustomMsgInput(!showCustomMsgInput)}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-[#2D9E6B] hover:text-[#238357] hover:underline cursor-pointer"
-                  >
-                    <Sparkles size={13} />
-                    <span>{showCustomMsgInput ? "Hide customizer" : "Customize message with 1-click templates ▾"}</span>
-                  </button>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-xs font-black text-slate-900">
+                      {selectedUserIds.length} tutor(s) selected
+                    </span>
+                    {selectedUserIds.length > 0 && (
+                      <span className="text-[11px] text-slate-600 font-semibold bg-slate-200/70 px-2 py-0.5 rounded-md">
+                        ({selectedGenuineCount} Real Emails, {selectedSystemCount} System Accounts)
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomMsgInput(!showCustomMsgInput)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#2D9E6B] hover:text-[#238357] hover:underline cursor-pointer"
+                    >
+                      <Sparkles size={13} />
+                      <span>{showCustomMsgInput ? "Hide customizer" : "Customize message with 1-click templates ▾"}</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                    <ShieldCheck size={11} className="text-emerald-600 shrink-0" />
+                    <span>Credit Guard Active: Real email deliverability protected (No email credits used for system accounts).</span>
+                  </p>
                 </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
-                {selectedUserIds.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleCopySelectedPhones}
-                      className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs transition-colors cursor-pointer"
-                      title="Copy all phone numbers"
-                    >
-                      Copy Phone Numbers
-                    </button>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {selectedUserIds.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleCopySelectedPhones}
+                        className="px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs transition-colors cursor-pointer shadow-2xs"
+                        title="Copy all selected phone numbers"
+                      >
+                        Copy Phones
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={handleBatchAssignFree}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
-                      title="Directly unlock for all selected tutors"
-                    >
-                      <Gift size={14} />
-                      <span>Batch Assign Free ({selectedUserIds.length})</span>
-                    </button>
-                  </>
-                )}
+                      <button
+                        type="button"
+                        onClick={handleBatchAssignFree}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                        title="Directly unlock for all selected tutors"
+                      >
+                        <Gift size={14} />
+                        <span>Batch Assign Free ({selectedUserIds.length})</span>
+                      </button>
+                    </>
+                  )}
 
-                <button
-                  type="button"
-                  disabled={selectedUserIds.length === 0 || isPending}
-                  onClick={handleSendBatchNotifications}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
-                >
-                  <Send size={14} />
-                  <span>Send Notification ({selectedUserIds.length})</span>
-                </button>
+                  <button
+                    type="button"
+                    disabled={selectedUserIds.length === 0 || isPending}
+                    onClick={handleSendBatchNotifications}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Send size={14} />
+                    <span>Send Notification ({selectedUserIds.length})</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
         </div>
       </div>
     )}

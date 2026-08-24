@@ -107,6 +107,32 @@ export function RequirementForm({
   const [classLevel, setClassLevel] = useState(defaults.classLevel);
   const [board, setBoard] = useState(defaults.board);
   const [teachingMode, setTeachingMode] = useState<string>(defaults.mode);
+
+  const [budgetRateType, setBudgetRateType] = useState<"MONTHLY" | "HOURLY">(
+    defaults.notes?.includes("HOURLY") || (defaults.budgetMax && Number(defaults.budgetMax) <= 1500)
+      ? "HOURLY"
+      : "MONTHLY"
+  );
+  const [budgetMinVal, setBudgetMinVal] = useState(defaults.budgetMin || "3000");
+  const [budgetMaxVal, setBudgetMaxVal] = useState(defaults.budgetMax || "8000");
+
+  const handleBudgetRateTypeChange = (newType: "MONTHLY" | "HOURLY") => {
+    if (newType === budgetRateType) return;
+    setBudgetRateType(newType);
+    if (newType === "HOURLY") {
+      const minNum = parseInt(budgetMinVal, 10);
+      if (isNaN(minNum) || minNum >= 2000) {
+        setBudgetMinVal("500");
+        setBudgetMaxVal("800");
+      }
+    } else {
+      const minNum = parseInt(budgetMinVal, 10);
+      if (isNaN(minNum) || minNum <= 1500) {
+        setBudgetMinVal("3000");
+        setBudgetMaxVal("8000");
+      }
+    }
+  };
   const [genderPref, setGenderPref] = useState(
     defaults.tutorGenderPref || "ANY"
   );
@@ -383,7 +409,7 @@ export function RequirementForm({
 
       {/* 2. Mode & Budget Range */}
       <SectionCard
-        title="Teaching Mode & Monthly Budget Range"
+        title="Teaching Mode & Budget Range"
         description="Verified tutors review your budget quote before connecting."
         background="#D97706"
       >
@@ -401,13 +427,46 @@ export function RequirementForm({
           <FieldError messages={state.fieldErrors?.mode} />
         </div>
 
-        <div className="grid gap-4 pt-3 sm:grid-cols-2">
+        {/* Budget Rate Frequency Switcher */}
+        <div className="space-y-2 pt-2">
+          <span className="block text-xs font-800 uppercase tracking-wider text-slate-700">
+            Rate Frequency
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => handleBudgetRateTypeChange("MONTHLY")}
+              className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-800 transition-all cursor-pointer ${
+                budgetRateType === "MONTHLY"
+                  ? "bg-emerald-50 border-emerald-400 text-emerald-950 shadow-xs ring-2 ring-emerald-400/20"
+                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <span>📅 Monthly Tuition Rate (₹/month)</span>
+            </button>
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => handleBudgetRateTypeChange("HOURLY")}
+              className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-800 transition-all cursor-pointer ${
+                budgetRateType === "HOURLY"
+                  ? "bg-purple-50 border-purple-400 text-purple-950 shadow-xs ring-2 ring-purple-400/20"
+                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <span>⏱️ Hourly / Per Class Rate (₹/hour)</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-4 pt-1 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label
               htmlFor="lead-budget-min"
               className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
-              Minimum Budget (₹ / Month)
+              Minimum Budget ({budgetRateType === "HOURLY" ? "₹ / Hour" : "₹ / Month"})
             </label>
             <div className="relative">
               <IndianRupee
@@ -420,9 +479,10 @@ export function RequirementForm({
                 type="number"
                 min={0}
                 max={100000}
-                step={500}
-                placeholder="3000"
-                defaultValue={defaults.budgetMin}
+                step={budgetRateType === "HOURLY" ? 50 : 500}
+                placeholder={budgetRateType === "HOURLY" ? "500" : "3000"}
+                value={budgetMinVal}
+                onChange={(e) => setBudgetMinVal(e.target.value)}
                 disabled={locked}
                 className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
@@ -435,7 +495,7 @@ export function RequirementForm({
               htmlFor="lead-budget-max"
               className="block text-xs font-800 uppercase tracking-wider text-slate-700"
             >
-              Maximum Budget (₹ / Month)
+              Maximum Budget ({budgetRateType === "HOURLY" ? "₹ / Hour" : "₹ / Month"})
             </label>
             <div className="relative">
               <IndianRupee
@@ -448,15 +508,70 @@ export function RequirementForm({
                 type="number"
                 min={0}
                 max={100000}
-                step={500}
-                placeholder="8000"
-                defaultValue={defaults.budgetMax}
+                step={budgetRateType === "HOURLY" ? 50 : 500}
+                placeholder={budgetRateType === "HOURLY" ? "800" : "8000"}
+                value={budgetMaxVal}
+                onChange={(e) => setBudgetMaxVal(e.target.value)}
                 disabled={locked}
                 className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white border border-slate-300 text-xs font-800 text-slate-900 shadow-2xs focus:border-[#2D9E6B] outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
             </div>
             <FieldError messages={state.fieldErrors?.budgetMax} />
           </div>
+        </div>
+
+        {/* Quick Budget Presets */}
+        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+            {budgetRateType === "HOURLY" ? "⏱️ Hourly Presets:" : "📅 Monthly Presets:"}
+          </span>
+          {budgetRateType === "HOURLY"
+            ? [
+                { label: "₹300 - ₹500/hr", min: "300", max: "500" },
+                { label: "₹500 - ₹800/hr", min: "500", max: "800" },
+                { label: "₹800 - ₹1200/hr", min: "800", max: "1200" },
+                { label: "₹1000 - ₹1500/hr", min: "1000", max: "1500" },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => {
+                    setBudgetMinVal(p.min);
+                    setBudgetMaxVal(p.max);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-800 border transition-all cursor-pointer ${
+                    budgetMinVal === p.min && budgetMaxVal === p.max
+                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                      : "bg-white text-purple-900 border-purple-200 hover:border-purple-300"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))
+            : [
+                { label: "₹3k - ₹5k/mo", min: "3000", max: "5000" },
+                { label: "₹4k - ₹8k/mo", min: "4000", max: "8000" },
+                { label: "₹6k - ₹10k/mo", min: "6000", max: "10000" },
+                { label: "₹8k - ₹15k/mo", min: "8000", max: "15000" },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => {
+                    setBudgetMinVal(p.min);
+                    setBudgetMaxVal(p.max);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-800 border transition-all cursor-pointer ${
+                    budgetMinVal === p.min && budgetMaxVal === p.max
+                      ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                      : "bg-white text-emerald-900 border-emerald-200 hover:border-emerald-300"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
         </div>
       </SectionCard>
 

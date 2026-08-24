@@ -10,6 +10,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendNotification as sendResendNotification, dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush, isWebPushConfigured } from "@/lib/web-push";
+import { isGenuineEmail } from "@/lib/lead-utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -175,8 +176,8 @@ async function dispatchNotification(
           }
         }
 
-        // 2. Email Dispatch if requested or High Priority
-        if (userEmail && (options?.sendEmail || options?.priority === "HIGH" || options?.priority === "CRITICAL")) {
+        // 2. Email Dispatch if requested or High Priority (skips system/test placeholder accounts to preserve credits)
+        if (userEmail && isGenuineEmail(userEmail) && (options?.sendEmail || options?.priority === "HIGH" || options?.priority === "CRITICAL")) {
           try {
             await sendResendNotification({
               userId,
@@ -196,13 +197,15 @@ async function dispatchNotification(
         if (!userEmail) {
           throw new Error("No email address for user");
         }
-        await sendResendNotification({
-          userId,
-          email: userEmail,
-          title,
-          message,
-          actionUrl,
-        });
+        if (isGenuineEmail(userEmail)) {
+          await sendResendNotification({
+            userId,
+            email: userEmail,
+            title,
+            message,
+            actionUrl,
+          });
+        }
         await markDelivered(notificationId, delivery.id);
         break;
 

@@ -28,6 +28,8 @@ import {
   UserCheck,
   ChevronRight,
   Filter,
+  MailCheck,
+  MailX,
 } from "lucide-react";
 import {
   adminGetLeadNotificationDetailsAction,
@@ -38,7 +40,7 @@ import {
 } from "@/app/actions/admin.actions";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { ActionOverlay } from "@/components/ui/LoadingState";
-import { getInquiryHashTag } from "@/lib/lead-utils";
+import { getInquiryHashTag, isGenuineEmail, isSystemGeneratedEmail } from "@/lib/lead-utils";
 
 export interface TargetedTutorsModalProps {
   leadId: string;
@@ -60,7 +62,7 @@ export function TargetedTutorsModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<"ALL" | "UNLOCKED" | "DELIVERED" | "UNCLAIMED">("ALL");
+  const [filterType, setFilterType] = useState<"ALL" | "GENUINE_ONLY" | "SYSTEM_ONLY" | "UNLOCKED" | "DELIVERED" | "UNCLAIMED">("ALL");
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -106,7 +108,11 @@ export function TargetedTutorsModal({
       );
     }
 
-    if (filterType === "UNLOCKED") {
+    if (filterType === "GENUINE_ONLY") {
+      list = list.filter((t) => isGenuineEmail(t.email));
+    } else if (filterType === "SYSTEM_ONLY") {
+      list = list.filter((t) => isSystemGeneratedEmail(t.email));
+    } else if (filterType === "UNLOCKED") {
       list = list.filter((t) => t.isUnlocked);
     } else if (filterType === "DELIVERED") {
       list = list.filter((t) => t.notificationStatus === "DELIVERED" || t.notificationStatus === "SEEN" || t.notificationStatus === "READ");
@@ -122,6 +128,10 @@ export function TargetedTutorsModal({
     setCopiedPhoneId(id);
     setTimeout(() => setCopiedPhoneId(null), 2000);
   };
+
+  const unlockedCount = useMemo(() => tutors.filter((t) => t.isUnlocked).length, [tutors]);
+  const genuineCount = useMemo(() => tutors.filter((t) => isGenuineEmail(t.email)).length, [tutors]);
+  const systemCount = useMemo(() => tutors.filter((t) => isSystemGeneratedEmail(t.email)).length, [tutors]);
 
   const handleResendNotif = (tutor: TargetedTutorNotificationDetail) => {
     setFeedbackMsg(null);
@@ -187,7 +197,6 @@ export function TargetedTutorsModal({
   if (!isOpen) return null;
 
   const displayCode = leadCode || (lead ? getInquiryHashTag(lead) : `#${leadId.slice(-6).toUpperCase()}`);
-  const unlockedCount = tutors.filter((t) => t.isUnlocked).length;
 
   return (
     <>
@@ -315,6 +324,8 @@ export function TargetedTutorsModal({
                   className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
                 >
                   <option value="ALL">All Targeted Tutors ({tutors.length})</option>
+                  <option value="GENUINE_ONLY">🌟 Genuine Real Emails ({genuineCount})</option>
+                  <option value="SYSTEM_ONLY">🤖 System Accounts ({systemCount})</option>
                   <option value="UNLOCKED">🔓 Unlocked / Applied ({unlockedCount})</option>
                   <option value="DELIVERED">✓ Notifications Delivered</option>
                   <option value="UNCLAIMED">⏳ Unclaimed ({tutors.length - unlockedCount})</option>
@@ -356,6 +367,7 @@ export function TargetedTutorsModal({
                 {displayedTutors.map((tutor) => {
                   const hasPhone = tutor.phone && tutor.phone.length > 5;
                   const isCopied = copiedPhoneId === tutor.userId;
+                  const isReal = isGenuineEmail(tutor.email);
 
                   return (
                     <div
@@ -386,6 +398,21 @@ export function TargetedTutorsModal({
                               <h4 className="font-extrabold text-sm text-[#0F2540]">
                                 {tutor.name}
                               </h4>
+                              {isReal ? (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-extrabold bg-emerald-100 text-emerald-900 px-2 py-0.2 rounded-md border border-emerald-300"
+                                  title="Real, verified user email"
+                                >
+                                  <MailCheck size={11} className="text-emerald-700" /> Real Email
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-extrabold bg-amber-100 text-amber-950 px-2 py-0.2 rounded-md border border-amber-300"
+                                  title="System placeholder email account"
+                                >
+                                  <MailX size={11} className="text-amber-700" /> System Account
+                                </span>
+                              )}
                               {tutor.kycStatus === "APPROVED" && (
                                 <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200">
                                   <ShieldCheck size={11} className="text-emerald-700" /> Verified KYC
@@ -415,7 +442,7 @@ export function TargetedTutorsModal({
                                 </div>
                               )}
                               <span className="text-slate-300">•</span>
-                              <span className="text-slate-500 truncate max-w-[200px]">{tutor.email}</span>
+                              <span className="text-slate-600 font-medium truncate max-w-[200px]">{tutor.email}</span>
                               {tutor.city && (
                                 <>
                                   <span className="text-slate-300">•</span>

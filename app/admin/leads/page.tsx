@@ -30,7 +30,7 @@ import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
 import { LeadRowActions } from "@/components/admin/LeadRowActions";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
-import { getInquiryDisplayCode } from "@/lib/lead-utils";
+import { getInquiryDisplayCode, getLeadRateType } from "@/lib/lead-utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lead Management — Admin" };
@@ -416,21 +416,36 @@ export default async function AdminLeadsPage({
 
                       {/* 2. Budget & Fees */}
                       <td className="px-4 py-4 space-y-1.5">
-                        <div className="font-black text-sm text-[#0F2540] flex items-center gap-1">
-                          <IndianRupee size={14} className="text-[#2D9E6B] shrink-0" />
-                          <span>
-                            {lead.budgetMin && lead.budgetMax
-                              ? `₹${lead.budgetMin.toLocaleString("en-IN")} – ₹${lead.budgetMax.toLocaleString("en-IN")}`
-                              : lead.budgetMin
-                              ? `₹${lead.budgetMin.toLocaleString("en-IN")}/mo`
-                              : lead.budgetMax
-                              ? `Up to ₹${lead.budgetMax.toLocaleString("en-IN")}`
-                              : "Negotiable"}
-                          </span>
-                        </div>
-                        <div className="text-[11px] font-semibold text-slate-500">
-                          per month
-                        </div>
+                        {(() => {
+                          const isHourly = getLeadRateType(lead) === "HOURLY";
+                          return (
+                            <>
+                              <div className="font-black text-sm text-[#0F2540] flex items-center gap-1">
+                                <IndianRupee size={14} className="text-[#2D9E6B] shrink-0" />
+                                <span>
+                                  {lead.budgetMin && lead.budgetMax
+                                    ? `₹${lead.budgetMin.toLocaleString("en-IN")} – ₹${lead.budgetMax.toLocaleString("en-IN")}`
+                                    : lead.budgetMin
+                                    ? `₹${lead.budgetMin.toLocaleString("en-IN")}`
+                                    : lead.budgetMax
+                                    ? `Up to ₹${lead.budgetMax.toLocaleString("en-IN")}`
+                                    : "Negotiable"}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide ${
+                                    isHourly
+                                      ? "bg-purple-100 text-purple-900 border border-purple-200"
+                                      : "bg-emerald-50 text-emerald-900 border border-emerald-200"
+                                  }`}
+                                >
+                                  {isHourly ? "⏱️ Per Hour / Class" : "📅 Per Month"}
+                                </span>
+                              </div>
+                            </>
+                          );
+                        })()}
 
                         <div className="flex items-center gap-1.5 pt-0.5">
                           <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200">

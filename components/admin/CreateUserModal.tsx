@@ -256,6 +256,7 @@ export function CreateUserModal({
 
   const [tutorExperience, setTutorExperience] = useState<string>("");
   const [tutorQualification, setTutorQualification] = useState("");
+  const [tutorFeeRateType, setTutorFeeRateType] = useState<"HOURLY" | "MONTHLY">("HOURLY");
   const [tutorFeeMin, setTutorFeeMin] = useState("");
   const [tutorFeeMax, setTutorFeeMax] = useState("");
   const [tutorGender, setTutorGender] = useState("MALE");
@@ -1948,7 +1949,7 @@ export function CreateUserModal({
                       </div>
 
                       {/* Experience, Qualification, Fees & Gender */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
                         <div>
                           <label className="mb-1 block font-bold text-slate-700">Experience (Yrs)</label>
                           <input
@@ -1971,11 +1972,35 @@ export function CreateUserModal({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block font-bold text-slate-700">Min Fee (₹/hr)</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="font-bold text-slate-700">
+                              Fee ({tutorFeeRateType === "HOURLY" ? "₹/hr" : "₹/mo"})
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setTutorFeeRateType(tutorFeeRateType === "HOURLY" ? "MONTHLY" : "HOURLY")}
+                              className="text-[10px] font-extrabold text-purple-600 hover:text-purple-800 cursor-pointer bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200"
+                            >
+                              {tutorFeeRateType === "HOURLY" ? "⏱️ /hr" : "📅 /mo"}
+                            </button>
+                          </div>
                           <input
                             type="number"
                             value={tutorFeeMin}
                             onChange={(e) => setTutorFeeMin(e.target.value)}
+                            placeholder={tutorFeeRateType === "HOURLY" ? "Min ₹/hr" : "Min ₹/mo"}
+                            className="w-full rounded-2xl px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-semibold outline-none focus:border-purple-500 shadow-2xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block font-bold text-slate-700">
+                            Max Fee ({tutorFeeRateType === "HOURLY" ? "₹/hr" : "₹/mo"})
+                          </label>
+                          <input
+                            type="number"
+                            value={tutorFeeMax}
+                            onChange={(e) => setTutorFeeMax(e.target.value)}
+                            placeholder={tutorFeeRateType === "HOURLY" ? "Max ₹/hr" : "Max ₹/mo"}
                             className="w-full rounded-2xl px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-semibold outline-none focus:border-purple-500 shadow-2xs"
                           />
                         </div>

@@ -36,7 +36,7 @@ import { LeadPurchaseModal, type SubscriptionInfo } from "@/components/tutor/Lea
 import { StartChatButton } from "@/components/chat/StartChatButton";
 import { LeadNotifReminderBanner } from "@/components/tutor/LeadNotifReminderBanner";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
-import { getInquiryDisplayCode } from "@/lib/lead-utils";
+import { getInquiryDisplayCode, formatLeadBudget } from "@/lib/lead-utils";
 
 export type ParentDetails = {
   name: string;
@@ -406,11 +406,7 @@ function LeadCard({
                   <div className="flex items-center gap-1.5 text-[#0F2540] font-bold">
                     <IndianRupee size={13} className="text-[#2D9E6B] shrink-0" />
                     <span className="truncate">
-                      {lead.budgetMin && lead.budgetMax
-                        ? `₹${lead.budgetMin.toLocaleString("en-IN")} – ₹${lead.budgetMax.toLocaleString("en-IN")} / month`
-                        : lead.budgetMax
-                        ? `Up to ₹${lead.budgetMax.toLocaleString("en-IN")} / month`
-                        : `From ₹${lead.budgetMin?.toLocaleString("en-IN")} / month`}
+                      {formatLeadBudget(lead, "full")}
                     </span>
                   </div>
                 )}

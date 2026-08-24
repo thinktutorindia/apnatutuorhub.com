@@ -287,6 +287,42 @@ function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
+// ─── Class-wise Benchmark Fee Structure (User-Defined Rates) ─────────────────
+export const CLASS_FEE_RATES = {
+  "1-5": {
+    label: "Class 1 to 5",
+    hourlyMin: 200,
+    hourlyMax: 300,
+    monthlyMin: 2500,
+    monthlyMax: 4500,
+    classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Nursery", "KG", "LKG", "UKG", "Primary"],
+  },
+  "6-8": {
+    label: "Class 6 to 8",
+    hourlyMin: 200,
+    hourlyMax: 400,
+    monthlyMin: 3500,
+    monthlyMax: 6000,
+    classes: ["Class 6", "Class 7", "Class 8", "Middle School"],
+  },
+  "9-10": {
+    label: "Class 9 to 10",
+    hourlyMin: 400,
+    hourlyMax: 600,
+    monthlyMin: 5000,
+    monthlyMax: 9000,
+    classes: ["Class 9", "Class 10", "Secondary"],
+  },
+  "11-12": {
+    label: "Class 11 to 12",
+    hourlyMin: 500,
+    hourlyMax: 800,
+    monthlyMin: 7000,
+    monthlyMax: 12000,
+    classes: ["Class 11", "Class 12", "Senior Secondary", "JEE", "NEET"],
+  },
+};
+
 // ─── DummyLead Type ───────────────────────────────────────────────────────────
 
 export interface DummyLead {
@@ -300,6 +336,7 @@ export interface DummyLead {
   mode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   budgetMin: number;
   budgetMax: number;
+  rateType: "HOURLY" | "MONTHLY";
   days: string;
   timing: string;
   isDummy: true;
@@ -398,6 +435,7 @@ export function generateDummyLead(opts: {
   tutorSubjects?: string[];
   tutorClassLevels?: string[];
   teachingRadius?: number;
+  rateType?: "HOURLY" | "MONTHLY";
   budgetMin?: number;
   budgetMax?: number;
   overrideSubjects?: string[];
@@ -411,13 +449,15 @@ export function generateDummyLead(opts: {
     tutorSubjects = [],
     tutorClassLevels = [],
     teachingRadius = 25,
-    budgetMin = 800,
-    budgetMax = 3000,
+    rateType,
+    budgetMin,
+    budgetMax,
     overrideSubjects = [],
     userSeed = 0,
   } = opts;
 
-  const rng = seededRandom(Math.floor(Date.now() / 86400000) * 1000 + userSeed);
+  const dayNum = Math.floor(Date.now() / 86400000);
+  const rng = seededRandom(dayNum * 1000 + userSeed);
 
   // 100% Automatic Locality & City Resolution for ANY tutor
   const { locality, city, distanceKm } = resolveLocalityDynamic({
@@ -444,14 +484,43 @@ export function generateDummyLead(opts: {
     subjects.push(pool.splice(idx, 1)[0]);
   }
 
-  // Class level
+  // Class level - rotate daily deterministically within the tutor's taught class levels
   const classPool = tutorClassLevels.length > 0 ? tutorClassLevels : CLASS_LEVELS;
-  const classLevel = pick(classPool, rng);
+  const classIdx = (dayNum + userSeed) % classPool.length;
+  const classLevel = classPool[classIdx];
 
-  // Budget
-  const range = budgetMax - budgetMin;
-  const bMin = budgetMin + Math.floor(rng() * range * 0.4);
-  const bMax = Math.min(bMin + 300 + Math.floor(rng() * 700), budgetMax);
+  // Resolve rate band matching this specific class level (User Fee Structure)
+  let feeBandKey: keyof typeof CLASS_FEE_RATES = "6-8";
+  if (CLASS_FEE_RATES["1-5"].classes.some((c) => classLevel.toLowerCase().includes(c.toLowerCase()))) {
+    feeBandKey = "1-5";
+  } else if (CLASS_FEE_RATES["6-8"].classes.some((c) => classLevel.toLowerCase().includes(c.toLowerCase()))) {
+    feeBandKey = "6-8";
+  } else if (CLASS_FEE_RATES["9-10"].classes.some((c) => classLevel.toLowerCase().includes(c.toLowerCase()))) {
+    feeBandKey = "9-10";
+  } else if (CLASS_FEE_RATES["11-12"].classes.some((c) => classLevel.toLowerCase().includes(c.toLowerCase()))) {
+    feeBandKey = "11-12";
+  }
+
+  const band = CLASS_FEE_RATES[feeBandKey];
+  const isHourly = rateType === "HOURLY" || (rateType === undefined && budgetMax !== undefined && budgetMax <= 1500);
+
+  let bMin: number;
+  let bMax: number;
+
+  if (budgetMin !== undefined && budgetMax !== undefined && (budgetMin !== 800 || budgetMax !== 3000)) {
+    const range = budgetMax - budgetMin;
+    bMin = Math.max(100, Math.round((budgetMin + (rng() * range * 0.4)) / (isHourly ? 50 : 500)) * (isHourly ? 50 : 500));
+    bMax = Math.min(Math.round((bMin + (isHourly ? 50 : 1000) + (rng() * (budgetMax - bMin))) / (isHourly ? 50 : 500)) * (isHourly ? 50 : 500), budgetMax);
+    if (bMin >= bMax) bMax = bMin + (isHourly ? 50 : 1000);
+  } else if (isHourly) {
+    bMin = band.hourlyMin + Math.floor(rng() * 2) * 50;
+    bMax = Math.min(bMin + 50 + Math.floor(rng() * 2) * 50, band.hourlyMax);
+    if (bMin >= bMax) bMax = bMin + 50;
+  } else {
+    bMin = band.monthlyMin + Math.floor(rng() * 3) * 500;
+    bMax = Math.min(bMin + 1000 + Math.floor(rng() * 3) * 500, band.monthlyMax);
+    if (bMin >= bMax) bMax = bMin + 1000;
+  }
 
   return {
     locality,
@@ -464,6 +533,7 @@ export function generateDummyLead(opts: {
     mode: pick(MODES, rng),
     budgetMin: bMin,
     budgetMax: bMax,
+    rateType: isHourly ? "HOURLY" : "MONTHLY",
     days: pick(DAYS_OPTIONS, rng),
     timing: pick(TIME_OPTIONS, rng),
     isDummy: true,
@@ -477,6 +547,7 @@ export const modeLabel: Record<string, string> = {
   ONLINE: "Online",
   OFFLINE: "In-Person",
   EITHER: "Online / In-Person",
+  COACHING: "Coaching Institute",
 };
 
 // ─── Deliver dummy lead to a single tutor ────────────────────────────────────
@@ -502,6 +573,11 @@ export async function deliverDummyLeadToTutor(opts: {
     return { sent: 0, failed: 0 };
   }
 
+  const budgetUnit = lead.rateType === "HOURLY" ? "/hr" : "/mo";
+  const budgetFormatted = lead.rateType === "HOURLY"
+    ? `₹${lead.budgetMin}–₹${lead.budgetMax}/hr`
+    : `₹${lead.budgetMin.toLocaleString("en-IN")}–₹${lead.budgetMax.toLocaleString("en-IN")}/mo`;
+
   for (const channel of channels) {
     let status = "FAILED";
     let errorMessage: string | undefined;
@@ -515,7 +591,7 @@ export async function deliverDummyLeadToTutor(opts: {
             type: "NEW_LEAD_MATCH",
             priority: "HIGH",
             title: `📍 New Requirement Near ${lead.locality}`,
-            message: `A student in ${lead.locality} needs a ${lead.subjects.join(", ")} tutor for ${lead.classLevel}. Budget: ₹${lead.budgetMin}–₹${lead.budgetMax}/mo.`,
+            message: `A student in ${lead.locality} needs a ${lead.subjects.join(", ")} tutor for ${lead.classLevel}. Budget: ${budgetFormatted}.`,
             actionUrl: targetUrl,
             isRead: false,
           },
@@ -526,7 +602,7 @@ export async function deliverDummyLeadToTutor(opts: {
         const targetUrl = `${appUrl}/tutor/leads?claimed=true&locality=${encodeURIComponent(lead.locality)}&subjects=${encodeURIComponent(lead.subjects.join(", "))}`;
         await sendWebPush(userId, {
           title: `📍 Student near ${lead.locality} needs a tutor!`,
-          body: `${lead.subjects.join(" & ")} · ${lead.classLevel} · ₹${lead.budgetMin}–₹${lead.budgetMax}/mo. Tap to view!`,
+          body: `${lead.subjects.join(" & ")} · ${lead.classLevel} · ${budgetFormatted}. Tap to view!`,
           url: targetUrl,
           tag: `dummy-lead-${campaignId}`,
         });
@@ -552,6 +628,7 @@ export async function deliverDummyLeadToTutor(opts: {
             mode: modeLabel[lead.mode] || lead.mode,
             budgetMin: lead.budgetMin,
             budgetMax: lead.budgetMax,
+            rateType: lead.rateType,
             days: lead.days,
             timing: lead.timing,
             studentName: lead.studentName,

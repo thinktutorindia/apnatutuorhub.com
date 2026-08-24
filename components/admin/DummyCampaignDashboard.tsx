@@ -3,7 +3,7 @@
 import React, { useState, useTransition, useCallback, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell,
 } from "recharts";
 import {
   Play, Pause, Square, Trash2, Zap, Plus, RefreshCw,
@@ -11,7 +11,8 @@ import {
   CheckCircle2, ChevronDown, ChevronRight, Eye,
   Download, Loader2, X, MapPin, GraduationCap,
   Clock, IndianRupee, Sparkles, BarChart2, Users,
-  Target, Settings2, BookOpen, Layers,
+  Target, Settings2, BookOpen, Layers, ShieldCheck,
+  Calendar, Check, AlertCircle, Info, Flame, ArrowRight
 } from "lucide-react";
 import {
   toggleCampaignStatusAction,
@@ -33,6 +34,11 @@ interface Campaign {
   targetGroup: string;
   channels: string[];
   leadsPerDay: number;
+  overrideSubjects?: string[];
+  budgetMin?: number;
+  budgetMax?: number;
+  customUserIds?: string[];
+  excludeUserIds?: string[];
   totalSent: number;
   totalFailed: number;
   totalLimit: number | null;
@@ -63,15 +69,15 @@ const STATUS_CONFIG = {
 };
 
 const TARGET_LABELS: Record<string, string> = {
-  ALL_TUTORS:  "🌐 All Tutors",
+  ALL_TUTORS:  "🌐 All Active Tutors",
   NEW_7D:      "🆕 New (7 days)",
   NEW_14D:     "🆕 New (14 days)",
   NEW_30D:     "🆕 New (30 days)",
-  VERIFIED:    "✅ Verified",
-  UNVERIFIED:  "⏳ Unverified",
-  SUBSCRIBED:  "💎 Subscribed",
-  FREE_TIER:   "🆓 Free Tier",
-  CUSTOM:      "🎯 Custom",
+  VERIFIED:    "✅ Verified Tutors",
+  UNVERIFIED:  "⏳ Unverified Tutors",
+  SUBSCRIBED:  "💎 Subscribed Tutors",
+  FREE_TIER:   "🆓 Free Tier Tutors",
+  CUSTOM:      "🎯 Specific Tutors",
 };
 
 const CHANNEL_META: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
@@ -81,37 +87,43 @@ const CHANNEL_META: Record<string, { icon: React.ReactNode; color: string; bg: s
 };
 
 const MODE_LABELS: Record<string, string> = {
-  ONLINE:  "Online",
-  OFFLINE: "In-Person",
-  EITHER:  "Online / In-Person",
+  ONLINE:   "Online",
+  OFFLINE:  "In-Person",
+  EITHER:   "Online / In-Person",
+  COACHING: "Coaching Institute",
 };
-
-const PIE_COLORS = ["#2563EB", "#7C3AED", "#D97706"];
 
 // ── Lead Preview Card ─────────────────────────────────────────────────────────
 
 function LeadPreviewCard({ lead, index }: { lead: DummyLead; index: number }) {
+  const isHourly = lead.rateType === "HOURLY";
+  const budgetFormatted = isHourly
+    ? `₹${lead.budgetMin}–₹${lead.budgetMax}/hr`
+    : `₹${(lead.budgetMin || 0).toLocaleString("en-IN")}–₹${(lead.budgetMax || 0).toLocaleString("en-IN")}/mo`;
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden hover:shadow-md transition-all">
       {/* Header strip */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2.5 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-white">
-          <MapPin size={12} />
-          <span className="text-xs font-extrabold">{lead.locality}, {lead.city}</span>
+          <MapPin size={13} />
+          <span className="text-xs font-black">{lead.locality}, {lead.city}</span>
           {lead.distanceKm !== undefined && (
-            <span className="text-[10px] bg-white/20 rounded-full px-1.5 py-0.5 font-bold">
+            <span className="text-[10px] bg-white/20 rounded-full px-2 py-0.5 font-bold">
               ~{lead.distanceKm} km away
             </span>
           )}
         </div>
-        <span className="text-[10px] text-white/70 font-bold">Lead #{index + 1}</span>
+        <span className="text-[10px] bg-black/20 text-white/90 font-black px-2 py-0.5 rounded-full">
+          Simulation #{index + 1}
+        </span>
       </div>
 
       <div className="p-4 space-y-3">
         {/* Subjects */}
         <div className="flex flex-wrap gap-1">
           {lead.subjects.map((s) => (
-            <span key={s} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold">
+            <span key={s} className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-black">
               <BookOpen size={9} /> {s}
             </span>
           ))}
@@ -119,34 +131,42 @@ function LeadPreviewCard({ lead, index }: { lead: DummyLead; index: number }) {
 
         {/* Details grid */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Class & Board</p>
-            <p className="text-xs font-extrabold text-slate-700 mt-0.5">{lead.classLevel} · {lead.board}</p>
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Class &amp; Board</p>
+            <p className="text-xs font-black text-slate-800 mt-0.5">{lead.classLevel} · {lead.board}</p>
           </div>
-          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Mode</p>
-            <p className="text-xs font-extrabold text-slate-700 mt-0.5">{MODE_LABELS[lead.mode]}</p>
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Teaching Mode</p>
+            <p className="text-xs font-black text-slate-800 mt-0.5">{MODE_LABELS[lead.mode] || lead.mode}</p>
           </div>
-          <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 col-span-2">
-            <p className="text-[9px] font-extrabold uppercase tracking-widest text-emerald-400">Budget</p>
-            <p className="text-sm font-extrabold text-emerald-700 mt-0.5">
-              ₹{lead.budgetMin.toLocaleString("en-IN")} – ₹{lead.budgetMax.toLocaleString("en-IN")}/mo
+          <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 col-span-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Dispatched Budget Rate</p>
+              <span className="text-[9px] font-black bg-emerald-200/60 text-emerald-900 px-1.5 py-0.2 rounded">
+                {isHourly ? "Hourly Tariff" : "Monthly Tariff"}
+              </span>
+            </div>
+            <p className="text-sm font-black text-emerald-800 mt-0.5">
+              {budgetFormatted}
             </p>
           </div>
-          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Days</p>
-            <p className="text-[11px] font-extrabold text-slate-700 mt-0.5">{lead.days}</p>
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Schedule</p>
+            <p className="text-[11px] font-bold text-slate-700 mt-0.5">{lead.days}</p>
           </div>
-          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Timing</p>
-            <p className="text-[11px] font-extrabold text-slate-700 mt-0.5">{lead.timing}</p>
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preferred Timing</p>
+            <p className="text-[11px] font-bold text-slate-700 mt-0.5">{lead.timing}</p>
           </div>
         </div>
 
         {/* Dummy watermark */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-fuchsia-50 border border-fuchsia-200">
-          <Sparkles size={10} className="text-fuchsia-500" />
-          <p className="text-[10px] font-extrabold text-fuchsia-600">Dummy / Simulated Lead</p>
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-fuchsia-50/70 border border-fuchsia-200">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={11} className="text-fuchsia-500" />
+            <p className="text-[10px] font-black text-fuchsia-700">Geo-Aware Simulation</p>
+          </div>
+          <span className="text-[9px] text-fuchsia-600 font-bold">Rotates Every 24h</span>
         </div>
       </div>
     </div>
@@ -169,30 +189,38 @@ function CampaignCard({
   const [isPending, startTransition] = useTransition();
   const [trigMsg, setTrigMsg] = useState<string | null>(null);
   const sc = STATUS_CONFIG[campaign.status] ?? STATUS_CONFIG.DRAFT;
-  const progress = campaign.totalLimit
-    ? Math.min((campaign.totalSent / campaign.totalLimit) * 100, 100) : null;
 
-  const handleStatus = (newStatus: "ACTIVE" | "PAUSED" | "STOPPED") => {
+  const isHourly = (campaign.budgetMax ?? 3000) <= 1500;
+  const rateDisplay = isHourly
+    ? `₹${campaign.budgetMin ?? 200}–₹${campaign.budgetMax ?? 600}/hr`
+    : `₹${(campaign.budgetMin ?? 800).toLocaleString()}–₹${(campaign.budgetMax ?? 3000).toLocaleString()}/mo`;
+
+  const handleStatus = (e: React.MouseEvent, newStatus: "ACTIVE" | "PAUSED" | "STOPPED") => {
+    e.stopPropagation();
     startTransition(async () => {
       await toggleCampaignStatusAction(campaign.id, newStatus);
       onRefresh();
     });
   };
 
-  const handleDelete = () => {
-    if (!confirm(`Delete "${campaign.name}"?`)) return;
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete campaign "${campaign.name}"?`)) return;
     startTransition(async () => {
       await deleteDummyCampaignAction(campaign.id);
       onRefresh();
     });
   };
 
-  const handleTrigger = () => {
+  const handleTrigger = (e: React.MouseEvent) => {
+    e.stopPropagation();
     startTransition(async () => {
       const r = await triggerCampaignNowAction(campaign.id);
-      setTrigMsg(r.success
-        ? `✅ Sent to ${r.data!.usersProcessed} tutors (${r.data!.sent} notifications)`
-        : `❌ ${r.error}`);
+      setTrigMsg(
+        r.success
+          ? `✅ Dispatched to ${r.data!.usersProcessed} tutors (${r.data!.sent} notifications sent)`
+          : `❌ ${r.error}`
+      );
       setTimeout(() => setTrigMsg(null), 5000);
       onRefresh();
     });
@@ -202,113 +230,125 @@ function CampaignCard({
     <div
       className={`rounded-2xl border transition-all cursor-pointer ${
         isSelected
-          ? "border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100"
-          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+          ? "border-emerald-500 bg-emerald-50/70 shadow-md ring-2 ring-emerald-500/20"
+          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs"
       }`}
       onClick={onSelect}
     >
-      <div className="p-4">
-        {/* Title row */}
+      <div className="p-4 space-y-2.5">
+        {/* Title & Status */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-extrabold text-slate-900 text-sm truncate">{campaign.name}</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-black text-slate-900 text-sm truncate">{campaign.name}</span>
               <span
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border border-slate-200/40"
                 style={{ background: sc.bg, color: sc.color }}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
                 {sc.label}
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              {TARGET_LABELS[campaign.targetGroup]} · {campaign.leadsPerDay}/day
+            <p className="text-[11px] text-slate-500 font-bold mt-0.5">
+              {TARGET_LABELS[campaign.targetGroup] || campaign.targetGroup}
             </p>
           </div>
-          {isSelected && <ChevronDown size={14} className="text-emerald-500 shrink-0 mt-0.5" />}
+          {isSelected && <ChevronDown size={15} className="text-emerald-600 shrink-0 mt-0.5" />}
         </div>
 
-        {/* Channel badges */}
-        <div className="flex gap-1 mt-2">
-          {campaign.channels.map((ch) => {
-            const m = CHANNEL_META[ch];
-            return (
-              <span key={ch} className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-bold" style={{ background: m?.bg, color: m?.color }}>
-                {m?.icon} {m?.label}
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Stats row */}
-        <div className="flex items-center gap-3 mt-2.5 text-[11px] text-slate-500">
-          <span><strong className="text-slate-800">{campaign.totalSent.toLocaleString()}</strong> sent</span>
-          {campaign.totalLimit && <span>/ {campaign.totalLimit.toLocaleString()} limit</span>}
-          {campaign.lastRunAt && (
-            <span className="ml-auto">
-              Last: {new Date(campaign.lastRunAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-            </span>
-          )}
-        </div>
-
-        {/* Progress bar */}
-        {progress !== null && (
-          <div className="mt-2 h-1 rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+        {/* Schedule & Rate Pill */}
+        <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+          <div className="p-1.5 rounded-lg bg-slate-100/80 text-slate-700 font-bold flex items-center gap-1">
+            <Clock size={11} className="text-blue-500 shrink-0" />
+            <span className="truncate">9:00 AM IST Daily ({campaign.leadsPerDay}/day)</span>
           </div>
-        )}
+          <div className="p-1.5 rounded-lg bg-emerald-100/70 text-emerald-800 font-black flex items-center gap-1">
+            <IndianRupee size={11} className="text-emerald-600 shrink-0" />
+            <span className="truncate">{rateDisplay}</span>
+          </div>
+        </div>
 
-        {/* Trigger result */}
+        {/* Channels & Stats */}
+        <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+          <div className="flex gap-1">
+            {campaign.channels.map((ch) => {
+              const m = CHANNEL_META[ch];
+              return (
+                <span
+                  key={ch}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold"
+                  style={{ background: m?.bg, color: m?.color }}
+                >
+                  {m?.icon} {m?.label}
+                </span>
+              );
+            })}
+          </div>
+          <span className="text-[11px] text-slate-500 font-extrabold">
+            <strong className="text-slate-900 font-black">{campaign.totalSent.toLocaleString()}</strong> sent
+          </span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1.5 pt-1">
+          {campaign.status === "ACTIVE" && (
+            <button
+              type="button"
+              onClick={(e) => handleStatus(e, "PAUSED")}
+              disabled={isPending}
+              className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-black transition-all"
+            >
+              <Pause size={10} /> Pause
+            </button>
+          )}
+          {campaign.status === "PAUSED" && (
+            <button
+              type="button"
+              onClick={(e) => handleStatus(e, "ACTIVE")}
+              disabled={isPending}
+              className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-black transition-all"
+            >
+              <Play size={10} /> Resume
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleTrigger}
+            disabled={isPending}
+            className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black transition-all shadow-xs"
+          >
+            <Zap size={10} /> Fire Now
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isPending}
+            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+            title="Delete Campaign"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+
         {trigMsg && (
-          <div className={`mt-2 p-2 rounded-xl text-[11px] font-bold ${trigMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+          <div className="p-2 rounded-xl bg-slate-900 text-white text-[10px] font-bold animate-in fade-in">
             {trigMsg}
           </div>
         )}
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-1.5 mt-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
-          {(campaign.status === "DRAFT" || campaign.status === "PAUSED") && (
-            <button onClick={() => handleStatus("ACTIVE")} disabled={isPending}
-              className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-extrabold transition-all disabled:opacity-50">
-              {isPending ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />}
-              {campaign.status === "PAUSED" ? "Resume" : "Activate"}
-            </button>
-          )}
-          {campaign.status === "ACTIVE" && (
-            <button onClick={() => handleStatus("PAUSED")} disabled={isPending}
-              className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[11px] font-extrabold transition-all disabled:opacity-50">
-              {isPending ? <Loader2 size={10} className="animate-spin" /> : <Pause size={10} />} Pause
-            </button>
-          )}
-          {(campaign.status === "ACTIVE" || campaign.status === "PAUSED") && (
-            <button onClick={() => handleStatus("STOPPED")} disabled={isPending}
-              className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-[11px] font-extrabold transition-all">
-              <Square size={10} /> Stop
-            </button>
-          )}
-          <button onClick={handleTrigger} disabled={isPending}
-            className="flex items-center gap-1 px-2.5 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-[11px] font-extrabold transition-all disabled:opacity-50">
-            {isPending ? <Loader2 size={10} className="animate-spin" /> : <Zap size={10} />} Fire Now
-          </button>
-          {(campaign.status === "DRAFT" || campaign.status === "STOPPED") && (
-            <button onClick={handleDelete} disabled={isPending}
-              className="ml-auto flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-500 rounded-xl text-[11px] font-bold transition-all">
-              <Trash2 size={10} />
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );
 }
 
-// ── Right Panel: Campaign Detail + Lead Preview ───────────────────────────────
+// ── Right Panel: Comprehensive Campaign Detail, Simulator & Sent Transcripts ────
 
-function CampaignDetailPanel({ campaign }: { campaign: Campaign }) {
+function CampaignDetailPanel({ campaign, onRefresh }: { campaign: Campaign; onRefresh: () => void }) {
   const [leads, setLeads] = useState<DummyLead[]>([]);
   const [loading, setLoading] = useState(false);
   const [tutorCount, setTutorCount] = useState(0);
-  const [activeTab, setActiveTab] = useState<"preview" | "logs">("preview");
+  const [activeTab, setActiveTab] = useState<"logs" | "preview" | "settings">("logs");
+  const [isFiring, startTransition] = useTransition();
+  const [triggerFeedback, setTriggerFeedback] = useState<string | null>(null);
 
   const loadPreview = useCallback(async () => {
     setLoading(true);
@@ -325,85 +365,204 @@ function CampaignDetailPanel({ campaign }: { campaign: Campaign }) {
   }, [loadPreview]);
 
   const sc = STATUS_CONFIG[campaign.status] ?? STATUS_CONFIG.DRAFT;
+  const isHourly = (campaign.budgetMax ?? 3000) <= 1500;
+  const rateDisplay = isHourly
+    ? `₹${campaign.budgetMin ?? 200}–₹${campaign.budgetMax ?? 600} / hour`
+    : `₹${(campaign.budgetMin ?? 800).toLocaleString()}–₹${(campaign.budgetMax ?? 3000).toLocaleString()} / month`;
+
+  const handleInstantDispatch = () => {
+    setTriggerFeedback(null);
+    startTransition(async () => {
+      const r = await triggerCampaignNowAction(campaign.id);
+      if (r.success) {
+        setTriggerFeedback(`🚀 Successfully dispatched to ${r.data?.usersProcessed} tutors (${r.data?.sent} notifications)!`);
+        onRefresh();
+      } else {
+        setTriggerFeedback(`❌ Error: ${r.error}`);
+      }
+    });
+  };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Panel Header */}
-      <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
-        <div>
-          <h2 className="font-extrabold text-slate-900 text-base leading-tight">{campaign.name}</h2>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold" style={{ background: sc.bg, color: sc.color }}>
-              <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} /> {sc.label}
-            </span>
-            <span className="text-xs text-slate-500">{TARGET_LABELS[campaign.targetGroup]}</span>
-            <span className="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5">
-              👥 {tutorCount.toLocaleString()} tutors
-            </span>
+    <div className="flex flex-col h-full min-h-0 bg-white">
+      {/* ── Top Header & Follow-Up Status ── */}
+      <div className="p-5 border-b border-slate-100 space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-black text-slate-900 text-lg leading-tight">{campaign.name}</h2>
+              <span
+                className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black"
+                style={{ background: sc.bg, color: sc.color }}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
+                {sc.label}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-semibold mt-1">
+              Targeting: <strong className="text-slate-800">{TARGET_LABELS[campaign.targetGroup] || campaign.targetGroup}</strong> ({tutorCount} matched tutors)
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleInstantDispatch}
+              disabled={isFiring}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition-all shadow-sm disabled:opacity-60"
+            >
+              {isFiring ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+              <span>{isFiring ? "Dispatching..." : "⚡ Test Fire Now"}</span>
+            </button>
           </div>
         </div>
-        <button onClick={loadPreview} disabled={loading}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-all disabled:opacity-50">
-          {loading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} Refresh
-        </button>
-      </div>
 
-      {/* Stats strip */}
-      <div className="grid grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
-        {[
-          { label: "Total Sent",  value: campaign.totalSent.toLocaleString(),  icon: <Send size={11} className="text-emerald-500" /> },
-          { label: "Per Day",     value: `${campaign.leadsPerDay} lead${campaign.leadsPerDay > 1 ? "s" : ""}`, icon: <Clock size={11} className="text-blue-500" /> },
-          { label: "Channels",    value: campaign.channels.length,              icon: <Layers size={11} className="text-purple-500" /> },
-          { label: "Limit",       value: campaign.totalLimit ? campaign.totalLimit.toLocaleString() : "∞", icon: <Target size={11} className="text-amber-500" /> },
-        ].map((s) => (
-          <div key={s.label} className="px-3 py-2.5 text-center">
-            <div className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">
-              {s.icon} {s.label}
+        {/* Follow-Up Status & Automated Daily Schedule Card */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50/50 border border-blue-200/80 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow-xs">
+              <Clock size={16} />
             </div>
-            <p className="text-sm font-extrabold text-slate-800">{s.value}</p>
+            <div>
+              <p className="text-xs font-black text-blue-950 flex items-center gap-1.5">
+                <span>⏰ Automated Daily Dispatch: 9:00 AM IST</span>
+                <span className="text-[10px] bg-blue-200/80 text-blue-900 px-2 py-0.2 rounded-full font-black">
+                  Daily Follow-Up Active
+                </span>
+              </p>
+              <p className="text-[11px] text-blue-700 font-semibold mt-0.5">
+                {campaign.lastRunAt
+                  ? `Last dispatched on ${new Date(campaign.lastRunAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} · Next automated run scheduled for 9:00 AM IST tomorrow`
+                  : "Next automated run scheduled for 9:00 AM IST tomorrow"}
+              </p>
+            </div>
           </div>
-        ))}
+
+          <div className="flex items-center gap-2 text-xs font-black text-blue-900 bg-white/80 px-3 py-1.5 rounded-xl border border-blue-200">
+            <span>{campaign.leadsPerDay} lead(s) / tutor daily</span>
+          </div>
+        </div>
+
+        {triggerFeedback && (
+          <div className="p-3 rounded-xl bg-slate-900 text-white text-xs font-black animate-in fade-in flex items-center justify-between">
+            <span>{triggerFeedback}</span>
+            <button onClick={() => setTriggerFeedback(null)} className="text-slate-400 hover:text-white">✕</button>
+          </div>
+        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-100 px-4">
+      {/* ── Key Metrics Strip ── */}
+      <div className="grid grid-cols-4 divide-x divide-slate-100 border-b border-slate-100 bg-slate-50/30">
+        <div className="px-3 py-2.5 text-center">
+          <div className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+            <Send size={11} className="text-emerald-500" /> Total Dispatched
+          </div>
+          <p className="text-sm font-black text-slate-900">{campaign.totalSent.toLocaleString()}</p>
+        </div>
+        <div className="px-3 py-2.5 text-center">
+          <div className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+            <IndianRupee size={11} className="text-blue-500" /> Rate Structure
+          </div>
+          <p className="text-xs font-black text-slate-800 truncate px-1">{rateDisplay}</p>
+        </div>
+        <div className="px-3 py-2.5 text-center">
+          <div className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+            <Layers size={11} className="text-purple-500" /> Delivery Channels
+          </div>
+          <p className="text-xs font-black text-slate-800">{campaign.channels.join(", ")}</p>
+        </div>
+        <div className="px-3 py-2.5 text-center">
+          <div className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+            <Target size={11} className="text-amber-500" /> Total Limit
+          </div>
+          <p className="text-sm font-black text-slate-900">
+            {campaign.totalLimit ? campaign.totalLimit.toLocaleString() : "Unlimited (∞)"}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Navigation Tabs ── */}
+      <div className="flex border-b border-slate-200 px-5 bg-white">
         {[
-          { key: "preview", label: "Lead Preview", icon: <Eye size={12} /> },
-          { key: "logs",    label: "Delivery Logs", icon: <BarChart2 size={12} /> },
+          { key: "logs", label: "📜 Sent Messages & Tutors", icon: <BarChart2 size={13} />, badge: `${campaign.totalSent}` },
+          { key: "preview", label: "👁️ Daily Rotation Simulator", icon: <Sparkles size={13} /> },
+          { key: "settings", label: "⚙️ Campaign Configuration", icon: <Settings2 size={13} /> },
         ].map((tab) => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-extrabold border-b-2 transition-all ${
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key as any)}
+            className={`flex items-center gap-2 px-4 py-3 text-xs font-black border-b-2 transition-all ${
               activeTab === tab.key
-                ? "border-emerald-500 text-emerald-600"
-                : "border-transparent text-slate-400 hover:text-slate-700"
-            }`}>
-            {tab.icon} {tab.label}
+                ? "border-emerald-600 text-emerald-800"
+                : "border-transparent text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+            {tab.badge && (
+              <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded-full font-black">
+                {tab.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === "preview" && (
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={13} className="text-fuchsia-500" />
-              <p className="text-xs font-extrabold text-slate-600">
-                Sample leads that real tutors will receive today (geo-matched)
-              </p>
+      {/* ── Tab Content ── */}
+      <div className="flex-1 overflow-y-auto p-5">
+        {/* Tab 1: Sent Messages & Tutors */}
+        {activeTab === "logs" && (
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+              <Info size={15} className="text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-black text-slate-800">
+                  Full Dispatch Log &amp; Notification Transcripts
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Inspect every tutor who received a lead from this campaign. Click &quot;View Message&quot; to read the exact in-app notification, web push text, and simulated email sent to their device.
+                </p>
+              </div>
             </div>
+            <DummyCampaignLogs campaignId={campaign.id} />
+          </div>
+        )}
+
+        {/* Tab 2: Live Rotation Simulator */}
+        {activeTab === "preview" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black text-slate-900">
+                  24-Hour Geo &amp; Class Rotation Simulator
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Preview next simulated leads generated deterministically by tutor GPS location and class benchmarks.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={loadPreview}
+                disabled={loading}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all"
+              >
+                <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                <span>Reroll Simulation</span>
+              </button>
+            </div>
+
             {loading ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <Loader2 size={24} className="animate-spin mb-2" />
-                <p className="text-xs font-bold">Generating location-aware previews...</p>
+                <Loader2 size={24} className="animate-spin mb-2 text-emerald-500" />
+                <p className="text-xs font-bold">Calculating geo-rotations...</p>
               </div>
             ) : leads.length === 0 ? (
-              <div className="flex flex-col items-center py-16 text-slate-400">
-                <MapPin size={32} className="mb-2 opacity-20" />
-                <p className="text-xs font-bold">No tutors in target group yet</p>
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                <p className="text-xs font-black text-slate-700">No tutors found in this target audience</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {leads.map((lead, i) => (
                   <LeadPreviewCard key={i} lead={lead} index={i} />
                 ))}
@@ -411,28 +570,35 @@ function CampaignDetailPanel({ campaign }: { campaign: Campaign }) {
             )}
           </div>
         )}
-        {activeTab === "logs" && (
-          <div className="p-4">
-            <DummyCampaignLogs campaignId={campaign.id} />
+
+        {/* Tab 3: Campaign Configuration */}
+        {activeTab === "settings" && (
+          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 text-xs">
+            <p className="font-black text-slate-900 text-sm">Campaign Engine Settings</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-white rounded-xl border border-slate-200">
+                <p className="text-[10px] font-black uppercase text-slate-400">Target Group</p>
+                <p className="font-black text-slate-800 mt-0.5">{TARGET_LABELS[campaign.targetGroup] || campaign.targetGroup}</p>
+              </div>
+              <div className="p-3 bg-white rounded-xl border border-slate-200">
+                <p className="text-[10px] font-black uppercase text-slate-400">Rate Structure</p>
+                <p className="font-black text-emerald-700 mt-0.5">{rateDisplay}</p>
+              </div>
+              <div className="p-3 bg-white rounded-xl border border-slate-200">
+                <p className="text-[10px] font-black uppercase text-slate-400">Leads per Tutor Daily</p>
+                <p className="font-black text-slate-800 mt-0.5">{campaign.leadsPerDay} lead(s) / day</p>
+              </div>
+              <div className="p-3 bg-white rounded-xl border border-slate-200">
+                <p className="text-[10px] font-black uppercase text-slate-400">Schedule Time</p>
+                <p className="font-black text-slate-800 mt-0.5">9:00 AM IST Every Morning</p>
+              </div>
+              <div className="p-3 bg-white rounded-xl border border-slate-200 col-span-2">
+                <p className="text-[10px] font-black uppercase text-slate-400">Internal Memo / Notes</p>
+                <p className="font-semibold text-slate-700 mt-0.5">{campaign.description || "No internal notes provided."}</p>
+              </div>
+            </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-// ── KPI Card ──────────────────────────────────────────────────────────────────
-
-function KpiCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex items-center gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: color }}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{label}</p>
-        <p className="text-xl font-extrabold text-slate-900">{value}</p>
-        {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
       </div>
     </div>
   );
@@ -453,6 +619,13 @@ export function DummyCampaignDashboard(props: Props) {
     startTransition(() => setRefreshKey((k) => k + 1));
   }, []);
 
+  // Auto-select first campaign on load if available
+  useEffect(() => {
+    if (!selectedId && campaigns.length > 0) {
+      setSelectedId(campaigns[0].id);
+    }
+  }, [campaigns, selectedId]);
+
   const filtered = campaigns.filter((c) => {
     if (statusFilter === "all") return true;
     if (statusFilter === "active") return c.status === "ACTIVE";
@@ -463,114 +636,165 @@ export function DummyCampaignDashboard(props: Props) {
   });
 
   const selectedCampaign = campaigns.find((c) => c.id === selectedId) ?? null;
-  const pieData = Object.entries(channelBreakdown).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value }));
 
   return (
     <div className="flex flex-col gap-5 h-full">
-      {/* Page Header */}
+      {/* ── Top Page Header ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <Sparkles size={20} className="text-fuchsia-500" /> Dummy Lead Campaigns
+          <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Sparkles size={22} className="text-fuchsia-600" /> Dummy Lead Campaigns &amp; Follow-Ups
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Send geo-matched dummy leads to tutors · Rotates daily by location
+            Automated geo-matched daily dummy lead engine · Rotates localities &amp; class fee benchmarks every 24h
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-extrabold text-sm shadow-md shadow-emerald-500/25 transition-all"
+          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-md shadow-emerald-500/25 transition-all"
         >
-          <Plus size={15} /> New Campaign
+          <Plus size={16} /> Create Campaign
         </button>
       </div>
 
-      {/* KPI Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={<BarChart2 size={18} />} label="Campaigns" value={totalCampaigns} color="#3B82F6" />
-        <KpiCard icon={<Play size={18} />} label="Active" value={activeCampaigns} sub="Live now" color="#16A34A" />
-        <KpiCard icon={<Send size={18} />} label="Sent Today" value={sentToday.toLocaleString()} color="#0EA5E9" />
-        <KpiCard icon={<TrendingUp size={18} />} label="This Month" value={sentThisMonth.toLocaleString()} color="#8B5CF6" />
+      {/* ── Top Educational Engine Feature Strip ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0">
+            <MapPin size={16} />
+          </div>
+          <div>
+            <p className="text-xs font-black text-slate-900">24h Geo-Rotation</p>
+            <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+              Rotates through nearby localities using tutor GPS coords (e.g. Sangam Vihar → Batra → Khanpur).
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+            <GraduationCap size={16} />
+          </div>
+          <div>
+            <p className="text-xs font-black text-slate-900">Class Fee Benchmarks</p>
+            <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+              Adapts to taught classes (1–5: ₹200–300/hr, 6–8: ₹200–400/hr, 9–10: ₹400–600/hr, 11–12: ₹500–800/hr).
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-purple-500 text-white flex items-center justify-center shrink-0">
+            <ShieldCheck size={16} />
+          </div>
+          <div>
+            <p className="text-xs font-black text-slate-900">Resend Quota Guard</p>
+            <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+              Sends simulated alerts to placeholder accounts while protecting real email deliverability.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+            <Clock size={16} />
+          </div>
+          <div>
+            <p className="text-xs font-black text-slate-900">Automated 9:00 AM Cron</p>
+            <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+              Active campaigns dispatch daily follow-ups automatically every morning without manual intervention.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Main Layout: Left (list) + Right (detail/preview) */}
-      <div className="flex gap-4 min-h-0" style={{ height: "calc(100vh - 260px)" }}>
+      {/* ── KPI Strip ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white bg-blue-600">
+            <BarChart2 size={18} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Campaigns</p>
+            <p className="text-xl font-black text-slate-900">{totalCampaigns}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white bg-emerald-600">
+            <Play size={18} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Active Live</p>
+            <p className="text-xl font-black text-slate-900">{activeCampaigns} Campaigns</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white bg-sky-500">
+            <Send size={18} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sent Today</p>
+            <p className="text-xl font-black text-slate-900">{sentToday.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white bg-purple-600">
+            <TrendingUp size={18} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">This Month</p>
+            <p className="text-xl font-black text-slate-900">{sentThisMonth.toLocaleString()}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main 2-Column Section: Left (Campaigns List) & Right (Detail Panel / Transcripts) ── */}
+      <div className="flex flex-col lg:flex-row gap-4 min-h-0" style={{ height: "calc(100vh - 280px)" }}>
 
         {/* LEFT: Campaign list */}
-        <div className="flex flex-col w-full lg:w-[380px] shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-          {/* Charts */}
-          <div className="p-3 border-b border-slate-100">
-            <div className="grid grid-cols-2 gap-2">
-              {/* Mini bar chart */}
-              <div>
-                <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">30-Day Volume</p>
-                <ResponsiveContainer width="100%" height={55}>
-                  <BarChart data={dailyVolume.slice(-14)} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
-                    <XAxis dataKey="date" tick={false} />
-                    <Tooltip
-                      contentStyle={{ borderRadius: 8, fontSize: 10, border: "1px solid #E2E8F0" }}
-                      formatter={(v) => [v ?? 0, "Sent"]}
-                      labelFormatter={(l) => String(l ?? "").slice(5)}
-                    />
-                    <Bar dataKey="count" fill="#16A34A" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              {/* Mini pie */}
-              <div>
-                <p className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">Channel Split</p>
-                {pieData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={55}>
-                    <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" outerRadius={24} dataKey="value" paddingAngle={2}>
-                        {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip contentStyle={{ borderRadius: 8, fontSize: 10 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-14 text-[10px] text-slate-400">No data yet</div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Filter tabs */}
-          <div className="flex gap-1 p-2.5 border-b border-slate-100 overflow-x-auto">
+        <div className="flex flex-col w-full lg:w-[390px] shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-1 p-2 border-b border-slate-100 overflow-x-auto bg-slate-50/50">
             {[
-              { key: "all",     label: "All",     count: totalCampaigns },
-              { key: "active",  label: "Active",  count: campaigns.filter((c) => c.status === "ACTIVE").length },
-              { key: "paused",  label: "Paused",  count: campaigns.filter((c) => c.status === "PAUSED").length },
-              { key: "draft",   label: "Draft",   count: campaigns.filter((c) => c.status === "DRAFT").length },
-              { key: "stopped", label: "Stopped", count: campaigns.filter((c) => c.status === "STOPPED" || c.status === "COMPLETED").length },
+              { key: "all", label: "All", count: campaigns.length },
+              { key: "active", label: "Active", count: campaigns.filter((c) => c.status === "ACTIVE").length },
+              { key: "paused", label: "Paused", count: campaigns.filter((c) => c.status === "PAUSED").length },
+              { key: "draft", label: "Draft", count: campaigns.filter((c) => c.status === "DRAFT").length },
             ].map((tab) => (
-              <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-extrabold whitespace-nowrap transition-all ${
-                  statusFilter === tab.key ? "bg-emerald-500 text-white" : "text-slate-500 hover:bg-slate-100"
-                }`}>
-                {tab.label}
-                <span className={`h-3.5 min-w-3.5 flex items-center justify-center rounded-full text-[8px] font-extrabold px-0.5 ${statusFilter === tab.key ? "bg-white/30 text-white" : "bg-slate-200 text-slate-500"}`}>
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setStatusFilter(tab.key)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  statusFilter === tab.key
+                    ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-bold">
                   {tab.count}
                 </span>
               </button>
             ))}
           </div>
 
-          {/* Campaign list */}
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+          {/* Cards List */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
             {filtered.length === 0 ? (
-              <div className="flex flex-col items-center py-12 text-slate-400">
-                <Send size={32} className="mb-2 opacity-20" />
-                <p className="text-xs font-bold">No campaigns yet</p>
-                <p className="text-[10px] mt-1">Click "New Campaign" above</p>
+              <div className="p-8 text-center text-slate-400 text-xs font-bold">
+                No {statusFilter} campaigns found.
               </div>
             ) : (
               filtered.map((c) => (
                 <CampaignCard
-                  key={c.id + refreshKey}
+                  key={c.id}
                   campaign={c}
                   isSelected={selectedId === c.id}
-                  onSelect={() => setSelectedId(selectedId === c.id ? null : c.id)}
+                  onSelect={() => setSelectedId(c.id)}
                   onRefresh={onRefresh}
                 />
               ))
@@ -578,41 +802,43 @@ export function DummyCampaignDashboard(props: Props) {
           </div>
         </div>
 
-        {/* RIGHT: Detail + Preview */}
-        <div className="flex-1 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden hidden lg:flex flex-col min-h-0">
+        {/* RIGHT: Campaign detail, simulator, and sent messages transcript */}
+        <div className="flex-1 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden min-w-0">
           {selectedCampaign ? (
-            <CampaignDetailPanel campaign={selectedCampaign} />
+            <CampaignDetailPanel
+              key={`${selectedCampaign.id}-${refreshKey}`}
+              campaign={selectedCampaign}
+              onRefresh={onRefresh}
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center flex-1 text-slate-400 p-8">
-              <div className="w-16 h-16 rounded-2xl bg-fuchsia-50 flex items-center justify-center mb-4">
-                <Sparkles size={28} className="text-fuchsia-400" />
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-4">
+              <div className="w-16 h-16 rounded-3xl bg-fuchsia-100 text-fuchsia-600 flex items-center justify-center shadow-xs">
+                <Sparkles size={32} />
               </div>
-              <h3 className="font-extrabold text-slate-700 text-base mb-1">Select a Campaign</h3>
-              <p className="text-xs text-center max-w-xs text-slate-400">
-                Click any campaign on the left to see real lead previews — geo-matched to actual tutor locations
-              </p>
-              <div className="mt-6 flex flex-col gap-2 items-center text-[11px] text-slate-400">
-                <div className="flex items-center gap-1.5"><MapPin size={11} className="text-emerald-400" /> Leads rotate daily by tutor's neighbourhood</div>
-                <div className="flex items-center gap-1.5"><Sparkles size={11} className="text-fuchsia-400" /> Matched to tutor's subjects & class levels</div>
-                <div className="flex items-center gap-1.5"><Zap size={11} className="text-blue-400" /> Fire now to test instantly</div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Select a Campaign to Inspect</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-md">
+                  Click any campaign on the left to see full daily follow-up stats, real-time message transcripts, and live rotation previews.
+                </p>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Create Campaign Modal */}
+      {/* ── Create Campaign Modal ── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="relative z-10 w-full sm:max-w-3xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] overflow-hidden flex flex-col my-auto">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white z-10">
               <div>
-                <h2 className="font-extrabold text-slate-900 text-base">New Dummy Lead Campaign</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Geo-matched leads rotate daily per tutor location</p>
+                <h2 className="font-black text-slate-900 text-base">New Dummy Lead Campaign</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Geo-matched leads rotate daily per tutor location &amp; class levels</p>
               </div>
-              <button onClick={() => setShowForm(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+              <button
+                onClick={() => setShowForm(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+              >
                 <X size={18} />
               </button>
             </div>

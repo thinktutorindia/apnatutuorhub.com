@@ -56,7 +56,7 @@ const ROLE_COLOR: Record<string, { bg: string; text: string; border: string; ava
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; role?: string; status?: string; emailType?: string; page?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -66,6 +66,7 @@ export default async function AdminUsersPage({
   const q = params.q?.trim() ?? "";
   const roleFilter = params.role ?? "";
   const statusFilter = params.status ?? "";
+  const emailTypeFilter = params.emailType ?? "";
   const page = Math.max(1, Number(params.page ?? 1));
   const take = 20;
   const skip = (page - 1) * take;
@@ -91,11 +92,32 @@ export default async function AdminUsersPage({
     andConditions.push({ isActive: false });
   }
 
+  // ── Genuine / Auto-assigned Email Filter ──
+  if (emailTypeFilter === "GENUINE") {
+    andConditions.push({
+      AND: [
+        { email: { not: { endsWith: "@apnatutorhub.com" } } },
+        { email: { not: { contains: "apnatutorhub.com" } } },
+      ],
+    });
+  } else if (emailTypeFilter === "AUTO_GENERATED") {
+    andConditions.push({
+      OR: [
+        { email: { endsWith: "@apnatutorhub.com" } },
+        { email: { contains: "apnatutorhub.com" } },
+      ],
+    });
+  } else if (emailTypeFilter === "VERIFIED") {
+    andConditions.push({
+      emailVerified: { not: null },
+    });
+  }
+
   if (andConditions.length > 0) {
     where.AND = andConditions;
   }
 
-  const [users, total] = await Promise.all([
+  const [users, total, genuineTotal, genuineParentsTotal, genuineTutorsTotal] = await Promise.all([
     prisma.user.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -140,6 +162,32 @@ export default async function AdminUsersPage({
       },
     }),
     prisma.user.count({ where }),
+    prisma.user.count({
+      where: {
+        AND: [
+          { email: { not: { endsWith: "@apnatutorhub.com" } } },
+          { email: { not: { contains: "apnatutorhub.com" } } },
+        ],
+      },
+    }),
+    prisma.user.count({
+      where: {
+        role: "PARENT",
+        AND: [
+          { email: { not: { endsWith: "@apnatutorhub.com" } } },
+          { email: { not: { contains: "apnatutorhub.com" } } },
+        ],
+      },
+    }),
+    prisma.user.count({
+      where: {
+        role: "TUTOR",
+        AND: [
+          { email: { not: { endsWith: "@apnatutorhub.com" } } },
+          { email: { not: { contains: "apnatutorhub.com" } } },
+        ],
+      },
+    }),
   ]);
 
   const resolvedUsers = await Promise.all(
@@ -156,18 +204,24 @@ export default async function AdminUsersPage({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">User Management</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">User Management</span>
+            <span className="text-[11px] font-bold text-slate-400">•</span>
+            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              ✨ {genuineTotal} Genuine Email Users ({genuineParentsTotal} Parents · {genuineTutorsTotal} Tutors)
+            </span>
+          </div>
           <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             Account &amp; Role Directory
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            {total.toLocaleString("en-IN")} total parents, tutors, and sub-admin staff
+            {total.toLocaleString("en-IN")} total parents, tutors, and sub-admin staff matching filters
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 rounded-2xl px-4 py-2 bg-emerald-50 border border-emerald-200 text-[#2D9E6B] font-800 text-sm">
             <Users size={16} />
-            <span>{total} Total Users</span>
+            <span>{total} Filtered Users</span>
           </div>
           <CreateUserModal defaultQuery={q} />
           {isSuperAdmin && <ExportCsvButton label="Export CSV" action={exportUsersCsv} />}
@@ -179,6 +233,7 @@ export default async function AdminUsersPage({
         initialQ={q}
         initialRole={roleFilter}
         initialStatus={statusFilter}
+        initialEmailType={emailTypeFilter}
       />
 
       {/* Main User Directory Table */}
@@ -207,12 +262,12 @@ export default async function AdminUsersPage({
                       </div>
                       <div className="space-y-1">
                         <p className="text-[#0F2540] font-bold text-sm" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {q ? `No user found matching "${q}"` : "No users match your query"}
+                          {q ? `No user found matching "${q}"` : "No users match your filter criteria"}
                         </p>
                         <p className="text-xs text-slate-500 font-medium">
                           {q
                             ? `This email, phone, or name is not registered in our database yet. You can create a new account for them instantly with pre-filled details.`
-                            : `Try adjusting your search keywords or filter criteria.`}
+                            : `Try switching to "All Email Types" or adjusting your search keywords.`}
                         </p>
                       </div>
                       {q && (
@@ -235,6 +290,8 @@ export default async function AdminUsersPage({
                     border: "border-slate-300",
                     avatarGrad: "bg-gradient-to-tr from-slate-600 to-slate-800 text-white",
                   };
+
+                  const isGenuineEmail = !u.email.toLowerCase().includes("apnatutorhub.com");
 
                   const locationText = u.tutorProfile?.city
                     ? [u.tutorProfile.address, u.tutorProfile.city, u.tutorProfile.pincode].filter(Boolean).join(", ")
@@ -264,7 +321,18 @@ export default async function AdminUsersPage({
                           />
                           <div className="min-w-0">
                             <p className="truncate font-800 text-[#0F2540] text-sm">{u.name || "—"}</p>
-                            <p className="truncate text-xs font-semibold text-slate-500">{u.email}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="truncate text-xs font-semibold text-slate-600">{u.email}</p>
+                              {isGenuineEmail ? (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                                  ✨ Genuine
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-slate-100 text-slate-500 border border-slate-200 shrink-0">
+                                  🤖 Auto-Assigned
+                                </span>
+                              )}
+                            </div>
                             {u.phone && (
                               isSuperAdmin ? (
                                 <p className="text-[11px] font-mono text-emerald-700 font-bold flex items-center gap-1 mt-0.5">

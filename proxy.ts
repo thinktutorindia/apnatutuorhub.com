@@ -145,12 +145,17 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
     }
 
     if (session.user.role === "SUB_ADMIN" && pathname.startsWith("/admin")) {
-      const allowedModules = getAllowedSubAdminModules(session.user as any);
-      const isAllowed = allowedModules.some(
-        (mod) => pathname === mod || pathname.startsWith(mod + "/")
-      );
-      if (!isAllowed) {
-        return NextResponse.redirect(new URL("/admin/dashboard", req.nextUrl.origin));
+      // My Assigned Leads is always accessible to all Sub-Admins/Staff
+      if (pathname.startsWith("/admin/staff-leads/my-leads")) {
+        // Allowed
+      } else {
+        const allowedModules = getAllowedSubAdminModules(session.user as any);
+        const isAllowed = allowedModules.some(
+          (mod) => pathname === mod || pathname.startsWith(mod + "/")
+        );
+        if (!isAllowed) {
+          return NextResponse.redirect(new URL("/admin/dashboard", req.nextUrl.origin));
+        }
       }
     }
   }

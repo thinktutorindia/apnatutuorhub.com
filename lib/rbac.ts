@@ -93,6 +93,7 @@ export const FEATURE_PERMISSION_MAP: Record<AdminFeatureKey, readonly Permission
   users: ["users:read", "users:manage", "users:suspend"],
   kyc: ["kyc:review", "users:read", "users:manage"],
   leads: ["leads:read", "leads:manage", "users:read"],
+  "staff-leads": ["leads:read", "leads:manage", "users:read"],
   bookings: ["leads:read", "leads:manage", "users:read"],
   chat: ["users:read", "users:manage"],
   reviews: ["users:read"],
@@ -158,6 +159,7 @@ export type AdminFeatureKey =
   | "users"
   | "kyc"
   | "leads"
+  | "staff-leads"
   | "bookings"
   | "chat"
   | "reviews"
@@ -182,6 +184,7 @@ export const ALL_ADMIN_FEATURES: AdminFeatureDef[] = [
   { key: "users", label: "User Directory & Staff", category: "User Management", description: "Manage parent and tutor user accounts", route: "/admin/users" },
   { key: "kyc", label: "Tutor KYC Queue", category: "User Management", description: "Review and approve tutor verification documents", route: "/admin/kyc" },
   { key: "leads", label: "Student Leads Feed", category: "Operations", description: "Manage student requirements and lead postings", route: "/admin/leads" },
+  { key: "staff-leads", label: "Staff Leads CRM", category: "Operations", description: "Staging, daily follow-up and promotion of raw tutor leads", route: "/admin/staff-leads" },
   { key: "bookings", label: "Tuition Bookings", category: "Operations", description: "Oversee trial classes and booking schedules", route: "/admin/bookings" },
   { key: "chat", label: "Support Chat", category: "Operations", description: "Access live support chat and user messages", route: "/admin/chat" },
   { key: "reviews", label: "Reviews Moderation", category: "Operations", description: "Moderate tutor reviews and parent ratings", route: "/admin/reviews" },
@@ -194,19 +197,44 @@ export const ALL_ADMIN_FEATURES: AdminFeatureDef[] = [
 ];
 
 export const DEFAULT_ROLE_FEATURES: Record<string, AdminFeatureKey[]> = {
-  SUPPORT: ["dashboard", "users", "bookings", "chat", "reviews", "leads", "audit-logs"],
-  VERIFICATION: ["dashboard", "kyc", "users", "audit-logs"],
-  FINANCE: ["dashboard", "wallets", "audit-logs"],
-  OPERATIONS: ["dashboard", "leads", "bookings", "chat", "users", "audit-logs"],
-  MARKETING: ["dashboard", "settings", "coupons", "notifications", "broadcast", "audit-logs"],
+  SUPPORT: ["dashboard", "users", "bookings", "chat", "reviews", "leads", "staff-leads", "audit-logs"],
+  VERIFICATION: ["dashboard", "kyc", "users", "staff-leads", "audit-logs"],
+  FINANCE: ["dashboard", "wallets", "staff-leads", "audit-logs"],
+  OPERATIONS: ["dashboard", "leads", "staff-leads", "bookings", "chat", "users", "audit-logs"],
+  MARKETING: ["dashboard", "settings", "coupons", "notifications", "broadcast", "staff-leads", "audit-logs"],
 };
 
 // Helper: map sub-admin role to sidebar-visible modules (legacy static map fallback)
 export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
-  SUPPORT: ["/admin/dashboard", "/admin/users", "/admin/bookings", "/admin/chat", "/admin/reviews", "/admin/leads", "/admin/audit-logs"],
-  VERIFICATION: ["/admin/dashboard", "/admin/kyc", "/admin/users", "/admin/audit-logs"],
-  FINANCE: ["/admin/dashboard", "/admin/wallets", "/admin/audit-logs"],
-  OPERATIONS: ["/admin/dashboard", "/admin/leads", "/admin/bookings", "/admin/chat", "/admin/users", "/admin/audit-logs"],
+  SUPPORT: [
+    "/admin/dashboard",
+    "/admin/users",
+    "/admin/bookings",
+    "/admin/chat",
+    "/admin/reviews",
+    "/admin/leads",
+    "/admin/staff-leads",
+    "/admin/staff-leads/my-leads",
+    "/admin/staff-leads/upload",
+    "/admin/staff-leads/manage",
+    "/admin/staff-leads/assign",
+    "/admin/audit-logs",
+  ],
+  VERIFICATION: ["/admin/dashboard", "/admin/kyc", "/admin/users", "/admin/staff-leads/my-leads", "/admin/audit-logs"],
+  FINANCE: ["/admin/dashboard", "/admin/wallets", "/admin/staff-leads/my-leads", "/admin/audit-logs"],
+  OPERATIONS: [
+    "/admin/dashboard",
+    "/admin/leads",
+    "/admin/staff-leads",
+    "/admin/staff-leads/manage",
+    "/admin/staff-leads/upload",
+    "/admin/staff-leads/my-leads",
+    "/admin/staff-leads/assign",
+    "/admin/bookings",
+    "/admin/chat",
+    "/admin/users",
+    "/admin/audit-logs",
+  ],
   MARKETING: ["/admin/dashboard", "/admin/settings", "/admin/coupons", "/admin/notifications", "/admin/notifications/broadcast", "/admin/audit-logs"],
   SUPER_ADMIN: [], // Empty means all routes are accessible
 };
@@ -224,11 +252,19 @@ export function getAllowedSubAdminModules(subject: RbacSubject): string[] {
 
   // If sub-admin has custom permissions explicitly saved
   if (subject.customPermissions && subject.customPermissions.length > 0) {
-    const routes = new Set<string>(["/admin/dashboard"]);
+    const routes = new Set<string>(["/admin/dashboard", "/admin/staff-leads/my-leads"]);
     for (const key of subject.customPermissions) {
       const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
       if (feat) {
         routes.add(feat.route);
+        if (key === "staff-leads") {
+          routes.add("/admin/staff-leads");
+          routes.add("/admin/staff-leads/my-leads");
+          routes.add("/admin/staff-leads/reports");
+          routes.add("/admin/staff-leads/upload");
+          routes.add("/admin/staff-leads/manage");
+          routes.add("/admin/staff-leads/assign");
+        }
       }
     }
     return Array.from(routes);
@@ -242,6 +278,14 @@ export function getAllowedSubAdminModules(subject: RbacSubject): string[] {
     const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
     if (feat) {
       routes.add(feat.route);
+      if (key === "staff-leads") {
+        routes.add("/admin/staff-leads");
+        routes.add("/admin/staff-leads/my-leads");
+        routes.add("/admin/staff-leads/reports");
+        routes.add("/admin/staff-leads/upload");
+        routes.add("/admin/staff-leads/manage");
+        routes.add("/admin/staff-leads/assign");
+      }
     }
   }
   return Array.from(routes);

@@ -135,6 +135,29 @@ enum DummyTargetGroup {
   CUSTOM
 }
 
+enum StaffLeadStatus {
+  NEW
+  ASSIGNED
+  CONTACTED
+  FOLLOW_UP
+  INTERESTED
+  NOT_INTERESTED
+  NO_ANSWER
+  CONVERTED
+  REJECTED
+  DUPLICATE
+}
+
+enum CallOutcome {
+  ANSWERED
+  NO_ANSWER
+  BUSY
+  WRONG_NUMBER
+  CALLBACK_REQUESTED
+  CONVERTED
+  NOT_INTERESTED
+}
+
 // ────────────────────────────────────────────────
 // User & Auth
 // ────────────────────────────────────────────────
@@ -172,6 +195,8 @@ model User {
   sentMessages       Message[]
   adminNotesReceived AdminNote[]   @relation("AdminNotesTarget")
   adminNotesAuthored AdminNote[]   @relation("AdminNotesAuthor")
+  assignedStaffLeads StaffLead[]   @relation("StaffLeadAssignee")
+  staffLeadCallLogs  StaffLeadCallLog[] @relation("StaffLeadCaller")
 
   @@map("users")
 }
@@ -805,4 +830,88 @@ model CampaignDeliveryLog {
   @@index([userId, sentAt])
   @@index([sentAt])
   @@map("campaign_delivery_logs")
+}
+
+// ────────────────────────────────────────────────
+// Staff CRM — Raw Lead Staging Area
+// (separate from main TutorProfile — must be promoted explicitly)
+// ────────────────────────────────────────────────
+
+model StaffLeadBatch {
+  id          String   @id @default(cuid())
+  name        String                        // e.g. "Aug 25 WhatsApp Dump"
+  rawText     String   @db.Text             // full original paste
+  totalParsed Int      @default(0)
+  totalJunk   Int      @default(0)
+  createdById String
+
+  leads     StaffLead[]
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("staff_lead_batches")
+}
+
+model StaffLead {
+  id      String          @id @default(cuid())
+  batchId String?
+  batch   StaffLeadBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  // Original raw snippet from the paste
+  rawText String? @db.Text
+
+  // Extracted / editable fields (all nullable — staff fills missing ones)
+  name            String?
+  phone           String?
+  altPhone        String?
+  whatsapp        String?
+  email           String?
+  location        String?
+  pincode         String?
+  fullAddress     String?
+  subjects        String[] @default([])
+  classes         String[] @default([])
+  board           String?
+  qualification   String?
+  experienceYears Int?
+  gender          String?
+
+  // Staff workflow fields
+  status         StaffLeadStatus @default(NEW)
+  assignedToId   String?
+  assignedTo     User?           @relation("StaffLeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt     DateTime?
+  lastContactedAt DateTime?
+  nextFollowUpAt  DateTime?
+  staffNotes      String? @db.Text
+  priority        Int     @default(0)
+
+  // Promotion to main dataset
+  isPromoted             Boolean @default(false)
+  promotedTutorProfileId String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  callLogs StaffLeadCallLog[]
+
+  @@index([status, createdAt])
+  @@index([assignedToId, status])
+  @@index([batchId])
+  @@map("staff_leads")
+}
+
+model StaffLeadCallLog {
+  id         String      @id @default(cuid())
+  leadId     String
+  lead       StaffLead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  calledById String
+  calledBy   User        @relation("StaffLeadCaller", fields: [calledById], references: [id])
+  outcome    CallOutcome
+  notes      String?     @db.Text
+  calledAt   DateTime    @default(now())
+
+  @@index([leadId, calledAt])
+  @@map("staff_lead_call_logs")
 }

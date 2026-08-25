@@ -287,61 +287,18 @@ function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
-// ─── Class-wise Benchmark Fee Structure (User-Defined Rates) ─────────────────
-export const CLASS_FEE_RATES = {
-  "1-5": {
-    label: "Class 1 to 5",
-    hourlyMin: 200,
-    hourlyMax: 300,
-    monthlyMin: 2500,
-    monthlyMax: 4500,
-    classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Nursery", "KG", "LKG", "UKG", "Primary"],
-  },
-  "6-8": {
-    label: "Class 6 to 8",
-    hourlyMin: 200,
-    hourlyMax: 400,
-    monthlyMin: 3500,
-    monthlyMax: 6000,
-    classes: ["Class 6", "Class 7", "Class 8", "Middle School"],
-  },
-  "9-10": {
-    label: "Class 9 to 10",
-    hourlyMin: 400,
-    hourlyMax: 600,
-    monthlyMin: 5000,
-    monthlyMax: 9000,
-    classes: ["Class 9", "Class 10", "Secondary"],
-  },
-  "11-12": {
-    label: "Class 11 to 12",
-    hourlyMin: 500,
-    hourlyMax: 800,
-    monthlyMin: 7000,
-    monthlyMax: 12000,
-    classes: ["Class 11", "Class 12", "Senior Secondary", "JEE", "NEET"],
-  },
-};
-
-// ─── DummyLead Type ───────────────────────────────────────────────────────────
-
-export interface DummyLead {
-  locality: string;
-  city: string;
-  distanceKm?: number;
-  studentName: string;
-  classLevel: string;
-  board: string;
-  subjects: string[];
-  mode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
-  budgetMin: number;
-  budgetMax: number;
-  rateType: "HOURLY" | "MONTHLY";
-  days: string;
-  timing: string;
-  isDummy: true;
-  generatedAt: string;
-}
+export {
+  CLASS_FEE_RATES,
+  expandToIndividualClasses,
+  modeLabel,
+  type DummyLead,
+} from "./dummy-campaign-types";
+import {
+  CLASS_FEE_RATES,
+  expandToIndividualClasses,
+  modeLabel,
+  type DummyLead,
+} from "./dummy-campaign-types";
 
 export function resolveLocalityDynamic(opts: {
   tutorLat?: number | null;
@@ -484,8 +441,8 @@ export function generateDummyLead(opts: {
     subjects.push(pool.splice(idx, 1)[0]);
   }
 
-  // Class level - rotate daily deterministically within the tutor's taught class levels
-  const classPool = tutorClassLevels.length > 0 ? tutorClassLevels : CLASS_LEVELS;
+  // Class level - extract discrete individual classes from tutor's profile and pick ONE specific class
+  const classPool = expandToIndividualClasses(tutorClassLevels);
   const classIdx = (dayNum + userSeed) % classPool.length;
   const classLevel = classPool[classIdx];
 
@@ -508,18 +465,49 @@ export function generateDummyLead(opts: {
   let bMax: number;
 
   if (budgetMin !== undefined && budgetMax !== undefined && (budgetMin !== 800 || budgetMax !== 3000)) {
-    const range = budgetMax - budgetMin;
-    bMin = Math.max(100, Math.round((budgetMin + (rng() * range * 0.4)) / (isHourly ? 50 : 500)) * (isHourly ? 50 : 500));
-    bMax = Math.min(Math.round((bMin + (isHourly ? 50 : 1000) + (rng() * (budgetMax - bMin))) / (isHourly ? 50 : 500)) * (isHourly ? 50 : 500), budgetMax);
-    if (bMin >= bMax) bMax = bMin + (isHourly ? 50 : 1000);
+    if (isHourly) {
+      // For hourly, enforce tight 50 or 100 difference (e.g. 200–250, 200–300, 250–300, 300–400)
+      const validMin = Math.max(100, Math.round(budgetMin / 50) * 50);
+      const validMax = Math.max(validMin + 50, Math.round(budgetMax / 50) * 50);
+      const possibleMins: number[] = [];
+      for (let p = validMin; p <= validMax - 50; p += 50) {
+        possibleMins.push(p);
+      }
+      bMin = possibleMins.length > 0 ? pick(possibleMins, rng) : validMin;
+      const spread = rng() > 0.5 && bMin + 100 <= validMax ? 100 : 50;
+      bMax = Math.min(bMin + spread, validMax);
+      if (bMax <= bMin) bMax = bMin + 50;
+    } else {
+      // For monthly, enforce tight 500 or 1000 difference (e.g. 3000–4000, 4000–5000)
+      const validMin = Math.max(1500, Math.round(budgetMin / 500) * 500);
+      const validMax = Math.max(validMin + 500, Math.round(budgetMax / 500) * 500);
+      const possibleMins: number[] = [];
+      for (let p = validMin; p <= validMax - 500; p += 500) {
+        possibleMins.push(p);
+      }
+      bMin = possibleMins.length > 0 ? pick(possibleMins, rng) : validMin;
+      const spread = rng() > 0.5 && bMin + 1000 <= validMax ? 1000 : 500;
+      bMax = Math.min(bMin + spread, validMax);
+      if (bMax <= bMin) bMax = bMin + 500;
+    }
   } else if (isHourly) {
-    bMin = band.hourlyMin + Math.floor(rng() * 2) * 50;
-    bMax = Math.min(bMin + 50 + Math.floor(rng() * 2) * 50, band.hourlyMax);
-    if (bMin >= bMax) bMax = bMin + 50;
+    // Pick base from band, and spread by strictly 50 or 100
+    const hourlySteps: number[] = [];
+    for (let h = band.hourlyMin; h <= band.hourlyMax - 50; h += 50) {
+      hourlySteps.push(h);
+    }
+    bMin = hourlySteps.length > 0 ? pick(hourlySteps, rng) : band.hourlyMin;
+    const spread = rng() > 0.5 && bMin + 100 <= band.hourlyMax ? 100 : 50;
+    bMax = bMin + spread;
   } else {
-    bMin = band.monthlyMin + Math.floor(rng() * 3) * 500;
-    bMax = Math.min(bMin + 1000 + Math.floor(rng() * 3) * 500, band.monthlyMax);
-    if (bMin >= bMax) bMax = bMin + 1000;
+    // Pick base from band, and spread by strictly 500 or 1000
+    const monthlySteps: number[] = [];
+    for (let m = band.monthlyMin; m <= band.monthlyMax - 500; m += 500) {
+      monthlySteps.push(m);
+    }
+    bMin = monthlySteps.length > 0 ? pick(monthlySteps, rng) : band.monthlyMin;
+    const spread = rng() > 0.5 && bMin + 1000 <= band.monthlyMax ? 1000 : 500;
+    bMax = bMin + spread;
   }
 
   return {
@@ -541,14 +529,7 @@ export function generateDummyLead(opts: {
   };
 }
 
-// ─── Mode label helper ────────────────────────────────────────────────────────
 
-export const modeLabel: Record<string, string> = {
-  ONLINE: "Online",
-  OFFLINE: "In-Person",
-  EITHER: "Online / In-Person",
-  COACHING: "Coaching Institute",
-};
 
 // ─── Deliver dummy lead to a single tutor ────────────────────────────────────
 

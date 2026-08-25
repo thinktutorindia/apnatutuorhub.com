@@ -26,6 +26,11 @@ import {
   X,
   Loader2,
   Sparkles,
+  PhoneCall,
+  Upload,
+  UserCheck,
+  Layers,
+  BarChart3,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { getAllowedSubAdminModules } from "@/lib/rbac";
@@ -49,6 +54,13 @@ const ALL_NAV_ITEMS = [
   { label: "Sub-Admins",       href: "/admin/sub-admins",               icon: UserCog,           roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
   { label: "Staff Analytics",  href: "/admin/sub-admins/analytics",     icon: TrendingUp,        roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
   { label: "Dummy Campaigns",  href: "/admin/dummy-campaigns",           icon: Sparkles,          roles: ["SUPER_ADMIN"], iconColor: "text-fuchsia-400" },
+  // ── Staff CRM ──
+  { label: "CRM Management",   href: "/admin/staff-leads/manage",       icon: Layers,            roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-amber-400" },
+  { label: "Daily Work Reports", href: "/admin/staff-leads/reports",    icon: BarChart3,         roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
+  { label: "Staff CRM Feed",   href: "/admin/staff-leads",              icon: PhoneCall,         roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-emerald-400" },
+  { label: "Upload Leads",     href: "/admin/staff-leads/upload",       icon: Upload,            roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-teal-400" },
+  { label: "My Leads",         href: "/admin/staff-leads/my-leads",     icon: UserCheck,         roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-cyan-400" },
+  { label: "Assign Leads",     href: "/admin/staff-leads/assign",       icon: Users,             roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-indigo-400" },
 ] as const;
 
 const SUB_ADMIN_ROLE_LABELS: Record<string, { label: string; color: string }> = {
@@ -83,11 +95,26 @@ export function AdminSidebar({ userName, userEmail, userRole = "SUPER_ADMIN", su
   const visibleNavItems = ALL_NAV_ITEMS.filter(({ roles, href }) => {
     if (href === "/admin/dashboard") return true;
     if (userRole === "SUPER_ADMIN") return true;
+
+    // For Sub-Admin (Staff), under Staff CRM, ONLY show My Assigned Leads!
+    if (href.startsWith("/admin/staff-leads")) {
+      return href === "/admin/staff-leads/my-leads";
+    }
+
     return allowedModules.some((mod) => href === mod || href.startsWith(mod + "/"));
   });
 
-  const commandItems = visibleNavItems.slice(0, 4);
-  const opsItems = visibleNavItems.slice(4);
+  const commandItems = visibleNavItems.filter((i) =>
+    ["/admin/dashboard", "/admin/analytics", "/admin/users", "/admin/kyc"].includes(i.href)
+  );
+
+  const crmItems = visibleNavItems.filter((i) =>
+    i.href.startsWith("/admin/staff-leads")
+  );
+
+  const opsItems = visibleNavItems.filter(
+    (i) => !commandItems.some((c) => c.href === i.href) && !crmItems.some((c) => c.href === i.href)
+  );
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -193,6 +220,26 @@ export function AdminSidebar({ userName, userEmail, userRole = "SUPER_ADMIN", su
             {opsItems.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
+          </div>
+        )}
+
+        {/* Staff Lead CRM with Horizontal Line Divider */}
+        {crmItems.length > 0 && (
+          <div className="pt-2">
+            <div className="border-t border-slate-700/80 mb-3" />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-3 mb-1.5">
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400">
+                  Staff Lead CRM
+                </p>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  AI Staging
+                </span>
+              </div>
+              {crmItems.map((item) => (
+                <NavLink key={item.href} item={item} />
+              ))}
+            </div>
           </div>
         )}
       </nav>

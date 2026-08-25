@@ -16,6 +16,7 @@ const IS_PROD = process.env.NODE_ENV === "production";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  trustHost: true,
 
   session: {
     strategy: "jwt",
@@ -153,22 +154,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   callbacks: {
     async redirect({ url, baseUrl }) {
+      // In local development, ALWAYS respect the local baseUrl (e.g. http://localhost:3001)
+      const isLocal = baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
+
       let canonicalBase = baseUrl;
-      if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")) {
-        canonicalBase = process.env.NEXT_PUBLIC_APP_URL;
-      } else if (process.env.AUTH_URL && !process.env.AUTH_URL.includes("localhost")) {
-        canonicalBase = process.env.AUTH_URL;
-      } else if (process.env.VERCEL_URL) {
-        canonicalBase = `https://${process.env.VERCEL_URL}`;
+      if (!isLocal) {
+        if (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")) {
+          canonicalBase = process.env.NEXT_PUBLIC_APP_URL;
+        } else if (process.env.AUTH_URL && !process.env.AUTH_URL.includes("localhost")) {
+          canonicalBase = process.env.AUTH_URL;
+        } else if (process.env.VERCEL_URL) {
+          canonicalBase = `https://${process.env.VERCEL_URL}`;
+        }
       }
 
       if (url.startsWith("/")) return `${canonicalBase}${url}`;
 
       try {
         const parsedUrl = new URL(url);
-        if (parsedUrl.hostname.includes("localhost") && !canonicalBase.includes("localhost")) {
-          return `${canonicalBase}${parsedUrl.pathname}${parsedUrl.search}`;
+        if (isLocal) {
+          if (parsedUrl.hostname.includes("localhost") || parsedUrl.hostname.includes("127.0.0.1")) {
+            return url;
+          }
+          return `${baseUrl}${parsedUrl.pathname}${parsedUrl.search}`;
         }
+
         if (parsedUrl.origin === canonicalBase || parsedUrl.origin === baseUrl) {
           return url;
         }

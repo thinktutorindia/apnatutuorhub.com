@@ -20,6 +20,7 @@
     "@aws-sdk/client-ses": "^3.1101.0",
     "@aws-sdk/client-sns": "^3.1101.0",
     "@aws-sdk/s3-request-presigner": "^3.1095.0",
+    "@google/genai": "^2.18.0",
     "@hookform/resolvers": "^5.0.1",
     "@prisma/client": "^6.9.0",
     "@sentry/nextjs": "^10.69.0",

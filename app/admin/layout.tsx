@@ -2,6 +2,7 @@ import React from "react";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { prisma } from "@/lib/prisma";
 
 export default async function AdminLayout({
   children,
@@ -15,14 +16,30 @@ export default async function AdminLayout({
     redirect("/");
   }
 
+  // Fetch live sub-admin permissions directly from DB so updates reflect in real-time
+  let customPermissions = session.user.customPermissions ?? null;
+  let subAdminRole = session.user.subAdminRole ?? null;
+
+  if (session.user.role === "SUB_ADMIN" && session.user.id) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subAdminRole: true, customPermissions: true, isActive: true },
+    });
+    if (dbUser) {
+      if (!dbUser.isActive) redirect("/login");
+      customPermissions = dbUser.customPermissions;
+      subAdminRole = dbUser.subAdminRole;
+    }
+  }
+
   return (
     <div className="flex min-h-screen lg:min-h-screen flex-col lg:flex-row bg-[#F8FAFC] text-slate-900">
       <AdminSidebar
         userName={session.user.name || "Admin"}
         userEmail={session.user.email ?? ""}
         userRole={session.user.role}
-        subAdminRole={session.user.subAdminRole ?? null}
-        customPermissions={session.user.customPermissions ?? null}
+        subAdminRole={subAdminRole}
+        customPermissions={customPermissions}
       />
 
       {/* Main scrollable area — account for sticky topbar height (56px) on mobile */}

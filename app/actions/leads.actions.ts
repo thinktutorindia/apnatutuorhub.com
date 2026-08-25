@@ -19,6 +19,7 @@ import { captureEvent, Events } from "@/lib/posthog";
 import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints, TOTAL_PLAN_LEAD_POINTS } from "@/lib/subscription-plans";
 import { getNextInquiryNumber } from "@/lib/lead-utils";
 import { geocodeLocation } from "@/lib/geocoding";
+import { logActivity, ActivityEvent } from "@/lib/activity-logger";
 
 export type RequirementState = ActionResult<{ leadId: string; coinCost?: number }>;
 

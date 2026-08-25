@@ -469,7 +469,12 @@ export async function purchaseLeadAction(
     }),
     prisma.tutorProfile.findUnique({
       where: { id: tutorProfileId },
-      select: { kycStatus: true, subscriptionPlan: true },
+      select: {
+        kycStatus: true,
+        subscriptionPlan: true,
+        subscriptionExpiresAt: true,
+        leadsResetAt: true,
+      },
     }),
   ]);
 

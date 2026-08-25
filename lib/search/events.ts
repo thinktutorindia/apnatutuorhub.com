@@ -38,4 +38,10 @@ export function initSearchEventHandlers(): void {
   console.info("[search-events] Search indexing event listeners initialized.");
 }
 
-initSearchEventHandlers();
+if (typeof process !== "undefined" && typeof process.nextTick === "function") {
+  process.nextTick(() => {
+    initSearchEventHandlers();
+  });
+} else {
+  initSearchEventHandlers();
+}

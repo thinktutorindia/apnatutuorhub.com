@@ -124,7 +124,8 @@ export async function POST(request: Request) {
           data: {
             walletId: wallet.id,
             amount: bonusCoins,
-            type: "CREDIT",
+            balanceAfter: wallet.balance,
+            type: "BONUS",
             description: `🎁 Bonus ${bonusCoins} coins included with ${plan.name}`,
             referenceId: paymentId || orderId || `bonus_sub_${Date.now()}`,
           },

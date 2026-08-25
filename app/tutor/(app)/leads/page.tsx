@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints } from "@/lib/subscription-plans";
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
+import { haversineDistanceKm } from "@/lib/haversine";
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
 

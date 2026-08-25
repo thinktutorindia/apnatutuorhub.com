@@ -20,6 +20,7 @@ import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints, TOTAL_PLAN_L
 import { getNextInquiryNumber } from "@/lib/lead-utils";
 import { geocodeLocation } from "@/lib/geocoding";
 import { logActivity, ActivityEvent } from "@/lib/activity-logger";
+import { createNotification } from "@/lib/notification-engine";
 
 export type RequirementState = ActionResult<{ leadId: string; coinCost?: number }>;
 

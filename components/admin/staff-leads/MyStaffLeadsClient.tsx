@@ -317,7 +317,7 @@ export function MyStaffLeadsClient({
     setPendingLeadId(leadId);
 
     startTransition(async () => {
-      const followUpDate = detailedFollowUpDate ? new Date(detailedFollowUpDate) : null;
+      const followUpDate = detailedFollowUpDate ? new Date(detailedFollowUpDate).toISOString() : null;
       const res = await logCallAction(leadId, detailedOutcome, detailedNotes, followUpDate);
 
       if (res.success) {
@@ -337,7 +337,7 @@ export function MyStaffLeadsClient({
                   ...l,
                   status: statusMap[detailedOutcome],
                   lastContactedAt: new Date().toISOString(),
-                  nextFollowUpAt: followUpDate ? followUpDate.toISOString() : l.nextFollowUpAt,
+                  nextFollowUpAt: followUpDate ?? l.nextFollowUpAt,
                   staffNotes: detailedNotes || l.staffNotes,
                   _count: { callLogs: l._count.callLogs + 1 },
                 }

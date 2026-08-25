@@ -16,7 +16,6 @@
 import { EventEmitter } from "events";
 import { logActivity, type ActivityEventType } from "@/lib/activity-logger";
 import { createNotification } from "@/lib/notification-engine";
-import { initSearchEventHandlers } from "@/lib/search/events";
 
 // ── Singleton Event Bus ───────────────────────────────────────────────────────
 
@@ -92,15 +91,14 @@ export function initDomainEventHandlers(): void {
     }
   );
 
-  // 4. Initialize Search Event Indexing Listeners
-  try {
-    initSearchEventHandlers();
-  } catch (e) {
-    console.error("[event-bus] Search event handlers init error:", e);
-  }
-
   console.info("[event-bus] Domain event handlers initialized.");
 }
 
-// Auto-initialize handlers on module load
-initDomainEventHandlers();
+// Auto-initialize handlers on next tick to allow all dependent modules to load
+if (typeof process !== "undefined" && typeof process.nextTick === "function") {
+  process.nextTick(() => {
+    initDomainEventHandlers();
+  });
+} else {
+  initDomainEventHandlers();
+}

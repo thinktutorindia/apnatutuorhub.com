@@ -236,8 +236,8 @@ Rules:
 - Do not hallucinate. If a field is not present, set it to null or []`;
 
 async function geminiExtract(text: string): Promise<Omit<ParsedLead, "rawText">> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("No GEMINI_API_KEY");
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+  if (!apiKey) throw new Error("No GEMINI_API_KEY or GOOGLE_API_KEY configured");
 
   // 1. Direct REST call to Google Generative Language API
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;

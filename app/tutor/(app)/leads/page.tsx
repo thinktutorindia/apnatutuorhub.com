@@ -226,10 +226,10 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
         tutorProfileId: tutorProfile.id,
         createdAt: { gte: resetDate },
       },
-      include: { lead: { select: { classGrade: true, classLevel: true } } },
+      include: { lead: { select: { classLevel: true } } },
     });
     purchasesCount = planPurchases.length;
-    const usedPoints = planPurchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classGrade || p.lead?.classLevel), 0);
+    const usedPoints = planPurchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classLevel), 0);
     const planTotalPoints = getPlanTotalPoints(tutorProfile.subscriptionPlan);
     const remainingPoints = Math.max(0, planTotalPoints - usedPoints);
     quotaRemaining = Math.max(0, Math.floor(remainingPoints / 12));

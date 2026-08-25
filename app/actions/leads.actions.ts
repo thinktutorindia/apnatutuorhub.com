@@ -506,15 +506,15 @@ export async function purchaseLeadAction(
 
   // Calculate plan lead points & quota for this tutor (supports flexible class unlocks & mixed classes)
   let quotaRemainingPoints = 0;
-  const leadPointCost = getLeadPointCost(lead.classGrade);
+  const leadPointCost = getLeadPointCost(lead.classLevel);
 
   if (hasActivePlan && planConfig) {
     const resetDate = tutorProfile?.leadsResetAt ?? new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
     const purchases = await prisma.leadPurchase.findMany({
       where: { tutorProfileId, createdAt: { gte: resetDate } },
-      include: { lead: { select: { classGrade: true } } },
+      include: { lead: { select: { classLevel: true } } },
     });
-    const usedPoints = purchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classGrade), 0);
+    const usedPoints = purchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classLevel), 0);
     const planTotalPoints = getPlanTotalPoints(tutorProfile?.subscriptionPlan);
     quotaRemainingPoints = Math.max(0, planTotalPoints - usedPoints);
   }

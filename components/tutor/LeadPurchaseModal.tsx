@@ -193,7 +193,7 @@ export function LeadPurchaseModal({
                   <span>✨ 0 Coins (Free Unlock)</span>
                 </p>
                 <p className="text-xs font-semibold text-purple-900">
-                  Included in your plan. Uses 1 of your <strong>{subscriptionInfo?.quotaRemaining} remaining monthly leads</strong>.
+                  Included in your plan. Uses your plan lead unlock quota ({subscriptionInfo?.quotaRemaining} leads remaining).
                 </p>
               </div>
             ) : (

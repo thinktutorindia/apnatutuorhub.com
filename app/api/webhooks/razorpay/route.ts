@@ -84,11 +84,13 @@ export async function POST(request: Request) {
     }
 
     const now = new Date();
-    const expiresAt = new Date();
-    expiresAt.setFullYear(now.getFullYear() + 1);
+    const validityDays = plan.validityDays || 30;
+    const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
-    await prisma.$transaction([
-      prisma.tutorProfile.update({
+    const bonusCoins = plan.id === "PLATINUM" ? 100 : plan.id === "GOLD" ? 50 : 0;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.tutorProfile.update({
         where: { id: tutorProfileId },
         data: {
           subscriptionPlan: plan.id as any,
@@ -96,8 +98,9 @@ export async function POST(request: Request) {
           leadsUsedThisMonth: 0,
           leadsResetAt: now,
         },
-      }),
-      prisma.tutorSubscription.create({
+      });
+
+      await tx.tutorSubscription.create({
         data: {
           tutorProfileId,
           plan: plan.id as any,
@@ -108,8 +111,26 @@ export async function POST(request: Request) {
           endDate: expiresAt,
           isActive: true,
         },
-      }),
-    ]);
+      });
+
+      if (bonusCoins > 0) {
+        const wallet = await tx.wallet.upsert({
+          where: { tutorProfileId },
+          create: { tutorProfileId, balance: bonusCoins },
+          update: { balance: { increment: bonusCoins } },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: bonusCoins,
+            type: "CREDIT",
+            description: `🎁 Bonus ${bonusCoins} coins included with ${plan.name}`,
+            referenceId: paymentId || orderId || `bonus_sub_${Date.now()}`,
+          },
+        });
+      }
+    });
 
     console.info("[razorpay-webhook] Activated tutor subscription via webhook", {
       tutorProfileId,

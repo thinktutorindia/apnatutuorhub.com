@@ -156,6 +156,26 @@ export function computeDistance(
     return { passes: true, distanceKm: null };
   }
 
+  // If tutor is Platinum VIP, award unlimited nationwide/city-wide matching
+  if (tutor.subscriptionPlan === "PLATINUM") {
+    let distanceKm: number | null = null;
+    if (
+      tutor.latitude != null &&
+      tutor.longitude != null &&
+      lead.latitude != null &&
+      lead.longitude != null
+    ) {
+      distanceKm = haversineDistanceKm(
+        tutor.latitude,
+        tutor.longitude,
+        lead.latitude,
+        lead.longitude
+      );
+      distanceKm = Math.round(distanceKm * 10) / 10;
+    }
+    return { passes: true, distanceKm };
+  }
+
   // If both parties have GPS coordinates, calculate exact haversine distance
   if (
     tutor.latitude != null &&
@@ -170,7 +190,16 @@ export function computeDistance(
       lead.longitude
     );
 
-    const effectiveRadius = Math.max(tutor.teachingRadius || 10, lead.radiusKm || 10);
+    let planRadius = 10;
+    if (tutor.subscriptionPlan === "GOLD") {
+      planRadius = 25;
+    } else if (tutor.subscriptionPlan === "SILVER") {
+      planRadius = 15;
+    } else if (tutor.subscriptionPlan === "BRONZE") {
+      planRadius = 10;
+    }
+
+    const effectiveRadius = Math.max(tutor.teachingRadius || 10, lead.radiusKm || 10, planRadius);
     return { passes: distanceKm <= effectiveRadius, distanceKm: Math.round(distanceKm * 10) / 10 };
   }
 

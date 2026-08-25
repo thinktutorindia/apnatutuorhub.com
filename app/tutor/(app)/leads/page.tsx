@@ -3,18 +3,21 @@ import Link from "next/link";
 import { ShieldAlert, Wallet, Sparkles, ArrowRight } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { haversineDistanceKm } from "@/lib/haversine";
-import { getSubscriptionPlan } from "@/lib/subscription-plans";
+import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints } from "@/lib/subscription-plans";
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
 
-export default async function TutorLeadsPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ claimed?: string; locality?: string; subjects?: string }>;
-}) {
-  const params = (await searchParams) ?? {};
+interface Props {
+  searchParams: Promise<{
+    claimed?: string;
+    locality?: string;
+    subjects?: string;
+  }>;
+}
+
+export default async function TutorLeadsPage({ searchParams }: Props) {
+  const params = await searchParams;
   const isClaimedParam = params.claimed === "true";
   const localityParam = params.locality;
   const subjectsParam = params.subjects;
@@ -35,22 +38,14 @@ export default async function TutorLeadsPage({
       longitude: true,
       kycStatus: true,
       subscriptionPlan: true,
+      subscriptionExpiresAt: true,
+      leadsResetAt: true,
+      leadsUsedThisMonth: true,
       wallet: { select: { balance: true } },
     },
   });
 
   if (!tutorProfile) redirect("/tutor/dashboard");
-
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
-  const monthlyPurchasesCount = await prisma.leadPurchase.count({
-    where: {
-      tutorProfileId: tutorProfile.id,
-      createdAt: { gte: startOfMonth },
-    },
-  });
 
   // KYC gate
   if (tutorProfile.kycStatus !== "APPROVED") {
@@ -214,11 +209,33 @@ export default async function TutorLeadsPage({
     });
   }
 
+  const now = new Date();
+  const hasActivePlan = Boolean(
+    tutorProfile.subscriptionPlan &&
+    tutorProfile.subscriptionPlan !== "NONE" &&
+    (!tutorProfile.subscriptionExpiresAt || tutorProfile.subscriptionExpiresAt > now)
+  );
+  const planConfig = hasActivePlan && tutorProfile.subscriptionPlan ? getSubscriptionPlan(tutorProfile.subscriptionPlan) : null;
+
+  let quotaRemaining = 0;
+  let purchasesCount = 0;
+  if (hasActivePlan && planConfig) {
+    const resetDate = tutorProfile.leadsResetAt ?? new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const planPurchases = await prisma.leadPurchase.findMany({
+      where: {
+        tutorProfileId: tutorProfile.id,
+        createdAt: { gte: resetDate },
+      },
+      include: { lead: { select: { classGrade: true, classLevel: true } } },
+    });
+    purchasesCount = planPurchases.length;
+    const usedPoints = planPurchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classGrade || p.lead?.classLevel), 0);
+    const planTotalPoints = getPlanTotalPoints(tutorProfile.subscriptionPlan);
+    const remainingPoints = Math.max(0, planTotalPoints - usedPoints);
+    quotaRemaining = Math.max(0, Math.floor(remainingPoints / 12));
+  }
+
   const walletBalance = tutorProfile.wallet?.balance ?? 0;
-  const hasActivePlan = Boolean(tutorProfile.subscriptionPlan && tutorProfile.subscriptionPlan !== "NONE");
-  const planConfig = hasActivePlan ? getSubscriptionPlan(tutorProfile.subscriptionPlan) : null;
-  const monthlyLeadQuota = planConfig?.monthlyLeads ?? 0;
-  const quotaRemaining = Math.max(0, monthlyLeadQuota - monthlyPurchasesCount);
 
   return (
     <div className="py-1">
@@ -230,8 +247,8 @@ export default async function TutorLeadsPage({
           planId: tutorProfile.subscriptionPlan,
           planName: planConfig?.name ?? null,
           badge: planConfig?.badge ?? null,
-          monthlyQuota: monthlyLeadQuota,
-          quotaUsed: monthlyPurchasesCount,
+          monthlyQuota: planConfig?.totalLeads ?? 10,
+          quotaUsed: purchasesCount,
           quotaRemaining,
           hasActivePlan,
         }}

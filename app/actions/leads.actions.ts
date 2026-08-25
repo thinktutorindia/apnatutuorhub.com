@@ -16,10 +16,7 @@ import {
 import { formFloat, formInt, formList, formString } from "@/lib/form-data";
 import { createLeadSchema, updateLockedLeadSchema, inferClassLevelFromSubjects } from "@/lib/validations";
 import { captureEvent, Events } from "@/lib/posthog";
-import { logActivity, ActivityEvent } from "@/lib/activity-logger";
-import { createNotification } from "@/lib/notification-engine";
-import { geocodeLocation } from "@/lib/geocoding";
-import { getSubscriptionPlan } from "@/lib/subscription-plans";
+import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints, TOTAL_PLAN_LEAD_POINTS } from "@/lib/subscription-plans";
 import { getNextInquiryNumber } from "@/lib/lead-utils";
 
 export type RequirementState = ActionResult<{ leadId: string; coinCost?: number }>;
@@ -492,22 +489,30 @@ export async function purchaseLeadAction(
     );
   }
 
-  const hasActivePlan = tutorProfile?.subscriptionPlan && tutorProfile.subscriptionPlan !== "NONE";
-  const planConfig = hasActivePlan ? getSubscriptionPlan(tutorProfile.subscriptionPlan) : null;
+  const now = new Date();
+  const hasActivePlan = Boolean(
+    tutorProfile?.subscriptionPlan &&
+    tutorProfile.subscriptionPlan !== "NONE" &&
+    (!tutorProfile.subscriptionExpiresAt || tutorProfile.subscriptionExpiresAt > now)
+  );
+  const planConfig = hasActivePlan && tutorProfile?.subscriptionPlan ? getSubscriptionPlan(tutorProfile.subscriptionPlan) : null;
 
-  // Calculate monthly lead usage for this tutor
-  let quotaRemaining = 0;
-  if (planConfig && planConfig.monthlyLeads > 0) {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const usedThisMonth = await prisma.leadPurchase.count({
-      where: { tutorProfileId, createdAt: { gte: startOfMonth } },
+  // Calculate plan lead points & quota for this tutor (supports flexible class unlocks & mixed classes)
+  let quotaRemainingPoints = 0;
+  const leadPointCost = getLeadPointCost(lead.classGrade);
+
+  if (hasActivePlan && planConfig) {
+    const resetDate = tutorProfile?.leadsResetAt ?? new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const purchases = await prisma.leadPurchase.findMany({
+      where: { tutorProfileId, createdAt: { gte: resetDate } },
+      include: { lead: { select: { classGrade: true } } },
     });
-    quotaRemaining = Math.max(0, planConfig.monthlyLeads - usedThisMonth);
+    const usedPoints = purchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classGrade), 0);
+    const planTotalPoints = getPlanTotalPoints(tutorProfile?.subscriptionPlan);
+    quotaRemainingPoints = Math.max(0, planTotalPoints - usedPoints);
   }
 
-  const isFreePlanUnlock = hasActivePlan && quotaRemaining > 0;
+  const isFreePlanUnlock = hasActivePlan && quotaRemainingPoints >= leadPointCost;
   const effectiveCoinCost = isFreePlanUnlock ? 0 : lead.coinCost;
 
   const walletBalance = wallet?.balance ?? 0;
@@ -564,15 +569,47 @@ export async function purchaseLeadAction(
       select: { id: true, purchaseCount: true, maxTutors: true, status: true },
     });
 
-    if (updatedLead.purchaseCount >= updatedLead.maxTutors && updatedLead.status !== "APPLICATIONS_RECEIVED") {
+    // Determine plan-based exclusivity and competition cap
+    const tutorPlan = tutorProfile?.subscriptionPlan;
+    let targetMaxTutors = updatedLead.maxTutors;
+    let targetStatus = updatedLead.status;
+
+    if (tutorPlan === "PLATINUM") {
+      // 👑 Platinum VIP Solo Exclusivity Lock: Lead closes immediately for 1-to-1 solo access
+      targetMaxTutors = Math.max(1, updatedLead.purchaseCount);
+      targetStatus = "APPLICATIONS_RECEIVED";
+    } else if (tutorPlan === "GOLD") {
+      // 🔒 Gold Tier Semi-Exclusive Lock: Lead capacity capped at max 2 tutors
+      targetMaxTutors = Math.min(updatedLead.maxTutors, Math.max(updatedLead.purchaseCount, 2));
+      if (updatedLead.purchaseCount >= targetMaxTutors) {
+        targetStatus = "APPLICATIONS_RECEIVED";
+      } else if (targetStatus === "ACTIVE") {
+        targetStatus = "MATCHING";
+      }
+    } else if (tutorPlan === "SILVER") {
+      // 👥 Silver Tier Low-Competition Lock: Lead capacity capped at max 3 tutors
+      targetMaxTutors = Math.min(updatedLead.maxTutors, Math.max(updatedLead.purchaseCount, 3));
+      if (updatedLead.purchaseCount >= targetMaxTutors) {
+        targetStatus = "APPLICATIONS_RECEIVED";
+      } else if (targetStatus === "ACTIVE") {
+        targetStatus = "MATCHING";
+      }
+    } else {
+      // Bronze / Pay-as-you-go: Standard cap
+      if (updatedLead.purchaseCount >= updatedLead.maxTutors && targetStatus !== "APPLICATIONS_RECEIVED") {
+        targetStatus = "APPLICATIONS_RECEIVED";
+      } else if (targetStatus === "ACTIVE") {
+        targetStatus = "MATCHING";
+      }
+    }
+
+    if (targetMaxTutors !== updatedLead.maxTutors || targetStatus !== updatedLead.status) {
       await tx.lead.update({
         where: { id: leadId },
-        data: { status: "APPLICATIONS_RECEIVED" },
-      });
-    } else if (updatedLead.status === "ACTIVE") {
-      await tx.lead.update({
-        where: { id: leadId },
-        data: { status: "MATCHING" },
+        data: {
+          maxTutors: targetMaxTutors,
+          status: targetStatus,
+        },
       });
     }
 
@@ -583,6 +620,12 @@ export async function purchaseLeadAction(
         tutorProfileId,
         coinsSpent: effectiveCoinCost,
       },
+    });
+
+    // Update tutorProfile leadsUsedThisMonth
+    await tx.tutorProfile.update({
+      where: { id: tutorProfileId },
+      data: { leadsUsedThisMonth: { increment: 1 } },
     });
 
     if (effectiveCoinCost > 0 && wallet) {

@@ -112,14 +112,16 @@ export async function POST(request: Request) {
     }
   }
 
-  // Calculate 1 year expiration date
+  // Calculate validity from plan config (Bronze: 30d, Silver: 60d, Gold: 60d, Platinum: 90d)
   const now = new Date();
-  const expiresAt = new Date();
-  expiresAt.setFullYear(now.getFullYear() + 1);
+  const validityDays = plan.validityDays || 30;
+  const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
-  // Activate Subscription in DB
-  await prisma.$transaction([
-    prisma.tutorProfile.update({
+  // Activate Subscription in DB with Bonus Coins (Gold: +50 coins, Platinum: +100 coins)
+  const bonusCoins = plan.id === "PLATINUM" ? 100 : plan.id === "GOLD" ? 50 : 0;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tutorProfile.update({
       where: { id: tutorProfile.id },
       data: {
         subscriptionPlan: plan.id as any,
@@ -127,8 +129,9 @@ export async function POST(request: Request) {
         leadsUsedThisMonth: 0,
         leadsResetAt: now,
       },
-    }),
-    prisma.tutorSubscription.create({
+    });
+
+    await tx.tutorSubscription.create({
       data: {
         tutorProfileId: tutorProfile.id,
         plan: plan.id as any,
@@ -139,8 +142,26 @@ export async function POST(request: Request) {
         endDate: expiresAt,
         isActive: true,
       },
-    }),
-  ]);
+    });
+
+    if (bonusCoins > 0) {
+      const wallet = await tx.wallet.upsert({
+        where: { tutorProfileId: tutorProfile.id },
+        create: { tutorProfileId: tutorProfile.id, balance: bonusCoins },
+        update: { balance: { increment: bonusCoins } },
+      });
+
+      await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          amount: bonusCoins,
+          type: "CREDIT",
+          description: `🎁 Bonus ${bonusCoins} coins included with ${plan.name}`,
+          referenceId: paymentId || orderId || `bonus_sub_${Date.now()}`,
+        },
+      });
+    }
+  });
 
   return NextResponse.json({
     success: true,

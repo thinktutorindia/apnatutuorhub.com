@@ -208,6 +208,29 @@ function LeadCard({
           {/* Status Badges & Priority */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Competition & Exclusivity Tag */}
+              {maxTutorsAllowed === 1 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-950 border border-purple-300 px-2.5 py-0.5 text-[11px] font-black shadow-2xs">
+                  <Crown size={11} className="text-purple-600" />
+                  <span>👑 100% Solo Exclusive</span>
+                </span>
+              ) : maxTutorsAllowed === 2 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-950 border border-amber-300 px-2.5 py-0.5 text-[11px] font-black shadow-2xs">
+                  <Lock size={11} className="text-amber-600" />
+                  <span>🔒 Semi-Exclusive (Max 2)</span>
+                </span>
+              ) : maxTutorsAllowed === 3 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200 px-2.5 py-0.5 text-[11px] font-bold shadow-2xs">
+                  <UserCheck size={11} className="text-blue-600" />
+                  <span>👥 Low Competition (Max 3)</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5 text-[11px] font-medium shadow-2xs">
+                  <Users size={11} className="text-slate-500" />
+                  <span>👥 Shared (Max 5)</span>
+                </span>
+              )}
+
               {isFreeWithPlan && !lead.isPurchased && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 text-purple-900 border border-purple-200 px-2.5 py-0.5 text-[11px] font-extrabold shadow-2xs">
                   <Crown size={11} className="text-purple-600" />
@@ -658,7 +681,7 @@ export function LeadFeedClient({
                   </span>
                 </div>
                 <span className="text-[11px] font-semibold text-purple-800 block">
-                  <strong>{subscriptionInfo.quotaRemaining}</strong> of {subscriptionInfo.monthlyQuota} Free Leads Left
+                  <strong>{subscriptionInfo.quotaRemaining}</strong> Plan Leads Remaining
                 </span>
               </div>
               <Link

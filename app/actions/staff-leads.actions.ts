@@ -1380,6 +1380,63 @@ export async function getStaffLeadActivityFeedAction(opts?: {
       take: limit,
     }),
     isSuperAdmin
+      ? prisma.user.findMany({
+          where: { role: { in: ["SUPER_ADMIN", "SUB_ADMIN"] }, isActive: true },
+          select: { id: true, name: true, email: true, subAdminRole: true },
+        })
+      : prisma.user.findMany({
+          where: { id: session.user.id },
+          select: { id: true, name: true, email: true, subAdminRole: true },
+        }),
+  ]);
+
+  const allStaffUsers = rawStaffUsers;
+
+  let totalCalls = logs.length;
+  let answered = 0;
+  let callbacks = 0;
+  let interested = 0;
+  let converted = 0;
+  let noAnswer = 0;
+
+  const staffMap = new Map<string, { totalCalls: number; converted: number; answered: number; lastActive: Date | null }>();
+
+  logs.forEach((log) => {
+    if (log.outcome === "ANSWERED") answered++;
+    else if (log.outcome === "CALLBACK_REQUESTED") callbacks++;
+    else if (log.outcome === "CONVERTED") converted++;
+    else if (log.outcome === "NO_ANSWER" || log.outcome === "BUSY") noAnswer++;
+
+    if (log.lead.status === "INTERESTED") interested++;
+
+    const s = staffMap.get(log.calledById) || { totalCalls: 0, converted: 0, answered: 0, lastActive: null };
+    s.totalCalls++;
+    if (log.outcome === "CONVERTED" || log.lead.isPromoted) s.converted++;
+    if (log.outcome === "ANSWERED") s.answered++;
+    if (!s.lastActive || log.calledAt > s.lastActive) s.lastActive = log.calledAt;
+    staffMap.set(log.calledById, s);
+  });
+
+  const staffSummary = allStaffUsers.map((user) => {
+    const stats = staffMap.get(user.id) || { totalCalls: 0, converted: 0, answered: 0, lastActive: null };
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      subAdminRole: user.subAdminRole,
+      ...stats,
+    };
+  }).sort((a, b) => b.totalCalls - a.totalCalls);
+
+  return actionSuccess({
+    isSuperAdmin,
+    logs: logs as any,
+    summary: { totalCalls, answered, callbacks, interested, converted, noAnswer },
+    staffSummary,
+    allStaff: allStaffUsers.map((u) => ({ id: u.id, name: u.name, email: u.email })),
+  });
+}
+
 // ─── 22. Staff Daily Work Reports & Timesheet Action ─────────────────────────
 
 export type StaffWorkSessionReportItem = {

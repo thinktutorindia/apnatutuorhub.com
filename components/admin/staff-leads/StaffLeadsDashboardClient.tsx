@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import {
   Users, Upload, TrendingUp, CheckCircle2, XCircle, PhoneMissed,
-  Phone, Star, Clock, Filter, Search, ArrowRight, RotateCcw, Sparkles
+  Phone, Star, Clock, Filter, Search, ArrowRight, RotateCcw, Sparkles,
+  BarChart3
 } from "lucide-react";
 import type { StaffLeadStatus } from "@prisma/client";
 

@@ -716,9 +716,10 @@ export async function runCampaignPass(campaignId: string): Promise<{
   sent: number;
   failed: number;
   usersProcessed: number;
+  timeTakenMs?: number;
 }> {
   const campaign = await prisma.dummyCampaign.findUnique({ where: { id: campaignId } });
-  if (!campaign || campaign.status !== "ACTIVE") return { sent: 0, failed: 0, usersProcessed: 0 };
+  if (!campaign || campaign.status !== "ACTIVE") return { sent: 0, failed: 0, usersProcessed: 0, timeTakenMs: 0 };
 
   const now = new Date();
   if (campaign.startDate && now < campaign.startDate) return { sent: 0, failed: 0, usersProcessed: 0 };

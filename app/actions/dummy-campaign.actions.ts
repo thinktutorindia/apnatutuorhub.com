@@ -140,7 +140,7 @@ export async function deleteDummyCampaignAction(id: string): Promise<ActionResul
 
 // ── Manual Trigger (fire campaign now) ───────────────────────────────────────
 
-export async function triggerCampaignNowAction(id: string): Promise<ActionResult<{ sent: number; failed: number; usersProcessed: number; timeTakenMs: number }>> {
+export async function triggerCampaignNowAction(id: string): Promise<ActionResult<{ sent: number; failed: number; usersProcessed: number; timeTakenMs?: number }>> {
   const { error } = await requireSuperAdmin();
   if (error) return actionError(error);
 
@@ -162,7 +162,12 @@ export async function triggerCampaignNowAction(id: string): Promise<ActionResult
     }
 
     revalidatePath("/admin/dummy-campaigns");
-    return actionSuccess(result);
+    return actionSuccess({
+      sent: result.sent,
+      failed: result.failed,
+      usersProcessed: result.usersProcessed,
+      timeTakenMs: result.timeTakenMs ?? 0,
+    });
   } catch (err) {
     await prisma.dummyCampaign.update({ where: { id }, data: { status: prevStatus } });
     return actionError(err instanceof Error ? err.message : "Failed to run campaign");

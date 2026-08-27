@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { haversineDistanceKm } from "@/lib/haversine";
+import { expandToIndividualClasses } from "@/lib/dummy-campaign-types";
 import type { TeachingMode, KycStatus } from "@prisma/client";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -283,7 +284,13 @@ export async function findMatchingTutors(
     if (!hasSubjectOverlap(tutor.subjects, lead.subjects)) continue;
 
     // Filter 2: Class level match
-    if (!coversClassLevel(tutor.classLevels, lead.classLevel)) continue;
+    const effectiveTutorClasses =
+      tutor.classLevels && tutor.classLevels.length > 0
+        ? tutor.classLevels
+        : tutor.subjects && tutor.subjects.length > 0
+        ? expandToIndividualClasses(tutor.subjects)
+        : [];
+    if (!coversClassLevel(effectiveTutorClasses, lead.classLevel)) continue;
 
     // Filter 3: Mode compatibility
     if (!isModeCompatible(tutor.teachingMode, lead.mode)) continue;

@@ -40,6 +40,7 @@ import {
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
+import { expandToIndividualClasses } from "@/lib/dummy-campaign-types";
 import type { SubAdminRole, TeachingMode } from "@prisma/client";
 
 // ── Location Types & API Helpers ──────────────────────────────────────────────
@@ -195,14 +196,6 @@ const INDIVIDUAL_CLASSES = [
   "Languages",
 ];
 
-const CLASS_QUICK_GROUPS = [
-  { label: "Class 1-5", classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"] },
-  { label: "Class 6-8", classes: ["Class 6", "Class 7", "Class 8"] },
-  { label: "Class 9-10", classes: ["Class 9", "Class 10"] },
-  { label: "Class 11-12", classes: ["Class 11", "Class 12"] },
-  { label: "JEE & NEET", classes: ["IIT-JEE", "NEET"] },
-];
-
 export function CreateUserModal({
   defaultQuery,
   buttonText = "Create User",
@@ -247,8 +240,11 @@ export function CreateUserModal({
 
   // Tutor Specific State
   const [tutorTeachingMode, setTutorTeachingMode] = useState<TeachingMode>("EITHER");
-  const [tutorClassLevels, setTutorClassLevels] = useState<string[]>([]);
   const [tutorSubjects, setTutorSubjects] = useState<string[]>([]);
+  const tutorClassLevels = useMemo(
+    () => expandToIndividualClasses(tutorSubjects),
+    [tutorSubjects]
+  );
   const [tutorSubjectSearch, setTutorSubjectSearch] = useState("");
   const [tutorCustomSubject, setTutorCustomSubject] = useState("");
   const [isCategoryTreeOpen, setIsCategoryTreeOpen] = useState(false);
@@ -356,38 +352,6 @@ export function CreateUserModal({
         item.subject.toLowerCase().includes(q) || item.group.toLowerCase().includes(q)
     );
   }, [allFlattenedSubjects, parentSubjectSearch]);
-
-  // Dynamically compute recommended subjects based on selected classes
-  const dynamicClassSubjects = useMemo(() => {
-    if (tutorClassLevels.length === 0) return [];
-    const keywords: string[] = [];
-
-    tutorClassLevels.forEach((lvl) => {
-      const numMatch = lvl.match(/Class\s*(\d+)/i);
-      if (numMatch) {
-        const n = numMatch[1];
-        const roman =
-          n === "1" ? "I" : n === "2" ? "II" : n === "3" ? "III" : n === "4" ? "IV" :
-          n === "5" ? "V" : n === "6" ? "VI" : n === "7" ? "VII" : n === "8" ? "VIII" :
-          n === "9" ? "IX" : n === "10" ? "X" : n === "11" ? "XI" : n === "12" ? "XII" : n;
-        keywords.push(`Class ${n}`, `Class ${roman}`);
-      } else if (lvl.includes("IIT-JEE")) {
-        keywords.push("IITJEE", "IIT");
-      } else if (lvl.includes("NEET")) {
-        keywords.push("NEET");
-      } else if (lvl.includes("KG") || lvl.includes("Nursery")) {
-        keywords.push("KG", "Nursery", "Preparatory");
-      }
-    });
-
-    if (keywords.length === 0) return [];
-
-    const matched = allFlattenedSubjects.filter((item) =>
-      keywords.some((k) => item.subject.toLowerCase().includes(k.toLowerCase()))
-    );
-
-    return matched.slice(0, 24);
-  }, [allFlattenedSubjects, tutorClassLevels]);
 
   // Dynamically compute recommended subjects for selected Parent Class
   const dynamicParentClassSubjects = useMemo(() => {
@@ -538,7 +502,6 @@ export function CreateUserModal({
     setShowManualAddress(false);
 
     setTutorTeachingMode("EITHER");
-    setTutorClassLevels([]);
     setTutorSubjects([]);
     setTutorSubjectSearch("");
     setTutorCustomSubject("");
@@ -584,35 +547,6 @@ export function CreateUserModal({
   const handleClose = () => {
     setIsOpen(false);
     resetForm();
-  };
-
-  const toggleTutorClassLevel = (lvl: string) => {
-    setTutorClassLevels((prev) =>
-      prev.includes(lvl) ? prev.filter((l) => l !== lvl) : [...prev, lvl]
-    );
-  };
-
-  const selectTutorClassGroup = (groupClasses: string[]) => {
-    setTutorClassLevels((prev) => {
-      const allSelected = groupClasses.every((c) => prev.includes(c));
-      if (allSelected) {
-        return prev.filter((c) => !groupClasses.includes(c));
-      } else {
-        return Array.from(new Set([...prev, ...groupClasses]));
-      }
-    });
-  };
-
-  const selectAllSchoolClasses = () => {
-    const school = [
-      "Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6",
-      "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12"
-    ];
-    setTutorClassLevels((prev) => {
-      const allSelected = school.every((c) => prev.includes(c));
-      if (allSelected) return prev.filter((c) => !school.includes(c));
-      return Array.from(new Set([...prev, ...school]));
-    });
   };
 
   const toggleTutorSubject = (subj: string) => {
@@ -1545,7 +1479,7 @@ export function CreateUserModal({
                         </span>
                         <label className="text-xs font-bold uppercase tracking-wider text-purple-950 flex items-center gap-1.5">
                           <GraduationCap size={15} className="text-purple-600" />
-                          <span>Tutor Classes &amp; Detailed Subjects</span>
+                          <span>Tutor Skills &amp; Detailed Subjects</span>
                         </label>
                       </div>
 
@@ -1574,76 +1508,6 @@ export function CreateUserModal({
                               {m.label}
                             </button>
                           ))}
-                        </div>
-                      </div>
-
-                      {/* Individual Class Levels */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label className="font-bold text-slate-700">
-                            Select Classes Taught ({tutorClassLevels.length} Selected)
-                          </label>
-                          {tutorClassLevels.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setTutorClassLevels([])}
-                              className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
-                            >
-                              Clear Classes
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Quick Group Presets */}
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase">Quick:</span>
-                          {CLASS_QUICK_GROUPS.map((grp) => {
-                            const isAllIn = grp.classes.every((c) => tutorClassLevels.includes(c));
-                            return (
-                              <button
-                                key={grp.label}
-                                type="button"
-                                onClick={() => selectTutorClassGroup(grp.classes)}
-                                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-colors cursor-pointer border ${
-                                  isAllIn
-                                    ? "bg-purple-100 border-purple-300 text-purple-900 font-extrabold"
-                                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                                }`}
-                              >
-                                {isAllIn ? "✓ " : "+ "}
-                                {grp.label}
-                              </button>
-                            );
-                          })}
-                          <button
-                            type="button"
-                            onClick={selectAllSchoolClasses}
-                            className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-white border border-slate-200 text-slate-600 hover:border-slate-300 cursor-pointer"
-                          >
-                            + All School (1-12)
-                          </button>
-                        </div>
-
-                        {/* Individual Class Pills */}
-                        <div className="flex flex-wrap gap-1.5 p-3 rounded-2xl bg-white border border-purple-200/60 shadow-2xs">
-                          {INDIVIDUAL_CLASSES.map((cls) => {
-                            const isSelected = tutorClassLevels.includes(cls);
-                            return (
-                              <button
-                                key={cls}
-                                type="button"
-                                onClick={() => toggleTutorClassLevel(cls)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                                  isSelected
-                                    ? "bg-gradient-to-r from-purple-600 to-indigo-600 border-purple-600 text-white shadow-xs"
-                                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-purple-50/50 hover:border-purple-200"
-                                }`}
-                              >
-                                {isSelected ? "✓ " : ""}
-                                {cls}
-                              </button>
-                            );
-                          })}
                         </div>
                       </div>
 
@@ -1759,48 +1623,6 @@ export function CreateUserModal({
                             </div>
                           )}
                         </div>
-
-                        {/* Class-Specific Suggested Subjects */}
-                        {dynamicClassSubjects.length > 0 && !tutorSubjectSearch.trim() && (
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span className="text-purple-950 font-bold">
-                                Subjects for selected classes ({tutorClassLevels.join(", ")}):
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  toggleAllSubjectsInList(
-                                    dynamicClassSubjects.map((d) => d.subject)
-                                  )
-                                }
-                                className="text-purple-700 hover:underline cursor-pointer font-bold text-[10px]"
-                              >
-                                Select / Toggle All
-                              </button>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-2xl bg-white border border-purple-200/60 shadow-2xs">
-                              {dynamicClassSubjects.map(({ subject, group }, idx) => {
-                                const isSelected = tutorSubjects.includes(subject);
-                                return (
-                                  <button
-                                    key={`dyn-subj-${group}-${subject}-${idx}`}
-                                    type="button"
-                                    onClick={() => toggleTutorSubject(subject)}
-                                    className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer border ${
-                                      isSelected
-                                        ? "bg-purple-600 border-purple-600 text-white font-bold shadow-2xs"
-                                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-purple-50/50 hover:border-purple-200"
-                                    }`}
-                                  >
-                                    {isSelected ? "✓ " : "+ "}
-                                    {subject}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
 
                         {/* Expandable Taxonomy Explorer */}
                         <div>

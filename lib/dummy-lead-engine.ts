@@ -296,6 +296,7 @@ export {
 } from "./dummy-campaign-types";
 import {
   pickClassForDay,
+  expandToIndividualClasses,
   averageBudgetForLead,
   parseCampaignCfg,
   dummyLeadActionPath,
@@ -470,7 +471,14 @@ export async function generateDummyLead(opts: {
     subjects.push(pool.splice(idx, 1)[0]);
   }
 
-  const classLevel = pickClassForDay(tutorClassLevels, userSeed, stable);
+  const effectiveClasses =
+    tutorClassLevels && tutorClassLevels.length > 0
+      ? tutorClassLevels
+      : tutorSubjects && tutorSubjects.length > 0
+      ? expandToIndividualClasses(tutorSubjects)
+      : [];
+
+  const classLevel = pickClassForDay(effectiveClasses, userSeed, stable);
 
   const isHourly =
     rateType === "HOURLY" ||

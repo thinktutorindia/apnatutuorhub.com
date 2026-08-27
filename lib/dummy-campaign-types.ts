@@ -55,11 +55,15 @@ export function expandToIndividualClasses(inputClasses?: string[] | null): strin
   }
 
   const nums = new Set<number>();
+  const ROMAN_MAP: Record<string, number> = {
+    i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10, xi: 11, xii: 12,
+  };
 
   for (const raw of inputClasses) {
     if (!raw) continue;
     const str = String(raw).trim();
 
+    // 1. Standard numeric range e.g. "Class 1-5", "Class 9 to 10", "1 to 8", "11–12"
     const rangeMatches = str.matchAll(
       /(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:to|-|–|—)\s*(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?/gi
     );
@@ -74,26 +78,46 @@ export function expandToIndividualClasses(inputClasses?: string[] | null): strin
     }
     if (matchedRange) continue;
 
+    // 2. Roman numeral range e.g. "Class IX-X", "Class XI-XII", "Class I-V", "Class VI-VIII"
+    const romanRangeMatches = str.matchAll(
+      /(?:class\s*)?([ivx]+)\s*(?:to|-|–|—)\s*(?:class\s*)?([ivx]+)/gi
+    );
+    let matchedRomanRange = false;
+    for (const match of romanRangeMatches) {
+      const start = ROMAN_MAP[match[1].toLowerCase()];
+      const end = ROMAN_MAP[match[2].toLowerCase()];
+      if (start && end && start >= 1 && end <= 12 && start <= end) {
+        matchedRomanRange = true;
+        for (let i = start; i <= end; i++) nums.add(i);
+      }
+    }
+    if (matchedRomanRange) continue;
+
+    // 3. Nursery / KG range
     const nurseryRangeMatch = str.match(
-      /(?:nursery|kg|lkg|ukg|primary)\s*(?:to|-|–)\s*(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?/i
+      /(?:nursery|kg|lkg|ukg|primary)\s*(?:to|-|–)\s*(?:class\s*)?(\d{1,2}|[ivx]+)\s*(?:st|nd|rd|th)?/i
     );
     if (nurseryRangeMatch) {
-      const end = parseInt(nurseryRangeMatch[1], 10);
+      const rawEnd = nurseryRangeMatch[1];
+      const end = ROMAN_MAP[rawEnd.toLowerCase()] || parseInt(rawEnd, 10);
       if (end >= 1 && end <= 12) {
         for (let i = 1; i <= end; i++) nums.add(i);
         continue;
       }
     }
 
-    const uptoMatch = str.match(/(?:till|upto|up to)\s*(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?/i);
+    // 4. Till / Upto
+    const uptoMatch = str.match(/(?:till|upto|up to)\s*(?:class\s*)?(\d{1,2}|[ivx]+)\s*(?:st|nd|rd|th)?/i);
     if (uptoMatch) {
-      const end = parseInt(uptoMatch[1], 10);
+      const rawEnd = uptoMatch[1];
+      const end = ROMAN_MAP[rawEnd.toLowerCase()] || parseInt(rawEnd, 10);
       if (end >= 1 && end <= 12) {
         for (let i = 1; i <= end; i++) nums.add(i);
         continue;
       }
     }
 
+    // 5. Single numeric matches e.g. "Class 10", "Maths 9th"
     const singleMatches = [...str.matchAll(/(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?/gi)];
     let foundSingle = false;
     for (const sMatch of singleMatches) {
@@ -105,11 +129,19 @@ export function expandToIndividualClasses(inputClasses?: string[] | null): strin
     }
     if (foundSingle) continue;
 
+    // 6. Single Roman numeral e.g. "Class X", "Physics XII"
+    const singleRoman = str.match(/(?:class\s+)([ivx]+)/i);
+    if (singleRoman && ROMAN_MAP[singleRoman[1].toLowerCase()]) {
+      nums.add(ROMAN_MAP[singleRoman[1].toLowerCase()]);
+      continue;
+    }
+
+    // 7. General Keywords
     const lower = str.toLowerCase();
     if (lower.includes("nursery") || lower.includes("kg") || lower.includes("lkg") || lower.includes("ukg")) {
       nums.add(1);
       nums.add(2);
-    } else if (lower.includes("primary")) {
+    } else if (lower.includes("primary") || lower.includes("junior")) {
       [1, 2, 3, 4, 5].forEach((n) => nums.add(n));
     } else if (lower.includes("middle")) {
       [6, 7, 8].forEach((n) => nums.add(n));
@@ -119,6 +151,8 @@ export function expandToIndividualClasses(inputClasses?: string[] | null): strin
     } else if (lower.includes("secondary")) {
       nums.add(9);
       nums.add(10);
+    } else if (lower.includes("all subject") || lower.includes("combo")) {
+      [1, 2, 3, 4, 5].forEach((n) => nums.add(n));
     }
   }
 

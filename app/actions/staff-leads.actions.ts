@@ -191,6 +191,10 @@ export type StaffLeadInput = {
   qualification?: string;
   experienceYears?: number;
   gender?: string;
+  leadType?: "TUTOR" | "PARENT_LEAD" | "OTHER";
+  budgetFee?: string | null;
+  appliedCodes?: string[];
+  operationalNotes?: string | null;
 };
 
 export async function confirmBatchUploadAction(
@@ -278,29 +282,46 @@ export async function confirmBatchUploadAction(
         totalJunk: skippedDuplicates,
         createdById: session.user.id,
         leads: {
-          create: finalToSave.map((l) => ({
-            rawText: l.rawText,
-            name: l.name || null,
-            phone: l.phone?.trim() || null,
-            altPhone: l.altPhone?.trim() || null,
-            whatsapp: l.whatsapp?.trim() || null,
-            email: l.email?.trim() || null,
-            location: l.location || null,
-            pincode: l.pincode || null,
-            fullAddress: l.fullAddress || null,
-            subjects: l.subjects ?? [],
-            classes: l.classes ?? [],
-            board: l.board || null,
-            qualification: l.qualification || null,
-            experienceYears: l.experienceYears ?? null,
-            gender: l.gender || null,
-            createdById: session.user.id,
-          })),
+          create: finalToSave.map((l) => {
+            const metaParts: string[] = [];
+            if (l.leadType === "PARENT_LEAD") metaParts.push("[PARENT REQUIREMENT]");
+            if (l.budgetFee) metaParts.push(`[BUDGET: ${l.budgetFee}]`);
+            if (l.appliedCodes && l.appliedCodes.length > 0) metaParts.push(`[CODES: ${l.appliedCodes.join(", ")}]`);
+            if (l.operationalNotes) metaParts.push(`[NOTES: ${l.operationalNotes}]`);
+
+            return {
+              rawText: l.rawText,
+              name: l.name || null,
+              phone: l.phone?.trim() || null,
+              altPhone: l.altPhone?.trim() || null,
+              whatsapp: l.whatsapp?.trim() || null,
+              email: l.email?.trim() || null,
+              location: l.location || null,
+              pincode: l.pincode || null,
+              fullAddress: l.fullAddress || null,
+              subjects: l.subjects ?? [],
+              classes: l.classes ?? [],
+              board: l.board || null,
+              qualification: l.qualification || null,
+              experienceYears: l.experienceYears ?? null,
+              gender: l.gender || null,
+              staffNotes: metaParts.length > 0 ? metaParts.join(" | ") : null,
+              createdById: session.user.id,
+            };
+          }),
         },
       },
     });
 
+    // Initialize batch pipeline progress tracking
+    try {
+      await refreshBatchProgressAction(batch.id);
+    } catch (e) {
+      console.warn("[confirmBatchUploadAction] Batch progress init error:", e);
+    }
+
     revalidatePath("/admin/staff-leads");
+    revalidatePath("/admin/staff-leads/manage");
     return actionSuccess({
       batchId: batch.id,
       saved: finalToSave.length,
@@ -377,7 +398,8 @@ export async function logCallAction(
   leadId: string,
   outcome: CallOutcome,
   notes: string,
-  nextFollowUpAt?: string | null
+  nextFollowUpAt?: string | null,
+  followUpNote?: string | null
 ): Promise<ActionResult<{ logged: true }>> {
   const { error, session } = await requireAssignedOrCrmOps(leadId);
   if (error || !session) return actionError(error ?? "Unauthenticated");
@@ -391,25 +413,78 @@ export async function logCallAction(
     NOT_INTERESTED: "NOT_INTERESTED",
   };
 
-  await prisma.$transaction([
-    prisma.staffLeadCallLog.create({
+  const now = new Date();
+
+  // Create call log + update lead in transaction
+  const callLog = await prisma.staffLeadCallLog.create({
+    data: {
+      leadId,
+      calledById: session.user.id,
+      outcome,
+      notes: notes || null,
+      calledAt: now,
+    },
+  });
+
+  await prisma.staffLead.update({
+    where: { id: leadId },
+    data: {
+      status: statusMap[outcome],
+      lastContactedAt: now,
+      nextFollowUpAt: nextFollowUpAt ? new Date(nextFollowUpAt) : null,
+    },
+  });
+
+  // Auto-create follow-up reminder if callback requested with a time
+  if (outcome === "CALLBACK_REQUESTED" && nextFollowUpAt) {
+    const scheduledTime = new Date(nextFollowUpAt);
+    const hoursUntil = (scheduledTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const urgency = hoursUntil <= 1 ? "HIGH" : hoursUntil <= 4 ? "NORMAL" : "LOW";
+
+    await prisma.staffFollowUpReminder.create({
       data: {
+        staffId: session.user.id,
         leadId,
+        callLogId: callLog.id,
+        scheduledAt: scheduledTime,
+        originalTime: scheduledTime,
+        urgency: urgency as any,
+        reminderNote: followUpNote || notes || null,
+      },
+    });
+  }
+
+  // Increment active work session stats
+  const activeSession = await prisma.staffWorkSession.findFirst({
+    where: { staffId: session.user.id, status: "CLOCKED_IN" },
+    orderBy: { clockIn: "desc" },
+  });
+  if (activeSession) {
+    const incrementData: Record<string, { increment: number }> = {
+      callsMade: { increment: 1 },
+    };
+    if (outcome === "CONVERTED") {
+      incrementData.leadsConverted = { increment: 1 };
+    }
+    if (outcome === "CALLBACK_REQUESTED" && nextFollowUpAt) {
+      incrementData.followUpsSet = { increment: 1 };
+    }
+    // Count unique leads contacted in this session
+    const uniqueLeadsThisSession = await prisma.staffLeadCallLog.groupBy({
+      by: ["leadId"],
+      where: {
         calledById: session.user.id,
-        outcome,
-        notes: notes || null,
-        calledAt: new Date(),
+        calledAt: { gte: activeSession.clockIn },
       },
-    }),
-    prisma.staffLead.update({
-      where: { id: leadId },
+    });
+    await prisma.staffWorkSession.update({
+      where: { id: activeSession.id },
       data: {
-        status: statusMap[outcome],
-        lastContactedAt: new Date(),
-        nextFollowUpAt: nextFollowUpAt ? new Date(nextFollowUpAt) : null,
+        ...incrementData,
+        leadsContacted: uniqueLeadsThisSession.length,
       },
-    }),
-  ]);
+    });
+  }
 
   revalidatePath("/admin/staff-leads");
   return actionSuccess({ logged: true });
@@ -1671,6 +1746,715 @@ export async function getStaffDailyWorkReportsAction(opts?: {
 }
 
 
+// ════════════════════════════════════════════════════════════════════════════════
+// STAFF CRM PRO — CLOCK IN / OUT / BREAK
+// ════════════════════════════════════════════════════════════════════════════════
+
+export async function staffClockInAction(): Promise<ActionResult<{ sessionId: string }>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const existing = await prisma.staffWorkSession.findFirst({
+    where: { staffId: session.user.id, status: { in: ["CLOCKED_IN", "ON_BREAK"] } },
+  });
+  if (existing) {
+    return actionError("You are already clocked in. Clock out first before starting a new session.");
+  }
+
+  const ws = await prisma.staffWorkSession.create({
+    data: { staffId: session.user.id },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({ sessionId: ws.id });
+}
+
+export async function staffClockOutAction(
+  notes?: string
+): Promise<ActionResult<{
+  totalMinutes: number;
+  callsMade: number;
+  leadsContacted: number;
+  leadsConverted: number;
+  followUpsSet: number;
+}>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const active = await prisma.staffWorkSession.findFirst({
+    where: { staffId: session.user.id, status: { in: ["CLOCKED_IN", "ON_BREAK"] } },
+    orderBy: { clockIn: "desc" },
+  });
+  if (!active) return actionError("You are not clocked in.");
+
+  const now = new Date();
+  const totalElapsed = Math.round((now.getTime() - active.clockIn.getTime()) / 60000);
+
+  let extraBreakMins = 0;
+  if (active.status === "ON_BREAK" && active.breakStartedAt) {
+    extraBreakMins = Math.round((now.getTime() - active.breakStartedAt.getTime()) / 60000);
+  }
+  const totalBreakMins = active.totalBreakMins + extraBreakMins;
+  const totalMinutes = Math.max(0, totalElapsed - totalBreakMins);
+
+  const callsDuringSession = await prisma.staffLeadCallLog.count({
+    where: { calledById: session.user.id, calledAt: { gte: active.clockIn, lte: now } },
+  });
+  const uniqueLeads = await prisma.staffLeadCallLog.groupBy({
+    by: ["leadId"],
+    where: { calledById: session.user.id, calledAt: { gte: active.clockIn, lte: now } },
+  });
+  const conversions = await prisma.staffLeadCallLog.count({
+    where: { calledById: session.user.id, calledAt: { gte: active.clockIn, lte: now }, outcome: "CONVERTED" },
+  });
+  const followUpsCreated = await prisma.staffFollowUpReminder.count({
+    where: { staffId: session.user.id, createdAt: { gte: active.clockIn, lte: now } },
+  });
+
+  await prisma.staffWorkSession.update({
+    where: { id: active.id },
+    data: {
+      clockOut: now,
+      status: "CLOCKED_OUT",
+      totalMinutes,
+      totalBreakMins,
+      breakStartedAt: null,
+      callsMade: callsDuringSession,
+      leadsContacted: uniqueLeads.length,
+      leadsConverted: conversions,
+      followUpsSet: followUpsCreated,
+      notes: notes || null,
+    },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({
+    totalMinutes,
+    callsMade: callsDuringSession,
+    leadsContacted: uniqueLeads.length,
+    leadsConverted: conversions,
+    followUpsSet: followUpsCreated,
+  });
+}
+
+export async function staffStartBreakAction(): Promise<ActionResult<{ onBreak: true }>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const active = await prisma.staffWorkSession.findFirst({
+    where: { staffId: session.user.id, status: "CLOCKED_IN" },
+  });
+  if (!active) return actionError("You are not clocked in.");
+
+  await prisma.staffWorkSession.update({
+    where: { id: active.id },
+    data: { status: "ON_BREAK", breakStartedAt: new Date() },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({ onBreak: true });
+}
+
+export async function staffEndBreakAction(): Promise<ActionResult<{ resumed: true }>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const active = await prisma.staffWorkSession.findFirst({
+    where: { staffId: session.user.id, status: "ON_BREAK" },
+  });
+  if (!active) return actionError("You are not on a break.");
+
+  const breakDuration = active.breakStartedAt
+    ? Math.round((Date.now() - active.breakStartedAt.getTime()) / 60000)
+    : 0;
+
+  await prisma.staffWorkSession.update({
+    where: { id: active.id },
+    data: {
+      status: "CLOCKED_IN",
+      breakStartedAt: null,
+      totalBreakMins: active.totalBreakMins + breakDuration,
+    },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({ resumed: true });
+}
+
+export async function getMyActiveSessionAction(): Promise<ActionResult<{
+  session: {
+    id: string;
+    clockIn: Date;
+    status: string;
+    breakStartedAt: Date | null;
+    totalBreakMins: number;
+    callsMade: number;
+    leadsContacted: number;
+    leadsConverted: number;
+    followUpsSet: number;
+    followUpsDone: number;
+  } | null;
+}>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const active = await prisma.staffWorkSession.findFirst({
+    where: { staffId: session.user.id, status: { in: ["CLOCKED_IN", "ON_BREAK"] } },
+    orderBy: { clockIn: "desc" },
+  });
+
+  return actionSuccess({ session: active ? {
+    id: active.id,
+    clockIn: active.clockIn,
+    status: active.status,
+    breakStartedAt: active.breakStartedAt,
+    totalBreakMins: active.totalBreakMins,
+    callsMade: active.callsMade,
+    leadsContacted: active.leadsContacted,
+    leadsConverted: active.leadsConverted,
+    followUpsSet: active.followUpsSet,
+    followUpsDone: active.followUpsDone,
+  } : null });
+}
+
+export async function getMyWorkHistoryAction(period: "7days" | "30days" | "all" = "7days"): Promise<ActionResult<{
+  sessions: Array<{
+    id: string; clockIn: Date; clockOut: Date | null; status: string;
+    totalMinutes: number | null; totalBreakMins: number;
+    callsMade: number; leadsContacted: number; leadsConverted: number;
+    followUpsSet: number; notes: string | null;
+  }>;
+  summary: {
+    totalSessions: number; totalHours: number; totalCalls: number;
+    totalConversions: number; avgCallsPerSession: number; avgMinutesPerSession: number;
+  };
+}>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const dateFilter: Date | undefined = period === "7days"
+    ? new Date(Date.now() - 7 * 86400000)
+    : period === "30days"
+    ? new Date(Date.now() - 30 * 86400000)
+    : undefined;
+
+  const sessions = await prisma.staffWorkSession.findMany({
+    where: {
+      staffId: session.user.id,
+      ...(dateFilter ? { clockIn: { gte: dateFilter } } : {}),
+    },
+    orderBy: { clockIn: "desc" },
+    take: 100,
+  });
+
+  const totalMins = sessions.reduce((s, ws) => s + (ws.totalMinutes ?? 0), 0);
+  const totalCalls = sessions.reduce((s, ws) => s + ws.callsMade, 0);
+  const totalConv = sessions.reduce((s, ws) => s + ws.leadsConverted, 0);
+
+  return actionSuccess({
+    sessions: sessions.map((s) => ({
+      id: s.id, clockIn: s.clockIn, clockOut: s.clockOut, status: s.status,
+      totalMinutes: s.totalMinutes, totalBreakMins: s.totalBreakMins,
+      callsMade: s.callsMade, leadsContacted: s.leadsContacted, leadsConverted: s.leadsConverted,
+      followUpsSet: s.followUpsSet, notes: s.notes,
+    })),
+    summary: {
+      totalSessions: sessions.length,
+      totalHours: Math.round(totalMins / 60 * 10) / 10,
+      totalCalls,
+      totalConversions: totalConv,
+      avgCallsPerSession: sessions.length > 0 ? Math.round(totalCalls / sessions.length) : 0,
+      avgMinutesPerSession: sessions.length > 0 ? Math.round(totalMins / sessions.length) : 0,
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// STAFF CRM PRO — FOLLOW-UP REMINDERS
+// ════════════════════════════════════════════════════════════════════════════════
+
+export async function createFollowUpAction(
+  leadId: string,
+  scheduledAt: string,
+  note?: string,
+  urgency?: "LOW" | "NORMAL" | "HIGH" | "CRITICAL"
+): Promise<ActionResult<{ reminderId: string }>> {
+  const { error, session } = await requireAssignedOrCrmOps(leadId);
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const scheduledTime = new Date(scheduledAt);
+  if (isNaN(scheduledTime.getTime())) return actionError("Invalid scheduled time");
+
+  const reminder = await prisma.staffFollowUpReminder.create({
+    data: {
+      staffId: session.user.id,
+      leadId,
+      scheduledAt: scheduledTime,
+      originalTime: scheduledTime,
+      urgency: urgency ?? "NORMAL",
+      reminderNote: note || null,
+    },
+  });
+
+  await prisma.staffLead.update({
+    where: { id: leadId },
+    data: { nextFollowUpAt: scheduledTime, status: "FOLLOW_UP" },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({ reminderId: reminder.id });
+}
+
+export async function getMyDueRemindersAction(): Promise<ActionResult<{
+  reminders: Array<{
+    id: string; scheduledAt: Date; urgency: string; reminderNote: string | null;
+    snoozeCount: number; createdAt: Date;
+    lead: { id: string; name: string | null; phone: string | null; location: string | null; subjects: string[]; status: string };
+  }>;
+  overdueCount: number; dueSoonCount: number; upcomingCount: number;
+}>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const now = new Date();
+  const in2Hours = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const reminders = await prisma.staffFollowUpReminder.findMany({
+    where: {
+      staffId: session.user.id,
+      isDismissed: false,
+      isCompleted: false,
+      scheduledAt: { lte: endOfDay },
+    },
+    include: {
+      lead: { select: { id: true, name: true, phone: true, location: true, subjects: true, status: true } },
+    },
+    orderBy: { scheduledAt: "asc" },
+  });
+
+  return actionSuccess({
+    reminders: reminders.map((r) => ({
+      id: r.id, scheduledAt: r.scheduledAt, urgency: r.urgency, reminderNote: r.reminderNote,
+      snoozeCount: r.snoozeCount, createdAt: r.createdAt, lead: r.lead,
+    })),
+    overdueCount: reminders.filter((r) => r.scheduledAt < now).length,
+    dueSoonCount: reminders.filter((r) => r.scheduledAt >= now && r.scheduledAt <= in2Hours).length,
+    upcomingCount: reminders.filter((r) => r.scheduledAt > in2Hours).length,
+  });
+}
+
+export async function snoozeReminderAction(
+  reminderId: string,
+  minutes: number
+): Promise<ActionResult<{ newScheduledAt: Date }>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const reminder = await prisma.staffFollowUpReminder.findFirst({
+    where: { id: reminderId, staffId: session.user.id },
+  });
+  if (!reminder) return actionError("Reminder not found");
+
+  const newTime = new Date(Date.now() + minutes * 60 * 1000);
+  const newSnoozeCount = reminder.snoozeCount + 1;
+  const newUrgency = newSnoozeCount >= 3 ? "CRITICAL" : reminder.urgency;
+
+  await prisma.staffFollowUpReminder.update({
+    where: { id: reminderId },
+    data: { scheduledAt: newTime, snoozeCount: newSnoozeCount, urgency: newUrgency },
+  });
+
+  await prisma.staffLead.update({
+    where: { id: reminder.leadId },
+    data: { nextFollowUpAt: newTime },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({ newScheduledAt: newTime });
+}
+
+export async function completeReminderAction(
+  reminderId: string
+): Promise<ActionResult<{ completed: true }>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const reminder = await prisma.staffFollowUpReminder.findFirst({
+    where: { id: reminderId, staffId: session.user.id },
+  });
+  if (!reminder) return actionError("Reminder not found");
+
+  await prisma.staffFollowUpReminder.update({
+    where: { id: reminderId },
+    data: { isCompleted: true, completedAt: new Date() },
+  });
+
+  const activeSession = await prisma.staffWorkSession.findFirst({
+    where: { staffId: session.user.id, status: { in: ["CLOCKED_IN", "ON_BREAK"] } },
+  });
+  if (activeSession) {
+    await prisma.staffWorkSession.update({
+      where: { id: activeSession.id },
+      data: { followUpsDone: { increment: 1 } },
+    });
+  }
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({ completed: true });
+}
+
+export async function dismissReminderAction(
+  reminderId: string
+): Promise<ActionResult<{ dismissed: true }>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  await prisma.staffFollowUpReminder.updateMany({
+    where: { id: reminderId, staffId: session.user.id },
+    data: { isDismissed: true },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({ dismissed: true });
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// STAFF CRM PRO — DATA PIPELINE & BATCH PROGRESS
+// ════════════════════════════════════════════════════════════════════════════════
+
+export async function refreshBatchProgressAction(batchId?: string): Promise<ActionResult<{ refreshed: number }>> {
+  const { error } = await requireAdmin();
+  if (error) return actionError(error);
+
+  const batches = batchId
+    ? await prisma.staffLeadBatch.findMany({ where: { id: batchId }, select: { id: true } })
+    : await prisma.staffLeadBatch.findMany({ select: { id: true } });
+
+  const weekAgo = new Date(Date.now() - 7 * 86400000);
+  const recentCallDays = await prisma.staffLeadCallLog.groupBy({
+    by: ["calledAt"],
+    where: { calledAt: { gte: weekAgo } },
+    _count: true,
+  });
+  const avgPerDay = recentCallDays.length > 0
+    ? Math.round(recentCallDays.reduce((s, d) => s + d._count, 0) / 7)
+    : 5;
+
+  for (const batch of batches) {
+    const leads = await prisma.staffLead.groupBy({
+      by: ["status"],
+      where: { batchId: batch.id },
+      _count: true,
+    });
+
+    const sc: Record<string, number> = {};
+    let totalLeads = 0;
+    for (const g of leads) { sc[g.status] = g._count; totalLeads += g._count; }
+
+    const leadsNew = (sc["NEW"] ?? 0) + (sc["ASSIGNED"] ?? 0);
+    const leadsContacted = (sc["CONTACTED"] ?? 0) + (sc["INTERESTED"] ?? 0);
+    const leadsFollowUp = sc["FOLLOW_UP"] ?? 0;
+    const leadsConverted = sc["CONVERTED"] ?? 0;
+    const leadsRejected = (sc["REJECTED"] ?? 0) + (sc["NOT_INTERESTED"] ?? 0) + (sc["DUPLICATE"] ?? 0);
+    const leadsNoAnswer = sc["NO_ANSWER"] ?? 0;
+    const leadsDone = leadsContacted + leadsConverted + leadsRejected + leadsNoAnswer;
+    const remaining = totalLeads - leadsDone;
+    const estimatedDaysLeft = avgPerDay > 0 ? Math.ceil(remaining / avgPerDay) : null;
+    const isFullyProcessed = remaining <= 0 && totalLeads > 0;
+
+    await prisma.staffLeadBatchProgress.upsert({
+      where: { batchId: batch.id },
+      create: {
+        batchId: batch.id, totalLeads, leadsNew, leadsContacted, leadsFollowUp,
+        leadsConverted, leadsRejected, leadsDone, isFullyProcessed,
+        completedAt: isFullyProcessed ? new Date() : null,
+        avgLeadsPerDay: avgPerDay, estimatedDaysLeft,
+      },
+      update: {
+        totalLeads, leadsNew, leadsContacted, leadsFollowUp,
+        leadsConverted, leadsRejected, leadsDone, isFullyProcessed,
+        completedAt: isFullyProcessed ? new Date() : undefined,
+        avgLeadsPerDay: avgPerDay, estimatedDaysLeft,
+      },
+    });
+  }
+
+  revalidatePath("/admin/staff-leads");
+  return actionSuccess({ refreshed: batches.length });
+}
+
+export async function getDataPipelineAction(): Promise<ActionResult<{
+  batches: Array<{
+    id: string; name: string; createdAt: Date;
+    totalLeads: number; leadsNew: number; leadsContacted: number;
+    leadsFollowUp: number; leadsConverted: number; leadsRejected: number;
+    leadsDone: number; progressPercent: number; isFullyProcessed: boolean;
+    estimatedDaysLeft: number | null; avgLeadsPerDay: number;
+    status: "not_started" | "active" | "stalled" | "completed";
+  }>;
+  overall: {
+    totalBatches: number; completedBatches: number; totalLeads: number;
+    totalDone: number; progressPercent: number;
+    estimatedCompletionDate: string | null; avgDailyThroughput: number;
+  };
+}>> {
+  const { error } = await requireAdmin();
+  if (error) return actionError(error);
+
+  await refreshBatchProgressAction();
+
+  const batchesWithProgress = await prisma.staffLeadBatch.findMany({
+    include: { progress: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const twoDaysAgo = new Date(Date.now() - 2 * 86400000);
+
+  const batches = await Promise.all(batchesWithProgress.map(async (b) => {
+    const p = b.progress;
+    const total = p?.totalLeads ?? 0;
+    const done = p?.leadsDone ?? 0;
+    const progressPercent = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    let status: "not_started" | "active" | "stalled" | "completed" = "not_started";
+    if (p?.isFullyProcessed) {
+      status = "completed";
+    } else if (done > 0) {
+      const recentActivity = await prisma.staffLeadCallLog.count({
+        where: { lead: { batchId: b.id }, calledAt: { gte: twoDaysAgo } },
+      });
+      status = recentActivity > 0 ? "active" : "stalled";
+    }
+
+    return {
+      id: b.id, name: b.name, createdAt: b.createdAt,
+      totalLeads: total, leadsNew: p?.leadsNew ?? 0, leadsContacted: p?.leadsContacted ?? 0,
+      leadsFollowUp: p?.leadsFollowUp ?? 0, leadsConverted: p?.leadsConverted ?? 0,
+      leadsRejected: p?.leadsRejected ?? 0, leadsDone: done, progressPercent,
+      isFullyProcessed: p?.isFullyProcessed ?? false,
+      estimatedDaysLeft: p?.estimatedDaysLeft ?? null,
+      avgLeadsPerDay: p?.avgLeadsPerDay ?? 0, status,
+    };
+  }));
+
+  const totalLeads = batches.reduce((s, b) => s + b.totalLeads, 0);
+  const totalDone = batches.reduce((s, b) => s + b.leadsDone, 0);
+  const completedBatches = batches.filter((b) => b.isFullyProcessed).length;
+  const avgDaily = batches.length > 0 ? Math.round(batches.reduce((s, b) => s + b.avgLeadsPerDay, 0) / batches.length) : 0;
+  const remaining = totalLeads - totalDone;
+  const daysLeft = avgDaily > 0 ? Math.ceil(remaining / avgDaily) : null;
+  const completionDate = daysLeft ? new Date(Date.now() + daysLeft * 86400000).toISOString().split("T")[0] : null;
+
+  return actionSuccess({
+    batches,
+    overall: {
+      totalBatches: batches.length, completedBatches, totalLeads, totalDone,
+      progressPercent: totalLeads > 0 ? Math.round((totalDone / totalLeads) * 100) : 0,
+      estimatedCompletionDate: completionDate, avgDailyThroughput: avgDaily,
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// STAFF CRM PRO — ADMIN LIVE STATUS
+// ════════════════════════════════════════════════════════════════════════════════
+
+export async function getStaffLiveStatusAction(): Promise<ActionResult<{
+  online: Array<{
+    staffId: string; staffName: string | null; email: string; subAdminRole: string | null;
+    status: string; clockIn: Date; elapsedMinutes: number;
+    onBreakSince: Date | null; callsToday: number; conversionsToday: number;
+  }>;
+  offline: Array<{
+    staffId: string; staffName: string | null; email: string; subAdminRole: string | null;
+    lastClockOut: Date | null; lastSessionMinutes: number | null;
+  }>;
+}>> {
+  const { error } = await requireAdmin();
+  if (error) return actionError(error);
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const activeSessions = await prisma.staffWorkSession.findMany({
+    where: { status: { in: ["CLOCKED_IN", "ON_BREAK"] } },
+    include: { staff: { select: { id: true, name: true, email: true, subAdminRole: true } } },
+  });
+
+  const online = await Promise.all(activeSessions.map(async (s) => {
+    const [callsToday, conversionsToday] = await Promise.all([
+      prisma.staffLeadCallLog.count({ where: { calledById: s.staffId, calledAt: { gte: todayStart } } }),
+      prisma.staffLeadCallLog.count({ where: { calledById: s.staffId, calledAt: { gte: todayStart }, outcome: "CONVERTED" } }),
+    ]);
+    return {
+      staffId: s.staffId, staffName: s.staff.name, email: s.staff.email,
+      subAdminRole: s.staff.subAdminRole, status: s.status, clockIn: s.clockIn,
+      elapsedMinutes: Math.round((now.getTime() - s.clockIn.getTime()) / 60000),
+      onBreakSince: s.breakStartedAt, callsToday, conversionsToday,
+    };
+  }));
+
+  const onlineIds = activeSessions.map((s) => s.staffId);
+  const offlineStaff = await prisma.user.findMany({
+    where: { role: "SUB_ADMIN", id: { notIn: onlineIds.length > 0 ? onlineIds : ["_none_"] } },
+    select: { id: true, name: true, email: true, subAdminRole: true },
+  });
+
+  const offline = await Promise.all(offlineStaff.map(async (u) => {
+    const lastSession = await prisma.staffWorkSession.findFirst({
+      where: { staffId: u.id, status: { in: ["CLOCKED_OUT", "AUTO_OUT"] } },
+      orderBy: { clockOut: "desc" },
+      select: { clockOut: true, totalMinutes: true },
+    });
+    return {
+      staffId: u.id, staffName: u.name, email: u.email, subAdminRole: u.subAdminRole,
+      lastClockOut: lastSession?.clockOut ?? null, lastSessionMinutes: lastSession?.totalMinutes ?? null,
+    };
+  }));
+
+  return actionSuccess({ online, offline });
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// STAFF CRM PRO — STAFF COMMAND CENTER (Combined Data Endpoint)
+// ════════════════════════════════════════════════════════════════════════════════
+
+export async function getStaffDashboardDataAction(): Promise<ActionResult<{
+  activeSession: {
+    id: string; clockIn: Date; status: string; breakStartedAt: Date | null;
+    totalBreakMins: number; callsMade: number; leadsContacted: number;
+    leadsConverted: number; followUpsSet: number; followUpsDone: number;
+  } | null;
+  dueReminders: Array<{
+    id: string; scheduledAt: Date; urgency: string; reminderNote: string | null;
+    snoozeCount: number;
+    lead: { id: string; name: string | null; phone: string | null; location: string | null; subjects: string[]; status: string };
+  }>;
+  overdueCount: number;
+  dueSoonCount: number;
+  todayStats: { calls: number; conversions: number; followUpsDone: number };
+  weeklyHistory: Array<{ date: string; calls: number; minutes: number; conversions: number }>;
+  nextLeads: Array<{
+    id: string; name: string | null; phone: string | null; location: string | null;
+    subjects: string[]; classes: string[]; status: string;
+    nextFollowUpAt: Date | null; staffNotes: string | null; priority: number;
+  }>;
+  performance: {
+    weeklyCallTarget: number; weeklyCallsMade: number; streak: number;
+    rank: number; totalStaff: number;
+  };
+}>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const weekAgo = new Date(Date.now() - 7 * 86400000);
+  const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+
+  // 1. Active session
+  const activeSession = await prisma.staffWorkSession.findFirst({
+    where: { staffId: session.user.id, status: { in: ["CLOCKED_IN", "ON_BREAK"] } },
+    orderBy: { clockIn: "desc" },
+  });
+
+  // 2. Due reminders
+  const reminders = await prisma.staffFollowUpReminder.findMany({
+    where: { staffId: session.user.id, isDismissed: false, isCompleted: false, scheduledAt: { lte: endOfDay } },
+    include: { lead: { select: { id: true, name: true, phone: true, location: true, subjects: true, status: true } } },
+    orderBy: { scheduledAt: "asc" },
+    take: 20,
+  });
+
+  const in2Hours = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const overdueCount = reminders.filter((r) => r.scheduledAt < now).length;
+  const dueSoonCount = reminders.filter((r) => r.scheduledAt >= now && r.scheduledAt <= in2Hours).length;
+
+  // 3. Today stats
+  const [todayCalls, todayConversions, todayFollowUpsDone] = await Promise.all([
+    prisma.staffLeadCallLog.count({ where: { calledById: session.user.id, calledAt: { gte: todayStart } } }),
+    prisma.staffLeadCallLog.count({ where: { calledById: session.user.id, calledAt: { gte: todayStart }, outcome: "CONVERTED" } }),
+    prisma.staffFollowUpReminder.count({ where: { staffId: session.user.id, isCompleted: true, completedAt: { gte: todayStart } } }),
+  ]);
+
+  // 4. Weekly history
+  const weekSessions = await prisma.staffWorkSession.findMany({
+    where: { staffId: session.user.id, clockIn: { gte: weekAgo }, status: { in: ["CLOCKED_OUT", "AUTO_OUT"] } },
+    orderBy: { clockIn: "asc" },
+  });
+  const dailyMap = new Map<string, { calls: number; minutes: number; conversions: number }>();
+  for (let d = 0; d < 7; d++) {
+    const key = new Date(Date.now() - (6 - d) * 86400000).toISOString().split("T")[0];
+    dailyMap.set(key, { calls: 0, minutes: 0, conversions: 0 });
+  }
+  for (const ws of weekSessions) {
+    const key = ws.clockIn.toISOString().split("T")[0];
+    const e = dailyMap.get(key) || { calls: 0, minutes: 0, conversions: 0 };
+    e.calls += ws.callsMade; e.minutes += ws.totalMinutes ?? 0; e.conversions += ws.leadsConverted;
+    dailyMap.set(key, e);
+  }
+  const weeklyHistory = Array.from(dailyMap.entries()).map(([date, d]) => ({ date, ...d }));
+
+  // 5. Next leads to work
+  const nextLeads = await prisma.staffLead.findMany({
+    where: {
+      assignedToId: session.user.id,
+      status: { in: ["NEW", "ASSIGNED", "FOLLOW_UP", "CONTACTED", "NO_ANSWER"] },
+      isPromoted: false,
+    },
+    orderBy: [{ nextFollowUpAt: "asc" }, { priority: "desc" }, { createdAt: "asc" }],
+    take: 10,
+    select: {
+      id: true, name: true, phone: true, location: true, subjects: true,
+      classes: true, status: true, nextFollowUpAt: true, staffNotes: true, priority: true,
+    },
+  });
+
+  // 6. Performance
+  const weekCallsPerStaff = await prisma.staffLeadCallLog.groupBy({
+    by: ["calledById"],
+    where: { calledAt: { gte: weekAgo } },
+    _count: true,
+    orderBy: { _count: { calledById: "desc" } },
+  });
+  const myWeeklyCalls = weekCallsPerStaff.find((s) => s.calledById === session.user.id)?._count ?? 0;
+  const rank = weekCallsPerStaff.findIndex((s) => s.calledById === session.user.id) + 1;
+
+  // Streak
+  let streak = 0;
+  for (let d = 0; d < 30; d++) {
+    const ds = new Date(Date.now() - d * 86400000); ds.setHours(0, 0, 0, 0);
+    const de = new Date(ds); de.setHours(23, 59, 59, 999);
+    const c = await prisma.staffLeadCallLog.count({
+      where: { calledById: session.user.id, calledAt: { gte: ds, lte: de } },
+    });
+    if (c > 0) streak++; else if (d > 0) break;
+  }
+
+  return actionSuccess({
+    activeSession: activeSession ? {
+      id: activeSession.id, clockIn: activeSession.clockIn, status: activeSession.status,
+      breakStartedAt: activeSession.breakStartedAt, totalBreakMins: activeSession.totalBreakMins,
+      callsMade: activeSession.callsMade, leadsContacted: activeSession.leadsContacted,
+      leadsConverted: activeSession.leadsConverted, followUpsSet: activeSession.followUpsSet,
+      followUpsDone: activeSession.followUpsDone,
+    } : null,
+    dueReminders: reminders.map((r) => ({
+      id: r.id, scheduledAt: r.scheduledAt, urgency: r.urgency, reminderNote: r.reminderNote,
+      snoozeCount: r.snoozeCount, lead: r.lead,
+    })),
+    overdueCount, dueSoonCount,
+    todayStats: { calls: todayCalls, conversions: todayConversions, followUpsDone: todayFollowUpsDone },
+    weeklyHistory, nextLeads,
+    performance: {
+      weeklyCallTarget: 280, weeklyCallsMade: myWeeklyCalls, streak,
+      rank: rank || weekCallsPerStaff.length + 1, totalStaff: weekCallsPerStaff.length,
+    },
+  });
+}
 
 
 

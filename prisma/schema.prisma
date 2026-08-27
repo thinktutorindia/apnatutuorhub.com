@@ -158,6 +158,20 @@ enum CallOutcome {
   NOT_INTERESTED
 }
 
+enum StaffShiftStatus {
+  CLOCKED_IN
+  ON_BREAK
+  CLOCKED_OUT
+  AUTO_OUT
+}
+
+enum ReminderUrgency {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
 // ────────────────────────────────────────────────
 // User & Auth
 // ────────────────────────────────────────────────
@@ -197,6 +211,8 @@ model User {
   adminNotesAuthored AdminNote[]   @relation("AdminNotesAuthor")
   assignedStaffLeads StaffLead[]   @relation("StaffLeadAssignee")
   staffLeadCallLogs  StaffLeadCallLog[] @relation("StaffLeadCaller")
+  staffWorkSessions      StaffWorkSession[]       @relation("StaffWorkSessions")
+  staffFollowUpReminders StaffFollowUpReminder[]  @relation("StaffFollowUpReminders")
 
   @@map("users")
 }
@@ -846,6 +862,7 @@ model StaffLeadBatch {
   createdById String
 
   leads     StaffLead[]
+  progress  StaffLeadBatchProgress?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
@@ -895,6 +912,7 @@ model StaffLead {
   updatedAt   DateTime @updatedAt
 
   callLogs StaffLeadCallLog[]
+  followUpReminders StaffFollowUpReminder[]
 
   @@index([status, createdAt])
   @@index([assignedToId, status])
@@ -914,4 +932,92 @@ model StaffLeadCallLog {
 
   @@index([leadId, calledAt])
   @@map("staff_lead_call_logs")
+}
+
+// ────────────────────────────────────────────────
+// Staff CRM Pro — Work Sessions & Follow-Ups
+// ────────────────────────────────────────────────
+
+model StaffWorkSession {
+  id             String           @id @default(cuid())
+  staffId        String
+  staff          User             @relation("StaffWorkSessions", fields: [staffId], references: [id])
+
+  clockIn        DateTime         @default(now())
+  clockOut       DateTime?
+  status         StaffShiftStatus @default(CLOCKED_IN)
+
+  // Break tracking
+  breakStartedAt DateTime?
+  totalBreakMins Int              @default(0)
+
+  // Auto-computed on clock-out
+  totalMinutes   Int?
+
+  // Session performance snapshot
+  callsMade      Int              @default(0)
+  leadsContacted Int              @default(0)
+  leadsConverted Int              @default(0)
+  followUpsSet   Int              @default(0)
+  followUpsDone  Int              @default(0)
+
+  notes          String?          @db.Text
+
+  createdAt      DateTime         @default(now())
+
+  @@index([staffId, clockIn])
+  @@index([status])
+  @@map("staff_work_sessions")
+}
+
+model StaffFollowUpReminder {
+  id            String          @id @default(cuid())
+  staffId       String
+  staff         User            @relation("StaffFollowUpReminders", fields: [staffId], references: [id])
+  leadId        String
+  lead          StaffLead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  callLogId     String?
+
+  scheduledAt   DateTime
+  urgency       ReminderUrgency @default(NORMAL)
+  reminderNote  String?
+
+  // Snooze tracking
+  originalTime  DateTime?
+  snoozeCount   Int             @default(0)
+
+  // Completion
+  isDismissed   Boolean         @default(false)
+  isCompleted   Boolean         @default(false)
+  completedAt   DateTime?
+
+  createdAt     DateTime        @default(now())
+
+  @@index([staffId, scheduledAt])
+  @@index([staffId, isDismissed, isCompleted, scheduledAt])
+  @@index([leadId])
+  @@map("staff_followup_reminders")
+}
+
+model StaffLeadBatchProgress {
+  id              String         @id @default(cuid())
+  batchId         String         @unique
+  batch           StaffLeadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  totalLeads      Int            @default(0)
+  leadsNew        Int            @default(0)
+  leadsContacted  Int            @default(0)
+  leadsFollowUp   Int            @default(0)
+  leadsConverted  Int            @default(0)
+  leadsRejected   Int            @default(0)
+  leadsDone       Int            @default(0)
+
+  isFullyProcessed Boolean       @default(false)
+  completedAt      DateTime?
+  avgLeadsPerDay   Float         @default(0)
+  estimatedDaysLeft Int?
+
+  lastUpdatedAt    DateTime      @default(now()) @updatedAt
+
+  @@map("staff_lead_batch_progress")
 }

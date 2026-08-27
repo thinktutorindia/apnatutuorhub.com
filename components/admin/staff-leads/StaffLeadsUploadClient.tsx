@@ -585,9 +585,30 @@ export function StaffLeadsUploadClient() {
                               />
                             ) : (
                               <div className="space-y-1">
-                                <p className="font-extrabold text-slate-900 text-sm">
-                                  {lead.name ?? <span className="text-slate-300 italic font-normal">Unknown Tutor</span>}
-                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="font-extrabold text-slate-900 text-sm">
+                                    {lead.name ?? <span className="text-slate-400 italic font-normal">{lead.leadType === "PARENT_LEAD" ? "Parent Requirement" : "Tutor Lead"}</span>}
+                                  </p>
+                                  {lead.leadType === "PARENT_LEAD" ? (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
+                                      Parent
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                      Tutor
+                                    </span>
+                                  )}
+                                  {lead.budgetFee && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                      💰 {lead.budgetFee}
+                                    </span>
+                                  )}
+                                  {lead.appliedCodes && lead.appliedCodes.length > 0 && (
+                                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">
+                                      🏷️ {lead.appliedCodes.join(", ")}
+                                    </span>
+                                  )}
+                                </div>
                                 {lead.isDuplicate && (
                                   <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-100/80 border border-amber-200 px-2 py-0.5 rounded-md">
                                     <AlertTriangle size={10} className="shrink-0 text-amber-600" />
@@ -597,6 +618,11 @@ export function StaffLeadsUploadClient() {
                                 {lead.qualification && (
                                   <span className="text-[11px] text-slate-500 font-medium block">
                                     🎓 {lead.qualification} {lead.experienceYears ? `· ${lead.experienceYears} yrs exp` : ""}
+                                  </span>
+                                )}
+                                {lead.operationalNotes && (
+                                  <span className="text-[10px] text-slate-500 italic block">
+                                    📝 {lead.operationalNotes}
                                   </span>
                                 )}
                               </div>

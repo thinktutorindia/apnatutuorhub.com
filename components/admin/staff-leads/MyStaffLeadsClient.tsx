@@ -526,35 +526,76 @@ export function MyStaffLeadsClient({
           </p>
         </div>
 
-        {/* View Toggle (Queue vs Daily Activity) */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-          <button
-            type="button"
-            onClick={() => setActiveMainView("QUEUE")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
-              activeMainView === "QUEUE"
-                ? "bg-white text-slate-900 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
+        {/* Action & Navigation Hub */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/admin/staff-leads/my-dashboard"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-black hover:from-emerald-700 hover:to-teal-700 shadow-xs transition-all"
           >
-            <UserCheck size={14} className={activeMainView === "QUEUE" ? "text-emerald-600" : ""} />
-            My Leads Queue ({leads.length})
-          </button>
+            <Clock size={14} /> My Shift &amp; Timer
+          </Link>
+          <Link
+            href="/admin/staff-leads"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50"
+          >
+            <BarChart3 size={14} className="text-slate-500" /> Admin CRM
+          </Link>
 
-          <button
-            type="button"
-            onClick={() => setActiveMainView("ACTIVITY")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
-              activeMainView === "ACTIVITY"
-                ? "bg-white text-slate-900 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Activity size={14} className={activeMainView === "ACTIVITY" ? "text-blue-600" : ""} />
-            Daily Activity & Logs
-          </button>
+          {/* View Toggle (Queue vs Daily Activity) */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveMainView("QUEUE")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeMainView === "QUEUE"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <UserCheck size={14} className={activeMainView === "QUEUE" ? "text-emerald-600" : ""} />
+              Queue ({leads.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveMainView("ACTIVITY")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeMainView === "ACTIVITY"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Activity size={14} className={activeMainView === "ACTIVITY" ? "text-blue-600" : ""} />
+              Activity Feed
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Due Follow-Ups Alert Bar */}
+      {dueCount > 0 && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white p-3.5 rounded-2xl shadow-sm flex items-center justify-between flex-wrap gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-black">
+              🔔
+            </div>
+            <div>
+              <p className="text-xs font-black tracking-wide">
+                {dueCount} FOLLOW-UP{dueCount > 1 ? "S" : ""} DUE RIGHT NOW!
+              </p>
+              <p className="text-[11px] text-white/90">
+                Parents or tutors requested callbacks at or before this hour.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab("DUE")}
+            className="px-4 py-1.5 rounded-xl bg-white text-amber-900 text-xs font-black hover:bg-amber-50 shadow-xs cursor-pointer transition-all"
+          >
+            ⚡ View {dueCount} Due Leads Now
+          </button>
+        </div>
+      )}
 
       {/* Global Alert Notification */}
       {message && (
@@ -1618,7 +1659,14 @@ export function MyStaffLeadsClient({
                   <button
                     key={o.outcome}
                     type="button"
-                    onClick={() => setDetailedOutcome(o.outcome as CallOutcome)}
+                    onClick={() => {
+                      setDetailedOutcome(o.outcome as CallOutcome);
+                      if (o.outcome === "CALLBACK_REQUESTED" && !detailedFollowUpDate) {
+                        const d = new Date(Date.now() + 120 * 60000);
+                        const pad = (n: number) => String(n).padStart(2, "0");
+                        setDetailedFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                      }
+                    }}
                     className={`flex items-center gap-1.5 p-2.5 rounded-xl border text-left font-bold transition-all cursor-pointer ${
                       detailedOutcome === o.outcome
                         ? "bg-slate-900 text-white border-slate-900 shadow-xs"
@@ -1644,15 +1692,96 @@ export function MyStaffLeadsClient({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Schedule Next Follow-Up Date & Time (Optional)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">
+                  Schedule Next Follow-Up Date & Time (Optional)
+                </label>
+                {detailedFollowUpDate && (
+                  <button
+                    type="button"
+                    onClick={() => setDetailedFollowUpDate("")}
+                    className="text-[10px] font-bold text-rose-500 hover:underline"
+                  >
+                    Clear Follow-Up
+                  </button>
+                )}
+              </div>
               <input
                 type="datetime-local"
                 value={detailedFollowUpDate}
                 onChange={(e) => setDetailedFollowUpDate(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 bg-white"
               />
+
+              {/* Quick Follow-Up Presets */}
+              <div className="space-y-1.5 mt-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                  ⚡ Quick Presets:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { label: "+30m", mins: 30 },
+                    { label: "+1h", mins: 60 },
+                    { label: "+2h", mins: 120 },
+                    { label: "+4h", mins: 240 },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(Date.now() + p.mins * 60000);
+                        const pad = (n: number) => String(n).padStart(2, "0");
+                        setDetailedFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                      }}
+                      className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all cursor-pointer"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(10, 0, 0, 0);
+                      const pad = (n: number) => String(n).padStart(2, "0");
+                      setDetailedFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00`);
+                    }}
+                    className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all cursor-pointer"
+                  >
+                    🌅 Tomorrow 10 AM
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(17, 0, 0, 0);
+                      const pad = (n: number) => String(n).padStart(2, "0");
+                      setDetailedFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T17:00`);
+                    }}
+                    className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition-all cursor-pointer"
+                  >
+                    🌆 Tomorrow 5 PM
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 2);
+                      d.setHours(11, 0, 0, 0);
+                      const pad = (n: number) => String(n).padStart(2, "0");
+                      setDetailedFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T11:00`);
+                    }}
+                    className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-all cursor-pointer"
+                  >
+                    📅 In 2 Days 11 AM
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t">

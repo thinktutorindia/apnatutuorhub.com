@@ -41,8 +41,9 @@ function tryParseJson(text: string): ParsedLead[] | null {
       const classes = Array.isArray(classesRaw) ? classesRaw.map(String) : String(classesRaw).split(/[,/|]/).map((c) => c.trim()).filter(Boolean);
 
       results.push({
+        leadType: (item.leadType === "PARENT_LEAD" || item.type === "PARENT" || /parent|student/i.test(item.role || "")) ? "PARENT_LEAD" : "TUTOR",
         rawText: JSON.stringify(item, null, 2),
-        name: item.name || item.fullName || item.tutorName || null,
+        name: item.name || item.fullName || item.tutorName || item.studentName || null,
         phone: phoneClean && /^[6-9]\d{9}$/.test(phoneClean) ? phoneClean : null,
         altPhone: item.altPhone ? String(item.altPhone).replace(/\D/g, "").slice(-10) : null,
         whatsapp: phoneClean && /^[6-9]\d{9}$/.test(phoneClean) ? phoneClean : null,
@@ -56,6 +57,9 @@ function tryParseJson(text: string): ParsedLead[] | null {
         qualification: item.qualification || item.degree || null,
         experienceYears: typeof item.experience === "number" ? item.experience : null,
         gender: item.gender || null,
+        budgetFee: item.fee || item.budget || null,
+        appliedCodes: Array.isArray(item.codes) ? item.codes : (item.code ? [String(item.code)] : []),
+        operationalNotes: item.notes || null,
         confidence: 0.99,
         isJunk: false,
       });
@@ -78,13 +82,17 @@ function tryParseTabular(text: string): ParsedLead[] | null {
   if (!delimiter) return null;
 
   const headers = firstLine.split(delimiter).map((h) => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ""));
-  const nameIdx = headers.findIndex((h) => h.includes("name"));
+  const nameIdx = headers.findIndex((h) => h.includes("name") || h.includes("tutor") || h.includes("candidate"));
   const phoneIdx = headers.findIndex((h) => h.includes("phone") || h.includes("mobile") || h.includes("contact") || h.includes("whatsapp"));
   const emailIdx = headers.findIndex((h) => h.includes("email") || h.includes("mail"));
-  const locIdx = headers.findIndex((h) => h.includes("location") || h.includes("address") || h.includes("city"));
-  const subIdx = headers.findIndex((h) => h.includes("subject"));
+  const addrIdx = headers.findIndex((h) => h.includes("fulladdress") || h.includes("completeaddress") || h.includes("address") || h.includes("street"));
+  const locIdx = headers.findIndex((h) => h.includes("location") || h.includes("locality") || h.includes("area") || h.includes("city"));
+  const pinIdx = headers.findIndex((h) => h.includes("pincode") || h.includes("pin") || h.includes("zip"));
+  const subIdx = headers.findIndex((h) => h.includes("subject") || h.includes("skill"));
   const classIdx = headers.findIndex((h) => h.includes("class") || h.includes("grade"));
-  const qualIdx = headers.findIndex((h) => h.includes("qual") || h.includes("degree"));
+  const qualIdx = headers.findIndex((h) => h.includes("qual") || h.includes("degree") || h.includes("edu"));
+  const expIdx = headers.findIndex((h) => h.includes("exp") || h.includes("year"));
+  const genderIdx = headers.findIndex((h) => h.includes("gender") || h.includes("sex"));
 
   if (phoneIdx === -1 && emailIdx === -1) return null;
 
@@ -100,25 +108,46 @@ function tryParseTabular(text: string): ParsedLead[] | null {
 
     if (!phoneClean && !emailClean) continue;
 
+    let name = nameIdx !== -1 && cols[nameIdx] ? cols[nameIdx].trim() : null;
+    if (!name && emailClean) {
+      const user = emailClean.split("@")[0].replace(/\d+/g, "").replace(/(?:tutor|mail|git)[._-]?/gi, "");
+      const parts = user.split(/[._-]+/).filter((p) => p.length >= 2);
+      if (parts.length > 0) {
+        name = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+      }
+    }
+
+    const rawLoc = locIdx !== -1 && cols[locIdx] ? cols[locIdx].trim() : null;
+    const rawAddr = addrIdx !== -1 && cols[addrIdx] ? cols[addrIdx].trim() : null;
+    const fullAddress = rawAddr || rawLoc || null;
+    const location = rawLoc || (rawAddr ? (rawAddr.split(",").length >= 2 ? rawAddr.split(",").slice(-2).join(", ").trim() : rawAddr) : null);
+    const pincodeRaw = pinIdx !== -1 && cols[pinIdx] ? cols[pinIdx].replace(/\D/g, "").slice(0, 6) : null;
+
     const subjects = subIdx !== -1 && cols[subIdx] ? cols[subIdx].split(/[,/|]/).map((s) => s.trim()).filter(Boolean) : [];
     const classes = classIdx !== -1 && cols[classIdx] ? cols[classIdx].split(/[,/|]/).map((c) => c.trim()).filter(Boolean) : [];
+    const expRaw = expIdx !== -1 && cols[expIdx] ? parseInt(cols[expIdx].replace(/\D/g, ""), 10) : null;
+    const genderRaw = genderIdx !== -1 && cols[genderIdx] ? (cols[genderIdx].toLowerCase().startsWith("f") ? "Female" : cols[genderIdx].toLowerCase().startsWith("m") ? "Male" : null) : null;
 
     results.push({
+      leadType: "TUTOR",
       rawText: lines[i],
-      name: nameIdx !== -1 && cols[nameIdx] ? cols[nameIdx] : null,
+      name: name || null,
       phone: phoneClean && /^[6-9]\d{9}$/.test(phoneClean) ? phoneClean : null,
       altPhone: null,
       whatsapp: phoneClean && /^[6-9]\d{9}$/.test(phoneClean) ? phoneClean : null,
       email: emailClean,
-      location: locIdx !== -1 && cols[locIdx] ? cols[locIdx] : null,
-      pincode: null,
-      fullAddress: null,
+      location: location || null,
+      pincode: pincodeRaw && pincodeRaw.length === 6 ? pincodeRaw : null,
+      fullAddress: fullAddress || null,
       subjects,
       classes,
       board: null,
       qualification: qualIdx !== -1 && cols[qualIdx] ? cols[qualIdx] : null,
-      experienceYears: null,
-      gender: null,
+      experienceYears: !isNaN(Number(expRaw)) && Number(expRaw) > 0 ? Number(expRaw) : null,
+      gender: genderRaw,
+      budgetFee: null,
+      appliedCodes: [],
+      operationalNotes: null,
       confidence: 0.95,
       isJunk: false,
     });

@@ -41,9 +41,42 @@ interface Props {
   leads: Lead[];
   total: number;
   batches: Batch[];
+  pipeline?: {
+    batches: Array<{
+      id: string; name: string; createdAt: Date;
+      totalLeads: number; leadsNew: number; leadsContacted: number;
+      leadsFollowUp: number; leadsConverted: number; leadsRejected: number;
+      leadsDone: number; progressPercent: number; isFullyProcessed: boolean;
+      estimatedDaysLeft: number | null; avgLeadsPerDay: number;
+      status: "not_started" | "active" | "stalled" | "completed";
+    }>;
+    overall: {
+      totalBatches: number; completedBatches: number; totalLeads: number;
+      totalDone: number; progressPercent: number;
+      estimatedCompletionDate: string | null; avgDailyThroughput: number;
+    };
+  } | null;
+  liveStatus?: {
+    online: Array<{
+      staffId: string; staffName: string | null; email: string; subAdminRole: string | null;
+      status: string; clockIn: Date; elapsedMinutes: number;
+      onBreakSince: Date | null; callsToday: number; conversionsToday: number;
+    }>;
+    offline: Array<{
+      staffId: string; staffName: string | null; email: string; subAdminRole: string | null;
+      lastClockOut: Date | null; lastSessionMinutes: number | null;
+    }>;
+  } | null;
+  activityFeed?: Array<{
+    id: string; outcome: string; notes: string | null;
+    calledAt: Date | string;
+    calledBy: { name: string | null; email: string };
+    lead: { id: string; name: string | null; phone: string | null; status: string };
+  }>;
+  isSuperAdmin?: boolean;
 }
 
-export function StaffLeadsDashboardClient({ stats, leads, total, batches }: Props) {
+export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeline, liveStatus, activityFeed, isSuperAdmin }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StaffLeadStatus | "ALL">("ALL");
 
@@ -73,6 +106,10 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches }: Prop
           <p className="text-sm text-slate-500 mt-1">Staging area for raw leads — validate, follow up, then promote to main database</p>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
+          <Link href="/admin/staff-leads/my-dashboard"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-black hover:from-indigo-700 hover:to-purple-700 shadow-xs">
+            <Clock size={14} /> My Dashboard
+          </Link>
           <Link href="/admin/staff-leads/manage"
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 shadow-xs">
             <TrendingUp size={14} className="text-emerald-400" /> CRM Management
@@ -124,6 +161,159 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches }: Prop
           </div>
         </div>
       )}
+
+      {/* ── Data Pipeline + Staff Online + Activity Feed ── */}
+      {(pipeline || liveStatus || activityFeed) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Data Pipeline */}
+          {pipeline && (
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-extrabold text-slate-900 flex items-center gap-2">
+                  <RotateCcw size={16} className="text-blue-600" /> Data Pipeline
+                </h2>
+                <div className="text-xs font-bold text-slate-500">
+                  {pipeline.overall.completedBatches}/{pipeline.overall.totalBatches} batches done
+                </div>
+              </div>
+
+              {/* Overall progress */}
+              <div className="mb-4 bg-slate-50 rounded-xl p-3">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="font-bold text-slate-700">
+                    {pipeline.overall.totalDone}/{pipeline.overall.totalLeads} leads processed
+                  </span>
+                  <span className="font-black text-blue-600">{pipeline.overall.progressPercent}%</span>
+                </div>
+                <div className="h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all" style={{ width: `${pipeline.overall.progressPercent}%` }} />
+                </div>
+                <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-500">
+                  <span>~{pipeline.overall.avgDailyThroughput} leads/day throughput</span>
+                  {pipeline.overall.estimatedCompletionDate && <span>ETA: {pipeline.overall.estimatedCompletionDate}</span>}
+                </div>
+              </div>
+
+              {/* Per-batch progress */}
+              <div className="space-y-2.5">
+                {pipeline.batches.slice(0, 5).map((b) => {
+                  const statusColors: Record<string, string> = {
+                    not_started: "text-slate-400",
+                    active: "text-emerald-600",
+                    stalled: "text-amber-600",
+                    completed: "text-blue-600",
+                  };
+                  const statusLabels: Record<string, string> = {
+                    not_started: "⚪ Not Started",
+                    active: "🟢 Active",
+                    stalled: "🟡 Stalled",
+                    completed: "🔵 Completed",
+                  };
+                  return (
+                    <div key={b.id} className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="font-bold text-slate-700 truncate">{b.name}</span>
+                          <span className={`text-[10px] font-bold ${statusColors[b.status]}`}>
+                            {statusLabels[b.status]} · {b.progressPercent}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${
+                            b.status === "completed" ? "bg-blue-400" : b.status === "stalled" ? "bg-amber-400" : "bg-emerald-400"
+                          }`} style={{ width: `${b.progressPercent}%` }} />
+                        </div>
+                        <div className="flex items-center justify-between mt-0.5 text-[9px] text-slate-400">
+                          <span>{b.leadsDone}/{b.totalLeads} done</span>
+                          {b.estimatedDaysLeft !== null && <span>~{b.estimatedDaysLeft}d left</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Staff Online + Activity Feed */}
+          <div className="space-y-4">
+            {/* Staff Online Status */}
+            {liveStatus && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <h2 className="font-extrabold text-slate-900 flex items-center gap-2 mb-3">
+                  <Users size={16} className="text-emerald-600" /> Staff Online
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                    {liveStatus.online.length} online
+                  </span>
+                </h2>
+                <div className="space-y-2">
+                  {liveStatus.online.map((s) => (
+                    <div key={s.staffId} className="flex items-center gap-2 bg-emerald-50 rounded-xl px-3 py-2">
+                      <div className={`w-2 h-2 rounded-full ${
+                        s.status === "ON_BREAK" ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-700 truncate">{s.staffName || s.email}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {s.status === "ON_BREAK" ? "☕ On break" : `${Math.floor(s.elapsedMinutes / 60)}h ${s.elapsedMinutes % 60}m`}
+                          {" · "}{s.callsToday} calls
+                          {s.conversionsToday > 0 && ` · ${s.conversionsToday} ✓`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {liveStatus.offline.length > 0 && (
+                    <div className="pt-2 border-t border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 mb-1">Offline ({liveStatus.offline.length})</p>
+                      <div className="flex flex-wrap gap-1">
+                        {liveStatus.offline.slice(0, 4).map((s) => (
+                          <span key={s.staffId} className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
+                            {s.staffName || s.email.split("@")[0]}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Activity Feed */}
+            {activityFeed && activityFeed.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <h2 className="font-extrabold text-slate-900 flex items-center gap-2 mb-3">
+                  <Sparkles size={16} className="text-purple-600" /> Live Activity
+                </h2>
+                <div className="space-y-2 max-h-[260px] overflow-y-auto">
+                  {activityFeed.map((log) => {
+                    const outcomeEmoji: Record<string, string> = {
+                      ANSWERED: "📞", NO_ANSWER: "📵", BUSY: "⏳",
+                      WRONG_NUMBER: "❌", CALLBACK_REQUESTED: "🔔",
+                      CONVERTED: "🎉", NOT_INTERESTED: "👎",
+                    };
+                    const calledAt = new Date(log.calledAt);
+                    const minsAgo = Math.round((Date.now() - calledAt.getTime()) / 60000);
+                    const timeLabel = minsAgo < 1 ? "just now" : minsAgo < 60 ? `${minsAgo}m ago` : `${Math.floor(minsAgo / 60)}h ago`;
+
+                    return (
+                      <div key={log.id} className="flex items-start gap-2 text-xs">
+                        <span className="text-[10px] text-slate-400 font-mono w-12 shrink-0 pt-0.5">{timeLabel}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold text-slate-700">{log.calledBy.name || log.calledBy.email.split("@")[0]}</span>
+                          {" "}<span>{outcomeEmoji[log.outcome] || "📋"}</span>{" "}
+                          <span className="text-slate-600">{log.lead.name || "Lead"}</span>
+                          {log.notes && <span className="text-slate-400 italic"> — "{log.notes.slice(0, 30)}"</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {/* Filter + search */}
       <div className="flex flex-wrap items-center gap-3">

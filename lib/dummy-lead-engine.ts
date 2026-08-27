@@ -740,44 +740,71 @@ export async function runCampaignPass(campaignId: string): Promise<{
 
   const cfg = parseCampaignCfg(campaign.description);
   const stable = campaign.randomizeDaily === false;
+  const startTime = Date.now();
 
-  let totalSent = 0, totalFailed = 0;
+  let totalSent = 0;
+  let totalFailed = 0;
 
-  for (const user of targets) {
-    const userSeed = user.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-    for (let i = 0; i < campaign.leadsPerDay; i++) {
-      const lead = await generateDummyLead({
-        tutorLat: user.tutorProfile?.latitude,
-        tutorLng: user.tutorProfile?.longitude,
-        tutorCity: user.tutorProfile?.city,
-        tutorAddress: user.tutorProfile?.address ?? "",
-        tutorSubjects: user.tutorProfile?.subjects ?? [],
-        tutorClassLevels: user.tutorProfile?.classLevels ?? [],
-        teachingRadius: user.tutorProfile?.teachingRadius ?? 10,
-        teachingMode: user.tutorProfile?.teachingMode,
-        tutorFeeMin: user.tutorProfile?.feeMin,
-        tutorFeeMax: user.tutorProfile?.feeMax,
-        rateType: cfg.rateType,
-        autoAdapt: cfg.autoAdapt,
-        budgetMin: campaign.budgetMin,
-        budgetMax: campaign.budgetMax,
-        overrideSubjects: campaign.overrideSubjects,
-        userSeed: userSeed + i * 137,
-        stable,
-      });
+  // Process targets in concurrent batches of 15 for high speed without overwhelming DB connection pool
+  const BATCH_SIZE = 15;
+  for (let b = 0; b < targets.length; b += BATCH_SIZE) {
+    const batch = targets.slice(b, b + BATCH_SIZE);
 
-      const result = await deliverDummyLeadToTutor({
-        campaignId,
-        userId: user.id,
-        userName: user.name,
-        userEmail: user.email,
-        lead,
-        channels: campaign.channels,
-      });
-      totalSent += result.sent;
-      totalFailed += result.failed;
+    const batchResults = await Promise.all(
+      batch.map(async (user) => {
+        let uSent = 0;
+        let uFailed = 0;
+        const userSeed = user.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+
+        for (let i = 0; i < campaign.leadsPerDay; i++) {
+          try {
+            const lead = await generateDummyLead({
+              tutorLat: user.tutorProfile?.latitude,
+              tutorLng: user.tutorProfile?.longitude,
+              tutorCity: user.tutorProfile?.city,
+              tutorAddress: user.tutorProfile?.address ?? "",
+              tutorSubjects: user.tutorProfile?.subjects ?? [],
+              tutorClassLevels: user.tutorProfile?.classLevels ?? [],
+              teachingRadius: user.tutorProfile?.teachingRadius ?? 10,
+              teachingMode: user.tutorProfile?.teachingMode,
+              tutorFeeMin: user.tutorProfile?.feeMin,
+              tutorFeeMax: user.tutorProfile?.feeMax,
+              rateType: cfg.rateType,
+              autoAdapt: cfg.autoAdapt,
+              budgetMin: campaign.budgetMin,
+              budgetMax: campaign.budgetMax,
+              overrideSubjects: campaign.overrideSubjects,
+              userSeed: userSeed + i * 137,
+              stable,
+            });
+
+            const result = await deliverDummyLeadToTutor({
+              campaignId,
+              userId: user.id,
+              userName: user.name,
+              userEmail: user.email,
+              lead,
+              channels: campaign.channels,
+            });
+
+            uSent += result.sent;
+            uFailed += result.failed;
+          } catch (err) {
+            console.error(`[dummy-lead-engine] Failed delivering to ${user.email}:`, err);
+            uFailed++;
+          }
+        }
+        return { sent: uSent, failed: uFailed };
+      })
+    );
+
+    for (const res of batchResults) {
+      totalSent += res.sent;
+      totalFailed += res.failed;
     }
   }
+
+  const timeTakenMs = Date.now() - startTime;
 
   await prisma.dummyCampaign.update({
     where: { id: campaignId },
@@ -788,5 +815,10 @@ export async function runCampaignPass(campaignId: string): Promise<{
     },
   });
 
-  return { sent: totalSent, failed: totalFailed, usersProcessed: targets.length };
+  return {
+    sent: totalSent,
+    failed: totalFailed,
+    usersProcessed: targets.length,
+    timeTakenMs,
+  };
 }

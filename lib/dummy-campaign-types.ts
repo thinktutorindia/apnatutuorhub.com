@@ -3,39 +3,39 @@
  * Client-safe types, constants, and fee benchmark definitions for Dummy Campaigns.
  */
 
-// ─── Class-wise Benchmark Fee Structure (Realistic tight spreads) ───────────
+// ─── Class-wise Benchmark Fee Structure (Market-aligned with attractive AI premium) ───
 
 export const CLASS_FEE_RATES = {
   "1-5": {
     label: "Class 1 to 5",
-    hourlyMin: 200,
-    hourlyMax: 300,
-    monthlyMin: 2500,
-    monthlyMax: 4000,
+    hourlyMin: 300,
+    hourlyMax: 450,
+    monthlyMin: 3500,
+    monthlyMax: 5500,
     classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Nursery", "KG", "LKG", "UKG", "Primary"],
   },
   "6-8": {
     label: "Class 6 to 8",
-    hourlyMin: 250,
-    hourlyMax: 350,
-    monthlyMin: 3500,
-    monthlyMax: 5000,
+    hourlyMin: 400,
+    hourlyMax: 600,
+    monthlyMin: 5000,
+    monthlyMax: 7500,
     classes: ["Class 6", "Class 7", "Class 8", "Middle School"],
   },
   "9-10": {
     label: "Class 9 to 10",
-    hourlyMin: 350,
-    hourlyMax: 500,
-    monthlyMin: 5000,
-    monthlyMax: 7000,
+    hourlyMin: 550,
+    hourlyMax: 800,
+    monthlyMin: 7000,
+    monthlyMax: 11000,
     classes: ["Class 9", "Class 10", "Secondary"],
   },
   "11-12": {
     label: "Class 11 to 12",
-    hourlyMin: 500,
-    hourlyMax: 700,
-    monthlyMin: 7000,
-    monthlyMax: 10000,
+    hourlyMin: 750,
+    hourlyMax: 1200,
+    monthlyMin: 10500,
+    monthlyMax: 18000,
     classes: ["Class 11", "Class 12", "Senior Secondary", "JEE", "NEET", "IIT-JEE"],
   },
 };
@@ -146,9 +146,9 @@ const TIER2 = /jaipur|lucknow|ahmedabad|chandigarh|indore|bhopal|kochi|coimbator
 
 export function areaFeeMultiplier(city?: string | null): number {
   const c = city || "";
-  if (METRO.test(c)) return 1.08;
-  if (TIER2.test(c)) return 1.0;
-  return 0.94;
+  if (METRO.test(c)) return 1.12;
+  if (TIER2.test(c)) return 1.02;
+  return 0.96;
 }
 
 export function averageBudgetForLead(opts: {
@@ -184,7 +184,8 @@ export function averageBudgetForLead(opts: {
       tMin *= 20;
       tMax *= 20;
     }
-    parts.push((tMin + tMax) / 2);
+    // Add realistic 15% premium to tutor's requested rate to make lead enticing
+    parts.push(((tMin + tMax) / 2) * 1.15);
   }
 
   let avg = parts.reduce((a, b) => a + b, 0) / parts.length;

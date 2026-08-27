@@ -140,7 +140,7 @@ export async function deleteDummyCampaignAction(id: string): Promise<ActionResul
 
 // ── Manual Trigger (fire campaign now) ───────────────────────────────────────
 
-export async function triggerCampaignNowAction(id: string): Promise<ActionResult<{ sent: number; failed: number; usersProcessed: number }>> {
+export async function triggerCampaignNowAction(id: string): Promise<ActionResult<{ sent: number; failed: number; usersProcessed: number; timeTakenMs: number }>> {
   const { error } = await requireSuperAdmin();
   if (error) return actionError(error);
 

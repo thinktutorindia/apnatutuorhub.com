@@ -20,6 +20,7 @@ interface ReferralClientViewProps {
   totalCoinsEarned: number;
   referrals: ReferralItem[];
   backHref: string;
+  viewerRole?: "PARENT" | "TUTOR" | "ADMIN";
 }
 
 export function ReferralClientView({
@@ -29,6 +30,7 @@ export function ReferralClientView({
   totalCoinsEarned,
   referrals,
   backHref,
+  viewerRole = "TUTOR",
 }: ReferralClientViewProps) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -196,17 +198,23 @@ export function ReferralClientView({
               {
                 step: "01",
                 title: "Share Your Link",
-                desc: "Send your invite code or referral link to fellow tutors, students, or parents.",
+                desc: viewerRole === "PARENT"
+                  ? "Send your invite code or referral link to other parents, students, or tutors."
+                  : "Send your invite code or referral link to fellow tutors, students, or parents.",
               },
               {
                 step: "02",
-                title: "Friend Joins & Verifies",
-                desc: "Your friend signs up using your code and completes account KYC verification.",
+                title: viewerRole === "PARENT" ? "Friend Joins" : "Friend Joins & Verifies",
+                desc: viewerRole === "PARENT"
+                  ? "Your friend signs up using your code and completes registration."
+                  : "Your friend signs up using your code and completes account KYC verification.",
               },
               {
                 step: "03",
                 title: "Get Coins Automatically",
-                desc: "You instantly receive 50 coins in your wallet to unlock more tuition leads!",
+                desc: viewerRole === "PARENT"
+                  ? "You receive reward coins when they complete signup — share more, earn more."
+                  : "You instantly receive 50 coins in your wallet to unlock more tuition leads!",
               },
             ].map((s) => (
               <div

@@ -8,6 +8,10 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Notifications | ApnaTutorHub" };
 
+function maskPhonesInText(text: string): string {
+  return text.replace(/\b(?:\+91[-\s]?)?[6-9]\d{9}\b/g, (m) => `${m.slice(0, 2)}******${m.slice(-2)}`);
+}
+
 function timeAgo(date: Date): string {
   const secs = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   if (secs < 60) return "just now";
@@ -67,6 +71,11 @@ export default async function NotificationsPage({
   const where = {
     userId: session.user.id,
     ...(filter === "unread" ? { isRead: false } : {}),
+    ...(session.user.role === "TUTOR"
+      ? { NOT: { actionUrl: { startsWith: "/parent/" } } }
+      : session.user.role === "PARENT"
+        ? { NOT: { actionUrl: { startsWith: "/tutor/" } } }
+        : {}),
   };
 
   const [notifications, total, unreadCount] = await Promise.all([
@@ -189,7 +198,7 @@ export default async function NotificationsPage({
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                        {n.message}
+                        {session.user.role === "TUTOR" ? maskPhonesInText(n.message) : n.message}
                       </p>
 
                       <div className="mt-3 flex items-center gap-3">

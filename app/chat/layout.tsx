@@ -19,7 +19,7 @@ export default async function ChatLayout({
     redirect("/login");
   }
 
-  const [dbUser, unreadCount] = await Promise.all([
+  const [dbUser, unreadNotifications, unreadMessages] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
@@ -33,6 +33,16 @@ export default async function ChatLayout({
     }),
     prisma.notification.count({
       where: { userId: session.user.id, isRead: false },
+    }),
+    prisma.message.count({
+      where: {
+        isRead: false,
+        senderUserId: { not: session.user.id },
+        OR: [
+          { conversation: { parentProfile: { userId: session.user.id } } },
+          { conversation: { tutorProfile: { userId: session.user.id } } },
+        ],
+      },
     }),
   ]);
 
@@ -60,19 +70,19 @@ export default async function ChatLayout({
                 userName={userName}
                 userEmail={userEmail}
                 walletBalance={walletBalance}
-                unreadCount={unreadCount}
+                unreadCount={unreadMessages}
               />
             ) : (
               <ParentNavClient
                 userName={userName}
                 userEmail={userEmail}
-                unreadCount={unreadCount}
+                unreadCount={unreadMessages}
               />
             )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <NotificationBell initialCount={unreadCount} />
+            <NotificationBell initialCount={unreadNotifications} viewerRole={isTutor ? "TUTOR" : "PARENT"} />
             <div className="hidden md:block">
               <SignOutButton />
             </div>

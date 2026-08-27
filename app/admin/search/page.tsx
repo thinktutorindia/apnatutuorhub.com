@@ -10,8 +10,8 @@ export const metadata = {
 
 export default async function AdminSearchPage() {
   const session = await auth();
-  if (!session?.user || !["SUPER_ADMIN", "SUB_ADMIN"].includes(session.user.role)) {
-    redirect("/login");
+  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+    redirect("/admin/dashboard");
   }
 
   const health = await getSearchEngineHealth();

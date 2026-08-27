@@ -635,7 +635,7 @@ function GuestSignupGate({
           </div>
           <div className="space-y-2.5 pt-2">
             <a
-              href={`/login?callbackUrl=${cb}&register=parent`}
+              href={`/register?role=parent&callbackUrl=${cb}`}
               className="block w-full py-3 px-6 rounded-2xl bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] hover:from-[#238357] hover:to-[#186843] text-white font-black text-sm transition-all shadow-md shadow-emerald-500/20 cursor-pointer text-center"
             >
               Sign Up Free — Under 1 Minute 🚀
@@ -663,6 +663,8 @@ function PreplyTutorCard({
   tutor: PublicTutorResult;
   onContactClick: (tutorId: string) => void;
 }) {
+  const displayName = tutor.name?.trim() || "Verified Tutor";
+  const initial = displayName[0]?.toUpperCase() || "T";
   const modeLabel =
     tutor.teachingMode === "ONLINE" ? "Online Only"
     : tutor.teachingMode === "OFFLINE" ? "Home Tuition"
@@ -675,7 +677,7 @@ function PreplyTutorCard({
       <div className="flex md:flex-col items-center gap-3 shrink-0">
         <div className="relative">
           <div className="w-18 h-18 sm:w-22 sm:h-22 rounded-2xl bg-gradient-to-br from-[#0F2540] via-[#1a3a60] to-[#2D9E6B] text-white font-black text-2xl sm:text-3xl flex items-center justify-center shadow-md">
-            {tutor.name[0].toUpperCase()}
+            {initial}
           </div>
           {/* Online green indicator */}
           <span className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" title="Active on ApnaTutorHub" />
@@ -700,7 +702,7 @@ function PreplyTutorCard({
       <div className="flex-1 min-w-0 space-y-2.5">
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="text-lg font-black text-[#0F2540] tracking-tight hover:text-[#2D9E6B] transition-colors">
-            {tutor.name}
+            {displayName}
           </h3>
           {tutor.isVerified && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-black">
@@ -765,7 +767,7 @@ function PreplyTutorCard({
           <div className="text-xl font-black text-[#0F2540]">
             ₹{tutor.feeMin ? tutor.feeMin.toLocaleString("en-IN") : "500"}
           </div>
-          <div className="text-[10px] font-semibold text-slate-400">per month</div>
+          <div className="text-[10px] font-semibold text-slate-400">per hour</div>
         </div>
 
         <div className="flex md:flex-col gap-2 w-auto md:w-full">
@@ -1228,7 +1230,7 @@ function PreplyResultsView({
           </p>
         </div>
         <a
-          href="/login?register=parent"
+          href="/register?role=parent"
           className="px-6 py-3.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-black text-sm transition-all shadow-lg shadow-emerald-500/30 shrink-0 text-center cursor-pointer"
         >
           Post Free Tuition Request →

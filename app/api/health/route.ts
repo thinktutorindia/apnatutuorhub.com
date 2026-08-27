@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSettingsCacheStatus } from "@/lib/settings-cache";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type ServiceStatus = "ok" | "degraded" | "error";
-
-interface HealthCheck {
-  status: ServiceStatus;
-  latencyMs: number;
-  error?: string;
-}
-
-import { getSettingsCacheStatus } from "@/lib/settings-cache";
 
 interface HealthCheck {
   status: ServiceStatus;
@@ -32,6 +25,10 @@ interface HealthResponse {
   };
   uptime: number;
 }
+
+const HEALTH_CACHE_MS = 15_000;
+
+let cachedHealth: { at: number; db: HealthCheck; redis: HealthCheck } | null = null;
 
 async function checkDatabase(): Promise<HealthCheck> {
   const start = Date.now();
@@ -81,7 +78,18 @@ async function checkRedis(): Promise<HealthCheck> {
 }
 
 export async function GET() {
-  const [db, redis] = await Promise.all([checkDatabase(), checkRedis()]);
+  const now = Date.now();
+  let db: HealthCheck;
+  let redis: HealthCheck;
+
+  if (cachedHealth && now - cachedHealth.at < HEALTH_CACHE_MS) {
+    db = { ...cachedHealth.db, cached: true };
+    redis = { ...cachedHealth.redis, cached: true };
+  } else {
+    [db, redis] = await Promise.all([checkDatabase(), checkRedis()]);
+    cachedHealth = { at: now, db, redis };
+  }
+
   const cacheStatus = getSettingsCacheStatus();
 
   const settingsCacheCheck: HealthCheck = {

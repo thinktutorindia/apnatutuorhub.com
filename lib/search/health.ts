@@ -20,7 +20,7 @@ export async function getSearchEngineHealth(): Promise<SearchEngineHealth> {
   ]);
 
   return {
-    status: connectedEngine === "TYPESENSE" ? "HEALTHY" : "DEGRADED",
+    status: connectedEngine === "TYPESENSE" || connectedEngine === "POSTGRES_FTS" ? "HEALTHY" : "DEGRADED",
     connectedEngine,
     typesenseHost,
     documentCounts: {

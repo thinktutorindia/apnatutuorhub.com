@@ -19,6 +19,7 @@ type Notification = {
 
 interface NotificationBellProps {
   initialCount?: number;
+  viewerRole?: "PARENT" | "TUTOR" | "ADMIN";
 }
 
 function timeAgo(date: Date): string {
@@ -29,11 +30,22 @@ function timeAgo(date: Date): string {
   return `${Math.floor(secs / 86400)}d ago`;
 }
 
-function getNotificationTargetUrl(n: Notification): string {
+function getNotificationTargetUrl(n: Notification, viewerRole: NotificationBellProps["viewerRole"]): string {
+  const role =
+    viewerRole ??
+    (n.actionUrl?.startsWith("/parent/")
+      ? "PARENT"
+      : n.actionUrl?.startsWith("/admin/")
+        ? "ADMIN"
+        : "TUTOR");
+
   if (n.actionUrl && n.actionUrl.trim()) {
     const raw = n.actionUrl.trim();
+    if (raw.startsWith("/parent/") && role === "TUTOR") return "/tutor/dashboard";
+    if (raw.startsWith("/tutor/") && role === "PARENT") return "/parent/dashboard";
     if (raw.includes("claimed=true")) return raw;
     if (raw === "/tutor/leads" || raw.startsWith("/tutor/leads?")) {
+      if (role !== "TUTOR") return "/parent/dashboard";
       const match = n.title.match(/Near\s+([^!.\n]+)/i);
       const loc = match && match[1] ? match[1].trim() : "";
       return `/tutor/leads?claimed=true${loc ? `&locality=${encodeURIComponent(loc)}` : ""}`;
@@ -43,6 +55,20 @@ function getNotificationTargetUrl(n: Notification): string {
 
   const titleLower = n.title.toLowerCase();
   const msgLower = n.message.toLowerCase();
+
+  if (role === "PARENT") {
+    if (titleLower.includes("booking") || titleLower.includes("tuition") || msgLower.includes("booking")) {
+      return "/parent/bookings";
+    }
+    if (titleLower.includes("applicant") || titleLower.includes("tutor")) {
+      return "/parent/my-leads";
+    }
+    return "/parent/dashboard";
+  }
+
+  if (role === "ADMIN") {
+    return "/admin/dashboard";
+  }
 
   if (
     titleLower.includes("kyc") ||
@@ -76,7 +102,7 @@ function getNotificationTargetUrl(n: Notification): string {
   return "/tutor/leads?claimed=true";
 }
 
-export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
+export function NotificationBell({ initialCount = 0, viewerRole }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(initialCount);
@@ -233,7 +259,7 @@ export function NotificationBell({ initialCount = 0 }: NotificationBellProps) {
               ) : (
                 <ul className="divide-y divide-slate-100">
                   {notifications.map((n) => {
-                    const targetUrl = getNotificationTargetUrl(n);
+                    const targetUrl = getNotificationTargetUrl(n, viewerRole);
                     return (
                       <li key={n.id}>
                         <a

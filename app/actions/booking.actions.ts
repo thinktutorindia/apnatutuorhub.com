@@ -77,19 +77,25 @@ export async function createBookingAction(
     return actionError("This tutor has not unlocked your requirement yet.");
   }
 
-  // Ensure no duplicate active booking already exists for this pair
+  // Completed trials must not block a regular hire. Cancelled bookings never block.
   const existing = await prisma.booking.findFirst({
     where: {
       leadId,
       tutorProfileId,
       status: { notIn: ["CANCELLED"] },
     },
-    select: { id: true },
+    select: { id: true, status: true, isTrial: true },
   });
 
-  if (existing) {
+  if (existing && existing.status !== "COMPLETED") {
     return actionError(
       "A booking with this tutor already exists for this requirement."
+    );
+  }
+
+  if (existing?.status === "COMPLETED" && isTrial) {
+    return actionError(
+      "A trial with this tutor is already completed. Hire them for regular classes instead."
     );
   }
 
@@ -509,6 +515,7 @@ export async function completeBookingAction(
     title: "⭐ Class Completed! Leave a Review",
     message: `Your ${booking.subject} class is complete. Please leave a review for your tutor — it helps other parents!`,
     actionUrl: "/parent/bookings",
+    referenceId: bookingId,
   });
 
   // ── Enterprise Upgrade: Milestone Evaluation (Phase 12) ──────────────────

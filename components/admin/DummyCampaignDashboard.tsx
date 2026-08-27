@@ -23,6 +23,7 @@ import {
 import { DummyCampaignForm } from "./DummyCampaignForm";
 import { DummyCampaignLogs } from "./DummyCampaignLogs";
 import type { DummyLead } from "@/lib/dummy-campaign-types";
+import { stripCampaignCfg, parseCampaignCfg } from "@/lib/dummy-campaign-types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -190,8 +191,11 @@ function CampaignCard({
   const [trigMsg, setTrigMsg] = useState<string | null>(null);
   const sc = STATUS_CONFIG[campaign.status] ?? STATUS_CONFIG.DRAFT;
 
-  const isHourly = (campaign.budgetMax ?? 3000) <= 1500;
-  const rateDisplay = isHourly
+  const cfg = parseCampaignCfg(campaign.description);
+  const isHourly = cfg.rateType === "HOURLY";
+  const rateDisplay = cfg.autoAdapt
+    ? `Auto-adapt ${isHourly ? "₹/hr" : "₹/mo"} by class + area`
+    : isHourly
     ? `₹${campaign.budgetMin ?? 200}–₹${campaign.budgetMax ?? 600}/hr`
     : `₹${(campaign.budgetMin ?? 800).toLocaleString()}–₹${(campaign.budgetMax ?? 3000).toLocaleString()}/mo`;
 
@@ -364,9 +368,12 @@ function CampaignDetailPanel({ campaign, onRefresh }: { campaign: Campaign; onRe
     loadPreview();
   }, [loadPreview]);
 
+  const cfg = parseCampaignCfg(campaign.description);
   const sc = STATUS_CONFIG[campaign.status] ?? STATUS_CONFIG.DRAFT;
-  const isHourly = (campaign.budgetMax ?? 3000) <= 1500;
-  const rateDisplay = isHourly
+  const isHourly = cfg.rateType === "HOURLY";
+  const rateDisplay = cfg.autoAdapt
+    ? `Auto-adapt ${isHourly ? "hourly" : "monthly"} by class + area`
+    : isHourly
     ? `₹${campaign.budgetMin ?? 200}–₹${campaign.budgetMax ?? 600} / hour`
     : `₹${(campaign.budgetMin ?? 800).toLocaleString()}–₹${(campaign.budgetMax ?? 3000).toLocaleString()} / month`;
 
@@ -594,7 +601,7 @@ function CampaignDetailPanel({ campaign, onRefresh }: { campaign: Campaign; onRe
               </div>
               <div className="p-3 bg-white rounded-xl border border-slate-200 col-span-2">
                 <p className="text-[10px] font-black uppercase text-slate-400">Internal Memo / Notes</p>
-                <p className="font-semibold text-slate-700 mt-0.5">{campaign.description || "No internal notes provided."}</p>
+                <p className="font-semibold text-slate-700 mt-0.5">{stripCampaignCfg(campaign.description) || "No internal notes provided."}</p>
               </div>
             </div>
           </div>

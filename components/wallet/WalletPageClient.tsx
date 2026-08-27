@@ -89,6 +89,7 @@ export function WalletPageClient({
   userName,
   canTopup = true,
   isOldUser = false,
+  coinCosts = { class18: 20, class912: 30, competitive: 50 },
 }: {
   balance: number;
   totalPurchased: number;
@@ -98,6 +99,7 @@ export function WalletPageClient({
   userName: string;
   canTopup?: boolean;
   isOldUser?: boolean;
+  coinCosts?: { class18: number; class912: number; competitive: number };
 }) {
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [filter, setFilter] = useState<WalletTransactionType | "ALL">("ALL");
@@ -367,14 +369,14 @@ export function WalletPageClient({
               <h2 className="text-base font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
                 Coin Cost Guide
               </h2>
-              <p className="text-xs text-gray-600 font-600">Standard coin deduction rates per student lead unlock</p>
+              <p className="text-xs text-gray-600 font-600">Current platform rates — each lead card also shows its own cost</p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {[
-              { label: "Class 1–8", cost: 20, badge: "Primary & Middle", bg: "bg-emerald-50 border-emerald-200", textColor: "text-emerald-950" },
-              { label: "Class 9–12", cost: 30, badge: "Board Prep", bg: "bg-blue-50 border-blue-200", textColor: "text-blue-950" },
-              { label: "JEE / NEET / Coding", cost: 50, badge: "Entrance & Tech", bg: "bg-amber-50 border-amber-200", textColor: "text-amber-950" },
+              { label: "Class 1–8", cost: coinCosts.class18, badge: "Primary & Middle", bg: "bg-emerald-50 border-emerald-200", textColor: "text-emerald-950" },
+              { label: "Class 9–12", cost: coinCosts.class912, badge: "Board Prep", bg: "bg-blue-50 border-blue-200", textColor: "text-blue-950" },
+              { label: "JEE / NEET / Coding", cost: coinCosts.competitive, badge: "Entrance & Tech", bg: "bg-amber-50 border-amber-200", textColor: "text-amber-950" },
             ].map((tier) => (
               <div
                 key={tier.label}

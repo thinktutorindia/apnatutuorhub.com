@@ -21,6 +21,7 @@ interface LocationSearchInputProps {
   defaultPincode?: string;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 // ── Photon API (Komoot) — OpenStreetMap-backed instant autocomplete
@@ -158,6 +159,7 @@ export function LocationSearchInput({
   defaultPincode = "",
   placeholder = "Search city, area, pincode or landmark…",
   className = "",
+  disabled = false,
 }: LocationSearchInputProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<LocationResult[]>([]);
@@ -183,7 +185,7 @@ export function LocationSearchInput({
   // Debounced live search
   useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
+    if (disabled || trimmed.length < 2) {
       const clearTimer = setTimeout(() => {
         setSuggestions([]);
         setIsOpen(false);
@@ -216,7 +218,7 @@ export function LocationSearchInput({
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, disabled]);
 
   // GPS detection with reverse geocoding
   const handleUseGPS = useCallback(async () => {
@@ -293,6 +295,7 @@ export function LocationSearchInput({
           <input
             type="text"
             value={selectedText || query}
+            disabled={disabled}
             onChange={(e) => {
               setSelectedText("");
               setQuery(e.target.value);
@@ -325,7 +328,8 @@ export function LocationSearchInput({
           <button
             type="button"
             onClick={() => setIsMapModalOpen(true)}
-            className="h-12 w-full xs:w-auto px-3.5 sm:px-4 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs flex items-center justify-center gap-2 shrink-0 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
+            disabled={disabled}
+            className="h-12 w-full xs:w-auto px-3.5 sm:px-4 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs flex items-center justify-center gap-2 shrink-0 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs disabled:opacity-50 disabled:pointer-events-none"
           >
             <MapIcon size={15} className="text-[#2D9E6B]" />
             <span>🗺️ Pick on Map</span>
@@ -335,7 +339,7 @@ export function LocationSearchInput({
           <button
             type="button"
             onClick={handleUseGPS}
-            disabled={gpsLoading}
+            disabled={disabled || gpsLoading}
             className="h-12 w-full xs:w-auto px-3.5 sm:px-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 font-800 text-xs flex items-center justify-center gap-2 shrink-0 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
           >
             {gpsLoading ? (

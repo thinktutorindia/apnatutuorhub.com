@@ -102,7 +102,7 @@ export const ADMIN_FEATURES_REGISTRY: AdminFeatureItem[] = [
   {
     id: "platform-settings",
     title: "Platform Global Settings & Commission Rates",
-    description: "Update coin lead pricing, support WhatsApp (+91 7703 801 849), and system rules",
+    description: "Update coin lead pricing, support WhatsApp (+91 62307 89155), and system rules",
     category: "Platform Settings",
     keywords: ["settings", "whatsapp", "lead cost", "pricing", "commission", "phone number", "support number"],
     href: "/admin/settings",
@@ -125,7 +125,7 @@ export const ADMIN_FEATURES_REGISTRY: AdminFeatureItem[] = [
     description: "Send bulk announcements or promotional WhatsApp alerts to tutors & parents",
     category: "Marketing & Alerts",
     keywords: ["broadcast", "push", "whatsapp", "notifications", "bulk sms", "announce"],
-    href: "/admin/broadcast",
+    href: "/admin/notifications/broadcast",
     icon: Bell,
     color: "text-pink-500 bg-pink-50 border-pink-200",
   },
@@ -138,6 +138,16 @@ export const ADMIN_FEATURES_REGISTRY: AdminFeatureItem[] = [
     href: "/admin/coupons",
     icon: Tag,
     color: "text-yellow-600 bg-yellow-50 border-yellow-200",
+  },
+  {
+    id: "search-engine",
+    title: "Search Engine Control Panel",
+    description: "Monitor tutor/lead search index health, Redis query cache, and trigger reindex jobs",
+    category: "Platform Settings",
+    keywords: ["search", "index", "reindex", "fts", "postgres search", "search engine"],
+    href: "/admin/search",
+    icon: Search,
+    color: "text-sky-600 bg-sky-50 border-sky-200",
   },
 ];
 

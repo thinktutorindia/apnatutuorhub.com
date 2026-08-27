@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { LogoBrand } from "@/components/brand/Logo";
+import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 
 const initialState: RegisterFormState = { success: false };
 
@@ -121,23 +122,31 @@ function RegisterFormContent() {
           </p>
         </div>
 
-        {/* WhatsApp Support Helpline Banner for Tutors */}
-        {isTutor && (
-          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs">
-            <div className="flex items-center gap-2 text-emerald-950 font-700">
-              <span className="text-base">💬</span>
-              <span>Need help registering? Contact Tutor Support</span>
-            </div>
-            <a
-              href="https://wa.me/917703801849?text=Hi!%20I'm%20a%20tutor%20inquiring%20about%20registration%20on%20ApnaTutorHub"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white font-800 shrink-0 transition-transform hover:scale-105"
-            >
-              WhatsApp →
-            </a>
+        {/* WhatsApp Support Helpline Banner */}
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs">
+          <div className="flex items-center gap-2 text-emerald-950 font-700">
+            <span className="text-base">💬</span>
+            <span>
+              {isTutor
+                ? "Need help registering as a tutor? WhatsApp support"
+                : "Need help posting a requirement? WhatsApp support"}
+              {" "}
+              {SUPPORT_PHONE_DISPLAY}
+            </span>
           </div>
-        )}
+          <a
+            href={getWhatsAppSupportLink(
+              isTutor
+                ? "Hi! I'm a tutor inquiring about registration on ApnaTutorHub"
+                : "Hi! I'm a parent and need help on ApnaTutorHub"
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white font-800 shrink-0 transition-transform hover:scale-105"
+          >
+            WhatsApp →
+          </a>
+        </div>
 
         {/* Banners & Messages */}
         {state.success && (
@@ -263,6 +272,23 @@ function RegisterFormContent() {
             <p className="text-[11px] text-gray-500 font-500">
               10-digit Indian mobile number for instant WhatsApp lead notifications.
             </p>
+          </div>
+
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="register-referral" className="text-xs font-700 text-gray-700">
+              Referral code <span className="font-500 text-gray-400">(optional)</span>
+            </label>
+            <input
+              id="register-referral"
+              name="referralCode"
+              type="text"
+              defaultValue={searchParams.get("ref") ?? ""}
+              placeholder="e.g. GETZNEM"
+              autoComplete="off"
+              className="w-full h-12 px-4 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 text-sm font-500 text-gray-900 placeholder:text-gray-400 outline-none transition-all uppercase"
+            />
           </div>
 
           <div className="space-y-1">

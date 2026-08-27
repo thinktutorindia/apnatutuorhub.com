@@ -1,8 +1,10 @@
 /**
  * Official Support Contact Details
+ * WhatsApp / helpline shown to parents and tutors.
  */
-export const SUPPORT_PHONE_NUMBER = "+91 7703 801 849";
-export const SUPPORT_WHATSAPP_RAW = "917703801849";
+export const SUPPORT_PHONE_DISPLAY = "+91 62307 89155";
+export const SUPPORT_PHONE_NUMBER = "+91 62307 89155";
+export const SUPPORT_WHATSAPP_RAW = "916230789155";
 
 export function getWhatsAppSupportLink(customText?: string): string {
   const text = customText

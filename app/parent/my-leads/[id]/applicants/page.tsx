@@ -14,6 +14,7 @@ import { calculateRankingScore } from "@/lib/ranking-score";
 import { loadMatchingWeights } from "@/lib/matching-config";
 import BookApplicantButtons from "@/components/booking/BookApplicantButtons";
 import { StartChatButton } from "@/components/chat/StartChatButton";
+import { ApplicantDecisionButtons } from "@/components/parent/ApplicantDecisionButtons";
 
 export const metadata = {
   title: "Tutor Applicants | ApnaTutorHub",
@@ -181,7 +182,11 @@ export default async function ApplicantsPage({
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-800 text-base text-[#0F2540] min-w-0 break-words">{tutor.user.name || "Verified Tutor"}</h3>
+                        <h3 className="font-800 text-base text-[#0F2540] min-w-0 break-words">
+                          <Link href={`/tutor/${tutor.id}`} className="hover:text-[#2D9E6B] hover:underline">
+                            {tutor.user.name || "Verified Tutor"}
+                          </Link>
+                        </h3>
                         {tutor.isVerified && (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-800 bg-emerald-100 text-emerald-950 border border-emerald-300 flex items-center gap-1">
                             <ShieldCheck size={12} />
@@ -224,22 +229,32 @@ export default async function ApplicantsPage({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <StartChatButton
-                      targetProfileId={tutor.id}
-                      leadId={lead.id}
-                      role="PARENT"
-                      className="px-4 py-2 rounded-2xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-800 shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                      buttonText="In-App Chat"
-                    />
-                    <BookApplicantButtons
+                    <ApplicantDecisionButtons
                       purchaseId={applicant.id}
-                      leadId={lead.id}
-                      tutorProfileId={tutor.id}
-                      tutorName={tutor.user.name || "Tutor"}
-                      subject={lead.subjects.join(", ")}
-                      classLevel={lead.classLevel}
                       isShortlisted={applicant.isShortlisted}
+                      isRejected={applicant.isRejected}
                     />
+                    {!applicant.isRejected && (
+                      <>
+                        <StartChatButton
+                          targetProfileId={tutor.id}
+                          leadId={lead.id}
+                          role="PARENT"
+                          className="px-4 py-2 rounded-2xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-800 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                          buttonText="In-App Chat"
+                        />
+                        <BookApplicantButtons
+                          purchaseId={applicant.id}
+                          leadId={lead.id}
+                          tutorProfileId={tutor.id}
+                          tutorName={tutor.user.name || "Tutor"}
+                          subject={lead.subjects.join(", ")}
+                          classLevel={lead.classLevel}
+                          isShortlisted={applicant.isShortlisted}
+                          feeLabel="Agreed Fee per Month"
+                        />
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, BellOff, CheckCircle2 } from "lucide-react";
+import { Bell, BellOff, CheckCircle2, X } from "lucide-react";
 import { UnblockGuideModal } from "@/components/UnblockGuideModal";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -27,10 +27,15 @@ export function EnablePushBanner({
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "denied">("idle");
   const [showGuide, setShowGuide] = useState(false);
 
+  const [dismissed, setDismissed] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined" && "Notification" in window) {
       setPermission(Notification.permission);
+    }
+    if (typeof window !== "undefined") {
+      setDismissed(window.localStorage.getItem("ath-push-banner-dismissed") === "1");
     }
   }, []);
 
@@ -84,7 +89,7 @@ export function EnablePushBanner({
     }
   };
 
-  if (!mounted || permission === "unsupported") return null;
+  if (!mounted || permission === "unsupported" || dismissed) return null;
 
   const isParent = role === "PARENT";
 
@@ -108,18 +113,29 @@ export function EnablePushBanner({
 
   return (
     <>
-      <div className="neu-card flex flex-col items-start justify-between gap-4 bg-[#FFEDD5] border-2 border-[#0F172A] shadow-[4px_4px_0px_0px_#0F172A] p-5 sm:flex-row sm:items-center">
+      <div className="neu-card flex flex-col items-start justify-between gap-4 bg-[#FFEDD5] border-2 border-[#0F172A] shadow-[4px_4px_0px_0px_#0F172A] p-5 sm:flex-row sm:items-center relative">
+        <button
+          type="button"
+          aria-label="Dismiss notification banner"
+          onClick={() => {
+            setDismissed(true);
+            window.localStorage.setItem("ath-push-banner-dismissed", "1");
+          }}
+          className="absolute top-3 right-3 p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/70 cursor-pointer"
+        >
+          <X size={16} />
+        </button>
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_0px_#0F172A]">
             <Bell size={22} className="text-orange-600 animate-bounce" />
           </div>
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-black text-[#0F172A] uppercase tracking-wide">
+              <p className="text-sm font-black text-[#0F172A] uppercase tracking-wide">
                 {isParent
                   ? "⚠️ Turn On Notifications for Instant Tutor Responses & Applications"
                   : "⚠️ Turn On Notifications to Get Instant Student Leads & Inquiries"}
-              </h2>
+              </p>
               <span className="neu-badge bg-red-100 text-red-700 border-red-300 text-[10px] font-extrabold">
                 REQUIRED
               </span>

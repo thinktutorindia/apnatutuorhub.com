@@ -37,6 +37,10 @@ import { StartChatButton } from "@/components/chat/StartChatButton";
 import { LeadNotifReminderBanner } from "@/components/tutor/LeadNotifReminderBanner";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { getInquiryDisplayCode, formatLeadBudget } from "@/lib/lead-utils";
+import { getLeadPointCost } from "@/lib/subscription-plans";
+import { RequestLeadRefundButton } from "@/components/tutor/RequestLeadRefundButton";
+import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
+import type { DummyClaimedLeadInfo } from "@/lib/dummy-campaign-types";
 
 export type ParentDetails = {
   name: string;
@@ -80,6 +84,8 @@ export type FeedLead = {
   isRejected?: boolean;
   isHired?: boolean;
   status: string;
+  purchaseId?: string | null;
+  purchasedAt?: string | null;
   parentDetails?: ParentDetails | null;
 };
 
@@ -87,12 +93,14 @@ const MODE_LABELS: Record<string, string> = {
   ONLINE: "Online Only",
   OFFLINE: "Home Tuition (Offline)",
   EITHER: "Home or Online",
+  COACHING: "Coaching Institute",
 };
 
 const MODE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
   ONLINE: { bg: "bg-sky-50", text: "text-sky-800", border: "border-sky-200" },
   OFFLINE: { bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200" },
   EITHER: { bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
+  COACHING: { bg: "bg-indigo-50", text: "text-indigo-800", border: "border-indigo-200" },
 };
 
 function formatPostTime(dateStr: string) {
@@ -117,6 +125,132 @@ function formatPostTime(dateStr: string) {
   return { relative, exactTime, exactDate, isFresh: diffHours < 12 };
 }
 
+function DummyClaimedLeadCard({
+  info,
+  onDismiss,
+}: {
+  info: DummyClaimedLeadInfo;
+  onDismiss: () => void;
+}) {
+  const classLabel = info.classLevel || "Tuition";
+  const locality = info.locality || "your area";
+  const city = info.city ? `, ${info.city}` : "";
+  const subjects = info.subjects || "Matched subjects";
+  const budget =
+    info.budgetMin && info.budgetMax
+      ? `₹${info.budgetMin.toLocaleString("en-IN")}–₹${info.budgetMax.toLocaleString("en-IN")}${
+          info.rateType === "MONTHLY" ? "/mo" : "/hr"
+        }`
+      : null;
+  const modeStyle = MODE_STYLES[info.mode || ""] || MODE_STYLES.EITHER;
+
+  return (
+    <div className="space-y-3 animate-in fade-in duration-300">
+      <div className="relative overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5 shadow-xs">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white font-black text-lg shadow-xs">
+              🔒
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold text-amber-950">This requirement is fully booked</h2>
+                <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-[11px] font-bold text-amber-900 border border-amber-300">
+                  Tutors assigned
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm font-medium text-amber-900 leading-relaxed mt-1">
+                Parents near {locality} already selected tutors. Similar {classLabel.toLowerCase()} enquiries in this area go fast — keep notifications on.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded-xl p-1.5 text-amber-700 hover:bg-amber-200 transition-colors cursor-pointer shrink-0"
+            title="Dismiss alert"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      <article className="rounded-3xl bg-white border border-amber-200 ring-2 ring-amber-500/10 shadow-sm p-5 sm:p-6 space-y-4 opacity-95">
+        <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-[#0F2540] text-white shadow-2xs">
+              {classLabel}
+            </span>
+            {info.mode && (
+              <span className={`px-2.5 py-0.5 rounded-xl text-[11px] font-bold border ${modeStyle.bg} ${modeStyle.text} ${modeStyle.border}`}>
+                {MODE_LABELS[info.mode] ?? info.mode}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-950 border border-amber-300 px-2.5 py-0.5 text-[11px] font-black">
+              <Lock size={11} /> Closed
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2 text-sm font-bold text-slate-800">
+          <MapPin size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+          <span>
+            {locality}
+            {city}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {subjects.split(",").map((s) => s.trim()).filter(Boolean).map((s) => (
+            <span key={s} className="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
+              {s}
+            </span>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {budget && (
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Budget</p>
+              <p className="text-sm font-black text-emerald-700">{budget}</p>
+            </div>
+          )}
+          {info.days && (
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Days</p>
+              <p className="text-sm font-black text-slate-900">{info.days}</p>
+            </div>
+          )}
+          {info.timing && (
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Timing</p>
+              <p className="text-sm font-black text-slate-900">{info.timing}</p>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          disabled
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-slate-200 text-slate-500 text-sm font-black cursor-not-allowed"
+        >
+          <Lock size={15} />
+          Unlock closed — tutors already assigned
+        </button>
+
+        <a
+          href={getWhatsAppSupportLink("Hi ApnaTutorHub Support, I want similar tuition leads near my area.")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 text-xs font-extrabold text-emerald-800 hover:underline"
+        >
+          WhatsApp {SUPPORT_PHONE_DISPLAY} for similar leads nearby
+        </a>
+      </article>
+    </div>
+  );
+}
+
 function LeadCard({
   lead,
   walletBalance,
@@ -135,8 +269,12 @@ function LeadCard({
   const isFull = spotsLeft === 0;
   const progressPercent = Math.min(100, Math.round((currentPurchases / maxTutorsAllowed) * 100));
 
+  const planPointCost = getLeadPointCost(lead.classLevel);
+  const remainingPoints =
+    subscriptionInfo?.remainingPoints ??
+    (subscriptionInfo?.quotaRemaining ?? 0) * 12;
   const isFreeWithPlan = Boolean(
-    subscriptionInfo?.hasActivePlan && (subscriptionInfo?.quotaRemaining ?? 0) > 0
+    subscriptionInfo?.hasActivePlan && remainingPoints >= planPointCost
   );
 
   const timeInfo = formatPostTime(lead.createdAt);
@@ -486,10 +624,18 @@ function LeadCard({
           </div>
 
           {lead.isPurchased ? (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-2xl border border-emerald-200">
-              <CheckCircle2 size={13} />
-              <span>Full Contact Unlocked</span>
-            </span>
+            <div className="flex flex-col items-end gap-1">
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-2xl border border-emerald-200">
+                <CheckCircle2 size={13} />
+                <span>Full Contact Unlocked</span>
+              </span>
+              {lead.purchaseId && (
+                <RequestLeadRefundButton
+                  purchaseId={lead.purchaseId}
+                  purchasedAt={lead.purchasedAt}
+                />
+              )}
+            </div>
           ) : isFull ? (
             <span className="text-xs font-bold text-slate-400 px-3 py-1.5">
               Closed (Max Capacity)
@@ -542,11 +688,7 @@ export function LeadFeedClient({
   walletBalance: number;
   tutorSubjects: string[];
   subscriptionInfo?: SubscriptionInfo | null;
-  claimedBannerInfo?: {
-    claimed: boolean;
-    locality?: string;
-    subjects?: string;
-  } | null;
+  claimedBannerInfo?: DummyClaimedLeadInfo | null;
 }) {
   const [viewTab, setViewTab] = useState<"available" | "shortlisted" | "unlocked" | "all">("available");
   const [searchQuery, setSearchQuery] = useState("");
@@ -601,42 +743,8 @@ export function LeadFeedClient({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Claimed / Fully Booked Alert Banner */}
-      {showClaimedBanner && (
-        <div className="relative overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-5 sm:p-6 shadow-xs animate-in fade-in duration-300">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white font-black text-xl shadow-xs">
-                🔒
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base sm:text-lg font-bold text-amber-950">
-                    Tuition Requirement Fully Booked &amp; Closed
-                  </h2>
-                  <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-[11px] font-bold text-amber-900 border border-amber-300">
-                    Tutors Assigned
-                  </span>
-                </div>
-                <p className="text-xs sm:text-sm font-medium text-amber-900 leading-relaxed">
-                  {claimedBannerInfo?.locality
-                    ? `The ${claimedBannerInfo.subjects ? `${claimedBannerInfo.subjects} ` : ""}student requirement near ${claimedBannerInfo.locality} has reached maximum tutor applications.`
-                    : "This tuition requirement has already reached maximum capacity and is closed to new unlocks."}
-                </p>
-                <p className="text-xs font-bold text-amber-800 pt-1">
-                  💡 <span className="underline">Tip:</span> Turn on push notifications so you can unlock fresh enquiries in your area within seconds of posting!
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowClaimedBanner(false)}
-              className="rounded-xl p-1.5 text-amber-700 hover:bg-amber-200 transition-colors cursor-pointer shrink-0"
-              title="Dismiss alert"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
+      {showClaimedBanner && claimedBannerInfo && (
+        <DummyClaimedLeadCard info={claimedBannerInfo} onDismiss={() => setShowClaimedBanner(false)} />
       )}
 
       {/* Push Notification Setup Banner */}

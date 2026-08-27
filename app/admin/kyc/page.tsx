@@ -15,6 +15,7 @@ import {
 import { KycRowActions } from "@/components/admin/KycRowActions";
 import Link from "next/link";
 import { maskPhoneNumber } from "@/lib/mask-utils";
+import { can } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "KYC Approval Queue — Admin" };
@@ -26,6 +27,7 @@ export default async function AdminKycPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!can(session.user, "kyc:review")) redirect("/admin/dashboard");
 
   const params = await searchParams;
   const statusFilter = (params.status as "PENDING" | "APPROVED" | "REJECTED") ?? "PENDING";

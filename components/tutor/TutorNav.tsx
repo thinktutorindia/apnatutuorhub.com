@@ -15,6 +15,7 @@ import {
   X,
   User,
   LogOut,
+  Gift,
 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
@@ -25,6 +26,7 @@ const LINKS = [
   { href: "/chat", label: "Messages", shortLabel: "Messages", icon: MessageSquare },
   { href: "/tutor/wallet", label: "Wallet & Coins", shortLabel: "Wallet", icon: Wallet },
   { href: "/tutor/profile", label: "Profile & KYC", shortLabel: "KYC", icon: ShieldCheck },
+  { href: "/referrals", label: "Referrals", shortLabel: "Referrals", icon: Gift },
 ] as const;
 
 interface TutorNavProps {

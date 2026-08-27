@@ -27,5 +27,6 @@ declare module "next-auth/jwt" {
     subAdminRole?: string | null;
     customPermissions?: string[];
     isActive?: boolean;
+    permCheckedAt?: number;
   }
 }

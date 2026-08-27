@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { TutorProfileForm } from "@/components/tutor/TutorProfileForm";
 import { KYCUploadModal } from "@/components/tutor/KYCUploadModal";
+import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 import type { ProfileScoreBreakdown } from "@/lib/profile-score";
 
 type ProfileData = {
@@ -126,13 +127,13 @@ export function TutorProfilePage({
 
         <div className="flex items-center gap-2.5 shrink-0">
           <a
-            href="https://wa.me/917703801849?text=Hi%20ApnaTutorHub%20Support,%20I%20need%20help%20completing%20my%20tutor%20profile%20and%20KYC%20verification."
+            href={getWhatsAppSupportLink("Hi ApnaTutorHub Support, I need help completing my tutor profile and KYC verification.")}
             target="_blank"
             rel="noopener noreferrer"
             className="px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 flex items-center gap-1.5 transition-colors shadow-md hover:shadow-lg"
           >
             <MessageCircle size={15} className="!text-white" />
-            <span className="!text-white font-800">Chat on WhatsApp</span>
+            <span className="!text-white font-800">WhatsApp {SUPPORT_PHONE_DISPLAY}</span>
           </a>
         </div>
       </div>

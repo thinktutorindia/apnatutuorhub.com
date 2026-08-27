@@ -83,6 +83,11 @@ export default async function MyLeadsPage({
     }),
   ]);
 
+  const countByStatus = Object.fromEntries(
+    statusCounts.map((row) => [row.status, row._count._all])
+  ) as Record<string, number>;
+  const totalAll = statusCounts.reduce((sum, row) => sum + row._count._all, 0);
+
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
@@ -121,10 +126,11 @@ export default async function MyLeadsPage({
               : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
           }`}
         >
-          All Postings
+          All Postings{totalAll > 0 ? ` (${totalAll})` : ""}
         </Link>
         {LEAD_STATUS_FILTERS.map((s) => {
           const isActive = activeFilter === s;
+          const count = countByStatus[s] ?? 0;
           return (
             <Link
               key={s}
@@ -135,7 +141,7 @@ export default async function MyLeadsPage({
                   : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
               }`}
             >
-              {s.replace(/_/g, " ")}
+              {s.replace(/_/g, " ")}{count > 0 ? ` (${count})` : ""}
             </Link>
           );
         })}
@@ -202,6 +208,16 @@ export default async function MyLeadsPage({
                       <span>{applicantCount} {applicantCount === 1 ? "Applicant" : "Applicants"}</span>
                       <ChevronRight size={14} />
                     </Link>
+
+                    {lead.status !== "CLOSED" && lead.status !== "COMPLETED" && (
+                      <Link
+                        href={`/parent/my-leads/${lead.id}/edit`}
+                        className="px-4 py-2 rounded-2xl bg-white border border-slate-300 text-slate-800 text-xs font-800 hover:bg-slate-50 flex items-center gap-1"
+                      >
+                        <Pencil size={15} />
+                        <span>Edit</span>
+                      </Link>
+                    )}
 
                     {lead.status !== "CLOSED" && lead.status !== "COMPLETED" && (
                       <CloseLeadButton leadId={lead.id} />

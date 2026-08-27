@@ -131,7 +131,8 @@ export default async function AdminReviewsPage({
                 </p>
 
                 <p className="text-xs font-800 text-[#0F2540]">
-                  For Tutor: <span className="text-[#2563EB]">{r.tutorProfile?.user?.name || "Tutor Profile"}</span> ({r.tutorProfile?.user?.email})
+                  {r.reviewerRole === "TUTOR" ? "Tutor review of parent" : "Parent review of tutor"}:{" "}
+                  <span className="text-[#2563EB]">{r.tutorProfile?.user?.name || "Tutor Profile"}</span> ({r.tutorProfile?.user?.email})
                 </p>
               </div>
 

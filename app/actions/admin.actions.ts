@@ -3292,6 +3292,12 @@ export async function adminBulkUserGovernanceAction(data: {
     return actionError("No users selected for bulk action.");
   }
 
+  if (data.actionType === "ENABLE_TOPUP" || data.actionType === "DISABLE_TOPUP") {
+    if (!can(session.user, "wallets:manage")) {
+      return actionError("You do not have permission to change top-up access.");
+    }
+  }
+
   let affectedCount = 0;
 
   if (data.actionType === "ENABLE_TOPUP") {
@@ -3319,6 +3325,9 @@ export async function adminBulkUserGovernanceAction(data: {
     });
     affectedCount = res.count;
   } else if (data.actionType === "GRANT_COINS") {
+    if (!can(session.user, "wallets:manage")) {
+      return actionError("You do not have permission to grant coins.");
+    }
     const coins = data.coinsAmount ?? 50;
     if (coins <= 0) return actionError("Coins amount must be greater than 0.");
 

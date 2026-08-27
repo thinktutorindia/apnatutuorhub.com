@@ -19,11 +19,15 @@ export async function generateMetadata({
   const { id } = await params;
   const profile = await prisma.tutorProfile.findUnique({
     where: { id },
-    select: { user: { select: { name: true } } },
+    select: { isVerified: true, user: { select: { name: true } } },
   });
 
+  if (!profile || !profile.isVerified) {
+    notFound();
+  }
+
   return {
-    title: profile?.user.name
+    title: profile.user.name
       ? `${profile.user.name} — Tutor | ApnaTutorHub`
       : "Tutor Profile | ApnaTutorHub",
   };

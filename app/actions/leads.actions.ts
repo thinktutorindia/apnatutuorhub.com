@@ -143,6 +143,24 @@ export async function createRequirementAction(
   const finalClassLevel = input.classLevel || inferClassLevelFromSubjects(input.subjects);
   const commercials = await resolveLeadCommercials(finalClassLevel);
 
+  const overlapping = await prisma.lead.findFirst({
+    where: {
+      parentProfileId: auth.context.parentProfileId,
+      status: { in: [...OPEN_STATUSES] },
+      classLevel: finalClassLevel,
+      city: input.city,
+    },
+    select: { id: true, inquiryNumber: true, subjects: true },
+  });
+  if (
+    overlapping &&
+    overlapping.subjects.some((subject) => input.subjects.includes(subject))
+  ) {
+    return actionError(
+      `You already have an open ${finalClassLevel} requirement in ${input.city} covering overlapping subjects (#${overlapping.inquiryNumber}). Edit or close that listing first.`
+    );
+  }
+
   // Auto-geocode lead location if lat/lng not provided directly
   let lat = input.latitude ?? null;
   let lng = input.longitude ?? null;

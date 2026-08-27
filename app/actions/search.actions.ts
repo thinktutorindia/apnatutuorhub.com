@@ -112,8 +112,8 @@ export async function reindexSearchEngineAction(): Promise<
 > {
   try {
     const session = await auth();
-    if (!session?.user || !["SUPER_ADMIN", "SUB_ADMIN"].includes(session.user.role)) {
-      return actionError("Unauthorized.");
+    if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+      return actionError("Unauthorized. Super Admin only.");
     }
     const stats = await reindexAllEntities();
     return actionSuccess(stats);

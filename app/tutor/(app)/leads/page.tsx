@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints } from "@/lib/subscription-plans";
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
 import { haversineDistanceKm } from "@/lib/haversine";
+import { parseDummyClaimedQuery } from "@/lib/dummy-campaign-types";
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
 
@@ -14,14 +15,19 @@ interface Props {
     claimed?: string;
     locality?: string;
     subjects?: string;
+    city?: string;
+    class?: string;
+    budget?: string;
+    rate?: string;
+    mode?: string;
+    days?: string;
+    timing?: string;
   }>;
 }
 
 export default async function TutorLeadsPage({ searchParams }: Props) {
   const params = await searchParams;
-  const isClaimedParam = params.claimed === "true";
-  const localityParam = params.locality;
-  const subjectsParam = params.subjects;
+  const claimedBannerInfo = parseDummyClaimedQuery(params);
 
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -82,7 +88,9 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       await prisma.leadPurchase.findMany({
         where: { tutorProfileId: tutorProfile.id },
         select: {
+          id: true,
           leadId: true,
+          createdAt: true,
           isShortlisted: true,
           isRejected: true,
           isHired: true,
@@ -191,6 +199,8 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       isShortlisted: purchaseInfo?.isShortlisted ?? false,
       isRejected: purchaseInfo?.isRejected ?? false,
       isHired: purchaseInfo?.isHired ?? false,
+      purchaseId: purchaseInfo?.id ?? null,
+      purchasedAt: purchaseInfo?.createdAt ? purchaseInfo.createdAt.toISOString() : null,
       status: lead.status,
       parentDetails: isPurchased
         ? {
@@ -219,6 +229,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
   const planConfig = hasActivePlan && tutorProfile.subscriptionPlan ? getSubscriptionPlan(tutorProfile.subscriptionPlan) : null;
 
   let quotaRemaining = 0;
+  let remainingPoints = 0;
   let purchasesCount = 0;
   if (hasActivePlan && planConfig) {
     const resetDate = tutorProfile.leadsResetAt ?? new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
@@ -232,7 +243,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
     purchasesCount = planPurchases.length;
     const usedPoints = planPurchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classLevel), 0);
     const planTotalPoints = getPlanTotalPoints(tutorProfile.subscriptionPlan);
-    const remainingPoints = Math.max(0, planTotalPoints - usedPoints);
+    remainingPoints = Math.max(0, planTotalPoints - usedPoints);
     quotaRemaining = Math.max(0, Math.floor(remainingPoints / 12));
   }
 
@@ -251,13 +262,10 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
           monthlyQuota: planConfig?.totalLeads ?? 10,
           quotaUsed: purchasesCount,
           quotaRemaining,
+          remainingPoints,
           hasActivePlan,
         }}
-        claimedBannerInfo={
-          isClaimedParam || Boolean(localityParam)
-            ? { claimed: true, locality: localityParam, subjects: subjectsParam }
-            : null
-        }
+        claimedBannerInfo={claimedBannerInfo}
       />
     </div>
   );

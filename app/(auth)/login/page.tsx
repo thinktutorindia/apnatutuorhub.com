@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { LogoBrand } from "@/components/brand/Logo";
+import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 
 const initialState: LoginFormState = {
   success: false,
@@ -24,7 +25,14 @@ function LoginFormContent() {
 
   const justRegistered = searchParams.get("registered") === "true";
   const errorParam = searchParams.get("error");
+  const registerRole = searchParams.get("register");
   const redirecting = Boolean(state.success && state.redirectTo);
+
+  React.useEffect(() => {
+    if (registerRole === "parent" || registerRole === "tutor") {
+      router.replace(`/register?role=${registerRole}`);
+    }
+  }, [registerRole, router]);
 
   React.useEffect(() => {
     if (state.success && state.redirectTo) {
@@ -44,7 +52,7 @@ function LoginFormContent() {
   const isLoading = isPending || redirecting || isGoogleLoading;
 
   return (
-    <div className="w-full max-w-lg space-y-6">
+    <main className="w-full max-w-lg space-y-6">
       
       {/* Top Header with Centered Logo & Back Button */}
       <div className="flex items-center justify-between w-full">
@@ -234,6 +242,14 @@ function LoginFormContent() {
             Create account →
           </Link>
         </p>
+        <a
+          href={getWhatsAppSupportLink("Hi ApnaTutorHub Support, I need help logging in.")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center text-xs font-700 text-emerald-800 hover:underline"
+        >
+          WhatsApp support {SUPPORT_PHONE_DISPLAY}
+        </a>
 
       </div>
 
@@ -246,7 +262,7 @@ function LoginFormContent() {
         <span>100% Free for Parents</span>
       </div>
 
-    </div>
+    </main>
   );
 }
 

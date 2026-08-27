@@ -415,7 +415,7 @@ export async function getAdminAnalyticsData(range: "30d" | "90d" | "180d" | "1y"
         _sum: { amount: true },
         where: { type: { in: ["PURCHASE", "ADMIN_CREDIT", "BONUS"] } },
       }),
-      prisma.tutorProfile.aggregate({ _avg: { averageRating: true } }),
+      prisma.review.aggregate({ _avg: { overallRating: true } }),
     ]);
 
   const totalCoinsSold = Math.abs(coinStats._sum.amount ?? 0);
@@ -441,7 +441,7 @@ export async function getAdminAnalyticsData(range: "30d" | "90d" | "180d" | "1y"
       totalBookings: totalBookingsCount,
       totalCoins: totalCoinsSold,
       estimatedRevenueInr,
-      avgRating: ratingStats._avg.averageRating ?? 4.8,
+      avgRating: ratingStats._avg.overallRating ?? 0,
       conversionRate,
       tutorVerificationRate,
     },

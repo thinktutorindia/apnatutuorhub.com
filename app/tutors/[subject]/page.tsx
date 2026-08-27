@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BookOpen, ShieldCheck, Star, GraduationCap, ArrowRight, CheckCircle2 } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
+import { notFound } from "next/navigation";
+import { SUBJECTS } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -10,14 +12,47 @@ interface SubjectPageProps {
   params: Promise<{ subject: string }>;
 }
 
+function slugifySubject(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+const EXTRA_SUBJECT_SLUGS = [
+  "mathematics",
+  "physics",
+  "chemistry",
+  "biology",
+  "english",
+  "computer-science",
+  "cbse-class-10",
+  "cbse-class-12",
+  "icse",
+  "jee-mains",
+  "neet-medical",
+];
+
+const VALID_SUBJECT_SLUGS = new Set([
+  ...SUBJECTS.map(slugifySubject),
+  ...EXTRA_SUBJECT_SLUGS,
+]);
+
 function formatSubjectName(raw: string): string {
+  const fromTaxonomy = SUBJECTS.find((s) => slugifySubject(s) === raw);
+  if (fromTaxonomy) return fromTaxonomy;
   const clean = raw.replace(/-/g, " ");
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
 export async function generateMetadata({ params }: SubjectPageProps): Promise<Metadata> {
   const { subject } = await params;
-  const subjectName = formatSubjectName(subject);
+  const slug = subject.toLowerCase();
+  if (!VALID_SUBJECT_SLUGS.has(slug)) {
+    return { title: "Subject not found — ApnaTutorHub" };
+  }
+  const subjectName = formatSubjectName(slug);
 
   return {
     title: `Find Top ${subjectName} Tutors — ApnaTutorHub`,
@@ -34,7 +69,9 @@ export async function generateMetadata({ params }: SubjectPageProps): Promise<Me
 
 export default async function SubjectTutorPage({ params }: SubjectPageProps) {
   const { subject } = await params;
-  const subjectName = formatSubjectName(subject);
+  const slug = subject.toLowerCase();
+  if (!VALID_SUBJECT_SLUGS.has(slug)) notFound();
+  const subjectName = formatSubjectName(slug);
 
   return (
     <div className="min-h-screen text-slate-900 bg-[#F8FAFC]">

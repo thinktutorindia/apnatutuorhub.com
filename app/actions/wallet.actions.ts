@@ -258,11 +258,11 @@ export async function requestLeadRefundAction(
     return actionError("You are not authorised to refund this purchase.");
   }
 
-  // 24-hour refund window
-  const REFUND_WINDOW_MS = 24 * 60 * 60 * 1000;
+  // 48-hour refund window (aligned with Terms of Service)
+  const REFUND_WINDOW_MS = 48 * 60 * 60 * 1000;
   if (Date.now() - purchase.createdAt.getTime() > REFUND_WINDOW_MS) {
     return actionError(
-      "The 24-hour refund window for this lead has expired. Refunds are not available after 24 hours."
+      "The 48-hour refund window for this lead has expired. Refunds are not available after 48 hours."
     );
   }
 

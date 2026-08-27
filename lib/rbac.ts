@@ -97,7 +97,9 @@ export const FEATURE_PERMISSION_MAP: Record<AdminFeatureKey, readonly Permission
   bookings: ["leads:read", "leads:manage", "users:read"],
   chat: ["users:read", "users:manage"],
   reviews: ["users:read"],
-  wallets: ["wallets:read", "wallets:manage", "wallet:refund", "wallet:topup", "users:read"],
+  // Granting the Wallets sidebar module is view-only. Coin credit/debit stays
+  // on SUPER_ADMIN / FINANCE via PERMISSION_MATRIX (`wallets:manage`).
+  wallets: ["wallets:read", "users:read"],
   notifications: ["settings:manage", "audit:read"],
   broadcast: ["settings:manage"],
   coupons: ["settings:manage"],
@@ -215,9 +217,6 @@ export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
     "/admin/leads",
     "/admin/staff-leads",
     "/admin/staff-leads/my-leads",
-    "/admin/staff-leads/upload",
-    "/admin/staff-leads/manage",
-    "/admin/staff-leads/assign",
     "/admin/audit-logs",
   ],
   VERIFICATION: ["/admin/dashboard", "/admin/kyc", "/admin/users", "/admin/staff-leads/my-leads", "/admin/audit-logs"],
@@ -255,16 +254,17 @@ export function getAllowedSubAdminModules(subject: RbacSubject): string[] {
     const routes = new Set<string>(["/admin/dashboard", "/admin/staff-leads/my-leads"]);
     for (const key of subject.customPermissions) {
       const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
-      if (feat) {
-        routes.add(feat.route);
-        if (key === "staff-leads") {
+      if (key === "staff-leads") {
+        routes.add("/admin/staff-leads/my-leads");
+        if (subject.subAdminRole === "OPERATIONS") {
           routes.add("/admin/staff-leads");
-          routes.add("/admin/staff-leads/my-leads");
           routes.add("/admin/staff-leads/reports");
           routes.add("/admin/staff-leads/upload");
           routes.add("/admin/staff-leads/manage");
           routes.add("/admin/staff-leads/assign");
         }
+      } else if (feat) {
+        routes.add(feat.route);
       }
     }
     return Array.from(routes);
@@ -276,16 +276,17 @@ export function getAllowedSubAdminModules(subject: RbacSubject): string[] {
   const routes = new Set<string>(["/admin/dashboard"]);
   for (const key of defaultKeys) {
     const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
-    if (feat) {
-      routes.add(feat.route);
-      if (key === "staff-leads") {
+    if (key === "staff-leads") {
+      routes.add("/admin/staff-leads/my-leads");
+      if (role === "OPERATIONS") {
         routes.add("/admin/staff-leads");
-        routes.add("/admin/staff-leads/my-leads");
         routes.add("/admin/staff-leads/reports");
         routes.add("/admin/staff-leads/upload");
         routes.add("/admin/staff-leads/manage");
         routes.add("/admin/staff-leads/assign");
       }
+    } else if (feat) {
+      routes.add(feat.route);
     }
   }
   return Array.from(routes);

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   LayoutDashboard, BookOpen, Calendar, MessageSquare,
-  User, LogOut, X, Menu, ChevronRight, PlusCircle,
+  User, LogOut, X, Menu, ChevronRight, PlusCircle, Gift,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: "/parent/bookings", label: "Classes", icon: Calendar },
   { href: "/chat", label: "Messages", icon: MessageSquare },
   { href: "/parent/profile", label: "My Profile", icon: User },
+  { href: "/referrals", label: "Referrals", icon: Gift },
 ] as const;
 
 const BOTTOM_TABS = [
@@ -33,7 +34,7 @@ interface ParentNavClientProps {
   unreadCount: number;
 }
 
-export function ParentNavClient({ userName, userEmail, userImage }: ParentNavClientProps) {
+export function ParentNavClient({ userName, userEmail, userImage, unreadCount }: ParentNavClientProps) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -78,6 +79,11 @@ export function ParentNavClient({ userName, userEmail, userImage }: ParentNavCli
             >
               <Icon size={15} className={`transition-transform duration-200 group-hover:scale-110 ${active ? "text-[#2D9E6B]" : "text-slate-400 group-hover:text-[#2D9E6B]"}`} />
               <span>{item.label}</span>
+              {item.href === "/chat" && unreadCount > 0 && (
+                <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#EF4444] text-white text-[9px] font-black flex items-center justify-center">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -150,6 +156,11 @@ export function ParentNavClient({ userName, userEmail, userImage }: ParentNavCli
                     <div className="flex items-center gap-3">
                       <Icon size={18} className={active ? "text-[#2D9E6B]" : "text-slate-400"} />
                       <span>{item.label}</span>
+                      {item.href === "/chat" && unreadCount > 0 && (
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#EF4444] text-white text-[10px] font-black flex items-center justify-center">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
                     </div>
                     {active && <ChevronRight size={16} className="text-emerald-400" />}
                   </Link>
@@ -177,7 +188,14 @@ export function ParentNavClient({ userName, userEmail, userImage }: ParentNavCli
                 active ? "text-[#2D9E6B] font-800" : "text-slate-500 font-600"
               }`}
             >
-              <Icon size={18} className={active ? "text-[#2D9E6B]" : "text-slate-400"} />
+              <div className="relative">
+                <Icon size={18} className={active ? "text-[#2D9E6B]" : "text-slate-400"} />
+                {tab.href === "/chat" && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#EF4444] text-white text-[8px] font-black flex items-center justify-center">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] min-w-0 truncate max-w-full">{tab.label}</span>
             </Link>
           );

@@ -56,9 +56,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: "/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png",
-    shortcut: "/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png",
-    apple: "/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png",
+    icon: "/icons/icon-192x192.svg",
+    shortcut: "/icons/icon-192x192.svg",
+    apple: "/icons/icon-192x192.svg",
   },
   manifest: "/manifest.json",
   openGraph: {
@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png",
+        url: "/icons/icon-192x192.svg",
         width: 512,
         height: 512,
         alt: "ApnaTutorHub Logo",
@@ -83,7 +83,7 @@ export const metadata: Metadata = {
     title: "ApnaTutorHub — Find Verified Tutors Near You",
     description:
       "Connect with 100% verified home & online tutors across India. Fast distance-based tutor matching.",
-    images: ["/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png"],
+    images: ["/icons/icon-192x192.svg"],
     creator: "@ApnaTutorHub",
   },
   robots: {
@@ -118,9 +118,17 @@ export default async function RootLayout({
         />
       </head>
       <body>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-800 focus:text-[#0F2540] focus:shadow-lg"
+        >
+          Skip to content
+        </a>
         <NavigationProgress />
         <PostHogProvider>
-          <Providers>{children}</Providers>
+          <Providers>
+            <div id="main-content">{children}</div>
+          </Providers>
         </PostHogProvider>
         <PushNotificationProvider userId={session?.user?.id} />
         <NotificationOnboardingModal userId={session?.user?.id} />

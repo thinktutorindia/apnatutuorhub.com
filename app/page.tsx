@@ -11,6 +11,7 @@ import {
   User, Check, Star, MapPin, Award
 } from "lucide-react";
 import type { Metadata } from "next";
+import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 
 export const metadata: Metadata = {
   title: "ApnaTutorHub — Find Verified Home & Online Tutors Near You",
@@ -38,6 +39,10 @@ const FAQ_ITEMS = [
   {
     q: "How do I connect with a tutor after posting?",
     a: "Once you submit your requirement, verified tutors matching your subject, location, and budget review your post and express interest. You can chat directly to discuss schedule and start classes.",
+  },
+  {
+    q: "How do I contact ApnaTutorHub support?",
+    a: `Parents and tutors can WhatsApp us on ${SUPPORT_PHONE_DISPLAY}. We help with registration, requirements, KYC, and bookings.`,
   },
 ];
 
@@ -273,7 +278,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* ── Hero Section (Product-Oriented) ──────────────────── */}
+      <main>
       <section className="bg-white py-12 lg:py-16 px-4 sm:px-6 border-b border-gray-200">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           
@@ -705,9 +710,9 @@ export default async function HomePage() {
       {/* ── Final Conversion CTA Strip ────────────────────────── */}
       <section className="py-14 px-4 sm:px-6 text-center border-y border-[#C7EDD9] bg-gradient-to-r from-emerald-50 via-emerald-100/50 to-emerald-50">
         <div className="max-w-3xl mx-auto space-y-4">
-          <h3 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+          <h2 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             Ready to Find the Right Tutor for Your Child?
-          </h3>
+          </h2>
           <p className="text-sm text-gray-900 font-600">
             Tell us what you need. Verified tutors in your area will connect with you directly.
           </p>
@@ -719,8 +724,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      </main>
 
-      {/* ── Footer (HIGH CONTRAST FOOTER TEXT) ────────────────── */}
       <footer className="bg-[#0F2540] text-gray-100 py-14 px-4 sm:px-6 border-t border-gray-800">
         <div className="max-w-6xl mx-auto space-y-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -761,8 +766,20 @@ export default async function HomePage() {
                 Company
               </h4>
               <ul className="space-y-2 text-xs font-600 text-gray-200">
+                <li><Link href="/privacy" className="hover:text-[#F5A623] transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="hover:text-[#F5A623] transition-colors">Terms of Service</Link></li>
                 <li><Link href="/login" className="hover:text-[#F5A623] transition-colors">Log in</Link></li>
                 <li><Link href="/register" className="hover:text-[#F5A623] transition-colors">Register</Link></li>
+                <li>
+                  <a
+                    href={getWhatsAppSupportLink()}
+                    className="hover:text-[#F5A623] transition-colors"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    WhatsApp {SUPPORT_PHONE_DISPLAY}
+                  </a>
+                </li>
                 <li><a href="#faq" className="hover:text-[#F5A623] transition-colors">FAQ &amp; Support</a></li>
               </ul>
             </div>

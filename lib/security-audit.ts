@@ -44,7 +44,8 @@ export function sanitizeInput(input: string): string {
 /**
  * Rate limiter check using Upstash Redis (simple sliding window).
  * Returns `{ allowed: boolean; remaining: number }`.
- * Falls back to `allowed: true` if Redis is not configured.
+ * Local/dev: fail-open if Redis is missing so login still works.
+ * Production: fail-closed if Redis is missing or errors (do not silently allow).
  */
 export async function checkRateLimit(
   key: string,
@@ -52,8 +53,13 @@ export async function checkRateLimit(
 ): Promise<{ allowed: boolean; remaining: number }> {
   const restUrl = process.env.UPSTASH_REDIS_REST_URL;
   const restToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const failClosed = process.env.NODE_ENV === "production";
 
   if (!restUrl || !restToken) {
+    if (failClosed) {
+      console.error("[rate-limit] UPSTASH Redis is not configured; denying request");
+      return { allowed: false, remaining: 0 };
+    }
     return { allowed: true, remaining: limitPerMinute };
   }
 
@@ -77,7 +83,11 @@ export async function checkRateLimit(
 
     const remaining = Math.max(0, limitPerMinute - count);
     return { allowed: count <= limitPerMinute, remaining };
-  } catch {
+  } catch (err) {
+    if (failClosed) {
+      console.error("[rate-limit] Redis error; denying request", err);
+      return { allowed: false, remaining: 0 };
+    }
     return { allowed: true, remaining: limitPerMinute };
   }
 }

@@ -18,10 +18,11 @@ export type DummyLeadEmailProps = {
   timing: string;
   studentName: string;
   leadUrl: string;
+  settingsUrl?: string;
 };
 
 export function renderDummyLeadEmail(props: DummyLeadEmailProps): string {
-  const { tutorName, locality, city, subjects, classLevel, board, mode, budgetMin, budgetMax, rateType = "MONTHLY", days, timing, leadUrl } = props;
+  const { tutorName, locality, city, subjects, classLevel, board, mode, budgetMin, budgetMax, rateType = "MONTHLY", days, timing, leadUrl, settingsUrl } = props;
 
   const subjectBadges = subjects
     .map((s) => `<span style="display:inline-block;background:#DCFCE7;color:#166534;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:700;margin:2px 3px;">${s}</span>`)
@@ -144,7 +145,7 @@ export function renderDummyLeadEmail(props: DummyLeadEmailProps): string {
       <p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#0F2540;">ApnaTutorHub</p>
       <p style="margin:0;font-size:11px;color:#94A3B8;">
         You're receiving this because you're a registered tutor on our platform.<br/>
-        <a href="${leadUrl}/settings" style="color:#16A34A;text-decoration:none;">Manage notification preferences</a>
+        <a href="${settingsUrl || `${leadUrl.replace(/\/tutor\/leads.*/, "/tutor/profile")}`}" style="color:#16A34A;text-decoration:none;">Manage notification preferences</a>
       </p>
     </div>
   </div>

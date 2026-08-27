@@ -275,7 +275,7 @@ export default async function AdminDashboardPage() {
         <KpiCard
           title="Tuition Bookings"
           value={stats.totalBookings ?? 0}
-          subtitle="Confirmed Tuitions"
+          subtitle="All trial & regular bookings"
           icon={BookOpen}
           accentBg="bg-rose-100 border border-rose-300"
           accentText="text-rose-800"

@@ -13,6 +13,7 @@ import { formFloat, formInt, formList, formString } from "@/lib/form-data";
 import { tutorProfileSchema } from "@/lib/validations";
 import { getProfileScore } from "@/lib/profile-score";
 import { geocodeLocation } from "@/lib/geocoding";
+import { can } from "@/lib/rbac";
 
 export type TutorProfileState = ActionResult<{ updated: true }>;
 export type TutorStepState = ActionResult<{ updated: true; nextStep?: number }>;
@@ -441,6 +442,9 @@ export async function saveTutorOnboardingAction(
 export async function toggleTutorMarketingNotifsAction(targetUserId: string, enabled: boolean) {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  const isSelf = session.user.id === targetUserId && session.user.role === "TUTOR";
+  const isStaff = session.user.role === "SUPER_ADMIN" || can(session.user, "users:manage");
+  if (!isSelf && !isStaff) return { success: false, error: "Forbidden" };
 
   try {
     await prisma.tutorProfile.update({

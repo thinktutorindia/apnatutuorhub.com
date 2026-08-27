@@ -8,6 +8,7 @@ import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { TutorNavClient } from "@/components/tutor/TutorNavClient";
 import { NotificationBell } from "@/components/NotificationBell";
+import { WhatsAppHelpLink } from "@/components/support/WhatsAppHelpLink";
 
 export default async function TutorAppLayout({
   children,
@@ -20,7 +21,7 @@ export default async function TutorAppLayout({
     redirect("/login");
   }
 
-  const [tutorProfile, unreadCount] = await Promise.all([
+  const [tutorProfile, unreadMessages, unreadNotifications] = await Promise.all([
     prisma.tutorProfile.findUnique({
       where: { userId: session.user.id },
       select: {
@@ -28,6 +29,13 @@ export default async function TutorAppLayout({
         kycRejectionNote: true,
         onboardingStep: true,
         wallet: { select: { balance: true } },
+      },
+    }),
+    prisma.message.count({
+      where: {
+        isRead: false,
+        senderUserId: { not: session.user.id },
+        conversation: { tutorProfile: { userId: session.user.id } },
       },
     }),
     prisma.notification.count({
@@ -107,12 +115,13 @@ export default async function TutorAppLayout({
               userName={userName}
               userEmail={userEmail}
               walletBalance={walletBalance}
-              unreadCount={unreadCount}
+              unreadCount={unreadMessages}
             />
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <NotificationBell initialCount={unreadCount} />
+            <NotificationBell initialCount={unreadNotifications} viewerRole="TUTOR" />
+            <WhatsAppHelpLink role="TUTOR" compact />
             {/* Desktop: wallet pill */}
             <Link
               href="/tutor/wallet"

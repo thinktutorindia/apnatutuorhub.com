@@ -12,7 +12,7 @@ import {
   type UserGovernanceFilterInput,
 } from "@/app/actions/admin.actions";
 
-export function AdminBulkUserTopupControl() {
+export function AdminBulkUserTopupControl({ canGrantCoins = false }: { canGrantCoins?: boolean }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -386,6 +386,7 @@ export function AdminBulkUserTopupControl() {
           >
             Mark as Old Tutors
           </button>
+          {canGrantCoins && (
           <button
             type="button"
             disabled={isPending || selectedIds.length === 0}
@@ -395,6 +396,7 @@ export function AdminBulkUserTopupControl() {
             <Coins size={14} />
             <span>Grant Bulk Coins</span>
           </button>
+          )}
         </div>
       </div>
 

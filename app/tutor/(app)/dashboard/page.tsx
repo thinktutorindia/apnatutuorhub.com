@@ -8,6 +8,7 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calcProfileScore } from "@/lib/profile-score";
+import { formatLeadBudget } from "@/lib/lead-utils";
 import { TutorAnalyticsWidget } from "@/components/tutor/TutorAnalyticsWidget";
 import { EnablePushBanner } from "@/components/EnablePushBanner";
 
@@ -96,9 +97,25 @@ export default async function TutorDashboardPage() {
       area: true,
       budgetMin: true,
       budgetMax: true,
+      notes: true,
+      timingPreference: true,
       createdAt: true,
     },
   });
+
+  const purchasedLeadIds = new Set(
+    tutorProfile
+      ? (
+          await prisma.leadPurchase.findMany({
+            where: {
+              tutorProfileId: tutorProfile.id,
+              leadId: { in: recentLeads.map((l) => l.id) },
+            },
+            select: { leadId: true },
+          })
+        ).map((p) => p.leadId)
+      : []
+  );
 
   return (
     <div className="space-y-6 pb-8">
@@ -412,13 +429,13 @@ export default async function TutorDashboardPage() {
 
                 <div className="pt-2 border-t border-gray-200/60 flex items-center justify-between">
                   <span className="text-xs font-800 text-[#1A3C5E]">
-                    ₹{lead.budgetMin && lead.budgetMax ? `${lead.budgetMin}–${lead.budgetMax}/hr` : "Negotiable"}
+                    {formatLeadBudget(lead)}
                   </span>
                   <Link
-                    href={`/tutor/leads`}
+                    href={purchasedLeadIds.has(lead.id) ? "/tutor/leads?tab=unlocked" : "/tutor/leads"}
                     className="text-xs font-800 text-[#2D9E6B] hover:underline flex items-center gap-0.5"
                   >
-                    Unlock Details →
+                    {purchasedLeadIds.has(lead.id) ? "View Unlocked →" : "View Lead →"}
                   </Link>
                 </div>
               </div>

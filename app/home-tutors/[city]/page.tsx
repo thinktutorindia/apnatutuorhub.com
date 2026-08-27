@@ -1,10 +1,39 @@
 import React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPin, ShieldCheck, Star, GraduationCap, ArrowRight, CheckCircle2 } from "lucide-react";
+import { notFound } from "next/navigation";
+import { MapPin, ShieldCheck, GraduationCap, ArrowRight } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
 
 export const dynamic = "force-dynamic";
+
+const KNOWN_CITIES = new Set([
+  "delhi",
+  "mumbai",
+  "bengaluru",
+  "bangalore",
+  "pune",
+  "hyderabad",
+  "gurgaon",
+  "gurugram",
+  "noida",
+  "kolkata",
+  "chennai",
+  "ahmedabad",
+  "jaipur",
+  "lucknow",
+  "chandigarh",
+  "indore",
+  "bhopal",
+  "kochi",
+  "coimbatore",
+  "nagpur",
+  "surat",
+  "vadodara",
+  "visakhapatnam",
+  "patna",
+  "bhubaneswar",
+]);
 
 interface CityPageProps {
   params: Promise<{ city: string }>;
@@ -12,11 +41,23 @@ interface CityPageProps {
 
 function formatCityName(raw: string): string {
   const clean = raw.replace(/^home-tutors-/, "").replace(/-/g, " ");
-  return clean.charAt(0).toUpperCase() + clean.slice(1);
+  return clean
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function isValidCitySlug(city: string): boolean {
+  if (!/^[a-z][a-z0-9-]{1,40}$/.test(city)) return false;
+  return KNOWN_CITIES.has(city) || city.length >= 3;
 }
 
 export async function generateMetadata({ params }: CityPageProps): Promise<Metadata> {
   const { city } = await params;
+  if (!isValidCitySlug(city)) {
+    return { title: "City not found — ApnaTutorHub" };
+  }
   const cityName = formatCityName(city);
 
   return {
@@ -34,11 +75,11 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 export default async function CityTutorPage({ params }: CityPageProps) {
   const { city } = await params;
+  if (!isValidCitySlug(city)) notFound();
   const cityName = formatCityName(city);
 
   return (
     <div className="min-h-screen text-slate-900 bg-[#F8FAFC]">
-      {/* Header */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/">
@@ -61,7 +102,6 @@ export default async function CityTutorPage({ params }: CityPageProps) {
         </div>
       </header>
 
-      {/* Hero Section */}
       <main className="max-w-5xl mx-auto px-4 py-12 sm:py-16 space-y-12">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black">
@@ -84,23 +124,22 @@ export default async function CityTutorPage({ params }: CityPageProps) {
               <ArrowRight size={18} />
             </Link>
             <Link
-              href="/parent/requirements"
+              href="/find-tutor"
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-900 text-sm font-black transition-all shadow-sm flex items-center justify-center"
             >
-              View Active Requirements
+              Browse Tutors
             </Link>
           </div>
         </div>
 
-        {/* Benefits Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6">
           <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-2">
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2D9E6B] flex items-center justify-center font-black">
               <ShieldCheck size={20} />
             </div>
-            <h3 className="text-base font-extrabold text-[#0F2540]">100% Verified Tutors</h3>
+            <h2 className="text-base font-extrabold text-[#0F2540]">Verified Tutors</h2>
             <p className="text-xs text-slate-600 font-semibold">
-              All tutors in {cityName} undergo mandatory Aadhaar, PAN &amp; degree verification.
+              Tutors in {cityName} complete identity and qualification checks before they appear as verified.
             </p>
           </div>
 
@@ -108,7 +147,7 @@ export default async function CityTutorPage({ params }: CityPageProps) {
             <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-black">
               <MapPin size={20} />
             </div>
-            <h3 className="text-base font-extrabold text-[#0F2540]">Distance-Based Match</h3>
+            <h2 className="text-base font-extrabold text-[#0F2540]">Distance-Based Match</h2>
             <p className="text-xs text-slate-600 font-semibold">
               Connect with tutors living within 1 km – 10 km radius of your location in {cityName}.
             </p>
@@ -118,7 +157,7 @@ export default async function CityTutorPage({ params }: CityPageProps) {
             <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-black">
               <GraduationCap size={20} />
             </div>
-            <h3 className="text-base font-extrabold text-[#0F2540]">All School Boards</h3>
+            <h2 className="text-base font-extrabold text-[#0F2540]">All School Boards</h2>
             <p className="text-xs text-slate-600 font-semibold">
               CBSE, ICSE, IB &amp; State Board tutors for Class 1 to 12 &amp; competitive exams.
             </p>

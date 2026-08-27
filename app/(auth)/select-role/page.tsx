@@ -1,17 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { GraduationCap, Users, ArrowRight, Loader2, Sparkles, Check } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles, Check } from "lucide-react";
 import { selectUserRoleAction } from "@/app/actions/auth.actions";
 
 export default function SelectRolePage() {
-  const router = useRouter();
-  const { update } = useSession();
+  const { data: session, status, update } = useSession();
   const [selectedRole, setSelectedRole] = useState<"PARENT" | "TUTOR">("PARENT");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const role = session?.user?.role;
+    const dest: Record<string, string> = {
+      PARENT: "/parent/dashboard",
+      TUTOR: "/tutor/dashboard",
+      SUPER_ADMIN: "/admin/dashboard",
+      SUB_ADMIN: "/admin/dashboard",
+    };
+    if (role && dest[role]) {
+      window.location.replace(dest[role]);
+    }
+  }, [session, status]);
 
   const handleConfirmRole = async () => {
     setIsSubmitting(true);
@@ -47,7 +59,7 @@ export default function SelectRolePage() {
           How do you want to use ApnaTutorHub? 🤔
         </h1>
         <p className="text-sm font-semibold text-slate-600 max-w-sm mx-auto">
-          Choose your primary account role below. You can change this anytime later.
+          Choose your primary account role below. This cannot be changed later.
         </p>
       </div>
 

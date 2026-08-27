@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
 import { registerSchema, loginSchema } from "@/lib/validations";
+import { checkRateLimit } from "@/lib/security-audit";
 
 // ────────────────────────────────────────────────
 // Types
@@ -52,6 +53,14 @@ export async function registerAction(
   }
 
   const { name, email, phone, password, role, referralCode } = parsed.data;
+
+  const { allowed } = await checkRateLimit(`register:${email}`, 5);
+  if (!allowed) {
+    return {
+      success: false,
+      error: "Too many registration attempts. Please wait a minute and try again.",
+    };
+  }
 
   // Check if email or phone already exists
   const existingEmail = await prisma.user.findUnique({
@@ -202,6 +211,12 @@ export async function requestPasswordResetAction(
   }
 
   const cleanEmail = email.toLowerCase().trim();
+
+  const { allowed } = await checkRateLimit(`forgot:${cleanEmail}`, 3);
+  if (!allowed) {
+    return { success: false, error: "Too many reset requests. Please wait a minute and try again." };
+  }
+
   const user = await prisma.user.findUnique({
     where: { email: cleanEmail },
     select: { id: true, name: true, email: true },
@@ -305,11 +320,26 @@ export async function selectUserRoleAction(
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true },
+    select: { id: true, role: true },
   });
 
   if (!dbUser) {
     return { success: false, error: "User session expired. Please sign in again.", redirectTo: "/login" };
+  }
+
+  const dashboardByRole: Record<string, string> = {
+    PARENT: "/parent/dashboard",
+    TUTOR: "/tutor/dashboard",
+    SUPER_ADMIN: "/admin/dashboard",
+    SUB_ADMIN: "/admin/dashboard",
+  };
+
+  if (dbUser.role && dashboardByRole[dbUser.role]) {
+    return {
+      success: false,
+      error: "Your account role is already set and cannot be changed.",
+      redirectTo: dashboardByRole[dbUser.role],
+    };
   }
 
   if (targetRole === "TUTOR") {

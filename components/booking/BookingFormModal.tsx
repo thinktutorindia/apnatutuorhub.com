@@ -11,6 +11,7 @@ type Props = {
   subject: string;
   classLevel: string;
   defaultIsTrial?: boolean;
+  feeLabel?: string;
   onClose: () => void;
 };
 
@@ -42,6 +43,7 @@ export default function BookingFormModal({
   subject,
   classLevel,
   defaultIsTrial = true,
+  feeLabel = "Agreed Fee per Hour",
   onClose,
 }: Props) {
   const [state, formAction, isPending] = useActionState(createBookingAction, initial);
@@ -159,7 +161,7 @@ export default function BookingFormModal({
               className="text-xs font-black text-[#0F172A]"
               htmlFor="booking-fee"
             >
-              Agreed Fee per Hour
+              {feeLabel}
               <span className="ml-1 font-semibold text-slate-400">(optional)</span>
             </label>
             <div className="flex items-center gap-2 rounded-2xl border-2 border-[#0F172A] bg-[#F8FAFC] px-3 shadow-[3px_3px_0px_0px_rgba(15,23,42,1)]">

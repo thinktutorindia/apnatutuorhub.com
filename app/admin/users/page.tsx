@@ -22,6 +22,7 @@ import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { resolveDocViewUrl } from "@/lib/s3";
 import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
 import { maskPhoneNumber } from "@/lib/mask-utils";
+import { can } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "User Management — Admin" };
@@ -576,7 +577,7 @@ export default async function AdminUsersPage({
       </div>
 
       {/* Bulk Governance & Top-Up Control Panel (Bottom Collapsible) */}
-      <AdminBulkUserTopupControl />
+      <AdminBulkUserTopupControl canGrantCoins={can(session.user, "wallets:manage")} />
     </div>
   );
 }

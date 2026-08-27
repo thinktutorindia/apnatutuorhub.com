@@ -154,7 +154,10 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
     startTransition(async () => {
       const res = await promoteLeadToProfileAction(lead.id);
       if (res.success && res.data) {
-        setMessage({ type: "success", text: `✓ Profile created! User ID: ${res.data.userId}` });
+        const pwdNote = res.data.temporaryPassword
+          ? ` Temporary password: ${res.data.temporaryPassword} (KYC still required).`
+          : "";
+        setMessage({ type: "success", text: `✓ Profile created! User ID: ${res.data.userId}.${pwdNote}` });
         setLead((prev) => ({ ...prev, isPromoted: true, status: "CONVERTED", promotedTutorProfileId: res.data!.tutorProfileId }));
         setPromoteConfirm(false);
       } else {

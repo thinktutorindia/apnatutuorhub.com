@@ -591,6 +591,7 @@ export function RequirementForm({
             <span className="text-[11px] font-700 text-[#2D9E6B]">Live Auto-Fill ✨</span>
           </label>
           <LocationSearchInput
+            disabled={locked}
             onSelectLocation={(res) => {
               if (res.city) setCity(res.city);
               if (res.area) setArea(res.area);

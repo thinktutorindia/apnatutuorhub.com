@@ -30,6 +30,16 @@ const nextConfig: NextConfig = {
 
   // Server external packages for Prisma & Node-only libraries
   serverExternalPackages: ["@prisma/client", "bcryptjs", "web-push"],
+
+  async rewrites() {
+    return [
+      { source: "/home-tutors-:city", destination: "/home-tutors/:city" },
+      { source: "/manifest.json", destination: "/manifest.webmanifest" },
+      { source: "/apple-touch-icon.png", destination: "/icons/icon-192x192.svg" },
+      { source: "/apple-touch-icon-precomposed.png", destination: "/icons/icon-192x192.svg" },
+      { source: "/parent/requirements", destination: "/find-tutor" },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {

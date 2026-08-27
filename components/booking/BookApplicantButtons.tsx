@@ -12,6 +12,7 @@ type Props = {
   subject: string;
   classLevel: string;
   isShortlisted: boolean;
+  feeLabel?: string;
 };
 
 export default function BookApplicantButtons({
@@ -22,6 +23,7 @@ export default function BookApplicantButtons({
   subject,
   classLevel,
   isShortlisted,
+  feeLabel = "Agreed Fee per Hour",
 }: Props) {
   const [modal, setModal] = useState<"trial" | "hire" | null>(null);
 
@@ -58,6 +60,7 @@ export default function BookApplicantButtons({
           subject={subject}
           classLevel={classLevel}
           defaultIsTrial={modal === "trial"}
+          feeLabel={feeLabel}
           onClose={() => setModal(null)}
         />
       )}

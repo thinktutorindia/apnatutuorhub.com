@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   LayoutDashboard, Search, Calendar, MessageSquare,
-  Wallet, User, LogOut, X, Menu, ChevronRight, Crown,
+  Wallet, User, LogOut, X, Menu, ChevronRight, Crown, Gift,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/chat", label: "Messages", icon: MessageSquare },
   { href: "/tutor/wallet", label: "Wallet", icon: Wallet },
   { href: "/tutor/profile", label: "My Profile", icon: User },
+  { href: "/referrals", label: "Referrals", icon: Gift },
 ] as const;
 
 const BOTTOM_TABS = [
@@ -153,7 +154,7 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
       {/* Mobile hamburger */}
       <button
         onClick={() => setDrawerOpen(true)}
-        className="flex items-center justify-center w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-90 text-gray-800 md:hidden transition-all duration-200 ease-out"
+        className="flex items-center justify-center w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-90 text-gray-800 md:hidden transition-all duration-200 ease-out shrink-0 relative z-30"
         aria-label="Open navigation"
       >
         <Menu size={19} />

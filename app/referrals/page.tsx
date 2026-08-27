@@ -63,6 +63,9 @@ export default async function ReferralsPage() {
         createdAt: r.createdAt.toISOString(),
       }))}
       backHref={backHref}
+      viewerRole={
+        session.user.role === "PARENT" ? "PARENT" : session.user.role === "TUTOR" ? "TUTOR" : "ADMIN"
+      }
     />
   );
 }

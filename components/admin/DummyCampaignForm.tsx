@@ -247,6 +247,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
         overrideSubjects,
         budgetMin,
         budgetMax,
+        rateType,
+        autoAdapt: feePreset === "AUTO_ADAPT",
+        emailFilter,
         totalLimit: totalLimit ? parseInt(totalLimit) : null,
         startDate: startDate || null,
         endDate: endDate || null,
@@ -715,7 +718,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-600 mt-1 font-semibold">
-                    Automatically generates leads matching the tutor's taught classes (1–5: ₹200–300/hr, 6–8: ₹200–400/hr, 9–10: ₹400–600/hr, 11–12: ₹500–800/hr).
+                    Automatically picks one class the tutor actually teaches (e.g. Class 1 or Class 5), nearby locality via AI, and an average rate from your class bands + area. Rotates daily.
                   </p>
                 </button>
 
@@ -731,7 +734,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 >
                   <p className="text-xs font-black text-slate-900">Class 1 to 5</p>
                   <p className="text-[11px] font-extrabold text-emerald-700 mt-0.5">
-                    {rateType === "HOURLY" ? "₹200 – ₹300 / hr" : "₹2,500 – ₹4,500 / mo"}
+                    {rateType === "HOURLY"
+                      ? `₹${CLASS_FEE_RATES["1-5"].hourlyMin} – ₹${CLASS_FEE_RATES["1-5"].hourlyMax} / hr`
+                      : `₹${CLASS_FEE_RATES["1-5"].monthlyMin.toLocaleString("en-IN")} – ₹${CLASS_FEE_RATES["1-5"].monthlyMax.toLocaleString("en-IN")} / mo`}
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">Primary standard tariff</p>
                 </button>
@@ -748,7 +753,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 >
                   <p className="text-xs font-black text-slate-900">Class 6 to 8</p>
                   <p className="text-[11px] font-extrabold text-emerald-700 mt-0.5">
-                    {rateType === "HOURLY" ? "₹200 – ₹400 / hr" : "₹3,500 – ₹6,000 / mo"}
+                    {rateType === "HOURLY"
+                      ? `₹${CLASS_FEE_RATES["6-8"].hourlyMin} – ₹${CLASS_FEE_RATES["6-8"].hourlyMax} / hr`
+                      : `₹${CLASS_FEE_RATES["6-8"].monthlyMin.toLocaleString("en-IN")} – ₹${CLASS_FEE_RATES["6-8"].monthlyMax.toLocaleString("en-IN")} / mo`}
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">Middle school tariff</p>
                 </button>
@@ -765,7 +772,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 >
                   <p className="text-xs font-black text-slate-900">Class 9 to 10</p>
                   <p className="text-[11px] font-extrabold text-emerald-700 mt-0.5">
-                    {rateType === "HOURLY" ? "₹400 – ₹600 / hr" : "₹5,000 – ₹9,000 / mo"}
+                    {rateType === "HOURLY"
+                      ? `₹${CLASS_FEE_RATES["9-10"].hourlyMin} – ₹${CLASS_FEE_RATES["9-10"].hourlyMax} / hr`
+                      : `₹${CLASS_FEE_RATES["9-10"].monthlyMin.toLocaleString("en-IN")} – ₹${CLASS_FEE_RATES["9-10"].monthlyMax.toLocaleString("en-IN")} / mo`}
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">Secondary board tariff</p>
                 </button>
@@ -782,7 +791,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 >
                   <p className="text-xs font-black text-slate-900">Class 11 to 12</p>
                   <p className="text-[11px] font-extrabold text-emerald-700 mt-0.5">
-                    {rateType === "HOURLY" ? "₹500 – ₹800 / hr" : "₹7,000 – ₹12,000 / mo"}
+                    {rateType === "HOURLY"
+                      ? `₹${CLASS_FEE_RATES["11-12"].hourlyMin} – ₹${CLASS_FEE_RATES["11-12"].hourlyMax} / hr`
+                      : `₹${CLASS_FEE_RATES["11-12"].monthlyMin.toLocaleString("en-IN")} – ₹${CLASS_FEE_RATES["11-12"].monthlyMax.toLocaleString("en-IN")} / mo`}
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">Senior secondary tariff</p>
                 </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useEffect, useRef, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   UserPlus,
@@ -215,6 +216,8 @@ export function CreateUserModal({
 } = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const { data: session } = useSession();
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
 
   // Role Tab
   const [role, setRole] = useState<"TUTOR" | "PARENT" | "SUB_ADMIN" | "SUPER_ADMIN">("TUTOR");
@@ -261,7 +264,7 @@ export function CreateUserModal({
   const [tutorFeeMax, setTutorFeeMax] = useState("");
   const [tutorGender, setTutorGender] = useState("MALE");
   const [tutorBio, setTutorBio] = useState("");
-  const [tutorAutoVerify, setTutorAutoVerify] = useState(true);
+  const [tutorAutoVerify, setTutorAutoVerify] = useState(false);
 
   // Parent Specific State
   const [parentClassLevel, setParentClassLevel] = useState("");
@@ -1195,6 +1198,7 @@ export function CreateUserModal({
                       </button>
 
                       {/* Super Admin */}
+                      {isSuperAdmin && (
                       <button
                         type="button"
                         onClick={() => setRole("SUPER_ADMIN")}
@@ -1216,6 +1220,7 @@ export function CreateUserModal({
                         <span className="text-xs font-bold text-[#0F2540]">Super Admin</span>
                         <span className="text-[10px] text-slate-500 font-medium">Full Access</span>
                       </button>
+                      )}
                     </div>
                   </div>
 

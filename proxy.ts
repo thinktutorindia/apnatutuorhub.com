@@ -41,6 +41,8 @@ const PUBLIC_ROUTES = [
   "/api/health",
   "/home-tutors",
   "/tutors",
+  "/terms",
+  "/privacy",
   "/sitemap",
   "/robots",
   "/manifest",
@@ -56,6 +58,8 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/icons") ||
     pathname.startsWith("/loading.json") ||
+    pathname === "/apple-touch-icon.png" ||
+    pathname === "/apple-touch-icon-precomposed.png" ||
     pathname === "/sitemap.xml" ||
     pathname === "/robots.txt" ||
     pathname === "/manifest.json" ||
@@ -150,13 +154,31 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
         // Allowed
       } else {
         const allowedModules = getAllowedSubAdminModules(session.user as any);
-        const isAllowed = allowedModules.some(
-          (mod) => pathname === mod || pathname.startsWith(mod + "/")
-        );
+        const isAllowed = allowedModules.some((mod) => {
+          if (pathname === mod) return true;
+          // CRM root must not grant /manage, /assign, /upload, /reports
+          if (mod === "/admin/staff-leads") return false;
+          return pathname.startsWith(mod + "/");
+        });
         if (!isAllowed) {
           return NextResponse.redirect(new URL("/admin/dashboard", req.nextUrl.origin));
         }
       }
+    }
+
+    const dashboardByRole: Record<string, string> = {
+      PARENT: "/parent/dashboard",
+      TUTOR: "/tutor/dashboard",
+      SUPER_ADMIN: "/admin/dashboard",
+      SUB_ADMIN: "/admin/dashboard",
+    };
+
+    if (pathname === "/register" && session.user.role && dashboardByRole[session.user.role]) {
+      return NextResponse.redirect(new URL(dashboardByRole[session.user.role], req.nextUrl.origin));
+    }
+
+    if (pathname === "/select-role" && session.user.role && dashboardByRole[session.user.role]) {
+      return NextResponse.redirect(new URL(dashboardByRole[session.user.role], req.nextUrl.origin));
     }
   }
 
@@ -165,11 +187,11 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
 
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://app.posthog.com https://browser.sentry-cdn.com https://unpkg.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://app.posthog.com https://us-assets.i.posthog.com https://eu-assets.i.posthog.com https://us.i.posthog.com https://eu.i.posthog.com https://browser.sentry-cdn.com https://unpkg.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.amazonaws.com https://*.supabase.co https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://unpkg.com",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://promoted-maggot-141911.upstash.io https://app.posthog.com https://*.sentry.io https://checkout.razorpay.com https://photon.komoot.io https://nominatim.openstreetmap.org https://api.postalpincode.in",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://promoted-maggot-141911.upstash.io https://app.posthog.com https://us.i.posthog.com https://eu.i.posthog.com https://us-assets.i.posthog.com https://eu-assets.i.posthog.com https://*.posthog.com https://*.sentry.io https://checkout.razorpay.com https://photon.komoot.io https://nominatim.openstreetmap.org https://api.postalpincode.in",
     "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
     "media-src 'self'",
     "worker-src 'self' blob:",

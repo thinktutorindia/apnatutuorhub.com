@@ -462,7 +462,12 @@ export function MyStaffLeadsClient({
               : l
           )
         );
-        showMsg("success", "✓ Lead moved to Primary Tutor Profiles!");
+        showMsg(
+          "success",
+          res.data.temporaryPassword
+            ? `✓ Lead moved to Primary Tutor Profiles. Temporary password: ${res.data.temporaryPassword}`
+            : "✓ Lead moved to Primary Tutor Profiles!"
+        );
       } else {
         showMsg("error", res.error ?? "Failed to promote lead");
       }

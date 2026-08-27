@@ -37,7 +37,7 @@ export function HomeHeroCard({ user, dashboardUrl, isParent }: HomeHeroCardProps
       />
 
       <div className="mb-4">
-        <h3 className="font-800 text-xl text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+        <h2 className="font-800 text-xl text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
           Find Tutors by Subject
         </h3>
         <p className="text-xs text-gray-900 font-600">

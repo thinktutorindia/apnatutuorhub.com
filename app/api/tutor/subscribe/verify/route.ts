@@ -38,6 +38,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tutor profile not found" }, { status: 404 });
   }
 
+  if (process.env.NODE_ENV === "production" && String(orderId ?? "").startsWith("order_mock_")) {
+    return NextResponse.json({ error: "Invalid payment order" }, { status: 400 });
+  }
+
+  if (process.env.NODE_ENV === "production" && !isRazorpayConfigured()) {
+    return NextResponse.json({ error: "Payment gateway is not configured" }, { status: 503 });
+  }
+
   // ── Payment authenticity (mandatory whenever Razorpay is configured) ──────────
   // Security: never activate a paid plan without cryptographic proof of a captured
   // payment whose ORDER matches this exact plan, amount and tutor. This closes the

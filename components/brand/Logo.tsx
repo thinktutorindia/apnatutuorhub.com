@@ -12,12 +12,13 @@ export function Logo({
 }) {
   return (
     <Image
-      src="/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png"
+      src="/icons/icon-192x192.svg"
       alt="ApnaTutorHub Logo Mark"
       width={size}
       height={size}
       className={`object-contain shrink-0 ${className}`}
       priority
+      unoptimized
     />
   );
 }
@@ -49,21 +50,23 @@ export function LogoBrand({
       {/* Compact square mark — shown on mobile when the wide wordmark would overflow */}
       {hideWordmarkOnMobile && (
         <Image
-          src="/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png"
+          src="/icons/icon-192x192.svg"
           alt="ApnaTutorHub"
           width={80}
           height={80}
           className={`${heightClass} w-auto object-contain sm:hidden transition-transform duration-300 group-hover:drop-shadow-md ${light ? "brightness-0 invert" : ""}`}
           priority
+          unoptimized
         />
       )}
       <Image
-        src="/icons/Gemini_Generated_Image_f4d61ef4d61ef4d6_no_bg.png"
+        src="/icons/icon-192x192.svg"
         alt="ApnaTutorHub"
         width={360}
         height={80}
         className={`${heightClass} w-auto object-contain transition-transform duration-300 group-hover:drop-shadow-md ${light ? "brightness-0 invert" : ""} ${hideWordmarkOnMobile ? "hidden sm:block" : ""}`}
         priority
+        unoptimized
       />
     </Link>
   );

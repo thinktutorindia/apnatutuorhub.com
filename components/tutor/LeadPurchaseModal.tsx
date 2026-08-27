@@ -26,6 +26,7 @@ import {
   type ApplicationState,
 } from "@/app/actions/leads.actions";
 import { FieldError, FormAlert } from "@/components/ui/FieldError";
+import { getLeadPointCost } from "@/lib/subscription-plans";
 
 const applicationInitial: ApplicationState = { success: false };
 
@@ -48,6 +49,7 @@ export type SubscriptionInfo = {
   monthlyQuota: number;
   quotaUsed: number;
   quotaRemaining: number;
+  remainingPoints?: number;
   hasActivePlan: boolean;
 };
 
@@ -91,8 +93,12 @@ export function LeadPurchaseModal({
   const [contact, setContact] = useState<ParentContact | null>(null);
   const [purchaseId, setPurchaseId] = useState<string>("");
 
+  const planPointCost = getLeadPointCost(lead.classLevel);
+  const remainingPoints =
+    subscriptionInfo?.remainingPoints ??
+    (subscriptionInfo?.quotaRemaining ?? 0) * 12;
   const isFreeWithPlan = Boolean(
-    subscriptionInfo?.hasActivePlan && (subscriptionInfo?.quotaRemaining ?? 0) > 0
+    subscriptionInfo?.hasActivePlan && remainingPoints >= planPointCost
   );
 
   const [appState, appAction, appPending] = useActionState(
@@ -115,6 +121,7 @@ export function LeadPurchaseModal({
   }, [onClose, stage]);
 
   const handleConfirm = async () => {
+    if (isPurchasing) return;
     setIsPurchasing(true);
     setStage("purchasing");
     const result = await purchaseLeadAction(lead.id);
@@ -193,7 +200,7 @@ export function LeadPurchaseModal({
                   <span>✨ 0 Coins (Free Unlock)</span>
                 </p>
                 <p className="text-xs font-semibold text-purple-900">
-                  Included in your plan. Uses your plan lead unlock quota ({subscriptionInfo?.quotaRemaining} leads remaining).
+                  Included in your plan. Uses {planPointCost} plan points ({remainingPoints} points remaining).
                 </p>
               </div>
             ) : (

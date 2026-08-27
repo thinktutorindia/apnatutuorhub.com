@@ -28,6 +28,35 @@ async function requireAdmin() {
   return { error: null, session };
 }
 
+async function requireCrmOps() {
+  const result = await requireAdmin();
+  if (result.error || !result.session) return result;
+  if (result.session.user.role === "SUPER_ADMIN") return result;
+  if (result.session.user.role === "SUB_ADMIN" && result.session.user.subAdminRole === "OPERATIONS") {
+    return result;
+  }
+  return { error: "Forbidden: CRM operations access required", session: null };
+}
+
+async function requireAssignedOrCrmOps(leadId: string) {
+  const result = await requireAdmin();
+  if (result.error || !result.session) return { ...result, lead: null };
+
+  const lead = await prisma.staffLead.findUnique({ where: { id: leadId } });
+  if (!lead) return { error: "Lead not found", session: result.session, lead: null };
+
+  if (result.session.user.role === "SUPER_ADMIN") {
+    return { error: null, session: result.session, lead };
+  }
+  if (result.session.user.subAdminRole === "OPERATIONS") {
+    return { error: null, session: result.session, lead };
+  }
+  if (lead.assignedToId === result.session.user.id) {
+    return { error: null, session: result.session, lead };
+  }
+  return { error: "Forbidden: this lead is not assigned to you", session: result.session, lead: null };
+}
+
 async function requireSuperAdmin() {
   const session = await auth();
   if (!session?.user) return { error: "Unauthenticated", session: null };
@@ -42,7 +71,7 @@ async function requireSuperAdmin() {
 export async function parseLeadBatchPreviewAction(
   rawText: string
 ): Promise<ActionResult<BatchParseResult>> {
-  const { error } = await requireAdmin();
+  const { error } = await requireCrmOps();
   if (error) return actionError(error);
 
   if (!rawText?.trim()) return actionError("Please paste some data");
@@ -169,7 +198,7 @@ export async function confirmBatchUploadAction(
   rawText: string,
   leads: StaffLeadInput[]
 ): Promise<ActionResult<{ batchId: string; saved: number; skippedDuplicates: number }>> {
-  const { error, session } = await requireAdmin();
+  const { error, session } = await requireCrmOps();
   if (error || !session) return actionError(error ?? "Unauthenticated");
 
   try {
@@ -308,8 +337,8 @@ export async function updateStaffLeadAction(
     priority?: number;
   }
 ): Promise<ActionResult<{ lead: any }>> {
-  const { error } = await requireAdmin();
-  if (error) return actionError(error);
+  const { error, session } = await requireAssignedOrCrmOps(leadId);
+  if (error || !session) return actionError(error ?? "Unauthenticated");
 
   const updated = await prisma.staffLead.update({
     where: { id: leadId },
@@ -350,10 +379,8 @@ export async function logCallAction(
   notes: string,
   nextFollowUpAt?: string | null
 ): Promise<ActionResult<{ logged: true }>> {
-  const { error, session } = await requireAdmin();
+  const { error, session } = await requireAssignedOrCrmOps(leadId);
   if (error || !session) return actionError(error ?? "Unauthenticated");
-
-  // Derive status from outcome
   const statusMap: Record<CallOutcome, StaffLeadStatus> = {
     ANSWERED: "CONTACTED",
     NO_ANSWER: "NO_ANSWER",
@@ -474,12 +501,9 @@ export async function autoRotateLeadsAction(): Promise<ActionResult<{ rotated: n
 
 export async function promoteLeadToProfileAction(
   leadId: string
-): Promise<ActionResult<{ userId: string; tutorProfileId: string; isNewUser: boolean }>> {
-  const { error, session } = await requireAdmin();
-  if (error || !session?.user) return actionError(error ?? "Unauthorized");
-
-  const lead = await prisma.staffLead.findUnique({ where: { id: leadId } });
-  if (!lead) return actionError("Lead not found");
+): Promise<ActionResult<{ userId: string; tutorProfileId: string; isNewUser: boolean; temporaryPassword?: string }>> {
+  const { error, session, lead } = await requireAssignedOrCrmOps(leadId);
+  if (error || !session?.user || !lead) return actionError(error ?? "Unauthorized");
   if (lead.isPromoted && lead.promotedTutorProfileId) {
     return actionSuccess({
       tutorProfileId: lead.promotedTutorProfileId,
@@ -507,10 +531,11 @@ export async function promoteLeadToProfileAction(
   });
 
   let isNewUser = false;
+  let temporaryPassword: string | undefined;
 
   if (!user) {
-    const defaultPassword = Math.random().toString(36).slice(-8) + "Aa1!";
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+    temporaryPassword = "Apnatutor@123";
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
     user = await prisma.user.create({
       data: {
@@ -547,8 +572,8 @@ export async function promoteLeadToProfileAction(
         pincode: lead.pincode || null,
         gender: lead.gender === "Female" ? "FEMALE" : "MALE",
         teachingMode: "EITHER",
-        isVerified: true,
-        kycStatus: "APPROVED",
+        isVerified: false,
+        kycStatus: "PENDING",
         subscriptionPlan: "NONE",
         wallet: {
           create: {
@@ -587,6 +612,7 @@ export async function promoteLeadToProfileAction(
     tutorProfileId: tutorProfile.id,
     userId: user.id,
     isNewUser,
+    ...(temporaryPassword ? { temporaryPassword } : {}),
   });
 }
 
@@ -609,7 +635,7 @@ export async function getStaffLeadsAction(opts?: {
   }>;
   total: number;
 }>> {
-  const { error } = await requireAdmin();
+  const { error } = await requireCrmOps();
   if (error) return actionError(error);
 
   const page = opts?.page ?? 1;
@@ -739,10 +765,10 @@ export async function getStaffLeadDetailAction(
     }>;
   };
 }>> {
-  const { error } = await requireAdmin();
-  if (error) return actionError(error);
+  const assigned = await requireAssignedOrCrmOps(id);
+  if (assigned.error || !assigned.session) return actionError(assigned.error ?? "Unauthenticated");
 
-  const lead = await prisma.staffLead.findUnique({
+  const detail = await prisma.staffLead.findUnique({
     where: { id },
     include: {
       assignedTo: { select: { name: true, email: true } },
@@ -753,8 +779,8 @@ export async function getStaffLeadDetailAction(
     },
   });
 
-  if (!lead) return actionError("Lead not found");
-  return actionSuccess({ lead: lead as any });
+  if (!detail) return actionError("Lead not found");
+  return actionSuccess({ lead: detail as any });
 }
 
 // ─── 11. Get batches list ─────────────────────────────────────────────────────
@@ -765,7 +791,7 @@ export async function getStaffLeadBatchesAction(): Promise<ActionResult<{
     _count: { leads: number };
   }>;
 }>> {
-  const { error } = await requireAdmin();
+  const { error } = await requireCrmOps();
   if (error) return actionError(error);
 
   const batches = await prisma.staffLeadBatch.findMany({
@@ -812,7 +838,7 @@ export async function getStaffLeadStatsAction(): Promise<ActionResult<{
   total: number; newLeads: number; assigned: number; contacted: number;
   interested: number; converted: number; notInterested: number; noAnswer: number; followUp: number;
 }>> {
-  const { error } = await requireAdmin();
+  const { error } = await requireCrmOps();
   if (error) return actionError(error);
 
   const [total, newLeads, assigned, contacted, interested, converted, notInterested, noAnswer, followUp] = await Promise.all([
@@ -835,7 +861,7 @@ export async function getStaffLeadStatsAction(): Promise<ActionResult<{
 export async function reParseLeadWithAIAction(
   leadId: string
 ): Promise<ActionResult<{ updated: true }>> {
-  const { error } = await requireAdmin();
+  const { error } = await requireAssignedOrCrmOps(leadId);
   if (error) return actionError(error);
 
   const lead = await prisma.staffLead.findUnique({ where: { id: leadId }, select: { rawText: true } });
@@ -995,7 +1021,7 @@ export async function getStaffCrmManagementHubDataAction(): Promise<ActionResult
   unassignedCount: number;
   dueFollowUpsCount: number;
 }>> {
-  const { error } = await requireAdmin();
+  const { error } = await requireCrmOps();
   if (error) return actionError(error);
 
   const today = new Date();
@@ -1139,7 +1165,7 @@ export async function getLeadCallLogsAction(leadId: string): Promise<ActionResul
     calledBy: { name: string | null; email: string };
   }>;
 }>> {
-  const { error } = await requireAdmin();
+  const { error } = await requireAssignedOrCrmOps(leadId);
   if (error) return actionError(error);
 
   const logs = await prisma.staffLeadCallLog.findMany({
@@ -1388,7 +1414,7 @@ export async function getStaffDailyWorkReportsAction(opts?: {
   };
   staffList: Array<{ id: string; name: string | null; email: string }>;
 }>> {
-  const { error, session } = await requireAdmin();
+  const { error, session } = await requireCrmOps();
   if (error || !session?.user) return actionError(error ?? "Unauthorized");
 
   const isSuperAdmin = session.user.role === "SUPER_ADMIN";

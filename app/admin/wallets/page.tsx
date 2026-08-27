@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Coins, TrendingUp, TrendingDown, Search, RotateCcw, Check, X } from "lucide-react";
 import { adminCreditCoinsAction, adminDebitCoinsAction, approveRefundAction, rejectRefundAction } from "@/app/actions/admin.actions";
+import { can } from "@/lib/rbac";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportPaymentsCsv } from "@/app/actions/analytics.actions";
 import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
@@ -26,6 +27,11 @@ export default async function AdminWalletsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const canManageWallets = can(session.user, "wallets:manage");
+  const canRefundWallets = can(session.user, "wallet:refund") || canManageWallets;
+  if (!canManageWallets && !can(session.user, "wallets:read") && !canRefundWallets) {
+    redirect("/admin/dashboard");
+  }
 
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
@@ -144,7 +150,7 @@ export default async function AdminWalletsPage({
       </div>
 
       {/* Bulk Governance & Top-Up Access Control Panel */}
-      <AdminBulkUserTopupControl />
+      <AdminBulkUserTopupControl canGrantCoins={canManageWallets} />
 
       {/* Pending Refunds Box */}
       {pendingRefunds.length > 0 && (
@@ -163,16 +169,22 @@ export default async function AdminWalletsPage({
                   <p className="text-xs font-600 text-slate-600">{tx.wallet.tutorProfile.user.email} · Requested refund for lead unlock</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <form action={async () => { "use server"; await approveRefundAction(tx.id); }}>
-                    <button type="submit" className="px-4 py-2 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 flex items-center gap-1 cursor-pointer">
-                      <Check size={14} /> Approve Refund (+{tx.amount} coins)
-                    </button>
-                  </form>
-                  <form action={async () => { "use server"; await rejectRefundAction(tx.id, "Lead contact info was valid."); }}>
-                    <button type="submit" className="px-4 py-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-950 border border-red-300 text-xs font-800 flex items-center gap-1 cursor-pointer">
-                      <X size={14} /> Reject
-                    </button>
-                  </form>
+                  {canRefundWallets ? (
+                    <>
+                      <form action={async () => { "use server"; await approveRefundAction(tx.id); }}>
+                        <button type="submit" className="px-4 py-2 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 flex items-center gap-1 cursor-pointer">
+                          <Check size={14} /> Approve Refund (+{tx.amount} coins)
+                        </button>
+                      </form>
+                      <form action={async () => { "use server"; await rejectRefundAction(tx.id, "Lead contact info was valid."); }}>
+                        <button type="submit" className="px-4 py-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-950 border border-red-300 text-xs font-800 flex items-center gap-1 cursor-pointer">
+                          <X size={14} /> Reject
+                        </button>
+                      </form>
+                    </>
+                  ) : (
+                    <span className="text-xs font-700 text-amber-800">View only</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -202,7 +214,9 @@ export default async function AdminWalletsPage({
                 <th className="px-5 py-4 text-left">Coin Balance</th>
                 <th className="px-5 py-4 text-left">Purchased / Spent</th>
                 <th className="px-5 py-4 text-left">Recent Activity</th>
-                <th className="px-5 py-4 text-left">Manual Credit/Debit</th>
+                {canManageWallets && (
+                  <th className="px-5 py-4 text-left">Manual Credit/Debit</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -232,6 +246,7 @@ export default async function AdminWalletsPage({
                       );
                     })}
                   </td>
+                  {canManageWallets && (
                   <td className="px-5 py-4">
                     <div className="flex flex-col gap-2 xs:flex-row xs:items-center">
                       <form action={async (fd) => { "use server"; await adminCreditCoinsAction(fd); }} className="flex items-center gap-1">
@@ -253,6 +268,7 @@ export default async function AdminWalletsPage({
                       </form>
                     </div>
                   </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -5,6 +5,7 @@ import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { ParentNavClient } from "@/components/parent/ParentNavClient";
 import { NotificationBell } from "@/components/NotificationBell";
+import { WhatsAppHelpLink } from "@/components/support/WhatsAppHelpLink";
 import { prisma } from "@/lib/prisma";
 import { getMediaUrl } from "@/lib/s3";
 
@@ -24,9 +25,18 @@ export default async function ParentLayout({
     select: { name: true, email: true, image: true },
   });
 
-  const unreadCount = await prisma.notification.count({
-    where: { userId: session.user.id, isRead: false },
-  });
+  const [unreadNotifications, unreadMessages] = await Promise.all([
+    prisma.notification.count({
+      where: { userId: session.user.id, isRead: false },
+    }),
+    prisma.message.count({
+      where: {
+        isRead: false,
+        senderUserId: { not: session.user.id },
+        conversation: { parentProfile: { userId: session.user.id } },
+      },
+    }),
+  ]);
 
   const userName = user?.name || session.user.name || session.user.email || "Parent";
   const userEmail = user?.email || session.user.email || "";
@@ -46,12 +56,13 @@ export default async function ParentLayout({
               userName={userName}
               userEmail={userEmail}
               userImage={userImage}
-              unreadCount={unreadCount}
+              unreadCount={unreadMessages}
             />
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <NotificationBell initialCount={unreadCount} />
+            <NotificationBell initialCount={unreadNotifications} viewerRole="PARENT" />
+            <WhatsAppHelpLink role="PARENT" compact />
             <div className="hidden md:block">
               <SignOutButton />
             </div>

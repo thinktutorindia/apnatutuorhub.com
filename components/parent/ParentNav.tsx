@@ -15,6 +15,7 @@ import {
   X,
   User,
   LogOut,
+  Gift,
 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
@@ -25,6 +26,7 @@ const LINKS = [
   { href: "/parent/bookings", label: "Bookings", shortLabel: "Bookings", icon: Calendar },
   { href: "/chat", label: "Messages", shortLabel: "Messages", icon: MessageSquare },
   { href: "/parent/profile", label: "Profile Settings", shortLabel: "Profile", icon: UserCog },
+  { href: "/referrals", label: "Referrals", shortLabel: "Referrals", icon: Gift },
 ] as const;
 
 interface ParentNavProps {

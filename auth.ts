@@ -190,14 +190,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async jwt({ token, user, trigger, session }) {
-      // Re-fetch from DB only:
-      //   a) On initial sign-in (user object present), OR
+      // Re-fetch from DB:
+      //   a) On initial sign-in (user object present)
       //   b) On explicit session update trigger (role change, suspension)
-      // This avoids hitting the DB on every middleware session read (prevents pool exhaustion).
+      //   c) Every ~30s so sub-admin module grants/revokes apply without re-login
+      // Throttle avoids hitting the DB on every middleware session read.
       const isSignIn = !!user?.id;
       const isUpdate = trigger === "update";
+      const PERM_REFRESH_MS = 30_000;
+      const now = Date.now();
+      const lastCheck = typeof token.permCheckedAt === "number" ? token.permCheckedAt : 0;
+      const stale = !!token.id && now - lastCheck > PERM_REFRESH_MS;
 
-      if (isSignIn || isUpdate) {
+      if (isSignIn || isUpdate || stale) {
         const targetUserId = (user?.id ?? token.id) as string | undefined;
         if (targetUserId) {
           const dbUser = await prisma.user.findUnique({
@@ -214,6 +219,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.subAdminRole = dbUser.subAdminRole ?? null;
           token.customPermissions = dbUser.customPermissions ?? [];
           token.isActive = dbUser.isActive;
+          token.permCheckedAt = now;
         }
 
         // If it's an explicit update with a role field, override

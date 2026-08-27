@@ -417,12 +417,18 @@ export async function notifyWalletCredited(opts: {
   tutorUserId: string;
   tutorEmail: string | null;
   coins: number;
+  reason?: "purchase" | "milestone" | "bonus";
 }) {
+  const isMilestone = opts.reason === "milestone";
   await sendNotification({
     userId: opts.tutorUserId,
     email: opts.tutorEmail,
-    title: `🪙 ${opts.coins} Coins Added to Wallet`,
-    message: `Your coin purchase was successful. You now have more coins to unlock leads.`,
+    title: isMilestone
+      ? `🎁 ${opts.coins} Milestone Bonus Coins`
+      : `🪙 ${opts.coins} Coins Added to Wallet`,
+    message: isMilestone
+      ? `You earned ${opts.coins} bonus coins for hitting a teaching milestone. Use them to unlock more student enquiries.`
+      : `Your coin purchase was successful. You now have more coins to unlock leads.`,
     actionUrl: `/tutor/wallet`,
     skipPush: false,
     skipEmail: false,

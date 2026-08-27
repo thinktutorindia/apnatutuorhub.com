@@ -72,7 +72,7 @@ export default async function ChatInboxPage() {
               href={isParent ? "/parent/post-requirement" : "/tutor/leads"}
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 transition-colors shadow-md"
             >
-              <span>{isParent ? "Post Student Requirement →" : "Browse Student Requirements →"}</span>
+              <span>{isParent ? "Post a Requirement →" : "Browse Student Enquiries →"}</span>
             </Link>
           </div>
         </div>

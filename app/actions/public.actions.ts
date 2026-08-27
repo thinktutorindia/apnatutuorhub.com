@@ -24,10 +24,31 @@ export interface PublicTutorResult {
 }
 
 function maskName(fullName: string | null): string {
-  if (!fullName) return "Tutor";
-  const parts = fullName.trim().split(/\s+/);
+  if (!fullName) return "Verified Tutor";
+  const cleaned = fullName
+    .replace(/[()[\]{}<>]/g, " ")
+    .replace(/[^a-zA-Z.\s'-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const parts = cleaned.split(/\s+/).filter((p) => p.replace(/[.'-]/g, "").length >= 2);
+  if (parts.length === 0) return "Verified Tutor";
   if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+  return `${parts[0]} ${parts[parts.length - 1][0]!.toUpperCase()}.`;
+}
+
+function subjectMatchScore(tutorSubjects: string[], requested: string[]): number {
+  if (!requested.length) return 0;
+  const req = requested.map((s) => s.toLowerCase());
+  const subs = tutorSubjects.map((s) => s.toLowerCase());
+  let score = 0;
+  if (subs[0] && req.some((r) => subs[0] === r || subs[0].includes(r) || r.includes(subs[0]))) {
+    score += 100;
+  }
+  for (const s of subs) {
+    if (req.some((r) => s === r)) score += 20;
+    else if (req.some((r) => s.includes(r) || r.includes(s))) score += 8;
+  }
+  return score;
 }
 
 export async function searchTutorsPublic(params: {
@@ -83,7 +104,7 @@ export async function searchTutorsPublic(params: {
       { profileScore: "desc" },
       { averageRating: "desc" },
     ],
-    take: 12,
+    take: 40,
     select: {
       id: true,
       qualification: true,
@@ -127,7 +148,7 @@ export async function searchTutorsPublic(params: {
         { profileScore: "desc" },
         { averageRating: "desc" },
       ],
-      take: 12,
+      take: 40,
       select: {
         id: true,
         qualification: true,
@@ -158,7 +179,18 @@ export async function searchTutorsPublic(params: {
     }
   }
 
-  const tutors: PublicTutorResult[] = profiles.map((p) => ({
+  const ranked = [...profiles].sort((a, b) => {
+    if (expandedSubjects && expandedSubjects.length > 0) {
+      const overlapDelta =
+        subjectMatchScore(b.subjects, expandedSubjects) - subjectMatchScore(a.subjects, expandedSubjects);
+      if (overlapDelta !== 0) return overlapDelta;
+    }
+    if (Number(b.isFeatured) !== Number(a.isFeatured)) return Number(b.isFeatured) - Number(a.isFeatured);
+    if (b.profileScore !== a.profileScore) return b.profileScore - a.profileScore;
+    return b.averageRating - a.averageRating;
+  }).slice(0, 12);
+
+  const tutors: PublicTutorResult[] = ranked.map((p) => ({
     id: p.id,
     name: maskName(p.user.name),
     qualification: p.qualification ?? "",

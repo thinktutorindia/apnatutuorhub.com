@@ -238,12 +238,13 @@ export function getNearestLocalities(
 
 export function pickLocalityForToday(
   localities: GeoLocality[],
-  userSeed: number
+  userSeed: number,
+  stable = false
 ): GeoLocality {
   if (localities.length === 0) {
     return { name: "Nearby Area", city: "Your City", lat: 0, lng: 0 };
   }
-  const dayNum = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+  const dayNum = stable ? 0 : Math.floor(Date.now() / (1000 * 60 * 60 * 24));
   const idx = (dayNum + userSeed) % localities.length;
   return localities[idx];
 }
@@ -258,11 +259,6 @@ const STUDENT_NAMES = [
   "Varun Malhotra", "Sneha Choudhary", "Dev Kapoor", "Tanvi Bajaj", "Nikhil Rawat",
 ];
 const BOARDS = ["CBSE", "ICSE", "State Board", "IB", "IGCSE"];
-const CLASS_LEVELS = [
-  "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
-  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
-  "Class 11", "Class 12", "Nursery", "KG",
-];
 const DAYS_OPTIONS = [
   "Monday–Friday", "Monday & Wednesday", "Tuesday & Thursday",
   "Weekend only", "Saturday & Sunday", "Daily", "3 days/week", "Flexible",
@@ -271,9 +267,6 @@ const TIME_OPTIONS = [
   "Morning (7–9 AM)", "Afternoon (12–3 PM)", "Evening (5–8 PM)",
   "Late Evening (7–9 PM)", "Flexible timings",
 ];
-const MODES: Array<"ONLINE" | "OFFLINE" | "EITHER" | "COACHING"> = ["ONLINE", "OFFLINE", "EITHER", "COACHING"];
-
-// ─── Seeded random helpers ────────────────────────────────────────────────────
 
 function seededRandom(seed: number): () => number {
   let s = seed;
@@ -290,35 +283,62 @@ function pick<T>(arr: T[], rng: () => number): T {
 export {
   CLASS_FEE_RATES,
   expandToIndividualClasses,
+  pickClassForDay,
+  parseCampaignCfg,
+  serializeCampaignCfg,
+  stripCampaignCfg,
   modeLabel,
+  dummyLeadActionPath,
+  parseDummyClaimedQuery,
   type DummyLead,
+  type DummyCampaignCfg,
+  type DummyClaimedLeadInfo,
 } from "./dummy-campaign-types";
 import {
-  CLASS_FEE_RATES,
-  expandToIndividualClasses,
+  pickClassForDay,
+  averageBudgetForLead,
+  parseCampaignCfg,
+  dummyLeadActionPath,
   modeLabel,
   type DummyLead,
 } from "./dummy-campaign-types";
+import { suggestNearbyLocalitiesAI } from "./dummy-locality-ai";
 
-export function resolveLocalityDynamic(opts: {
+export async function resolveLocalityDynamic(opts: {
   tutorLat?: number | null;
   tutorLng?: number | null;
   tutorCity?: string | null;
   tutorAddress?: string | null;
   teachingRadius?: number;
   userSeed?: number;
-}): { locality: string; city: string; distanceKm?: number } {
-  const { tutorLat, tutorLng, tutorCity, tutorAddress, teachingRadius = 25, userSeed = 0 } = opts;
-  const dayNum = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+  stable?: boolean;
+}): Promise<{ locality: string; city: string; distanceKm?: number }> {
+  const { tutorLat, tutorLng, tutorCity, tutorAddress, teachingRadius = 25, userSeed = 0, stable = false } = opts;
+  const dayNum = stable ? 0 : Math.floor(Date.now() / (1000 * 60 * 60 * 24));
   const rng = seededRandom(dayNum * 1337 + userSeed);
 
   const city = (tutorCity && tutorCity.trim()) ? tutorCity.trim() : "Delhi";
 
-  // Step 1: Attempt GPS coordinates matching from GEO_LOCALITIES
+  const aiPlaces = await suggestNearbyLocalitiesAI({
+    city,
+    address: tutorAddress,
+    lat: tutorLat,
+    lng: tutorLng,
+    radiusKm: teachingRadius,
+  });
+  if (aiPlaces && aiPlaces.length > 0) {
+    const picked = aiPlaces[(dayNum + userSeed) % aiPlaces.length];
+    return {
+      locality: picked.name,
+      city: picked.city || city,
+      distanceKm: picked.distanceKm || Math.floor(rng() * Math.min(teachingRadius, 5)) + 1,
+    };
+  }
+
   if (tutorLat && tutorLng) {
     const nearest = getNearestLocalities(tutorLat, tutorLng, city, teachingRadius, 15, tutorAddress ?? "");
     if (nearest.length > 0) {
-      const picked = pickLocalityForToday(nearest, userSeed);
+      const picked = pickLocalityForToday(nearest, userSeed, stable);
       return {
         locality: picked.name,
         city: picked.city,
@@ -358,7 +378,7 @@ export function resolveLocalityDynamic(opts: {
   );
 
   if (cityLocalities.length > 0) {
-    const picked = pickLocalityForToday(cityLocalities, userSeed);
+    const picked = pickLocalityForToday(cityLocalities, userSeed, stable);
     return {
       locality: picked.name,
       city: picked.city,
@@ -384,7 +404,7 @@ export function resolveLocalityDynamic(opts: {
 
 // ─── Core lead generator ───────────────────────────────────────────────────────
 
-export function generateDummyLead(opts: {
+export async function generateDummyLead(opts: {
   tutorLat?: number | null;
   tutorLng?: number | null;
   tutorCity?: string | null;
@@ -392,12 +412,17 @@ export function generateDummyLead(opts: {
   tutorSubjects?: string[];
   tutorClassLevels?: string[];
   teachingRadius?: number;
+  teachingMode?: string | null;
+  tutorFeeMin?: number | null;
+  tutorFeeMax?: number | null;
   rateType?: "HOURLY" | "MONTHLY";
+  autoAdapt?: boolean;
   budgetMin?: number;
   budgetMax?: number;
   overrideSubjects?: string[];
   userSeed?: number;
-}): DummyLead {
+  stable?: boolean;
+}): Promise<DummyLead> {
   const {
     tutorLat,
     tutorLng,
@@ -406,27 +431,31 @@ export function generateDummyLead(opts: {
     tutorSubjects = [],
     tutorClassLevels = [],
     teachingRadius = 25,
+    teachingMode,
+    tutorFeeMin,
+    tutorFeeMax,
     rateType,
+    autoAdapt = true,
     budgetMin,
     budgetMax,
     overrideSubjects = [],
     userSeed = 0,
+    stable = false,
   } = opts;
 
-  const dayNum = Math.floor(Date.now() / 86400000);
+  const dayNum = stable ? 0 : Math.floor(Date.now() / 86400000);
   const rng = seededRandom(dayNum * 1000 + userSeed);
 
-  // 100% Automatic Locality & City Resolution for ANY tutor
-  const { locality, city, distanceKm } = resolveLocalityDynamic({
+  const { locality, city, distanceKm } = await resolveLocalityDynamic({
     tutorLat,
     tutorLng,
     tutorCity,
     tutorAddress,
     teachingRadius,
     userSeed,
+    stable,
   });
 
-  // Subjects
   const subjectPool =
     overrideSubjects.length > 0
       ? overrideSubjects
@@ -441,74 +470,29 @@ export function generateDummyLead(opts: {
     subjects.push(pool.splice(idx, 1)[0]);
   }
 
-  // Class level - extract discrete individual classes from tutor's profile and pick ONE specific class
-  const classPool = expandToIndividualClasses(tutorClassLevels);
-  const classIdx = (dayNum + userSeed) % classPool.length;
-  const classLevel = classPool[classIdx];
+  const classLevel = pickClassForDay(tutorClassLevels, userSeed, stable);
 
-  // Resolve rate band matching this specific class level (User Fee Structure)
-  let feeBandKey: keyof typeof CLASS_FEE_RATES = "6-8";
-  if (CLASS_FEE_RATES["1-5"].classes.some((c) => classLevel.toLowerCase().includes(c.toLowerCase()))) {
-    feeBandKey = "1-5";
-  } else if (CLASS_FEE_RATES["6-8"].classes.some((c) => classLevel.toLowerCase().includes(c.toLowerCase()))) {
-    feeBandKey = "6-8";
-  } else if (CLASS_FEE_RATES["9-10"].classes.some((c) => classLevel.toLowerCase().includes(c.toLowerCase()))) {
-    feeBandKey = "9-10";
-  } else if (CLASS_FEE_RATES["11-12"].classes.some((c) => classLevel.toLowerCase().includes(c.toLowerCase()))) {
-    feeBandKey = "11-12";
-  }
+  const isHourly =
+    rateType === "HOURLY" ||
+    (rateType !== "MONTHLY" && (budgetMax === undefined || budgetMax <= 1500));
 
-  const band = CLASS_FEE_RATES[feeBandKey];
-  const isHourly = rateType === "HOURLY" || (rateType === undefined && budgetMax !== undefined && budgetMax <= 1500);
+  const { min: bMin, max: bMax } = averageBudgetForLead({
+    classLevel,
+    isHourly,
+    autoAdapt,
+    campaignMin: budgetMin,
+    campaignMax: budgetMax,
+    tutorFeeMin,
+    tutorFeeMax,
+    city,
+    rng,
+  });
 
-  let bMin: number;
-  let bMax: number;
-
-  if (budgetMin !== undefined && budgetMax !== undefined && (budgetMin !== 800 || budgetMax !== 3000)) {
-    if (isHourly) {
-      // For hourly, enforce tight 50 or 100 difference (e.g. 200–250, 200–300, 250–300, 300–400)
-      const validMin = Math.max(100, Math.round(budgetMin / 50) * 50);
-      const validMax = Math.max(validMin + 50, Math.round(budgetMax / 50) * 50);
-      const possibleMins: number[] = [];
-      for (let p = validMin; p <= validMax - 50; p += 50) {
-        possibleMins.push(p);
-      }
-      bMin = possibleMins.length > 0 ? pick(possibleMins, rng) : validMin;
-      const spread = rng() > 0.5 && bMin + 100 <= validMax ? 100 : 50;
-      bMax = Math.min(bMin + spread, validMax);
-      if (bMax <= bMin) bMax = bMin + 50;
-    } else {
-      // For monthly, enforce tight 500 or 1000 difference (e.g. 3000–4000, 4000–5000)
-      const validMin = Math.max(1500, Math.round(budgetMin / 500) * 500);
-      const validMax = Math.max(validMin + 500, Math.round(budgetMax / 500) * 500);
-      const possibleMins: number[] = [];
-      for (let p = validMin; p <= validMax - 500; p += 500) {
-        possibleMins.push(p);
-      }
-      bMin = possibleMins.length > 0 ? pick(possibleMins, rng) : validMin;
-      const spread = rng() > 0.5 && bMin + 1000 <= validMax ? 1000 : 500;
-      bMax = Math.min(bMin + spread, validMax);
-      if (bMax <= bMin) bMax = bMin + 500;
-    }
-  } else if (isHourly) {
-    // Pick base from band, and spread by strictly 50 or 100
-    const hourlySteps: number[] = [];
-    for (let h = band.hourlyMin; h <= band.hourlyMax - 50; h += 50) {
-      hourlySteps.push(h);
-    }
-    bMin = hourlySteps.length > 0 ? pick(hourlySteps, rng) : band.hourlyMin;
-    const spread = rng() > 0.5 && bMin + 100 <= band.hourlyMax ? 100 : 50;
-    bMax = bMin + spread;
-  } else {
-    // Pick base from band, and spread by strictly 500 or 1000
-    const monthlySteps: number[] = [];
-    for (let m = band.monthlyMin; m <= band.monthlyMax - 500; m += 500) {
-      monthlySteps.push(m);
-    }
-    bMin = monthlySteps.length > 0 ? pick(monthlySteps, rng) : band.monthlyMin;
-    const spread = rng() > 0.5 && bMin + 1000 <= band.monthlyMax ? 1000 : 500;
-    bMax = bMin + spread;
-  }
+  let mode: DummyLead["mode"] = "EITHER";
+  if (teachingMode === "ONLINE") mode = "ONLINE";
+  else if (teachingMode === "OFFLINE") mode = rng() > 0.15 ? "OFFLINE" : "EITHER";
+  else if (teachingMode === "COACHING") mode = rng() > 0.4 ? "COACHING" : "OFFLINE";
+  else mode = pick(["ONLINE", "OFFLINE", "EITHER"] as const, rng);
 
   return {
     locality,
@@ -518,7 +502,7 @@ export function generateDummyLead(opts: {
     classLevel,
     board: pick(BOARDS, rng),
     subjects,
-    mode: pick(MODES, rng),
+    mode,
     budgetMin: bMin,
     budgetMax: bMax,
     rateType: isHourly ? "HOURLY" : "MONTHLY",
@@ -546,18 +530,21 @@ export async function deliverDummyLeadToTutor(opts: {
   let sent = 0;
   let failed = 0;
 
-  const tutor = (await prisma.tutorProfile.findUnique({
+  const tutor = await prisma.tutorProfile.findUnique({
     where: { userId },
-    select: { id: true },
-  }).catch(() => null)) as any;
+    select: { id: true, marketingNotifsEnabled: true },
+  }).catch(() => null);
   if (tutor && tutor.marketingNotifsEnabled === false) {
     return { sent: 0, failed: 0 };
   }
 
-  const budgetUnit = lead.rateType === "HOURLY" ? "/hr" : "/mo";
+  const km = lead.distanceKm ? ` (${lead.distanceKm} km)` : "";
   const budgetFormatted = lead.rateType === "HOURLY"
     ? `₹${lead.budgetMin}–₹${lead.budgetMax}/hr`
     : `₹${lead.budgetMin.toLocaleString("en-IN")}–₹${lead.budgetMax.toLocaleString("en-IN")}/mo`;
+  const classLine = lead.classLevel.startsWith("Class") ? lead.classLevel : `Class ${lead.classLevel}`;
+  const actionPath = dummyLeadActionPath(lead);
+  const absoluteLeadUrl = `${appUrl}${actionPath}`;
 
   for (const channel of channels) {
     let status = "FAILED";
@@ -565,26 +552,24 @@ export async function deliverDummyLeadToTutor(opts: {
 
     try {
       if (channel === "IN_APP") {
-        const targetUrl = `/tutor/leads?claimed=true&locality=${encodeURIComponent(lead.locality)}&subjects=${encodeURIComponent(lead.subjects.join(", "))}`;
         await prisma.notification.create({
           data: {
             userId,
             type: "NEW_LEAD_MATCH",
             priority: "HIGH",
-            title: `📍 New Requirement Near ${lead.locality}`,
-            message: `A student in ${lead.locality} needs a ${lead.subjects.join(", ")} tutor for ${lead.classLevel}. Budget: ${budgetFormatted}.`,
-            actionUrl: targetUrl,
+            title: `📍 ${classLine} tuition near ${lead.locality}`,
+            message: `${classLine} · ${lead.subjects.join(", ")} needed near ${lead.locality}${km}. Budget ${budgetFormatted}. ${lead.days}, ${lead.timing}.`,
+            actionUrl: actionPath,
             isRead: false,
           },
         });
         status = "SENT";
         sent++;
       } else if (channel === "PUSH") {
-        const targetUrl = `${appUrl}/tutor/leads?claimed=true&locality=${encodeURIComponent(lead.locality)}&subjects=${encodeURIComponent(lead.subjects.join(", "))}`;
         await sendWebPush(userId, {
-          title: `📍 Student near ${lead.locality} needs a tutor!`,
-          body: `${lead.subjects.join(" & ")} · ${lead.classLevel} · ${budgetFormatted}. Tap to view!`,
-          url: targetUrl,
+          title: `📍 ${classLine} near ${lead.locality}`,
+          body: `${lead.subjects.join(" & ")} · ${classLine} · ${budgetFormatted}. Tap to view!`,
+          url: absoluteLeadUrl,
           tag: `dummy-lead-${campaignId}`,
         });
         status = "SENT";
@@ -613,7 +598,8 @@ export async function deliverDummyLeadToTutor(opts: {
             days: lead.days,
             timing: lead.timing,
             studentName: lead.studentName,
-            leadUrl: `${appUrl}/tutor/leads`,
+            leadUrl: absoluteLeadUrl,
+            settingsUrl: `${appUrl}/tutor/profile`,
           });
           const result = await dispatchEmail(
             userEmail,
@@ -710,13 +696,17 @@ export async function resolveCampaignTargets(campaign: {
           latitude: true,
           longitude: true,
           teachingRadius: true,
+          feeMin: true,
+          feeMax: true,
+          teachingMode: true,
+          marketingNotifsEnabled: true,
         },
       },
     },
   });
 
   return users.filter(
-    (u) => !excludeSet.has(u.id) && (u.tutorProfile as any)?.marketingNotifsEnabled !== false
+    (u) => !excludeSet.has(u.id) && u.tutorProfile?.marketingNotifsEnabled !== false
   );
 }
 
@@ -745,25 +735,35 @@ export async function runCampaignPass(campaignId: string): Promise<{
     targetGroup: campaign.targetGroup,
     customUserIds: campaign.customUserIds,
     excludeUserIds: campaign.excludeUserIds,
+    emailFilter: parseCampaignCfg(campaign.description).emailFilter,
   });
+
+  const cfg = parseCampaignCfg(campaign.description);
+  const stable = campaign.randomizeDaily === false;
 
   let totalSent = 0, totalFailed = 0;
 
   for (const user of targets) {
     const userSeed = user.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     for (let i = 0; i < campaign.leadsPerDay; i++) {
-      const lead = generateDummyLead({
+      const lead = await generateDummyLead({
         tutorLat: user.tutorProfile?.latitude,
         tutorLng: user.tutorProfile?.longitude,
         tutorCity: user.tutorProfile?.city,
         tutorAddress: user.tutorProfile?.address ?? "",
         tutorSubjects: user.tutorProfile?.subjects ?? [],
         tutorClassLevels: user.tutorProfile?.classLevels ?? [],
-        teachingRadius: user.tutorProfile?.teachingRadius ?? 25,
+        teachingRadius: user.tutorProfile?.teachingRadius ?? 10,
+        teachingMode: user.tutorProfile?.teachingMode,
+        tutorFeeMin: user.tutorProfile?.feeMin,
+        tutorFeeMax: user.tutorProfile?.feeMax,
+        rateType: cfg.rateType,
+        autoAdapt: cfg.autoAdapt,
         budgetMin: campaign.budgetMin,
         budgetMax: campaign.budgetMax,
         overrideSubjects: campaign.overrideSubjects,
         userSeed: userSeed + i * 137,
+        stable,
       });
 
       const result = await deliverDummyLeadToTutor({

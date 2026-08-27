@@ -82,6 +82,7 @@ export async function evaluateTutorMilestones(tutorProfileId: string) {
           tutorUserId: tutor.userId,
           tutorEmail: tutor.user.email,
           coins: tier.bonusCoins,
+          reason: "milestone",
         });
 
         console.log(`[Milestone Engine] Credited ${tier.bonusCoins} coins to tutor ${tutorProfileId} for ${tier.title}`);

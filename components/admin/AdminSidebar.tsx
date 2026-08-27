@@ -31,6 +31,7 @@ import {
   UserCheck,
   Layers,
   BarChart3,
+  Search,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { getAllowedSubAdminModules } from "@/lib/rbac";
@@ -39,6 +40,7 @@ import { AdminCommandPalette } from "@/components/admin/AdminCommandPalette";
 const ALL_NAV_ITEMS = [
   { label: "Dashboard",        href: "/admin/dashboard",                icon: LayoutGrid,        roles: null, iconColor: "text-blue-400" },
   { label: "Analytics",        href: "/admin/analytics",                icon: TrendingUp,        roles: null, iconColor: "text-purple-400" },
+  { label: "Search Engine",    href: "/admin/search",                   icon: Search,            roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
   { label: "User Directory",   href: "/admin/users",                    icon: Users,             roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "OPERATIONS"], iconColor: "text-emerald-400" },
   { label: "KYC Queue",        href: "/admin/kyc",                      icon: BadgeCheck,        roles: ["SUPER_ADMIN", "VERIFICATION"], badge: "!", iconColor: "text-amber-400" },
   { label: "Student Leads",    href: "/admin/leads",                    icon: FileSpreadsheet,   roles: ["SUPER_ADMIN", "OPERATIONS", "MARKETING", "SUPPORT"], iconColor: "text-pink-400" },
@@ -105,7 +107,7 @@ export function AdminSidebar({ userName, userEmail, userRole = "SUPER_ADMIN", su
   });
 
   const commandItems = visibleNavItems.filter((i) =>
-    ["/admin/dashboard", "/admin/analytics", "/admin/users", "/admin/kyc"].includes(i.href)
+    ["/admin/dashboard", "/admin/analytics", "/admin/search", "/admin/users", "/admin/kyc"].includes(i.href)
   );
 
   const crmItems = visibleNavItems.filter((i) =>

@@ -46,7 +46,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Are parent phone numbers and addresses verified?",
-    a: "Yes, 100%. All student inquiries posted on ApnaTutorHub undergo OTP verification and address checks before appearing in your tutor feed. If a number is found unreachable, full coin refund protection applies under our terms.",
+    a: "Parent inquiries are posted by signed-in accounts with a registered mobile number. We do not currently run SMS OTP. If a number is found unreachable, full coin refund protection applies under our terms.",
   },
 ];
 

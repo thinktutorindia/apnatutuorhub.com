@@ -183,6 +183,7 @@ export default async function ParentBookingsPage({
               key={booking.id}
               booking={booking}
               viewerRole="PARENT"
+              hasReview={reviewMap.has(booking.id)}
               existingReview={reviewMap.get(booking.id)}
             />
           ))}

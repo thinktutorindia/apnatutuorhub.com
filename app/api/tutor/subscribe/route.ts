@@ -55,7 +55,14 @@ export async function POST(request: Request) {
     }
   }
 
-  // Fallback for dev / mock mode if Razorpay credentials are not set
+  // Fallback for local/dev only — never emit mock Razorpay keys in production
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Payment gateway is not configured" },
+      { status: 503 }
+    );
+  }
+
   const mockOrderId = `order_mock_${Date.now()}`;
   return NextResponse.json({
     orderId: mockOrderId,

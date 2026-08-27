@@ -12,7 +12,7 @@ export function HomepageJsonLd() {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: `${APP_URL}/parent/requirements?q={search_term_string}`,
+        urlTemplate: `${APP_URL}/find-tutor?q={search_term_string}`,
       },
       "query-input": "required name=search_term_string",
     },
@@ -23,7 +23,7 @@ export function HomepageJsonLd() {
     "@type": "EducationalOrganization",
     name: "ApnaTutorHub",
     url: APP_URL,
-    logo: `${APP_URL}/icons/Gemini_Generated_Image_k81306k81306k813_no_bg.png`,
+    logo: `${APP_URL}/icons/icon-192x192.svg`,
     description:
       "India's leading platform matching parents and students with 100% background-checked home and online tutors based on location distance, subjects, and budget.",
     address: {
@@ -34,7 +34,7 @@ export function HomepageJsonLd() {
     },
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: "+91-7703801849",
+      telephone: "+91-6230789155",
       contactType: "customer service",
       areaServed: "IN",
       availableLanguage: ["English", "Hindi"],

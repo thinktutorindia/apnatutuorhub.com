@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
 import { CLASS_LEAD_DISTRIBUTION, SUBSCRIPTION_PLANS } from "@/lib/subscription-plans";
+import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 
 export const metadata = {
   title: "Terms of Service & Lead Delivery Policy | ApnaTutorHub",
@@ -33,6 +34,12 @@ export default function TermsPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <LogoBrand />
           <div className="flex items-center gap-3">
+            <Link
+              href="/privacy"
+              className="text-xs font-bold text-slate-700 hover:text-emerald-700 transition-colors"
+            >
+              Privacy
+            </Link>
             <Link
               href="/tutor/plans"
               className="text-xs font-bold text-slate-700 hover:text-emerald-700 transition-colors"
@@ -89,9 +96,9 @@ export default function TermsPage() {
             <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black">
               📱
             </div>
-            <h3 className="text-sm font-black text-[#0F2540]">OTP Verified Leads</h3>
+            <h3 className="text-sm font-black text-[#0F2540]">Verified Parent Requirements</h3>
             <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-              100% of parent requirements are phone and location verified before reaching your feed.
+              Parent accounts are created with a verified email and a required mobile number before requirements reach the tutor feed.
             </p>
           </div>
 
@@ -247,7 +254,7 @@ export default function TermsPage() {
           </h2>
           <div className="space-y-3 text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
             <p>
-              All parent leads posted on ApnaTutorHub undergo automated phone OTP verification and geographic pin location checks. However, in the rare event of an invalid inquiry, we offer full protection:
+              Parent requirements on ApnaTutorHub are posted by signed-in parent accounts with a registered mobile number. We do not currently run SMS OTP verification. In the rare event of an invalid inquiry, we offer full protection:
             </p>
             <ul className="space-y-2 list-disc list-inside text-xs font-semibold text-slate-700 pl-2">
               <li>
@@ -257,7 +264,7 @@ export default function TermsPage() {
                 <strong>Duplicate Posting:</strong> If a parent posted identical duplicate requests, the redundant lead unlock fee is refunded.
               </li>
               <li>
-                <strong>Requirement Withdrawn:</strong> If the parent hired a tutor before OTP posting was marked, support will issue a full wallet credit upon verification.
+                <strong>Requirement Withdrawn:</strong> If the parent hired another tutor or closed the requirement after your unlock, support will issue a full wallet credit upon verification.
               </li>
             </ul>
           </div>
@@ -284,13 +291,13 @@ export default function TermsPage() {
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <a
-              href="https://wa.me/917703801849?text=Hi%20ApnaTutorHub%20Support,%20I%20have%20a%20question%20about%20tutor%20membership%20plans"
+              href={getWhatsAppSupportLink("Hi ApnaTutorHub Support, I have a question about tutor membership plans")}
               target="_blank"
               rel="noopener noreferrer"
               className="px-5 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-black flex items-center gap-2 shadow-lg transition-all"
             >
               <MessageSquare size={16} />
-              <span>WhatsApp Support</span>
+              <span>WhatsApp {SUPPORT_PHONE_DISPLAY}</span>
             </a>
             <Link
               href="/tutor/plans"

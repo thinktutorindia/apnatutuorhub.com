@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
 import { runCampaignPass, resolveCampaignTargets, generateDummyLead, getNearestLocalities, type DummyLead } from "@/lib/dummy-lead-engine";
+import { parseCampaignCfg, serializeCampaignCfg, type DummyCampaignCfg } from "@/lib/dummy-campaign-types";
 import type { DummyCampaignStatus, DummyTargetGroup } from "@prisma/client";
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
@@ -31,6 +32,9 @@ export async function createDummyCampaignAction(
     overrideSubjects?: string[];
     budgetMin?: number;
     budgetMax?: number;
+    rateType?: "HOURLY" | "MONTHLY";
+    autoAdapt?: boolean;
+    emailFilter?: DummyCampaignCfg["emailFilter"];
     totalLimit?: number | null;
     startDate?: string | null;
     endDate?: string | null;
@@ -42,7 +46,6 @@ export async function createDummyCampaignAction(
   const campaign = await prisma.dummyCampaign.create({
     data: {
       name: data.name,
-      description: data.description,
       targetGroup: data.targetGroup,
       customUserIds: data.customUserIds ?? [],
       excludeUserIds: data.excludeUserIds ?? [],
@@ -50,11 +53,16 @@ export async function createDummyCampaignAction(
       leadsPerDay: data.leadsPerDay ?? 1,
       randomizeDaily: data.randomizeDaily ?? true,
       overrideSubjects: data.overrideSubjects ?? [],
-      budgetMin: data.budgetMin ?? 800,
-      budgetMax: data.budgetMax ?? 3000,
+      budgetMin: data.budgetMin ?? 200,
+      budgetMax: data.budgetMax ?? 600,
       totalLimit: data.totalLimit ?? null,
       startDate: data.startDate ? new Date(data.startDate) : null,
       endDate: data.endDate ? new Date(data.endDate) : null,
+      description: serializeCampaignCfg(data.description ?? "", {
+        rateType: data.rateType ?? "HOURLY",
+        autoAdapt: data.autoAdapt !== false,
+        emailFilter: data.emailFilter ?? "GENUINE_ONLY",
+      }),
       createdById: session!.user.id,
     },
   });
@@ -355,21 +363,30 @@ export async function generateLeadPreviewAction(opts: {
   });
 
   const sample = targets.slice(0, count);
-  const leads: DummyLead[] = sample.map((u, i) => {
-    const userSeed = u.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-    return generateDummyLead({
-      tutorLat: u.tutorProfile?.latitude,
-      tutorLng: u.tutorProfile?.longitude,
-      tutorCity: u.tutorProfile?.city,
-      tutorSubjects: u.tutorProfile?.subjects ?? [],
-      tutorClassLevels: u.tutorProfile?.classLevels ?? [],
-      teachingRadius: u.tutorProfile?.teachingRadius ?? 25,
-      budgetMin: campaign?.budgetMin ?? budgetMin,
-      budgetMax: campaign?.budgetMax ?? budgetMax,
-      overrideSubjects: campaign?.overrideSubjects ?? overrideSubjects,
-      userSeed: userSeed + i * 137,
-    });
-  });
+  const leads: DummyLead[] = await Promise.all(
+    sample.map(async (u, i) => {
+      const userSeed = u.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+      const cfg = parseCampaignCfg(campaign?.description);
+      return generateDummyLead({
+        tutorLat: u.tutorProfile?.latitude,
+        tutorLng: u.tutorProfile?.longitude,
+        tutorCity: u.tutorProfile?.city,
+        tutorAddress: u.tutorProfile?.address ?? "",
+        tutorSubjects: u.tutorProfile?.subjects ?? [],
+        tutorClassLevels: u.tutorProfile?.classLevels ?? [],
+        teachingRadius: u.tutorProfile?.teachingRadius ?? 10,
+        teachingMode: (u.tutorProfile as { teachingMode?: string | null } | null)?.teachingMode,
+        tutorFeeMin: (u.tutorProfile as { feeMin?: number | null } | null)?.feeMin,
+        tutorFeeMax: (u.tutorProfile as { feeMax?: number | null } | null)?.feeMax,
+        rateType: cfg.rateType,
+        autoAdapt: cfg.autoAdapt,
+        budgetMin: campaign?.budgetMin ?? budgetMin,
+        budgetMax: campaign?.budgetMax ?? budgetMax,
+        overrideSubjects: campaign?.overrideSubjects ?? overrideSubjects,
+        userSeed: userSeed + i * 137,
+      });
+    })
+  );
 
   return actionSuccess({ leads, tutorCount: targets.length });
 }

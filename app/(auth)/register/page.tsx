@@ -274,8 +274,6 @@ function RegisterFormContent() {
             </p>
           </div>
 
-          </div>
-
           <div className="space-y-1">
             <label htmlFor="register-referral" className="text-xs font-700 text-gray-700">
               Referral code <span className="font-500 text-gray-400">(optional)</span>

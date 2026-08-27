@@ -2,6 +2,7 @@ import React from "react";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { StaffGlobalShiftBar } from "@/components/admin/StaffGlobalShiftBar";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminLayout({
@@ -42,8 +43,13 @@ export default async function AdminLayout({
         customPermissions={customPermissions}
       />
 
-      {/* Main scrollable area — account for sticky topbar height (56px) on mobile */}
+      {/* Main scrollable area */}
       <div className="flex flex-1 flex-col lg:ml-[260px] min-w-0 bg-[#F8FAFC] min-h-screen">
+        {/* Persistent Global Shift & Presence Header Bar */}
+        <StaffGlobalShiftBar
+          userRole={session.user.role}
+          userName={session.user.name ?? session.user.email ?? "Staff"}
+        />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 lg:pb-8">{children}</main>
       </div>
     </div>

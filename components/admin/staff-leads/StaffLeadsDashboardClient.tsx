@@ -106,6 +106,10 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeli
           <p className="text-sm text-slate-500 mt-1">Staging area for raw leads — validate, follow up, then promote to main database</p>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
+          <Link href="/admin/staff-leads/reports"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 text-white text-xs font-black hover:from-rose-700 hover:to-pink-700 shadow-xs">
+            <BarChart3 size={14} /> Staff Timesheets
+          </Link>
           <Link href="/admin/staff-leads/my-dashboard"
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-black hover:from-indigo-700 hover:to-purple-700 shadow-xs">
             <Clock size={14} /> My Dashboard

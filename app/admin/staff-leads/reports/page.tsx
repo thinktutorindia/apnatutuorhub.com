@@ -1,20 +1,28 @@
 import { auth } from "@/auth";
-import { getStaffDailyWorkReportsAction } from "@/app/actions/staff-leads.actions";
+import {
+  getStaffDailyWorkReportsAction,
+  getStaffLiveStatusAction,
+  getStaffLeadActivityFeedAction,
+} from "@/app/actions/staff-leads.actions";
 import { StaffCrmReportsClient } from "@/components/admin/staff-leads/StaffCrmReportsClient";
 
-export const metadata = { title: "Daily & Weekly CRM Reports & Timesheets — ApnaTutorHub Admin" };
+export const metadata = { title: "Staff Shifts, Timesheets & Live Operations — ApnaTutorHub Admin" };
 export const dynamic = "force-dynamic";
 
 export default async function StaffCrmReportsPage() {
   const session = await auth();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
 
-  const res = await getStaffDailyWorkReportsAction();
+  const [reportsRes, liveStatusRes, activityRes] = await Promise.all([
+    getStaffDailyWorkReportsAction().catch(() => ({ success: false, data: null })),
+    getStaffLiveStatusAction().catch(() => ({ success: false, data: null })),
+    getStaffLeadActivityFeedAction({ limit: 40 }).catch(() => ({ success: false, data: null })),
+  ]);
 
-  const workSessions = res.success && res.data ? res.data.workSessions : [];
-  const dailyBreakdown = res.success && res.data ? res.data.dailyBreakdown : [];
-  const staffWeeklyMatrix = res.success && res.data ? res.data.staffWeeklyMatrix : [];
-  const periodSummary = res.success && res.data ? res.data.periodSummary : {
+  const workSessions = (reportsRes.success && reportsRes.data) ? reportsRes.data.workSessions : [];
+  const dailyBreakdown = (reportsRes.success && reportsRes.data) ? reportsRes.data.dailyBreakdown : [];
+  const staffWeeklyMatrix = (reportsRes.success && reportsRes.data) ? reportsRes.data.staffWeeklyMatrix : [];
+  const periodSummary = (reportsRes.success && reportsRes.data) ? reportsRes.data.periodSummary : {
     totalCalls: 0,
     totalAnswered: 0,
     totalConverted: 0,
@@ -25,7 +33,14 @@ export default async function StaffCrmReportsPage() {
     answerRate: 0,
     conversionRate: 0,
   };
-  const staffList = res.success && res.data ? res.data.staffList : [];
+  const staffList = (reportsRes.success && reportsRes.data) ? reportsRes.data.staffList : [];
+  const liveStatus = (liveStatusRes.success && liveStatusRes.data) ? liveStatusRes.data : null;
+  const rawActivity = (activityRes.success && activityRes.data) ? activityRes.data.logs : [];
+
+  const activityFeed = rawActivity.map((a: any) => ({
+    ...a,
+    calledAt: a.calledAt ? new Date(a.calledAt).toISOString() : new Date().toISOString(),
+  }));
 
   return (
     <StaffCrmReportsClient
@@ -34,6 +49,8 @@ export default async function StaffCrmReportsPage() {
       initialStaffWeeklyMatrix={staffWeeklyMatrix}
       initialPeriodSummary={periodSummary}
       staffList={staffList}
+      liveStatus={liveStatus as any}
+      initialActivityFeed={activityFeed as any}
       isSuperAdmin={isSuperAdmin}
     />
   );

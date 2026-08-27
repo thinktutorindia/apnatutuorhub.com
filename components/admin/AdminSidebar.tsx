@@ -32,6 +32,8 @@ import {
   Layers,
   BarChart3,
   Search,
+  Clock,
+  Phone,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { getAllowedSubAdminModules } from "@/lib/rbac";
@@ -43,10 +45,10 @@ const ALL_NAV_ITEMS = [
   { label: "Search Engine",    href: "/admin/search",                   icon: Search,            roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
   { label: "User Directory",   href: "/admin/users",                    icon: Users,             roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "OPERATIONS"], iconColor: "text-emerald-400" },
   { label: "KYC Queue",        href: "/admin/kyc",                      icon: BadgeCheck,        roles: ["SUPER_ADMIN", "VERIFICATION"], badge: "!", iconColor: "text-amber-400" },
-  { label: "Student Leads",    href: "/admin/leads",                    icon: FileSpreadsheet,   roles: ["SUPER_ADMIN", "OPERATIONS", "MARKETING", "SUPPORT"], iconColor: "text-pink-400" },
-  { label: "Tuition Bookings", href: "/admin/bookings",                 icon: CalendarCheck2,    roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT"], iconColor: "text-cyan-400" },
-  { label: "Support Chat",     href: "/admin/chat",                     icon: Headphones,        roles: ["SUPER_ADMIN", "SUPPORT", "OPERATIONS"], iconColor: "text-indigo-400" },
-  { label: "Reviews",          href: "/admin/reviews",                  icon: Star,              roles: ["SUPER_ADMIN", "SUPPORT"], iconColor: "text-yellow-400" },
+  { label: "Tutor Approvals",  href: "/admin/tutors/pending",           icon: FileSpreadsheet,   roles: ["SUPER_ADMIN", "VERIFICATION"], iconColor: "text-indigo-400" },
+  { label: "Class Requests",   href: "/admin/tuitions",                 icon: CalendarCheck2,    roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT"], iconColor: "text-teal-400" },
+  { label: "Support Tickets",  href: "/admin/tickets",                  icon: Headphones,        roles: ["SUPER_ADMIN", "SUPPORT"], iconColor: "text-rose-400" },
+  { label: "Reviews & Ratings",href: "/admin/reviews",                  icon: Star,              roles: ["SUPER_ADMIN", "SUPPORT"], iconColor: "text-yellow-400" },
   { label: "Wallets & Revenue",href: "/admin/wallets",                  icon: Coins,             roles: ["SUPER_ADMIN", "FINANCE"], iconColor: "text-emerald-400" },
   { label: "Notification Hub", href: "/admin/notifications",            icon: Bell,              roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-amber-400" },
   { label: "Broadcast Push",   href: "/admin/notifications/broadcast",  icon: Megaphone,         roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-orange-400" },
@@ -55,14 +57,15 @@ const ALL_NAV_ITEMS = [
   { label: "Audit Logs",       href: "/admin/audit-logs",               icon: History,           roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"], iconColor: "text-purple-400" },
   { label: "Sub-Admins",       href: "/admin/sub-admins",               icon: UserCog,           roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
   { label: "Staff Analytics",  href: "/admin/sub-admins/analytics",     icon: TrendingUp,        roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
-  { label: "Dummy Campaigns",  href: "/admin/dummy-campaigns",           icon: Sparkles,          roles: ["SUPER_ADMIN"], iconColor: "text-fuchsia-400" },
-  // ── Staff CRM ──
-  { label: "CRM Management",   href: "/admin/staff-leads/manage",       icon: Layers,            roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-amber-400" },
-  { label: "Daily Work Reports", href: "/admin/staff-leads/reports",    icon: BarChart3,         roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
-  { label: "Staff CRM Feed",   href: "/admin/staff-leads",              icon: PhoneCall,         roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-emerald-400" },
-  { label: "Upload Leads",     href: "/admin/staff-leads/upload",       icon: Upload,            roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-teal-400" },
-  { label: "My Leads",         href: "/admin/staff-leads/my-leads",     icon: UserCheck,         roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-cyan-400" },
-  { label: "Assign Leads",     href: "/admin/staff-leads/assign",       icon: Users,             roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-indigo-400" },
+  { label: "Dummy Campaigns",  href: "/admin/dummy-campaigns",          icon: Sparkles,          roles: ["SUPER_ADMIN"], iconColor: "text-fuchsia-400" },
+  // ── Staff CRM Suite ──
+  { label: "My Shift & Timer", href: "/admin/staff-leads/my-dashboard", icon: Clock,             roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-emerald-400" },
+  { label: "My Calling Queue", href: "/admin/staff-leads/my-leads",     icon: Phone,             roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-cyan-400" },
+  { label: "Staff Timesheets", href: "/admin/staff-leads/reports",      icon: BarChart3,         roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
+  { label: "Data Pipeline",    href: "/admin/staff-leads",              icon: PhoneCall,         roles: ["SUPER_ADMIN", "OPERATIONS"], iconColor: "text-blue-400" },
+  { label: "CRM Allocation",   href: "/admin/staff-leads/manage",       icon: Layers,            roles: ["SUPER_ADMIN", "OPERATIONS"], iconColor: "text-amber-400" },
+  { label: "Upload New Leads", href: "/admin/staff-leads/upload",       icon: Upload,            roles: ["SUPER_ADMIN", "OPERATIONS"], iconColor: "text-teal-400" },
+  { label: "Bulk Assign Leads",href: "/admin/staff-leads/assign",       icon: Users,             roles: ["SUPER_ADMIN", "OPERATIONS"], iconColor: "text-indigo-400" },
 ] as const;
 
 const SUB_ADMIN_ROLE_LABELS: Record<string, { label: string; color: string }> = {
@@ -98,9 +101,20 @@ export function AdminSidebar({ userName, userEmail, userRole = "SUPER_ADMIN", su
     if (href === "/admin/dashboard") return true;
     if (userRole === "SUPER_ADMIN") return true;
 
-    // For Sub-Admin (Staff), under Staff CRM, ONLY show My Assigned Leads!
+    // For Sub-Admin (Staff), under Staff CRM: show My Shift & Timer and My Calling Queue
     if (href.startsWith("/admin/staff-leads")) {
-      return href === "/admin/staff-leads/my-leads";
+      if (href === "/admin/staff-leads/my-dashboard" || href === "/admin/staff-leads/my-leads") {
+        return true;
+      }
+      if (subAdminRole === "OPERATIONS" && (
+        href === "/admin/staff-leads" ||
+        href === "/admin/staff-leads/manage" ||
+        href === "/admin/staff-leads/upload" ||
+        href === "/admin/staff-leads/assign"
+      )) {
+        return true;
+      }
+      return false;
     }
 
     return allowedModules.some((mod) => href === mod || href.startsWith(mod + "/"));

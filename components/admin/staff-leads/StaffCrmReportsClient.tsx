@@ -7,7 +7,8 @@ import {
   PhoneMissed, Flame, Download, Filter, Search, ChevronDown,
   ChevronRight, ArrowUpRight, TrendingUp, Sparkles, Layers,
   Clock, Shield, BarChart3, ArrowLeft, RefreshCw, Loader2,
-  Coffee, Timer, CheckCheck, X, Eye, Phone, MapPin, Award
+  Coffee, Timer, CheckCheck, X, Eye, Phone, MapPin, Award,
+  Activity, Zap, UserCheck, ShieldAlert
 } from "lucide-react";
 import {
   getStaffDailyWorkReportsAction,
@@ -67,6 +68,49 @@ type SessionCallLog = {
   };
 };
 
+type ActivityLogItem = {
+  id: string;
+  outcome: string;
+  notes: string | null;
+  calledAt: string;
+  calledBy: {
+    id?: string;
+    name: string | null;
+    email: string;
+    subAdminRole?: string | null;
+  };
+  lead: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    location: string | null;
+    status: string;
+  };
+};
+
+type LiveStatusData = {
+  online: Array<{
+    staffId: string;
+    staffName: string | null;
+    email: string;
+    subAdminRole: string | null;
+    status: string;
+    clockIn: string | Date;
+    elapsedMinutes: number;
+    onBreakSince: string | Date | null;
+    callsToday: number;
+    conversionsToday: number;
+  }>;
+  offline: Array<{
+    staffId: string;
+    staffName: string | null;
+    email: string;
+    subAdminRole: string | null;
+    lastClockOut: string | Date | null;
+    lastSessionMinutes: number | null;
+  }>;
+};
+
 interface Props {
   initialWorkSessions: StaffWorkSessionReportItem[];
   initialDailyBreakdown: DailyBreakdownItem[];
@@ -83,6 +127,8 @@ interface Props {
     conversionRate: number;
   };
   staffList: Array<{ id: string; name: string | null; email: string }>;
+  liveStatus?: LiveStatusData | null;
+  initialActivityFeed?: ActivityLogItem[];
   isSuperAdmin: boolean;
 }
 
@@ -93,13 +139,13 @@ function formatMinutes(mins: number | null): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function formatTime(isoString: string | null): string {
+function formatTime(isoString: string | null | Date): string {
   if (!isoString) return "—";
   const d = new Date(isoString);
   return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
-function formatDate(isoString: string): string {
+function formatDate(isoString: string | Date): string {
   const d = new Date(isoString);
   return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
@@ -110,20 +156,24 @@ export function StaffCrmReportsClient({
   initialStaffWeeklyMatrix,
   initialPeriodSummary,
   staffList,
+  liveStatus,
+  initialActivityFeed = [],
   isSuperAdmin,
 }: Props) {
   const [workSessions, setWorkSessions] = useState(initialWorkSessions);
   const [dailyBreakdown, setDailyBreakdown] = useState(initialDailyBreakdown);
   const [staffWeeklyMatrix, setStaffWeeklyMatrix] = useState(initialStaffWeeklyMatrix);
   const [periodSummary, setPeriodSummary] = useState(initialPeriodSummary);
+  const [activityFeed, setActivityFeed] = useState<ActivityLogItem[]>(initialActivityFeed);
 
   const [activePeriod, setActivePeriod] = useState<"today" | "yesterday" | "7days" | "30days" | "all" | "custom">("30days");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedStaffId, setSelectedStaffId] = useState("all");
   const [expandedDateKeys, setExpandedDateKeys] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"TIMESHEETS" | "DAILY" | "STAFF_MATRIX">("TIMESHEETS");
-  const [searchStaff, setSearchStaff] = useState("");
+  const [activeTab, setActiveTab] = useState<"TIMESHEETS" | "LIVE_RADAR" | "ACTIVITY_FEED" | "DAILY" | "STAFF_MATRIX">("TIMESHEETS");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [outcomeFilter, setOutcomeFilter] = useState("ALL");
 
   // Modal for Shift Call Logs Drill-down
   const [selectedSessionModal, setSelectedSessionModal] = useState<{
@@ -211,10 +261,23 @@ export function StaffCrmReportsClient({
   };
 
   const filteredSessions = workSessions.filter((ws) => {
-    if (!searchStaff) return true;
-    const q = searchStaff.toLowerCase();
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
     return ws.staffName.toLowerCase().includes(q) || ws.email.toLowerCase().includes(q);
   });
+
+  const filteredActivity = activityFeed.filter((item) => {
+    if (outcomeFilter !== "ALL" && item.outcome !== outcomeFilter) return false;
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const callerName = (item.calledBy.name || item.calledBy.email || "").toLowerCase();
+    const leadName = (item.lead.name || "").toLowerCase();
+    const phone = (item.lead.phone || "").toLowerCase();
+    const notes = (item.notes || "").toLowerCase();
+    return callerName.includes(q) || leadName.includes(q) || phone.includes(q) || notes.includes(q);
+  });
+
+  const onlineStaffCount = liveStatus?.online.length ?? 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -229,15 +292,15 @@ export function StaffCrmReportsClient({
               <ArrowLeft size={12} /> Back to CRM
             </Link>
             <span className="text-slate-300">·</span>
-            <span className="text-[11px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
-              Timesheets &amp; Daily Work Intelligence
+            <span className="text-[11px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
+              Staff Operations &amp; Intelligence Suite
             </span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Staff Shifts, Timesheets &amp; Work Reports
+            Staff Shifts, Timesheets &amp; Live Cockpit
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time daily timesheets, login/logout timestamps, calls made, conversions, and shift drill-downs across all staff.
+            Monitor real-time team presence, login/logout timesheets, calls completed, conversions, and call timelines.
           </p>
         </div>
 
@@ -252,9 +315,129 @@ export function StaffCrmReportsClient({
             href="/admin/staff-leads/manage"
             className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50"
           >
-            <Shield size={14} className="text-purple-600" /> CRM Ops &amp; Allocate
+            <Shield size={14} className="text-purple-600" /> CRM Ops &amp; Allocation
           </Link>
         </div>
+      </div>
+
+      {/* ── Live Staff Presence Radar (Real-Time Cockpit) ── */}
+      {liveStatus && (
+        <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 rounded-3xl p-6 text-white border border-slate-800 shadow-xl space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+              <h2 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+                Live Staff Radar — Who is Working Right Now
+              </h2>
+              <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                🟢 {onlineStaffCount} Active On Duty
+              </span>
+            </div>
+            <span className="text-xs text-slate-400 font-bold">
+              Updated Live · {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
+
+          {/* Online Staff Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {liveStatus.online.length === 0 ? (
+              <div className="sm:col-span-2 lg:col-span-3 p-8 text-center bg-slate-800/50 rounded-2xl border border-slate-700/50 text-slate-400">
+                <Users size={32} className="mx-auto mb-2 opacity-30 text-slate-400" />
+                <p className="font-bold text-sm text-slate-300">No staff members currently clocked in</p>
+                <p className="text-xs text-slate-400 mt-1">Staff will appear here in real-time when they click "Clock In".</p>
+              </div>
+            ) : (
+              liveStatus.online.map((staff) => {
+                const isOnBreak = staff.status === "ON_BREAK";
+                const h = Math.floor(staff.elapsedMinutes / 60);
+                const m = staff.elapsedMinutes % 60;
+                const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+                return (
+                  <div
+                    key={staff.staffId}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      isOnBreak
+                        ? "bg-amber-950/40 border-amber-500/40 text-amber-200"
+                        : "bg-slate-800/80 border-emerald-500/40 text-slate-100"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
+                          isOnBreak ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"
+                        }`}>
+                          {(staff.staffName || staff.email)[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-sm text-white truncate">{staff.staffName || staff.email.split("@")[0]}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">
+                              {staff.subAdminRole || "Staff"}
+                            </span>
+                            <span className={`text-[10px] font-black ${isOnBreak ? "text-amber-400" : "text-emerald-400"}`}>
+                              {isOnBreak ? "☕ On Break" : `🟢 Active ${timeStr}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Metrics Bar */}
+                    <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/60 text-xs">
+                      <div className="bg-slate-900/60 p-2 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-slate-400 block">Calls Today</span>
+                        <span className="font-black text-blue-400 text-sm">📞 {staff.callsToday}</span>
+                      </div>
+                      <div className="bg-slate-900/60 p-2 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-slate-400 block">Converted</span>
+                        <span className="font-black text-emerald-400 text-sm">✓ {staff.conversionsToday}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Offline Staff summary strip */}
+          {liveStatus.offline.length > 0 && (
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs text-slate-400">
+              <span className="font-bold">Offline Staff ({liveStatus.offline.length}):</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {liveStatus.offline.slice(0, 8).map((s) => (
+                  <span key={s.staffId} className="px-2 py-0.5 rounded-lg bg-slate-800/80 text-slate-300 text-[11px] font-medium border border-slate-700">
+                    {s.staffName || s.email.split("@")[0]}
+                    {s.lastClockOut && (
+                      <span className="text-[9px] text-slate-400 ml-1">
+                        (last seen {new Date(s.lastClockOut).toLocaleDateString("en-IN", { day: "numeric", month: "short" })})
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── KPI Summary Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { label: "Total Shifts", value: periodSummary.totalShifts, icon: Clock, color: "text-indigo-600", bg: "bg-indigo-50" },
+          { label: "Hours Worked", value: `${periodSummary.totalHoursWorked}h`, icon: Timer, color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "Calls Logged", value: periodSummary.totalCalls.toLocaleString(), icon: PhoneCall, color: "text-slate-800", bg: "bg-slate-50" },
+          { label: "Answered", value: periodSummary.totalAnswered.toLocaleString(), sub: `${periodSummary.answerRate}% rate`, icon: CheckCircle2, color: "text-teal-600", bg: "bg-teal-50" },
+          { label: "Callbacks", value: periodSummary.totalCallbacks.toLocaleString(), icon: RefreshCcw, color: "text-amber-600", bg: "bg-amber-50" },
+          { label: "Conversions", value: periodSummary.totalConverted.toLocaleString(), sub: `${periodSummary.conversionRate}% rate`, icon: Star, color: "text-emerald-600", bg: "bg-emerald-50" },
+        ].map(({ label, value, sub, icon: Icon, color, bg }) => (
+          <div key={label} className={`${bg} rounded-2xl p-4 border border-white/80`}>
+            <Icon size={16} className={`${color} mb-1.5`} />
+            <p className="text-2xl font-black text-slate-900">{value}</p>
+            <p className="text-[11px] font-bold text-slate-500 mt-0.5">{label}</p>
+            {sub && <span className="text-[10px] font-extrabold text-slate-400">{sub}</span>}
+          </div>
+        ))}
       </div>
 
       {/* ── Filter Controls Bar ── */}
@@ -329,7 +512,7 @@ export function StaffCrmReportsClient({
             <button
               onClick={() => fetchReports({})}
               disabled={isPending}
-              className="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+              className="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
             >
               {isPending ? <Loader2 size={12} className="animate-spin" /> : <Filter size={12} />} Apply Dates
             </button>
@@ -337,28 +520,9 @@ export function StaffCrmReportsClient({
         )}
       </div>
 
-      {/* ── KPI Summary Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {[
-          { label: "Total Shifts", value: periodSummary.totalShifts, icon: Clock, color: "text-indigo-600", bg: "bg-indigo-50" },
-          { label: "Hours Worked", value: `${periodSummary.totalHoursWorked}h`, icon: Timer, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Calls Logged", value: periodSummary.totalCalls.toLocaleString(), icon: PhoneCall, color: "text-slate-800", bg: "bg-slate-50" },
-          { label: "Answered", value: periodSummary.totalAnswered.toLocaleString(), sub: `${periodSummary.answerRate}% rate`, icon: CheckCircle2, color: "text-teal-600", bg: "bg-teal-50" },
-          { label: "Callbacks", value: periodSummary.totalCallbacks.toLocaleString(), icon: RefreshCcw, color: "text-amber-600", bg: "bg-amber-50" },
-          { label: "Conversions", value: periodSummary.totalConverted.toLocaleString(), sub: `${periodSummary.conversionRate}% rate`, icon: Star, color: "text-emerald-600", bg: "bg-emerald-50" },
-        ].map(({ label, value, sub, icon: Icon, color, bg }) => (
-          <div key={label} className={`${bg} rounded-2xl p-4 border border-white/80`}>
-            <Icon size={16} className={`${color} mb-1.5`} />
-            <p className="text-2xl font-black text-slate-900">{value}</p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">{label}</p>
-            {sub && <span className="text-[10px] font-extrabold text-slate-400">{sub}</span>}
-          </div>
-        ))}
-      </div>
-
       {/* ── View Mode Switcher Tabs ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+        <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 flex-wrap">
           <button
             onClick={() => setActiveTab("TIMESHEETS")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
@@ -368,7 +532,19 @@ export function StaffCrmReportsClient({
             }`}
           >
             <Clock size={14} className={activeTab === "TIMESHEETS" ? "text-indigo-600" : ""} />
-            🕒 Shift Timesheets &amp; Login Logs ({filteredSessions.length})
+            🕒 Shift Timesheets ({filteredSessions.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("ACTIVITY_FEED")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === "ACTIVITY_FEED"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Activity size={14} className={activeTab === "ACTIVITY_FEED" ? "text-purple-600" : ""} />
+            📡 Live Activity Feed ({filteredActivity.length})
           </button>
 
           <button
@@ -380,7 +556,7 @@ export function StaffCrmReportsClient({
             }`}
           >
             <Calendar size={14} className={activeTab === "DAILY" ? "text-blue-600" : ""} />
-            📊 Daily Team Aggregate ({dailyBreakdown.length} Days)
+            📊 Daily Breakdown ({dailyBreakdown.length} Days)
           </button>
 
           <button
@@ -392,22 +568,21 @@ export function StaffCrmReportsClient({
             }`}
           >
             <Award size={14} className={activeTab === "STAFF_MATRIX" ? "text-emerald-600" : ""} />
-            🏆 Staff Performance Leaderboard ({staffWeeklyMatrix.length})
+            🏆 Leaderboard ({staffWeeklyMatrix.length})
           </button>
         </div>
 
-        {activeTab === "TIMESHEETS" && (
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search staff name or email..."
-              value={searchStaff}
-              onChange={(e) => setSearchStaff(e.target.value)}
-              className="pl-8 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
-            />
-          </div>
-        )}
+        {/* Search */}
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder={activeTab === "ACTIVITY_FEED" ? "Search lead, phone, notes..." : "Search staff name or email..."}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 text-slate-800 font-medium"
+          />
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════════════
@@ -567,7 +742,7 @@ export function StaffCrmReportsClient({
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <button
                             onClick={() => openShiftLogs(session)}
-                            className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-extrabold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-black text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Eye size={12} /> View Calls
                           </button>
@@ -583,7 +758,103 @@ export function StaffCrmReportsClient({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════════
-          TAB 2: DAILY TEAM AGGREGATE
+          TAB 2: LIVE ACTIVITY FEED
+         ══════════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "ACTIVITY_FEED" && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <Activity size={16} className="text-purple-600" /> Real-Time Team Activity Feed
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Every call outcome, conversion, callback request, and discussion note recorded across the operations team.
+              </p>
+            </div>
+
+            {/* Outcome Filter */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {["ALL", "ANSWERED", "CALLBACK_REQUESTED", "CONVERTED", "NO_ANSWER", "NOT_INTERESTED"].map((out) => (
+                <button
+                  key={out}
+                  onClick={() => setOutcomeFilter(out)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
+                    outcomeFilter === out
+                      ? "bg-slate-900 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {out === "ALL" ? "All Outcomes" : out.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="px-6 pb-6 space-y-3">
+            {filteredActivity.length === 0 ? (
+              <div className="py-16 text-center text-slate-400">
+                <Activity size={36} className="mx-auto mb-2 opacity-30" />
+                <p className="font-bold text-sm">No activity logs match your filters</p>
+              </div>
+            ) : (
+              filteredActivity.map((log) => {
+                const outcomeBadge: Record<string, { label: string; bg: string; text: string }> = {
+                  ANSWERED: { label: "Answered", bg: "bg-emerald-100", text: "text-emerald-800" },
+                  CALLBACK_REQUESTED: { label: "Callback Requested", bg: "bg-amber-100", text: "text-amber-800" },
+                  CONVERTED: { label: "Converted", bg: "bg-green-100", text: "text-green-800" },
+                  NO_ANSWER: { label: "No Answer", bg: "bg-orange-100", text: "text-orange-800" },
+                  BUSY: { label: "Busy", bg: "bg-purple-100", text: "text-purple-800" },
+                  WRONG_NUMBER: { label: "Wrong Number", bg: "bg-rose-100", text: "text-rose-800" },
+                  NOT_INTERESTED: { label: "Not Interested", bg: "bg-red-100", text: "text-red-800" },
+                };
+                const badge = outcomeBadge[log.outcome] || { label: log.outcome, bg: "bg-slate-100", text: "text-slate-700" };
+
+                return (
+                  <div key={log.id} className="p-4 bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200/80 flex items-start justify-between gap-3 transition-colors">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs shrink-0 mt-0.5">
+                        {(log.calledBy.name || log.calledBy.email)[0].toUpperCase()}
+                      </div>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-xs text-slate-900">
+                            {log.calledBy.name || log.calledBy.email.split("@")[0]}
+                          </span>
+                          <span className="text-slate-400 text-xs font-bold">called</span>
+                          <span className="font-extrabold text-xs text-slate-800">{log.lead.name || "Lead"}</span>
+                          {log.lead.phone && (
+                            <span className="text-[11px] font-mono text-slate-500 font-bold">+91 {log.lead.phone}</span>
+                          )}
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${badge.bg} ${badge.text}`}>
+                            {badge.label}
+                          </span>
+                        </div>
+                        {log.lead.location && (
+                          <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                            <MapPin size={10} /> {log.lead.location}
+                          </p>
+                        )}
+                        {log.notes && (
+                          <p className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60 mt-1 italic">
+                            "{log.notes}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <span className="text-[11px] font-bold text-slate-400 font-mono shrink-0 whitespace-nowrap">
+                      {formatDate(log.calledAt)} · {formatTime(log.calledAt)}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════════════
+          TAB 3: DAILY TEAM AGGREGATE
          ══════════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "DAILY" && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -683,7 +954,7 @@ export function StaffCrmReportsClient({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════════
-          TAB 3: STAFF PERFORMANCE LEADERBOARD
+          TAB 4: STAFF PERFORMANCE LEADERBOARD
          ══════════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "STAFF_MATRIX" && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -723,7 +994,6 @@ export function StaffCrmReportsClient({
                 ) : (
                   staffWeeklyMatrix.map((staff, idx) => {
                     const convRate = staff.totalCalls > 0 ? Math.round((staff.converted / staff.totalCalls) * 100) : 0;
-                    const isTop3 = idx < 3;
                     const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
 
                     return (
@@ -762,7 +1032,7 @@ export function StaffCrmReportsClient({
           DRILL-DOWN MODAL: SHIFT CALL LOGS TIMELINE
          ══════════════════════════════════════════════════════════════════════════════ */}
       {selectedSessionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden border border-slate-200 shadow-2xl flex flex-col">
             {/* Header */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -868,7 +1138,7 @@ export function StaffCrmReportsClient({
               <button
                 type="button"
                 onClick={() => setSelectedSessionModal(null)}
-                className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 cursor-pointer"
               >
                 Close Timeline
               </button>

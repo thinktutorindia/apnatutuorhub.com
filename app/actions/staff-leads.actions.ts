@@ -1380,70 +1380,34 @@ export async function getStaffLeadActivityFeedAction(opts?: {
       take: limit,
     }),
     isSuperAdmin
-      ? prisma.user.findMany({
-          where: { role: { in: ["SUPER_ADMIN", "SUB_ADMIN"] }, isActive: true },
-          select: { id: true, name: true, email: true, subAdminRole: true },
-        })
-      : prisma.user.findMany({
-          where: { id: session.user.id },
-          select: { id: true, name: true, email: true, subAdminRole: true },
-        }),
-  ]);
+// ─── 22. Staff Daily Work Reports & Timesheet Action ─────────────────────────
 
-  const allStaffUsers = rawStaffUsers;
-
-  let totalCalls = logs.length;
-  let answered = 0;
-  let callbacks = 0;
-  let interested = 0;
-  let converted = 0;
-  let noAnswer = 0;
-
-  const staffMap = new Map<string, { totalCalls: number; converted: number; answered: number; lastActive: Date | null }>();
-
-  logs.forEach((log) => {
-    if (log.outcome === "ANSWERED") answered++;
-    else if (log.outcome === "CALLBACK_REQUESTED") callbacks++;
-    else if (log.outcome === "CONVERTED") converted++;
-    else if (log.outcome === "NO_ANSWER" || log.outcome === "BUSY") noAnswer++;
-
-    if (log.lead.status === "INTERESTED") interested++;
-
-    const s = staffMap.get(log.calledById) || { totalCalls: 0, converted: 0, answered: 0, lastActive: null };
-    s.totalCalls++;
-    if (log.outcome === "CONVERTED" || log.lead.isPromoted) s.converted++;
-    if (log.outcome === "ANSWERED") s.answered++;
-    if (!s.lastActive || log.calledAt > s.lastActive) s.lastActive = log.calledAt;
-    staffMap.set(log.calledById, s);
-  });
-
-  const staffSummary = allStaffUsers.map((user) => {
-    const stats = staffMap.get(user.id) || { totalCalls: 0, converted: 0, answered: 0, lastActive: null };
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      subAdminRole: user.subAdminRole,
-      ...stats,
-    };
-  }).sort((a, b) => b.totalCalls - a.totalCalls);
-
-  return actionSuccess({
-    isSuperAdmin,
-    logs: logs as any,
-    summary: { totalCalls, answered, callbacks, interested, converted, noAnswer },
-    staffSummary,
-    allStaff: allStaffUsers.map((u) => ({ id: u.id, name: u.name, email: u.email })),
-  });
-}
-
-// ─── 24. Get Daily, Weekly & Historical CRM Work Reports ─────────────────────
+export type StaffWorkSessionReportItem = {
+  id: string;
+  staffId: string;
+  staffName: string;
+  email: string;
+  subAdminRole: string | null;
+  role: string;
+  clockIn: string;
+  clockOut: string | null;
+  status: string;
+  totalMinutes: number | null;
+  totalBreakMins: number;
+  callsMade: number;
+  leadsContacted: number;
+  leadsConverted: number;
+  followUpsSet: number;
+  followUpsDone: number;
+  notes: string | null;
+};
 
 export async function getStaffDailyWorkReportsAction(opts?: {
   startDate?: string;
   endDate?: string;
   staffId?: string;
 }): Promise<ActionResult<{
+  workSessions: StaffWorkSessionReportItem[];
   dailyBreakdown: Array<{
     dateKey: string;
     displayDate: string;
@@ -1469,6 +1433,8 @@ export async function getStaffDailyWorkReportsAction(opts?: {
     email: string;
     subAdminRole: string | null;
     totalCalls: number;
+    totalHoursLogged: number;
+    totalShifts: number;
     answered: number;
     converted: number;
     callbacks: number;
@@ -1484,6 +1450,8 @@ export async function getStaffDailyWorkReportsAction(opts?: {
     totalConverted: number;
     totalCallbacks: number;
     totalNoAnswer: number;
+    totalHoursWorked: number;
+    totalShifts: number;
     answerRate: number;
     conversionRate: number;
   };
@@ -1501,22 +1469,31 @@ export async function getStaffDailyWorkReportsAction(opts?: {
   start.setHours(0, 0, 0, 0);
   end.setHours(23, 59, 59, 999);
 
-  const where: any = {
+  const callWhere: any = {
     calledAt: {
       gte: start,
       lte: end,
     },
   };
 
+  const sessionWhere: any = {
+    clockIn: {
+      gte: start,
+      lte: end,
+    },
+  };
+
   if (!isSuperAdmin) {
-    where.calledById = session.user.id;
+    callWhere.calledById = session.user.id;
+    sessionWhere.staffId = session.user.id;
   } else if (opts?.staffId && opts.staffId !== "all") {
-    where.calledById = opts.staffId;
+    callWhere.calledById = opts.staffId;
+    sessionWhere.staffId = opts.staffId;
   }
 
-  const [callLogs, allStaffUsers, staffLeadCounts] = await Promise.all([
+  const [callLogs, rawSessions, allStaffUsers, staffLeadCounts] = await Promise.all([
     prisma.staffLeadCallLog.findMany({
-      where,
+      where: callWhere,
       include: {
         calledBy: { select: { id: true, name: true, email: true, subAdminRole: true } },
         lead: {
@@ -1530,6 +1507,13 @@ export async function getStaffDailyWorkReportsAction(opts?: {
         },
       },
       orderBy: { calledAt: "desc" },
+    }),
+    prisma.staffWorkSession.findMany({
+      where: sessionWhere,
+      include: {
+        staff: { select: { id: true, name: true, email: true, subAdminRole: true, role: true } },
+      },
+      orderBy: { clockIn: "desc" },
     }),
     isSuperAdmin
       ? prisma.user.findMany({
@@ -1545,6 +1529,26 @@ export async function getStaffDailyWorkReportsAction(opts?: {
       _count: { id: true },
     }),
   ]);
+
+  const workSessions: StaffWorkSessionReportItem[] = rawSessions.map((ws) => ({
+    id: ws.id,
+    staffId: ws.staffId,
+    staffName: ws.staff.name || ws.staff.email.split("@")[0],
+    email: ws.staff.email,
+    subAdminRole: ws.staff.subAdminRole,
+    role: ws.staff.role,
+    clockIn: ws.clockIn.toISOString(),
+    clockOut: ws.clockOut ? ws.clockOut.toISOString() : null,
+    status: ws.status,
+    totalMinutes: ws.totalMinutes,
+    totalBreakMins: ws.totalBreakMins,
+    callsMade: ws.callsMade,
+    leadsContacted: ws.leadsContacted,
+    leadsConverted: ws.leadsConverted,
+    followUpsSet: ws.followUpsSet,
+    followUpsDone: ws.followUpsDone,
+    notes: ws.notes,
+  }));
 
   const dayMap = new Map<string, {
     dateKey: string;
@@ -1564,6 +1568,8 @@ export async function getStaffDailyWorkReportsAction(opts?: {
     email: string;
     subAdminRole: string | null;
     totalCalls: number;
+    totalMinutes: number;
+    totalShifts: number;
     answered: number;
     converted: number;
     callbacks: number;
@@ -1578,12 +1584,38 @@ export async function getStaffDailyWorkReportsAction(opts?: {
       email: u.email,
       subAdminRole: u.subAdminRole,
       totalCalls: 0,
+      totalMinutes: 0,
+      totalShifts: 0,
       answered: 0,
       converted: 0,
       callbacks: 0,
       noAnswer: 0,
       activeDaysSet: new Set(),
     });
+  });
+
+  // Aggregate work sessions into matrix
+  rawSessions.forEach((ws) => {
+    let sm = staffMatrixMap.get(ws.staffId);
+    if (!sm) {
+      sm = {
+        staffId: ws.staffId,
+        staffName: ws.staff.name || ws.staff.email.split("@")[0],
+        email: ws.staff.email,
+        subAdminRole: ws.staff.subAdminRole,
+        totalCalls: 0,
+        totalMinutes: 0,
+        totalShifts: 0,
+        answered: 0,
+        converted: 0,
+        callbacks: 0,
+        noAnswer: 0,
+        activeDaysSet: new Set(),
+      };
+      staffMatrixMap.set(ws.staffId, sm);
+    }
+    sm.totalShifts++;
+    sm.totalMinutes += ws.totalMinutes ?? 0;
   });
 
   let totalCalls = 0;
@@ -1664,6 +1696,8 @@ export async function getStaffDailyWorkReportsAction(opts?: {
         email: log.calledBy.email,
         subAdminRole: log.calledBy.subAdminRole,
         totalCalls: 0,
+        totalMinutes: 0,
+        totalShifts: 0,
         answered: 0,
         converted: 0,
         callbacks: 0,
@@ -1714,6 +1748,8 @@ export async function getStaffDailyWorkReportsAction(opts?: {
         email: sm.email,
         subAdminRole: sm.subAdminRole,
         totalCalls: sm.totalCalls,
+        totalHoursLogged: Math.round((sm.totalMinutes / 60) * 10) / 10,
+        totalShifts: sm.totalShifts,
         answered: sm.answered,
         converted: sm.converted,
         callbacks: sm.callbacks,
@@ -1726,10 +1762,12 @@ export async function getStaffDailyWorkReportsAction(opts?: {
     })
     .sort((a, b) => b.totalCalls - a.totalCalls);
 
+  const totalMinutesAll = rawSessions.reduce((sum, s) => sum + (s.totalMinutes ?? 0), 0);
   const answerRate = totalCalls > 0 ? Math.round((totalAnswered / totalCalls) * 100) : 0;
   const conversionRate = totalCalls > 0 ? Math.round((totalConverted / totalCalls) * 100) : 0;
 
   return actionSuccess({
+    workSessions,
     dailyBreakdown,
     staffWeeklyMatrix,
     periodSummary: {
@@ -1738,10 +1776,97 @@ export async function getStaffDailyWorkReportsAction(opts?: {
       totalConverted,
       totalCallbacks,
       totalNoAnswer,
+      totalHoursWorked: Math.round((totalMinutesAll / 60) * 10) / 10,
+      totalShifts: rawSessions.length,
       answerRate,
       conversionRate,
     },
     staffList: allStaffUsers.map((u) => ({ id: u.id, name: u.name, email: u.email })),
+  });
+}
+
+export async function getWorkSessionCallLogsAction(sessionId: string): Promise<ActionResult<{
+  session: StaffWorkSessionReportItem;
+  callLogs: Array<{
+    id: string;
+    outcome: CallOutcome;
+    notes: string | null;
+    calledAt: string;
+    lead: {
+      id: string;
+      name: string | null;
+      phone: string | null;
+      location: string | null;
+      status: string;
+    };
+  }>;
+}>> {
+  const { error, session: authSession } = await requireCrmOps();
+  if (error || !authSession?.user) return actionError(error ?? "Unauthorized");
+
+  const ws = await prisma.staffWorkSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      staff: { select: { id: true, name: true, email: true, subAdminRole: true, role: true } },
+    },
+  });
+  if (!ws) return actionError("Work session not found");
+
+  const isSuperAdmin = authSession.user.role === "SUPER_ADMIN";
+  if (!isSuperAdmin && ws.staffId !== authSession.user.id) {
+    return actionError("Unauthorized to view this work session");
+  }
+
+  const sessionEnd = ws.clockOut || new Date();
+  const logs = await prisma.staffLeadCallLog.findMany({
+    where: {
+      calledById: ws.staffId,
+      calledAt: {
+        gte: ws.clockIn,
+        lte: sessionEnd,
+      },
+    },
+    include: {
+      lead: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          location: true,
+          status: true,
+        },
+      },
+    },
+    orderBy: { calledAt: "desc" },
+  });
+
+  return actionSuccess({
+    session: {
+      id: ws.id,
+      staffId: ws.staffId,
+      staffName: ws.staff.name || ws.staff.email.split("@")[0],
+      email: ws.staff.email,
+      subAdminRole: ws.staff.subAdminRole,
+      role: ws.staff.role,
+      clockIn: ws.clockIn.toISOString(),
+      clockOut: ws.clockOut ? ws.clockOut.toISOString() : null,
+      status: ws.status,
+      totalMinutes: ws.totalMinutes,
+      totalBreakMins: ws.totalBreakMins,
+      callsMade: ws.callsMade,
+      leadsContacted: ws.leadsContacted,
+      leadsConverted: ws.leadsConverted,
+      followUpsSet: ws.followUpsSet,
+      followUpsDone: ws.followUpsDone,
+      notes: ws.notes,
+    },
+    callLogs: logs.map((l) => ({
+      id: l.id,
+      outcome: l.outcome,
+      notes: l.notes,
+      calledAt: l.calledAt.toISOString(),
+      lead: l.lead,
+    })),
   });
 }
 
@@ -2128,61 +2253,61 @@ export async function refreshBatchProgressAction(batchId?: string): Promise<Acti
   const { error } = await requireAdmin();
   if (error) return actionError(error);
 
-  const batches = batchId
-    ? await prisma.staffLeadBatch.findMany({ where: { id: batchId }, select: { id: true } })
-    : await prisma.staffLeadBatch.findMany({ select: { id: true } });
+  try {
+    const batches = batchId
+      ? await prisma.staffLeadBatch.findMany({ where: { id: batchId }, select: { id: true } })
+      : await prisma.staffLeadBatch.findMany({ select: { id: true } });
 
-  const weekAgo = new Date(Date.now() - 7 * 86400000);
-  const recentCallDays = await prisma.staffLeadCallLog.groupBy({
-    by: ["calledAt"],
-    where: { calledAt: { gte: weekAgo } },
-    _count: true,
-  });
-  const avgPerDay = recentCallDays.length > 0
-    ? Math.round(recentCallDays.reduce((s, d) => s + d._count, 0) / 7)
-    : 5;
-
-  for (const batch of batches) {
-    const leads = await prisma.staffLead.groupBy({
-      by: ["status"],
-      where: { batchId: batch.id },
-      _count: true,
+    const weekAgo = new Date(Date.now() - 7 * 86400000);
+    const totalCallsLastWeek = await prisma.staffLeadCallLog.count({
+      where: { calledAt: { gte: weekAgo } },
     });
+    const avgPerDay = Math.max(1, Math.round(totalCallsLastWeek / 7)) || 5;
 
-    const sc: Record<string, number> = {};
-    let totalLeads = 0;
-    for (const g of leads) { sc[g.status] = g._count; totalLeads += g._count; }
+    for (const batch of batches) {
+      const leads = await prisma.staffLead.groupBy({
+        by: ["status"],
+        where: { batchId: batch.id },
+        _count: true,
+      });
 
-    const leadsNew = (sc["NEW"] ?? 0) + (sc["ASSIGNED"] ?? 0);
-    const leadsContacted = (sc["CONTACTED"] ?? 0) + (sc["INTERESTED"] ?? 0);
-    const leadsFollowUp = sc["FOLLOW_UP"] ?? 0;
-    const leadsConverted = sc["CONVERTED"] ?? 0;
-    const leadsRejected = (sc["REJECTED"] ?? 0) + (sc["NOT_INTERESTED"] ?? 0) + (sc["DUPLICATE"] ?? 0);
-    const leadsNoAnswer = sc["NO_ANSWER"] ?? 0;
-    const leadsDone = leadsContacted + leadsConverted + leadsRejected + leadsNoAnswer;
-    const remaining = totalLeads - leadsDone;
-    const estimatedDaysLeft = avgPerDay > 0 ? Math.ceil(remaining / avgPerDay) : null;
-    const isFullyProcessed = remaining <= 0 && totalLeads > 0;
+      const sc: Record<string, number> = {};
+      let totalLeads = 0;
+      for (const g of leads) { sc[g.status] = g._count; totalLeads += g._count; }
 
-    await prisma.staffLeadBatchProgress.upsert({
-      where: { batchId: batch.id },
-      create: {
-        batchId: batch.id, totalLeads, leadsNew, leadsContacted, leadsFollowUp,
-        leadsConverted, leadsRejected, leadsDone, isFullyProcessed,
-        completedAt: isFullyProcessed ? new Date() : null,
-        avgLeadsPerDay: avgPerDay, estimatedDaysLeft,
-      },
-      update: {
-        totalLeads, leadsNew, leadsContacted, leadsFollowUp,
-        leadsConverted, leadsRejected, leadsDone, isFullyProcessed,
-        completedAt: isFullyProcessed ? new Date() : undefined,
-        avgLeadsPerDay: avgPerDay, estimatedDaysLeft,
-      },
-    });
+      const leadsNew = (sc["NEW"] ?? 0) + (sc["ASSIGNED"] ?? 0);
+      const leadsContacted = (sc["CONTACTED"] ?? 0) + (sc["INTERESTED"] ?? 0);
+      const leadsFollowUp = sc["FOLLOW_UP"] ?? 0;
+      const leadsConverted = sc["CONVERTED"] ?? 0;
+      const leadsRejected = (sc["REJECTED"] ?? 0) + (sc["NOT_INTERESTED"] ?? 0) + (sc["DUPLICATE"] ?? 0);
+      const leadsNoAnswer = sc["NO_ANSWER"] ?? 0;
+      const leadsDone = leadsContacted + leadsConverted + leadsRejected + leadsNoAnswer;
+      const remaining = totalLeads - leadsDone;
+      const estimatedDaysLeft = avgPerDay > 0 ? Math.ceil(remaining / avgPerDay) : null;
+      const isFullyProcessed = remaining <= 0 && totalLeads > 0;
+
+      await prisma.staffLeadBatchProgress.upsert({
+        where: { batchId: batch.id },
+        create: {
+          batchId: batch.id, totalLeads, leadsNew, leadsContacted, leadsFollowUp,
+          leadsConverted, leadsRejected, leadsDone, isFullyProcessed,
+          completedAt: isFullyProcessed ? new Date() : null,
+          avgLeadsPerDay: avgPerDay, estimatedDaysLeft,
+        },
+        update: {
+          totalLeads, leadsNew, leadsContacted, leadsFollowUp,
+          leadsConverted, leadsRejected, leadsDone, isFullyProcessed,
+          completedAt: isFullyProcessed ? new Date() : undefined,
+          avgLeadsPerDay: avgPerDay, estimatedDaysLeft,
+        },
+      });
+    }
+
+    return actionSuccess({ refreshed: batches.length });
+  } catch (err) {
+    console.error("[refreshBatchProgressAction]", err);
+    return actionError("Failed to refresh batch progress");
   }
-
-  revalidatePath("/admin/staff-leads");
-  return actionSuccess({ refreshed: batches.length });
 }
 
 export async function getDataPipelineAction(): Promise<ActionResult<{
@@ -2203,58 +2328,83 @@ export async function getDataPipelineAction(): Promise<ActionResult<{
   const { error } = await requireAdmin();
   if (error) return actionError(error);
 
-  await refreshBatchProgressAction();
+  try {
+    const batchesWithProgress = await prisma.staffLeadBatch.findMany({
+      include: {
+        progress: true,
+        _count: { select: { leads: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  const batchesWithProgress = await prisma.staffLeadBatch.findMany({
-    include: { progress: true },
-    orderBy: { createdAt: "desc" },
-  });
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000);
+    const weekAgo = new Date(Date.now() - 7 * 86400000);
+    const totalCallsLastWeek = await prisma.staffLeadCallLog.count({
+      where: { calledAt: { gte: weekAgo } },
+    });
+    const avgDaily = Math.max(1, Math.round(totalCallsLastWeek / 7)) || 5;
 
-  const twoDaysAgo = new Date(Date.now() - 2 * 86400000);
+    const batches = await Promise.all(batchesWithProgress.map(async (b) => {
+      const p = b.progress;
+      const total = p?.totalLeads ?? b._count.leads ?? 0;
+      const done = p?.leadsDone ?? 0;
+      const progressPercent = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  const batches = await Promise.all(batchesWithProgress.map(async (b) => {
-    const p = b.progress;
-    const total = p?.totalLeads ?? 0;
-    const done = p?.leadsDone ?? 0;
-    const progressPercent = total > 0 ? Math.round((done / total) * 100) : 0;
+      let status: "not_started" | "active" | "stalled" | "completed" = "not_started";
+      if (p?.isFullyProcessed || (total > 0 && done >= total)) {
+        status = "completed";
+      } else if (done > 0) {
+        const recentActivity = await prisma.staffLeadCallLog.count({
+          where: { lead: { batchId: b.id }, calledAt: { gte: twoDaysAgo } },
+        });
+        status = recentActivity > 0 ? "active" : "stalled";
+      }
 
-    let status: "not_started" | "active" | "stalled" | "completed" = "not_started";
-    if (p?.isFullyProcessed) {
-      status = "completed";
-    } else if (done > 0) {
-      const recentActivity = await prisma.staffLeadCallLog.count({
-        where: { lead: { batchId: b.id }, calledAt: { gte: twoDaysAgo } },
-      });
-      status = recentActivity > 0 ? "active" : "stalled";
-    }
+      const remaining = Math.max(0, total - done);
+      const estimatedDaysLeft = avgDaily > 0 ? Math.ceil(remaining / avgDaily) : null;
 
-    return {
-      id: b.id, name: b.name, createdAt: b.createdAt,
-      totalLeads: total, leadsNew: p?.leadsNew ?? 0, leadsContacted: p?.leadsContacted ?? 0,
-      leadsFollowUp: p?.leadsFollowUp ?? 0, leadsConverted: p?.leadsConverted ?? 0,
-      leadsRejected: p?.leadsRejected ?? 0, leadsDone: done, progressPercent,
-      isFullyProcessed: p?.isFullyProcessed ?? false,
-      estimatedDaysLeft: p?.estimatedDaysLeft ?? null,
-      avgLeadsPerDay: p?.avgLeadsPerDay ?? 0, status,
-    };
-  }));
+      return {
+        id: b.id,
+        name: b.name,
+        createdAt: b.createdAt,
+        totalLeads: total,
+        leadsNew: p?.leadsNew ?? (total - done),
+        leadsContacted: p?.leadsContacted ?? 0,
+        leadsFollowUp: p?.leadsFollowUp ?? 0,
+        leadsConverted: p?.leadsConverted ?? 0,
+        leadsRejected: p?.leadsRejected ?? 0,
+        leadsDone: done,
+        progressPercent,
+        isFullyProcessed: p?.isFullyProcessed ?? (total > 0 && done >= total),
+        estimatedDaysLeft,
+        avgLeadsPerDay: avgDaily,
+        status,
+      };
+    }));
 
-  const totalLeads = batches.reduce((s, b) => s + b.totalLeads, 0);
-  const totalDone = batches.reduce((s, b) => s + b.leadsDone, 0);
-  const completedBatches = batches.filter((b) => b.isFullyProcessed).length;
-  const avgDaily = batches.length > 0 ? Math.round(batches.reduce((s, b) => s + b.avgLeadsPerDay, 0) / batches.length) : 0;
-  const remaining = totalLeads - totalDone;
-  const daysLeft = avgDaily > 0 ? Math.ceil(remaining / avgDaily) : null;
-  const completionDate = daysLeft ? new Date(Date.now() + daysLeft * 86400000).toISOString().split("T")[0] : null;
+    const totalLeads = batches.reduce((s, b) => s + b.totalLeads, 0);
+    const totalDone = batches.reduce((s, b) => s + b.leadsDone, 0);
+    const completedBatches = batches.filter((b) => b.isFullyProcessed).length;
+    const remaining = Math.max(0, totalLeads - totalDone);
+    const daysLeft = avgDaily > 0 ? Math.ceil(remaining / avgDaily) : null;
+    const completionDate = daysLeft ? new Date(Date.now() + daysLeft * 86400000).toISOString().split("T")[0] : null;
 
-  return actionSuccess({
-    batches,
-    overall: {
-      totalBatches: batches.length, completedBatches, totalLeads, totalDone,
-      progressPercent: totalLeads > 0 ? Math.round((totalDone / totalLeads) * 100) : 0,
-      estimatedCompletionDate: completionDate, avgDailyThroughput: avgDaily,
-    },
-  });
+    return actionSuccess({
+      batches,
+      overall: {
+        totalBatches: batches.length,
+        completedBatches,
+        totalLeads,
+        totalDone,
+        progressPercent: totalLeads > 0 ? Math.round((totalDone / totalLeads) * 100) : 0,
+        estimatedCompletionDate: completionDate,
+        avgDailyThroughput: avgDaily,
+      },
+    });
+  } catch (err) {
+    console.error("[getDataPipelineAction]", err);
+    return actionError("Failed to fetch data pipeline metrics");
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2275,47 +2425,67 @@ export async function getStaffLiveStatusAction(): Promise<ActionResult<{
   const { error } = await requireAdmin();
   if (error) return actionError(error);
 
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+  try {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
 
-  const activeSessions = await prisma.staffWorkSession.findMany({
-    where: { status: { in: ["CLOCKED_IN", "ON_BREAK"] } },
-    include: { staff: { select: { id: true, name: true, email: true, subAdminRole: true } } },
-  });
-
-  const online = await Promise.all(activeSessions.map(async (s) => {
-    const [callsToday, conversionsToday] = await Promise.all([
-      prisma.staffLeadCallLog.count({ where: { calledById: s.staffId, calledAt: { gte: todayStart } } }),
-      prisma.staffLeadCallLog.count({ where: { calledById: s.staffId, calledAt: { gte: todayStart }, outcome: "CONVERTED" } }),
-    ]);
-    return {
-      staffId: s.staffId, staffName: s.staff.name, email: s.staff.email,
-      subAdminRole: s.staff.subAdminRole, status: s.status, clockIn: s.clockIn,
-      elapsedMinutes: Math.round((now.getTime() - s.clockIn.getTime()) / 60000),
-      onBreakSince: s.breakStartedAt, callsToday, conversionsToday,
-    };
-  }));
-
-  const onlineIds = activeSessions.map((s) => s.staffId);
-  const offlineStaff = await prisma.user.findMany({
-    where: { role: "SUB_ADMIN", id: { notIn: onlineIds.length > 0 ? onlineIds : ["_none_"] } },
-    select: { id: true, name: true, email: true, subAdminRole: true },
-  });
-
-  const offline = await Promise.all(offlineStaff.map(async (u) => {
-    const lastSession = await prisma.staffWorkSession.findFirst({
-      where: { staffId: u.id, status: { in: ["CLOCKED_OUT", "AUTO_OUT"] } },
-      orderBy: { clockOut: "desc" },
-      select: { clockOut: true, totalMinutes: true },
+    const activeSessions = await prisma.staffWorkSession.findMany({
+      where: { status: { in: ["CLOCKED_IN", "ON_BREAK"] } },
+      include: { staff: { select: { id: true, name: true, email: true, subAdminRole: true } } },
     });
-    return {
-      staffId: u.id, staffName: u.name, email: u.email, subAdminRole: u.subAdminRole,
-      lastClockOut: lastSession?.clockOut ?? null, lastSessionMinutes: lastSession?.totalMinutes ?? null,
-    };
-  }));
 
-  return actionSuccess({ online, offline });
+    const online = await Promise.all(activeSessions.map(async (s) => {
+      const [callsToday, conversionsToday] = await Promise.all([
+        prisma.staffLeadCallLog.count({ where: { calledById: s.staffId, calledAt: { gte: todayStart } } }),
+        prisma.staffLeadCallLog.count({ where: { calledById: s.staffId, calledAt: { gte: todayStart }, outcome: "CONVERTED" } }),
+      ]);
+      return {
+        staffId: s.staffId,
+        staffName: s.staff.name,
+        email: s.staff.email,
+        subAdminRole: s.staff.subAdminRole,
+        status: s.status,
+        clockIn: s.clockIn,
+        elapsedMinutes: Math.round((now.getTime() - s.clockIn.getTime()) / 60000),
+        onBreakSince: s.breakStartedAt,
+        callsToday,
+        conversionsToday,
+      };
+    }));
+
+    const onlineIds = activeSessions.map((s) => s.staffId);
+    const offlineStaff = await prisma.user.findMany({
+      where: {
+        role: { in: ["SUB_ADMIN", "SUPER_ADMIN"] },
+        id: { notIn: onlineIds.length > 0 ? onlineIds : ["_none_"] },
+        isActive: true,
+      },
+      select: { id: true, name: true, email: true, subAdminRole: true },
+      take: 20,
+    });
+
+    const offline = await Promise.all(offlineStaff.map(async (u) => {
+      const lastSession = await prisma.staffWorkSession.findFirst({
+        where: { staffId: u.id, status: { in: ["CLOCKED_OUT", "AUTO_OUT"] } },
+        orderBy: { clockOut: "desc" },
+        select: { clockOut: true, totalMinutes: true },
+      });
+      return {
+        staffId: u.id,
+        staffName: u.name,
+        email: u.email,
+        subAdminRole: u.subAdminRole,
+        lastClockOut: lastSession?.clockOut ?? null,
+        lastSessionMinutes: lastSession?.totalMinutes ?? null,
+      };
+    }));
+
+    return actionSuccess({ online, offline });
+  } catch (err) {
+    console.error("[getStaffLiveStatusAction]", err);
+    return actionError("Failed to fetch staff live status");
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════════

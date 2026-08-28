@@ -314,9 +314,9 @@ export function StaffLeadsUploadClient() {
               </button>
               <div>
                 <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2.5">
-                  AI Extraction Review &amp; Staging
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold">
-                    Gemini 3.6 Flash
+                  Lead Extraction Review &amp; Staging
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold flex items-center gap-1">
+                    <Sparkles size={12} /> High-Speed Lead Engine
                   </span>
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -1072,9 +1072,9 @@ export function StaffLeadsUploadClient() {
         className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-base hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 flex items-center justify-center gap-3 shadow-lg shadow-emerald-200 transition-all cursor-pointer"
       >
         {isPending ? (
-          <><Loader2 size={20} className="animate-spin" /> Gemini AI is extracting leads…</>
+          <><Loader2 size={20} className="animate-spin" /> Processing &amp; Structuring Leads…</>
         ) : (
-          <><Sparkles size={20} /> Parse with Gemini AI → Preview Leads</>
+          <><Sparkles size={20} /> Extract &amp; Structure Leads → Preview</>
         )}
       </button>
     </div>

@@ -80,27 +80,50 @@ export async function parseLeadBatchPreviewAction(
     const result = await parseWhatsAppDump(rawText);
 
     // Extract all phones and emails to check against database
-    const phones = result.leads.map((l) => l.phone).filter((p): p is string => Boolean(p));
-    const emails = result.leads.map((l) => l.email?.toLowerCase()).filter((e): e is string => Boolean(e));
+    const phones = [...new Set(result.leads.map((l) => l.phone).filter((p): p is string => Boolean(p)))];
+    const emails = [...new Set(result.leads.map((l) => l.email?.toLowerCase()).filter((e): e is string => Boolean(e)))];
 
-    const [existingStaffLeads, existingUsers] = await Promise.all([
-      prisma.staffLead.findMany({
-        where: {
-          OR: [
-            ...(phones.length ? [{ phone: { in: phones } }] : []),
-            ...(emails.length ? [{ email: { in: emails, mode: "insensitive" as const } }] : []),
-          ],
-        },
-        select: { phone: true, email: true, name: true, status: true },
+    // Query in chunks of 500 to guarantee no database parameter overflow
+    const CHUNK_SIZE = 500;
+    const existingStaffLeads: Array<{ phone: string | null; email: string | null; name: string | null; status: string }> = [];
+    const existingUsers: Array<{ phone: string | null; email: string | null; name: string | null; role: string }> = [];
+
+    const phoneChunks: string[][] = [];
+    for (let i = 0; i < phones.length; i += CHUNK_SIZE) phoneChunks.push(phones.slice(i, i + CHUNK_SIZE));
+    if (phoneChunks.length === 0) phoneChunks.push([]);
+
+    const emailChunks: string[][] = [];
+    for (let i = 0; i < emails.length; i += CHUNK_SIZE) emailChunks.push(emails.slice(i, i + CHUNK_SIZE));
+    if (emailChunks.length === 0) emailChunks.push([]);
+
+    await Promise.all([
+      ...phoneChunks.filter((c) => c.length > 0).map(async (chunk) => {
+        const [staff, users] = await Promise.all([
+          prisma.staffLead.findMany({
+            where: { phone: { in: chunk } },
+            select: { phone: true, email: true, name: true, status: true },
+          }),
+          prisma.user.findMany({
+            where: { phone: { in: chunk } },
+            select: { phone: true, email: true, name: true, role: true },
+          }),
+        ]);
+        existingStaffLeads.push(...staff);
+        existingUsers.push(...users);
       }),
-      prisma.user.findMany({
-        where: {
-          OR: [
-            ...(phones.length ? [{ phone: { in: phones } }] : []),
-            ...(emails.length ? [{ email: { in: emails, mode: "insensitive" as const } }] : []),
-          ],
-        },
-        select: { phone: true, email: true, name: true, role: true },
+      ...emailChunks.filter((c) => c.length > 0).map(async (chunk) => {
+        const [staff, users] = await Promise.all([
+          prisma.staffLead.findMany({
+            where: { email: { in: chunk, mode: "insensitive" as const } },
+            select: { phone: true, email: true, name: true, status: true },
+          }),
+          prisma.user.findMany({
+            where: { email: { in: chunk, mode: "insensitive" as const } },
+            select: { phone: true, email: true, name: true, role: true },
+          }),
+        ]);
+        existingStaffLeads.push(...staff);
+        existingUsers.push(...users);
       }),
     ]);
 
@@ -225,27 +248,49 @@ export async function confirmBatchUploadAction(
     }
 
     // 2. Query DB to find existing phones and emails in staff_leads and users
-    const allPhones = memoryDeduped.map((l) => l.phone?.trim()).filter((p): p is string => Boolean(p));
-    const allEmails = memoryDeduped.map((l) => l.email?.trim().toLowerCase()).filter((e): e is string => Boolean(e));
+    const allPhones = [...new Set(memoryDeduped.map((l) => l.phone?.trim()).filter((p): p is string => Boolean(p)))];
+    const allEmails = [...new Set(memoryDeduped.map((l) => l.email?.trim().toLowerCase()).filter((e): e is string => Boolean(e)))];
 
-    const [existingStaffLeads, existingUsers] = await Promise.all([
-      prisma.staffLead.findMany({
-        where: {
-          OR: [
-            ...(allPhones.length ? [{ phone: { in: allPhones } }] : []),
-            ...(allEmails.length ? [{ email: { in: allEmails, mode: "insensitive" as const } }] : []),
-          ],
-        },
-        select: { phone: true, email: true },
+    const CHUNK_SIZE = 500;
+    const existingStaffLeads: Array<{ phone: string | null; email: string | null }> = [];
+    const existingUsers: Array<{ phone: string | null; email: string | null }> = [];
+
+    const phoneChunks: string[][] = [];
+    for (let i = 0; i < allPhones.length; i += CHUNK_SIZE) phoneChunks.push(allPhones.slice(i, i + CHUNK_SIZE));
+    if (phoneChunks.length === 0) phoneChunks.push([]);
+
+    const emailChunks: string[][] = [];
+    for (let i = 0; i < allEmails.length; i += CHUNK_SIZE) emailChunks.push(allEmails.slice(i, i + CHUNK_SIZE));
+    if (emailChunks.length === 0) emailChunks.push([]);
+
+    await Promise.all([
+      ...phoneChunks.filter((c) => c.length > 0).map(async (chunk) => {
+        const [staff, users] = await Promise.all([
+          prisma.staffLead.findMany({
+            where: { phone: { in: chunk } },
+            select: { phone: true, email: true },
+          }),
+          prisma.user.findMany({
+            where: { phone: { in: chunk } },
+            select: { phone: true, email: true },
+          }),
+        ]);
+        existingStaffLeads.push(...staff);
+        existingUsers.push(...users);
       }),
-      prisma.user.findMany({
-        where: {
-          OR: [
-            ...(allPhones.length ? [{ phone: { in: allPhones } }] : []),
-            ...(allEmails.length ? [{ email: { in: allEmails, mode: "insensitive" as const } }] : []),
-          ],
-        },
-        select: { phone: true, email: true },
+      ...emailChunks.filter((c) => c.length > 0).map(async (chunk) => {
+        const [staff, users] = await Promise.all([
+          prisma.staffLead.findMany({
+            where: { email: { in: chunk, mode: "insensitive" as const } },
+            select: { phone: true, email: true },
+          }),
+          prisma.user.findMany({
+            where: { email: { in: chunk, mode: "insensitive" as const } },
+            select: { phone: true, email: true },
+          }),
+        ]);
+        existingStaffLeads.push(...staff);
+        existingUsers.push(...users);
       }),
     ]);
 

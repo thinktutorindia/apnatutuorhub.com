@@ -5,15 +5,15 @@
  * Supports:
  * 1. JSON (raw array of objects or single objects)
  * 2. CSV / TSV / Excel table copy-pastes
- * 3. WhatsApp chat exports (with/without bracketed timestamps)
- * 4. Multi-profile unstructured message dumps & CV snippets
+ * 3. WhatsApp chat exports (with/without bracketed timestamps, narrow non-breaking spaces)
+ * 4. Multi-profile unstructured message dumps, contact lists & CV snippets
  * 5. Freeform emails, forms, and custom contact lists
  */
 
-import { extractLeadsBatch, type ParsedLead } from "./gemini-lead-extractor";
+import { extractLeadsBatch, extractLeadDataFast, type ParsedLead } from "./gemini-lead-extractor";
 
-// ─── WhatsApp Timestamp Pattern ───────────────────────────────────────────────
-const WA_TIMESTAMP_PATTERN = /\[\d{1,2}:\d{2}\s*(?:am|pm)?,?\s*\d{1,2}\/\d{1,2}\/\d{2,4}\]|\[\d{1,2}\/\d{1,2}\/\d{2,4},?\s*\d{1,2}:\d{2}\s*(?:am|pm)?\]|\b\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}\s*(?:am|pm)?\s*-\s*/i;
+// ─── WhatsApp Timestamp Pattern (matches standard spaces, non-breaking spaces \u202F \u00A0) ───
+const WA_TIMESTAMP_PATTERN = /^(?:\[\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4},?[\s\u202F\u00A0]*\d{1,2}:\d{2}(?::\d{2})?[\s\u202F\u00A0]*(?:am|pm|AM|PM)?\]|\[\d{1,2}:\d{2}(?::\d{2})?[\s\u202F\u00A0]*(?:am|pm|AM|PM)?,?[\s\u202F\u00A0]*\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\]|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4},?[\s\u202F\u00A0]*\d{1,2}:\d{2}(?::\d{2})?[\s\u202F\u00A0]*(?:am|pm|AM|PM)?[\s\u202F\u00A0]*-[\s\u202F\u00A0]*)/i;
 
 // ─── 1. JSON Parser ───────────────────────────────────────────────────────────
 function tryParseJson(text: string): ParsedLead[] | null {
@@ -156,26 +156,38 @@ function tryParseTabular(text: string): ParsedLead[] | null {
   return results.length > 0 ? results : null;
 }
 
-// ─── 3. Universal Multi-Profile Freeform Segmenter ────────────────────────────
+// ─── 3. Universal Multi-Profile Freeform & WhatsApp Segmenter ─────────────────
 export function splitWhatsAppDump(raw: string): string[] {
   const text = raw.trim();
   if (!text) return [];
 
   const normalized = text.replace(/\r\n/g, "\n");
+  const rawSegments: string[] = [];
 
-  // 1. WhatsApp timestamps
-  if (WA_TIMESTAMP_PATTERN.test(normalized)) {
-    const lines = normalized.split("\n");
-    const segments: string[] = [];
+  // Check if text has WhatsApp timestamps
+  const lines = normalized.split("\n");
+  let hasTimestamps = false;
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    if (WA_TIMESTAMP_PATTERN.test(lines[i])) {
+      hasTimestamps = true;
+      break;
+    }
+  }
+
+  if (hasTimestamps) {
     let currentSegment: string[] = [];
 
     for (const line of lines) {
       if (WA_TIMESTAMP_PATTERN.test(line)) {
         if (currentSegment.length > 0) {
           const combined = currentSegment.join("\n").trim();
-          if (combined) segments.push(combined);
+          if (combined) rawSegments.push(combined);
         }
-        const contentAfterHeader = line.replace(/^(?:\[.*?\]|\d{1,2}\/\d{1,2}\/\d{2,4},?\s*\d{1,2}:\d{2}\s*(?:am|pm)?\s*-?)\s*[^:]*:\s*/i, "").trim();
+        // Extract content after timestamp and sender header (e.g. "26/08/26, 2:02 pm - +91 85069 51507: ...")
+        const contentAfterHeader = line
+          .replace(WA_TIMESTAMP_PATTERN, "")
+          .replace(/^[^:]*:\s*/i, "")
+          .trim();
         currentSegment = contentAfterHeader ? [contentAfterHeader] : [];
       } else {
         currentSegment.push(line);
@@ -183,39 +195,52 @@ export function splitWhatsAppDump(raw: string): string[] {
     }
     if (currentSegment.length > 0) {
       const combined = currentSegment.join("\n").trim();
-      if (combined) segments.push(combined);
+      if (combined) rawSegments.push(combined);
     }
-    if (segments.length > 0) return segments;
+  } else {
+    // Non-timestamped freeform dump
+    const majorSplits = normalized.split(/\n\s*\n\s*\n+|(?<=\n)\s*(?=(?:Tutor Profile|Tutor Details|PROFILE DETAILS|Details Require|Dear (?:Team|Tutor|Tutor Coordinator)|Please provide the following|My profile\s*-|\b\d+\.\s*Full Name|\+\d{1,2}\s*[6-9]\d{4}\s*\n))/i);
+    for (const block of majorSplits) {
+      const t = block.trim();
+      if (t.length > 0) rawSegments.push(t);
+    }
   }
 
-  // 2. Multi-Profile Dump without timestamps:
-  // Split on 2+ blank lines OR explicit tutor profile boundaries
-  const majorSplits = normalized.split(/\n\s*\n\s*\n+|(?<=\n)\s*(?=(?:Tutor Profile|Tutor Details|PROFILE DETAILS|Details Require|Dear (?:Team|Tutor|Tutor Coordinator)|Please provide the following|My profile\s*-|\b\d+\.\s*Full Name|\+\d{1,2}\s*[6-9]\d{4}\s*\n))/i);
+  // Post-process segments:
+  // If a segment contains a list of multiple phone numbers or multiple profile codes, split it into individual sub-leads!
+  const finalSegments: string[] = [];
 
-  const segments: string[] = [];
-  for (const block of majorSplits) {
-    const trimmed = block.trim();
-    if (trimmed.length > 10) {
-      // If a block has multiple distinct phone numbers, split them
-      const phoneCount = (trimmed.match(/(?:(?:\+?91[\s-]?)|\b)[6-9]\d{1,4}[-\s]?\d{2,4}[-\s]?\d{2,4}\b/g) || []).length;
-      if (phoneCount > 1) {
-        const innerSplits = trimmed.split(/(?=\n\s*(?:(?:\+\d{1,2}\s*[6-9]\d{4})|(?:Your email address:)|(?:Tutor Name[-:]\s*)|(?:Name\s*[-:]\s*[A-Za-z])))/i);
-        for (const inner of innerSplits) {
-          const tInner = inner.trim();
-          if (tInner.length > 10) segments.push(tInner);
-        }
-      } else {
-        segments.push(trimmed);
+  for (const seg of rawSegments) {
+    const trimmedSeg = seg.trim();
+    if (!trimmedSeg) continue;
+
+    // Check if this segment contains multiple standalone phone numbers (like 8587022506\n9999218333...)
+    const segLines = trimmedSeg.split("\n").map((l) => l.trim()).filter(Boolean);
+    const phoneLines = segLines.filter((l) => /^(?:\+?91[\s-]?)?[6-9]\d{9}$/.test(l.replace(/\s+/g, "")));
+
+    // If most lines in this segment are individual phone numbers (a contact list)
+    if (phoneLines.length >= 2 && phoneLines.length >= segLines.length * 0.6) {
+      for (const pl of segLines) {
+        if (pl.length > 5) finalSegments.push(pl);
       }
+      continue;
     }
+
+    // Check if segment has multiple Code blocks (e.g. Code: C102 ... Code: C103 ...)
+    const codeCount = (trimmedSeg.match(/\bCode[:.]\s*C\d+/gi) || []).length;
+    if (codeCount > 1) {
+      const codeSplits = trimmedSeg.split(/(?=\bCode[:.]\s*C\d+)/i);
+      for (const cs of codeSplits) {
+        const tcs = cs.trim();
+        if (tcs.length > 5) finalSegments.push(tcs);
+      }
+      continue;
+    }
+
+    finalSegments.push(trimmedSeg);
   }
 
-  // Fallback: If no segments generated, split by double newlines
-  if (segments.length === 0) {
-    return normalized.split(/\n\s*\n/).map((b) => b.trim()).filter((b) => b.length > 5);
-  }
-
-  return segments;
+  return finalSegments;
 }
 
 // ─── Deduplicate Leads in the Same Batch ──────────────────────────────────────
@@ -227,6 +252,14 @@ function deduplicateLeads(leads: ParsedLead[]): ParsedLead[] {
   for (const lead of leads) {
     const phone = lead.phone?.trim();
     const email = lead.email?.trim().toLowerCase();
+
+    // If it has neither phone nor email, keep it only if it has a name and location
+    if (!phone && !email) {
+      if (lead.name && lead.location) {
+        uniqueLeads.push(lead);
+      }
+      continue;
+    }
 
     const isDuplicatePhone = phone ? seenPhones.has(phone) : false;
     const isDuplicateEmail = email ? seenEmails.has(email) : false;
@@ -281,8 +314,8 @@ export async function parseWhatsAppDump(
   const totalMessages = messages.length;
 
   const allParsed = await extractLeadsBatch(messages, onProgress);
-  const validLeads = allParsed.filter((l) => !l.isJunk);
-  const junkCount = allParsed.filter((l) => l.isJunk).length;
+  const validLeads = allParsed.filter((l) => !l.isJunk && (l.phone || l.email || l.name));
+  const junkCount = allParsed.length - validLeads.length;
   const deduped = deduplicateLeads(validLeads);
 
   return {

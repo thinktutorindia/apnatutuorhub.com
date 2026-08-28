@@ -10,7 +10,7 @@
  * 5. Freeform emails, forms, and custom contact lists
  */
 
-import { extractLeadsBatch, extractLeadDataFast, type ParsedLead } from "./gemini-lead-extractor";
+import { extractLeadsBatch, extractLeadDataFast, isJunkMessage, type ParsedLead } from "./gemini-lead-extractor";
 
 // ─── WhatsApp Timestamp Pattern (matches standard spaces, non-breaking spaces \u202F \u00A0) ───
 const WA_TIMESTAMP_PATTERN = /^(?:\[\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4},?[\s\u202F\u00A0]*\d{1,2}:\d{2}(?::\d{2})?[\s\u202F\u00A0]*(?:am|pm|AM|PM)?\]|\[\d{1,2}:\d{2}(?::\d{2})?[\s\u202F\u00A0]*(?:am|pm|AM|PM)?,?[\s\u202F\u00A0]*\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\]|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4},?[\s\u202F\u00A0]*\d{1,2}:\d{2}(?::\d{2})?[\s\u202F\u00A0]*(?:am|pm|AM|PM)?[\s\u202F\u00A0]*-[\s\u202F\u00A0]*)/i;
@@ -206,11 +206,66 @@ export function splitWhatsAppDump(raw: string): string[] {
     }
   }
 
+  // Smart message stitching:
+  // If consecutive messages are fragmented (e.g. Message 1: "9717661509", Message 2: "Dipika"), stitch them!
+  const stitchedSegments: string[] = [];
+  let i = 0;
+  while (i < rawSegments.length) {
+    const current = rawSegments[i].trim();
+    if (!current) {
+      i++;
+      continue;
+    }
+
+    // Normalize: strip all spaces/hyphens from current to detect phone numbers with internal spaces
+    const currentDigitsOnly = current.replace(/[\s-]/g, "");
+    const hasCurrentPhone = /(?:\+?91)?[6-9]\d{9}/.test(currentDigitsOnly);
+    const hasCurrentEmail = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/.test(current);
+
+    // PRIORITY Case: Current segment is mostly just a phone number (possibly with +91 and spaces),
+    // and next segment has NO phone number (e.g. Next: "Dipika" or "Shukurpur parents")
+    // This MUST run before the no-phone→phone case below, to prevent the context fragment from being
+    // greedily stitched forward to a different phone number.
+    if (hasCurrentPhone && i + 1 < rawSegments.length) {
+      const next = rawSegments[i + 1].trim();
+      const hasNextPhone = /(?:\+?91)?[6-9]\d{9}/.test(next.replace(/[\s-]/g, ""));
+      const hasNextEmail = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/.test(next);
+      
+      // Check if current is primarily a phone number: strip phone patterns and see what's left
+      const afterPhoneStrip = current
+        .replace(/(?:\+?91[\s-]?)?[6-9][\d\s-]{8,14}/g, "")
+        .replace(/[+\-\s]/g, "")
+        .trim();
+      const isPhoneOnly = afterPhoneStrip.length < 5; // very little non-phone content
+
+      if (isPhoneOnly && !hasNextPhone && !hasNextEmail && next.length < 150 && !isJunkMessage(next)) {
+        stitchedSegments.push(current + "\n" + next);
+        i += 2;
+        continue;
+      }
+    }
+
+    // Fallback Case: Current segment has NO phone & NO email, but next segment DOES have a phone
+    // (e.g. Current: "Shahdara \n 25 k", Next: "9958838132")
+    if (!hasCurrentPhone && !hasCurrentEmail && i + 1 < rawSegments.length) {
+      const next = rawSegments[i + 1].trim();
+      const hasNextPhone = /(?:\+?91)?[6-9]\d{9}/.test(next.replace(/[\s-]/g, ""));
+      if (hasNextPhone && current.length < 120 && !isJunkMessage(current)) {
+        stitchedSegments.push(current + "\n" + next);
+        i += 2;
+        continue;
+      }
+    }
+
+    stitchedSegments.push(current);
+    i++;
+  }
+
   // Post-process segments:
   // If a segment contains a list of multiple phone numbers or multiple profile codes, split it into individual sub-leads!
   const finalSegments: string[] = [];
 
-  for (const seg of rawSegments) {
+  for (const seg of stitchedSegments) {
     const trimmedSeg = seg.trim();
     if (!trimmedSeg) continue;
 

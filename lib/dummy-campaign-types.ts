@@ -167,6 +167,35 @@ export function pickClassForDay(inputClasses: string[] | null | undefined, seed:
   return pool[(dayNum + seed) % pool.length];
 }
 
+/**
+ * Cleans subject strings by stripping embedded class qualifiers (e.g. "Social Studies for Class VI" -> "Social Studies").
+ * Prevents class/subject duplication or mismatch in generated notifications.
+ */
+export function cleanSubjectName(rawSubject: string): string {
+  if (!rawSubject) return "";
+  let clean = rawSubject.trim();
+
+  // Replace common shortcuts
+  clean = clean.replace(/\bmaths\b/i, "Mathematics");
+
+  // 1. Remove "for Class X" / "for Grade X" / "for Class VI-VIII" / "for Class 6" etc.
+  clean = clean.replace(
+    /\s*(?:for|-|\(|\/|–|—|,)?\s*(?:class|grade|std|standard)\s*(?:[0-9]{1,2}|[ivx]+)(?:\s*(?:to|-|–|&|and)\s*(?:class|grade|std|standard)?\s*(?:[0-9]{1,2}|[ivx]+))?\s*(?:st|nd|rd|th)?\s*\)?/gi,
+    ""
+  );
+
+  // 2. Remove trailing / leading class numbers like "Mathematics 10th", "Physics 12", "Science IX"
+  clean = clean.replace(/\s+(?:[0-9]{1,2}|[ivx]+)\s*(?:st|nd|rd|th)?\s*(?:grade|class|std)?$/i, "");
+
+  // 3. Remove parentheses with class info e.g. "Physics (XI)" or "(Class 10)"
+  clean = clean.replace(/\s*\([^)]*(?:class|grade|std|standard|[0-9]{1,2}|[ivx]+)[^)]*\)/gi, "");
+
+  // 4. Remove leftover punctuation
+  clean = clean.replace(/^[-–—:,/]+|[-–—:,/]+$/g, "").trim();
+
+  return clean || rawSubject.trim();
+}
+
 export function feeBandKeyForClass(classLevel: string): FeeBandKey {
   const n = parseClassNumber(classLevel) ?? 7;
   if (n <= 5) return "1-5";
@@ -362,7 +391,7 @@ export interface DummyLead {
 
 export const modeLabel: Record<string, string> = {
   ONLINE:   "Online",
-  OFFLINE:  "In-Person",
-  EITHER:   "Online / In-Person",
-  COACHING: "Coaching Institute",
+  OFFLINE:  "Home Tuition",
+  EITHER:   "Home Tuition",
+  COACHING: "Home Tuition",
 };

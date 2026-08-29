@@ -559,6 +559,97 @@ export async function assignLeadsAction(
   return actionSuccess({ assigned: leadIds.length });
 }
 
+// ─── 5b. Multi-Staff Batch Distribution (Equal Split / Daily Quota) ──────────
+
+export type DistributeMode = "EQUAL_SPLIT" | "PER_STAFF_QUOTA" | "ROUND_ROBIN";
+
+export async function distributeLeadsMultiStaffAction(params: {
+  staffUserIds: string[];
+  leadIds?: string[];
+  quotaPerStaff?: number;
+  distributeMode?: DistributeMode;
+}): Promise<ActionResult<{ totalAssigned: number; breakdown: Record<string, number> }>> {
+  const { error } = await requireSuperAdmin();
+  if (error) return actionError(error);
+
+  const { staffUserIds, leadIds, quotaPerStaff, distributeMode = "EQUAL_SPLIT" } = params;
+  if (!staffUserIds || staffUserIds.length === 0) {
+    return actionError("Please select at least one staff member.");
+  }
+
+  let leadsToDistribute: string[] = [];
+
+  if (leadIds && leadIds.length > 0) {
+    // Specific selected leads
+    leadsToDistribute = [...leadIds];
+  } else {
+    // Pull from unassigned pool
+    const totalToFetch = quotaPerStaff ? quotaPerStaff * staffUserIds.length : 100 * staffUserIds.length;
+    const pool = await prisma.staffLead.findMany({
+      where: { status: "NEW", assignedToId: null },
+      take: totalToFetch,
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    leadsToDistribute = pool.map((l) => l.id);
+  }
+
+  if (leadsToDistribute.length === 0) {
+    return actionError("No unassigned leads found to distribute.");
+  }
+
+  const now = new Date();
+  const breakdown: Record<string, number> = {};
+  staffUserIds.forEach((id) => {
+    breakdown[id] = 0;
+  });
+
+  // Group lead IDs by staff member
+  const staffAssignments: Record<string, string[]> = {};
+  staffUserIds.forEach((id) => {
+    staffAssignments[id] = [];
+  });
+
+  if (distributeMode === "PER_STAFF_QUOTA" && quotaPerStaff && quotaPerStaff > 0) {
+    let leadIdx = 0;
+    for (const sId of staffUserIds) {
+      const takeCount = Math.min(quotaPerStaff, leadsToDistribute.length - leadIdx);
+      if (takeCount <= 0) break;
+      staffAssignments[sId] = leadsToDistribute.slice(leadIdx, leadIdx + takeCount);
+      leadIdx += takeCount;
+    }
+  } else {
+    // Round-robin / Equal split
+    for (let i = 0; i < leadsToDistribute.length; i++) {
+      const targetStaff = staffUserIds[i % staffUserIds.length];
+      staffAssignments[targetStaff].push(leadsToDistribute[i]);
+    }
+  }
+
+  // Execute database updates in parallel chunks
+  let totalAssigned = 0;
+  await Promise.all(
+    Object.entries(staffAssignments).map(async ([staffId, ids]) => {
+      if (ids.length === 0) return;
+      await prisma.staffLead.updateMany({
+        where: { id: { in: ids } },
+        data: {
+          assignedToId: staffId,
+          assignedAt: now,
+          status: "ASSIGNED",
+        },
+      });
+      breakdown[staffId] = ids.length;
+      totalAssigned += ids.length;
+    })
+  );
+
+  revalidatePath("/admin/staff-leads");
+  revalidatePath("/admin/staff-leads/assign");
+  revalidatePath("/admin/staff-leads/manage");
+  return actionSuccess({ totalAssigned, breakdown });
+}
+
 // ─── 6. Auto-rotate yesterday's NO_ANSWER leads ──────────────────────────────
 
 export async function autoRotateLeadsAction(): Promise<ActionResult<{ rotated: number }>> {

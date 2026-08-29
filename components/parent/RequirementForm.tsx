@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Compass,
@@ -23,6 +23,7 @@ import { OptionPills } from "@/components/ui/OptionPills";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import { LocationSearchInput, type LocationResult } from "@/components/ui/LocationSearchInput";
 import { getMediaUrl } from "@/lib/s3";
+import { isTill5thClass } from "@/lib/lead-utils";
 import {
   BOARDS,
   LANGUAGE_PREFERENCES,
@@ -214,6 +215,21 @@ export function RequirementForm({
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
+
+  const isEarlyGrade = isTill5thClass(classLevel);
+
+  useEffect(() => {
+    if (isEarlyGrade && teachingMode === "ONLINE") {
+      setTeachingMode("OFFLINE");
+    }
+  }, [isEarlyGrade, teachingMode]);
+
+  const availableModeOptions = useMemo(() => {
+    if (isEarlyGrade) {
+      return MODE_OPTIONS.filter((m) => m.value !== "ONLINE");
+    }
+    return MODE_OPTIONS;
+  }, [isEarlyGrade]);
 
   const isOnlineOnly = teachingMode === "ONLINE";
 
@@ -419,11 +435,17 @@ export function RequirementForm({
           </span>
           <OptionPills
             name="mode"
-            options={MODE_OPTIONS}
+            options={availableModeOptions}
             value={teachingMode}
             onChange={setTeachingMode}
             disabled={locked}
           />
+          {isEarlyGrade && (
+            <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-2">
+              <span className="text-sm">🚸</span>
+              <span>Online classes are not available for classes up to 5th grade (young children require in-person tutor guidance). Home Tuition is selected.</span>
+            </div>
+          )}
           <FieldError messages={state.fieldErrors?.mode} />
         </div>
 

@@ -6,6 +6,7 @@ import { SubAdminManagement } from "@/components/admin/SubAdminManagement";
 export const metadata = {
   title: "Sub-Admin Management | ApnaTutorHub Admin",
 };
+export const dynamic = "force-dynamic";
 
 const ROLE_BADGES: Record<string, { label: string; color: string; bg: string }> = {
   SUPPORT: { label: "Support", color: "#0284C7", bg: "bg-sky-100 text-sky-950 border-sky-300" },

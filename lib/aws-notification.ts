@@ -12,6 +12,7 @@ import { renderApplicationStatusEmail } from "@/emails/ApplicationStatusEmail";
 import { renderNewApplicantEmail } from "@/emails/NewApplicantEmail";
 import { renderBookingConfirmationEmail } from "@/emails/BookingConfirmationEmail";
 import { broadcastWebPush, sendWebPush } from "@/lib/web-push";
+import { isTill5thClass } from "@/lib/lead-utils";
 
 // ── Email Client Setup (100% Resend) ──────────────────────────────────────────
 
@@ -205,6 +206,14 @@ export async function notifyTutorNewLead(opts: {
   teachingMode: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
   coinCost: number;
 }) {
+  // Guard: Strictly do NOT send notifications for online classes for classes up to 5th grade
+  if (opts.teachingMode === "ONLINE" && isTill5thClass(opts.classLevel)) {
+    console.info(
+      `[notifyTutorNewLead] Suppressed notification for tutor ${opts.tutorUserId}: Online classes disabled for ${opts.classLevel}.`
+    );
+    return;
+  }
+
   const subjectStr = opts.subjects.slice(0, 2).join(", ");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
 

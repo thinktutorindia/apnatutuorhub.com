@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useEffect, useMemo } from "react";
 import {
-  Loader2, Users, AlertCircle, Check, Mail, Bell, Smartphone, MapPin,
+  Loader2, Users, AlertCircle, Check, CheckCircle2, Mail, Bell, Smartphone, MapPin,
   Sparkles, Search, CheckSquare, Square, Filter, Clock, IndianRupee,
   Calendar, ShieldCheck, Layers, GraduationCap, Info, ChevronRight, X
 } from "lucide-react";
@@ -55,9 +55,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
 
   // ── Step 1 State: Who & Channels ──
   const [name, setName] = useState("");
-  const [targetGroup, setTargetGroup] = useState<DummyTargetGroup>("NEW_7D");
+  const [targetGroup, setTargetGroup] = useState<DummyTargetGroup>("ALL_TUTORS");
   const [emailFilter, setEmailFilter] = useState<"GENUINE_ONLY" | "ALL" | "DUMMY_ONLY">("GENUINE_ONLY");
-  const [channels, setChannels] = useState<string[]>(["IN_APP", "PUSH"]);
+  const [channels, setChannels] = useState<string[]>(["IN_APP", "PUSH", "EMAIL"]);
   const [autoActivate, setAutoActivate] = useState(true);
 
   // Interactive Tutor Picker State (for Custom / Search)
@@ -221,6 +221,24 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
     setSelectedUserIds([]);
   };
 
+  const applyEvergreenAllTutorsPreset = () => {
+    setName("⚡ Evergreen Daily Schedule — All Active Tutors");
+    setTargetGroup("ALL_TUTORS");
+    setChannels(["IN_APP", "PUSH", "EMAIL"]);
+    setEmailFilter("GENUINE_ONLY");
+    setLeadsPerDay(1);
+    setFeePreset("AUTO_ADAPT");
+    setRateType("HOURLY");
+    setBudgetMin(200);
+    setBudgetMax(800);
+    setStartDate("");
+    setEndDate("");
+    setTotalLimit("");
+    setDescription(
+      "Automated perpetual daily dummy lead campaign. Dynamically targets all current active tutors and automatically includes all future new tutor registrations on every 24h pass."
+    );
+  };
+
   // Human-touch Campaign Creation (Only fired on explicit click in Step 3!)
   const handleLaunchCampaign = () => {
     if (!name.trim()) { setError("Campaign name is required"); setStep(1); return; }
@@ -327,6 +345,24 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
         {/* ── STEP 1: Who & Channels ── */}
         {step === 1 && (
           <div className="space-y-4">
+            {/* Quick Preset: Perpetual Daily Schedule */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border border-emerald-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <Sparkles size={18} className="text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-xs font-black text-slate-900">Perpetual Daily Campaign Preset</p>
+                  <p className="text-[11px] text-slate-500 font-semibold">1-click setup: Targets all active tutors and auto-enrolls new signups every day.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={applyEvergreenAllTutorsPreset}
+                className="px-3.5 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-extrabold shrink-0 shadow-xs cursor-pointer transition-all"
+              >
+                ⚡ 1-Click Pre-fill
+              </button>
+            </div>
+
             {/* Campaign Name */}
             <div>
               <label className={labelCls}>Campaign Name *</label>
@@ -407,6 +443,18 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                   </button>
                 ))}
               </div>
+
+              {targetGroup === "ALL_TUTORS" && (
+                <div className="mt-2.5 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-bold flex items-start gap-2.5">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-black text-emerald-900">🔄 Dynamic Auto-Enrollment Active</p>
+                    <p className="text-[11px] font-medium text-emerald-800 leading-relaxed">
+                      This campaign dynamically queries all active registered tutors on each 24h cron run. Any newly registered tutor or added account will automatically be included in future daily dispatches without needing to update this campaign.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Interactive Tutor Search & Checkbox Selector (Active when CUSTOM is picked) */}

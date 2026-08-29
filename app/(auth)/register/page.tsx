@@ -41,15 +41,22 @@ function RegisterFormContent() {
   React.useEffect(() => {
     if (state.success) {
       const timer = setTimeout(() => {
-        router.push("/login?registered=true");
+        const dest = state.role === "TUTOR" ? "/login?registered=true&role=tutor" : "/login?registered=true";
+        router.push(dest);
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [state.success, router]);
+  }, [state.success, state.role, router]);
 
   const handleGoogleSignIn = () => {
     setIsGoogleLoading(true);
-    signIn("google", { callbackUrl: "/" });
+    const callback = selectedRole === "TUTOR" ? "/tutor/onboarding" : "/parent/dashboard";
+    try {
+      document.cookie = `intended_role=${selectedRole}; path=/; max-age=600; SameSite=Lax`;
+    } catch {
+      // ignore
+    }
+    signIn("google", { callbackUrl: callback });
   };
 
   const isLoading = isPending || isGoogleLoading;

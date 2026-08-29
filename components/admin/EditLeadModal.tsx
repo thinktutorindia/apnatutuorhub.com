@@ -31,7 +31,7 @@ import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import { LeadHistoryModal } from "@/components/admin/LeadHistoryModal";
-import { getInquiryDisplayCode, getLeadRateType } from "@/lib/lead-utils";
+import { getInquiryDisplayCode, getLeadRateType, isTill5thClass } from "@/lib/lead-utils";
 import type { TeachingMode, LeadStatus } from "@prisma/client";
 
 export type ResolvedLocation = {
@@ -237,6 +237,12 @@ export function EditLeadModal({
     }, 280);
     return () => clearTimeout(timer);
   }, [locationQuery]);
+
+  useEffect(() => {
+    if (isTill5thClass(classLevel) && mode === "ONLINE") {
+      setMode("OFFLINE");
+    }
+  }, [classLevel, mode]);
 
   // Flattened taxonomy subjects
   const allFlattenedSubjects = useMemo(() => {
@@ -478,27 +484,39 @@ export function EditLeadModal({
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Class Delivery Mode</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(["OFFLINE", "ONLINE", "COACHING", "EITHER"] as TeachingMode[]).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setMode(m)}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                        mode === m
-                          ? "bg-[#0F2540] text-white border-[#0F2540] shadow-xs"
-                          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-                      }`}
-                    >
-                      {m === "OFFLINE"
-                        ? "Home / Offline"
-                        : m === "ONLINE"
-                        ? "Online"
-                        : m === "COACHING"
-                        ? "Coaching"
-                        : "Both / Either"}
-                    </button>
-                  ))}
+                  {(["OFFLINE", "ONLINE", "COACHING", "EITHER"] as TeachingMode[]).map((m) => {
+                    const isOnlineDisabled = m === "ONLINE" && isTill5thClass(classLevel);
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        disabled={isOnlineDisabled}
+                        onClick={() => setMode(m)}
+                        title={isOnlineDisabled ? "Online classes are disabled for classes up to 5th grade" : undefined}
+                        className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                          isOnlineDisabled
+                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60 line-through"
+                            : mode === m
+                            ? "bg-[#0F2540] text-white border-[#0F2540] shadow-xs cursor-pointer"
+                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100 cursor-pointer"
+                        }`}
+                      >
+                        {m === "OFFLINE"
+                          ? "Home / Offline"
+                          : m === "ONLINE"
+                          ? isOnlineDisabled ? "Online (N/A)" : "Online"
+                          : m === "COACHING"
+                          ? "Coaching"
+                          : "Both / Either"}
+                      </button>
+                    );
+                  })}
                 </div>
+                {isTill5thClass(classLevel) && (
+                  <p className="mt-1 text-[11px] text-amber-700 font-semibold flex items-center gap-1">
+                    <span>🚸</span> Online mode is disabled for early grades (≤ Class 5). Home Tuition is enforced.
+                  </p>
+                )}
               </div>
             </div>
           </div>

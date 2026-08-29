@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  ArrowRight, BookOpen, MapPin, PlusCircle, Users, CheckCircle, UserCog, ChevronRight,
+  ArrowRight, BookOpen, MapPin, PlusCircle, Users, CheckCircle, UserCog, ChevronRight, GraduationCap, Sparkles,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -154,6 +154,30 @@ export default async function ParentDashboardPage() {
             </div>
           </Link>
         ))}
+      </div>
+
+      {/* Teach & Earn (Dual Role Tutor Registration Banner) */}
+      <div className="rounded-3xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 p-6 rounded-3xl border border-amber-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-extrabold">
+            <Sparkles size={13} className="text-amber-600" />
+            <span>Dual Role Opportunity</span>
+          </div>
+          <h2 className="text-base sm:text-lg font-800 text-[#0F2540]">
+            Are you also interested in tutoring students? 🎓
+          </h2>
+          <p className="text-xs text-slate-600 font-500 max-w-xl">
+            You can keep your parent account and register as a verified tutor to teach home or online tuitions and earn directly.
+          </p>
+        </div>
+        <Link
+          href="/tutor/onboarding"
+          className="px-5 py-2.5 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs shadow-md transition-all shrink-0 hover:scale-105 active:scale-95 flex items-center gap-2"
+        >
+          <GraduationCap size={15} className="text-amber-400" />
+          <span>Register as Tutor</span>
+          <ArrowRight size={14} />
+        </Link>
       </div>
 
       {/* Requirements List Card Section */}

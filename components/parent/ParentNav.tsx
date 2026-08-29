@@ -16,6 +16,7 @@ import {
   User,
   LogOut,
   Gift,
+  GraduationCap,
 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
@@ -113,6 +114,15 @@ export function ParentNav({ userName, userEmail }: ParentNavProps) {
               </Link>
             );
           })}
+          {/* Teach as Tutor Link */}
+          <Link
+            href="/tutor/onboarding"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-3.5 rounded-2xl border-2 border-[#0F172A] bg-[#FEF3C7] px-4 py-3 text-sm font-extrabold shadow-[3px_3px_0px_0px_#0F172A] transition-all active:scale-98 text-[#92400E] hover:bg-[#FDE68A]"
+          >
+            <GraduationCap size={18} className="text-[#D97706]" />
+            <span>Become a Tutor 🎓</span>
+          </Link>
         </nav>
 
         {/* Sign Out Button */}
@@ -147,6 +157,15 @@ export function ParentNav({ userName, userEmail }: ParentNavProps) {
             </Link>
           );
         })}
+
+        {/* Teach / Tutor Link */}
+        <Link
+          href="/tutor/onboarding"
+          className="flex items-center gap-1 rounded-full px-2.5 py-1.5 lg:px-3 border-2 border-[#0F172A] bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A] transition-colors whitespace-nowrap ml-1 shadow-[2px_2px_0px_0px_#0F172A]"
+        >
+          <GraduationCap size={14} className="text-[#D97706]" />
+          <span>Teach / Tutor</span>
+        </Link>
       </div>
 
       {/* Mobile Hamburger Button (md:hidden) */}

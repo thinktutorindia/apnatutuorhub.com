@@ -18,7 +18,7 @@ import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { hasSubjectOverlap, coversClassLevel } from "@/lib/matching-engine";
 import { processReferralRewardOnKyc } from "@/app/actions/referral.actions";
-import { getNextInquiryNumber, getInquiryDisplayCode } from "@/lib/lead-utils";
+import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass } from "@/lib/lead-utils";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins
@@ -897,6 +897,9 @@ export async function adminCreateLeadAction(
   if (!input.classLevel) {
     return actionError("Please specify a class level.");
   }
+  if (input.mode === "ONLINE" && isTill5thClass(input.classLevel)) {
+    return actionError("Online classes are not available for classes up to 5th grade. Please select Home Tuition (Offline).");
+  }
 
   // 1. Resolve Parent Profile ID
   let targetParentProfileId = input.parentProfileId;
@@ -1494,6 +1497,7 @@ export async function adminSendLeadNotificationAction(
       id: true,
       subjects: true,
       classLevel: true,
+      mode: true,
       city: true,
       area: true,
       coinCost: true,
@@ -1501,6 +1505,12 @@ export async function adminSendLeadNotificationAction(
   });
 
   if (!lead) return actionError("Lead not found.");
+
+  if (lead.mode === "ONLINE" && isTill5thClass(lead.classLevel)) {
+    return actionError(
+      "Online classes are not supported for classes up to 5th grade. Notifications cannot be sent for this requirement."
+    );
+  }
 
   const subjectLabel = lead.subjects.slice(0, 2).join(", ");
   const locationLabel =

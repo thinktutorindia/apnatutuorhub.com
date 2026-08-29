@@ -12,13 +12,14 @@ import {
   Download, Loader2, X, MapPin, GraduationCap,
   Clock, IndianRupee, Sparkles, BarChart2, Users,
   Target, Settings2, BookOpen, Layers, ShieldCheck,
-  Calendar, Check, AlertCircle, Info, Flame, ArrowRight
+  Calendar, Check, AlertCircle, Info, Flame, ArrowRight, CalendarCheck, CheckCheck
 } from "lucide-react";
 import {
   toggleCampaignStatusAction,
   deleteDummyCampaignAction,
   triggerCampaignNowAction,
   generateLeadPreviewAction,
+  quickActivateDailyAllTutorsCampaignAction,
 } from "@/app/actions/dummy-campaign.actions";
 import { DummyCampaignForm } from "./DummyCampaignForm";
 import { DummyCampaignLogs } from "./DummyCampaignLogs";
@@ -630,6 +631,9 @@ export function DummyCampaignDashboard(props: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [, startTransition] = useTransition();
 
+  const [isActivatingDaily, setIsActivatingDaily] = useState(false);
+  const [quickActionNotice, setQuickActionNotice] = useState<string | null>(null);
+
   const [dispatchState, setDispatchState] = useState<DispatchState>({
     isOpen: false,
     isDispatching: false,
@@ -641,9 +645,40 @@ export function DummyCampaignDashboard(props: Props) {
 
   const { campaigns, totalCampaigns, activeCampaigns, sentToday, sentThisMonth, dailyVolume, channelBreakdown } = props;
 
+  const allTutorsCampaign = useMemo(() => {
+    return (
+      campaigns.find((c) => c.targetGroup === "ALL_TUTORS" && c.status === "ACTIVE") ??
+      campaigns.find((c) => c.targetGroup === "ALL_TUTORS") ??
+      null
+    );
+  }, [campaigns]);
+
   const onRefresh = useCallback(() => {
     startTransition(() => setRefreshKey((k) => k + 1));
   }, []);
+
+  const handleQuickActivateDaily = async () => {
+    setIsActivatingDaily(true);
+    setQuickActionNotice(null);
+    try {
+      const res = await quickActivateDailyAllTutorsCampaignAction();
+      if (res.success && res.data) {
+        setQuickActionNotice(
+          res.data.created
+            ? "⚡ Perpetual Daily Campaign created & activated for All Tutors! Auto-includes new signups."
+            : "⚡ Perpetual Daily Campaign is active for All Tutors! Running on daily schedule."
+        );
+        setSelectedId(res.data.campaignId);
+        onRefresh();
+      } else {
+        setQuickActionNotice(res.error || "Failed to activate daily schedule.");
+      }
+    } catch (err: any) {
+      setQuickActionNotice(err.message || "Failed to activate daily schedule.");
+    } finally {
+      setIsActivatingDaily(false);
+    }
+  };
 
   // Auto-select first campaign on load if available
   useEffect(() => {
@@ -829,6 +864,93 @@ export function DummyCampaignDashboard(props: Props) {
             <p className="text-xl font-black text-slate-900">{sentThisMonth.toLocaleString()}</p>
           </div>
         </div>
+      </div>
+
+      {/* ── Daily Auto-Schedule Banner Card (All Tutors & Auto-Enroll New Signups) ── */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0F2540] via-[#16365C] to-[#0A1A2E] text-white p-5 md:p-6 shadow-md border border-slate-700/60">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                {allTutorsCampaign && allTutorsCampaign.status === "ACTIVE"
+                  ? "Daily Auto-Schedule Active"
+                  : "Daily Auto-Schedule Available"}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full">
+                <Users size={12} className="text-emerald-400" /> Auto-Enrolls New Tutor Signups
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                <span>🚸</span> Offline Tuition for ≤ Class 5
+              </span>
+            </div>
+
+            <h2 className="text-lg md:text-xl font-black tracking-tight text-white flex items-center gap-2">
+              <CalendarCheck size={22} className="text-emerald-400 shrink-0" />
+              Perpetual Daily Lead Dispatch — All Tutors
+            </h2>
+
+            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+              Dispatches 1 personalized, geo-matched dummy enquiry per day to every active tutor. 
+              <strong> Any newly registered tutor or added account is automatically included on every daily pass</strong> with zero manual configuration.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {allTutorsCampaign && allTutorsCampaign.status === "ACTIVE" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleTriggerDispatch(allTutorsCampaign)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Zap size={15} /> Run Daily Pass for All Tutors Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(allTutorsCampaign.id)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-2xl font-bold text-xs transition-all cursor-pointer"
+                >
+                  <Eye size={14} /> View Live Campaign
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={isActivatingDaily}
+                onClick={handleQuickActivateDaily}
+                className="flex items-center gap-2 px-6 py-3 bg-[#2D9E6B] hover:bg-[#238357] disabled:opacity-50 text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer"
+              >
+                {isActivatingDaily ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" /> Activating Daily Schedule...
+                  </>
+                ) : (
+                  <>
+                    <Play size={15} className="fill-white" /> Activate Daily Schedule for All Tutors
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {quickActionNotice && (
+          <div className="mt-3.5 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-200 text-xs font-bold flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+              {quickActionNotice}
+            </span>
+            <button
+              type="button"
+              onClick={() => setQuickActionNotice(null)}
+              className="text-emerald-400 hover:text-white cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Main 2-Column Section: Left (Campaigns List) & Right (Detail Panel / Transcripts) ── */}

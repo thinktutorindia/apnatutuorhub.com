@@ -116,6 +116,8 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; 
   DUPLICATE: { bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200", label: "Duplicate" },
 };
 
+export type QueueTab = "ALL" | "FRESH_NEW" | "DUE" | "CALLBACKS" | "INTERESTED" | "NO_ANSWER" | "CONVERTED";
+
 export function MyStaffLeadsClient({
   leads: initialLeads,
   isSuperAdmin = false,
@@ -128,7 +130,7 @@ export function MyStaffLeadsClient({
 
   // Queue View State
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"ALL" | "DUE" | "UNPROMOTED" | "INTERESTED" | "CONVERTED">("ALL");
+  const [activeTab, setActiveTab] = useState<QueueTab>("ALL");
   const [sortBy, setSortBy] = useState<"FOLLOW_UP" | "NEWEST" | "NAME" | "CALLS">("FOLLOW_UP");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
@@ -211,15 +213,21 @@ export function MyStaffLeadsClient({
 
   // 1. Filter and Sort Queue
   const filtered = leads.filter((l) => {
+    if (activeTab === "FRESH_NEW") {
+      if ((l.status !== "ASSIGNED" && l.status !== "NEW") || (l._count?.callLogs ?? 0) > 0) return false;
+    }
     if (activeTab === "DUE") {
       if (!l.nextFollowUpAt) return false;
       return new Date(l.nextFollowUpAt) <= new Date();
     }
-    if (activeTab === "UNPROMOTED") {
-      if (l.isPromoted || l.status === "CONVERTED") return false;
+    if (activeTab === "CALLBACKS") {
+      if (l.status !== "FOLLOW_UP" && !l.nextFollowUpAt) return false;
     }
     if (activeTab === "INTERESTED") {
       if (l.status !== "INTERESTED") return false;
+    }
+    if (activeTab === "NO_ANSWER") {
+      if (l.status !== "NO_ANSWER") return false;
     }
     if (activeTab === "CONVERTED") {
       if (!l.isPromoted && l.status !== "CONVERTED") return false;
@@ -503,9 +511,14 @@ export function MyStaffLeadsClient({
     });
   };
 
+  const freshCount = leads.filter((l) => (l.status === "ASSIGNED" || l.status === "NEW") && (l._count?.callLogs ?? 0) === 0).length;
   const dueCount = leads.filter((l) => l.nextFollowUpAt && new Date(l.nextFollowUpAt) <= new Date()).length;
+  const callbackCount = leads.filter((l) => l.status === "FOLLOW_UP" || l.nextFollowUpAt).length;
   const interestedCount = leads.filter((l) => l.status === "INTERESTED").length;
+  const noAnswerCount = leads.filter((l) => l.status === "NO_ANSWER").length;
   const convertedCount = leads.filter((l) => l.isPromoted || l.status === "CONVERTED").length;
+  const processedCount = leads.length - freshCount;
+  const progressPercent = leads.length > 0 ? Math.round((processedCount / leads.length) * 100) : 100;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -565,37 +578,12 @@ export function MyStaffLeadsClient({
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <Activity size={14} className={activeMainView === "ACTIVITY" ? "text-blue-600" : ""} />
-              Activity Feed
+              <Activity size={14} className={activeMainView === "ACTIVITY" ? "text-emerald-600" : ""} />
+              Activity Logs
             </button>
           </div>
         </div>
       </div>
-
-      {/* Due Follow-Ups Alert Bar */}
-      {dueCount > 0 && (
-        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white p-3.5 rounded-2xl shadow-sm flex items-center justify-between flex-wrap gap-3 animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-black">
-              🔔
-            </div>
-            <div>
-              <p className="text-xs font-black tracking-wide">
-                {dueCount} FOLLOW-UP{dueCount > 1 ? "S" : ""} DUE RIGHT NOW!
-              </p>
-              <p className="text-[11px] text-white/90">
-                Parents or tutors requested callbacks at or before this hour.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setActiveTab("DUE")}
-            className="px-4 py-1.5 rounded-xl bg-white text-amber-900 text-xs font-black hover:bg-amber-50 shadow-xs cursor-pointer transition-all"
-          >
-            ⚡ View {dueCount} Due Leads Now
-          </button>
-        </div>
-      )}
 
       {/* Global Alert Notification */}
       {message && (
@@ -618,10 +606,133 @@ export function MyStaffLeadsClient({
          ═════════════════════════════════════════════════════════════════════════════════ */}
       {activeMainView === "QUEUE" && (
         <div className="space-y-4">
+          {/* Daily Processing Progress Tracker */}
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-3xl p-5 flex items-center justify-between flex-wrap gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-sm">
+                {progressPercent}%
+              </div>
+              <div>
+                <p className="text-sm font-black text-white flex items-center gap-2">
+                  <span>Data Pipeline: {processedCount} of {leads.length} Touched</span>
+                  {freshCount === 0 && leads.length > 0 ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                      ✓ All Data Touched — 0 Left Behind!
+                    </span>
+                  ) : freshCount > 0 ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
+                      {freshCount} Fresh Leads Pending 1st Call
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Workflow: Call <strong>Fresh Leads</strong> → Clear <strong>Due Follow-Ups</strong> → Retry <strong>No Answer</strong> → <strong>Convert to Tutors</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {freshCount > 0 && (
+                <button
+                  onClick={() => setActiveTab("FRESH_NEW")}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black hover:bg-emerald-400 transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                >
+                  <Sparkles size={13} />
+                  <span>Call Fresh Data ({freshCount})</span>
+                </button>
+              )}
+              {dueCount > 0 && (
+                <button
+                  onClick={() => setActiveTab("DUE")}
+                  className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-black hover:bg-amber-400 transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                >
+                  <Clock size={13} />
+                  <span>Call Back Due ({dueCount})</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Queue Filter Bar */}
           <div className="flex items-center justify-between flex-wrap gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
             {/* Tabs */}
             <div className="flex items-center gap-1.5 flex-wrap">
+              {freshCount > 0 && (
+                <button
+                  onClick={() => setActiveTab("FRESH_NEW")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === "FRESH_NEW"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
+                  }`}
+                >
+                  <Sparkles size={12} /> 🆕 Fresh New Data ({freshCount})
+                </button>
+              )}
+
+              {dueCount > 0 && (
+                <button
+                  onClick={() => setActiveTab("DUE")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === "DUE"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
+                  }`}
+                >
+                  <Clock size={12} /> ⏰ Due Now ({dueCount})
+                </button>
+              )}
+
+              {callbackCount > 0 && (
+                <button
+                  onClick={() => setActiveTab("CALLBACKS")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === "CALLBACKS"
+                      ? "bg-purple-600 text-white shadow-xs"
+                      : "bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100"
+                  }`}
+                >
+                  <RefreshCcw size={12} /> 📞 Call Backs ({callbackCount})
+                </button>
+              )}
+
+              {interestedCount > 0 && (
+                <button
+                  onClick={() => setActiveTab("INTERESTED")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === "INTERESTED"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                  }`}
+                >
+                  <Flame size={12} className="text-orange-500" /> 🔥 Interested ({interestedCount})
+                </button>
+              )}
+
+              {noAnswerCount > 0 && (
+                <button
+                  onClick={() => setActiveTab("NO_ANSWER")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === "NO_ANSWER"
+                      ? "bg-orange-600 text-white shadow-xs"
+                      : "bg-orange-50 text-orange-800 border border-orange-200 hover:bg-orange-100"
+                  }`}
+                >
+                  <PhoneMissed size={12} /> ⏳ No Answer ({noAnswerCount})
+                </button>
+              )}
+
+              <button
+                onClick={() => setActiveTab("CONVERTED")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "CONVERTED"
+                    ? "bg-emerald-700 text-white shadow-xs"
+                    : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                }`}
+              >
+                <CheckCircle2 size={12} /> ✓ Converted ({convertedCount})
+              </button>
+
               <button
                 onClick={() => setActiveTab("ALL")}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
@@ -631,54 +742,6 @@ export function MyStaffLeadsClient({
                 }`}
               >
                 All Assigned ({leads.length})
-              </button>
-
-              {dueCount > 0 && (
-                <button
-                  onClick={() => setActiveTab("DUE")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "DUE"
-                      ? "bg-amber-600 text-white"
-                      : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
-                  }`}
-                >
-                  <Clock size={12} /> Due Now ({dueCount})
-                </button>
-              )}
-
-              <button
-                onClick={() => setActiveTab("UNPROMOTED")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                  activeTab === "UNPROMOTED"
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                Active Queue ({leads.length - convertedCount})
-              </button>
-
-              {interestedCount > 0 && (
-                <button
-                  onClick={() => setActiveTab("INTERESTED")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "INTERESTED"
-                      ? "bg-emerald-600 text-white"
-                      : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                  }`}
-                >
-                  <Flame size={12} className="text-orange-500" /> Interested ({interestedCount})
-                </button>
-              )}
-
-              <button
-                onClick={() => setActiveTab("CONVERTED")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  activeTab === "CONVERTED"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                }`}
-              >
-                <CheckCircle2 size={12} /> Converted ({convertedCount})
               </button>
             </div>
 

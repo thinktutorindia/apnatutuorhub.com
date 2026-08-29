@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-type TabMode = "READY" | "DUPLICATES" | "ALL";
+type TabMode = "READY" | "HAS_PHONE" | "HAS_EMAIL" | "DUPLICATES" | "ALL";
 
 // ─── Real Dynamic Profile Completeness & Quality Score ─────────────────────────
 
@@ -26,14 +26,18 @@ function computeLeadQuality(lead: ParsedLead): {
   color: "emerald" | "blue" | "amber" | "rose";
   breakdown: string[];
 } {
+  if (!lead) {
+    return { score: 0, tier: "Incomplete", color: "rose", breakdown: ["✗ No data"] };
+  }
+
   let score = 0;
   const breakdown: string[] = [];
 
   const hasPhone = Boolean(lead.phone && lead.phone.replace(/\D/g, "").length === 10);
   const hasEmail = Boolean(lead.email && lead.email.includes("@"));
   const hasLocation = Boolean(lead.location && lead.location.trim().length > 1);
-  const hasSubjects = Boolean(lead.subjects && lead.subjects.length > 0);
-  const hasClasses = Boolean(lead.classes && lead.classes.length > 0);
+  const hasSubjects = Boolean(lead.subjects && Array.isArray(lead.subjects) && lead.subjects.length > 0);
+  const hasClasses = Boolean(lead.classes && Array.isArray(lead.classes) && lead.classes.length > 0);
 
   if (hasPhone) {
     score += 40;
@@ -56,12 +60,12 @@ function computeLeadQuality(lead: ParsedLead): {
 
   if (hasSubjects) {
     score += 10;
-    breakdown.push(`✓ ${lead.subjects.length} Subject(s) (+10%)`);
+    breakdown.push(`✓ ${lead.subjects?.length ?? 0} Subject(s) (+10%)`);
   }
 
   if (hasClasses) {
     score += 10;
-    breakdown.push(`✓ ${lead.classes.length} Class(es) (+10%)`);
+    breakdown.push(`✓ ${lead.classes?.length ?? 0} Class(es) (+10%)`);
   }
 
   if (score >= 80) return { score, tier: "Complete", color: "emerald", breakdown };
@@ -236,6 +240,11 @@ export function StaffLeadsUploadClient() {
 
   const duplicateLeads = leads.filter((l) => l.isDuplicate);
   const totalMissingContact = leads.filter((l) => !l.phone && !l.email).length;
+  const totalPhones = leads.filter((l) => Boolean(l.phone)).length;
+  const totalEmails = leads.filter((l) => Boolean(l.email)).length;
+  const totalBothPhoneAndEmail = leads.filter((l) => Boolean(l.phone && l.email)).length;
+  const totalPhoneOnly = leads.filter((l) => Boolean(l.phone && !l.email)).length;
+  const totalEmailOnly = leads.filter((l) => Boolean(!l.phone && l.email)).length;
 
   // Filtered List based on tab and filters
   const filteredIndexedLeads = leads
@@ -252,7 +261,15 @@ export function StaffLeadsUploadClient() {
         if (requireContactMethod && !lead.phone && !lead.email) return false;
         if (requireBothPhoneAndEmail && (!lead.phone || !lead.email)) return false;
       }
-      // Tab 3: ALL (no exclusion)
+      // Tab 3: HAS_PHONE
+      else if (activeTab === "HAS_PHONE") {
+        if (!lead.phone) return false;
+      }
+      // Tab 4: HAS_EMAIL
+      else if (activeTab === "HAS_EMAIL") {
+        if (!lead.email) return false;
+      }
+      // Tab 5: ALL (no exclusion)
 
       // Search Query Filter
       if (searchQuery.trim()) {
@@ -261,8 +278,8 @@ export function StaffLeadsUploadClient() {
         const matchPhone = lead.phone?.toLowerCase().includes(query);
         const matchEmail = lead.email?.toLowerCase().includes(query);
         const matchLoc = lead.location?.toLowerCase().includes(query);
-        const matchSub = lead.subjects.some((s) => s.toLowerCase().includes(query));
-        const matchClass = lead.classes.some((c) => c.toLowerCase().includes(query));
+        const matchSub = (lead.subjects || []).some((s) => s?.toLowerCase().includes(query));
+        const matchClass = (lead.classes || []).some((c) => c?.toLowerCase().includes(query));
         return matchName || matchPhone || matchEmail || matchLoc || matchSub || matchClass;
       }
       return true;
@@ -319,8 +336,20 @@ export function StaffLeadsUploadClient() {
                     <Sparkles size={12} /> High-Speed Lead Engine
                   </span>
                 </h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Extracted <strong>{leads.length} tutor leads</strong> from <strong>{totalMessages} messages</strong> · <strong>{readyToSaveLeads.length} ready to save</strong> · <strong>{duplicateLeads.length} in database</strong>
+                <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  <span>Extracted <strong>{leads.length.toLocaleString()} tutor leads</strong> from <strong>{totalMessages.toLocaleString()} messages</strong></span>
+                  <span>·</span>
+                  <span className="font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 inline-flex items-center gap-1">
+                    <Phone size={11} /> {totalPhones.toLocaleString()} Phones Total
+                  </span>
+                  <span>·</span>
+                  <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1">
+                    <Mail size={11} /> {totalEmails.toLocaleString()} Emails Total
+                  </span>
+                  <span>·</span>
+                  <span><strong>{readyToSaveLeads.length.toLocaleString()} ready to save</strong></span>
+                  <span>·</span>
+                  <span><strong>{duplicateLeads.length.toLocaleString()} in database</strong></span>
                 </p>
               </div>
             </div>
@@ -343,6 +372,90 @@ export function StaffLeadsUploadClient() {
             </div>
           </div>
 
+          {/* Quick Metrics Bar: Total Phones, Total Emails, Both & Duplicates */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+            <div
+              onClick={() => setActiveTab("HAS_PHONE")}
+              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                activeTab === "HAS_PHONE"
+                  ? "bg-blue-100/90 border-blue-400 ring-2 ring-blue-400/20 shadow-xs"
+                  : "bg-blue-50/70 border-blue-200/80 hover:bg-blue-100/60"
+              }`}
+            >
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Phone size={17} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Total Phone Numbers</p>
+                <p className="text-lg font-black text-slate-900 leading-tight">
+                  {totalPhones.toLocaleString()}
+                  <span className="text-[11px] font-semibold text-slate-500 ml-1.5 font-normal">
+                    ({Math.round((totalPhones / (leads.length || 1)) * 100)}%)
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setActiveTab("HAS_EMAIL")}
+              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                activeTab === "HAS_EMAIL"
+                  ? "bg-emerald-100/90 border-emerald-400 ring-2 ring-emerald-400/20 shadow-xs"
+                  : "bg-emerald-50/70 border-emerald-200/80 hover:bg-emerald-100/60"
+              }`}
+            >
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Mail size={17} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Total Email Addresses</p>
+                <p className="text-lg font-black text-slate-900 leading-tight">
+                  {totalEmails.toLocaleString()}
+                  <span className="text-[11px] font-semibold text-slate-500 ml-1.5 font-normal">
+                    ({Math.round((totalEmails / (leads.length || 1)) * 100)}%)
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/80 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Sparkles size={17} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">Phone + Email Both</p>
+                <p className="text-lg font-black text-slate-900 leading-tight">
+                  {totalBothPhoneAndEmail.toLocaleString()}
+                  <span className="text-[11px] font-semibold text-purple-600 ml-1.5 font-normal">
+                    (Full Profile)
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setActiveTab("DUPLICATES")}
+              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                activeTab === "DUPLICATES"
+                  ? "bg-amber-100/90 border-amber-400 ring-2 ring-amber-400/20 shadow-xs"
+                  : "bg-amber-50/70 border-amber-200/80 hover:bg-amber-100/60"
+              }`}
+            >
+              <div className="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <ShieldCheck size={17} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">DB Duplicates</p>
+                <p className="text-lg font-black text-slate-900 leading-tight">
+                  {duplicateLeads.length.toLocaleString()}
+                  <span className="text-[11px] font-semibold text-amber-700 ml-1.5 font-normal">
+                    (In Database)
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Simple Tab Switcher + Filters */}
           <div className="flex items-center justify-between flex-wrap gap-3 pt-4 border-t border-slate-100">
             {/* Direct Tabs */}
@@ -356,6 +469,28 @@ export function StaffLeadsUploadClient() {
                 }`}
               >
                 <CheckCircle2 size={14} /> Ready to Save ({readyToSaveLeads.length})
+              </button>
+
+              <button
+                onClick={() => setActiveTab("HAS_PHONE")}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                  activeTab === "HAS_PHONE"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
+                }`}
+              >
+                <Phone size={13} /> With Phone ({totalPhones})
+              </button>
+
+              <button
+                onClick={() => setActiveTab("HAS_EMAIL")}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                  activeTab === "HAS_EMAIL"
+                    ? "bg-emerald-700 text-white shadow-sm"
+                    : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                }`}
+              >
+                <Mail size={13} /> With Email ({totalEmails})
               </button>
 
               {duplicateLeads.length > 0 && (

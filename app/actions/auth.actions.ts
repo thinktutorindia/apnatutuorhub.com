@@ -303,7 +303,7 @@ export async function resetPasswordWithTokenAction(
 }
 
 // ────────────────────────────────────────────────
-// Role Selection Action (Google OAuth Onboarding)
+// Role Selection & Dual Privilege Actions
 // ────────────────────────────────────────────────
 
 export async function selectUserRoleAction(
@@ -320,37 +320,21 @@ export async function selectUserRoleAction(
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, tutorProfile: { select: { id: true, onboardingStep: true } }, parentProfile: { select: { id: true } } },
   });
 
   if (!dbUser) {
     return { success: false, error: "User session expired. Please sign in again.", redirectTo: "/login" };
   }
 
-  const dashboardByRole: Record<string, string> = {
-    PARENT: "/parent/dashboard",
-    TUTOR: "/tutor/dashboard",
-    SUPER_ADMIN: "/admin/dashboard",
-    SUB_ADMIN: "/admin/dashboard",
-  };
-
-  if (dbUser.role && dashboardByRole[dbUser.role]) {
-    return {
-      success: false,
-      error: "Your account role is already set and cannot be changed.",
-      redirectTo: dashboardByRole[dbUser.role],
-    };
-  }
-
   if (targetRole === "TUTOR") {
     // Check if tutor profile exists or create it
-    let tutorProfile = await prisma.tutorProfile.findUnique({
-      where: { userId },
-    });
+    let tutorProfile = dbUser.tutorProfile;
 
     if (!tutorProfile) {
       tutorProfile = await prisma.tutorProfile.create({
         data: { userId },
+        select: { id: true, onboardingStep: true },
       });
     }
 
@@ -369,12 +353,11 @@ export async function selectUserRoleAction(
       data: { role: "TUTOR" },
     });
 
-    return { success: true, redirectTo: "/tutor/dashboard" };
+    const dest = (tutorProfile.onboardingStep ?? 1) < 7 ? "/tutor/onboarding" : "/tutor/dashboard";
+    return { success: true, redirectTo: dest };
   } else {
     // Target role PARENT
-    let parentProfile = await prisma.parentProfile.findUnique({
-      where: { userId },
-    });
+    let parentProfile = dbUser.parentProfile;
 
     if (!parentProfile) {
       parentProfile = await prisma.parentProfile.create({
@@ -389,4 +372,65 @@ export async function selectUserRoleAction(
 
     return { success: true, redirectTo: "/parent/dashboard" };
   }
+}
+
+/**
+ * Allows an existing Parent (or user) to register / onboard as a Tutor.
+ * Creates tutor profile, wallet, and upgrades active role to TUTOR.
+ */
+export async function registerParentAsTutorAction(): Promise<{
+  success: boolean;
+  redirectTo?: string;
+  error?: string;
+}> {
+  const { auth: getAuth } = await import("@/auth");
+  const session = await getAuth();
+
+  if (!session?.user?.id) {
+    return { success: false, error: "Please log in first.", redirectTo: "/login?callbackUrl=/tutor/onboarding" };
+  }
+
+  const userId = session.user.id;
+
+  try {
+    let tutorProfile = await prisma.tutorProfile.findUnique({
+      where: { userId },
+      select: { id: true, onboardingStep: true },
+    });
+
+    if (!tutorProfile) {
+      tutorProfile = await prisma.tutorProfile.create({
+        data: { userId },
+        select: { id: true, onboardingStep: true },
+      });
+    }
+
+    // Ensure wallet exists for tutor
+    await prisma.wallet.upsert({
+      where: { tutorProfileId: tutorProfile.id },
+      create: { tutorProfileId: tutorProfile.id },
+      update: {},
+    });
+
+    // Set user role to TUTOR
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: "TUTOR" },
+    });
+
+    const dest = (tutorProfile.onboardingStep ?? 1) < 7 ? "/tutor/onboarding" : "/tutor/dashboard";
+    return { success: true, redirectTo: dest };
+  } catch (err: any) {
+    console.error("[registerParentAsTutorAction] error:", err);
+    return { success: false, error: "Failed to register as tutor. Please try again." };
+  }
+}
+
+/**
+ * Switch active view between PARENT and TUTOR for dual-role users
+ */
+export async function switchUserRoleAction(
+  targetRole: "PARENT" | "TUTOR"
+): Promise<{ success: boolean; redirectTo?: string; error?: string }> {
+  return selectUserRoleAction(targetRole);
 }

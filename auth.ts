@@ -255,7 +255,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { email: true, isActive: true },
+          select: { id: true, email: true, isActive: true, role: true, tutorProfile: { select: { id: true } } },
         });
         if (dbUser) {
           if (!dbUser.isActive) return false;
@@ -263,6 +263,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (user.email && dbUser.email.toLowerCase() !== user.email.toLowerCase()) {
             console.error(`[OAuth Guard] Mismatched OAuth email (${user.email}) for DB user (${dbUser.email})`);
             return false;
+          }
+
+          // Check if user registered with intent to be a TUTOR
+          try {
+            const { cookies: getCookies } = await import("next/headers");
+            const cookieStore = await getCookies();
+            const intendedRole = cookieStore.get("intended_role")?.value;
+            if (intendedRole === "TUTOR" && dbUser.role !== "TUTOR" && dbUser.role !== "SUPER_ADMIN" && dbUser.role !== "SUB_ADMIN") {
+              let tutorProfile = dbUser.tutorProfile;
+              if (!tutorProfile) {
+                tutorProfile = await prisma.tutorProfile.create({
+                  data: { userId: dbUser.id },
+                  select: { id: true },
+                });
+              }
+              await prisma.wallet.upsert({
+                where: { tutorProfileId: tutorProfile.id },
+                create: { tutorProfileId: tutorProfile.id },
+                update: {},
+              });
+              await prisma.user.update({
+                where: { id: dbUser.id },
+                data: { role: "TUTOR" },
+              });
+            }
+          } catch {
+            // Ignore cookie read failures in edge environments
           }
         }
       }

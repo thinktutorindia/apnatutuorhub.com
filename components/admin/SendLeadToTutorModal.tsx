@@ -49,7 +49,7 @@ import {
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
-import { getInquiryDisplayCode, getInquiryHashTag, isGenuineEmail, isSystemGeneratedEmail } from "@/lib/lead-utils";
+import { getInquiryDisplayCode, getInquiryHashTag, isGenuineEmail, isSystemGeneratedEmail, isTill5thClass } from "@/lib/lead-utils";
 
 export function SendLeadToTutorModal({
   leadId,
@@ -116,7 +116,7 @@ export function SendLeadToTutorModal({
           notes: res.data.lead.notes,
           timingPreference: res.data.lead.timingPreference,
           schedule: res.data.lead.timingPreference || "5 Days a Week",
-          contactWhatsApp: "62307 89155",
+          contactWhatsApp: "87997 07960",
         });
         setCustomNotificationMsg((prev) => prev || initialTemplate);
       } else {
@@ -147,6 +147,7 @@ export function SendLeadToTutorModal({
   };
 
   // Counts
+  const isOnlineDisabled = lead && lead.mode === "ONLINE" && isTill5thClass(lead.classLevel);
   const genuineCount = useMemo(() => tutors.filter((t) => isGenuineEmail(t.email)).length, [tutors]);
   const systemCount = useMemo(() => tutors.filter((t) => isSystemGeneratedEmail(t.email)).length, [tutors]);
   const selectedTutors = useMemo(() => tutors.filter((t) => selectedUserIds.includes(t.userId)), [tutors, selectedUserIds]);
@@ -269,7 +270,7 @@ export function SendLeadToTutorModal({
       notes: lead.notes,
       timingPreference: lead.timingPreference,
       schedule: lead.timingPreference || "5 Days a Week",
-      contactWhatsApp: "62307 89155",
+      contactWhatsApp: "87997 07960",
     });
     return `${greeting}${formatted}`;
   };
@@ -546,6 +547,13 @@ export function SendLeadToTutorModal({
             )}
 
             {/* Feedback Alert */}
+            {isOnlineDisabled && (
+              <div className="mx-6 mt-3.5 flex items-center gap-2.5 rounded-2xl p-3.5 text-xs font-bold bg-amber-50 border border-amber-300 text-amber-950">
+                <AlertCircle size={16} className="shrink-0 text-amber-600" />
+                <span>🚸 Online classes are disabled for classes up to 5th grade (children cannot take online classes). Notifications cannot be sent for this lead.</span>
+              </div>
+            )}
+
             {feedbackMsg && (
               <div
                 className={`mx-6 mt-3.5 flex items-center justify-between rounded-2xl p-3.5 text-xs font-bold shrink-0 border ${
@@ -1100,7 +1108,7 @@ export function SendLeadToTutorModal({
                           const classStr = `${lead?.classLevel || "Standard"}${lead?.subjects?.length ? ` (${lead.subjects.slice(0, 2).join(", ")})` : ""}`;
                           const locStr = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
                           setCustomNotificationMsg(
-                            `🚨 URGENT REQUIREMENT: Lead #${leadNum} for ${classStr} in ${locStr}! Dm on WhatsApp 62307 89155 or unlock on portal.`
+                            `🚨 URGENT REQUIREMENT: Lead #${leadNum} for ${classStr} in ${locStr}! Dm on WhatsApp 87997 07960 or unlock on portal.`
                           );
                         }}
                         className="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-bold cursor-pointer transition-colors shadow-2xs"
@@ -1114,7 +1122,7 @@ export function SendLeadToTutorModal({
                           const feesStr = lead?.budgetMin && lead?.budgetMax ? `₹${lead.budgetMin} - ₹${lead.budgetMax}/mo` : "₹5000/mo";
                           const locStr = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
                           setCustomNotificationMsg(
-                            `💎 HIGH BUDGET TUITION: Lead #${leadNum} offering ${feesStr} in ${locStr}. Dm on WhatsApp 62307 89155 to claim.`
+                            `💎 HIGH BUDGET TUITION: Lead #${leadNum} offering ${feesStr} in ${locStr}. Dm on WhatsApp 87997 07960 to claim.`
                           );
                         }}
                         className="px-3 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-950 border border-blue-200 text-xs font-bold cursor-pointer transition-colors shadow-2xs"
@@ -1195,11 +1203,11 @@ export function SendLeadToTutorModal({
                       <button
                         type="button"
                         onClick={() => {
-                          setCustomNotificationMsg((prev) => (prev ? `${prev} Dm on WhatsApp 62307 89155` : "Dm on WhatsApp 62307 89155"));
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} Dm on WhatsApp 87997 07960` : "Dm on WhatsApp 87997 07960"));
                         }}
                         className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-950 text-[11px] font-extrabold border border-emerald-200 cursor-pointer"
                       >
-                        + WhatsApp (62307 89155)
+                        + WhatsApp (87997 07960)
                       </button>
                       <button
                         type="button"
@@ -1286,8 +1294,9 @@ export function SendLeadToTutorModal({
 
                   <button
                     type="button"
-                    disabled={selectedUserIds.length === 0 || isPending}
+                    disabled={selectedUserIds.length === 0 || isPending || isOnlineDisabled}
                     onClick={handleSendBatchNotifications}
+                    title={isOnlineDisabled ? "Online notifications disabled for <= Class 5" : undefined}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
                   >
                     <Send size={14} />

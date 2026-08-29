@@ -17,7 +17,7 @@ export default async function TutorOnboardingPage() {
     redirect("/login?callbackUrl=/tutor/onboarding");
   }
 
-  const tutorProfile = await prisma.tutorProfile.findUnique({
+  let tutorProfile = await prisma.tutorProfile.findUnique({
     where: { userId: session.user.id },
     select: {
       id: true,
@@ -48,7 +48,45 @@ export default async function TutorOnboardingPage() {
   });
 
   if (!tutorProfile) {
-    redirect("/tutor/dashboard");
+    const created = await prisma.tutorProfile.create({
+      data: { userId: session.user.id },
+    });
+    await prisma.wallet.upsert({
+      where: { tutorProfileId: created.id },
+      create: { tutorProfileId: created.id },
+      update: {},
+    });
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { role: "TUTOR" },
+    });
+
+    tutorProfile = {
+      id: created.id,
+      onboardingStep: 1,
+      city: created.city,
+      state: created.state,
+      pincode: created.pincode,
+      address: created.address,
+      latitude: created.latitude,
+      longitude: created.longitude,
+      gender: created.gender,
+      teachingStartYear: created.teachingStartYear,
+      subjects: created.subjects,
+      classLevels: created.classLevels,
+      teachingMode: created.teachingMode,
+      teachingRadius: created.teachingRadius,
+      educationCourse: created.educationCourse,
+      educationSubjects: created.educationSubjects,
+      educationUniversity: created.educationUniversity,
+      educationYear: created.educationYear,
+      interestedIn: created.interestedIn,
+      profession: created.profession,
+      dateOfBirth: created.dateOfBirth,
+      referralSource: created.referralSource,
+      maritalStatus: created.maritalStatus,
+      bio: created.bio,
+    };
   }
 
   // If onboarding already complete, redirect to plans

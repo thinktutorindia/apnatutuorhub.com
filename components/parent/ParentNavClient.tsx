@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   LayoutDashboard, BookOpen, Calendar, MessageSquare,
-  User, LogOut, X, Menu, ChevronRight, PlusCircle, Gift,
+  User, LogOut, X, Menu, ChevronRight, PlusCircle, Gift, GraduationCap,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -87,6 +87,16 @@ export function ParentNavClient({ userName, userEmail, userImage, unreadCount }:
             </Link>
           );
         })}
+
+        {/* Dual Role Quick Link: Register / Switch to Tutor */}
+        <Link
+          href="/tutor/onboarding"
+          className="group flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-800 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-2xs ml-1"
+          title="Register or switch to Tutor profile"
+        >
+          <GraduationCap size={15} className="text-amber-600 group-hover:scale-110 transition-transform" />
+          <span>Teach / Tutor</span>
+        </Link>
       </nav>
 
       {/* Mobile Menu Trigger Button */}
@@ -166,6 +176,22 @@ export function ParentNavClient({ userName, userEmail, userImage, unreadCount }:
                   </Link>
                 );
               })}
+
+              {/* Dual Role Tutor Registration Card */}
+              <div className="pt-2">
+                <Link
+                  href="/tutor/onboarding"
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs font-800 hover:bg-amber-100 transition-all shadow-2xs"
+                >
+                  <GraduationCap size={20} className="text-amber-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-800 text-amber-950">Become a Tutor 🎓</p>
+                    <p className="text-[10px] text-amber-700 font-normal">Teach &amp; earn on ApnaTutorHub</p>
+                  </div>
+                  <ChevronRight size={14} className="text-amber-600 shrink-0" />
+                </Link>
+              </div>
             </nav>
 
             <div className="p-4 border-t border-slate-200 bg-slate-50">

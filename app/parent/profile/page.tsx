@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
+import { GraduationCap, ArrowRight, Sparkles } from "lucide-react";
 import { ParentProfileForm } from "@/components/parent/ParentProfileForm";
 import { StudentProfilesSection } from "@/components/parent/StudentProfilesSection";
 
@@ -66,6 +68,30 @@ export default async function ParentProfilePage() {
             Manage your personal contact info, location address, and student profiles for faster requirement posting
           </p>
         </div>
+      </div>
+
+      {/* Dual Role / Teach as Tutor Banner */}
+      <div className="rounded-3xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 p-6 sm:p-8 border border-amber-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-extrabold">
+            <Sparkles size={13} className="text-amber-600" />
+            <span>Dual Role Privilege</span>
+          </div>
+          <h2 className="text-lg sm:text-xl font-800 text-[#0F2540]">
+            Want to teach &amp; earn as a Tutor too? 🎓
+          </h2>
+          <p className="text-xs text-slate-600 font-500 max-w-xl leading-relaxed">
+            You can keep your parent account active and also register as a verified tutor on ApnaTutorHub. Set your own teaching fees, choose your nearby localities, and receive verified student leads.
+          </p>
+        </div>
+        <Link
+          href="/tutor/onboarding"
+          className="px-5 py-3 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs shadow-md hover:shadow-lg transition-all shrink-0 hover:scale-105 active:scale-95 flex items-center gap-2"
+        >
+          <GraduationCap size={16} className="text-amber-400" />
+          <span>Register as Tutor</span>
+          <ArrowRight size={14} />
+        </Link>
       </div>
 
       {/* Profile Form Container */}

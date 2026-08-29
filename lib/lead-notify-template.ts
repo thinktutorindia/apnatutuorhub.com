@@ -11,7 +11,7 @@
  * 𝐆𝐞𝐧𝐝𝐞𝐫 𝐏𝐫𝐞𝐟𝐞𝐫𝐞𝐧𝐜𝐞: 𝐀𝐧𝐲 (𝐂𝐚𝐥𝐦 𝐚𝐧𝐝 𝐏𝐨𝐥𝐢𝐭𝐞 𝐓𝐮𝐭𝐨𝐫)
  * 𝐒𝐜𝐡𝐞𝐝𝐮𝐥𝐞: 𝟓 𝐃𝐚𝐲𝐬 𝐚 𝐖𝐞𝐞𝐤
  *
- * Dm on WhatsApp  62307 89155
+ * Dm on WhatsApp  87997 07960
  * 👑 VIP Membership Plan: https://apnatutorhub.com/tutor/plans
  * 🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads
  */
@@ -102,7 +102,7 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
   const genderWithNotes = `${genderStr}${notesExtra}`;
 
   const scheduleStr = data.schedule || data.timingPreference || "5 Days a Week";
-  const whatsappNum = data.contactWhatsApp || "62307 89155";
+  const whatsappNum = data.contactWhatsApp || "87997 07960";
 
   if (data.useStandardMarkdown) {
     return [

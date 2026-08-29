@@ -38,6 +38,7 @@ import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
+import { isTill5thClass } from "@/lib/lead-utils";
 import type { TeachingMode } from "@prisma/client";
 
 export type ResolvedLocation = {
@@ -241,6 +242,12 @@ export function CreateLeadModal({
     );
   };
 
+  useEffect(() => {
+    if (isTill5thClass(classLevel) && mode === "ONLINE") {
+      setMode("OFFLINE");
+    }
+  }, [classLevel, mode]);
+
   const addCustomSubject = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const clean = customSubjectInput.trim();
@@ -366,7 +373,7 @@ export function CreateLeadModal({
       notes,
       timingPreference,
       schedule: timingPreference || "5 Days a Week",
-      contactWhatsApp: "62307 89155",
+      contactWhatsApp: "87997 07960",
     });
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -714,10 +721,19 @@ export function CreateLeadModal({
                           className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 outline-none focus:border-[#2D9E6B] font-semibold text-xs shadow-2xs"
                         >
                           <option value="OFFLINE">Home Tuition (Offline)</option>
-                          <option value="ONLINE">Online Only</option>
+                          {!isTill5thClass(classLevel) ? (
+                            <option value="ONLINE">Online Only</option>
+                          ) : (
+                            <option value="ONLINE" disabled>Online Only (Disabled for ≤ Class 5)</option>
+                          )}
                           <option value="COACHING">Coaching / Institute</option>
                           <option value="EITHER">Either (Home / Online)</option>
                         </select>
+                        {isTill5thClass(classLevel) && (
+                          <p className="mt-1 text-[11px] text-amber-700 font-semibold flex items-center gap-1">
+                            <span>🚸</span> Online classes disabled for Class 1–5 (requires offline tuition).
+                          </p>
+                        )}
                       </div>
                     </div>
 

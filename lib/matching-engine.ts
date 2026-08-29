@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { expandToIndividualClasses } from "@/lib/dummy-campaign-types";
+import { isTill5thClass } from "@/lib/lead-utils";
 import type { TeachingMode, KycStatus } from "@prisma/client";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -127,7 +128,15 @@ export function coversClassLevel(tutorClassLevels: string[], leadClassLevel: str
 }
 
 /** Filter 3: Teaching mode compatibility. */
-export function isModeCompatible(tutorMode: TeachingMode, leadMode: TeachingMode): boolean {
+export function isModeCompatible(
+  tutorMode: TeachingMode,
+  leadMode: TeachingMode,
+  classLevel?: string
+): boolean {
+  // Online classes are strictly disabled for classes up to 5th grade (Nursery to Class 5)
+  if (leadMode === "ONLINE" && classLevel && isTill5thClass(classLevel)) {
+    return false;
+  }
   if (tutorMode === "EITHER" || leadMode === "EITHER") return true;
   // Online classes are location-independent: any registered tutor who can teach the subject can take online classes
   if (leadMode === "ONLINE") return true;
@@ -239,6 +248,12 @@ export async function findMatchingTutors(
     return [];
   }
 
+  // Guard: Online classes are strictly disabled for early grades (Nursery to Class 5)
+  if (lead.mode === "ONLINE" && isTill5thClass(lead.classLevel)) {
+    console.info(`[matching-engine] Online classes disabled for ${lead.classLevel} — returning 0 matches.`);
+    return [];
+  }
+
   // Fetch already-purchased tutor IDs to exclude
   const existingPurchases = await prisma.leadPurchase.findMany({
     where: { leadId: lead.id },
@@ -293,7 +308,7 @@ export async function findMatchingTutors(
     if (!coversClassLevel(effectiveTutorClasses, lead.classLevel)) continue;
 
     // Filter 3: Mode compatibility
-    if (!isModeCompatible(tutor.teachingMode, lead.mode)) continue;
+    if (!isModeCompatible(tutor.teachingMode, lead.mode, lead.classLevel)) continue;
 
     // Filter 4: Budget compatibility
     if (!isBudgetCompatible(tutor.feeMin, lead.budgetMax)) continue;

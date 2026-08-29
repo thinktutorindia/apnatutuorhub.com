@@ -90,10 +90,10 @@ export type FeedLead = {
 };
 
 const MODE_LABELS: Record<string, string> = {
-  ONLINE: "Online Only",
-  OFFLINE: "Home Tuition (Offline)",
-  EITHER: "Home or Online",
-  COACHING: "Coaching Institute",
+  ONLINE: "Online",
+  OFFLINE: "Home Tuition",
+  EITHER: "Home Tuition",
+  COACHING: "Home Tuition",
 };
 
 const MODE_STYLES: Record<string, { bg: string; text: string; border: string }> = {

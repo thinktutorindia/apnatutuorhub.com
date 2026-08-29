@@ -7,6 +7,7 @@ import { Search, Database, Cpu, RefreshCw, CheckCircle, AlertTriangle } from "lu
 export const metadata = {
   title: "Search Engine Control Panel | ApnaTutorHub Admin",
 };
+export const dynamic = "force-dynamic";
 
 export default async function AdminSearchPage() {
   const session = await auth();

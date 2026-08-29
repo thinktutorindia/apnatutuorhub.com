@@ -11,20 +11,6 @@ export default function SelectRolePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    const role = session?.user?.role;
-    const dest: Record<string, string> = {
-      PARENT: "/parent/dashboard",
-      TUTOR: "/tutor/dashboard",
-      SUPER_ADMIN: "/admin/dashboard",
-      SUB_ADMIN: "/admin/dashboard",
-    };
-    if (role && dest[role]) {
-      window.location.replace(dest[role]);
-    }
-  }, [session, status]);
-
   const handleConfirmRole = async () => {
     setIsSubmitting(true);
     setError("");
@@ -53,13 +39,13 @@ export default function SelectRolePage() {
       <div className="text-center space-y-2">
         <div className="neu-badge bg-[#DCFCE7] text-[#0F172A] inline-flex items-center gap-1.5 px-3 py-1 text-xs">
           <Sparkles size={14} className="text-amber-500" />
-          <span>Account Setup</span>
+          <span>Account Role Selection</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
           How do you want to use ApnaTutorHub? 🤔
         </h1>
         <p className="text-sm font-semibold text-slate-600 max-w-sm mx-auto">
-          Choose your primary account role below. This cannot be changed later.
+          Choose your account role below. Parents can also register as a Tutor anytime.
         </p>
       </div>
 

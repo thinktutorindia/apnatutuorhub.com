@@ -132,18 +132,23 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
   // ── 6. Role-Level & Sub-Admin Route Guard ────────────────────────────────
   // Public tutor profile (`/tutor/{id}`) is exempt from the TUTOR role gate so
   // parents, admins and (via step 2) logged-out visitors can view it.
+  // /tutor/onboarding is accessible to all authenticated users registering as tutors.
   if (session?.user && !isPublicTutorProfile(pathname)) {
-    for (const [routePrefix, allowedRoles] of Object.entries(ROLE_ROUTES)) {
-      if (pathname.startsWith(routePrefix)) {
-        if (!allowedRoles.includes(session.user.role)) {
-          const redirectMap: Record<string, string> = {
-            PARENT: "/parent/dashboard",
-            TUTOR: "/tutor/dashboard",
-            SUPER_ADMIN: "/admin/dashboard",
-            SUB_ADMIN: "/admin/dashboard",
-          };
-          const dest = redirectMap[session.user.role] || "/";
-          return NextResponse.redirect(new URL(dest, req.nextUrl.origin));
+    const isTutorOnboarding = pathname.startsWith("/tutor/onboarding");
+
+    if (!isTutorOnboarding) {
+      for (const [routePrefix, allowedRoles] of Object.entries(ROLE_ROUTES)) {
+        if (pathname.startsWith(routePrefix)) {
+          if (!allowedRoles.includes(session.user.role)) {
+            const redirectMap: Record<string, string> = {
+              PARENT: "/parent/dashboard",
+              TUTOR: "/tutor/dashboard",
+              SUPER_ADMIN: "/admin/dashboard",
+              SUB_ADMIN: "/admin/dashboard",
+            };
+            const dest = redirectMap[session.user.role] || "/";
+            return NextResponse.redirect(new URL(dest, req.nextUrl.origin));
+          }
         }
       }
     }
@@ -173,8 +178,14 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
       SUB_ADMIN: "/admin/dashboard",
     };
 
-    if (pathname === "/register" && session.user.role && dashboardByRole[session.user.role]) {
-      return NextResponse.redirect(new URL(dashboardByRole[session.user.role], req.nextUrl.origin));
+    if (pathname === "/register") {
+      const roleParam = req.nextUrl.searchParams.get("role");
+      if (roleParam === "tutor" && session.user.role === "PARENT") {
+        return NextResponse.redirect(new URL("/tutor/onboarding", req.nextUrl.origin));
+      }
+      if (session.user.role && dashboardByRole[session.user.role]) {
+        return NextResponse.redirect(new URL(dashboardByRole[session.user.role], req.nextUrl.origin));
+      }
     }
 
     if (pathname === "/select-role" && session.user.role && dashboardByRole[session.user.role]) {

@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
   // Enable React strict mode for development
   reactStrictMode: true,
 
+  // Configure Server Actions body size limit (allows large 50MB WhatsApp/CSV bulk lead uploads)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "50mb",
+    },
+  },
+
   // Allow mobile LAN origins for dev server HMR & client JS bundle hydration
   allowedDevOrigins: [
     "localhost:3000",

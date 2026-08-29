@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isTill5thClass } from "@/lib/lead-utils";
 
 // ────────────────────────────────────────────────
 // Constants & Taxonomy
@@ -380,6 +381,7 @@ const leadPreferenceShape = {
 
 type LeadBudgetAndLocation = {
   mode?: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
+  classLevel?: string;
   budgetMin?: number;
   budgetMax?: number;
   city?: string;
@@ -398,6 +400,14 @@ function checkBudgetAndLocation(
       code: z.ZodIssueCode.custom,
       path: ["budgetMax"],
       message: "Maximum budget must be at least the minimum",
+    });
+  }
+
+  if (value.mode === "ONLINE" && value.classLevel && isTill5thClass(value.classLevel)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["mode"],
+      message: "Online classes are not available for classes up to 5th grade. Please select Home Tuition (Offline).",
     });
   }
 

@@ -22,19 +22,18 @@ export async function resolveTutorContext(): Promise<TutorContextResult> {
     };
   }
 
-  if (!can({ role: session.user.role }, "kyc:upload")) {
-    return {
-      ok: false,
-      result: actionError("Only tutor accounts can manage KYC and profiles."),
-    };
-  }
-
   const tutorProfile = await prisma.tutorProfile.findUnique({
     where: { userId: session.user.id },
     select: { id: true },
   });
 
   if (!tutorProfile) {
+    if (!can({ role: session.user.role }, "kyc:upload")) {
+      return {
+        ok: false,
+        result: actionError("Only tutor accounts can manage KYC and profiles."),
+      };
+    }
     return {
       ok: false,
       result: actionError("We could not find your tutor profile."),

@@ -2,6 +2,7 @@ import { getStaffCrmManagementHubDataAction } from "@/app/actions/staff-leads.ac
 import { StaffCrmManagementClient } from "@/components/admin/staff-leads/StaffCrmManagementClient";
 
 export const metadata = { title: "Manage Staff CRM — ApnaTutorHub Admin" };
+export const dynamic = "force-dynamic";
 
 export default async function StaffCrmManagePage() {
   const res = await getStaffCrmManagementHubDataAction();

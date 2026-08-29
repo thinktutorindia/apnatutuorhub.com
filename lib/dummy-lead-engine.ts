@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush } from "@/lib/web-push";
 import { renderDummyLeadEmail } from "@/emails/DummyLeadEmail";
+import { isTill5thClass } from "@/lib/lead-utils";
 
 // ─── Geo-tagged Locality Database ─────────────────────────────────────────────
 // Format: { name, city, lat, lng }
@@ -26,50 +27,44 @@ interface GeoLocality {
 
 export const GEO_LOCALITIES: GeoLocality[] = [
   // ── DELHI ──────────────────────────────────────────────────────────────────
-  { name: "Sangam Vihar",       city: "Delhi", lat: 28.5080, lng: 77.2590 },
-  { name: "Batra",              city: "Delhi", lat: 28.5100, lng: 77.2470 },
-  { name: "Batra Hospital",     city: "Delhi", lat: 28.5095, lng: 77.2485 },
-  { name: "Sainik Farm",        city: "Delhi", lat: 28.5152, lng: 77.2340 },
-  { name: "Khanpur",            city: "Delhi", lat: 28.4986, lng: 77.2555 },
-  { name: "Devli",              city: "Delhi", lat: 28.5034, lng: 77.2419 },
-  { name: "Tigri",              city: "Delhi", lat: 28.5065, lng: 77.2460 },
-  { name: "Govindpuri",         city: "Delhi", lat: 28.5252, lng: 77.2571 },
-  { name: "Hamdard Nagar",      city: "Delhi", lat: 28.5135, lng: 77.2500 },
-  { name: "Ambedkar Nagar",     city: "Delhi", lat: 28.5160, lng: 77.2455 },
-  { name: "Madangir",           city: "Delhi", lat: 28.5128, lng: 77.2170 },
-  { name: "Okhla Phase I",      city: "Delhi", lat: 28.5361, lng: 77.2750 },
-  { name: "Jaitpur",            city: "Delhi", lat: 28.4932, lng: 77.2712 },
-  { name: "Badarpur",           city: "Delhi", lat: 28.4954, lng: 77.2841 },
-  { name: "Tughlakabad",        city: "Delhi", lat: 28.5046, lng: 77.2762 },
-  { name: "Malviya Nagar",      city: "Delhi", lat: 28.5310, lng: 77.2100 },
-  { name: "Saket",              city: "Delhi", lat: 28.5242, lng: 77.2085 },
-  { name: "Hauz Khas",          city: "Delhi", lat: 28.5494, lng: 77.2001 },
-  { name: "Greater Kailash",    city: "Delhi", lat: 28.5478, lng: 77.2422 },
-  { name: "Lajpat Nagar",       city: "Delhi", lat: 28.5668, lng: 77.2432 },
-  { name: "Nehru Place",        city: "Delhi", lat: 28.5491, lng: 77.2519 },
-  { name: "Pul Prahladpur",     city: "Delhi", lat: 28.5297, lng: 77.2680 },
-  { name: "Uttam Nagar",        city: "Delhi", lat: 28.6217, lng: 77.0556 },
-  { name: "Uttam Nagar West",   city: "Delhi", lat: 28.6210, lng: 77.0520 },
-  { name: "Uttam Nagar East",   city: "Delhi", lat: 28.6230, lng: 77.0580 },
-  { name: "Nawada",             city: "Delhi", lat: 28.6200, lng: 77.0420 },
-  { name: "Dwarka Mor",         city: "Delhi", lat: 28.6190, lng: 77.0320 },
-  { name: "Janakpuri",          city: "Delhi", lat: 28.6180, lng: 77.0827 },
-  { name: "Vikaspuri",          city: "Delhi", lat: 28.6360, lng: 77.0720 },
-  { name: "Tilak Nagar",        city: "Delhi", lat: 28.6366, lng: 77.0962 },
-  { name: "Subhash Nagar",      city: "Delhi", lat: 28.6402, lng: 77.1047 },
-  { name: "Rajouri Garden",     city: "Delhi", lat: 28.6446, lng: 77.1237 },
-  { name: "Paschim Vihar",      city: "Delhi", lat: 28.6680, lng: 77.1069 },
-  { name: "Dwarka Sector 10",   city: "Delhi", lat: 28.5838, lng: 77.0476 },
-  { name: "Dwarka Sector 7",    city: "Delhi", lat: 28.5872, lng: 77.0612 },
-  { name: "Pitampura",          city: "Delhi", lat: 28.7053, lng: 77.1317 },
-  { name: "Rohini Sector 7",    city: "Delhi", lat: 28.7120, lng: 77.1200 },
-  { name: "Rohini Sector 9",    city: "Delhi", lat: 28.7197, lng: 77.1109 },
-  { name: "Prashant Vihar",     city: "Delhi", lat: 28.7150, lng: 77.1350 },
-  { name: "Karol Bagh",         city: "Delhi", lat: 28.6514, lng: 77.1907 },
-  { name: "Preet Vihar",        city: "Delhi", lat: 28.6452, lng: 77.2967 },
-  { name: "Laxmi Nagar",        city: "Delhi", lat: 28.6304, lng: 77.2777 },
-  { name: "Shahdara",           city: "Delhi", lat: 28.6728, lng: 77.2899 },
-  { name: "Vasant Kunj",        city: "Delhi", lat: 28.5212, lng: 77.1558 },
+  { name: "Sainik Farm (Western Avenue)", city: "Delhi", lat: 28.5152, lng: 77.2340 },
+  { name: "Sainik Farm (Central Avenue)", city: "Delhi", lat: 28.5170, lng: 77.2310 },
+  { name: "Peepal Chowk, Sangam Vihar",  city: "Delhi", lat: 28.5085, lng: 77.2580 },
+  { name: "Peepli Chowk",                 city: "Delhi", lat: 28.5075, lng: 77.2560 },
+  { name: "Batra Hospital Area",          city: "Delhi", lat: 28.5095, lng: 77.2485 },
+  { name: "Neb Sarai",                    city: "Delhi", lat: 28.5105, lng: 77.2250 },
+  { name: "Devli Mor",                    city: "Delhi", lat: 28.5034, lng: 77.2419 },
+  { name: "Khanpur Extension",            city: "Delhi", lat: 28.4986, lng: 77.2555 },
+  { name: "Tigri Colony",                 city: "Delhi", lat: 28.5065, lng: 77.2460 },
+  { name: "Hamdard Nagar",                city: "Delhi", lat: 28.5135, lng: 77.2500 },
+  { name: "Ambedkar Nagar Sector 4",      city: "Delhi", lat: 28.5160, lng: 77.2455 },
+  { name: "Madangir Phase 1",             city: "Delhi", lat: 28.5128, lng: 77.2170 },
+  { name: "Saket (J-Block)",              city: "Delhi", lat: 28.5242, lng: 77.2085 },
+  { name: "Malviya Nagar (Main Market)",  city: "Delhi", lat: 28.5310, lng: 77.2100 },
+  { name: "Hauz Khas Enclave",            city: "Delhi", lat: 28.5494, lng: 77.2001 },
+  { name: "Greater Kailash 1 (M-Block)",  city: "Delhi", lat: 28.5478, lng: 77.2422 },
+  { name: "Greater Kailash 2 (E-Block)",  city: "Delhi", lat: 28.5350, lng: 77.2450 },
+  { name: "CR Park (Chittaranjan Park)",  city: "Delhi", lat: 28.5380, lng: 77.2500 },
+  { name: "Alaknanda (DDA Flats)",        city: "Delhi", lat: 28.5280, lng: 77.2520 },
+  { name: "Govindpuri Extension",         city: "Delhi", lat: 28.5252, lng: 77.2571 },
+  { name: "Lajpat Nagar 4",               city: "Delhi", lat: 28.5668, lng: 77.2432 },
+  { name: "Nehru Place Outer Ring",       city: "Delhi", lat: 28.5491, lng: 77.2519 },
+  { name: "Okhla Phase I",                city: "Delhi", lat: 28.5361, lng: 77.2750 },
+  { name: "Pul Prahladpur",               city: "Delhi", lat: 28.5297, lng: 77.2680 },
+  { name: "Janakpuri (District Centre)",  city: "Delhi", lat: 28.6180, lng: 77.0827 },
+  { name: "Vikaspuri (G-Block)",          city: "Delhi", lat: 28.6360, lng: 77.0720 },
+  { name: "Uttam Nagar East Metro",       city: "Delhi", lat: 28.6230, lng: 77.0580 },
+  { name: "Nawada Main Road",             city: "Delhi", lat: 28.6200, lng: 77.0420 },
+  { name: "Dwarka Sector 6 Market",       city: "Delhi", lat: 28.5872, lng: 77.0612 },
+  { name: "Dwarka Sector 10",             city: "Delhi", lat: 28.5838, lng: 77.0476 },
+  { name: "Rohini Sector 7 (Naharpur)",   city: "Delhi", lat: 28.7120, lng: 77.1200 },
+  { name: "Rohini Sector 9 (DC Chowk)",   city: "Delhi", lat: 28.7197, lng: 77.1109 },
+  { name: "Prashant Vihar",               city: "Delhi", lat: 28.7150, lng: 77.1350 },
+  { name: "Pitampura (Kohat Enclave)",    city: "Delhi", lat: 28.7053, lng: 77.1317 },
+  { name: "Preet Vihar (Vikas Marg)",     city: "Delhi", lat: 28.6452, lng: 77.2967 },
+  { name: "Laxmi Nagar (V3S Mall Area)",  city: "Delhi", lat: 28.6304, lng: 77.2777 },
+  { name: "Mayur Vihar Phase 1",          city: "Delhi", lat: 28.6050, lng: 77.2950 },
+  { name: "Vasant Kunj (Sector B)",       city: "Delhi", lat: 28.5212, lng: 77.1558 },
 
   // ── MUMBAI ─────────────────────────────────────────────────────────────────
   { name: "Andheri West",       city: "Mumbai", lat: 19.1197, lng: 72.8464 },
@@ -193,7 +188,7 @@ export function getNearestLocalities(
   tutorLat?: number | null,
   tutorLng?: number | null,
   tutorCity = "Delhi",
-  radiusKm = 25,
+  radiusKm = 5,
   maxResults = 15,
   tutorAddress = ""
 ): GeoLocality[] {
@@ -220,10 +215,12 @@ export function getNearestLocalities(
     ? GEO_LOCALITIES.filter((l) => l.city === cityKey)
     : GEO_LOCALITIES;
 
+  const maxRadius = Math.min(5, radiusKm);
+
   if (lat && lng) {
     const withDistance = cityLocalities
-      .map((l) => ({ ...l, dist: haversine(lat!, lng!, l.lat, l.lng) }))
-      .filter((l) => l.dist <= radiusKm)
+      .map((l) => ({ ...l, dist: Math.min(5, Math.max(1, Math.round(haversine(lat!, lng!, l.lat, l.lng) * 10) / 10)) }))
+      .filter((l) => l.dist <= maxRadius)
       .sort((a, b) => a.dist - b.dist);
 
     if (withDistance.length > 0) {
@@ -296,6 +293,7 @@ export {
 } from "./dummy-campaign-types";
 import {
   pickClassForDay,
+  cleanSubjectName,
   expandToIndividualClasses,
   averageBudgetForLead,
   parseCampaignCfg,
@@ -314,36 +312,37 @@ export async function resolveLocalityDynamic(opts: {
   userSeed?: number;
   stable?: boolean;
 }): Promise<{ locality: string; city: string; distanceKm?: number }> {
-  const { tutorLat, tutorLng, tutorCity, tutorAddress, teachingRadius = 25, userSeed = 0, stable = false } = opts;
+  const { tutorLat, tutorLng, tutorCity, tutorAddress, teachingRadius = 5, userSeed = 0, stable = false } = opts;
   const dayNum = stable ? 0 : Math.floor(Date.now() / (1000 * 60 * 60 * 24));
   const rng = seededRandom(dayNum * 1337 + userSeed);
 
   const city = (tutorCity && tutorCity.trim()) ? tutorCity.trim() : "Delhi";
+  const maxRadius = Math.min(5, teachingRadius);
 
   const aiPlaces = await suggestNearbyLocalitiesAI({
     city,
     address: tutorAddress,
     lat: tutorLat,
     lng: tutorLng,
-    radiusKm: teachingRadius,
+    radiusKm: maxRadius,
   });
   if (aiPlaces && aiPlaces.length > 0) {
     const picked = aiPlaces[(dayNum + userSeed) % aiPlaces.length];
     return {
       locality: picked.name,
       city: picked.city || city,
-      distanceKm: picked.distanceKm || Math.floor(rng() * Math.min(teachingRadius, 5)) + 1,
+      distanceKm: Math.min(5, Math.max(1, picked.distanceKm || Math.floor(rng() * 4) + 1)),
     };
   }
 
   if (tutorLat && tutorLng) {
-    const nearest = getNearestLocalities(tutorLat, tutorLng, city, teachingRadius, 15, tutorAddress ?? "");
+    const nearest = getNearestLocalities(tutorLat, tutorLng, city, maxRadius, 15, tutorAddress ?? "");
     if (nearest.length > 0) {
       const picked = pickLocalityForToday(nearest, userSeed, stable);
       return {
         locality: picked.name,
         city: picked.city,
-        distanceKm: Math.round((picked as any).dist ?? 2),
+        distanceKm: Math.min(5, Math.max(1, Math.round((picked as any).dist ?? 2))),
       };
     }
   }
@@ -356,19 +355,25 @@ export async function resolveLocalityDynamic(opts: {
     );
 
     if (candidateParts.length > 0) {
-      const primaryArea = candidateParts[candidateParts.length - 1] || candidateParts[0];
+      const rawArea = candidateParts[0] || candidateParts[candidateParts.length - 1];
+      let cleanArea = rawArea
+        .replace(/^(?:near|opp|opposite|behind|beside|at|in|near by)\s+/i, "")
+        .replace(/^(?:south|north|east|west|central)\s+delhi/i, "")
+        .trim();
+      if (!cleanArea || cleanArea.length < 2) cleanArea = rawArea.trim();
+
       const variations = [
-        primaryArea,
-        `Near ${primaryArea}`,
-        `${primaryArea} Main Market`,
-        `${primaryArea} Phase 1`,
-        `Block B, ${primaryArea}`,
+        cleanArea,
+        `Near ${cleanArea}`,
+        `${cleanArea} Main Market`,
+        `${cleanArea} Phase 1`,
+        `Block B, ${cleanArea}`,
       ];
       const idx = (dayNum + userSeed) % variations.length;
       return {
         locality: variations[idx],
         city,
-        distanceKm: Math.floor(rng() * Math.min(teachingRadius, 5)) + 1,
+        distanceKm: Math.min(5, Math.max(1, Math.floor(rng() * 4) + 1)),
       };
     }
   }
@@ -383,7 +388,7 @@ export async function resolveLocalityDynamic(opts: {
     return {
       locality: picked.name,
       city: picked.city,
-      distanceKm: Math.floor(rng() * 4) + 1,
+      distanceKm: Math.min(5, Math.max(1, Math.floor(rng() * 4) + 1)),
     };
   }
 
@@ -399,7 +404,7 @@ export async function resolveLocalityDynamic(opts: {
   return {
     locality: cityAreaTemplates[idx],
     city,
-    distanceKm: Math.floor(rng() * 4) + 1,
+    distanceKm: Math.min(5, Math.max(1, Math.floor(rng() * 4) + 1)),
   };
 }
 
@@ -431,7 +436,7 @@ export async function generateDummyLead(opts: {
     tutorAddress = "",
     tutorSubjects = [],
     tutorClassLevels = [],
-    teachingRadius = 25,
+    teachingRadius = 5,
     teachingMode,
     tutorFeeMin,
     tutorFeeMax,
@@ -447,22 +452,29 @@ export async function generateDummyLead(opts: {
   const dayNum = stable ? 0 : Math.floor(Date.now() / 86400000);
   const rng = seededRandom(dayNum * 1000 + userSeed);
 
-  const { locality, city, distanceKm } = await resolveLocalityDynamic({
+  const { locality, city, distanceKm: rawDistance } = await resolveLocalityDynamic({
     tutorLat,
     tutorLng,
     tutorCity,
     tutorAddress,
-    teachingRadius,
+    teachingRadius: Math.min(5, teachingRadius),
     userSeed,
     stable,
   });
 
-  const subjectPool =
+  const distanceKm = Math.min(5, Math.max(1, rawDistance || Math.floor(rng() * 4) + 1));
+
+  const rawPool =
     overrideSubjects.length > 0
       ? overrideSubjects
       : tutorSubjects.length > 0
       ? tutorSubjects
       : ["Mathematics", "Science", "English"];
+
+  // Clean raw subject strings (e.g. "Social Studies for Class VI" -> "Social Studies") to prevent subject/class mismatches
+  const cleanedPool = [...new Set(rawPool.map(cleanSubjectName).filter(Boolean))];
+  const subjectPool = cleanedPool.length > 0 ? cleanedPool : ["All Subjects"];
+
   const numSubs = Math.min(Math.floor(rng() * 2) + 1, subjectPool.length);
   const subjects: string[] = [];
   const pool = [...subjectPool];
@@ -496,11 +508,17 @@ export async function generateDummyLead(opts: {
     rng,
   });
 
-  let mode: DummyLead["mode"] = "EITHER";
-  if (teachingMode === "ONLINE") mode = "ONLINE";
-  else if (teachingMode === "OFFLINE") mode = rng() > 0.15 ? "OFFLINE" : "EITHER";
-  else if (teachingMode === "COACHING") mode = rng() > 0.4 ? "COACHING" : "OFFLINE";
-  else mode = pick(["ONLINE", "OFFLINE", "EITHER"] as const, rng);
+  let mode: DummyLead["mode"] = "OFFLINE";
+  const isTill5 = isTill5thClass(classLevel);
+  if (isTill5) {
+    // Early grades (Nursery to Class 5): Strictly Home Tuition (Offline)
+    mode = "OFFLINE";
+  } else {
+    // Higher grades: Strictly "ONLINE" or "OFFLINE" (Home Tuition) - never ambiguous "EITHER" or "BOTH"
+    if (teachingMode === "ONLINE") mode = "ONLINE";
+    else if (teachingMode === "OFFLINE" || teachingMode === "COACHING") mode = "OFFLINE";
+    else mode = rng() > 0.65 ? "ONLINE" : "OFFLINE";
+  }
 
   return {
     locality,
@@ -538,6 +556,14 @@ export async function deliverDummyLeadToTutor(opts: {
   let sent = 0;
   let failed = 0;
 
+  // Guard: Strictly do NOT send notifications for online classes for classes up to 5th grade
+  if (lead.mode === "ONLINE" && isTill5thClass(lead.classLevel)) {
+    console.info(
+      `[dummy-lead-engine] Skipped delivering online lead for ${lead.classLevel} to ${userEmail} (online disabled for early grades)`
+    );
+    return { sent: 0, failed: 0 };
+  }
+
   const tutor = await prisma.tutorProfile.findUnique({
     where: { userId },
     select: { id: true, marketingNotifsEnabled: true },
@@ -551,7 +577,9 @@ export async function deliverDummyLeadToTutor(opts: {
     ? `₹${lead.budgetMin}–₹${lead.budgetMax}/hr`
     : `₹${lead.budgetMin.toLocaleString("en-IN")}–₹${lead.budgetMax.toLocaleString("en-IN")}/mo`;
   const classLine = lead.classLevel.startsWith("Class") ? lead.classLevel : `Class ${lead.classLevel}`;
-  const actionPath = dummyLeadActionPath(lead);
+  const cleanSubjects = (lead.subjects || []).map(cleanSubjectName).filter(Boolean);
+  const subjectsDisplay = cleanSubjects.length > 0 ? cleanSubjects.join(", ") : "All Subjects";
+  const actionPath = dummyLeadActionPath({ ...lead, subjects: cleanSubjects });
   const absoluteLeadUrl = `${appUrl}${actionPath}`;
 
   for (const channel of channels) {
@@ -566,7 +594,7 @@ export async function deliverDummyLeadToTutor(opts: {
             type: "NEW_LEAD_MATCH",
             priority: "HIGH",
             title: `📍 ${classLine} tuition near ${lead.locality}`,
-            message: `${classLine} · ${lead.subjects.join(", ")} needed near ${lead.locality}${km}. Budget ${budgetFormatted}. ${lead.days}, ${lead.timing}.`,
+            message: `${classLine} · ${subjectsDisplay} needed near ${lead.locality}${km}. Budget ${budgetFormatted}. ${lead.days}, ${lead.timing}.`,
             actionUrl: actionPath,
             isRead: false,
           },
@@ -576,7 +604,7 @@ export async function deliverDummyLeadToTutor(opts: {
       } else if (channel === "PUSH") {
         await sendWebPush(userId, {
           title: `📍 ${classLine} near ${lead.locality}`,
-          body: `${lead.subjects.join(" & ")} · ${classLine} · ${budgetFormatted}. Tap to view!`,
+          body: `${subjectsDisplay} · ${classLine} · ${budgetFormatted}. Tap to view!`,
           url: absoluteLeadUrl,
           tag: `dummy-lead-${campaignId}`,
         });
@@ -596,7 +624,7 @@ export async function deliverDummyLeadToTutor(opts: {
             tutorName: userName || "Tutor",
             locality: lead.locality,
             city: lead.city,
-            subjects: lead.subjects,
+            subjects: cleanSubjects,
             classLevel: lead.classLevel,
             board: lead.board,
             mode: modeLabel[lead.mode] || lead.mode,
@@ -636,7 +664,7 @@ export async function deliverDummyLeadToTutor(opts: {
         userEmail,
         channel,
         status,
-        leadData: lead as any,
+        leadData: { ...lead, subjects: cleanSubjects } as any,
         errorMessage,
       },
     });

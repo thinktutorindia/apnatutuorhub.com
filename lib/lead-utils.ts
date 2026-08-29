@@ -174,3 +174,90 @@ export function isSystemGeneratedEmail(email?: string | null): boolean {
   return !isGenuineEmail(email);
 }
 
+/**
+ * Checks whether a class level is for early grades / primary school up to 5th grade
+ * (Nursery, KG, LKG, UKG, Playgroup, Prep, Class 1 to 5, 1st to 5th Std, etc.).
+ * Children up to 5th standard cannot effectively take online classes on their own.
+ */
+export function isTill5thClass(classLevel?: string | null): boolean {
+  if (!classLevel || typeof classLevel !== "string") return false;
+  const s = classLevel.trim().toLowerCase();
+  if (!s) return false;
+
+  // 1. Early childhood keywords
+  if (
+    s.includes("nursery") ||
+    s.includes("playgroup") ||
+    s.includes("lkg") ||
+    s.includes("ukg") ||
+    s.includes("pre-kg") ||
+    s.includes("prep") ||
+    s.includes("kindergarten") ||
+    s.includes("primary") ||
+    s.includes("junior kg") ||
+    s.includes("senior kg") ||
+    /\bkg\b/.test(s)
+  ) {
+    return true;
+  }
+
+  // 2. Explicit Class 1-5 ranges e.g. "Class 1-5", "1 to 5", "Class 1 to 5", "1st to 5th", "Class I-V"
+  if (
+    /(?:class\s*)?1\s*(?:[-–—]|\bto\b)\s*5\b/i.test(s) ||
+    /1st\s*(?:[-–—]|\bto\b)\s*5th/i.test(s) ||
+    /class\s*(i|1)\s*(?:[-–—]|\bto\b)\s*(v|5)/i.test(s)
+  ) {
+    return true;
+  }
+
+  // 3. Higher band checks — if it matches 6-8, 9-10, 11-12, JEE, NEET, CA, Coding, etc., it is NOT <= 5
+  if (
+    /class\s*(6|7|8|9|10|11|12)\b/i.test(s) ||
+    /\b(6|7|8|9|10|11|12)(th)?\s*(grade|std|standard)?\b/i.test(s) ||
+    /class\s*6\s*[-–—to]\s*8/i.test(s) ||
+    /class\s*9\s*[-–—to]\s*10/i.test(s) ||
+    /class\s*11\s*[-–—to]\s*12/i.test(s) ||
+    /class\s*(vi|vii|viii|ix|x|xi|xii)\b/i.test(s) ||
+    /jee|neet|iit|medical|ca|commerce|coding|computer|programming/i.test(s)
+  ) {
+    return false;
+  }
+
+  // 4. Single class 1 to 5 / Roman I to V
+  if (
+    /^class\s*([1-5])$/i.test(s) ||
+    /^([1-5])(st|nd|rd|th)?\s*(grade|std|standard)?$/i.test(s) ||
+    /^class\s*(i{1,3}|iv|v)$/i.test(s) ||
+    /\b([1-5])(st|nd|rd|th)\b/i.test(s) ||
+    /class\s*([1-5])\b/i.test(s) ||
+    /class\s*(i|ii|iii|iv|v)\b/i.test(s)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Returns false if online classes are disabled for this grade (i.e. <= 5th class),
+ * true if online classes are permitted.
+ */
+export function isOnlineClassEligible(classLevel?: string | null): boolean {
+  return !isTill5thClass(classLevel);
+}
+
+/**
+ * Checks if lead notifications are permitted.
+ * Blocks notifications for ONLINE mode if the class level is <= 5th grade.
+ */
+export function canSendLeadNotification(lead: {
+  mode?: string | null;
+  classLevel?: string | null;
+}): boolean {
+  if (lead.mode === "ONLINE" && isTill5thClass(lead.classLevel)) {
+    return false;
+  }
+  return true;
+}
+
+

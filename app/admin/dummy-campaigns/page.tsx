@@ -4,6 +4,7 @@ import { getDummyCampaignStats } from "@/app/actions/dummy-campaign.actions";
 import { DummyCampaignDashboard } from "@/components/admin/DummyCampaignDashboard";
 
 export const metadata = { title: "Dummy Lead Campaigns — Admin | ApnaTutorHub" };
+export const dynamic = "force-dynamic";
 
 export default async function DummyCampaignsPage() {
   const session = await auth();

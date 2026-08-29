@@ -525,3 +525,74 @@ export async function getTutorsForCampaignTargetAction(opts: {
   });
 }
 
+/**
+ * Quick 1-Click Action: Activates or Creates an Evergreen Daily Campaign for ALL tutors.
+ * Automatically targets ALL active tutors dynamically on every 24h cron pass,
+ * including any new tutors who sign up or are created in the future.
+ */
+export async function quickActivateDailyAllTutorsCampaignAction(): Promise<
+  ActionResult<{ campaignId: string; created: boolean; status: string }>
+> {
+  const { error, session } = await requireSuperAdmin();
+  if (error) return actionError(error);
+
+  // Check if an ALL_TUTORS evergreen campaign is already active
+  let campaign = await prisma.dummyCampaign.findFirst({
+    where: {
+      targetGroup: "ALL_TUTORS",
+      status: "ACTIVE",
+    },
+  });
+
+  if (campaign) {
+    return actionSuccess({ campaignId: campaign.id, created: false, status: "ACTIVE" });
+  }
+
+  // Check for any existing ALL_TUTORS campaign (even if paused or draft)
+  campaign = await prisma.dummyCampaign.findFirst({
+    where: {
+      targetGroup: "ALL_TUTORS",
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (campaign) {
+    await prisma.dummyCampaign.update({
+      where: { id: campaign.id },
+      data: { status: "ACTIVE" },
+    });
+    revalidatePath("/admin/dummy-campaigns");
+    return actionSuccess({ campaignId: campaign.id, created: false, status: "ACTIVE" });
+  }
+
+  // Create a new perpetual daily campaign for all tutors
+  const newCampaign = await prisma.dummyCampaign.create({
+    data: {
+      name: "⚡ Evergreen Daily Schedule — All Active Tutors",
+      targetGroup: "ALL_TUTORS",
+      status: "ACTIVE",
+      channels: ["IN_APP", "PUSH", "EMAIL"],
+      leadsPerDay: 1,
+      randomizeDaily: true,
+      budgetMin: 300,
+      budgetMax: 800,
+      totalLimit: null, // Unlimited / perpetual
+      startDate: null,
+      endDate: null,    // No end date (perpetual daily)
+      description: serializeCampaignCfg(
+        "Automated perpetual daily dummy lead campaign. Dynamically targets all current active tutors and automatically includes all future new tutor registrations on every 24h pass.",
+        {
+          rateType: "HOURLY",
+          autoAdapt: true,
+          emailFilter: "GENUINE_ONLY",
+        }
+      ),
+      createdById: session!.user.id,
+    },
+  });
+
+  revalidatePath("/admin/dummy-campaigns");
+  return actionSuccess({ campaignId: newCampaign.id, created: true, status: "ACTIVE" });
+}
+
+

@@ -9,7 +9,7 @@ import {
   Calendar, Check, ShieldCheck, MessageCircle, Copy, ChevronDown,
   History, Plus, Tag, Flame, MapPin, Mail, BookOpen, GraduationCap,
   Filter, MoreHorizontal, Activity, Users, BarChart3, TrendingUp,
-  Layers, CheckCheck
+  Layers, CheckCheck, Zap, Target, Award, FastForward, Volume2
 } from "lucide-react";
 import {
   logCallAction,
@@ -41,39 +41,55 @@ export type Lead = {
   subjects: string[];
   classes: string[];
   status: StaffLeadStatus;
-  lastContactedAt: string | Date | null;
-  nextFollowUpAt: string | Date | null;
   staffNotes: string | null;
   priority: number;
+  nextFollowUpAt: string | Date | null;
+  lastContactedAt: string | Date | null;
   isPromoted: boolean;
   promotedTutorProfileId: string | null;
-  rawText: string | null;
   createdAt: string | Date;
-  _count: { callLogs: number };
+  updatedAt?: string | Date;
+  rawText?: string | null;
+  assignedTo?: {
+    id?: string;
+    name: string | null;
+    email?: string;
+  } | null;
+  _count: {
+    callLogs: number;
+    followUpReminders?: number;
+  };
 };
 
 type CallLogItem = {
   id: string;
-  outcome: CallOutcome;
+  outcome: CallOutcome | string;
   notes: string | null;
-  calledAt: Date;
-  calledBy: { name: string | null; email: string };
+  calledAt: string | Date;
+  calledBy: {
+    id?: string;
+    name: string | null;
+    email: string;
+  };
 };
 
 type ActivityLogItem = {
   id: string;
-  outcome: CallOutcome;
+  outcome: string;
   notes: string | null;
-  calledAt: Date | string;
-  calledBy: { id: string; name: string | null; email: string; subAdminRole: string | null };
+  calledAt: string | Date;
   lead: {
     id: string;
     name: string | null;
     phone: string | null;
     location: string | null;
-    subjects: string[];
-    status: StaffLeadStatus;
     isPromoted: boolean;
+  };
+  calledBy: {
+    id: string;
+    name: string | null;
+    email: string;
+    subAdminRole: string | null;
   };
 };
 
@@ -96,17 +112,18 @@ const QUICK_CLASS_PRESETS = [
   { label: "IIT-JEE / NEET", items: ["IIT-JEE", "NEET"] },
 ];
 
-const QUICK_OUTCOMES: { outcome: CallOutcome; label: string; icon: React.ReactNode; cls: string }[] = [
-  { outcome: "ANSWERED", label: "Answered", icon: <CheckCircle2 size={12} />, cls: "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200" },
-  { outcome: "NO_ANSWER", label: "No Answer", icon: <PhoneMissed size={12} />, cls: "bg-orange-50 text-orange-800 hover:bg-orange-100 border-orange-200" },
-  { outcome: "CALLBACK_REQUESTED", label: "Callback", icon: <RefreshCcw size={12} />, cls: "bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-200" },
-  { outcome: "NOT_INTERESTED", label: "Not Int.", icon: <XCircle size={12} />, cls: "bg-red-50 text-red-800 hover:bg-red-100 border-red-200" },
+const QUICK_OUTCOMES: Array<{ outcome: CallOutcome; label: string; icon: string; cls: string }> = [
+  { outcome: "ANSWERED", label: "Answered", icon: "✓", cls: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" },
+  { outcome: "CALLBACK_REQUESTED", label: "Callback", icon: "⏰", cls: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100" },
+  { outcome: "NO_ANSWER", label: "No Answer", icon: "📵", cls: "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100" },
+  { outcome: "BUSY", label: "Busy", icon: "⏳", cls: "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200" },
+  { outcome: "NOT_INTERESTED", label: "Not Int.", icon: "✕", cls: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100" },
 ];
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  NEW: { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-200", label: "New Lead" },
-  ASSIGNED: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", label: "Assigned" },
-  CONTACTED: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200", label: "Contacted" },
+  NEW: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", label: "New Lead" },
+  ASSIGNED: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", label: "Assigned" },
+  CONTACTED: { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200", label: "Contacted" },
   FOLLOW_UP: { bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200", label: "Follow-Up Due" },
   INTERESTED: { bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200", label: "Interested 🔥" },
   NOT_INTERESTED: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", label: "Not Interested" },
@@ -116,7 +133,18 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; 
   DUPLICATE: { bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200", label: "Duplicate" },
 };
 
-export type QueueTab = "ALL" | "FRESH_NEW" | "DUE" | "CALLBACKS" | "INTERESTED" | "NO_ANSWER" | "CONVERTED";
+export type QueueTab =
+  | "ALL"
+  | "WORKED_TODAY"
+  | "PENDING_LEFT"
+  | "DUE"
+  | "UPCOMING_TODAY"
+  | "WORKED_YESTERDAY"
+  | "FRESH_NEW"
+  | "CALLBACKS"
+  | "INTERESTED"
+  | "NO_ANSWER"
+  | "CONVERTED";
 
 export function MyStaffLeadsClient({
   leads: initialLeads,
@@ -136,6 +164,21 @@ export function MyStaffLeadsClient({
   const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Fast Power Dialer State (Speed Mode)
+  const [isPowerDialing, setIsPowerDialing] = useState(false);
+  const [powerDialIndex, setPowerDialIndex] = useState(0);
+  const [powerDialNotes, setPowerDialNotes] = useState("");
+  const [powerDialFollowUp, setPowerDialFollowUp] = useState("");
+
+  // Fast Follow-Up Modal State
+  const [fastFollowUpLead, setFastFollowUpLead] = useState<Lead | null>(null);
+  const [fastFollowUpDate, setFastFollowUpDate] = useState("");
+  const [fastFollowUpNote, setFastFollowUpNote] = useState("");
+
+  // Live Timer Tick for Real-time relative updates & Audio Chime
+  const [nowTick, setNowTick] = useState(Date.now());
+  const [lastChimedCount, setLastChimedCount] = useState(0);
 
   // Edit Modal State (with full platform system: SubjectPicker, class taxonomy, location presets)
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
@@ -173,6 +216,37 @@ export function MyStaffLeadsClient({
 
   const [, startTransition] = useTransition();
 
+  // Periodic Timer Tick for Real-Time Follow-up Countdowns (every 15s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowTick(Date.now());
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Web Audio Synthesizer Chime for Follow-up Notifications
+  const playFollowUpChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch {
+      // Ignore if user hasn't interacted yet
+    }
+  };
+
   const showMsg = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 5000);
@@ -182,6 +256,58 @@ export function MyStaffLeadsClient({
     navigator.clipboard.writeText(text);
     setCopiedField(label);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  // Helper: Relative Follow-Up Time Badge
+  const getFollowUpBadge = (nextFollowUpAt: string | Date | null) => {
+    if (!nextFollowUpAt) return null;
+    const dt = new Date(nextFollowUpAt);
+    const diffMs = dt.getTime() - nowTick;
+    const diffMins = Math.round(diffMs / 60000);
+
+    if (diffMins < 0) {
+      const overdueMins = Math.abs(diffMins);
+      const text = overdueMins < 60 ? `${overdueMins}m ago` : `${Math.floor(overdueMins / 60)}h ${overdueMins % 60}m ago`;
+      return {
+        label: `🚨 Overdue (${text})`,
+        isOverdue: true,
+        isDueNow: true,
+        cls: "bg-rose-600 text-white font-black animate-pulse shadow-xs border border-rose-700",
+        timeStr: dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
+        dateStr: dt.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+      };
+    } else if (diffMins <= 30) {
+      return {
+        label: `⏰ Due in ${diffMins}m`,
+        isOverdue: false,
+        isDueNow: true,
+        cls: "bg-amber-500 text-white font-black animate-pulse shadow-xs border border-amber-600",
+        timeStr: dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
+        dateStr: "Today",
+      };
+    } else if (dt.toDateString() === new Date().toDateString()) {
+      return {
+        label: `🕒 Today at ${dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`,
+        isOverdue: false,
+        isDueNow: false,
+        cls: "bg-amber-100 text-amber-900 border border-amber-300 font-extrabold",
+        timeStr: dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
+        dateStr: "Today",
+      };
+    } else {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isTomorrow = dt.toDateString() === tomorrow.toDateString();
+      const prefix = isTomorrow ? "Tomorrow" : dt.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+      return {
+        label: `📅 ${prefix} at ${dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`,
+        isOverdue: false,
+        isDueNow: false,
+        cls: "bg-purple-50 text-purple-800 border border-purple-200 font-bold",
+        timeStr: dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
+        dateStr: prefix,
+      };
+    }
   };
 
   // Fetch Activity Feed
@@ -211,14 +337,129 @@ export function MyStaffLeadsClient({
     }
   }, [activeMainView, activityPeriod, activityStaffFilter, activityOutcomeFilter]);
 
+  // Date constants for daily tabs
+  const todayStr = new Date().toDateString();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+
+  // Priority queue for power dialing (Due follow-ups first, then untouched fresh leads, then retries/no-answers)
+  const pendingQueue = leads.filter(
+    (l) =>
+      !l.isPromoted &&
+      l.status !== "CONVERTED" &&
+      l.status !== "REJECTED" &&
+      l.status !== "NOT_INTERESTED" &&
+      (!l.lastContactedAt ||
+        new Date(l.lastContactedAt).toDateString() !== todayStr ||
+        (l.nextFollowUpAt && new Date(l.nextFollowUpAt).getTime() <= nowTick))
+  ).sort((a, b) => {
+    const aDue = a.nextFollowUpAt && new Date(a.nextFollowUpAt).getTime() <= nowTick ? 1 : 0;
+    const bDue = b.nextFollowUpAt && new Date(b.nextFollowUpAt).getTime() <= nowTick ? 1 : 0;
+    if (aDue !== bDue) return bDue - aDue;
+    const aCalls = a._count?.callLogs ?? 0;
+    const bCalls = b._count?.callLogs ?? 0;
+    return aCalls - bCalls;
+  });
+
+  const currentPowerLead = pendingQueue[powerDialIndex] || null;
+
+  const handleStartPowerDial = () => {
+    if (pendingQueue.length === 0) {
+      showMsg("success", "🎉 All pending leads have already been contacted today!");
+      return;
+    }
+    setPowerDialIndex(0);
+    setPowerDialNotes("");
+    setPowerDialFollowUp("");
+    setIsPowerDialing(true);
+  };
+
+  const handlePowerDialOutcome = (outcome: CallOutcome, quickFollowUpIso?: string | null) => {
+    if (!currentPowerLead) return;
+    const leadId = currentPowerLead.id;
+    setPendingLeadId(leadId);
+
+    startTransition(async () => {
+      const followUpIso = quickFollowUpIso !== undefined ? quickFollowUpIso : (powerDialFollowUp ? new Date(powerDialFollowUp).toISOString() : null);
+      const res = await logCallAction(
+        leadId,
+        outcome,
+        powerDialNotes || `Power Dialed as ${outcome}`,
+        followUpIso,
+        powerDialNotes
+      );
+
+      if (res.success) {
+        const statusMap: Record<CallOutcome, StaffLeadStatus> = {
+          ANSWERED: "CONTACTED",
+          NO_ANSWER: "NO_ANSWER",
+          BUSY: "NO_ANSWER",
+          WRONG_NUMBER: "REJECTED",
+          CALLBACK_REQUESTED: "FOLLOW_UP",
+          CONVERTED: "CONVERTED",
+          NOT_INTERESTED: "NOT_INTERESTED",
+        };
+
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === leadId
+              ? {
+                  ...l,
+                  status: statusMap[outcome],
+                  lastContactedAt: new Date().toISOString(),
+                  nextFollowUpAt: followUpIso ?? l.nextFollowUpAt,
+                  staffNotes: powerDialNotes || l.staffNotes,
+                  _count: { callLogs: l._count.callLogs + 1 },
+                }
+              : l
+          )
+        );
+
+        playFollowUpChime();
+        showMsg("success", `✓ Lead #${powerDialIndex + 1} (${currentPowerLead.name || "Tutor"}) logged as ${outcome}!`);
+
+        // Advance to next lead in pending queue
+        if (powerDialIndex + 1 < pendingQueue.length) {
+          setPowerDialIndex((prev) => prev + 1);
+          setPowerDialNotes("");
+          setPowerDialFollowUp("");
+        } else {
+          setIsPowerDialing(false);
+          showMsg("success", "🎉 Fantastic! You have completed all pending leads in your queue!");
+        }
+      } else {
+        showMsg("error", res.error ?? "Failed to log power call");
+      }
+      setPendingLeadId(null);
+    });
+  };
+
   // 1. Filter and Sort Queue
   const filtered = leads.filter((l) => {
+    if (activeTab === "WORKED_TODAY") {
+      if (!l.lastContactedAt) return false;
+      return new Date(l.lastContactedAt).toDateString() === todayStr;
+    }
+    if (activeTab === "PENDING_LEFT") {
+      if (l.isPromoted || l.status === "CONVERTED" || l.status === "REJECTED" || l.status === "NOT_INTERESTED") return false;
+      if (l.lastContactedAt && new Date(l.lastContactedAt).toDateString() === todayStr && (!l.nextFollowUpAt || new Date(l.nextFollowUpAt).getTime() > nowTick)) return false;
+    }
+    if (activeTab === "WORKED_YESTERDAY") {
+      if (!l.lastContactedAt) return false;
+      return new Date(l.lastContactedAt).toDateString() === yesterdayStr;
+    }
     if (activeTab === "FRESH_NEW") {
       if ((l.status !== "ASSIGNED" && l.status !== "NEW") || (l._count?.callLogs ?? 0) > 0) return false;
     }
     if (activeTab === "DUE") {
       if (!l.nextFollowUpAt) return false;
-      return new Date(l.nextFollowUpAt) <= new Date();
+      return new Date(l.nextFollowUpAt).getTime() <= nowTick;
+    }
+    if (activeTab === "UPCOMING_TODAY") {
+      if (!l.nextFollowUpAt) return false;
+      const d = new Date(l.nextFollowUpAt);
+      return d.getTime() > nowTick && d.toDateString() === todayStr;
     }
     if (activeTab === "CALLBACKS") {
       if (l.status !== "FOLLOW_UP" && !l.nextFollowUpAt) return false;
@@ -386,13 +627,13 @@ export function MyStaffLeadsClient({
         classes: editForm.classes,
         status: editForm.status,
         staffNotes: editForm.staffNotes,
-        priority: editForm.priority,
+        priority: editForm.priority !== undefined ? Number(editForm.priority) : undefined,
         nextFollowUpAt: editForm.nextFollowUpAt,
       });
 
       if (res.success && res.data) {
         setLeads((prev) =>
-          prev.map((l) => (l.id === editingLead.id ? { ...l, ...res.data!.lead } : l))
+          prev.map((l) => (l.id === editingLead.id ? { ...l, ...res.data!.lead } as Lead : l))
         );
         showMsg("success", "✓ Lead profile updated successfully!");
         setEditingLead(null);
@@ -445,7 +686,7 @@ export function MyStaffLeadsClient({
     setLoadingHistory(true);
     const res = await getLeadCallLogsAction(lead.id);
     if (res.success && res.data) {
-      setCallHistoryLogs(res.data.callLogs);
+      setCallHistoryLogs(res.data.callLogs as any);
     } else {
       setCallHistoryLogs([]);
     }
@@ -511,14 +752,84 @@ export function MyStaffLeadsClient({
     });
   };
 
+  // 8. Fast Follow-Up Scheduler Action
+  const handleSaveFastFollowUp = () => {
+    if (!fastFollowUpLead || !fastFollowUpDate) return;
+    const leadId = fastFollowUpLead.id;
+    setPendingLeadId(leadId);
+
+    startTransition(async () => {
+      const followUpIso = new Date(fastFollowUpDate).toISOString();
+      const res = await logCallAction(
+        leadId,
+        "CALLBACK_REQUESTED",
+        fastFollowUpNote ? `Callback requested: ${fastFollowUpNote}` : "Callback requested by tutor",
+        followUpIso,
+        fastFollowUpNote
+      );
+
+      if (res.success) {
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === leadId
+              ? {
+                  ...l,
+                  status: "FOLLOW_UP",
+                  lastContactedAt: new Date().toISOString(),
+                  nextFollowUpAt: followUpIso,
+                  staffNotes: fastFollowUpNote ? `${fastFollowUpNote}` : l.staffNotes,
+                  _count: { callLogs: l._count.callLogs + 1 },
+                }
+              : l
+          )
+        );
+        showMsg("success", `✓ Follow-Up scheduled for ${new Date(followUpIso).toLocaleString("en-IN")}!`);
+        setFastFollowUpLead(null);
+        setFastFollowUpDate("");
+        setFastFollowUpNote("");
+      } else {
+        showMsg("error", res.error ?? "Failed to schedule follow-up");
+      }
+      setPendingLeadId(null);
+    });
+  };
+
+  // Dynamic Daily & Follow-Up Counts
+  const pendingToWorkCount = leads.filter(
+    (l) =>
+      !l.isPromoted &&
+      l.status !== "CONVERTED" &&
+      l.status !== "REJECTED" &&
+      l.status !== "NOT_INTERESTED" &&
+      (!l.lastContactedAt ||
+        new Date(l.lastContactedAt).toDateString() !== todayStr ||
+        (l.nextFollowUpAt && new Date(l.nextFollowUpAt).getTime() <= nowTick))
+  ).length;
+
+  const workedTodayCount = leads.filter((l) => l.lastContactedAt && new Date(l.lastContactedAt).toDateString() === todayStr).length;
+  const workedYesterdayCount = leads.filter((l) => l.lastContactedAt && new Date(l.lastContactedAt).toDateString() === yesterdayStr).length;
+  const dueCount = leads.filter((l) => l.nextFollowUpAt && new Date(l.nextFollowUpAt).getTime() <= nowTick).length;
+  const upcomingTodayCount = leads.filter((l) => {
+    if (!l.nextFollowUpAt) return false;
+    const d = new Date(l.nextFollowUpAt);
+    return d.getTime() > nowTick && d.toDateString() === todayStr;
+  }).length;
   const freshCount = leads.filter((l) => (l.status === "ASSIGNED" || l.status === "NEW") && (l._count?.callLogs ?? 0) === 0).length;
-  const dueCount = leads.filter((l) => l.nextFollowUpAt && new Date(l.nextFollowUpAt) <= new Date()).length;
   const callbackCount = leads.filter((l) => l.status === "FOLLOW_UP" || l.nextFollowUpAt).length;
   const interestedCount = leads.filter((l) => l.status === "INTERESTED").length;
   const noAnswerCount = leads.filter((l) => l.status === "NO_ANSWER").length;
   const convertedCount = leads.filter((l) => l.isPromoted || l.status === "CONVERTED").length;
   const processedCount = leads.length - freshCount;
   const progressPercent = leads.length > 0 ? Math.round((processedCount / leads.length) * 100) : 100;
+  const workedTodayAssignedPercent = leads.length > 0 ? Math.round((workedTodayCount / leads.length) * 100) : 0;
+
+  // Trigger Sound Chime when new follow-up becomes due
+  useEffect(() => {
+    if (dueCount > lastChimedCount && dueCount > 0) {
+      playFollowUpChime();
+    }
+    setLastChimedCount(dueCount);
+  }, [dueCount, lastChimedCount]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -535,21 +846,33 @@ export function MyStaffLeadsClient({
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Staff CRM Hub</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Log daily calls, edit tutor details with full taxonomy, schedule follow-ups, and track all team activities.
+            Real-time daily work tracker, direct 1-click phone dialer, follow-up scheduler, and full tutor data control.
           </p>
         </div>
 
         {/* Action & Navigation Hub */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Power Dialer Fast Action */}
+          <button
+            type="button"
+            onClick={handleStartPowerDial}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white text-xs font-black shadow-md hover:shadow-lg transition-all cursor-pointer animate-pulse"
+            title="Start Speed Power Dialing mode through all pending leads"
+          >
+            <Zap size={14} className="text-yellow-200" />
+            <span>⚡ Power Dialer ({pendingQueue.length} Pending)</span>
+          </button>
+
           <Link
             href="/admin/staff-leads/my-dashboard"
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-black hover:from-emerald-700 hover:to-teal-700 shadow-xs transition-all"
           >
             <Clock size={14} /> My Shift &amp; Timer
           </Link>
+
           <Link
             href="/admin/staff-leads"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50"
           >
             <BarChart3 size={14} className="text-slate-500" /> Admin CRM
           </Link>
@@ -602,126 +925,341 @@ export function MyStaffLeadsClient({
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════════════════
-          VIEW 1: MY ASSIGNED LEADS QUEUE
+          REAL-TIME LIVE FOLLOW-UP ALERT BANNER (High-Visibility Pulsing Alert)
          ═════════════════════════════════════════════════════════════════════════════════ */}
-      {activeMainView === "QUEUE" && (
-        <div className="space-y-4">
-          {/* Daily Processing Progress Tracker */}
-          <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-3xl p-5 flex items-center justify-between flex-wrap gap-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-sm">
-                {progressPercent}%
-              </div>
-              <div>
-                <p className="text-sm font-black text-white flex items-center gap-2">
-                  <span>Data Pipeline: {processedCount} of {leads.length} Touched</span>
-                  {freshCount === 0 && leads.length > 0 ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                      ✓ All Data Touched — 0 Left Behind!
-                    </span>
-                  ) : freshCount > 0 ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
-                      {freshCount} Fresh Leads Pending 1st Call
-                    </span>
-                  ) : null}
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Workflow: Call <strong>Fresh Leads</strong> → Clear <strong>Due Follow-Ups</strong> → Retry <strong>No Answer</strong> → <strong>Convert to Tutors</strong>
-                </p>
-              </div>
+      {dueCount > 0 && (
+        <div className="bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 text-white p-4 rounded-3xl shadow-lg border border-rose-400 flex items-center justify-between flex-wrap gap-3 animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center font-black text-xl animate-bounce">
+              🔔
             </div>
-
-            <div className="flex items-center gap-2">
-              {freshCount > 0 && (
-                <button
-                  onClick={() => setActiveTab("FRESH_NEW")}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black hover:bg-emerald-400 transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
-                >
-                  <Sparkles size={13} />
-                  <span>Call Fresh Data ({freshCount})</span>
-                </button>
-              )}
-              {dueCount > 0 && (
-                <button
-                  onClick={() => setActiveTab("DUE")}
-                  className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-black hover:bg-amber-400 transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
-                >
-                  <Clock size={13} />
-                  <span>Call Back Due ({dueCount})</span>
-                </button>
-              )}
+            <div>
+              <h3 className="font-black text-sm tracking-tight flex items-center gap-1.5">
+                <span>{dueCount} Callback Follow-Up{dueCount === 1 ? "" : "s"} Due Right Now!</span>
+                <span className="text-[10px] uppercase font-extrabold bg-white/30 px-2 py-0.5 rounded-full">
+                  Action Required
+                </span>
+              </h3>
+              <p className="text-xs text-rose-100 mt-0.5">
+                Tutors asked to be contacted at this specific time. Dial immediately to secure active tuition opportunities.
+              </p>
             </div>
           </div>
 
-          {/* Queue Filter Bar */}
-          <div className="flex items-center justify-between flex-wrap gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-            {/* Tabs */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {freshCount > 0 && (
-                <button
-                  onClick={() => setActiveTab("FRESH_NEW")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "FRESH_NEW"
-                      ? "bg-blue-600 text-white shadow-xs"
-                      : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
-                  }`}
-                >
-                  <Sparkles size={12} /> 🆕 Fresh New Data ({freshCount})
-                </button>
-              )}
+          <button
+            type="button"
+            onClick={() => setActiveTab("DUE")}
+            className="px-5 py-2 rounded-2xl bg-white text-rose-700 hover:bg-rose-50 text-xs font-black shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <Clock size={14} className="text-rose-600" />
+            <span>Open Due Follow-Ups ({dueCount}) →</span>
+          </button>
+        </div>
+      )}
 
-              {dueCount > 0 && (
+      {/* ═════════════════════════════════════════════════════════════════════════════════
+          VIEW 1: MY ASSIGNED LEADS QUEUE
+         ═════════════════════════════════════════════════════════════════════════════════ */}
+      {activeMainView === "QUEUE" && (
+        <div className="space-y-5">
+          {/* ── 4 DAILY WORK KPI CARDS (100% Real Database Assigned Leads Data) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Worked Today & Assigned Leads Progress */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
+                    <Zap size={16} />
+                  </div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Worked Today</span>
+                </div>
+                <span className="text-[10px] font-black text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                  {leads.length} Assigned Total
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <div className="text-3xl font-black text-slate-900">{workedTodayCount}</div>
+                <span className="text-xs font-bold text-slate-400">
+                  of {leads.length} Assigned ({workedTodayAssignedPercent}%)
+                </span>
+              </div>
+
+              {/* Progress Bar showing actual touched assigned leads */}
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-500"
+                  style={{ width: `${workedTodayAssignedPercent}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] pt-0.5">
+                <span className="text-slate-500 font-bold">
+                  {leads.length - workedTodayCount > 0
+                    ? `${leads.length - workedTodayCount} assigned leads left today`
+                    : "✓ All assigned leads touched today!"}
+                </span>
                 <button
+                  type="button"
+                  onClick={() => setActiveTab("WORKED_TODAY")}
+                  className="font-black text-teal-700 hover:underline cursor-pointer"
+                >
+                  View ({workedTodayCount}) →
+                </button>
+              </div>
+            </div>
+
+            {/* Card 2: Pending / Left to Work */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                    <Clock size={16} />
+                  </div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Left to Work</span>
+                </div>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  {pendingToWorkCount} Pending
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <div className="text-3xl font-black text-slate-900">{pendingToWorkCount}</div>
+                <span className="text-xs font-bold text-slate-400">Leads in queue</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+                <span>🆕 <strong>{freshCount}</strong> Fresh</span>
+                <span>·</span>
+                <span>⏳ <strong>{noAnswerCount}</strong> Retries</span>
+              </div>
+
+              <div className="pt-0.5 flex items-center justify-between text-[11px]">
+                <button
+                  type="button"
+                  onClick={handleStartPowerDial}
+                  className="font-black text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Zap size={11} /> Start Dialing →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("PENDING_LEFT")}
+                  className="font-bold text-slate-500 hover:underline cursor-pointer"
+                >
+                  Filter ({pendingToWorkCount})
+                </button>
+              </div>
+            </div>
+
+            {/* Card 3: Follow-Ups Due & Today */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dueCount > 0 ? "bg-rose-50 border border-rose-100 text-rose-600 animate-pulse" : "bg-amber-50 border border-amber-100 text-amber-600"}`}>
+                    <RefreshCcw size={16} />
+                  </div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Follow-Ups</span>
+                </div>
+                {dueCount > 0 ? (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white animate-pulse">
+                    🚨 {dueCount} Due Now
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                    {callbackCount} Scheduled
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <div className="text-3xl font-black text-slate-900">{dueCount + upcomingTodayCount}</div>
+                <span className="text-xs font-bold text-slate-400">Total for Today</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+                <span>🚨 <strong>{dueCount}</strong> Overdue/Now</span>
+                <span>·</span>
+                <span>🕒 <strong>{upcomingTodayCount}</strong> Later Today</span>
+              </div>
+
+              <div className="pt-0.5 flex items-center justify-between text-[11px]">
+                <button
+                  type="button"
                   onClick={() => setActiveTab("DUE")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "DUE"
-                      ? "bg-amber-600 text-white shadow-xs"
-                      : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
-                  }`}
+                  className="font-black text-rose-700 hover:underline cursor-pointer"
                 >
-                  <Clock size={12} /> ⏰ Due Now ({dueCount})
+                  View Due ({dueCount}) →
                 </button>
-              )}
-
-              {callbackCount > 0 && (
                 <button
-                  onClick={() => setActiveTab("CALLBACKS")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "CALLBACKS"
-                      ? "bg-purple-600 text-white shadow-xs"
-                      : "bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100"
-                  }`}
+                  type="button"
+                  onClick={() => setActiveTab("UPCOMING_TODAY")}
+                  className="font-bold text-slate-500 hover:underline cursor-pointer"
                 >
-                  <RefreshCcw size={12} /> 📞 Call Backs ({callbackCount})
+                  Later Today ({upcomingTodayCount})
                 </button>
-              )}
+              </div>
+            </div>
 
-              {interestedCount > 0 && (
+            {/* Card 4: Conversions & Interested */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                    <Star size={16} />
+                  </div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Conversions</span>
+                </div>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  {convertedCount} Active
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <div className="text-3xl font-black text-emerald-800">{convertedCount}</div>
+                <span className="text-xs font-bold text-slate-400">Tutors Joined</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+                <span>🔥 <strong>{interestedCount}</strong> Hot Interested</span>
+                <span>·</span>
+                <span>✓ <strong>{convertedCount}</strong> Primary Active</span>
+              </div>
+
+              <div className="pt-0.5 flex items-center justify-between text-[11px]">
                 <button
+                  type="button"
                   onClick={() => setActiveTab("INTERESTED")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "INTERESTED"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                  }`}
+                  className="font-black text-emerald-700 hover:underline cursor-pointer"
                 >
-                  <Flame size={12} className="text-orange-500" /> 🔥 Interested ({interestedCount})
+                  Interested ({interestedCount}) →
                 </button>
-              )}
-
-              {noAnswerCount > 0 && (
                 <button
-                  onClick={() => setActiveTab("NO_ANSWER")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "NO_ANSWER"
-                      ? "bg-orange-600 text-white shadow-xs"
-                      : "bg-orange-50 text-orange-800 border border-orange-200 hover:bg-orange-100"
-                  }`}
+                  type="button"
+                  onClick={() => setActiveTab("CONVERTED")}
+                  className="font-bold text-slate-500 hover:underline cursor-pointer"
                 >
-                  <PhoneMissed size={12} /> ⏳ No Answer ({noAnswerCount})
+                  Converted ({convertedCount})
                 </button>
-              )}
+              </div>
+            </div>
+          </div>
 
+          {/* ── QUEUE SUB-TABS FILTER BAR (All Sub-Tabs Permanently Visible) ── */}
+          <div className="flex items-center justify-between flex-wrap gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+            {/* Daily & Status Sub-Tabs */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* 1. Worked Today */}
+              <button
+                onClick={() => setActiveTab("WORKED_TODAY")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "WORKED_TODAY"
+                    ? "bg-teal-600 text-white shadow-xs"
+                    : "bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100"
+                }`}
+              >
+                <Zap size={12} /> ⚡ Worked Today ({workedTodayCount})
+              </button>
+
+              {/* 2. Left / Pending to Work */}
+              <button
+                onClick={() => setActiveTab("PENDING_LEFT")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "PENDING_LEFT"
+                    ? "bg-blue-700 text-white shadow-xs"
+                    : "bg-blue-50 text-blue-900 border border-blue-200 hover:bg-blue-100"
+                }`}
+              >
+                <Clock size={12} /> ⏳ Left to Work ({pendingToWorkCount})
+              </button>
+
+              {/* 3. Follow-Ups Due Now */}
+              <button
+                onClick={() => setActiveTab("DUE")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "DUE"
+                    ? "bg-rose-600 text-white shadow-xs"
+                    : dueCount > 0
+                    ? "bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 animate-pulse"
+                    : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                <Clock size={12} /> 🚨 Due Now ({dueCount})
+              </button>
+
+              {/* 4. Today's Upcoming Follow-ups */}
+              <button
+                onClick={() => setActiveTab("UPCOMING_TODAY")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "UPCOMING_TODAY"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
+                }`}
+              >
+                <Calendar size={12} /> 🕒 Later Today ({upcomingTodayCount})
+              </button>
+
+              {/* 5. Worked Yesterday */}
+              <button
+                onClick={() => setActiveTab("WORKED_YESTERDAY")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "WORKED_YESTERDAY"
+                    ? "bg-slate-700 text-white shadow-xs"
+                    : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                <History size={12} /> 📅 Yesterday ({workedYesterdayCount})
+              </button>
+
+              {/* 6. Fresh New Leads */}
+              <button
+                onClick={() => setActiveTab("FRESH_NEW")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "FRESH_NEW"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100"
+                }`}
+              >
+                <Sparkles size={12} /> 🆕 Fresh Untouched ({freshCount})
+              </button>
+
+              {/* 7. All Callbacks */}
+              <button
+                onClick={() => setActiveTab("CALLBACKS")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "CALLBACKS"
+                    ? "bg-purple-600 text-white shadow-xs"
+                    : "bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100"
+                }`}
+              >
+                <RefreshCcw size={12} /> 📞 Call Backs ({callbackCount})
+              </button>
+
+              {/* 8. Interested */}
+              <button
+                onClick={() => setActiveTab("INTERESTED")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "INTERESTED"
+                    ? "bg-orange-600 text-white shadow-xs"
+                    : "bg-orange-50 text-orange-800 border border-orange-200 hover:bg-orange-100"
+                }`}
+              >
+                <Flame size={12} className="text-orange-500" /> 🔥 Interested ({interestedCount})
+              </button>
+
+              {/* 9. No Answer */}
+              <button
+                onClick={() => setActiveTab("NO_ANSWER")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "NO_ANSWER"
+                    ? "bg-amber-700 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
+                }`}
+              >
+                <PhoneMissed size={12} /> ⏳ No Answer ({noAnswerCount})
+              </button>
+
+              {/* 10. Converted */}
               <button
                 onClick={() => setActiveTab("CONVERTED")}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -733,6 +1271,7 @@ export function MyStaffLeadsClient({
                 <CheckCircle2 size={12} /> ✓ Converted ({convertedCount})
               </button>
 
+              {/* 11. All Assigned */}
               <button
                 onClick={() => setActiveTab("ALL")}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
@@ -793,19 +1332,44 @@ export function MyStaffLeadsClient({
           {/* Cards Grid */}
           <div className="space-y-3.5">
             {sorted.length === 0 ? (
-              <div className="bg-white border border-slate-200 rounded-3xl p-16 text-center text-slate-400 space-y-3">
-                <UserCheck size={44} className="mx-auto text-slate-300" />
-                <h3 className="font-extrabold text-base text-slate-800">No leads found in this queue</h3>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  You are all caught up! New leads assigned by Super Admin will appear here automatically.
-                </p>
+              <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400 space-y-4 shadow-xs">
+                <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                  <UserCheck size={32} />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-extrabold text-base text-slate-800">
+                    {leads.length === 0 ? "No Leads Currently in Your Assigned Queue" : "No Leads Match Selected Filter"}
+                  </h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    {leads.length === 0
+                      ? "When Super Admin distributes leads from the master data pool, your assigned tutor pipeline will appear here automatically."
+                      : "No tutor leads match the current tab and search query. Try selecting 'All Assigned' or clearing search."}
+                  </p>
+                </div>
+
+                {isSuperAdmin && leads.length === 0 && (
+                  <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
+                    <Link
+                      href="/admin/staff-leads/assign"
+                      className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black shadow-sm transition-all flex items-center gap-1.5"
+                    >
+                      <Users size={14} /> Assign Master Pool Leads →
+                    </Link>
+                    <Link
+                      href="/admin/staff-leads/upload"
+                      className="px-4 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all"
+                    >
+                      Upload New Master Leads
+                    </Link>
+                  </div>
+                )}
               </div>
             ) : (
               sorted.map((lead) => {
                 const isSelected = selectedIds.has(lead.id);
                 const isLeadPending = pendingLeadId === lead.id;
                 const statusStyle = STATUS_STYLES[lead.status] ?? STATUS_STYLES.NEW;
-                const isDue = lead.nextFollowUpAt && new Date(lead.nextFollowUpAt) <= new Date();
+                const followUpBadge = getFollowUpBadge(lead.nextFollowUpAt);
 
                 const waText = encodeURIComponent(
                   `Hello ${lead.name || "Tutor"}, greetings from ApnaTutorHub! We are currently assigning home & online tuitions for ${
@@ -847,9 +1411,11 @@ export function MyStaffLeadsClient({
                               {statusStyle.label}
                             </span>
 
-                            {isDue && (
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white flex items-center gap-1 animate-pulse">
-                                <Clock size={10} /> Follow-Up Due
+                            {/* Relative Live Follow-Up Time Badge */}
+                            {followUpBadge && (
+                              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 ${followUpBadge.cls}`}>
+                                <Clock size={11} />
+                                <span>{followUpBadge.label}</span>
                               </span>
                             )}
 
@@ -868,20 +1434,21 @@ export function MyStaffLeadsClient({
                             </button>
                           </div>
 
-                          {/* Contact Details */}
-                          <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+                          {/* Contact Details & Direct Phone Dialing */}
+                          <div className="flex items-center gap-2.5 text-xs text-slate-600 flex-wrap">
                             {lead.phone ? (
-                              <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-xl">
+                              <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-xl">
                                 <a
-                                  href={`tel:+91${lead.phone}`}
+                                  href={`tel:+91${lead.phone.replace(/\D/g, "")}`}
                                   className="font-mono font-black text-emerald-800 hover:underline flex items-center gap-1"
+                                  title="Click to redirect to phone dialer"
                                 >
                                   <Phone size={12} className="text-emerald-600" /> +91 {lead.phone}
                                 </a>
                                 <button
                                   type="button"
                                   onClick={() => copyToClipboard(lead.phone!, `phone-${lead.id}`)}
-                                  className="text-slate-400 hover:text-slate-700 cursor-pointer ml-1"
+                                  className="text-slate-400 hover:text-slate-700 cursor-pointer ml-1 p-0.5"
                                   title="Copy Phone"
                                 >
                                   {copiedField === `phone-${lead.id}` ? <Check size={12} className="text-emerald-600" /> : <Copy size={11} />}
@@ -889,14 +1456,37 @@ export function MyStaffLeadsClient({
                               </div>
                             ) : null}
 
+                            {/* Direct Dialer Button */}
+                            {lead.phone && (
+                              <a
+                                href={`tel:+91${lead.phone.replace(/\D/g, "")}`}
+                                className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-1 shadow-xs transition-all hover:scale-105"
+                                title="Click to redirect to phone dialer"
+                              >
+                                <PhoneCall size={12} /> Call Now
+                              </a>
+                            )}
+
+                            {/* WhatsApp Button */}
                             {lead.phone && (
                               <a
                                 href={`https://wa.me/91${lead.phone.replace(/\D/g, "")}?text=${waText}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 shadow-xs transition-colors"
+                                className="px-2.5 py-1 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold flex items-center gap-1 shadow-xs transition-colors"
                               >
                                 <MessageCircle size={12} /> WhatsApp
+                              </a>
+                            )}
+
+                            {/* Alternate Phone Direct Dialer */}
+                            {lead.altPhone && (
+                              <a
+                                href={`tel:+91${lead.altPhone.replace(/\D/g, "")}`}
+                                className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 border border-slate-200 transition-colors"
+                                title="Dial Alternate Number"
+                              >
+                                <Phone size={11} className="text-slate-500" /> Alt: {lead.altPhone}
                               </a>
                             )}
 
@@ -956,6 +1546,32 @@ export function MyStaffLeadsClient({
                       {/* Right: Actions */}
                       <div className="flex flex-col items-end gap-2.5 shrink-0">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {/* Direct Dialer Button in Actions */}
+                          {lead.phone && (
+                            <a
+                              href={`tel:+91${lead.phone.replace(/\D/g, "")}`}
+                              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-xs transition-all hover:scale-105"
+                              title="Redirect to phone dialer"
+                            >
+                              <PhoneCall size={13} /> Dial Tutor
+                            </a>
+                          )}
+
+                          {/* 1-Click Fast Follow-Up Scheduler Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFastFollowUpLead(lead);
+                              const d = new Date(Date.now() + 60 * 60000);
+                              const pad = (n: number) => String(n).padStart(2, "0");
+                              setFastFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                              setFastFollowUpNote(lead.staffNotes || "");
+                            }}
+                            className="px-3.5 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                          >
+                            <Clock size={13} className="text-amber-600" /> Set Follow-Up
+                          </button>
+
                           {/* Standard Edit Button */}
                           <button
                             type="button"
@@ -1934,6 +2550,531 @@ export function MyStaffLeadsClient({
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════════════════
+          FAST FOLLOW-UP DATE & TIME SCHEDULER MODAL (1-Click Callback Setup)
+         ═════════════════════════════════════════════════════════════════════════════════ */}
+      {fastFollowUpLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl p-6 sm:p-7 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
+                    <Clock size={16} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-slate-900">
+                      Schedule Callback Follow-Up
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {fastFollowUpLead.name || "Tutor Lead"} {fastFollowUpLead.phone ? `· +91 ${fastFollowUpLead.phone}` : ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setFastFollowUpLead(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Quick 1-Click Time Buttons */}
+            <div className="space-y-2">
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-600">
+                ⚡ 1-Click Callback Presets:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: "+15 Mins", calc: () => new Date(Date.now() + 15 * 60000) },
+                  { label: "+30 Mins", calc: () => new Date(Date.now() + 30 * 60000) },
+                  { label: "+1 Hour", calc: () => new Date(Date.now() + 60 * 60000) },
+                  { label: "+2 Hours", calc: () => new Date(Date.now() + 120 * 60000) },
+                  {
+                    label: "Today 5 PM",
+                    calc: () => {
+                      const d = new Date();
+                      d.setHours(17, 0, 0, 0);
+                      if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+                      return d;
+                    },
+                  },
+                  {
+                    label: "Today 7 PM",
+                    calc: () => {
+                      const d = new Date();
+                      d.setHours(19, 0, 0, 0);
+                      if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+                      return d;
+                    },
+                  },
+                  {
+                    label: "Tomorrow 10:30 AM",
+                    calc: () => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(10, 30, 0, 0);
+                      return d;
+                    },
+                  },
+                  {
+                    label: "Tomorrow 4:00 PM",
+                    calc: () => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(16, 0, 0, 0);
+                      return d;
+                    },
+                  },
+                  {
+                    label: "Tomorrow 7:00 PM",
+                    calc: () => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(19, 0, 0, 0);
+                      return d;
+                    },
+                  },
+                  {
+                    label: "In 2 Days 11 AM",
+                    calc: () => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 2);
+                      d.setHours(11, 0, 0, 0);
+                      return d;
+                    },
+                  },
+                  {
+                    label: "In 3 Days",
+                    calc: () => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 3);
+                      d.setHours(11, 0, 0, 0);
+                      return d;
+                    },
+                  },
+                  {
+                    label: "Next Monday 11 AM",
+                    calc: () => {
+                      const d = new Date();
+                      const day = d.getDay();
+                      const diff = (8 - day) % 7 || 7;
+                      d.setDate(d.getDate() + diff);
+                      d.setHours(11, 0, 0, 0);
+                      return d;
+                    },
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      const d = item.calc();
+                      const pad = (n: number) => String(n).padStart(2, "0");
+                      setFastFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                    }}
+                    className="p-2 text-[11px] font-black rounded-xl bg-slate-50 hover:bg-amber-50 hover:text-amber-900 border border-slate-200 hover:border-amber-300 transition-all text-slate-700 cursor-pointer truncate"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Datetime Input */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                Exact Callback Date & Time:
+              </label>
+              <input
+                type="datetime-local"
+                value={fastFollowUpDate}
+                onChange={(e) => setFastFollowUpDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 bg-white"
+              />
+            </div>
+
+            {/* Quick Reason Suggestions & Notes */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700">
+                Callback Reason / Note:
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  "Asked to call after tuition class",
+                  "Travelling / Driving right now",
+                  "Discussing timings with family",
+                  "Wants trial tuition student details",
+                  "Busy in school / meeting",
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setFastFollowUpNote(reason)}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  >
+                    + {reason}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                rows={2}
+                value={fastFollowUpNote}
+                onChange={(e) => setFastFollowUpNote(e.target.value)}
+                placeholder="e.g. Teacher requested callback after 5 PM when free from tuition..."
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 bg-white"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setFastFollowUpLead(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveFastFollowUp}
+                disabled={!fastFollowUpDate || pendingLeadId === fastFollowUpLead.id}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {pendingLeadId === fastFollowUpLead.id ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Clock size={14} />
+                )}
+                Save Callback Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════════════════
+          SPEED POWER DIALER MODAL (1-Click Call, WhatsApp, Log & Auto-Advance)
+         ═════════════════════════════════════════════════════════════════════════════════ */}
+      {isPowerDialing && currentPowerLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden space-y-0 animate-in zoom-in-95">
+            {/* Header with Power Dial Progress */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black">
+                    <Zap size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-white flex items-center gap-2">
+                      <span>⚡ Power Dialer Mode</span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-amber-300">
+                        Lead {powerDialIndex + 1} of {pendingQueue.length}
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Lightning workflow: Dial, WhatsApp, click outcome to auto-advance to next lead.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (powerDialIndex + 1 < pendingQueue.length) {
+                        setPowerDialIndex((prev) => prev + 1);
+                        setPowerDialNotes("");
+                        setPowerDialFollowUp("");
+                      } else {
+                        setIsPowerDialing(false);
+                      }
+                    }}
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 cursor-pointer"
+                  >
+                    Skip →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPowerDialing(false)}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress Line */}
+              <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-amber-400 to-emerald-400 h-full transition-all duration-300"
+                  style={{ width: `${Math.round(((powerDialIndex + 1) / pendingQueue.length) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Body Content */}
+            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Tutor Profile Card */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">
+                      {currentPowerLead.name || "Tutor Lead"}
+                    </h3>
+                    <p className="text-xs font-mono font-bold text-slate-500 mt-0.5">
+                      +91 {currentPowerLead.phone || "No phone"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {currentPowerLead.phone && (
+                      <a
+                        href={`tel:+91${currentPowerLead.phone}`}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <Phone size={13} /> Call +91 {currentPowerLead.phone}
+                      </a>
+                    )}
+                    {currentPowerLead.phone && (
+                      <a
+                        href={`https://wa.me/91${currentPowerLead.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                          `Hello ${currentPowerLead.name || "Tutor"}, greetings from ApnaTutorHub! We have tutoring requirements for ${
+                            currentPowerLead.subjects.length ? currentPowerLead.subjects.slice(0, 2).join(", ") : "students"
+                          } in ${currentPowerLead.location || "your locality"}. Are you available to accept new students?`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <MessageCircle size={13} /> WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Details & Pills */}
+                <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600 pt-1">
+                  {currentPowerLead.location && (
+                    <span className="flex items-center gap-1 font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                      <MapPin size={12} className="text-rose-500" /> {currentPowerLead.location}
+                    </span>
+                  )}
+                  {currentPowerLead.qualification && (
+                    <span className="font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                      🎓 {currentPowerLead.qualification}
+                    </span>
+                  )}
+                  {currentPowerLead.gender && (
+                    <span className="font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                      {currentPowerLead.gender}
+                    </span>
+                  )}
+                </div>
+
+                {/* Subjects & Classes */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  {currentPowerLead.subjects.map((s) => (
+                    <span key={s} className="text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-lg">
+                      {s}
+                    </span>
+                  ))}
+                  {currentPowerLead.classes.map((c) => (
+                    <span key={c} className="text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded-lg">
+                      {c}
+                    </span>
+                  ))}
+                </div>
+
+                {currentPowerLead.staffNotes && (
+                  <p className="text-xs text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200 italic">
+                    Previous note: "{currentPowerLead.staffNotes}"
+                  </p>
+                )}
+              </div>
+
+              {/* Discussion Note Input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Discussion Notes for this Call (Optional):
+                </label>
+                <input
+                  type="text"
+                  value={powerDialNotes}
+                  onChange={(e) => setPowerDialNotes(e.target.value)}
+                  placeholder="e.g. Discussed fee 800/hr, available 4 PM onwards in Sector 49..."
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 bg-white"
+                />
+              </div>
+
+              {/* Follow-up Quick Presets for Power Dialer */}
+              <div className="space-y-2 bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200/80">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-amber-900 flex items-center gap-1">
+                    <Clock size={13} /> Quick Callback Presets (Auto-sets follow-up date):
+                  </span>
+                  {powerDialFollowUp && (
+                    <button
+                      type="button"
+                      onClick={() => setPowerDialFollowUp("")}
+                      className="text-[10px] font-bold text-rose-600 hover:underline"
+                    >
+                      Clear Callback
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { label: "+30 Mins", calc: () => new Date(Date.now() + 30 * 60000) },
+                    { label: "+1 Hour", calc: () => new Date(Date.now() + 60 * 60000) },
+                    { label: "+2 Hours", calc: () => new Date(Date.now() + 120 * 60000) },
+                    {
+                      label: "Today 5 PM",
+                      calc: () => {
+                        const d = new Date();
+                        d.setHours(17, 0, 0, 0);
+                        if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+                        return d;
+                      },
+                    },
+                    {
+                      label: "Tomorrow 10:30 AM",
+                      calc: () => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        d.setHours(10, 30, 0, 0);
+                        return d;
+                      },
+                    },
+                    {
+                      label: "Tomorrow 4 PM",
+                      calc: () => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        d.setHours(16, 0, 0, 0);
+                        return d;
+                      },
+                    },
+                    {
+                      label: "In 2 Days 11 AM",
+                      calc: () => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 2);
+                        d.setHours(11, 0, 0, 0);
+                        return d;
+                      },
+                    },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        const d = p.calc();
+                        const pad = (n: number) => String(n).padStart(2, "0");
+                        setPowerDialFollowUp(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                      }}
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                        powerDialFollowUp
+                          ? "bg-amber-100 text-amber-900 border-amber-300"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-amber-50"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                {powerDialFollowUp && (
+                  <p className="text-[11px] font-bold text-amber-800">
+                    Callback Scheduled for: {new Date(powerDialFollowUp).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                  </p>
+                )}
+              </div>
+
+              {/* Log Outcome & Auto-Advance (1-Click Action Buttons) */}
+              <div className="space-y-2">
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-600">
+                  🎯 Click Call Outcome to Save &amp; Advance to Next Lead:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    disabled={pendingLeadId === currentPowerLead.id}
+                    onClick={() => handlePowerDialOutcome("ANSWERED")}
+                    className="p-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={14} />
+                    <span>✓ Answered &amp; Discussed</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={pendingLeadId === currentPowerLead.id}
+                    onClick={() => {
+                      if (!powerDialFollowUp) {
+                        const d = new Date(Date.now() + 60 * 60000);
+                        handlePowerDialOutcome("CALLBACK_REQUESTED", d.toISOString());
+                      } else {
+                        handlePowerDialOutcome("CALLBACK_REQUESTED");
+                      }
+                    }}
+                    className="p-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Clock size={14} />
+                    <span>⏰ Callback Requested</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={pendingLeadId === currentPowerLead.id}
+                    onClick={() => handlePowerDialOutcome("NO_ANSWER")}
+                    className="p-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <PhoneMissed size={14} />
+                    <span>📵 No Answer / Ringing</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={pendingLeadId === currentPowerLead.id}
+                    onClick={() => handlePowerDialOutcome("BUSY")}
+                    className="p-3 rounded-2xl bg-slate-700 hover:bg-slate-800 text-white font-black text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <PhoneCall size={14} />
+                    <span>⏳ Busy / Waiting</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={pendingLeadId === currentPowerLead.id}
+                    onClick={() => handlePowerDialOutcome("CONVERTED")}
+                    className="p-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Star size={14} />
+                    <span>🎉 Converted / Ready</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={pendingLeadId === currentPowerLead.id}
+                    onClick={() => handlePowerDialOutcome("NOT_INTERESTED")}
+                    className="p-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <XCircle size={14} />
+                    <span>✕ Not Interested</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

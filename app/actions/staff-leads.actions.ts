@@ -186,9 +186,24 @@ export async function parseLeadBatchPreviewAction(
       };
     });
 
+    const totalLeads = enrichedLeads.length;
+    const totalPhones = enrichedLeads.filter((l) => Boolean(l.phone)).length;
+    const totalEmails = enrichedLeads.filter((l) => Boolean(l.email)).length;
+    const totalDuplicates = enrichedLeads.filter((l) => l.isDuplicate).length;
+    const totalReady = enrichedLeads.filter((l) => !l.isDuplicate && (l.phone || l.email)).length;
+
+    // Cap preview slice to 500 leads to guarantee lightweight payload (< 200KB)
+    const previewSlice = enrichedLeads.slice(0, 500);
+
     return actionSuccess({
       ...result,
-      leads: enrichedLeads,
+      leads: previewSlice,
+      totalLeadsCount: totalLeads,
+      totalPhonesCount: totalPhones,
+      totalEmailsCount: totalEmails,
+      totalDuplicatesCount: totalDuplicates,
+      totalReadyCount: totalReady,
+      isPreviewCapped: totalLeads > 500,
     });
   } catch (err) {
     console.error("[parseLeadBatchPreviewAction]", err);
@@ -196,7 +211,197 @@ export async function parseLeadBatchPreviewAction(
   }
 }
 
-// ─── 2. Confirm & Save Batch to DB (Strict Server De-duplication) ────────────
+// ─── 2. Confirm & Save Batch from Raw Text (Optimized for Bulk 10k+ Datasets) ────────────
+
+export async function confirmBatchFromRawTextAction(
+  batchName: string,
+  rawText: string,
+  options?: {
+    excludeDuplicates?: boolean;
+    requireContactMethod?: boolean;
+    requireBothPhoneAndEmail?: boolean;
+  }
+): Promise<ActionResult<{ batchId: string; saved: number; skippedDuplicates: number; totalParsed: number }>> {
+  const { error, session } = await requireCrmOps();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  if (!rawText?.trim()) return actionError("No data provided");
+
+  try {
+    const parseResult = await parseWhatsAppDump(rawText);
+    const leads = parseResult.leads;
+
+    if (leads.length === 0) {
+      return actionError("No valid leads found in the uploaded data.");
+    }
+
+    const excludeDuplicates = options?.excludeDuplicates ?? true;
+    const requireContactMethod = options?.requireContactMethod ?? true;
+    const requireBothPhoneAndEmail = options?.requireBothPhoneAndEmail ?? false;
+
+    // 1. In-memory deduplication
+    const seenPhones = new Set<string>();
+    const seenEmails = new Set<string>();
+    const memoryDeduped: typeof leads = [];
+
+    for (const lead of leads) {
+      const phone = lead.phone?.trim();
+      const email = lead.email?.trim().toLowerCase();
+
+      if (requireContactMethod && !phone && !email) continue;
+      if (requireBothPhoneAndEmail && (!phone || !email)) continue;
+
+      if ((phone && seenPhones.has(phone)) || (email && seenEmails.has(email))) {
+        continue;
+      }
+      if (phone) seenPhones.add(phone);
+      if (email) seenEmails.add(email);
+      memoryDeduped.push(lead);
+    }
+
+    // 2. Query DB to find existing phones and emails in staff_leads and users if excludeDuplicates is enabled
+    let finalToSave = memoryDeduped;
+    let skippedDuplicates = 0;
+
+    if (excludeDuplicates) {
+      const allPhones = [...new Set(memoryDeduped.map((l) => l.phone?.trim()).filter((p): p is string => Boolean(p)))];
+      const allEmails = [...new Set(memoryDeduped.map((l) => l.email?.trim().toLowerCase()).filter((e): e is string => Boolean(e)))];
+
+      const CHUNK_SIZE = 500;
+      const existingStaffLeads: Array<{ phone: string | null; email: string | null }> = [];
+      const existingUsers: Array<{ phone: string | null; email: string | null }> = [];
+
+      const phoneChunks: string[][] = [];
+      for (let i = 0; i < allPhones.length; i += CHUNK_SIZE) phoneChunks.push(allPhones.slice(i, i + CHUNK_SIZE));
+      if (phoneChunks.length === 0) phoneChunks.push([]);
+
+      const emailChunks: string[][] = [];
+      for (let i = 0; i < allEmails.length; i += CHUNK_SIZE) emailChunks.push(allEmails.slice(i, i + CHUNK_SIZE));
+      if (emailChunks.length === 0) emailChunks.push([]);
+
+      await Promise.all([
+        ...phoneChunks.filter((c) => c.length > 0).map(async (chunk) => {
+          const [staff, users] = await Promise.all([
+            prisma.staffLead.findMany({
+              where: { phone: { in: chunk } },
+              select: { phone: true, email: true },
+            }),
+            prisma.user.findMany({
+              where: { phone: { in: chunk } },
+              select: { phone: true, email: true },
+            }),
+          ]);
+          existingStaffLeads.push(...staff);
+          existingUsers.push(...users);
+        }),
+        ...emailChunks.filter((c) => c.length > 0).map(async (chunk) => {
+          const [staff, users] = await Promise.all([
+            prisma.staffLead.findMany({
+              where: { email: { in: chunk, mode: "insensitive" as const } },
+              select: { phone: true, email: true },
+            }),
+            prisma.user.findMany({
+              where: { email: { in: chunk, mode: "insensitive" as const } },
+              select: { phone: true, email: true },
+            }),
+          ]);
+          existingStaffLeads.push(...staff);
+          existingUsers.push(...users);
+        }),
+      ]);
+
+      const dbPhones = new Set<string>([
+        ...existingStaffLeads.map((s) => s.phone).filter((p): p is string => Boolean(p)),
+        ...existingUsers.map((u) => u.phone).filter((p): p is string => Boolean(p)),
+      ]);
+
+      const dbEmails = new Set<string>([
+        ...existingStaffLeads.map((s) => s.email?.toLowerCase()).filter((e): e is string => Boolean(e)),
+        ...existingUsers.map((u) => u.email?.toLowerCase()).filter((e): e is string => Boolean(e)),
+      ]);
+
+      finalToSave = memoryDeduped.filter((lead) => {
+        const phone = lead.phone?.trim();
+        const email = lead.email?.trim().toLowerCase();
+        if (phone && dbPhones.has(phone)) return false;
+        if (email && dbEmails.has(email)) return false;
+        return true;
+      });
+
+      skippedDuplicates = leads.length - finalToSave.length;
+    }
+
+    if (finalToSave.length === 0) {
+      return actionError(`All ${leads.length} leads were skipped because they already exist in the database.`);
+    }
+
+    const batch = await prisma.staffLeadBatch.create({
+      data: {
+        name: batchName.trim() || `Bulk Import ${new Date().toLocaleDateString("en-IN")}`,
+        rawText: rawText.length > 50000 ? `${rawText.slice(0, 50000)}... [truncated ${rawText.length} chars]` : rawText,
+        totalParsed: finalToSave.length,
+        totalJunk: skippedDuplicates,
+        createdById: session.user.id,
+      },
+    });
+
+    const CHUNK_INSERT_SIZE = 1000;
+    const leadsToInsert = finalToSave.map((l) => {
+      const metaParts: string[] = [];
+      if (l.leadType === "PARENT_LEAD") metaParts.push("[PARENT REQUIREMENT]");
+      if (l.budgetFee) metaParts.push(`[BUDGET: ${l.budgetFee}]`);
+      if (l.appliedCodes && l.appliedCodes.length > 0) metaParts.push(`[CODES: ${l.appliedCodes.join(", ")}]`);
+      if (l.operationalNotes) metaParts.push(`[NOTES: ${l.operationalNotes}]`);
+
+      return {
+        batchId: batch.id,
+        rawText: l.rawText || null,
+        name: l.name || null,
+        phone: l.phone?.trim() || null,
+        altPhone: l.altPhone?.trim() || null,
+        whatsapp: l.whatsapp?.trim() || null,
+        email: l.email?.trim() || null,
+        location: l.location || null,
+        pincode: l.pincode || null,
+        fullAddress: l.fullAddress || null,
+        subjects: l.subjects ?? [],
+        classes: l.classes ?? [],
+        board: l.board || null,
+        qualification: l.qualification || null,
+        experienceYears: l.experienceYears ?? null,
+        gender: l.gender || null,
+        staffNotes: metaParts.length > 0 ? metaParts.join(" | ") : null,
+        createdById: session.user.id,
+      };
+    });
+
+    for (let i = 0; i < leadsToInsert.length; i += CHUNK_INSERT_SIZE) {
+      const chunk = leadsToInsert.slice(i, i + CHUNK_INSERT_SIZE);
+      await prisma.staffLead.createMany({
+        data: chunk,
+        skipDuplicates: true,
+      });
+    }
+
+    try {
+      await refreshBatchProgressAction(batch.id);
+    } catch (e) {
+      console.warn("[confirmBatchFromRawTextAction] Batch progress init error:", e);
+    }
+
+    revalidatePath("/admin/staff-leads");
+    revalidatePath("/admin/staff-leads/manage");
+    return actionSuccess({
+      batchId: batch.id,
+      saved: finalToSave.length,
+      skippedDuplicates,
+      totalParsed: leads.length,
+    });
+  } catch (err) {
+    console.error("[confirmBatchFromRawTextAction]", err);
+    return actionError("Failed to save batch. Please try again.");
+  }
+}
 
 export type StaffLeadInput = {
   rawText?: string;
@@ -322,41 +527,51 @@ export async function confirmBatchUploadAction(
     const batch = await prisma.staffLeadBatch.create({
       data: {
         name: batchName.trim() || `Batch ${new Date().toLocaleDateString("en-IN")}`,
-        rawText,
+        rawText: rawText.length > 50000 ? `${rawText.slice(0, 50000)}... [truncated ${rawText.length} chars]` : rawText,
         totalParsed: finalToSave.length,
         totalJunk: skippedDuplicates,
         createdById: session.user.id,
-        leads: {
-          create: finalToSave.map((l) => {
-            const metaParts: string[] = [];
-            if (l.leadType === "PARENT_LEAD") metaParts.push("[PARENT REQUIREMENT]");
-            if (l.budgetFee) metaParts.push(`[BUDGET: ${l.budgetFee}]`);
-            if (l.appliedCodes && l.appliedCodes.length > 0) metaParts.push(`[CODES: ${l.appliedCodes.join(", ")}]`);
-            if (l.operationalNotes) metaParts.push(`[NOTES: ${l.operationalNotes}]`);
-
-            return {
-              rawText: l.rawText,
-              name: l.name || null,
-              phone: l.phone?.trim() || null,
-              altPhone: l.altPhone?.trim() || null,
-              whatsapp: l.whatsapp?.trim() || null,
-              email: l.email?.trim() || null,
-              location: l.location || null,
-              pincode: l.pincode || null,
-              fullAddress: l.fullAddress || null,
-              subjects: l.subjects ?? [],
-              classes: l.classes ?? [],
-              board: l.board || null,
-              qualification: l.qualification || null,
-              experienceYears: l.experienceYears ?? null,
-              gender: l.gender || null,
-              staffNotes: metaParts.length > 0 ? metaParts.join(" | ") : null,
-              createdById: session.user.id,
-            };
-          }),
-        },
       },
     });
+
+    // Chunked insert to prevent PostgreSQL parameter overflow (limit is 65k parameters)
+    const CHUNK_INSERT_SIZE = 1000;
+    const leadsToInsert = finalToSave.map((l) => {
+      const metaParts: string[] = [];
+      if (l.leadType === "PARENT_LEAD") metaParts.push("[PARENT REQUIREMENT]");
+      if (l.budgetFee) metaParts.push(`[BUDGET: ${l.budgetFee}]`);
+      if (l.appliedCodes && l.appliedCodes.length > 0) metaParts.push(`[CODES: ${l.appliedCodes.join(", ")}]`);
+      if (l.operationalNotes) metaParts.push(`[NOTES: ${l.operationalNotes}]`);
+
+      return {
+        batchId: batch.id,
+        rawText: l.rawText || null,
+        name: l.name || null,
+        phone: l.phone?.trim() || null,
+        altPhone: l.altPhone?.trim() || null,
+        whatsapp: l.whatsapp?.trim() || null,
+        email: l.email?.trim() || null,
+        location: l.location || null,
+        pincode: l.pincode || null,
+        fullAddress: l.fullAddress || null,
+        subjects: l.subjects ?? [],
+        classes: l.classes ?? [],
+        board: l.board || null,
+        qualification: l.qualification || null,
+        experienceYears: l.experienceYears ?? null,
+        gender: l.gender || null,
+        staffNotes: metaParts.length > 0 ? metaParts.join(" | ") : null,
+        createdById: session.user.id,
+      };
+    });
+
+    for (let i = 0; i < leadsToInsert.length; i += CHUNK_INSERT_SIZE) {
+      const chunk = leadsToInsert.slice(i, i + CHUNK_INSERT_SIZE);
+      await prisma.staffLead.createMany({
+        data: chunk,
+        skipDuplicates: true,
+      });
+    }
 
     // Initialize batch pipeline progress tracking
     try {
@@ -375,6 +590,179 @@ export async function confirmBatchUploadAction(
   } catch (err) {
     console.error("[confirmBatchUploadAction]", err);
     return actionError("Failed to save batch. Please try again.");
+  }
+}
+
+export async function directBulkImportAction(
+  batchName: string,
+  rawText: string
+): Promise<ActionResult<{ batchId: string; saved: number; skippedDuplicates: number; totalParsed: number }>> {
+  const { error, session } = await requireCrmOps();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  if (!rawText?.trim()) return actionError("No data provided");
+
+  try {
+    const parseResult = await parseWhatsAppDump(rawText);
+    const leads = parseResult.leads;
+
+    if (leads.length === 0) {
+      return actionError("No valid leads found in the uploaded data.");
+    }
+
+    // 1. In-memory deduplication
+    const seenPhones = new Set<string>();
+    const seenEmails = new Set<string>();
+    const memoryDeduped: typeof leads = [];
+
+    for (const lead of leads) {
+      const phone = lead.phone?.trim();
+      const email = lead.email?.trim().toLowerCase();
+
+      if ((phone && seenPhones.has(phone)) || (email && seenEmails.has(email))) {
+        continue;
+      }
+      if (phone) seenPhones.add(phone);
+      if (email) seenEmails.add(email);
+      memoryDeduped.push(lead);
+    }
+
+    // 2. Query DB to find existing phones and emails in staff_leads and users
+    const allPhones = [...new Set(memoryDeduped.map((l) => l.phone?.trim()).filter((p): p is string => Boolean(p)))];
+    const allEmails = [...new Set(memoryDeduped.map((l) => l.email?.trim().toLowerCase()).filter((e): e is string => Boolean(e)))];
+
+    const CHUNK_SIZE = 500;
+    const existingStaffLeads: Array<{ phone: string | null; email: string | null }> = [];
+    const existingUsers: Array<{ phone: string | null; email: string | null }> = [];
+
+    const phoneChunks: string[][] = [];
+    for (let i = 0; i < allPhones.length; i += CHUNK_SIZE) phoneChunks.push(allPhones.slice(i, i + CHUNK_SIZE));
+    if (phoneChunks.length === 0) phoneChunks.push([]);
+
+    const emailChunks: string[][] = [];
+    for (let i = 0; i < allEmails.length; i += CHUNK_SIZE) emailChunks.push(allEmails.slice(i, i + CHUNK_SIZE));
+    if (emailChunks.length === 0) emailChunks.push([]);
+
+    await Promise.all([
+      ...phoneChunks.filter((c) => c.length > 0).map(async (chunk) => {
+        const [staff, users] = await Promise.all([
+          prisma.staffLead.findMany({
+            where: { phone: { in: chunk } },
+            select: { phone: true, email: true },
+          }),
+          prisma.user.findMany({
+            where: { phone: { in: chunk } },
+            select: { phone: true, email: true },
+          }),
+        ]);
+        existingStaffLeads.push(...staff);
+        existingUsers.push(...users);
+      }),
+      ...emailChunks.filter((c) => c.length > 0).map(async (chunk) => {
+        const [staff, users] = await Promise.all([
+          prisma.staffLead.findMany({
+            where: { email: { in: chunk, mode: "insensitive" as const } },
+            select: { phone: true, email: true },
+          }),
+          prisma.user.findMany({
+            where: { email: { in: chunk, mode: "insensitive" as const } },
+            select: { phone: true, email: true },
+          }),
+        ]);
+        existingStaffLeads.push(...staff);
+        existingUsers.push(...users);
+      }),
+    ]);
+
+    const dbPhones = new Set<string>([
+      ...existingStaffLeads.map((s) => s.phone).filter((p): p is string => Boolean(p)),
+      ...existingUsers.map((u) => u.phone).filter((p): p is string => Boolean(p)),
+    ]);
+
+    const dbEmails = new Set<string>([
+      ...existingStaffLeads.map((s) => s.email?.toLowerCase()).filter((e): e is string => Boolean(e)),
+      ...existingUsers.map((u) => u.email?.toLowerCase()).filter((e): e is string => Boolean(e)),
+    ]);
+
+    const finalToSave = memoryDeduped.filter((lead) => {
+      const phone = lead.phone?.trim();
+      const email = lead.email?.trim().toLowerCase();
+      if (phone && dbPhones.has(phone)) return false;
+      if (email && dbEmails.has(email)) return false;
+      return true;
+    });
+
+    const skippedDuplicates = leads.length - finalToSave.length;
+
+    if (finalToSave.length === 0) {
+      return actionError(`All ${leads.length} leads were skipped because their phone numbers/emails already exist in the database.`);
+    }
+
+    const batch = await prisma.staffLeadBatch.create({
+      data: {
+        name: batchName.trim() || `Bulk Import ${new Date().toLocaleDateString("en-IN")}`,
+        rawText: rawText.length > 50000 ? `${rawText.slice(0, 50000)}... [truncated ${rawText.length} chars]` : rawText,
+        totalParsed: finalToSave.length,
+        totalJunk: skippedDuplicates,
+        createdById: session.user.id,
+      },
+    });
+
+    const CHUNK_INSERT_SIZE = 1000;
+    const leadsToInsert = finalToSave.map((l) => {
+      const metaParts: string[] = [];
+      if (l.leadType === "PARENT_LEAD") metaParts.push("[PARENT REQUIREMENT]");
+      if (l.budgetFee) metaParts.push(`[BUDGET: ${l.budgetFee}]`);
+      if (l.appliedCodes && l.appliedCodes.length > 0) metaParts.push(`[CODES: ${l.appliedCodes.join(", ")}]`);
+      if (l.operationalNotes) metaParts.push(`[NOTES: ${l.operationalNotes}]`);
+
+      return {
+        batchId: batch.id,
+        rawText: l.rawText || null,
+        name: l.name || null,
+        phone: l.phone?.trim() || null,
+        altPhone: l.altPhone?.trim() || null,
+        whatsapp: l.whatsapp?.trim() || null,
+        email: l.email?.trim() || null,
+        location: l.location || null,
+        pincode: l.pincode || null,
+        fullAddress: l.fullAddress || null,
+        subjects: l.subjects ?? [],
+        classes: l.classes ?? [],
+        board: l.board || null,
+        qualification: l.qualification || null,
+        experienceYears: l.experienceYears ?? null,
+        gender: l.gender || null,
+        staffNotes: metaParts.length > 0 ? metaParts.join(" | ") : null,
+        createdById: session.user.id,
+      };
+    });
+
+    for (let i = 0; i < leadsToInsert.length; i += CHUNK_INSERT_SIZE) {
+      const chunk = leadsToInsert.slice(i, i + CHUNK_INSERT_SIZE);
+      await prisma.staffLead.createMany({
+        data: chunk,
+        skipDuplicates: true,
+      });
+    }
+
+    try {
+      await refreshBatchProgressAction(batch.id);
+    } catch (e) {
+      console.warn("[directBulkImportAction] Batch progress init error:", e);
+    }
+
+    revalidatePath("/admin/staff-leads");
+    revalidatePath("/admin/staff-leads/manage");
+    return actionSuccess({
+      batchId: batch.id,
+      saved: finalToSave.length,
+      skippedDuplicates,
+      totalParsed: leads.length,
+    });
+  } catch (err) {
+    console.error("[directBulkImportAction]", err);
+    return actionError("Failed to perform direct bulk import. Please try again.");
   }
 }
 

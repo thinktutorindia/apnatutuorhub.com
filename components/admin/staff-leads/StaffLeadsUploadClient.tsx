@@ -1,20 +1,15 @@
 "use client";
 
-import React, { useState, useTransition, useRef, useEffect } from "react";
-import {
-  parseLeadBatchPreviewAction,
-  confirmBatchUploadAction,
-  type StaffLeadInput,
-} from "@/app/actions/staff-leads.actions";
+import React, { useState, useRef, useEffect } from "react";
 import type { ParsedLead } from "@/lib/gemini-lead-extractor";
 import {
   Upload, Sparkles, CheckCircle2, Loader2, X, Edit2, Save,
   AlertCircle, ChevronRight, FileText, Users, Trash2, Search,
   Filter, Eye, Check, AlertTriangle, HelpCircle, ShieldCheck,
-  Phone, Mail, MapPin, BookOpen, GraduationCap, Copy, ChevronDown,
-  SlidersHorizontal, RefreshCw
+  Phone, Mail, MapPin, BookOpen, GraduationCap, Copy, ChevronDown, Plus, PlusCircle, Tag, SlidersHorizontal, RefreshCw
 } from "lucide-react";
 import Link from "next/link";
+import { SUBJECT_TAXONOMY, CLASS_LEVELS, SUBJECTS } from "@/lib/validations";
 
 type TabMode = "READY" | "HAS_PHONE" | "HAS_EMAIL" | "DUPLICATES" | "ALL";
 
@@ -80,13 +75,21 @@ export function StaffLeadsUploadClient() {
   const [batchName, setBatchName] = useState("");
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [step, setStep] = useState<"paste" | "preview" | "done">("paste");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [leads, setLeads] = useState<ParsedLead[]>([]);
   const [junkCount, setJunkCount] = useState(0);
   const [totalMessages, setTotalMessages] = useState(0);
+  const [totalLeadsCount, setTotalLeadsCount] = useState(0);
+  const [totalPhonesCount, setTotalPhonesCount] = useState(0);
+  const [totalEmailsCount, setTotalEmailsCount] = useState(0);
+  const [totalDuplicatesCount, setTotalDuplicatesCount] = useState(0);
+  const [totalReadyCount, setTotalReadyCount] = useState(0);
+  const [isPreviewCapped, setIsPreviewCapped] = useState(false);
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editBuffer, setEditBuffer] = useState<Partial<ParsedLead>>({});
   const [manuallyExcludedIds, setManuallyExcludedIds] = useState<Set<number>>(new Set());
-  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [savedBatchId, setSavedBatchId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -137,6 +140,7 @@ export function StaffLeadsUploadClient() {
   const handleFileUpload = (file: File) => {
     if (!file) return;
     setError(null);
+    setUploadedFile(file);
     setUploadedFileName(file.name);
     if (!batchName) {
       setBatchName(file.name.replace(/\.[^/.]+$/, ""));
@@ -163,50 +167,110 @@ export function StaffLeadsUploadClient() {
     }
   };
 
-  const handleParse = () => {
-    if (!rawText.trim()) { setError("Please paste some data first"); return; }
+  const handleParse = async () => {
+    if (!rawText.trim() && !uploadedFile) {
+      setError("Please paste or upload some lead data first");
+      return;
+    }
     setError(null);
-    startTransition(async () => {
-      const res = await parseLeadBatchPreviewAction(rawText);
-      if (!res.success || !res.data) { setError(res.error ?? "Parsing failed"); return; }
-      setLeads(res.data.leads);
-      setJunkCount(res.data.junkCount);
-      setTotalMessages(res.data.totalMessages);
+    setIsSubmitting(true);
+
+    try {
+      let res: Response;
+      if (uploadedFile) {
+        const fd = new FormData();
+        fd.append("file", uploadedFile);
+        res = await fetch("/api/admin/staff-leads/preview", {
+          method: "POST",
+          body: fd,
+        });
+      } else {
+        res = await fetch("/api/admin/staff-leads/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rawText }),
+        });
+      }
+
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data) {
+        setError(json.error ?? "Parsing failed. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const data = json.data;
+      setLeads(data.leads);
+      setJunkCount(data.junkCount);
+      setTotalMessages(data.totalMessages);
+      setTotalLeadsCount(data.totalLeadsCount ?? data.leads.length);
+      setTotalPhonesCount(data.totalPhonesCount ?? data.leads.filter((l: any) => Boolean(l.phone)).length);
+      setTotalEmailsCount(data.totalEmailsCount ?? data.leads.filter((l: any) => Boolean(l.email)).length);
+      setTotalDuplicatesCount(data.totalDuplicatesCount ?? data.leads.filter((l: any) => l.isDuplicate).length);
+      setTotalReadyCount(data.totalReadyCount ?? data.leads.filter((l: any) => !l.isDuplicate).length);
+      setIsPreviewCapped(Boolean(data.isPreviewCapped));
       setManuallyExcludedIds(new Set());
 
       // If all leads are duplicates, default active tab to DUPLICATES so user immediately sees why
-      const allDup = res.data.leads.length > 0 && res.data.leads.every((l) => l.isDuplicate);
+      const allDup = data.leads.length > 0 && data.leads.every((l: any) => l.isDuplicate);
       setActiveTab(allDup ? "DUPLICATES" : "READY");
       setStep("preview");
-    });
+    } catch (err: any) {
+      console.error("[handleParse]", err);
+      setError(err?.message || "Failed to process file. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleConfirm = () => {
-    // Only save leads that match the current save criteria and not manually removed
-    const toSave = leads.filter((lead, i) => {
-      if (manuallyExcludedIds.has(i)) return false;
-      const hasContact = Boolean(lead.phone || lead.email);
-      if (requireContactMethod && !hasContact) return false;
-      if (requireBothPhoneAndEmail && (!lead.phone || !lead.email)) return false;
-      if (excludeDuplicates && lead.isDuplicate) return false;
-      return true;
-    }) as StaffLeadInput[];
+  const handleConfirm = async () => {
+    setError(null);
+    setIsSubmitting(true);
 
-    if (toSave.length === 0) {
-      setError("No valid leads available to save. If all leads are duplicates, toggle 'Auto-Exclude DB Duplicates' in Filters to allow saving them.");
-      return;
-    }
+    try {
+      const name = batchName.trim() || (uploadedFileName ? uploadedFileName.replace(/\.[^/.]+$/, "") : `Batch ${new Date().toLocaleDateString("en-IN")}`);
+      let res: Response;
 
-    startTransition(async () => {
-      const res = await confirmBatchUploadAction(
-        batchName || `Batch ${new Date().toLocaleDateString("en-IN")}`,
-        rawText,
-        toSave
-      );
-      if (!res.success || !res.data) { setError(res.error ?? "Save failed"); return; }
-      setSavedBatchId(res.data.batchId);
+      if (uploadedFile) {
+        const fd = new FormData();
+        fd.append("file", uploadedFile);
+        fd.append("batchName", name);
+        fd.append("excludeDuplicates", String(excludeDuplicates));
+        fd.append("requireContactMethod", String(requireContactMethod));
+        fd.append("requireBothPhoneAndEmail", String(requireBothPhoneAndEmail));
+        res = await fetch("/api/admin/staff-leads/confirm", {
+          method: "POST",
+          body: fd,
+        });
+      } else {
+        res = await fetch("/api/admin/staff-leads/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            batchName: name,
+            rawText,
+            excludeDuplicates,
+            requireContactMethod,
+            requireBothPhoneAndEmail,
+          }),
+        });
+      }
+
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data) {
+        setError(json.error ?? "Save failed. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      setSavedBatchId(json.data.batchId);
       setStep("done");
-    });
+    } catch (err: any) {
+      console.error("[handleConfirm]", err);
+      setError(err?.message || "Save failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const startEdit = (i: number) => {
@@ -240,11 +304,13 @@ export function StaffLeadsUploadClient() {
 
   const duplicateLeads = leads.filter((l) => l.isDuplicate);
   const totalMissingContact = leads.filter((l) => !l.phone && !l.email).length;
-  const totalPhones = leads.filter((l) => Boolean(l.phone)).length;
-  const totalEmails = leads.filter((l) => Boolean(l.email)).length;
+  
+  const displayTotalLeads = totalLeadsCount > 0 ? totalLeadsCount : leads.length;
+  const displayTotalPhones = totalPhonesCount > 0 ? totalPhonesCount : leads.filter((l) => Boolean(l.phone)).length;
+  const displayTotalEmails = totalEmailsCount > 0 ? totalEmailsCount : leads.filter((l) => Boolean(l.email)).length;
+  const displayTotalDuplicates = totalDuplicatesCount > 0 ? totalDuplicatesCount : duplicateLeads.length;
+  const displayTotalReady = totalReadyCount > 0 ? totalReadyCount : readyToSaveLeads.length;
   const totalBothPhoneAndEmail = leads.filter((l) => Boolean(l.phone && l.email)).length;
-  const totalPhoneOnly = leads.filter((l) => Boolean(l.phone && !l.email)).length;
-  const totalEmailOnly = leads.filter((l) => Boolean(!l.phone && l.email)).length;
 
   // Filtered List based on tab and filters
   const filteredIndexedLeads = leads
@@ -294,7 +360,7 @@ export function StaffLeadsUploadClient() {
         </div>
         <h2 className="text-3xl font-extrabold text-slate-900 mb-2">Leads Successfully Uploaded!</h2>
         <p className="text-slate-500 mb-8 leading-relaxed">
-          <strong className="text-emerald-700 font-extrabold">{readyToSaveLeads.length} valid leads</strong> (with phone or email) have been saved to the staging CRM database.
+          <strong className="text-emerald-700 font-extrabold">{displayTotalReady.toLocaleString()} valid leads</strong> have been saved into the CRM database.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <Link href="/admin/staff-leads/manage"
@@ -337,19 +403,24 @@ export function StaffLeadsUploadClient() {
                   </span>
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                  <span>Extracted <strong>{leads.length.toLocaleString()} tutor leads</strong> from <strong>{totalMessages.toLocaleString()} messages</strong></span>
+                  <span>Extracted <strong>{displayTotalLeads.toLocaleString()} leads</strong> from <strong>{totalMessages.toLocaleString()} records</strong></span>
                   <span>·</span>
                   <span className="font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 inline-flex items-center gap-1">
-                    <Phone size={11} /> {totalPhones.toLocaleString()} Phones Total
+                    <Phone size={11} /> {displayTotalPhones.toLocaleString()} Phones
                   </span>
                   <span>·</span>
                   <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1">
-                    <Mail size={11} /> {totalEmails.toLocaleString()} Emails Total
+                    <Mail size={11} /> {displayTotalEmails.toLocaleString()} Emails
                   </span>
                   <span>·</span>
-                  <span><strong>{readyToSaveLeads.length.toLocaleString()} ready to save</strong></span>
+                  <span><strong className="text-emerald-700">{displayTotalReady.toLocaleString()} ready to save</strong></span>
                   <span>·</span>
-                  <span><strong>{duplicateLeads.length.toLocaleString()} in database</strong></span>
+                  <span><strong className="text-amber-700">{displayTotalDuplicates.toLocaleString()} duplicates in DB</strong></span>
+                  {isPreviewCapped && (
+                    <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                      (Showing first {leads.length} in fast table view)
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -363,16 +434,19 @@ export function StaffLeadsUploadClient() {
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={isPending || readyToSaveLeads.length === 0}
+                disabled={isSubmitting || displayTotalReady === 0}
                 className="px-7 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-extrabold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all cursor-pointer"
               >
-                {isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                Confirm &amp; Save {readyToSaveLeads.length} Leads
+                {isSubmitting ? (
+                  <><Loader2 size={16} className="animate-spin" /> Ingesting {displayTotalReady.toLocaleString()} Leads…</>
+                ) : (
+                  <><CheckCircle2 size={16} /> Confirm &amp; Save All {displayTotalReady.toLocaleString()} Leads</>
+                )}
               </button>
             </div>
           </div>
 
-          {/* Quick Metrics Bar: Total Phones, Total Emails, Both & Duplicates */}
+          {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
             <div
               onClick={() => setActiveTab("HAS_PHONE")}
@@ -388,9 +462,9 @@ export function StaffLeadsUploadClient() {
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Total Phone Numbers</p>
                 <p className="text-lg font-black text-slate-900 leading-tight">
-                  {totalPhones.toLocaleString()}
+                  {displayTotalPhones.toLocaleString()}
                   <span className="text-[11px] font-semibold text-slate-500 ml-1.5 font-normal">
-                    ({Math.round((totalPhones / (leads.length || 1)) * 100)}%)
+                    ({Math.round((displayTotalPhones / (displayTotalLeads || 1)) * 100)}%)
                   </span>
                 </p>
               </div>
@@ -410,9 +484,9 @@ export function StaffLeadsUploadClient() {
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Total Email Addresses</p>
                 <p className="text-lg font-black text-slate-900 leading-tight">
-                  {totalEmails.toLocaleString()}
+                  {displayTotalEmails.toLocaleString()}
                   <span className="text-[11px] font-semibold text-slate-500 ml-1.5 font-normal">
-                    ({Math.round((totalEmails / (leads.length || 1)) * 100)}%)
+                    ({Math.round((displayTotalEmails / (displayTotalLeads || 1)) * 100)}%)
                   </span>
                 </p>
               </div>
@@ -423,11 +497,11 @@ export function StaffLeadsUploadClient() {
                 <Sparkles size={17} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">Phone + Email Both</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">Total Valid Ingest</p>
                 <p className="text-lg font-black text-slate-900 leading-tight">
-                  {totalBothPhoneAndEmail.toLocaleString()}
+                  {displayTotalReady.toLocaleString()}
                   <span className="text-[11px] font-semibold text-purple-600 ml-1.5 font-normal">
-                    (Full Profile)
+                    (Ready)
                   </span>
                 </p>
               </div>
@@ -447,7 +521,7 @@ export function StaffLeadsUploadClient() {
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">DB Duplicates</p>
                 <p className="text-lg font-black text-slate-900 leading-tight">
-                  {duplicateLeads.length.toLocaleString()}
+                  {displayTotalDuplicates.toLocaleString()}
                   <span className="text-[11px] font-semibold text-amber-700 ml-1.5 font-normal">
                     (In Database)
                   </span>
@@ -468,7 +542,7 @@ export function StaffLeadsUploadClient() {
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                <CheckCircle2 size={14} /> Ready to Save ({readyToSaveLeads.length})
+                <CheckCircle2 size={14} /> Ready to Save ({displayTotalReady.toLocaleString()})
               </button>
 
               <button
@@ -479,7 +553,7 @@ export function StaffLeadsUploadClient() {
                     : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
                 }`}
               >
-                <Phone size={13} /> With Phone ({totalPhones})
+                <Phone size={13} /> With Phone ({displayTotalPhones.toLocaleString()})
               </button>
 
               <button
@@ -490,10 +564,10 @@ export function StaffLeadsUploadClient() {
                     : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
                 }`}
               >
-                <Mail size={13} /> With Email ({totalEmails})
+                <Mail size={13} /> With Email ({displayTotalEmails.toLocaleString()})
               </button>
 
-              {duplicateLeads.length > 0 && (
+              {displayTotalDuplicates > 0 && (
                 <button
                   onClick={() => setActiveTab("DUPLICATES")}
                   className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
@@ -502,7 +576,7 @@ export function StaffLeadsUploadClient() {
                       : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
                   }`}
                 >
-                  <AlertTriangle size={14} /> Duplicates in DB ({duplicateLeads.length})
+                  <ShieldCheck size={13} /> In Database ({displayTotalDuplicates.toLocaleString()})
                 </button>
               )}
 
@@ -510,11 +584,11 @@ export function StaffLeadsUploadClient() {
                 onClick={() => setActiveTab("ALL")}
                 className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
                   activeTab === "ALL"
-                    ? "bg-slate-900 text-white shadow-sm"
+                    ? "bg-slate-800 text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                All Extracted ({leads.length})
+                All Raw ({displayTotalLeads.toLocaleString()})
               </button>
             </div>
 
@@ -622,7 +696,7 @@ export function StaffLeadsUploadClient() {
             <div className="flex items-center gap-2">
               <ShieldCheck size={18} className="text-amber-600 flex-shrink-0" />
               <span>
-                These <strong>{duplicateLeads.length} leads</strong> match phone numbers or emails already registered in your database.
+                These <strong>{displayTotalDuplicates.toLocaleString()} leads</strong> match phone numbers or emails already registered in your database.
               </span>
             </div>
             {!excludeDuplicates && (
@@ -634,12 +708,12 @@ export function StaffLeadsUploadClient() {
         )}
 
         {/* All Duplicates Info Box on Ready Tab */}
-        {activeTab === "READY" && readyToSaveLeads.length === 0 && duplicateLeads.length > 0 && (
+        {activeTab === "READY" && displayTotalReady === 0 && displayTotalDuplicates > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-3xl p-8 text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
               <ShieldCheck size={26} />
             </div>
-            <h3 className="text-base font-extrabold text-slate-800">All {duplicateLeads.length} Leads Already Exist in Your System</h3>
+            <h3 className="text-base font-extrabold text-slate-800">All {displayTotalDuplicates.toLocaleString()} Leads Already Exist in Your System</h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               All extracted phone numbers &amp; emails were matched against existing tutors in your database. To prevent duplicates, they are excluded from the upload queue.
             </p>
@@ -648,7 +722,7 @@ export function StaffLeadsUploadClient() {
                 onClick={() => setActiveTab("DUPLICATES")}
                 className="px-5 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 cursor-pointer shadow-sm"
               >
-                Review {duplicateLeads.length} Duplicates →
+                Review {displayTotalDuplicates.toLocaleString()} Duplicates →
               </button>
               <button
                 onClick={() => setExcludeDuplicates(false)}
@@ -824,39 +898,137 @@ export function StaffLeadsUploadClient() {
                             )}
                           </td>
 
-                          {/* Subjects & Classes with Interactive Expander */}
-                          <td className="py-3.5 px-4">
+                          {/* Subjects & Classes with Taxonomy Selector */}
+                          <td className="py-3.5 px-4 min-w-[280px]">
                             {isEditing ? (
-                              <div className="space-y-1">
-                                <input
-                                  className="w-full border rounded-lg px-2.5 py-1 text-xs"
-                                  value={(editBuffer.subjects ?? []).join(", ")}
-                                  onChange={(e) => setEditBuffer((b) => ({ ...b, subjects: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) }))}
-                                  placeholder="Subjects (comma separated)"
-                                />
-                                <input
-                                  className="w-full border rounded-lg px-2.5 py-1 text-xs"
-                                  value={(editBuffer.classes ?? []).join(", ")}
-                                  onChange={(e) => setEditBuffer((b) => ({ ...b, classes: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) }))}
-                                  placeholder="Classes (comma separated)"
-                                />
+                              <div className="space-y-2 p-2 bg-white border border-blue-200 rounded-xl shadow-xs">
+                                {/* Selected Subjects Chips */}
+                                <div>
+                                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800 mb-1 flex items-center gap-1">
+                                    <BookOpen size={10} /> Selected Subjects ({editBuffer.subjects?.length ?? 0})
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 min-h-[26px] p-1 bg-slate-50 border border-slate-200 rounded-md">
+                                    {(editBuffer.subjects && editBuffer.subjects.length > 0) ? (
+                                      editBuffer.subjects.map((sub) => (
+                                        <span
+                                          key={sub}
+                                          className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded shadow-xs"
+                                        >
+                                          {sub}
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditBuffer((b) => ({ ...b, subjects: (b.subjects ?? []).filter((s) => s !== sub) }))}
+                                            className="hover:text-rose-200 cursor-pointer ml-0.5 font-black text-xs"
+                                          >
+                                            ✕
+                                          </button>
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="text-[10px] text-slate-400 italic">Click taxonomy subjects below to add</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* System Taxonomy Quick Toggle Cloud */}
+                                <div className="max-h-36 overflow-y-auto space-y-1.5 p-1.5 bg-slate-50/80 border border-slate-200 rounded-lg text-left">
+                                  {SUBJECT_TAXONOMY.map((group) => (
+                                    <div key={group.group}>
+                                      <div className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider mb-0.5">
+                                        {group.group}
+                                      </div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {group.subjects.map((sub) => {
+                                          const isSelected = (editBuffer.subjects ?? []).includes(sub);
+                                          return (
+                                            <button
+                                              key={sub}
+                                              type="button"
+                                              onClick={() => {
+                                                const cur = editBuffer.subjects ?? [];
+                                                const next = isSelected ? cur.filter((x) => x !== sub) : [...cur, sub];
+                                                setEditBuffer((b) => ({ ...b, subjects: next }));
+                                              }}
+                                              className={`text-[10px] font-semibold px-2 py-0.5 rounded transition-all cursor-pointer ${
+                                                isSelected
+                                                  ? "bg-blue-600 text-white font-bold shadow-xs"
+                                                  : "bg-white text-slate-700 border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50"
+                                              }`}
+                                            >
+                                              {isSelected ? "✓ " : "+ "}{sub}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Selected Classes Chips & Quick Select */}
+                                <div className="pt-1 border-t border-slate-100">
+                                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-purple-800 mb-1 flex items-center gap-1">
+                                    <GraduationCap size={10} /> Classes / Grades
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 mb-1.5">
+                                    {(editBuffer.classes && editBuffer.classes.length > 0) ? (
+                                      editBuffer.classes.map((cls) => (
+                                        <span
+                                          key={cls}
+                                          className="inline-flex items-center gap-1 text-[10px] font-bold bg-purple-600 text-white px-2 py-0.5 rounded shadow-xs"
+                                        >
+                                          {cls}
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditBuffer((b) => ({ ...b, classes: (b.classes ?? []).filter((c) => c !== cls) }))}
+                                            className="hover:text-rose-200 cursor-pointer ml-0.5 font-black text-xs"
+                                          >
+                                            ✕
+                                          </button>
+                                        </span>
+                                      ))
+                                    ) : null}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {["Nursery / KG", "Class 1 to 5", "Class 6 to 8", "Class 9 to 10", "Class 11 to 12", "Competitive Exams"].map((cls) => {
+                                      const isSelected = (editBuffer.classes ?? []).includes(cls);
+                                      return (
+                                        <button
+                                          key={cls}
+                                          type="button"
+                                          onClick={() => {
+                                            const cur = editBuffer.classes ?? [];
+                                            const next = isSelected ? cur.filter((c) => c !== cls) : [...cur, cls];
+                                            setEditBuffer((b) => ({ ...b, classes: next }));
+                                          }}
+                                          className={`text-[9px] font-semibold px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                                            isSelected
+                                              ? "bg-purple-700 text-white font-bold shadow-xs"
+                                              : "bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100"
+                                          }`}
+                                        >
+                                          {isSelected ? "✓ " : "+ "}{cls}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                               </div>
                             ) : (
                               <div className="space-y-1.5">
                                 {lead.subjects.length > 0 && (
                                   <div className="flex flex-wrap items-center gap-1">
-                                    {(isSubjectsExpanded ? lead.subjects : lead.subjects.slice(0, 3)).map((s) => (
+                                    {(isSubjectsExpanded ? lead.subjects : lead.subjects.slice(0, 5)).map((s) => (
                                       <span key={s} className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-100">
                                         {s}
                                       </span>
                                     ))}
-                                    {lead.subjects.length > 3 && (
+                                    {lead.subjects.length > 5 && (
                                       <button
                                         type="button"
                                         onClick={() => toggleExpandSubjects(originalIndex)}
                                         className="text-[10px] font-bold bg-blue-100 text-blue-800 hover:bg-blue-200 px-1.5 py-0.5 rounded-md transition-colors cursor-pointer"
                                       >
-                                        {isSubjectsExpanded ? "Hide" : `+${lead.subjects.length - 3}`}
+                                        {isSubjectsExpanded ? "Hide" : `+${lead.subjects.length - 5}`}
                                       </button>
                                     )}
                                   </div>
@@ -865,7 +1037,7 @@ export function StaffLeadsUploadClient() {
                                 {lead.classes.length > 0 && (
                                   <div className="flex flex-wrap items-center gap-1">
                                     {(isClassesExpanded ? lead.classes : lead.classes.slice(0, 3)).map((c) => (
-                                      <span key={c} className="text-[11px] font-semibold bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded border border-purple-100">
+                                      <span key={c} className="text-[11px] font-semibold bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100">
                                         {c}
                                       </span>
                                     ))}
@@ -976,11 +1148,11 @@ export function StaffLeadsUploadClient() {
               </span>
               <button
                 onClick={handleConfirm}
-                disabled={isPending || readyToSaveLeads.length === 0}
+                disabled={isSubmitting || displayTotalReady === 0}
                 className="px-8 py-3 rounded-2xl bg-emerald-600 text-white font-extrabold text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all cursor-pointer ml-auto"
               >
-                {isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                Confirm &amp; Save {readyToSaveLeads.length} Leads to CRM
+                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                Confirm &amp; Save All {displayTotalReady.toLocaleString()} Leads to CRM
               </button>
             </div>
           </div>
@@ -1201,17 +1373,19 @@ export function StaffLeadsUploadClient() {
         </div>
       )}
 
-      <button
-        onClick={handleParse}
-        disabled={isPending || !rawText.trim()}
-        className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-base hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 flex items-center justify-center gap-3 shadow-lg shadow-emerald-200 transition-all cursor-pointer"
-      >
-        {isPending ? (
-          <><Loader2 size={20} className="animate-spin" /> Processing &amp; Structuring Leads…</>
-        ) : (
-          <><Sparkles size={20} /> Extract &amp; Structure Leads → Preview</>
-        )}
-      </button>
+      <div className="pt-2">
+        <button
+          onClick={handleParse}
+          disabled={isSubmitting || (!rawText.trim() && !uploadedFile)}
+          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-extrabold text-base hover:from-emerald-700 hover:to-teal-800 disabled:opacity-50 flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-200 transition-all cursor-pointer"
+        >
+          {isSubmitting ? (
+            <><Loader2 size={20} className="animate-spin" /> Processing &amp; Structuring Leads…</>
+          ) : (
+            <><Sparkles size={20} /> Extract &amp; Review Leads →</>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

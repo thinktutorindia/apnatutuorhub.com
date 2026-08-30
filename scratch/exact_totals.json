@@ -1,0 +1,113 @@
+{
+  "file_stats": {
+    "TUTOR DATA NCR.xlsx": {
+      "category": "Tutor Database (NCR Master)",
+      "raw_rows": 4560,
+      "data_rows": 4559,
+      "unique_phones": 4546
+    },
+    "prerna.xlsx": {
+      "category": "Tutor Database (Duplicate of NCR)",
+      "raw_rows": 4563,
+      "data_rows": 4562,
+      "unique_phones": 4546,
+      "new_unique_to_global": 0
+    },
+    "rohit data (1).xlsx": {
+      "category": "Tutor & Paid Leads",
+      "raw_rows": 4973,
+      "data_rows": 4972,
+      "unique_phones": 3974,
+      "new_unique_to_global": 3911
+    },
+    "FEMALE_TEACHER_SPEC.docx": {
+      "category": "Female Teacher Spec",
+      "raw_rows": 196,
+      "unique_phones": 42,
+      "new_unique_to_global": 40
+    },
+    "export 2.xlsx": {
+      "category": "Web Tutor Registrations",
+      "raw_rows": 307,
+      "data_rows": 306,
+      "unique_phones": 104,
+      "new_unique_to_global": 100
+    },
+    "export.csv": {
+      "category": "Web Tutor Registrations (CSV)",
+      "raw_rows": 189,
+      "data_rows": 188,
+      "unique_phones": 103,
+      "new_unique_to_global": 0
+    },
+    "shl final.xlsx": {
+      "category": "Parent Inquiries & Campaign Numbers",
+      "raw_rows": 60970,
+      "unique_parent_inquiry_phones": 3916,
+      "unique_campaign_phones": 4760,
+      "total_unique_phones_in_file": 4778,
+      "new_unique_to_global": 4692
+    },
+    "shl.xlsx": {
+      "category": "Parent Leads / Campaign (Subset of shl final)",
+      "raw_rows": 7346,
+      "unique_phones": 3468,
+      "new_unique_to_global": 2
+    },
+    "Copy of shl 19april.xlsx": {
+      "category": "Parent Leads Snapshot (Subset of shl final)",
+      "raw_rows": 7622,
+      "unique_phones": 3564,
+      "new_unique_to_global": 2
+    },
+    "Calling Data.xlsx": {
+      "category": "Telecalling Lists",
+      "raw_rows": 26572,
+      "calling_parents_phones": 3472,
+      "calling_teachers_phones": 2026,
+      "calling_sejal_other_phones": 14195,
+      "total_unique_in_file": 14197,
+      "new_unique_to_global": 12962
+    },
+    "syntax_123.xlsx": {
+      "category": "Tutorials & Coaching Institutes",
+      "raw_rows": 78,
+      "unique_phones": 67,
+      "new_unique_to_global": 67
+    },
+    "lib data.xlsx": {
+      "category": "Library & Study Hall Records",
+      "raw_rows": 349,
+      "unique_phones": 147,
+      "new_unique_to_global": 139
+    },
+    "report.docx": {
+      "category": "Channel Partners / Coordinators",
+      "raw_rows": 88,
+      "unique_phones": 10,
+      "new_unique_to_global": 10
+    },
+    "Important_terms_and_condition.docx": {
+      "category": "Franchise Terms & Policy (Text Document)",
+      "raw_rows": 41,
+      "unique_phones": 0,
+      "new_unique_to_global": 0
+    },
+    "Reports_of_parents_meeting.docx": {
+      "category": "Meeting Format & Log (Text Document)",
+      "raw_rows": 20,
+      "unique_phones": 0,
+      "new_unique_to_global": 0
+    }
+  },
+  "summary": {
+    "total_files": 15,
+    "total_raw_rows_across_all_sheets": 117874,
+    "global_total_unique_phones": 26471,
+    "global_unique_tutors": 10412,
+    "global_unique_parents_inquiries": 7341,
+    "global_unique_coaching_institutes": 67,
+    "global_unique_library_records": 147,
+    "global_unique_telecalling_campaign_pool": 18550
+  }
+}

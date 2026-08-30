@@ -40,6 +40,8 @@ export const SUBJECT_TAXONOMY = [
     group: "School Core",
     subjects: [
       "Mathematics",
+      "Science",
+      "EVS",
       "Physics",
       "Chemistry",
       "Biology",

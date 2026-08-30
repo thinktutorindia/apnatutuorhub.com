@@ -13,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush } from "@/lib/web-push";
 import { renderDummyLeadEmail } from "@/emails/DummyLeadEmail";
-import { isTill5thClass } from "@/lib/lead-utils";
+import { isTill5thClass, isGenuineEmail } from "@/lib/lead-utils";
 
 // ─── Geo-tagged Locality Database ─────────────────────────────────────────────
 // Format: { name, city, lat, lng }
@@ -611,13 +611,13 @@ export async function deliverDummyLeadToTutor(opts: {
         status = "SENT";
         sent++;
       } else if (channel === "EMAIL") {
-        const isPlaceholderEmail = userEmail.toLowerCase().includes("apnatutorhub.com");
+        const isPlaceholderEmail = !isGenuineEmail(userEmail);
 
         if (isPlaceholderEmail) {
           // Quota Protection: Do not call external Resend API for placeholder test mailboxes!
           // Marks delivery as completed without consuming Resend monthly sending quota.
           status = "SENT";
-          errorMessage = "Simulated In-App (Skipped external Resend API for placeholder test account)";
+          errorMessage = "Simulated In-App (Skipped external email API for placeholder/test account)";
           sent++;
         } else {
           const html = renderDummyLeadEmail({
@@ -680,6 +680,8 @@ export async function resolveCampaignTargets(campaign: {
   customUserIds: string[];
   excludeUserIds: string[];
   emailFilter?: "GENUINE_ONLY" | "DUMMY_ONLY" | "ALL";
+  autoEnrollNewTutors?: boolean;
+  campaignCreatedAt?: Date | null;
 }) {
   const now = new Date();
   const excludeSet = new Set(campaign.excludeUserIds);
@@ -688,12 +690,6 @@ export async function resolveCampaignTargets(campaign: {
     role: "TUTOR",
     isActive: true,
   };
-
-  if (campaign.emailFilter === "GENUINE_ONLY") {
-    where.email = { not: { contains: "apnatutorhub.com" } };
-  } else if (campaign.emailFilter === "DUMMY_ONLY") {
-    where.email = { contains: "apnatutorhub.com" };
-  }
 
   if (campaign.targetGroup === "NEW_7D") {
     const c = new Date(now); c.setDate(c.getDate() - 7);
@@ -714,6 +710,15 @@ export async function resolveCampaignTargets(campaign: {
     where.tutorProfile = { subscriptionPlan: "NONE" };
   } else if (campaign.targetGroup === "CUSTOM") {
     where.id = { in: campaign.customUserIds };
+  }
+
+  // If autoEnrollNewTutors is explicitly FALSE, lock target list to only tutors existing at campaign creation
+  if (campaign.autoEnrollNewTutors === false && campaign.campaignCreatedAt) {
+    if (where.createdAt) {
+      where.createdAt = { ...where.createdAt, lte: campaign.campaignCreatedAt };
+    } else {
+      where.createdAt = { lte: campaign.campaignCreatedAt };
+    }
   }
 
   const users = await prisma.user.findMany({
@@ -741,14 +746,21 @@ export async function resolveCampaignTargets(campaign: {
     },
   });
 
-  return users.filter(
-    (u) => !excludeSet.has(u.id) && u.tutorProfile?.marketingNotifsEnabled !== false
-  );
+  return users.filter((u) => {
+    if (excludeSet.has(u.id)) return false;
+    if (u.tutorProfile?.marketingNotifsEnabled === false) return false;
+    if (campaign.emailFilter === "GENUINE_ONLY" && !isGenuineEmail(u.email)) return false;
+    if (campaign.emailFilter === "DUMMY_ONLY" && isGenuineEmail(u.email)) return false;
+    return true;
+  });
 }
 
 // ─── Run a full campaign pass ─────────────────────────────────────────────────
 
-export async function runCampaignPass(campaignId: string): Promise<{
+export async function runCampaignPass(
+  campaignId: string,
+  options?: { forceAllAtOnce?: boolean }
+): Promise<{
   sent: number;
   failed: number;
   usersProcessed: number;
@@ -768,16 +780,21 @@ export async function runCampaignPass(campaignId: string): Promise<{
     return { sent: 0, failed: 0, usersProcessed: 0 };
   }
 
+  const cfg = parseCampaignCfg(campaign.description);
   const targets = await resolveCampaignTargets({
     targetGroup: campaign.targetGroup,
     customUserIds: campaign.customUserIds,
     excludeUserIds: campaign.excludeUserIds,
-    emailFilter: parseCampaignCfg(campaign.description).emailFilter,
+    emailFilter: cfg.emailFilter,
+    autoEnrollNewTutors: cfg.autoEnrollNewTutors,
+    campaignCreatedAt: campaign.createdAt,
   });
-
-  const cfg = parseCampaignCfg(campaign.description);
   const stable = campaign.randomizeDaily === false;
   const startTime = Date.now();
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const countChannel = campaign.channels[0] ?? "EMAIL";
 
   let totalSent = 0;
   let totalFailed = 0;
@@ -793,7 +810,29 @@ export async function runCampaignPass(campaignId: string): Promise<{
         let uFailed = 0;
         const userSeed = user.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
 
-        for (let i = 0; i < campaign.leadsPerDay; i++) {
+        // Check how many leads this tutor has already received today from this campaign
+        const sentTodayCount = await prisma.campaignDeliveryLog.count({
+          where: {
+            campaignId,
+            userId: user.id,
+            channel: countChannel,
+            sentAt: { gte: todayStart },
+            status: "SENT",
+          },
+        });
+
+        if (sentTodayCount >= campaign.leadsPerDay) {
+          // Daily quota reached for this tutor today!
+          return { sent: 0, failed: 0 };
+        }
+
+        // Staggered Delivery: deliver 1 lead per daytime cron interval, or remaining quota if forced all at once
+        const leadsToSendThisPass = options?.forceAllAtOnce
+          ? Math.max(1, campaign.leadsPerDay - sentTodayCount)
+          : 1;
+
+        for (let i = 0; i < leadsToSendThisPass; i++) {
+          const leadIndex = sentTodayCount + i;
           try {
             const lead = await generateDummyLead({
               tutorLat: user.tutorProfile?.latitude,
@@ -811,7 +850,7 @@ export async function runCampaignPass(campaignId: string): Promise<{
               budgetMin: campaign.budgetMin,
               budgetMax: campaign.budgetMax,
               overrideSubjects: campaign.overrideSubjects,
-              userSeed: userSeed + i * 137,
+              userSeed: userSeed + leadIndex * 137,
               stable,
             });
 

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
 import { runCampaignPass, resolveCampaignTargets, generateDummyLead, getNearestLocalities, type DummyLead } from "@/lib/dummy-lead-engine";
 import { parseCampaignCfg, serializeCampaignCfg, type DummyCampaignCfg } from "@/lib/dummy-campaign-types";
+import { isGenuineEmail } from "@/lib/lead-utils";
 import type { DummyCampaignStatus, DummyTargetGroup } from "@prisma/client";
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ export async function createDummyCampaignAction(
     rateType?: "HOURLY" | "MONTHLY";
     autoAdapt?: boolean;
     emailFilter?: DummyCampaignCfg["emailFilter"];
+    autoEnrollNewTutors?: boolean;
     totalLimit?: number | null;
     startDate?: string | null;
     endDate?: string | null;
@@ -62,6 +64,7 @@ export async function createDummyCampaignAction(
         rateType: data.rateType ?? "HOURLY",
         autoAdapt: data.autoAdapt !== false,
         emailFilter: data.emailFilter ?? "GENUINE_ONLY",
+        autoEnrollNewTutors: data.autoEnrollNewTutors !== false,
       }),
       createdById: session!.user.id,
     },
@@ -326,7 +329,7 @@ export async function previewCampaignTargetsAction(opts: {
     emailFilter: opts.emailFilter,
   });
 
-  const genuineCount = targets.filter((u) => !u.email.toLowerCase().includes("apnatutorhub.com")).length;
+  const genuineCount = targets.filter((u) => isGenuineEmail(u.email)).length;
   const dummyCount = targets.length - genuineCount;
 
   return actionSuccess({
@@ -489,7 +492,7 @@ export async function getTutorsForCampaignTargetAction(opts: {
   const [tutors, totalCount] = await Promise.all([
     prisma.user.findMany({
       where,
-      take: limit,
+      take: limit * 2,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -509,8 +512,14 @@ export async function getTutorsForCampaignTargetAction(opts: {
     prisma.user.count({ where }),
   ]);
 
+  const filtered = tutors.filter((u) => {
+    if (emailFilter === "GENUINE_ONLY" && !isGenuineEmail(u.email)) return false;
+    if (emailFilter === "DUMMY_ONLY" && isGenuineEmail(u.email)) return false;
+    return true;
+  }).slice(0, limit);
+
   return actionSuccess({
-    tutors: tutors.map((u) => ({
+    tutors: filtered.map((u) => ({
       id: u.id,
       name: u.name,
       email: u.email,
@@ -519,9 +528,9 @@ export async function getTutorsForCampaignTargetAction(opts: {
       subjects: u.tutorProfile?.subjects ?? [],
       classLevels: u.tutorProfile?.classLevels ?? [],
       isVerified: u.tutorProfile?.isVerified ?? false,
-      isGenuine: !u.email.toLowerCase().includes("apnatutorhub.com"),
+      isGenuine: isGenuineEmail(u.email),
     })),
-    totalCount,
+    totalCount: filtered.length,
   });
 }
 

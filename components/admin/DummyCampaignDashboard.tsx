@@ -228,7 +228,7 @@ function CampaignCard({
     ? `Auto-adapt ${isHourly ? "₹/hr" : "₹/mo"} by class + area`
     : isHourly
     ? `₹${campaign.budgetMin ?? 200}–₹${campaign.budgetMax ?? 600}/hr`
-    : `₹${(campaign.budgetMin ?? 800).toLocaleString()}–₹${(campaign.budgetMax ?? 3000).toLocaleString()}/mo`;
+    : `₹${(campaign.budgetMin ?? 800).toLocaleString("en-IN")}–₹${(campaign.budgetMax ?? 3000).toLocaleString("en-IN")}/mo`;
 
   const handleStatus = (e: React.MouseEvent, newStatus: "ACTIVE" | "PAUSED" | "STOPPED") => {
     e.stopPropagation();
@@ -311,7 +311,7 @@ function CampaignCard({
             })}
           </div>
           <span className="text-[11px] text-slate-500 font-extrabold">
-            <strong className="text-slate-900 font-black">{campaign.totalSent.toLocaleString()}</strong> sent
+            <strong className="text-slate-900 font-black">{campaign.totalSent.toLocaleString("en-IN")}</strong> sent
           </span>
         </div>
 
@@ -851,7 +851,7 @@ export function DummyCampaignDashboard(props: Props) {
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sent Today</p>
-            <p className="text-xl font-black text-slate-900">{sentToday.toLocaleString()}</p>
+            <p className="text-xl font-black text-slate-900">{sentToday.toLocaleString("en-IN")}</p>
           </div>
         </div>
 
@@ -861,7 +861,7 @@ export function DummyCampaignDashboard(props: Props) {
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">This Month</p>
-            <p className="text-xl font-black text-slate-900">{sentThisMonth.toLocaleString()}</p>
+            <p className="text-xl font-black text-slate-900">{sentThisMonth.toLocaleString("en-IN")}</p>
           </div>
         </div>
       </div>

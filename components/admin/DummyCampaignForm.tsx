@@ -57,6 +57,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
   const [name, setName] = useState("");
   const [targetGroup, setTargetGroup] = useState<DummyTargetGroup>("ALL_TUTORS");
   const [emailFilter, setEmailFilter] = useState<"GENUINE_ONLY" | "ALL" | "DUMMY_ONLY">("GENUINE_ONLY");
+  const [autoEnrollNewTutors, setAutoEnrollNewTutors] = useState(true);
   const [channels, setChannels] = useState<string[]>(["IN_APP", "PUSH", "EMAIL"]);
   const [autoActivate, setAutoActivate] = useState(true);
 
@@ -100,8 +101,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
 
   // Fetch Audience Count Preview
   useEffect(() => {
+    let isSubscribed = true;
+    setPreviewLoading(true);
     const timeout = setTimeout(async () => {
-      setPreviewLoading(true);
       const customIds = targetGroup === "CUSTOM"
         ? (selectedUserIds.length > 0 ? selectedUserIds : manualUserIdsText.split("\n").map((s) => s.trim()).filter(Boolean))
         : [];
@@ -111,12 +113,17 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
         customUserIds: customIds,
         emailFilter,
       });
-      if (result.success && result.data) {
-        setPreview(result.data);
+      if (isSubscribed) {
+        if (result.success && result.data) {
+          setPreview(result.data);
+        }
+        setPreviewLoading(false);
       }
-      setPreviewLoading(false);
-    }, 400);
-    return () => clearTimeout(timeout);
+    }, 50);
+    return () => {
+      isSubscribed = false;
+      clearTimeout(timeout);
+    };
   }, [targetGroup, selectedUserIds, manualUserIdsText, emailFilter]);
 
   // Load Interactive Tutors List when in CUSTOM mode or search changed
@@ -226,7 +233,8 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
     setTargetGroup("ALL_TUTORS");
     setChannels(["IN_APP", "PUSH", "EMAIL"]);
     setEmailFilter("GENUINE_ONLY");
-    setLeadsPerDay(1);
+    setAutoEnrollNewTutors(true);
+    setLeadsPerDay(3);
     setFeePreset("AUTO_ADAPT");
     setRateType("HOURLY");
     setBudgetMin(200);
@@ -268,6 +276,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
         rateType,
         autoAdapt: feePreset === "AUTO_ADAPT",
         emailFilter,
+        autoEnrollNewTutors,
         totalLimit: totalLimit ? parseInt(totalLimit) : null,
         startDate: startDate || null,
         endDate: endDate || null,
@@ -444,17 +453,74 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 ))}
               </div>
 
-              {targetGroup === "ALL_TUTORS" && (
-                <div className="mt-2.5 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-bold flex items-start gap-2.5">
-                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <p className="font-black text-emerald-900">🔄 Dynamic Auto-Enrollment Active</p>
-                    <p className="text-[11px] font-medium text-emerald-800 leading-relaxed">
-                      This campaign dynamically queries all active registered tutors on each 24h cron run. Any newly registered tutor or added account will automatically be included in future daily dispatches without needing to update this campaign.
-                    </p>
-                  </div>
+              {/* Live Matched Audience Summary Card (Instant Feedback) */}
+              <div className={`mt-3 flex items-center gap-2.5 p-3.5 rounded-2xl border transition-all ${
+                previewLoading
+                  ? "bg-slate-50 border-slate-200"
+                  : "bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-emerald-300 shadow-xs"
+              }`}>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold ${
+                  previewLoading ? "bg-slate-200 text-slate-500" : "bg-emerald-500 text-white shadow-xs"
+                }`}>
+                  {previewLoading ? <Loader2 size={15} className="animate-spin" /> : <Users size={16} />}
                 </div>
-              )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`text-xs font-black ${previewLoading ? "text-slate-500" : "text-slate-900"}`}>
+                      {previewLoading ? "Calculating matched tutors..." : `${preview?.count ?? 0} active tutor(s) selected`}
+                    </p>
+                    {!previewLoading && preview && (
+                      <span className="px-2 py-0.2 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-black">
+                        ✓ {preview.genuineCount ?? preview.count} Real Emails (Deliverability Protected)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
+                    {emailFilter === "GENUINE_ONLY"
+                      ? "Only deliverable personal & verified tutor mailboxes (Gmail/Yahoo/Outlook/etc.)"
+                      : emailFilter === "DUMMY_ONLY"
+                      ? "Only system generated @apnatutorhub.com accounts"
+                      : "All registered accounts including placeholders"}
+                  </p>
+                </div>
+                <div className="hidden sm:flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-xl border border-emerald-200 text-[10px] font-black">
+                  <MapPin size={11} className="text-emerald-600" />
+                  <span>Geo-Rotated</span>
+                </div>
+              </div>
+
+              {/* Dynamic Auto-Enrollment vs Fixed Snapshot Checkbox / Toggle */}
+              <label className={`mt-2.5 p-3.5 rounded-2xl border flex items-start gap-3 cursor-pointer transition-all ${
+                autoEnrollNewTutors
+                  ? "bg-emerald-50/80 border-emerald-200 hover:bg-emerald-50"
+                  : "bg-slate-50 border-slate-300 hover:bg-slate-100"
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={autoEnrollNewTutors}
+                  onChange={(e) => setAutoEnrollNewTutors(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-emerald-600 rounded cursor-pointer shrink-0"
+                />
+                <div className="space-y-0.5 flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className={`font-black text-xs ${autoEnrollNewTutors ? "text-emerald-950" : "text-slate-900"}`}>
+                      {autoEnrollNewTutors ? "🔄 Automatically Auto-Enroll New Signups" : "🔒 Freeze Audience (Do NOT Add Future Signups)"}
+                    </p>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                      autoEnrollNewTutors
+                        ? "bg-emerald-100 border-emerald-300 text-emerald-800"
+                        : "bg-amber-100 border-amber-300 text-amber-900"
+                    }`}>
+                      {autoEnrollNewTutors ? "✓ Auto-Enroll Active" : "🔒 Locked to Current Tutors Only"}
+                    </span>
+                  </div>
+                  <p className={`text-[11px] font-medium leading-relaxed ${autoEnrollNewTutors ? "text-emerald-800" : "text-slate-600"}`}>
+                    {autoEnrollNewTutors
+                      ? "Checked: Newly registered tutors joining tomorrow or in the future will automatically receive daily lead dispatches."
+                      : "Unchecked: Only existing registered tutors (up to today) will receive leads. Future new registrations will NOT be added."}
+                  </p>
+                </div>
+              </label>
             </div>
 
             {/* Interactive Tutor Search & Checkbox Selector (Active when CUSTOM is picked) */}
@@ -630,24 +696,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
               </div>
             )}
 
-            {/* Target Count Preview Summary Bar */}
-            <div className={`flex items-center gap-2.5 p-3.5 rounded-2xl border ${previewLoading ? "bg-slate-50 border-slate-200" : "bg-blue-50/80 border-blue-200"}`}>
-              <Users size={16} className={previewLoading ? "text-slate-400" : "text-blue-600"} />
-              <div className="flex-1">
-                <p className={`text-xs font-black ${previewLoading ? "text-slate-500" : "text-blue-900"}`}>
-                  {previewLoading ? "Calculating matched tutors..." : `${preview?.count ?? 0} tutor(s) will receive this campaign`}
-                </p>
-                {preview && (
-                  <p className="text-[10px] text-blue-700 mt-0.5 font-bold">
-                    ✨ {preview.genuineCount ?? preview.count} Real Emails (Deliverability Protected) · {preview.dummyCount ?? 0} System Placeholders
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px] font-extrabold">
-                <MapPin size={11} className="text-emerald-600" />
-                <span>Daily Geo-Rotation</span>
-              </div>
-            </div>
+
 
             {/* Channels */}
             <div>
@@ -905,6 +954,12 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 <span>4</span>
                 <span>5 leads/day</span>
               </div>
+              <div className="mt-2 p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-900 text-[11px] font-bold flex items-center gap-2">
+                <Clock size={13} className="text-blue-600 shrink-0" />
+                <span>
+                  <strong>⏰ Staggered Schedule:</strong> {leadsPerDay === 1 ? "1 lead at 10:00 AM IST" : leadsPerDay === 2 ? "2 leads (10:00 AM & 01:00 PM IST)" : leadsPerDay === 3 ? "3 leads (10:00 AM, 01:00 PM & 04:00 PM IST)" : leadsPerDay === 4 ? "4 leads (10:00 AM, 01:00 PM, 04:00 PM & 07:00 PM IST)" : "5 leads across all daytime intervals (10 AM, 1 PM, 4 PM, 7 PM, 9 PM IST)"}
+                </span>
+              </div>
             </div>
 
             {/* 5. Force Subjects (Optional) */}
@@ -1011,9 +1066,10 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 { label: "Target Audience", value: `${TARGET_OPTIONS.find((o) => o.value === targetGroup)?.label ?? targetGroup} (${preview?.count ?? 0} tutors)` },
                 { label: "Email Quota Safe", value: emailFilter === "GENUINE_ONLY" ? "Yes (Genuine emails only)" : emailFilter === "DUMMY_ONLY" ? "System accounts only" : "All accounts" },
                 { label: "Delivery Channels", value: channels.map(c => CHANNELS.find(x => x.key === c)?.label || c).join(", ") || "None" },
-                { label: "Rate Structure", value: rateType === "HOURLY" ? `₹${budgetMin} – ₹${budgetMax} / hour` : `₹${budgetMin.toLocaleString()} – ₹${budgetMax.toLocaleString()} / month` },
+                { label: "Rate Structure", value: rateType === "HOURLY" ? `₹${budgetMin} – ₹${budgetMax} / hour` : `₹${budgetMin.toLocaleString("en-IN")} – ₹${budgetMax.toLocaleString("en-IN")} / month` },
                 { label: "Leads per Day", value: `${leadsPerDay} lead(s) per tutor daily` },
                 { label: "Class Rotation", value: feePreset === "AUTO_ADAPT" ? "🌟 Auto-adapt by tutor's taught classes" : `Fixed Band (${feePreset})` },
+                { label: "Auto-Enroll New Tutors", value: autoEnrollNewTutors ? "🔄 Yes (Dynamic future signups)" : "🔒 No (Current snapshot only)" },
                 { label: "Auto-Start Status", value: autoActivate ? "Active immediately" : "Save as Draft" },
               ].map((row) => (
                 <div key={row.label} className="flex items-center justify-between text-xs">

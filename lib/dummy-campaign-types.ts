@@ -267,6 +267,7 @@ export type DummyCampaignCfg = {
   rateType: "HOURLY" | "MONTHLY";
   autoAdapt: boolean;
   emailFilter: "GENUINE_ONLY" | "DUMMY_ONLY" | "ALL";
+  autoEnrollNewTutors?: boolean;
 };
 
 const CFG_RE = /<!--ATH_CFG:([\s\S]*?)-->/;
@@ -282,6 +283,7 @@ export function parseCampaignCfg(description?: string | null): DummyCampaignCfg 
     rateType: "HOURLY",
     autoAdapt: true,
     emailFilter: "GENUINE_ONLY",
+    autoEnrollNewTutors: true,
   };
   if (!description) return fallback;
   const m = description.match(CFG_RE);
@@ -297,6 +299,7 @@ export function parseCampaignCfg(description?: string | null): DummyCampaignCfg 
         parsed.emailFilter === "DUMMY_ONLY" || parsed.emailFilter === "ALL"
           ? parsed.emailFilter
           : "GENUINE_ONLY",
+      autoEnrollNewTutors: parsed.autoEnrollNewTutors !== false,
     };
   } catch {
     return fallback;

@@ -826,10 +826,8 @@ export async function runCampaignPass(
           return { sent: 0, failed: 0 };
         }
 
-        // Staggered Delivery: deliver 1 lead per daytime cron interval, or remaining quota if forced all at once
-        const leadsToSendThisPass = options?.forceAllAtOnce
-          ? Math.max(1, campaign.leadsPerDay - sentTodayCount)
-          : 1;
+        // Deliver remaining quota up to campaign.leadsPerDay (e.g. 1, 3, or 5 leads per day)
+        const leadsToSendThisPass = Math.max(1, campaign.leadsPerDay - sentTodayCount);
 
         for (let i = 0; i < leadsToSendThisPass; i++) {
           const leadIndex = sentTodayCount + i;

@@ -957,7 +957,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
               <div className="mt-2 p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-900 text-[11px] font-bold flex items-center gap-2">
                 <Clock size={13} className="text-blue-600 shrink-0" />
                 <span>
-                  <strong>⏰ Staggered Schedule:</strong> {leadsPerDay === 1 ? "1 lead at 10:00 AM IST" : leadsPerDay === 2 ? "2 leads (10:00 AM & 01:00 PM IST)" : leadsPerDay === 3 ? "3 leads (10:00 AM, 01:00 PM & 04:00 PM IST)" : leadsPerDay === 4 ? "4 leads (10:00 AM, 01:00 PM, 04:00 PM & 07:00 PM IST)" : "5 leads across all daytime intervals (10 AM, 1 PM, 4 PM, 7 PM, 9 PM IST)"}
+                  <strong>⏰ Daily Schedule:</strong> Dispatches {leadsPerDay} matched lead(s) per tutor every morning at 10:00 AM IST.
                 </span>
               </div>
             </div>
@@ -1007,7 +1007,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
             <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 flex items-start gap-2.5">
               <Clock size={16} className="text-blue-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs font-black text-blue-900">⏰ Daily Automated Dispatch: 9:00 AM IST</p>
+                <p className="text-xs font-black text-blue-900">⏰ Daily Automated Dispatch: 10:00 AM IST</p>
                 <p className="text-[11px] text-blue-700 font-semibold mt-0.5">
                   All active campaigns execute automatically every morning. Leads geo-rotate through nearby localities based on each tutor's location.
                 </p>

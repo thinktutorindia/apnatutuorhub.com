@@ -31,6 +31,51 @@ export const CLASS_LEVELS = [
 
 export type ClassLevel = (typeof CLASS_LEVELS)[number];
 
+const ROMAN_TO_CLASS: Record<string, string> = {
+  I: "Class 1",
+  II: "Class 2",
+  III: "Class 3",
+  IV: "Class 4",
+  V: "Class 5",
+  VI: "Class 6",
+  VII: "Class 7",
+  VIII: "Class 8",
+  IX: "Class 9",
+  X: "Class 10",
+  XI: "Class 11",
+  XII: "Class 12",
+};
+
+/** Derive class levels from TrueMyTutor-style subjects (e.g. "English for XI - XII"). */
+export function classesFromTaxonomySubjects(subjects: string[]): string[] {
+  const found = new Set<string>();
+  for (const raw of subjects) {
+    const s = raw.toLowerCase();
+    if (/\b(iit|jee)\b/.test(s)) found.add("IIT-JEE");
+    if (/\bneet\b/.test(s)) found.add("NEET");
+    if (/\b(kg|kindergarten|nursery|preparatory)\b/.test(s)) found.add("Nursery / KG");
+    if (/\bcollege\b/.test(s)) found.add("College / Degree");
+
+    for (const m of raw.matchAll(/Class\s+(\d{1,2})\b/gi)) {
+      const n = Number(m[1]);
+      if (n >= 1 && n <= 12) found.add(`Class ${n}`);
+    }
+
+    for (const m of raw.matchAll(/(?:Class|for)\s+(XII|XI|VIII|VII|VI|IV|IX|III|II|X|V|I)\b/gi)) {
+      const mapped = ROMAN_TO_CLASS[m[1].toUpperCase()];
+      if (mapped) found.add(mapped);
+    }
+
+    for (const m of raw.matchAll(/\b(XII|XI|IX|X|VIII|VII|VI|V|IV|III|II|I)\s*[-–]\s*(XII|XI|IX|X|VIII|VII|VI|V|IV|III|II|I)\b/g)) {
+      const a = ROMAN_TO_CLASS[m[1]];
+      const b = ROMAN_TO_CLASS[m[2]];
+      if (a) found.add(a);
+      if (b) found.add(b);
+    }
+  }
+  return Array.from(found);
+}
+
 /**
  * Subject taxonomy grouped for the requirement posting UI. `SUBJECTS` is
  * derived from this so the picker and the validator can never drift apart.

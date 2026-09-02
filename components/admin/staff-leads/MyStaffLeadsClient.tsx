@@ -21,7 +21,8 @@ import {
   getStaffLeadActivityFeedAction,
 } from "@/app/actions/staff-leads.actions";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
-import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
+import { LocationSearchInput, type LocationResult } from "@/components/ui/LocationSearchInput";
+import { BOARDS, classesFromTaxonomySubjects } from "@/lib/validations";
 import type { StaffLeadStatus, CallOutcome } from "@prisma/client";
 import { StaffLeadTypeControl } from "@/components/admin/staff-leads/StaffLeadTypeControl";
 import { getStaffRecordType, staffNotesWithoutTypeTags } from "@/lib/staff-lead-type";
@@ -103,20 +104,6 @@ const POPULAR_LOCATIONS = [
   "Dwarka", "Janakpuri", "Noida", "Gurgaon", "Ghaziabad", "Faridabad", "Pitampura", "Saket"
 ];
 
-const POPULAR_SUBJECTS_PRESETS = [
-  "Mathematics", "Physics", "Chemistry", "Biology", "Science",
-  "English", "Social Studies", "Economics", "Accountancy", "Business Studies",
-  "Computer Science", "Hindi", "Sanskrit", "All Primary Subjects"
-];
-
-const QUICK_CLASS_PRESETS = [
-  { label: "Class 1-5", items: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"] },
-  { label: "Class 6-8", items: ["Class 6", "Class 7", "Class 8"] },
-  { label: "Class 9-10", items: ["Class 9", "Class 10"] },
-  { label: "Class 11-12", items: ["Class 11", "Class 12"] },
-  { label: "IIT-JEE / NEET", items: ["IIT-JEE", "NEET"] },
-];
-
 const QUICK_OUTCOMES: Array<{ outcome: CallOutcome; label: string; icon: string; cls: string }> = [
   { outcome: "ANSWERED", label: "Answered", icon: "✓", cls: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" },
   { outcome: "CALLBACK_REQUESTED", label: "Callback", icon: "⏰", cls: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100" },
@@ -189,8 +176,6 @@ export function MyStaffLeadsClient({
   // Edit Modal State (with full platform system: SubjectPicker, class taxonomy, location presets)
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
-  const [editCustomSubject, setEditCustomSubject] = useState("");
-  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
 
   // Detailed Call Log Modal State
   const [logCallLead, setLogCallLead] = useState<Lead | null>(null);
@@ -631,7 +616,7 @@ export function MyStaffLeadsClient({
         gender: editForm.gender,
         board: editForm.board,
         subjects: editForm.subjects,
-        classes: editForm.classes,
+        classes: classesFromTaxonomySubjects(editForm.subjects || []),
         status: editForm.status,
         staffNotes: editForm.staffNotes,
         priority: editForm.priority !== undefined ? Number(editForm.priority) : undefined,
@@ -651,40 +636,14 @@ export function MyStaffLeadsClient({
     });
   };
 
-  // Helper: Toggle Subject in Edit Form
-  const toggleEditSubject = (subj: string) => {
-    const current = editForm.subjects || [];
-    if (current.includes(subj)) {
-      setEditForm({ ...editForm, subjects: current.filter((s) => s !== subj) });
-    } else {
-      setEditForm({ ...editForm, subjects: [...current, subj] });
-    }
-  };
-
-  const addCustomEditSubject = () => {
-    const s = editCustomSubject.trim();
-    if (!s) return;
-    const current = editForm.subjects || [];
-    if (!current.includes(s)) {
-      setEditForm({ ...editForm, subjects: [...current, s] });
-    }
-    setEditCustomSubject("");
-  };
-
-  // Helper: Toggle Class in Edit Form
-  const toggleEditClass = (cls: string) => {
-    const current = editForm.classes || [];
-    if (current.includes(cls)) {
-      setEditForm({ ...editForm, classes: current.filter((c) => c !== cls) });
-    } else {
-      setEditForm({ ...editForm, classes: [...current, cls] });
-    }
-  };
-
-  const addClassGroup = (items: string[]) => {
-    const current = new Set(editForm.classes || []);
-    items.forEach((c) => current.add(c));
-    setEditForm({ ...editForm, classes: Array.from(current) });
+  const applyPickedLocation = (result: LocationResult) => {
+    const locLabel = [result.area, result.city].filter(Boolean).join(", ") || result.city;
+    setEditForm((prev) => ({
+      ...prev,
+      location: locLabel || prev.location,
+      pincode: result.pincode || prev.pincode,
+      fullAddress: result.fullAddress || prev.fullAddress,
+    }));
   };
 
   // 5. Open Call History
@@ -2131,33 +2090,48 @@ export function MyStaffLeadsClient({
 
               {/* Section 2: Location & Address */}
               <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 space-y-3">
-                <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">2. Location & Area</h4>
+                <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">2. Exact location</h4>
+                <p className="text-[11px] font-600 text-slate-500">
+                  Search an area, pincode or landmark, or pick the pin on the map. This saves the exact city, pincode and address.
+                </p>
+                <LocationSearchInput
+                  key={editingLead.id}
+                  initialDisplay={[editForm.location, editForm.pincode].filter(Boolean).join(", ")}
+                  defaultCity={editForm.location || ""}
+                  defaultPincode={editForm.pincode || ""}
+                  placeholder="Search area, landmark or 6-digit pincode…"
+                  onSelectLocation={applyPickedLocation}
+                />
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[10px] text-slate-400 font-bold">Quick areas:</span>
+                  {POPULAR_LOCATIONS.map((loc) => (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() =>
+                        setEditForm({
+                          ...editForm,
+                          location: loc,
+                          fullAddress: editForm.fullAddress || loc,
+                        })
+                      }
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    >
+                      {loc}
+                    </button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Primary Area / City</label>
+                    <label className="block font-bold text-slate-700 mb-1">Area / City</label>
                     <input
                       type="text"
                       value={editForm.location || ""}
                       onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                      placeholder="e.g. Karol Bagh, South Delhi"
+                      placeholder="Filled from search or map"
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"
                     />
-                    {/* Quick Popular Location Presets */}
-                    <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                      <span className="text-[10px] text-slate-400 font-bold">Presets:</span>
-                      {POPULAR_LOCATIONS.map((loc) => (
-                        <button
-                          key={loc}
-                          type="button"
-                          onClick={() => setEditForm({ ...editForm, location: loc })}
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer"
-                        >
-                          {loc}
-                        </button>
-                      ))}
-                    </div>
                   </div>
-
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Pincode</label>
                     <input
@@ -2168,14 +2142,13 @@ export function MyStaffLeadsClient({
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"
                     />
                   </div>
-
                   <div className="sm:col-span-2">
-                    <label className="block font-bold text-slate-700 mb-1">Full Detailed Address</label>
+                    <label className="block font-bold text-slate-700 mb-1">Full address from map / search</label>
                     <input
                       type="text"
                       value={editForm.fullAddress || ""}
                       onChange={(e) => setEditForm({ ...editForm, fullAddress: e.target.value })}
-                      placeholder="e.g. Flat 302, Pocket B, Janakpuri, New Delhi"
+                      placeholder="Exact OSM address appears here after you pick a result"
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"
                     />
                   </div>
@@ -2184,159 +2157,22 @@ export function MyStaffLeadsClient({
 
               {/* Section 3: Teaching Subjects Taxonomy */}
               <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">
-                    3. Teaching Subjects ({(editForm.subjects || []).length} Selected)
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => setShowSubjectPicker(!showSubjectPicker)}
-                    className="text-[11px] font-black text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <BookOpen size={12} /> {showSubjectPicker ? "Hide Taxonomy Tree" : "Open Full Subject Taxonomy Tree"}
-                  </button>
-                </div>
-
-                {/* Selected Subjects Tag Cloud */}
-                <div className="flex items-center gap-1.5 flex-wrap min-h-[32px] p-2.5 bg-white border border-slate-200 rounded-xl">
-                  {(editForm.subjects || []).length === 0 ? (
-                    <span className="text-slate-400 italic text-[11px]">No subjects selected yet. Click presets or browse below.</span>
-                  ) : (
-                    (editForm.subjects || []).map((s) => (
-                      <span
-                        key={s}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 font-bold text-xs"
-                      >
-                        <span>{s}</span>
-                        <button
-                          type="button"
-                          onClick={() => toggleEditSubject(s)}
-                          className="text-blue-400 hover:text-blue-800 cursor-pointer"
-                        >
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))
-                  )}
-                </div>
-
-                {/* Quick Subject Presets */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] text-slate-500 font-extrabold uppercase">Popular Presets:</span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {POPULAR_SUBJECTS_PRESETS.map((p) => {
-                      const isPicked = (editForm.subjects || []).includes(p);
-                      return (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => toggleEditSubject(p)}
-                          className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                            isPicked
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                          }`}
-                        >
-                          {isPicked ? "✓ " : "+ "}
-                          {p}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Custom Subject Input */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={editCustomSubject}
-                    onChange={(e) => setEditCustomSubject(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomEditSubject())}
-                    placeholder="Type custom subject & press Enter (e.g. Vedic Maths, French)..."
-                    className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={addCustomEditSubject}
-                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer"
-                  >
-                    + Add
-                  </button>
-                </div>
-
-                {/* Full Subject Taxonomy Picker */}
-                {showSubjectPicker && (
-                  <div className="p-3 bg-white rounded-2xl border border-slate-200 space-y-2">
-                    <SubjectPicker
-                      value={editForm.subjects || []}
-                      onChange={(subjects) => setEditForm({ ...editForm, subjects })}
-                      hintText="Browse full subject taxonomy or search to select."
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Section 4: Classes & Grades */}
-              <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 space-y-3">
                 <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">
-                  4. Classes / Grades ({(editForm.classes || []).length} Selected)
+                  3. Subjects from class taxonomy ({(editForm.subjects || []).length} selected)
                 </h4>
-
-                {/* Quick Class Group Buttons */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] text-slate-500 font-extrabold uppercase">Quick Groups:</span>
-                  {QUICK_CLASS_PRESETS.map((g) => (
-                    <button
-                      key={g.label}
-                      type="button"
-                      onClick={() => addClassGroup(g.items)}
-                      className="text-[11px] font-extrabold px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-purple-700 hover:bg-purple-50 cursor-pointer"
-                    >
-                      + {g.label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setEditForm({ ...editForm, classes: Array.from(CLASS_LEVELS) })}
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
-                  >
-                    Select All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditForm({ ...editForm, classes: [] })}
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-rose-600 hover:bg-rose-50 cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                </div>
-
-                {/* Individual Class Chips */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  {CLASS_LEVELS.map((cls) => {
-                    const isSelected = (editForm.classes || []).includes(cls);
-                    return (
-                      <button
-                        key={cls}
-                        type="button"
-                        onClick={() => toggleEditClass(cls)}
-                        className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-purple-600 text-white border-purple-600 shadow-xs"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                        }`}
-                      >
-                        {isSelected ? "✓ " : ""}
-                        {cls}
-                      </button>
-                    );
-                  })}
-                </div>
+                <p className="text-[11px] font-600 text-slate-500">
+                  Pick subjects that already include the class (e.g. English for XI–XII). No separate grade list.
+                </p>
+                <SubjectPicker
+                  value={editForm.subjects || []}
+                  onChange={(subjects) => setEditForm({ ...editForm, subjects })}
+                  hintText="Search or open a class group — subject names already carry the grade."
+                />
               </div>
 
               {/* Section 5: Staff Status & Follow-Up Notes */}
               <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 space-y-3">
-                <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">5. Lead Status & Follow-Up Notes</h4>
+                <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">4. Lead Status & Follow-Up Notes</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Lead Status</label>

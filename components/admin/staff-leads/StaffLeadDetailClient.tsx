@@ -16,6 +16,9 @@ import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
 import { StaffLeadTypeControl } from "@/components/admin/staff-leads/StaffLeadTypeControl";
 import { StaffLeadWorkPlan } from "@/components/admin/staff-leads/StaffLeadWorkPlan";
 import { getStaffRecordType, staffNotesWithoutTypeTags, type StaffRecordType } from "@/lib/staff-lead-type";
+import { LocationSearchInput } from "@/components/ui/LocationSearchInput";
+import { SubjectPicker } from "@/components/ui/SubjectPicker";
+import { classesFromTaxonomySubjects } from "@/lib/validations";
 
 const STATUS_STYLES: Record<StaffLeadStatus, { label: string; bg: string; text: string }> = {
   NEW:            { label: "New",            bg: "bg-slate-100",   text: "text-slate-600"   },
@@ -83,8 +86,7 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
     pincode: lead.pincode ?? "", qualification: lead.qualification ?? "",
     experienceYears: lead.experienceYears?.toString() ?? "",
     staffNotes: lead.staffNotes ?? "",
-    subjects: lead.subjects.join(", "),
-    classes: lead.classes.join(", "),
+    subjects: lead.subjects,
   });
 
   const missingFields = [
@@ -92,7 +94,6 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
     !lead.email && "Email",
     !lead.location && "Location",
     !lead.subjects.length && "Subjects",
-    !lead.classes.length && "Classes",
   ].filter(Boolean) as string[];
 
   const handleSave = () => {
@@ -108,8 +109,8 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
         qualification: form.qualification,
         experienceYears: form.experienceYears ? parseInt(form.experienceYears) : undefined,
         staffNotes: form.staffNotes,
-        subjects: form.subjects.split(",").map((s) => s.trim()).filter(Boolean),
-        classes: form.classes.split(",").map((s) => s.trim()).filter(Boolean),
+        subjects: form.subjects,
+        classes: classesFromTaxonomySubjects(form.subjects),
       });
       if (res.success) {
         setMessage({ type: "success", text: "Lead updated!" });
@@ -126,8 +127,8 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
           qualification: form.qualification || null,
           experienceYears: form.experienceYears ? parseInt(form.experienceYears) : null,
           staffNotes: form.staffNotes || null,
-          subjects: form.subjects.split(",").map((s) => s.trim()).filter(Boolean),
-          classes: form.classes.split(",").map((s) => s.trim()).filter(Boolean),
+          subjects: form.subjects,
+          classes: classesFromTaxonomySubjects(form.subjects),
         }));
       } else {
         setMessage({ type: "error", text: res.error ?? "Update failed" });
@@ -398,10 +399,26 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
           <h3 className="font-extrabold text-slate-900 flex items-center gap-2"><MapPin size={16} className="text-blue-600" /> Location</h3>
           {editing ? (
             <div className="space-y-3">
+              <LocationSearchInput
+                key={lead.id}
+                initialDisplay={[form.location, form.pincode].filter(Boolean).join(", ")}
+                defaultCity={form.location}
+                defaultPincode={form.pincode}
+                placeholder="Search area, landmark or pincode…"
+                onSelectLocation={(result) => {
+                  const locLabel = [result.area, result.city].filter(Boolean).join(", ") || result.city;
+                  setForm((f) => ({
+                    ...f,
+                    location: locLabel || f.location,
+                    pincode: result.pincode || f.pincode,
+                    fullAddress: result.fullAddress || f.fullAddress,
+                  }));
+                }}
+              />
               {[
-                { key: "location", label: "Area / City", placeholder: "e.g. Lajpat Nagar" },
+                { key: "location", label: "Area / City", placeholder: "Filled from search or map" },
                 { key: "pincode", label: "Pincode", placeholder: "6-digit pincode" },
-                { key: "fullAddress", label: "Full Address", placeholder: "Complete address" },
+                { key: "fullAddress", label: "Full Address", placeholder: "Exact address from map" },
               ].map(({ key, label, placeholder }) => (
                 <div key={key}>
                   <label className="block text-xs font-bold text-slate-500 mb-1">{label}</label>
@@ -425,9 +442,12 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
           <h3 className="font-extrabold text-slate-900 flex items-center gap-2"><BookOpen size={16} className="text-purple-600" /> Teaching Profile</h3>
           {editing ? (
             <div className="space-y-3">
+              <SubjectPicker
+                value={form.subjects}
+                onChange={(subjects) => setForm((f) => ({ ...f, subjects }))}
+                hintText="Pick subjects from the class taxonomy. Grade is already in the subject name."
+              />
               {[
-                { key: "subjects", label: "Subjects (comma-separated)", placeholder: "Mathematics, Science, English" },
-                { key: "classes", label: "Classes (comma-separated)", placeholder: "Class 6, Class 7, Class 8" },
                 { key: "qualification", label: "Qualification", placeholder: "B.Ed, B.Tech, etc." },
                 { key: "experienceYears", label: "Experience (years)", placeholder: "5" },
               ].map(({ key, label, placeholder }) => (
@@ -447,13 +467,6 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
                     {lead.subjects.map((s) => <span key={s} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full font-semibold">{s}</span>)}
                   </div>
                 ) : <MissingBadge label="Subjects" />}
-              </Field>
-              <Field label="Classes">
-                {lead.classes.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {lead.classes.map((c) => <span key={c} className="text-xs bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded-full font-semibold">{c}</span>)}
-                  </div>
-                ) : <MissingBadge label="Classes" />}
               </Field>
               <Field label="Qualification" value={lead.qualification} />
               <Field label="Experience" value={lead.experienceYears ? `${lead.experienceYears} years` : null} />

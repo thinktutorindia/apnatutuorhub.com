@@ -22,6 +22,7 @@ interface LocationSearchInputProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  initialDisplay?: string;
 }
 
 // ── Photon API (Komoot) — OpenStreetMap-backed instant autocomplete
@@ -160,6 +161,7 @@ export function LocationSearchInput({
   placeholder = "Search city, area, pincode or landmark…",
   className = "",
   disabled = false,
+  initialDisplay = "",
 }: LocationSearchInputProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<LocationResult[]>([]);
@@ -167,7 +169,9 @@ export function LocationSearchInput({
   const [gpsLoading, setGpsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-  const [selectedText, setSelectedText] = useState("");
+  const [selectedText, setSelectedText] = useState(
+    initialDisplay || [defaultCity, defaultPincode].filter(Boolean).join(", ")
+  );
   const [selectedCoords, setSelectedCoords] = useState<{ lat?: number; lon?: number }>({});
   const wrapperRef = useRef<HTMLDivElement>(null);
 

@@ -25,7 +25,7 @@ import { LocationSearchInput, type LocationResult } from "@/components/ui/Locati
 import { BOARDS, classesFromTaxonomySubjects } from "@/lib/validations";
 import type { StaffLeadStatus, CallOutcome } from "@prisma/client";
 import { StaffLeadTypeControl } from "@/components/admin/staff-leads/StaffLeadTypeControl";
-import { getStaffRecordType, staffNotesWithoutTypeTags } from "@/lib/staff-lead-type";
+import { getStaffRecordType, staffNotesWithoutTypeTags, applyStaffRecordType } from "@/lib/staff-lead-type";
 import { getStaffNextStep } from "@/components/admin/staff-leads/StaffLeadWorkPlan";
 import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
 import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
@@ -618,7 +618,10 @@ export function MyStaffLeadsClient({
         subjects: editForm.subjects,
         classes: classesFromTaxonomySubjects(editForm.subjects || []),
         status: editForm.status,
-        staffNotes: editForm.staffNotes,
+        staffNotes: applyStaffRecordType(
+          staffNotesWithoutTypeTags(editForm.staffNotes),
+          getStaffRecordType(editForm.staffNotes ?? editingLead.staffNotes)
+        ),
         priority: editForm.priority !== undefined ? Number(editForm.priority) : undefined,
         nextFollowUpAt: editForm.nextFollowUpAt,
       });
@@ -1960,7 +1963,9 @@ export function MyStaffLeadsClient({
               <div>
                 <h2 className="text-xl font-black text-slate-900">Edit contact</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Change name, phone, subjects, and whether this row is a Parent or a Tutor.
+                  {getStaffRecordType(editForm.staffNotes ?? editingLead.staffNotes) === "PARENT"
+                    ? "Parent requirement — name, phone, location, and subjects needed."
+                    : "Tutor candidate — contact, location, and subjects they can teach."}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] font-800 text-slate-500">This row is a</span>
@@ -1986,23 +1991,29 @@ export function MyStaffLeadsClient({
             </div>
 
             <div className="space-y-5 text-xs">
-              {/* Section 1: Basic Contact & Personal Info */}
+              {(() => {
+                const isParentEdit = getStaffRecordType(editForm.staffNotes ?? editingLead.staffNotes) === "PARENT";
+                return (
+                  <>
+              {/* Section 1: Basic Contact */}
               <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 space-y-3">
-                <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">1. Contact & Personal Info</h4>
+                <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">
+                  1. {isParentEdit ? "Parent contact" : "Tutor contact"}
+                </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Full Name</label>
+                    <label className="block font-bold text-slate-700 mb-1">{isParentEdit ? "Parent name" : "Full Name"}</label>
                     <input
                       type="text"
                       value={editForm.name || ""}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      placeholder="e.g. Deepika Arora"
+                      placeholder={isParentEdit ? "e.g. Mrs Sharma" : "e.g. Deepika Arora"}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Primary Phone</label>
+                    <label className="block font-bold text-slate-700 mb-1">Phone</label>
                     <input
                       type="text"
                       value={editForm.phone || ""}
@@ -2023,6 +2034,8 @@ export function MyStaffLeadsClient({
                     />
                   </div>
 
+                  {!isParentEdit && (
+                    <>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Email Address</label>
                     <input
@@ -2085,6 +2098,8 @@ export function MyStaffLeadsClient({
                       ))}
                     </select>
                   </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -2155,18 +2170,20 @@ export function MyStaffLeadsClient({
                 </div>
               </div>
 
-              {/* Section 3: Teaching Subjects Taxonomy */}
+              {/* Section 3: Subjects from class taxonomy */}
               <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-100 space-y-3">
                 <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">
-                  3. Subjects from class taxonomy ({(editForm.subjects || []).length} selected)
+                  3. {isParentEdit ? "Subjects needed" : "Subjects they can teach"} ({(editForm.subjects || []).length} selected)
                 </h4>
                 <p className="text-[11px] font-600 text-slate-500">
-                  Pick subjects that already include the class (e.g. English for XI–XII). No separate grade list.
+                  {isParentEdit
+                    ? "Pick from the class taxonomy (e.g. English for XI–XII). Grade is already in the subject name."
+                    : "Pick subjects they teach from the class taxonomy. No separate grade list."}
                 </p>
                 <SubjectPicker
                   value={editForm.subjects || []}
                   onChange={(subjects) => setEditForm({ ...editForm, subjects })}
-                  hintText="Search or open a class group — subject names already carry the grade."
+                  hintText={isParentEdit ? "What tuition does this parent need?" : "Search or open a class group — subject names already carry the grade."}
                 />
               </div>
 
@@ -2206,14 +2223,20 @@ export function MyStaffLeadsClient({
                     <label className="block font-bold text-slate-700 mb-1">Internal Discussion Notes</label>
                     <textarea
                       rows={3}
-                      value={editForm.staffNotes || ""}
-                      onChange={(e) => setEditForm({ ...editForm, staffNotes: e.target.value })}
+                      value={staffNotesWithoutTypeTags(editForm.staffNotes)}
+                      onChange={(e) => {
+                        const type = getStaffRecordType(editForm.staffNotes ?? editingLead.staffNotes);
+                        setEditForm({ ...editForm, staffNotes: applyStaffRecordType(e.target.value, type) });
+                      }}
                       placeholder="Add discussion points, fees expected, timings, etc..."
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white"
                     />
                   </div>
                 </div>
               </div>
+                  </>
+                );
+              })()}
             </div>
 
             {/* Modal Actions */}

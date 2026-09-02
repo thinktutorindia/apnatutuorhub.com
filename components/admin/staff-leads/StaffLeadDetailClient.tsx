@@ -20,6 +20,18 @@ import { LocationSearchInput } from "@/components/ui/LocationSearchInput";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import { classesFromTaxonomySubjects } from "@/lib/validations";
 
+type StringFieldKey =
+  | "name"
+  | "phone"
+  | "altPhone"
+  | "email"
+  | "location"
+  | "fullAddress"
+  | "pincode"
+  | "qualification"
+  | "experienceYears"
+  | "staffNotes";
+
 const STATUS_STYLES: Record<StaffLeadStatus, { label: string; bg: string; text: string }> = {
   NEW:            { label: "New",            bg: "bg-slate-100",   text: "text-slate-600"   },
   ASSIGNED:       { label: "Assigned",       bg: "bg-blue-100",    text: "text-blue-700"    },
@@ -91,7 +103,7 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
 
   const missingFields = [
     !lead.phone && "Phone",
-    !lead.email && "Email",
+    recordType !== "PARENT" && !lead.email && "Email",
     !lead.location && "Location",
     !lead.subjects.length && "Subjects",
   ].filter(Boolean) as string[];
@@ -358,15 +370,22 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
           <h3 className="font-extrabold text-slate-900 flex items-center gap-2"><Phone size={16} className="text-emerald-600" /> Contact Information</h3>
           {editing ? (
             <div className="space-y-3">
-              {[
-                { key: "name", label: "Name", placeholder: "Full name" },
-                { key: "phone", label: "Phone", placeholder: "10 digit number" },
-                { key: "altPhone", label: "Alt Phone", placeholder: "Alternative number" },
-                { key: "email", label: "Email", placeholder: "email@example.com" },
-              ].map(({ key, label, placeholder }) => (
+              {(recordType === "PARENT"
+                ? ([
+                    { key: "name", label: "Parent name", placeholder: "e.g. Mrs Sharma" },
+                    { key: "phone", label: "Phone", placeholder: "10 digit number" },
+                    { key: "altPhone", label: "WhatsApp / Alt Phone", placeholder: "Alternative number" },
+                  ] satisfies { key: StringFieldKey; label: string; placeholder: string }[])
+                : ([
+                    { key: "name", label: "Name", placeholder: "Full name" },
+                    { key: "phone", label: "Phone", placeholder: "10 digit number" },
+                    { key: "altPhone", label: "Alt Phone", placeholder: "Alternative number" },
+                    { key: "email", label: "Email", placeholder: "email@example.com" },
+                  ] satisfies { key: StringFieldKey; label: string; placeholder: string }[])
+              ).map(({ key, label, placeholder }) => (
                 <div key={key}>
                   <label className="block text-xs font-bold text-slate-500 mb-1">{label}</label>
-                  <input value={(form as Record<string, string>)[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  <input value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     placeholder={placeholder}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400" />
                 </div>
@@ -415,14 +434,14 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
                   }));
                 }}
               />
-              {[
+              {([
                 { key: "location", label: "Area / City", placeholder: "Filled from search or map" },
                 { key: "pincode", label: "Pincode", placeholder: "6-digit pincode" },
                 { key: "fullAddress", label: "Full Address", placeholder: "Exact address from map" },
-              ].map(({ key, label, placeholder }) => (
+              ] satisfies { key: StringFieldKey; label: string; placeholder: string }[]).map(({ key, label, placeholder }) => (
                 <div key={key}>
                   <label className="block text-xs font-bold text-slate-500 mb-1">{label}</label>
-                  <input value={(form as Record<string, string>)[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  <input value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     placeholder={placeholder}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400" />
                 </div>
@@ -439,21 +458,21 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
 
         {/* Teaching profile */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
-          <h3 className="font-extrabold text-slate-900 flex items-center gap-2"><BookOpen size={16} className="text-purple-600" /> Teaching Profile</h3>
+          <h3 className="font-extrabold text-slate-900 flex items-center gap-2"><BookOpen size={16} className="text-purple-600" /> {recordType === "PARENT" ? "Tuition needed" : "Teaching Profile"}</h3>
           {editing ? (
             <div className="space-y-3">
               <SubjectPicker
                 value={form.subjects}
                 onChange={(subjects) => setForm((f) => ({ ...f, subjects }))}
-                hintText="Pick subjects from the class taxonomy. Grade is already in the subject name."
+                hintText={recordType === "PARENT" ? "What subjects does this parent need?" : "Pick subjects from the class taxonomy. Grade is already in the subject name."}
               />
-              {[
+              {recordType !== "PARENT" && ([
                 { key: "qualification", label: "Qualification", placeholder: "B.Ed, B.Tech, etc." },
                 { key: "experienceYears", label: "Experience (years)", placeholder: "5" },
-              ].map(({ key, label, placeholder }) => (
+              ] satisfies { key: StringFieldKey; label: string; placeholder: string }[]).map(({ key, label, placeholder }) => (
                 <div key={key}>
                   <label className="block text-xs font-bold text-slate-500 mb-1">{label}</label>
-                  <input value={(form as Record<string, string>)[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  <input value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     placeholder={placeholder}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-400" />
                 </div>
@@ -468,8 +487,12 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
                   </div>
                 ) : <MissingBadge label="Subjects" />}
               </Field>
-              <Field label="Qualification" value={lead.qualification} />
-              <Field label="Experience" value={lead.experienceYears ? `${lead.experienceYears} years` : null} />
+              {recordType !== "PARENT" && (
+                <>
+                  <Field label="Qualification" value={lead.qualification} />
+                  <Field label="Experience" value={lead.experienceYears ? `${lead.experienceYears} years` : null} />
+                </>
+              )}
             </div>
           )}
         </div>

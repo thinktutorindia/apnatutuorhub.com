@@ -185,12 +185,12 @@ export function TutorOnboardingWizard({
   }
 
   return (
-    <div className={`min-h-screen ${isAdminMode ? "bg-slate-50/50 p-4" : "bg-gradient-to-br from-slate-50 via-white to-emerald-50/30"}`}>
+    <div className={`min-h-screen ${isAdminMode ? "bg-[#F0F4F8] p-4" : "bg-[#F0F4F8]"}`}>
       {/* Top Header */}
       {!isAdminMode && (
         <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xs">
           <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
-            <LogoBrand heightClass="h-10 sm:h-12" />
+            <LogoBrand heightClass="h-10 sm:h-11" />
             <div className="text-xs font-700 text-gray-500 bg-gray-50 border border-gray-200 px-3 py-1 rounded-full">
               Step <span className="text-[#1A3C5E] font-800">{currentStep}</span> of {totalSteps}
             </div>
@@ -207,7 +207,7 @@ export function TutorOnboardingWizard({
 
       {/* Admin Quick Step Selector Bar */}
       {isAdminMode && (
-        <div className="max-w-3xl mx-auto mb-6 p-4 rounded-3xl bg-[#0F172A] border border-[#1E293B] shadow-xl space-y-3">
+        <div className="max-w-3xl mx-auto mb-6 p-4 rounded-3xl bg-[#0F2540] border border-white/10 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-extrabold text-emerald-400 flex items-center gap-2">
               <Sparkles size={16} /> Super Admin Privilege Mode: Click Any Step to Edit &amp; Jump
@@ -228,7 +228,7 @@ export function TutorOnboardingWizard({
                   className={`p-2.5 rounded-2xl text-left border transition-all cursor-pointer ${
                     isActive
                       ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-lg font-bold"
-                      : "bg-[#1E293B] border-[#334155] text-slate-300 hover:bg-[#334155] hover:text-white"
+                      : "bg-[#0A192F] border-white/10 text-slate-300 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   <p className="text-[10px] font-extrabold opacity-80">STEP {s.num}</p>
@@ -249,12 +249,12 @@ export function TutorOnboardingWizard({
                 key={s.num}
                 type="button"
                 onClick={() => handleJumpStep(s.num)}
-                className={`transition-all duration-300 rounded-full cursor-pointer hover:scale-110 ${
+                className={`rounded-xl cursor-pointer ${
                   s.num < currentStep
-                    ? "w-7 h-7 bg-[#2D9E6B] flex items-center justify-center"
+                    ? "w-8 h-8 bg-[#2D9E6B] flex items-center justify-center"
                     : s.num === currentStep
-                    ? "w-9 h-9 bg-[#1A3C5E] flex items-center justify-center ring-4 ring-[#1A3C5E]/20"
-                    : "w-7 h-7 bg-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-300"
+                    ? "w-9 h-9 bg-[#0F2540] flex items-center justify-center"
+                    : "w-8 h-8 bg-white border border-[#E2E8F0] text-[#64748B] flex items-center justify-center hover:border-[#2D9E6B]"
                 }`}
                 title={`Jump to Step ${s.num}: ${s.title}`}
               >

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ApnaTutorHub — Official Visual UI Design Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0F2540;
+      --navy-dark: #0A192F;
+      --emerald: #2D9E6B;
+      --emerald-dark: #238357;
+      --emerald-light: #E8F7F0;
+      --slate-50: #F8FAFC;
+      --slate-100: #F1F5F9;
+      --slate-200: #E2E8F0;
+      --slate-700: #334155;
+      --slate-900: #0F172A;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #F0F4F8;
+      color: var(--slate-900);
+      line-height: 1.6;
+      padding-bottom: 80px;
+    }
+    header {
+      background: var(--navy);
+      color: white;
+      padding: 22px 36px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      background: var(--emerald);
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+    }
+    .brand-text h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .brand-text p {
+      font-size: 11px;
+      color: #94A3B8;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .top-badge {
+      background: rgba(45, 158, 107, 0.2);
+      border: 1px solid rgba(45, 158, 107, 0.5);
+      color: #6EE7B7;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-tabs {
+      background: white;
+      padding: 12px 32px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--slate-200);
+      position: sticky;
+      top: 86px;
+      z-index: 90;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    }
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--slate-700);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover {
+      background: var(--slate-100);
+      color: var(--navy);
+    }
+    .tab-btn.active {
+      background: var(--navy);
+      color: white;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 32px auto;
+      padding: 0 24px;
+    }
+    .hero-summary {
+      background: var(--navy-dark);
+      color: white;
+      border-radius: 24px;
+      padding: 36px 40px;
+      margin-bottom: 36px;
+      box-shadow: 0 10px 30px rgba(10, 25, 47, 0.15);
+    }
+    .hero-summary h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      color: #34D399;
+      margin-bottom: 8px;
+    }
+    .hero-summary p {
+      font-size: 15px;
+      color: #CBD5E1;
+      max-width: 900px;
+    }
+    .principles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .principle-box {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 18px 20px;
+      border-radius: 16px;
+    }
+    .principle-box h4 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #F8FAFC;
+      margin-bottom: 4px;
+    }
+    .principle-box p {
+      font-size: 13px;
+      color: #94A3B8;
+      line-height: 1.5;
+    }
+    .section-card {
+      background: white;
+      border-radius: 24px;
+      border: 1px solid var(--slate-200);
+      overflow: hidden;
+      margin-bottom: 44px;
+      box-shadow: 0 10px 30px rgba(15, 37, 64, 0.05);
+      scroll-margin-top: 160px;
+    }
+    .card-header {
+      padding: 24px 32px;
+      background: white;
+      border-bottom: 1px solid var(--slate-200);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .card-title-group h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--navy);
+    }
+    .card-title-group p {
+      font-size: 14px;
+      color: #64748B;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tag-parent {
+      background: #EFF6FF;
+      color: #1D4ED8;
+      border: 1px solid #BFDBFE;
+    }
+    .tag-tutor {
+      background: #F0FDF4;
+      color: #15803D;
+      border: 1px solid #BBF7D0;
+    }
+    .tag-admin {
+      background: #FAF5FF;
+      color: #7E22CE;
+      border: 1px solid #E9D5FF;
+    }
+    .image-preview-wrapper {
+      padding: 24px;
+      background: #0F172A;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .image-preview-wrapper img {
+      width: 100%;
+      height: auto;
+      max-height: 850px;
+      object-fit: contain;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      transition: transform 0.3s;
+      cursor: zoom-in;
+    }
+    .image-preview-wrapper img:hover {
+      transform: scale(1.01);
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      padding: 28px 32px;
+      background: var(--slate-50);
+      border-top: 1px solid var(--slate-200);
+    }
+    .feature-item {
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      border: 1px solid var(--slate-200);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+    .feature-item h3 {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--navy);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .feature-item p {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🎓</div>
+      <div class="brand-text">
+        <h1>ApnaTutorHub</h1>
+        <p>Selected Visual Design System (40–50+ Age Optimized)</p>
+      </div>
+    </div>
+    <div class="top-badge">
+      ✓ Approved Full Design Suite (6 Complete Views)
+    </div>
+  </header>
+
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="scrollToSection('home-page')">🏠 1. Homepage &amp; Search</button>
+    <button class="tab-btn" onclick="scrollToSection('parent-portal')">👨‍👩‍👧 2. Parent Portal (Full Page)</button>
+    <button class="tab-btn" onclick="scrollToSection('tutor-portal')">👨‍🏫 3. Tutor Portal (Full Page)</button>
+    <button class="tab-btn" onclick="scrollToSection('admin-portal')">🛡️ 4. Admin Command Center</button>
+    <button class="tab-btn" onclick="scrollToSection('post-req')">📝 5. Post Requirement Form</button>
+    <button class="tab-btn" onclick="scrollToSection('tutor-listing')">🔍 6. Verified Tutor Cards</button>
+  </div>
+
+  <div class="container">
+
+    <!-- Design Overview Banner -->
+    <div class="hero-summary">
+      <h2>🎯 ApnaTutorHub Official Design Blueprint</h2>
+      <p>Clean, high-clarity, high-trust user interface designed specifically for Indian parents aged 40–50+ and verified tutors.</p>
+      
+      <div class="principles-grid">
+        <div class="principle-box">
+          <h4>🔤 Large 18px Typography</h4>
+          <p>High-contrast Deep Navy text on white for crystal-clear readability without reading glasses.</p>
+        </div>
+        <div class="principle-box">
+          <h4>🔘 1-Click Action Pills</h4>
+          <p>Direct taps for popular classes ("Class 9–10 Math", "Class 1–5", "NEET") instead of typing.</p>
+        </div>
+        <div class="principle-box">
+          <h4>📞 Visible Helpline &amp; WhatsApp</h4>
+          <p>Instant phone reassurance (+91 87997 07960) and senior counsellor support on every screen.</p>
+        </div>
+        <div class="principle-box">
+          <h4>🛡️ 100% Verified Teachers</h4>
+          <p>Aadhaar &amp; Degree verified badges with transparent hourly &amp; monthly pricing.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. Homepage Hero & 3-Step Discovery -->
+    <div class="section-card" id="home-page">
+      <div class="card-header">
+        <div class="card-title-group">
+          <h2>1. 🏠 Homepage: Hero &amp; 3-Step Instant Discovery</h2>
+          <p>Welcoming hero layout with big 3-field search bar, popular 1-click class pills, and teacher spotlight.</p>
+        </div>
+        <span class="tag tag-parent">Public Landing View</span>
+      </div>
+      <div class="image-preview-wrapper">
+        <img src="homepage.jpg" alt="ApnaTutorHub Homepage UI" />
+      </div>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h3>🔍 3-Field Friendly Search Bar</h3>
+          <p>[Select Class/Subject: Class 10 Math v] [Enter Locality: South Delhi] with green 'Search Tutors' button.</p>
+        </div>
+        <div class="feature-item">
+          <h3>🏷️ 1-Click Class Quick-Pills</h3>
+          <p>Clickable tags: Class 1-5, Class 9-10 Science &amp; Math, Class 11-12 Commerce, NEET/IIT-JEE, Female Home Tutor.</p>
+        </div>
+        <div class="feature-item">
+          <h3>👩‍🏫 Verified Teacher Spotlights</h3>
+          <p>Clean teacher profile cards with 4.9⭐ rating, subject tags, experience, and green 'Verified Badge'.</p>
+        </div>
+        <div class="feature-item">
+          <h3>1️⃣2️⃣3️⃣ 3-Step Easy Guide</h3>
+          <p>Numbered visual cards: 1. Tell Requirement, 2. Get 3 Verified Profiles, 3. Take Free Trial Class.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Parent Portal Full Page -->
+    <div class="section-card" id="parent-portal">
+      <div class="card-header">
+        <div class="card-title-group">
+          <h2>2. 👨‍👩‍👧 Parent Portal Dashboard (Full Page)</h2>
+          <p>Clean, respectful parent dashboard showing active requirement, upcoming demo class, and WhatsApp counsellor.</p>
+        </div>
+        <span class="tag tag-parent">Parent View · 40–50+ Age UI</span>
+      </div>
+      <div class="image-preview-wrapper">
+        <img src="parent-dashboard.jpg" alt="Parent Dashboard UI" />
+      </div>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h3>👋 Respectful Personal Greeting</h3>
+          <p>"Namaste Sharma Ji! Welcome back. Managing tuition for Aarav (Class 10 CBSE, Rohini Sector 14)".</p>
+        </div>
+        <div class="feature-item">
+          <h3>⚡ Active Requirement Card</h3>
+          <p>"3 Verified Tutors Applied" with tutor avatars and large "Review Tutors &amp; Schedule Demo" button.</p>
+        </div>
+        <div class="feature-item">
+          <h3>📅 Tomorrow's Free Demo Class</h3>
+          <p>Trial class details with teacher name, time, and direct [Call Tutor] &amp; [Reschedule] buttons.</p>
+        </div>
+        <div class="feature-item">
+          <h3>💬 Dedicated Counsellor Support</h3>
+          <p>Personal counsellor box with photo, helpline (+91 87997 07960), and "Chat on WhatsApp" button.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Tutor Portal Full Page -->
+    <div class="section-card" id="tutor-portal">
+      <div class="card-header">
+        <div class="card-title-group">
+          <h2>3. 👨‍🏫 Tutor Portal &amp; Live Leads Board (Full Page)</h2>
+          <p>Teacher workspace for viewing nearby tuition enquiries within 5 km, wallet coin balance, and unlock actions.</p>
+        </div>
+        <span class="tag tag-tutor">Tutor View · High Productivity</span>
+      </div>
+      <div class="image-preview-wrapper">
+        <img src="tutor-dashboard.jpg" alt="Tutor Dashboard UI" />
+      </div>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h3>📍 5 km Distance &amp; Subject Filters</h3>
+          <p>Quick dropdown for nearby localities (Rohini, Pitampura) with home visit and online tuition mode toggles.</p>
+        </div>
+        <div class="feature-item">
+          <h3>🔓 1-Click Lead Unlock (5 Coins)</h3>
+          <p>Distance badge ("1.8 km from you"), budget ("₹6,000 / month"), and direct student phone reveal button.</p>
+        </div>
+        <div class="feature-item">
+          <h3>🪙 Coin Wallet &amp; Instant UPI Top-Up</h3>
+          <p>Clear 45-coin balance with 1-click "Get 50 Coins for ₹499" instant UPI pack.</p>
+        </div>
+        <div class="feature-item">
+          <h3>✅ KYC Verification Seal</h3>
+          <p>Verified profile status with Aadhaar &amp; Degree confirmation badge.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Admin Command Center Full Page -->
+    <div class="section-card" id="admin-portal">
+      <div class="card-header">
+        <div class="card-title-group">
+          <h2>4. 🛡️ Admin Marketplace Command Center (Full Page)</h2>
+          <p>Super Admin control console for moderating parent enquiries, reviewing tutor KYC documents, and tracking revenue.</p>
+        </div>
+        <span class="tag tag-admin">Admin &amp; Operations View</span>
+      </div>
+      <div class="image-preview-wrapper">
+        <img src="admin-dashboard.jpg" alt="Admin Dashboard UI" />
+      </div>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h3>📊 Realtime Marketplace KPIs</h3>
+          <p>Total Users (14,820), Pending KYC Queue (7), Student Requirements (1,240), Coin Revenue (₹1,84,500).</p>
+        </div>
+        <div class="feature-item">
+          <h3>📋 Live Student Requirements Feed</h3>
+          <p>Instant table of all enquiries with inquiry ID, student class, locality, and edit/push broadcast actions.</p>
+        </div>
+        <div class="feature-item">
+          <h3>🔍 Inline Tutor KYC Approval Queue</h3>
+          <p>Teacher profile card with Aadhaar &amp; Degree previews and 1-click "Approve ✓" / "Reject ✗" buttons.</p>
+        </div>
+        <div class="feature-item">
+          <h3>⚡ Universal ⌘K Command Palette</h3>
+          <p>Dark slate sidebar with fast access to all RBAC modules, staff CRM, and wallet governance.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 1-Page Requirement Posting Form -->
+    <div class="section-card" id="post-req">
+      <div class="card-header">
+        <div class="card-title-group">
+          <h2>5. 📝 1-Page Simplified "Post Requirement" Form</h2>
+          <p>Single-card requirement form designed for 40-50+ age parents with big button selectors and zero confusion.</p>
+        </div>
+        <span class="tag tag-parent">Parent Post Flow</span>
+      </div>
+      <div class="image-preview-wrapper">
+        <img src="parent-post-requirement.jpg" alt="Post Requirement Form UI" />
+      </div>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h3>🔘 Big Class Button Chips</h3>
+          <p>[Class 1 to 5], [Class 6 to 8], [Class 9 &amp; 10], [Class 11 &amp; 12], [NEET / JEE] with clear green selection indicator.</p>
+        </div>
+        <div class="feature-item">
+          <h3>🏠 Home vs Online Toggle</h3>
+          <p>Big friendly icon selectors: [🏠 Home Tutor at your home] vs [💻 Online Classes].</p>
+        </div>
+        <div class="feature-item">
+          <h3>🛡️ Reassuring Trust Badges</h3>
+          <p>'100% Verified Teachers (Aadhaar &amp; Degree Checked)', 'Pay Only After Satisfied', 'Free 1-on-1 Demo Class Included'.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Verified Tutor Listing Cards -->
+    <div class="section-card" id="tutor-listing">
+      <div class="card-header">
+        <div class="card-title-group">
+          <h2>6. 🔍 Verified Tutor Cards &amp; Directory Listing</h2>
+          <p>Generous card layout with clear teacher photos, transparent fees, and Book Demo / WhatsApp buttons.</p>
+        </div>
+        <span class="tag tag-parent">Tutor Search View</span>
+      </div>
+      <div class="image-preview-wrapper">
+        <img src="tutor-listing.jpg" alt="Tutor Listing Cards UI" />
+      </div>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h3>✓ KYC Verified Teacher Badge</h3>
+          <p>Green verification crest guaranteeing background-verified credentials and degrees.</p>
+        </div>
+        <div class="feature-item">
+          <h3>💰 Transparent Pricing</h3>
+          <p>Large, prominent fees per hour or month (e.g. ₹600 / hr or ₹5,000 / month) with no hidden fees.</p>
+        </div>
+        <div class="feature-item">
+          <h3>📞 Dual Action Buttons</h3>
+          <p>Primary solid green [Book Free Demo Class] button + green outline [Chat on WhatsApp] button.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function scrollToSection(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+      }
+    }
+  </script>
+</body>
+</html>

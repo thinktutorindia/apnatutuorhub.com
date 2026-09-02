@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { PushNotificationProvider } from "@/components/PushNotificationProvider";
@@ -8,8 +8,8 @@ import { auth } from "@/auth";
 import { NavigationProgress } from "@/components/NavigationProgress";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
@@ -108,14 +108,10 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en" className={`${inter.variable} h-full`} data-scroll-behavior="smooth">
+    <html lang="en" className={`${jakarta.variable} h-full`} data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
       </head>
       <body>
         <a

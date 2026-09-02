@@ -48,19 +48,19 @@ function ResetPasswordForm() {
 
   if (isSuccess) {
     return (
-      <div className="text-center space-y-6">
-        <div className="w-16 h-16 rounded-2xl bg-[#DCFCE7] border-[3px] border-[#0F172A] shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] flex items-center justify-center mx-auto text-2xl">
-          <CheckCircle size={32} className="text-[#22C55E]" />
+      <div className="w-full max-w-lg bg-white ath-panel p-8 text-center space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-[#E8F7F0] flex items-center justify-center mx-auto">
+          <CheckCircle size={32} className="text-[#2D9E6B]" />
         </div>
-        <h1 className="text-2xl font-black text-[#0F172A]">
-          Password Reset Complete!
+        <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+          Password updated
         </h1>
-        <p className="text-sm font-semibold text-slate-600 leading-relaxed max-w-sm mx-auto">
-          Your password has been successfully updated. You can now log in with your new password.
+        <p className="text-[15px] font-500 text-[#64748B] leading-relaxed max-w-sm mx-auto">
+          You can now log in with your new password.
         </p>
         <a
           href="/login"
-          className="neu-btn neu-btn-primary w-full py-3.5 text-sm inline-flex items-center justify-center gap-2"
+          className="neu-btn neu-btn-primary w-full py-3.5 text-sm inline-flex items-center justify-center gap-2 min-h-12"
         >
           Go to Login <ArrowRight size={16} />
         </a>
@@ -70,12 +70,12 @@ function ResetPasswordForm() {
 
   if (!token || !email) {
     return (
-      <div className="text-center space-y-4">
-        <div className="p-4 bg-red-50 border-2 border-red-500 rounded-xl text-red-600 text-xs font-extrabold flex items-center justify-center gap-2">
+      <div className="w-full max-w-lg bg-white ath-panel p-8 text-center space-y-4">
+        <div className="p-4 bg-[#FEF2F2] border border-[#FECACA] rounded-xl text-[#B91C1C] text-sm font-700 flex items-center justify-center gap-2">
           <AlertCircle size={16} />
-          <span>Invalid password reset link. Please request a new link.</span>
+          <span>This reset link is invalid. Please request a new one.</span>
         </div>
-        <a href="/forgot-password" className="neu-btn neu-btn-white w-full py-3 text-sm inline-flex items-center justify-center gap-2">
+        <a href="/forgot-password" className="neu-btn neu-btn-white w-full py-3 text-sm inline-flex items-center justify-center gap-2 min-h-11">
           <ArrowLeft size={16} /> Request New Reset Link
         </a>
       </div>
@@ -83,18 +83,18 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-lg bg-white ath-panel p-8 space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
-          Set New Password 🔐
+        <h1 className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+          Set a new password
         </h1>
-        <p className="text-sm font-semibold text-slate-600 mt-1">
-          Enter a new secure password for <strong className="text-[#0F172A] break-all">{email}</strong>
+        <p className="text-[15px] font-500 text-[#64748B] mt-1">
+          Enter a new password for <strong className="text-[#0F2540] break-all">{email}</strong>
         </p>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border-2 border-red-500 rounded-xl text-red-600 text-xs font-extrabold flex items-center gap-2">
+        <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded-xl text-[#B91C1C] text-sm font-700 flex items-center gap-2">
           <AlertCircle size={16} />
           <span>{error}</span>
         </div>
@@ -102,7 +102,7 @@ function ResetPasswordForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
-          <label htmlFor="new-password" className="block text-xs font-extrabold text-[#0F172A]">
+          <label htmlFor="new-password" className="block text-xs font-800 text-[#0F2540]">
             New Password
           </label>
           <div className="relative">
@@ -115,13 +115,13 @@ function ResetPasswordForm() {
               placeholder="••••••••"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="neu-input pl-11"
+              className="neu-input pl-11 min-h-12"
             />
           </div>
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="confirm-password" className="block text-xs font-extrabold text-[#0F172A]">
+          <label htmlFor="confirm-password" className="block text-xs font-800 text-[#0F2540]">
             Confirm New Password
           </label>
           <div className="relative">
@@ -134,7 +134,7 @@ function ResetPasswordForm() {
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="neu-input pl-11"
+              className="neu-input pl-11 min-h-12"
             />
           </div>
         </div>
@@ -142,7 +142,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="neu-btn neu-btn-primary w-full py-3.5 text-sm"
+          className="neu-btn neu-btn-primary w-full py-3.5 text-sm min-h-12"
         >
           {isSubmitting ? (
             <span>Updating password...</span>
@@ -159,7 +159,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="text-center text-xs text-slate-500 py-12">Loading...</div>}>
+    <Suspense fallback={<div className="text-center text-sm text-[#64748B] py-12">Loading...</div>}>
       <ResetPasswordForm />
     </Suspense>
   );

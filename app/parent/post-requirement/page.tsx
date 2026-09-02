@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { RequirementForm } from "@/components/parent/RequirementForm";
+import { ShieldCheck, HandCoins, GraduationCap } from "lucide-react";
 
 import type { Metadata } from "next";
 
@@ -64,14 +65,14 @@ export default async function PostRequirementPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
-        <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">New Tuition Listing</span>
-          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Post a Tuition Requirement
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 ath-panel">
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Free for parents</span>
+          <h1 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Tell us what your child needs
           </h1>
-          <p className="text-xs text-slate-600 font-600">
-            Tell us what subjects, class level, budget, and teaching mode you need. Nearby verified tutors will be notified instantly.
+          <p className="text-sm text-slate-600 font-500 max-w-xl">
+            Just the class, subject and your area. Verified tutors nearby will see it and reach out, usually within a few hours.
           </p>
         </div>
       </div>
@@ -82,7 +83,7 @@ export default async function PostRequirementPage({
         defaults={{
           studentProfileId: "",
           subjects: initialSubjects,
-          classLevel: initialClassLevel,
+          classLevel: initialClassLevel || "Class 10",
           board: "CBSE",
           mode: initialMode,
           tutorGenderPref: "ANY",
@@ -98,6 +99,25 @@ export default async function PostRequirementPage({
           notes: "",
         }}
       />
+
+      {/* Reassurance strip (matches the promise parents see everywhere) */}
+      <div className="ath-panel p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { icon: ShieldCheck, title: "100% verified teachers", sub: "Aadhaar & degree checked" },
+          { icon: HandCoins, title: "Pay only when satisfied", sub: "No advance, no parent fees" },
+          { icon: GraduationCap, title: "Free demo class first", sub: "Meet the tutor before you decide" },
+        ].map((item) => (
+          <div key={item.title} className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[#2D9E6B] border border-emerald-100 shrink-0">
+              <item.icon size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-800 text-[#0F2540] leading-tight">{item.title}</p>
+              <p className="text-xs font-500 text-slate-500">{item.sub}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

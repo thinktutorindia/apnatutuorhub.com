@@ -6,17 +6,17 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   LayoutDashboard, BookOpen, Calendar, MessageSquare,
-  User, LogOut, X, Menu, ChevronRight, PlusCircle, Gift, GraduationCap,
+  User, X, Menu, ChevronRight, Search, Gift, GraduationCap,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/parent/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/parent/my-leads", label: "Requirements", icon: BookOpen },
-  { href: "/parent/post-requirement", label: "Post Requirement", icon: PlusCircle },
-  { href: "/parent/bookings", label: "Classes", icon: Calendar },
-  { href: "/chat", label: "Messages", icon: MessageSquare },
-  { href: "/parent/profile", label: "My Profile", icon: User },
-  { href: "/referrals", label: "Referrals", icon: Gift },
+  { href: "/parent/dashboard", label: "Parent Dashboard", shortLabel: "Dashboard", icon: LayoutDashboard, desktop: true },
+  { href: "/parent/my-leads", label: "My Requirements", shortLabel: "Requirements", icon: BookOpen, desktop: true },
+  { href: "/parent/bookings", label: "My Classes", shortLabel: "Classes", icon: Calendar, desktop: true },
+  { href: "/find-tutor", label: "Find Tutors", shortLabel: "Tutors", icon: Search, desktop: true },
+  { href: "/chat", label: "Messages", shortLabel: "Messages", icon: MessageSquare, desktop: true },
+  { href: "/parent/profile", label: "My Profile", shortLabel: "Profile", icon: User, desktop: true },
+  { href: "/referrals", label: "Referrals", shortLabel: "Referrals", icon: Gift, desktop: false },
 ] as const;
 
 const BOTTOM_TABS = [
@@ -47,63 +47,40 @@ export function ParentNavClient({ userName, userEmail, userImage, unreadCount }:
 
   return (
     <>
-      {/* Desktop Navigation Header */}
-      <nav className="hidden md:flex items-center gap-1 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200">
-        {NAV_ITEMS.map((item) => {
+      {/* Desktop Navigation — sits in the center column */}
+      <nav className="hidden xl:flex flex-1 items-center justify-center gap-1 min-w-0">
+        {NAV_ITEMS.filter((item) => item.desktop).map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
-          const isPostReq = item.href === "/parent/post-requirement";
-
-          if (isPostReq) {
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-800 bg-[#2D9E6B] text-white shadow-xs hover:bg-[#238357] hover:scale-105 active:scale-95 transition-all duration-200 ease-out whitespace-nowrap"
-              >
-                <PlusCircle size={15} className="transition-transform duration-200 group-hover:rotate-90" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          }
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-800 transition-all duration-200 ease-out hover:scale-105 active:scale-95 whitespace-nowrap ${
+              className={`group flex items-center gap-1.5 px-2.5 py-2 text-sm font-700 whitespace-nowrap border-b-2 min-h-11 ${
                 active
-                  ? "bg-white text-[#0F2540] shadow-2xs border border-slate-200"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                  ? "border-[#2D9E6B] text-[#2D9E6B]"
+                  : "border-transparent text-[#64748B] hover:text-[#0F2540]"
               }`}
             >
-              <Icon size={15} className={`transition-transform duration-200 group-hover:scale-110 ${active ? "text-[#2D9E6B]" : "text-slate-400 group-hover:text-[#2D9E6B]"}`} />
-              <span>{item.label}</span>
+              <Icon size={14} className={active ? "text-[#2D9E6B]" : "text-[#94A3B8] group-hover:text-[#2D9E6B]"} />
+              <span>{item.shortLabel}</span>
               {item.href === "/chat" && unreadCount > 0 && (
-                <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#EF4444] text-white text-[9px] font-black flex items-center justify-center">
+                <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#EF4444] text-white text-[9px] font-800 flex items-center justify-center">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
             </Link>
           );
         })}
-
-        {/* Dual Role Quick Link: Register / Switch to Tutor */}
-        <Link
-          href="/tutor/onboarding"
-          className="group flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-800 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-2xs ml-1"
-          title="Register or switch to Tutor profile"
-        >
-          <GraduationCap size={15} className="text-amber-600 group-hover:scale-110 transition-transform" />
-          <span>Teach / Tutor</span>
-        </Link>
       </nav>
 
-      {/* Mobile Menu Trigger Button */}
+      <div className="flex-1 xl:hidden min-w-0" />
+
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}
-        className="md:hidden flex items-center justify-center p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200 cursor-pointer"
+        className="xl:hidden flex items-center justify-center w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200 cursor-pointer"
         aria-label="Open Navigation Menu"
       >
         <Menu size={20} />
@@ -111,7 +88,7 @@ export function ParentNavClient({ userName, userEmail, userImage, unreadCount }:
 
       {/* Mobile Drawer Navigation */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-[99999] flex justify-end md:hidden">
+        <div className="fixed inset-0 z-[99999] flex justify-end xl:hidden">
           <div
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
             onClick={() => setDrawerOpen(false)}
@@ -202,7 +179,7 @@ export function ParentNavClient({ userName, userEmail, userImage, unreadCount }:
       )}
 
       {/* Mobile Bottom Fixed Tab Bar */}
-      <div className="at-bottom-safe md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
+      <div className="at-bottom-safe xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-1 sm:px-2 py-1.5 flex items-center justify-around shadow-lg">
         {BOTTOM_TABS.map((tab) => {
           const active = isActive(tab.href);
           const Icon = tab.icon;

@@ -20,25 +20,23 @@ export default async function SubAdminAnalyticsPage() {
   return (
     <div className="space-y-7 text-slate-900">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-sm">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#1A3C5E] flex items-center justify-center text-white shrink-0">
-            <Activity size={24} />
+          <div className="w-11 h-11 rounded-full bg-[#E8F1FB] flex items-center justify-center text-[#2563EB] shrink-0">
+            <Activity size={20} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#2D9E6B]">
-                Staff Intelligence
-              </span>
-            </div>
+            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">
+              Operations
+            </span>
             <h1
-              className="text-2xl sm:text-3xl font-black text-[#0F2540] tracking-tight mt-0.5"
-              style={{ fontFamily: "'Poppins', sans-serif" }}
+              className="text-2xl font-800 text-[#0F2540] tracking-tight mt-0.5"
+              style={{ fontFamily: "Poppins, sans-serif" }}
             >
-              Sub-Admin Activity Analytics
+              Staff Analytics
             </h1>
-            <p className="text-xs text-slate-500 font-semibold mt-1">
-              Date-wise audit logs, action breakdowns, KPI tracking, department performance, and individual staff progress reports.
+            <p className="text-xs text-slate-600 font-600 mt-1">
+              Audit logs, action breakdowns, KPIs, and department performance
             </p>
           </div>
         </div>
@@ -46,24 +44,24 @@ export default async function SubAdminAnalyticsPage() {
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <Link
             href="/admin/sub-admins"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-slate-200 bg-white text-[#0F2540] font-800 text-xs hover:bg-slate-50"
           >
             <Users size={15} />
-            Manage Staff
+            Team &amp; Roles
           </Link>
           <Link
             href="/admin/audit-logs"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0F2540] text-white font-bold text-xs hover:bg-[#1A3C5E] transition-all shadow-md"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#0F2540] text-white font-800 text-xs hover:bg-[#1A3C5E]"
           >
             <Activity size={15} />
-            Full Audit Logs
+            Audit Logs
           </Link>
         </div>
       </div>
 
       {/* Empty State */}
       {data.subAdmins.length === 0 ? (
-        <div className="p-16 text-center rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+        <div className="ath-panel p-16 text-center space-y-4">
           <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto">
             <Users size={28} className="text-slate-400" />
           </div>

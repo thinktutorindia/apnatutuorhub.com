@@ -94,9 +94,9 @@ const COIN_PACKAGES = [
     priceInr: 2200,
     badge: "💎 Best Value",
     description: "For serious full-time tutors",
-    color: "from-violet-500 to-purple-600",
-    bg: "bg-violet-50 border-violet-300",
-    textColor: "text-violet-900",
+    color: "from-[#0F2540] to-[#1A3C5E]",
+    bg: "bg-[#FFF8E8] border-amber-300",
+    textColor: "text-[#0F2540]",
     popular: false,
     leadsUnlock: "30+ leads",
   },
@@ -861,7 +861,7 @@ export function TutorProfileForm({
                 <div className={`text-xl font-800 ${pkg.textColor}`}>₹{pkg.priceInr.toLocaleString("en-IN")}</div>
                 <Link
                   href={`/tutor/wallet?package=${pkg.id}`}
-                  className={`block w-full py-3 rounded-2xl text-center text-xs font-800 !text-white transition-all shadow-md hover:shadow-lg bg-gradient-to-r ${pkg.color} hover:scale-105 active:scale-95`}
+                  className={`block w-full py-3 rounded-2xl text-center text-xs font-800 !text-white bg-gradient-to-r ${pkg.color}`}
                 >
                   Buy {pkg.name} →
                 </Link>

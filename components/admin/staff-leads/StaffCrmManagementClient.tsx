@@ -13,6 +13,7 @@ import {
   deleteLeadBatchAction,
   bulkReassignLeadsAction
 } from "@/app/actions/staff-leads.actions";
+import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
 
 type StaffStat = {
   id: string;
@@ -113,34 +114,32 @@ export function StaffCrmManagementClient({
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="ath-panel flex items-center justify-between flex-wrap gap-4 p-5 sm:p-6">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Staff CRM Command Center
-            </span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-slate-900">CRM Operations & Staff Management</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage daily allocation, automatic rotations, staff performance, and batch staging in one place.
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>Lead Pipeline</h1>
+          <p className="text-sm text-slate-600 mt-1 font-600">
+            Daily allocation, rotations, staff performance, and batch staging. Calling work still happens in My Queue.
           </p>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/admin/staff-leads/upload"
-            className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 flex items-center gap-2 shadow-sm"
+            className="px-4 py-2.5 rounded-full bg-[#2D9E6B] text-white text-sm font-800 hover:bg-[#238357] flex items-center gap-2"
           >
-            <Sparkles size={16} /> Upload New Batch
+            <Sparkles size={16} /> Bulk Upload
           </Link>
           <Link
             href="/admin/staff-leads"
-            className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="px-4 py-2.5 rounded-full border border-slate-200 text-sm font-800 text-[#0F2540] hover:bg-slate-50"
           >
-            View All Leads Feed
+            Staff CRM Dashboard
           </Link>
         </div>
       </div>
+
+      <StaffCrmPlaybook compact />
 
       {message && (
         <div

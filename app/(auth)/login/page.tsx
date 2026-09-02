@@ -55,13 +55,15 @@ function LoginFormContent() {
     <main className="w-full max-w-lg space-y-6">
       
       {/* Top Header with Centered Logo & Back Button */}
-      <div className="flex items-center justify-between w-full">
-        <LogoBrand heightClass="h-10 sm:h-16" />
+      <div className="flex items-center justify-between gap-3 w-full min-w-0">
+        <LogoBrand heightClass="h-10 sm:h-11" />
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-600 text-gray-600 hover:text-[#1A3C5E] transition-all px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow"
+          className="inline-flex items-center gap-1.5 text-xs font-600 text-gray-600 hover:text-[#1A3C5E] transition-all px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow shrink-0"
         >
-          <ArrowLeft size={13} /> Back to home
+          <ArrowLeft size={13} />
+          <span className="hidden xs:inline">Back to home</span>
+          <span className="xs:hidden">Home</span>
         </Link>
       </div>
 
@@ -77,7 +79,7 @@ function LoginFormContent() {
             Welcome back
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-            Sign in to your ApnaTutorHub account to continue.
+            Sign in to post a requirement or see student enquiries.
           </p>
         </div>
 

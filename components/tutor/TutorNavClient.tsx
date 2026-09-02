@@ -7,18 +7,17 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import {
   LayoutDashboard, Search, Calendar, MessageSquare,
-  Wallet, User, LogOut, X, Menu, ChevronRight, Crown, Gift,
+  Wallet, User, X, Menu, ChevronRight, Crown,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/tutor/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/tutor/leads", label: "Find Students", icon: Search },
-  { href: "/tutor/plans", label: "Membership Plans", icon: Crown },
-  { href: "/tutor/bookings", label: "Classes", icon: Calendar },
-  { href: "/chat", label: "Messages", icon: MessageSquare },
-  { href: "/tutor/wallet", label: "Wallet", icon: Wallet },
-  { href: "/tutor/profile", label: "My Profile", icon: User },
-  { href: "/referrals", label: "Referrals", icon: Gift },
+  { href: "/tutor/dashboard", label: "Tutor Dashboard", shortLabel: "Dashboard", icon: LayoutDashboard },
+  { href: "/tutor/leads", label: "Find Student Leads", shortLabel: "Leads", icon: Search },
+  { href: "/tutor/bookings", label: "My Students & Demos", shortLabel: "Students", icon: Calendar },
+  { href: "/tutor/wallet", label: "Coin Wallet", shortLabel: "Wallet", icon: Wallet },
+  { href: "/tutor/plans", label: "Plans", shortLabel: "Plans", icon: Crown },
+  { href: "/chat", label: "Messages", shortLabel: "Messages", icon: MessageSquare },
+  { href: "/tutor/profile", label: "My Profile", shortLabel: "Profile", icon: User },
 ] as const;
 
 const BOTTOM_TABS = [
@@ -54,7 +53,7 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   const drawer = (
-    <div className="fixed inset-0 z-[99999] flex justify-end md:hidden">
+    <div className="fixed inset-0 z-[99999] flex justify-end xl:hidden">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-xs"
         onClick={() => setDrawerOpen(false)}
@@ -130,31 +129,31 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
 
   return (
     <>
-      {/* Desktop nav links */}
-      <nav className="hidden md:flex items-center gap-1">
+      <nav className="hidden xl:flex flex-1 items-center justify-center gap-1 min-w-0">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`group flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-700 transition-all duration-200 ease-out hover:scale-105 active:scale-95 whitespace-nowrap ${
+              className={`group flex items-center gap-1.5 px-2.5 py-2 text-sm font-700 whitespace-nowrap border-b-2 min-h-11 ${
                 active
-                  ? "bg-emerald-50 text-[#2D9E6B] font-800 border border-emerald-200/80 shadow-2xs"
-                  : "text-gray-800 hover:bg-gray-100 hover:text-gray-900 hover:shadow-2xs"
+                  ? "border-[#2D9E6B] text-[#2D9E6B]"
+                  : "border-transparent text-[#64748B] hover:text-[#0F2540]"
               }`}
             >
-              <item.icon size={15} className="transition-transform duration-200 ease-out group-hover:scale-110 group-hover:-rotate-6" />
-              <span>{item.label}</span>
+              <item.icon size={14} />
+              <span>{item.shortLabel}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* Mobile hamburger */}
+      <div className="flex-1 xl:hidden min-w-0" />
+
       <button
         onClick={() => setDrawerOpen(true)}
-        className="flex items-center justify-center w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-90 text-gray-800 md:hidden transition-all duration-200 ease-out shrink-0 relative z-30"
+        className="flex items-center justify-center w-11 h-11 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-90 text-gray-800 xl:hidden transition-all duration-200 ease-out shrink-0 relative z-30"
         aria-label="Open navigation"
       >
         <Menu size={19} />
@@ -162,7 +161,7 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
 
       {/* Mobile bottom tab bar */}
       <div
-        className="fixed bottom-0 left-0 right-0 md:hidden z-50 at-bottom-safe bg-white border-t border-gray-200 shadow-lg"
+        className="fixed bottom-0 left-0 right-0 xl:hidden z-50 at-bottom-safe bg-white border-t border-gray-200 shadow-lg"
       >
         <div className="flex items-stretch">
           {BOTTOM_TABS.map((tab) => {
@@ -176,7 +175,7 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
                   active ? "text-[#2D9E6B] font-800" : "text-gray-600 hover:text-gray-900 font-600"
                 }`}
               >
-                <div className="relative transition-transform duration-200 group-hover:scale-110">
+                <div className="relative">
                   <tab.icon size={21} strokeWidth={active ? 2.3 : 1.8} />
                   {hasUnread && (
                     <span

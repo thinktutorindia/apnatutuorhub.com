@@ -67,29 +67,26 @@ export default async function EditRequirementPage({
     <div className="space-y-6 py-4">
       <Link
         href="/parent/my-leads"
-        className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-600 hover:text-[#22C55E]"
+        className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-600 hover:text-[#2D9E6B]"
       >
         <ArrowLeft size={15} />
         <span>Back to my requirements</span>
       </Link>
 
-      <header className="neu-card flex flex-col gap-3 bg-[#FEF3C7] p-6 md:p-8">
+      <header className="ath-panel flex flex-col gap-3 p-6 md:p-8 bg-[#0F2540] text-white">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="neu-badge bg-white text-[#0F172A]">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-800 border border-white/20">
             <Pencil size={14} />
             Edit Requirement
           </div>
-          <span
-            className="neu-badge text-[11px]"
-            style={{ backgroundColor: statusMeta.background }}
-          >
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-800 bg-emerald-500/25 text-emerald-200 border border-emerald-400/40">
             {statusMeta.label}
           </span>
         </div>
-        <h1 className="text-xl sm:text-3xl font-black text-[#0F172A] md:text-4xl break-words">
+        <h1 className="text-xl sm:text-3xl font-800 text-white md:text-4xl break-words" style={{ fontFamily: "Poppins, sans-serif" }}>
           {lead.subjects.join(", ")}
         </h1>
-        <p className="text-sm font-semibold text-slate-700">
+        <p className="text-sm font-500 text-slate-200">
           {lead.classLevel} · posted{" "}
           {lead.createdAt.toLocaleDateString("en-IN", {
             day: "numeric",

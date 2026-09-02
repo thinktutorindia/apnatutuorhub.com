@@ -12,7 +12,7 @@ const STATUS_COLOR: Record<string, { bg: string; text: string; border: string }>
   REQUESTED: { bg: "bg-amber-100", text: "text-amber-950", border: "border-amber-300" },
   CONFIRMED: { bg: "bg-emerald-100", text: "text-emerald-950", border: "border-emerald-300" },
   RESCHEDULED: { bg: "bg-blue-100", text: "text-blue-950", border: "border-blue-300" },
-  COMPLETED: { bg: "bg-purple-100", text: "text-purple-950", border: "border-purple-300" },
+  COMPLETED: { bg: "bg-[#E8F7F0]", text: "text-[#0F2540]", border: "border-emerald-300" },
   CANCELLED: { bg: "bg-red-100", text: "text-red-950", border: "border-red-300" },
 };
 
@@ -62,14 +62,14 @@ export default async function AdminBookingsPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Tuition Bookings</span>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Class Booking Management
+            Bookings
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Monitor and manage trial &amp; regular class bookings across the platform ({totalCount} total)
+            Trial and regular class bookings across the platform ({totalCount} total)
           </p>
         </div>
       </div>
@@ -80,9 +80,9 @@ export default async function AdminBookingsPage({
           <Link
             key={st}
             href={`/admin/bookings?status=${st}&q=${q}`}
-            className={`rounded-2xl px-4 py-2 text-xs font-800 transition-all border ${
+            className={`rounded-full px-4 py-2 text-xs font-800 transition-all border ${
               statusFilter === st
-                ? "bg-[#2D9E6B] !text-white border-[#2D9E6B] shadow-xs"
+                ? "bg-[#2D9E6B] !text-white border-[#2D9E6B]"
                 : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
             }`}
           >
@@ -92,19 +92,19 @@ export default async function AdminBookingsPage({
       </div>
 
       {/* Search */}
-      <form method="GET" className="flex flex-col gap-3 sm:flex-row p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <form method="GET" className="ath-panel flex flex-col gap-3 sm:flex-row p-4">
         <input type="hidden" name="status" value={statusFilter} />
         <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-slate-50 border border-slate-300">
           <Search size={16} className="text-slate-500" />
           <input name="q" defaultValue={q} placeholder="Search by subject, parent name, or tutor name…" className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-500" />
         </div>
-        <button type="submit" className="w-full sm:w-auto rounded-2xl px-6 py-2.5 text-xs font-800 bg-[#2D9E6B] text-white hover:bg-[#238357] transition-all cursor-pointer">
+        <button type="submit" className="w-full sm:w-auto rounded-full px-6 py-2.5 text-xs font-800 bg-[#2D9E6B] text-white hover:bg-[#238357] cursor-pointer">
           Search
         </button>
       </form>
 
       {/* Bookings Table */}
-      <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="overflow-hidden ath-panel">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

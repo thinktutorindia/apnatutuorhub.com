@@ -100,7 +100,7 @@ const MODE_STYLES: Record<string, { bg: string; text: string; border: string }> 
   ONLINE: { bg: "bg-sky-50", text: "text-sky-800", border: "border-sky-200" },
   OFFLINE: { bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200" },
   EITHER: { bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
-  COACHING: { bg: "bg-indigo-50", text: "text-indigo-800", border: "border-indigo-200" },
+  COACHING: { bg: "bg-[#EEF3F8]", text: "text-[#0F2540]", border: "border-[#CBD5E1]" },
 };
 
 function formatPostTime(dateStr: string) {
@@ -294,7 +294,7 @@ function LeadCard({
             : lead.isShortlisted
             ? "border-amber-300 ring-2 ring-amber-500/10 shadow-sm"
             : isFreeWithPlan
-            ? "border-purple-200/90 shadow-2xs hover:border-purple-400"
+            ? "border-amber-200 shadow-2xs hover:border-amber-400"
             : "border-slate-200/90 shadow-2xs hover:border-emerald-400"
         }`}
       >
@@ -348,8 +348,8 @@ function LeadCard({
             <div className="flex items-center gap-1.5 flex-wrap">
               {/* Competition & Exclusivity Tag */}
               {maxTutorsAllowed === 1 ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-950 border border-purple-300 px-2.5 py-0.5 text-[11px] font-black shadow-2xs">
-                  <Crown size={11} className="text-purple-600" />
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF3DC] text-[#92400E] border border-[#F5A623]/40 px-2.5 py-0.5 text-[11px] font-800">
+                  <Crown size={11} className="text-[#F5A623]" />
                   <span>👑 100% Solo Exclusive</span>
                 </span>
               ) : maxTutorsAllowed === 2 ? (
@@ -369,9 +369,14 @@ function LeadCard({
                 </span>
               )}
 
+              {timeInfo.isFresh && (
+                <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-800">
+                  FRESH
+                </span>
+              )}
               {isFreeWithPlan && !lead.isPurchased && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 text-purple-900 border border-purple-200 px-2.5 py-0.5 text-[11px] font-extrabold shadow-2xs">
-                  <Crown size={11} className="text-purple-600" />
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF3DC] text-[#92400E] border border-[#F5A623]/40 px-2.5 py-0.5 text-[11px] font-800">
+                  <Crown size={11} className="text-[#F5A623]" />
                   <span>VIP Plan: Free Unlock</span>
                 </span>
               )}
@@ -381,7 +386,7 @@ function LeadCard({
                 </span>
               )}
               {lead.isHired && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-900 border border-purple-300 px-2.5 py-0.5 text-[11px] font-extrabold shadow-2xs">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF3DC] text-[#92400E] border border-[#F5A623]/40 px-2.5 py-0.5 text-[11px] font-800">
                   🏆 Hired
                 </span>
               )}
@@ -580,8 +585,8 @@ function LeadCard({
                 )}
 
                 {lead.tutorGenderPref && lead.tutorGenderPref !== "ANY" && (
-                  <div className="flex items-center gap-1.5 text-purple-700 font-bold">
-                    <User size={13} className="shrink-0 text-purple-500" />
+                  <div className="flex items-center gap-1.5 text-[#0F2540] font-bold">
+                    <User size={13} className="shrink-0 text-[#2D9E6B]" />
                     <span>{lead.tutorGenderPref === "FEMALE" ? "Female Tutor Required" : "Male Tutor Required"}</span>
                   </div>
                 )}
@@ -604,11 +609,11 @@ function LeadCard({
         </div>
 
         {/* Card Footer: Coin Cost & Unlock Action */}
-        <div className="flex items-center justify-between pt-3.5 border-t border-slate-100 mt-2">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3.5 border-t border-slate-100 mt-2 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             {isFreeWithPlan ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-purple-50 text-purple-950 border border-purple-200 font-extrabold text-xs shadow-2xs">
-                <Crown size={14} className="text-purple-600" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#FFF3DC] text-[#92400E] border border-[#F5A623]/40 font-800 text-xs">
+                <Crown size={14} className="text-[#F5A623]" />
                 <span>0 Coins (VIP)</span>
               </span>
             ) : (
@@ -644,14 +649,21 @@ function LeadCard({
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-2xl font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer ${
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer text-center whitespace-normal ${
                 isFreeWithPlan
-                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-purple-500/25"
+                  ? "bg-[#0F2540] hover:bg-[#0A192F] text-white"
                   : "bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] hover:from-[#238357] hover:to-[#186843] text-white shadow-emerald-500/20"
               }`}
             >
-              <Unlock size={13} />
-              <span>{isFreeWithPlan ? "Unlock Free (Plan)" : `Unlock Lead (${lead.coinCost} 🪙)`}</span>
+              <Unlock size={13} className="shrink-0" />
+              {isFreeWithPlan ? (
+                <span>Unlock with plan</span>
+              ) : (
+                <>
+                  <span className="sm:hidden">Unlock ({lead.coinCost} Coins)</span>
+                  <span className="hidden sm:inline">Unlock Student Phone &amp; Address ({lead.coinCost} Coins)</span>
+                </>
+              )}
             </button>
           )}
         </div>
@@ -751,7 +763,7 @@ export function LeadFeedClient({
       <LeadNotifReminderBanner />
 
       {/* Page Header Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 ath-panel">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#2D9E6B]">
@@ -775,26 +787,26 @@ export function LeadFeedClient({
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           {/* Subscription Status Card */}
           {subscriptionInfo?.hasActivePlan ? (
-            <div className="flex items-center gap-3 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border border-purple-200 rounded-2xl px-4 py-2.5 shadow-2xs">
-              <div className="h-9 w-9 rounded-xl bg-purple-500 text-white flex items-center justify-center font-extrabold shadow-xs">
+            <div className="flex items-center gap-3 bg-[#FFF3DC] border border-[#F5A623]/40 rounded-2xl px-4 py-2.5">
+              <div className="h-9 w-9 rounded-xl bg-[#F5A623] text-[#0F2540] flex items-center justify-center font-800">
                 <Crown size={18} />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-extrabold text-purple-950">
+                  <span className="text-xs font-800 text-[#0F2540]">
                     {subscriptionInfo.planName}
                   </span>
-                  <span className="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-purple-200 text-purple-900">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-800 bg-[#0F2540] text-white">
                     VIP
                   </span>
                 </div>
-                <span className="text-[11px] font-semibold text-purple-800 block">
+                <span className="text-[11px] font-600 text-[#92400E] block">
                   <strong>{subscriptionInfo.quotaRemaining}</strong> Plan Leads Remaining
                 </span>
               </div>
               <Link
                 href="/tutor/plans"
-                className="ml-1 text-[11px] font-extrabold text-purple-700 hover:text-purple-900 underline"
+                className="ml-1 text-[11px] font-800 text-[#238357] hover:text-[#0F2540] underline"
               >
                 Plans →
               </Link>
@@ -802,7 +814,7 @@ export function LeadFeedClient({
           ) : (
             <Link
               href="/tutor/plans"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs shadow-md shadow-purple-500/20 transition-all active:scale-95"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-[#0F2540] hover:bg-[#0A192F] text-white font-800 text-xs"
             >
               <Crown size={14} />
               <span>Get VIP Membership</span>
@@ -887,10 +899,10 @@ export function LeadFeedClient({
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+      <div className="p-4 sm:p-5 ath-panel flex flex-col md:flex-row md:items-center justify-between gap-3.5">
         <div className="flex flex-wrap items-center gap-2.5 flex-1">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-0 w-full">
             <Search size={14} className="absolute left-3.5 top-2.5 text-slate-400" />
             <input
               type="text"
@@ -917,7 +929,7 @@ export function LeadFeedClient({
           </div>
 
           {/* Mode Filter Pills */}
-          <div className="flex items-center rounded-2xl bg-slate-50 p-1 border border-slate-200">
+          <div className="flex flex-wrap items-center gap-0.5 rounded-2xl bg-slate-50 p-1 border border-slate-200">
             {(["ALL", "ONLINE", "OFFLINE", "COACHING", "EITHER"] as const).map((m) => (
               <button
                 key={m}

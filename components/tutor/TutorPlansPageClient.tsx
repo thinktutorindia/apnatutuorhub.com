@@ -203,7 +203,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
       {/* Hero Banner Section */}
       <div className="relative overflow-hidden bg-[#0F2540] text-white rounded-3xl pt-12 pb-16 px-6 sm:px-10 shadow-2xl">
-        <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-96 h-96 bg-gradient-to-br from-purple-500/20 via-emerald-500/20 to-transparent blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-96 h-96 bg-gradient-to-br from-amber-500/20 via-emerald-500/20 to-transparent blur-3xl pointer-events-none rounded-full" />
         <div className="absolute bottom-0 left-0 translate-y-12 -translate-x-12 w-96 h-96 bg-gradient-to-tr from-amber-500/20 via-blue-500/20 to-transparent blur-3xl pointer-events-none rounded-full" />
 
         <div className="max-w-5xl mx-auto text-center space-y-4 relative z-10">
@@ -220,7 +220,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </h1>
 
           <p className="text-sm sm:text-base font-semibold text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Unlock student inquiries across ANY class. Choose <strong className="text-amber-300 font-extrabold">Bronze</strong> (10 leads* • max 5 tutors • 1 month), <strong className="text-blue-300 font-extrabold">Silver</strong> (15 leads* • max 3 tutors • 2 months), <strong className="text-yellow-300 font-extrabold">Gold</strong> (20 leads* • max 2 tutors • 2 months), or upgrade to <strong className="text-purple-300 font-extrabold">Platinum VIP</strong> for <span className="underline decoration-yellow-400 underline-offset-4 font-black text-yellow-300">👑 100% Solo Exclusivity (30 leads* • 1 Tutor Only • 3 months)</span>.
+            Unlock student inquiries across ANY class. Choose <strong className="text-amber-300 font-extrabold">Bronze</strong> (10 leads* • max 5 tutors • 1 month), <strong className="text-blue-300 font-extrabold">Silver</strong> (15 leads* • max 3 tutors • 2 months), <strong className="text-yellow-300 font-extrabold">Gold</strong> (20 leads* • max 2 tutors • 2 months), or upgrade to <strong className="text-amber-300 font-extrabold">Platinum VIP</strong> for <span className="underline decoration-yellow-400 underline-offset-4 font-black text-yellow-300">👑 100% Solo Exclusivity (30 leads* • 1 Tutor Only • 3 months)</span>.
           </p>
 
           {/* Active Subscription Status Banner */}
@@ -535,81 +535,81 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </div>
 
           {/* PLATINUM VIP PLAN */}
-          <div className="rounded-3xl bg-gradient-to-b from-purple-950 via-[#130E26] to-[#0D091B] p-6 pt-7 border-2 border-purple-500/80 shadow-2xl ring-4 ring-purple-500/30 transition-all flex flex-col justify-between relative group text-white">
+          <div className="rounded-3xl bg-[#0A192F] p-6 pt-7 border-2 border-[#F5A623]/70 shadow-lg flex flex-col justify-between relative group text-white">
             {/* Top pill badge cleanly spaced */}
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-amber-400 text-white text-[10px] font-black tracking-wider uppercase shadow-lg flex items-center gap-1 whitespace-nowrap z-20">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 via-[#F5A623] to-amber-400 text-white text-[10px] font-black tracking-wider uppercase shadow-lg flex items-center gap-1 whitespace-nowrap z-20">
               <Sparkles size={11} className="text-yellow-300 animate-spin" />
               <span>VIP 100% Solo Lock 👑</span>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-1 pt-1">
-                <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-purple-500/20 border border-purple-400/40 text-purple-300">
+                <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/20 border border-amber-400/40 text-amber-300">
                   Platinum VIP Tier
                 </span>
                 <h3 className="text-2xl font-black text-white">Platinum VIP Plan</h3>
-                <p className="text-xs font-bold text-purple-200">100% Solo Exclusivity across all classes</p>
+                <p className="text-xs font-bold text-amber-200">100% Solo Exclusivity across all classes</p>
               </div>
 
               {/* Special Exclusivity Callout */}
-              <div className="p-3 rounded-2xl bg-purple-900/80 border border-purple-400/60 text-xs font-black text-yellow-300 flex items-start gap-2 shadow-inner">
+              <div className="p-3 rounded-2xl bg-amber-900/80 border border-amber-400/60 text-xs font-black text-yellow-300 flex items-start gap-2 shadow-inner">
                 <Crown size={18} className="text-yellow-400 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-extrabold text-yellow-300">👑 100% Exclusive Solo Lead</div>
-                  <div className="text-[11px] font-semibold text-purple-200 mt-0.5">
+                  <div className="text-[11px] font-semibold text-amber-200 mt-0.5">
                     Lead closes instantly upon unlock. Other tutors cannot contact the parent!
                   </div>
                 </div>
               </div>
 
-              <div className="border-y border-purple-800/50 py-3.5 space-y-1.5">
+              <div className="border-y border-amber-800/50 py-3.5 space-y-1.5">
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl sm:text-4xl font-black text-white">₹24,000</span>
-                  <span className="text-xs font-extrabold text-purple-300">package</span>
+                  <span className="text-xs font-extrabold text-amber-300">package</span>
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-500/30 text-purple-200 text-xs font-extrabold border border-purple-400/30">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/30 text-amber-200 text-xs font-extrabold border border-amber-400/30">
                   <Zap size={13} className="text-yellow-400" />
                   <span>30 High-Value Leads*</span>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] font-bold text-purple-300">
-                  <Clock size={12} className="text-purple-400" />
+                <div className="flex items-center gap-1 text-[11px] font-bold text-amber-300">
+                  <Clock size={12} className="text-amber-400" />
                   <span>Valid for 3 Months</span>
                 </div>
               </div>
 
-              <ul className="space-y-2.5 text-xs font-semibold text-purple-100">
+              <ul className="space-y-2.5 text-xs font-semibold text-amber-100">
                 <li className="flex items-start gap-2.5">
-                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
                   <span><strong>30 High-Value Leads*</strong> included</span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
                   <span><strong>👑 100% Exclusive Solo Lead</strong> (Zero competition)</span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
                     <Check size={11} />
                   </div>
                   <span>Unlock across ANY class, board, or entrance exam</span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
                   <span><strong>🥇 #1 First Priority Access (+10,000 Boost)</strong></span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
                   <span><strong>🪙 +100 Free Bonus Wallet Coins</strong></span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <div className="mt-0.5 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center shrink-0 font-bold">
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold">
                     <Check size={11} />
                   </div>
                   <span><strong>📞 24/7 VIP Phone &amp; WhatsApp Helpline</strong></span>
@@ -624,8 +624,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 onClick={() => handleOpenCheckout("PLATINUM")}
                 className={`w-full py-3.5 px-4 rounded-2xl text-xs font-black transition-all cursor-pointer shadow-xl ${
                   currentPlan === "PLATINUM"
-                    ? "bg-purple-900/50 text-purple-400 border border-purple-800 cursor-not-allowed"
-                    : "bg-gradient-to-r from-purple-500 via-pink-500 to-amber-400 hover:opacity-95 text-white font-black shadow-purple-500/30 hover:scale-[1.02]"
+                    ? "bg-amber-900/50 text-amber-400 border border-amber-800 cursor-not-allowed"
+                    : "bg-[#F5A623] hover:bg-[#e8960f] text-[#0F2540] font-black"
                 }`}
               >
                 {currentPlan === "PLATINUM" ? "Active VIP Membership" : "Upgrade to Platinum VIP"}
@@ -642,7 +642,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
         {/* ── CLASS-WISE LEAD QUANTITIES ALLOCATION SECTION ── */}
         <div className="mt-14 bg-gradient-to-b from-slate-900 via-[#0F2540] to-slate-900 rounded-3xl p-6 sm:p-10 text-white shadow-2xl space-y-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-3xl pointer-events-none rounded-full" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/10 blur-3xl pointer-events-none rounded-full" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-500/10 blur-3xl pointer-events-none rounded-full" />
 
           <div className="max-w-3xl space-y-2 relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-emerald-300 text-[11px] font-black uppercase tracking-wider">
@@ -739,7 +739,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <th className="py-3.5 px-4 text-center">Bronze (₹6k)</th>
                   <th className="py-3.5 px-4 text-center">Silver (₹9k)</th>
                   <th className="py-3.5 px-4 text-center bg-yellow-50/50 text-amber-950">Gold (₹12k)</th>
-                  <th className="py-3.5 px-4 text-center bg-purple-50/50 text-purple-950">Platinum VIP (₹24k)</th>
+                  <th className="py-3.5 px-4 text-center bg-amber-50/50 text-amber-950">Platinum VIP (₹24k)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
@@ -748,77 +748,77 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <td className="py-3.5 px-4 text-center font-bold text-slate-900">10 Leads*</td>
                   <td className="py-3.5 px-4 text-center font-bold text-blue-700">15 Leads*</td>
                   <td className="py-3.5 px-4 text-center font-bold text-amber-800 bg-yellow-50/30">20 Leads*</td>
-                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">30 Leads* (Solo Lock)</td>
+                  <td className="py-3.5 px-4 text-center font-extrabold text-amber-700 bg-amber-50/30">30 Leads* (Solo Lock)</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Plan Validity</td>
                   <td className="py-3.5 px-4 text-center font-bold text-emerald-700">1 Month</td>
                   <td className="py-3.5 px-4 text-center font-bold text-emerald-700">2 Months</td>
                   <td className="py-3.5 px-4 text-center font-bold text-emerald-700 bg-yellow-50/30">2 Months</td>
-                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">3 Months</td>
+                  <td className="py-3.5 px-4 text-center font-extrabold text-amber-700 bg-amber-50/30">3 Months</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Class Access &amp; Subjects</td>
                   <td className="py-3.5 px-4 text-center font-bold text-slate-700">All Classes (1–12, Entrance)</td>
                   <td className="py-3.5 px-4 text-center font-bold text-slate-700">All Classes (1–12, Entrance)</td>
                   <td className="py-3.5 px-4 text-center font-bold text-slate-700 bg-yellow-50/30">All Classes (1–12, Entrance)</td>
-                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">All Classes (1–12, Entrance)</td>
+                  <td className="py-3.5 px-4 text-center font-extrabold text-amber-700 bg-amber-50/30">All Classes (1–12, Entrance)</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Lead Competition Cap</td>
                   <td className="py-3.5 px-4 text-center text-slate-600 font-bold">👥 Max 5 Tutors</td>
                   <td className="py-3.5 px-4 text-center text-blue-700 font-bold">👥 Max 3 Tutors</td>
                   <td className="py-3.5 px-4 text-center font-bold text-amber-800 bg-yellow-50/30">🔒 Max 2 Tutors</td>
-                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">👑 1 Tutor (100% Solo Lock)</td>
+                  <td className="py-3.5 px-4 text-center font-extrabold text-amber-700 bg-amber-50/30">👑 1 Tutor (100% Solo Lock)</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Client Lead Priority</td>
                   <td className="py-3.5 px-4 text-center text-slate-500">Standard</td>
                   <td className="py-3.5 px-4 text-center text-slate-500">+1,500 Boost</td>
                   <td className="py-3.5 px-4 text-center font-bold text-amber-700 bg-yellow-50/30">High (+3,000 Boost)</td>
-                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">🥇 1st Priority (+10,000 Boost)</td>
+                  <td className="py-3.5 px-4 text-center font-extrabold text-amber-700 bg-amber-50/30">🥇 1st Priority (+10,000 Boost)</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Matching Radius</td>
                   <td className="py-3.5 px-4 text-center font-bold text-slate-700">10 km</td>
                   <td className="py-3.5 px-4 text-center font-bold text-slate-700">15 km</td>
                   <td className="py-3.5 px-4 text-center font-bold text-amber-800 bg-yellow-50/30">25 km</td>
-                  <td className="py-3.5 px-4 text-center font-extrabold text-purple-700 bg-purple-50/30">🌐 Unlimited City &amp; Online</td>
+                  <td className="py-3.5 px-4 text-center font-extrabold text-amber-700 bg-amber-50/30">🌐 Unlimited City &amp; Online</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Parent Phone &amp; Address</td>
                   <td className="py-3.5 px-4 text-center"><Check size={16} className="mx-auto text-emerald-600" /></td>
                   <td className="py-3.5 px-4 text-center"><Check size={16} className="mx-auto text-emerald-600" /></td>
                   <td className="py-3.5 px-4 text-center bg-yellow-50/30"><Check size={16} className="mx-auto text-emerald-600" /></td>
-                  <td className="py-3.5 px-4 text-center bg-purple-50/30"><Check size={16} className="mx-auto text-purple-600 font-bold" /></td>
+                  <td className="py-3.5 px-4 text-center bg-amber-50/30"><Check size={16} className="mx-auto text-amber-600 font-bold" /></td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">WhatsApp Instant Alerts</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center bg-yellow-50/30"><Check size={16} className="mx-auto text-emerald-600" /></td>
-                  <td className="py-3.5 px-4 text-center bg-purple-50/30"><Check size={16} className="mx-auto text-purple-600 font-bold" /></td>
+                  <td className="py-3.5 px-4 text-center bg-amber-50/30"><Check size={16} className="mx-auto text-amber-600 font-bold" /></td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">⭐ Featured Search Placement</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center bg-yellow-50/30"><Check size={16} className="mx-auto text-amber-600 font-bold" /></td>
-                  <td className="py-3.5 px-4 text-center bg-purple-50/30"><Check size={16} className="mx-auto text-purple-600 font-bold" /></td>
+                  <td className="py-3.5 px-4 text-center bg-amber-50/30"><Check size={16} className="mx-auto text-amber-600 font-bold" /></td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">🪙 Free Bonus Wallet Coins</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center font-black text-amber-700 bg-yellow-50/30">+50 Coins</td>
-                  <td className="py-3.5 px-4 text-center font-black text-purple-700 bg-purple-50/30">+100 Coins</td>
+                  <td className="py-3.5 px-4 text-center font-black text-amber-700 bg-amber-50/30">+100 Coins</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-4 font-bold text-slate-900">Dedicated Support &amp; VIP Helpline</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center text-slate-300">—</td>
                   <td className="py-3.5 px-4 text-center text-slate-300 bg-yellow-50/30">—</td>
-                  <td className="py-3.5 px-4 text-center bg-purple-50/30"><Check size={16} className="mx-auto text-purple-600 font-bold" /></td>
+                  <td className="py-3.5 px-4 text-center bg-amber-50/30"><Check size={16} className="mx-auto text-amber-600 font-bold" /></td>
                 </tr>
               </tbody>
             </table>
@@ -915,7 +915,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   ₹{SUBSCRIPTION_PLANS[checkoutPlanId].priceInr.toLocaleString("en-IN")}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs font-bold text-purple-700">
+              <div className="flex items-center justify-between text-xs font-bold text-amber-700">
                 <span>Leads Included</span>
                 <span>{SUBSCRIPTION_PLANS[checkoutPlanId].totalLeads} Verified Leads*</span>
               </div>
@@ -923,7 +923,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 <span>Validity</span>
                 <span>{SUBSCRIPTION_PLANS[checkoutPlanId].validityText}</span>
               </div>
-              <div className="flex items-center justify-between text-xs font-bold text-purple-700">
+              <div className="flex items-center justify-between text-xs font-bold text-amber-700">
                 <span>Competition Model</span>
                 <span>{SUBSCRIPTION_PLANS[checkoutPlanId].competitionLabel}</span>
               </div>

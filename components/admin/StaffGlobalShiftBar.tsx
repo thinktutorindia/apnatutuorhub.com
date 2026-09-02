@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
-  Play, Pause, Square, Coffee, Clock, Phone, Users,
-  BarChart3, ChevronRight, Loader2, Sparkles, X, CheckCircle2,
-  AlertCircle
+  Play, Square, Calendar, Loader2, X, CheckCircle2, AlertCircle
 } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
+import { AdminCommandPalette } from "@/components/admin/AdminCommandPalette";
 import {
   staffClockInAction,
   staffClockOutAction,
@@ -18,9 +18,11 @@ import {
 interface Props {
   userRole?: string;
   userName?: string;
+  userImage?: string | null;
+  unreadCount?: number;
 }
 
-export function StaffGlobalShiftBar({ userRole, userName }: Props) {
+export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount = 0 }: Props) {
   const isSuperAdmin = userRole === "SUPER_ADMIN";
   const [session, setSession] = useState<{
     id: string;
@@ -168,7 +170,7 @@ export function StaffGlobalShiftBar({ userRole, userName }: Props) {
       {/* ── Global Toast ── */}
       {toastMsg && (
         <div
-          className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-2xl shadow-xl text-xs font-black flex items-center gap-2 border animate-in slide-in-from-top ${
+          className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50 px-4 py-2.5 rounded-2xl shadow-xl text-xs font-black flex items-center gap-2 border animate-in slide-in-from-top ${
             toastMsg.type === "success"
               ? "bg-emerald-600 text-white border-emerald-500"
               : "bg-rose-600 text-white border-rose-500"
@@ -182,100 +184,73 @@ export function StaffGlobalShiftBar({ userRole, userName }: Props) {
         </div>
       )}
 
-      {/* ── Global Header Shift Bar ── */}
-      <div className="w-full bg-slate-900 text-white border-b border-slate-800 px-4 py-2.5 flex items-center justify-between flex-wrap gap-2 text-xs select-none sticky top-0 z-30 shadow-md">
-        {/* Left: Status & Timer */}
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="w-full bg-white border-b border-[#E2E8F0] pl-14 pr-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 text-xs select-none sticky top-0 z-30 lg:pl-6">
+        <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-800 uppercase tracking-wider bg-[#E8F7F0] text-[#238357]">
+            {isSuperAdmin ? "Super Admin" : "Staff Admin"}
+          </span>
+
           {session ? (
             session.status === "ON_BREAK" ? (
-              <div className="flex items-center gap-2 bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-xl">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-                <span className="font-black uppercase tracking-wider text-[11px]">☕ ON BREAK</span>
-                <span className="font-mono font-black text-amber-200 text-xs">{formatTimer(breakSec)}</span>
-              </div>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-700 text-amber-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                On break {formatTimer(breakSec)}
+              </span>
             ) : (
-              <div className="flex items-center gap-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-xl">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="font-black uppercase tracking-wider text-[11px]">🟢 ON SHIFT</span>
-                <span className="font-mono font-black text-emerald-200 text-xs">{formatTimer(elapsedSec)}</span>
-                <span className="text-emerald-400/80 text-[10px] hidden sm:inline">
-                  (📞 {session.callsMade} calls · ✓ {session.leadsConverted})
-                </span>
-              </div>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-700 text-[#238357]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2D9E6B]" />
+                On shift {formatTimer(elapsedSec)}
+              </span>
             )
-          ) : (
-            <div className="flex items-center gap-2 bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-xl">
-              <span className="w-2 h-2 rounded-full bg-slate-500" />
-              <span className="font-extrabold text-[11px] text-slate-300">⚪ NOT ON SHIFT</span>
-            </div>
-          )}
+          ) : null}
 
-          {/* Quick Shift Controls */}
           {session ? (
             <div className="flex items-center gap-1.5">
               <button
                 onClick={handleToggleBreak}
                 disabled={isPending}
-                className={`px-3 py-1.5 rounded-xl font-black text-xs transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
-                  session.status === "ON_BREAK"
-                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                    : "bg-amber-500 text-slate-950 hover:bg-amber-400"
-                }`}
+                className="px-3 py-1.5 rounded-full font-800 text-[11px] cursor-pointer disabled:opacity-50 bg-[#FFF3DC] text-[#92400E]"
               >
-                {isPending ? <Loader2 size={12} className="animate-spin" /> : session.status === "ON_BREAK" ? <Play size={12} /> : <Coffee size={12} />}
-                <span>{session.status === "ON_BREAK" ? "Resume Work" : "Take Break"}</span>
+                {isPending ? <Loader2 size={12} className="animate-spin" /> : session.status === "ON_BREAK" ? "Resume" : "Break"}
               </button>
-
               <button
                 onClick={() => setClockOutModal(true)}
                 disabled={isPending}
-                className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                className="px-3 py-1.5 rounded-full bg-[#FEF2F2] text-[#BE123C] font-800 text-[11px] cursor-pointer disabled:opacity-50"
               >
-                <Square size={12} />
-                <span>Clock Out</span>
+                Clock out
               </button>
             </div>
           ) : (
             <button
               onClick={handleClockIn}
               disabled={isPending}
-              className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-1.5 rounded-full bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-[11px] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {isPending ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
-              <span>Clock In Now</span>
+              {isPending ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} />}
+              Clock In
             </button>
           )}
         </div>
 
-        {/* Right: Quick Links */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
+          <AdminCommandPalette />
           <Link
-            href="/admin/staff-leads/my-leads"
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs transition-all flex items-center gap-1 border border-slate-700"
+            href="/admin/bookings"
+            className="w-10 h-10 rounded-full border border-[#E2E8F0] !text-[#0F2540] hover:bg-[#F0F4F8] inline-flex items-center justify-center"
+            aria-label="Class requests"
           >
-            <Phone size={12} className="text-cyan-400" />
-            <span className="hidden sm:inline">My Calling Queue</span>
-            <span className="sm:hidden">Queue</span>
+            <Calendar size={16} />
           </Link>
-
-          <Link
-            href="/admin/staff-leads/my-dashboard"
-            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs transition-all flex items-center gap-1"
-          >
-            <Clock size={12} />
-            <span className="hidden sm:inline">My Dashboard</span>
-            <span className="sm:hidden">Shift</span>
-          </Link>
-
-          {isSuperAdmin && (
-            <Link
-              href="/admin/staff-leads/reports"
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs transition-all flex items-center gap-1 border border-slate-700"
-            >
-              <Users size={12} className="text-emerald-400" />
-              <span className="hidden md:inline">Staff Timesheets</span>
-            </Link>
-          )}
+          <NotificationBell initialCount={unreadCount} viewerRole="ADMIN" />
+          <div className="w-9 h-9 rounded-full overflow-hidden bg-[#0F2540] text-white text-xs font-800 inline-flex items-center justify-center">
+            {userImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={userImage} alt="" className="w-full h-full object-cover" />
+            ) : (
+              (userName?.[0] ?? "A").toUpperCase()
+            )}
+          </div>
         </div>
       </div>
 

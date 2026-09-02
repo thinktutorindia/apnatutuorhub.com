@@ -223,7 +223,7 @@ export function Step5Preferences({ formData, onNext, onBack, isLoading, isAdminM
           type="button"
           onClick={handleSubmit}
           disabled={isLoading}
-          className="flex-[2] h-12 rounded-2xl bg-[#1A3C5E] hover:bg-[#15304f] text-white font-800 text-xs flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 shadow-lg disabled:opacity-60 cursor-pointer"
+          className="flex-[2] h-12 rounded-2xl bg-[#1A3C5E] hover:bg-[#15304f] text-white font-800 text-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 cursor-pointer"
         >
           {isLoading ? (
             <>

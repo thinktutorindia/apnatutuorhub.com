@@ -33,10 +33,10 @@ export function OptionPills({
               disabled={disabled}
               aria-pressed={isActive}
               onClick={() => onChange(option.value)}
-              className={`${padding} font-800 rounded-2xl transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border ${
+              className={`${padding} font-800 rounded-xl transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border min-h-11 ${
                 isActive
-                  ? "bg-[#0F2540] !text-white border-[#0F2540] shadow-2xs"
-                  : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100/80"
+                  ? "bg-[#E8F7F0] !text-[#238357] border-[#2D9E6B] shadow-[0_0_0_3px_rgba(45,158,107,0.14)]"
+                  : "bg-white text-[#0F2540] border-[#CBD5E1] hover:border-[#2D9E6B]"
               }`}
             >
               {option.label}

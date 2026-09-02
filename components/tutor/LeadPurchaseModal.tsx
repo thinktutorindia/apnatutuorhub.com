@@ -191,15 +191,15 @@ export function LeadPurchaseModal({
           <div className="space-y-4">
             {/* Subscription Benefit vs Coin Cost Box */}
             {isFreeWithPlan ? (
-              <div className="rounded-2xl border border-purple-200 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 p-4.5 text-center space-y-1.5 shadow-2xs">
-                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-purple-100 border border-purple-300 text-purple-950 font-extrabold text-[11px]">
-                  <Crown size={12} className="text-purple-600" />
+              <div className="rounded-2xl border border-amber-200 bg-[#FFF8E8] p-4.5 text-center space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#F5A623] text-[#0F2540] font-extrabold text-[11px]">
+                  <Crown size={12} />
                   <span>{subscriptionInfo?.planName ?? "VIP Plan"} Benefit</span>
                 </div>
-                <p className="text-2xl sm:text-3xl font-extrabold text-purple-950 flex items-center justify-center gap-1.5">
-                  <span>✨ 0 Coins (Free Unlock)</span>
+                <p className="text-2xl sm:text-3xl font-extrabold text-[#0F2540] flex items-center justify-center gap-1.5">
+                  <span>0 Coins (Free Unlock)</span>
                 </p>
-                <p className="text-xs font-semibold text-purple-900">
+                <p className="text-xs font-semibold text-slate-700">
                   Included in your plan. Uses {planPointCost} plan points ({remainingPoints} points remaining).
                 </p>
               </div>
@@ -257,7 +257,7 @@ export function LeadPurchaseModal({
                 onClick={handleConfirm}
                 className={`flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer ${
                   isFreeWithPlan
-                    ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/25"
+                    ? "bg-[#0F2540] hover:bg-[#1A3C5E]"
                     : "bg-[#2D9E6B] hover:bg-[#238357] shadow-emerald-500/20"
                 }`}
               >

@@ -91,7 +91,7 @@ export default async function MyLeadsPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 ath-panel">
         <div className="space-y-1">
           <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">My Tuition Listings</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
@@ -149,7 +149,7 @@ export default async function MyLeadsPage({
 
       {/* Leads List */}
       {leads.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl py-20 bg-white border border-slate-200 text-center shadow-xs">
+        <div className="flex flex-col items-center justify-center gap-3 ath-panel py-20 text-center">
           <BookOpen size={40} className="text-slate-400" />
           <h3 className="text-base font-800 text-[#0F2540]">No tuition requirements found</h3>
           <p className="text-xs font-600 text-slate-600 max-w-sm">
@@ -163,7 +163,7 @@ export default async function MyLeadsPage({
             return (
               <div
                 key={lead.id}
-                className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4 p-6"
+                className="ath-panel space-y-4 p-6"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                   <div className="space-y-1">

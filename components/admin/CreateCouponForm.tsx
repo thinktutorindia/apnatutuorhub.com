@@ -30,7 +30,7 @@ export function CreateCouponForm() {
   };
 
   return (
-    <div className="rounded-3xl bg-white p-6 border border-slate-200 shadow-xs space-y-5">
+    <div className="ath-panel p-6 space-y-5">
       <ActionOverlay
         isOpen={isPending}
         title="Publishing Coupon Code"

@@ -80,16 +80,16 @@ export default async function DummyCampaignDetailPage({
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-start gap-4">
+      <div className="ath-panel flex items-start gap-4 p-5 sm:p-6">
         <Link
           href="/admin/dummy-campaigns"
-          className="mt-1 flex items-center gap-1.5 text-slate-500 hover:text-slate-800 text-xs font-bold transition-colors shrink-0"
+          className="mt-1 flex items-center gap-1.5 text-slate-500 hover:text-[#0F2540] text-xs font-800 transition-colors shrink-0"
         >
           <ArrowLeft size={14} /> Back
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{campaign.name}</h1>
+            <h1 className="text-xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>{campaign.name}</h1>
             <span
               className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider"
               style={{ background: sc.bg, color: sc.color }}

@@ -31,19 +31,19 @@ export default function ForgotPasswordPage() {
 
   if (isSubmitted) {
     return (
-      <div className="text-center space-y-6">
-        <div className="w-16 h-16 rounded-2xl bg-[#DCFCE7] border-[3px] border-[#0F172A] shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] flex items-center justify-center mx-auto text-2xl">
+      <div className="w-full max-w-lg bg-white ath-panel p-8 text-center space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-[#E8F7F0] flex items-center justify-center mx-auto text-2xl">
           📩
         </div>
-        <h1 className="text-2xl font-black text-[#0F172A]">
-          Check Your Email!
+        <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+          Check your email
         </h1>
-        <p className="text-sm font-semibold text-slate-600 leading-relaxed max-w-sm mx-auto">
-          We&apos;ve sent a password reset link to <strong className="text-[#0F172A]">{email}</strong>.
+        <p className="text-[15px] font-500 text-[#64748B] leading-relaxed max-w-sm mx-auto">
+          We&apos;ve sent a password reset link to <strong className="text-[#0F2540]">{email}</strong>.
         </p>
         <a
           href="/login"
-          className="neu-btn neu-btn-white w-full py-3 text-sm inline-flex items-center justify-center gap-2"
+          className="neu-btn neu-btn-white w-full py-3 text-sm inline-flex items-center justify-center gap-2 min-h-11"
         >
           <ArrowLeft size={16} />
           Back to Login
@@ -53,18 +53,18 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-lg bg-white ath-panel p-8 space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
-          Reset Password 🔑
+        <h1 className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+          Forgot your password?
         </h1>
-        <p className="text-sm font-semibold text-slate-600 mt-1">
-          Enter your email and we&apos;ll send a recovery link
+        <p className="text-[15px] font-500 text-[#64748B] mt-1">
+          Enter your email and we&apos;ll send a recovery link.
         </p>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border-2 border-red-500 rounded-xl text-red-600 text-xs font-extrabold flex items-center gap-2">
+        <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded-xl text-[#B91C1C] text-sm font-700 flex items-center gap-2">
           <AlertCircle size={16} />
           <span>{error}</span>
         </div>
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
-          <label htmlFor="forgot-email" className="block text-xs font-extrabold text-[#0F172A]">
+          <label htmlFor="forgot-email" className="block text-xs font-800 text-[#0F2540]">
             Email Address
           </label>
           <div className="relative">
@@ -89,7 +89,7 @@ export default function ForgotPasswordPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="neu-input pl-11"
+              className="neu-input pl-11 min-h-12"
             />
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function ForgotPasswordPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="neu-btn neu-btn-primary w-full py-3.5 text-sm"
+          className="neu-btn neu-btn-primary w-full py-3.5 text-sm min-h-12"
         >
           {isSubmitting ? (
             <span>Sending link...</span>
@@ -109,8 +109,8 @@ export default function ForgotPasswordPage() {
         </button>
       </form>
 
-      <p className="text-center text-sm font-semibold text-slate-600">
-        <a href="/login" className="font-extrabold text-[#0F172A] underline hover:text-[#22C55E] inline-flex items-center gap-1">
+      <p className="text-center text-sm font-600 text-[#64748B]">
+        <a href="/login" className="font-800 text-[#0F2540] hover:text-[#2D9E6B] inline-flex items-center gap-1">
           <ArrowLeft size={14} /> Back to Login
         </a>
       </p>

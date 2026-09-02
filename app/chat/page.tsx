@@ -90,7 +90,7 @@ export default async function ChatInboxPage() {
               <Link
                 key={conv.id}
                 href={`/chat/${conv.id}`}
-                className={`flex items-center justify-between p-5 transition-all hover:bg-slate-50 ${
+                className={`flex items-center justify-between gap-3 p-4 sm:p-5 transition-all hover:bg-slate-50 min-w-0 ${
                   hasUnread ? "bg-emerald-50/40" : "bg-white"
                 }`}
               >

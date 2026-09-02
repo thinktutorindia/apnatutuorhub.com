@@ -404,26 +404,21 @@ export function NotificationHubView({
   return (
     <div className="space-y-6 text-slate-900">
       {/* ── Top Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              Super Admin Intelligence
-            </span>
-            <span className="text-[11px] font-700 text-slate-500">• Multi-Channel Hub</span>
-          </div>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Notification Hub &amp; Schedule
+            Push Notification Hub
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Monitor all past, present &amp; scheduled alerts across In-App, VAPID Web Push, and Resend Email
+            In-app, VAPID web push, and Resend email — past, scheduled, and failed
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <Link
             href="/admin/notifications/broadcast"
-            className="flex items-center gap-2 rounded-2xl bg-[#0F2540] px-4 py-2.5 text-xs font-800 !text-white shadow-xs hover:bg-[#1e3a5f] transition-all"
+            className="flex items-center gap-2 rounded-full bg-[#0F2540] px-4 py-2.5 text-xs font-800 !text-white hover:bg-[#1e3a5f]"
           >
             <Send size={15} />
             <span>Compose Broadcast</span>

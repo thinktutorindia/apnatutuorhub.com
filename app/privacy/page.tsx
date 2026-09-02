@@ -13,21 +13,21 @@ export const metadata = {
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/">
-            <LogoBrand />
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 overflow-x-clip">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 min-w-0">
+          <Link href="/" className="min-w-0 shrink">
+            <LogoBrand heightClass="h-10 sm:h-11" />
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/terms"
-              className="text-xs font-bold text-slate-700 hover:text-emerald-700 transition-colors"
+              className="hidden sm:inline text-xs font-bold text-slate-700 hover:text-emerald-700 transition-colors"
             >
-              Terms of Service
+              Terms
             </Link>
             <Link
               href="/"
-              className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black shadow-xs transition-all inline-flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black shadow-xs transition-all inline-flex items-center gap-1 min-h-11"
             >
               <ArrowLeft size={13} />
               Home

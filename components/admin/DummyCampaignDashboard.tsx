@@ -67,7 +67,7 @@ const STATUS_CONFIG = {
   ACTIVE:    { label: "Active",    bg: "#DCFCE7", color: "#16A34A", dot: "bg-emerald-500 animate-pulse" },
   PAUSED:    { label: "Paused",    bg: "#FEF9C3", color: "#CA8A04", dot: "bg-yellow-400" },
   STOPPED:   { label: "Stopped",   bg: "#FEE2E2", color: "#DC2626", dot: "bg-rose-500" },
-  COMPLETED: { label: "Completed", bg: "#EDE9FE", color: "#7C3AED", dot: "bg-purple-500" },
+  COMPLETED: { label: "Completed", bg: "#E8F7F0", color: "#238357", dot: "bg-emerald-500" },
 };
 
 const TARGET_LABELS: Record<string, string> = {
@@ -755,18 +755,19 @@ export function DummyCampaignDashboard(props: Props) {
   return (
     <div className="flex flex-col gap-5 h-full">
       {/* ── Top Page Header ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="ath-panel flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-5 sm:p-6">
         <div>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Sparkles size={22} className="text-fuchsia-600" /> Dummy Lead Campaigns &amp; Follow-Ups
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
+          <h1 className="text-xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Dummy Campaigns
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5 font-medium">
-            Automated geo-matched daily dummy lead engine · Rotates localities &amp; class fee benchmarks every 24h
+          <p className="text-xs text-slate-600 mt-0.5 font-600">
+            Geo-matched daily dummy leads · localities and fee benchmarks rotate every 24h
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#2D9E6B] hover:bg-[#238357] text-white rounded-2xl font-black text-xs shadow-md shadow-emerald-500/25 transition-all cursor-pointer"
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#2D9E6B] hover:bg-[#238357] text-white rounded-full font-800 text-xs cursor-pointer"
         >
           <Plus size={16} /> Create Campaign
         </button>

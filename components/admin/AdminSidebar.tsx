@@ -3,304 +3,238 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+import { Logo } from "@/components/brand/Logo";
+import { getAllowedSubAdminModules } from "@/lib/rbac";
 import {
-  LayoutGrid,
-  TrendingUp,
+  LayoutDashboard,
   Users,
-  BadgeCheck,
-  FileSpreadsheet,
-  CalendarCheck2,
-  Headphones,
-  Star,
-  Coins,
-  Bell,
-  Megaphone,
-  BadgePercent,
-  SlidersHorizontal,
-  History,
-  UserCog,
+  ShieldCheck,
+  FileText,
+  Calendar,
+  MessageSquare,
+  Wallet,
+  Settings,
   LogOut,
-  GraduationCap,
-  ChevronRight,
   Menu,
   X,
-  Loader2,
-  Sparkles,
-  PhoneCall,
-  Upload,
-  UserCheck,
-  Layers,
-  BarChart3,
+  Bell,
+  Radio,
+  Ticket,
   Search,
-  Clock,
+  BarChart3,
+  UserCog,
+  ClipboardList,
+  Megaphone,
   Phone,
+  Upload,
+  UserPlus,
+  PhoneCall,
+  Star,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
-import { getAllowedSubAdminModules } from "@/lib/rbac";
-import { AdminCommandPalette } from "@/components/admin/AdminCommandPalette";
 
-const ALL_NAV_ITEMS = [
-  { label: "Dashboard",        href: "/admin/dashboard",                icon: LayoutGrid,        roles: null, iconColor: "text-blue-400" },
-  { label: "Analytics",        href: "/admin/analytics",                icon: TrendingUp,        roles: null, iconColor: "text-purple-400" },
-  { label: "Search Engine",    href: "/admin/search",                   icon: Search,            roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
-  { label: "User Directory",   href: "/admin/users",                    icon: Users,             roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "OPERATIONS"], iconColor: "text-emerald-400" },
-  { label: "KYC Queue",        href: "/admin/kyc",                      icon: BadgeCheck,        roles: ["SUPER_ADMIN", "VERIFICATION"], badge: "!", iconColor: "text-amber-400" },
-  { label: "Tutor Approvals",  href: "/admin/tutors/pending",           icon: FileSpreadsheet,   roles: ["SUPER_ADMIN", "VERIFICATION"], iconColor: "text-indigo-400" },
-  { label: "Class Requests",   href: "/admin/tuitions",                 icon: CalendarCheck2,    roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT"], iconColor: "text-teal-400" },
-  { label: "Support Tickets",  href: "/admin/tickets",                  icon: Headphones,        roles: ["SUPER_ADMIN", "SUPPORT"], iconColor: "text-rose-400" },
-  { label: "Reviews & Ratings",href: "/admin/reviews",                  icon: Star,              roles: ["SUPER_ADMIN", "SUPPORT"], iconColor: "text-yellow-400" },
-  { label: "Wallets & Revenue",href: "/admin/wallets",                  icon: Coins,             roles: ["SUPER_ADMIN", "FINANCE"], iconColor: "text-emerald-400" },
-  { label: "Notification Hub", href: "/admin/notifications",            icon: Bell,              roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-amber-400" },
-  { label: "Broadcast Push",   href: "/admin/notifications/broadcast",  icon: Megaphone,         roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-orange-400" },
-  { label: "Promo Coupons",    href: "/admin/coupons",                  icon: BadgePercent,      roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-lime-400" },
-  { label: "Platform Settings",href: "/admin/settings",                 icon: SlidersHorizontal, roles: ["SUPER_ADMIN", "MARKETING"], iconColor: "text-slate-400" },
-  { label: "Audit Logs",       href: "/admin/audit-logs",               icon: History,           roles: ["SUPER_ADMIN", "SUPPORT", "VERIFICATION", "FINANCE", "OPERATIONS", "MARKETING"], iconColor: "text-purple-400" },
-  { label: "Sub-Admins",       href: "/admin/sub-admins",               icon: UserCog,           roles: ["SUPER_ADMIN"], iconColor: "text-sky-400" },
-  { label: "Staff Analytics",  href: "/admin/sub-admins/analytics",     icon: TrendingUp,        roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
-  { label: "Dummy Campaigns",  href: "/admin/dummy-campaigns",          icon: Sparkles,          roles: ["SUPER_ADMIN"], iconColor: "text-fuchsia-400" },
-  // ── Staff CRM Suite ──
-  { label: "My Shift & Timer", href: "/admin/staff-leads/my-dashboard", icon: Clock,             roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-emerald-400" },
-  { label: "My Calling Queue", href: "/admin/staff-leads/my-leads",     icon: Phone,             roles: ["SUPER_ADMIN", "OPERATIONS", "SUPPORT", "VERIFICATION", "FINANCE", "MARKETING"], iconColor: "text-cyan-400" },
-  { label: "Staff Timesheets", href: "/admin/staff-leads/reports",      icon: BarChart3,         roles: ["SUPER_ADMIN"], iconColor: "text-rose-400" },
-  { label: "Data Pipeline",    href: "/admin/staff-leads",              icon: PhoneCall,         roles: ["SUPER_ADMIN", "OPERATIONS"], iconColor: "text-blue-400" },
-  { label: "CRM Allocation",   href: "/admin/staff-leads/manage",       icon: Layers,            roles: ["SUPER_ADMIN", "OPERATIONS"], iconColor: "text-amber-400" },
-  { label: "Upload New Leads", href: "/admin/staff-leads/upload",       icon: Upload,            roles: ["SUPER_ADMIN", "OPERATIONS"], iconColor: "text-teal-400" },
-  { label: "Bulk Assign Leads",href: "/admin/staff-leads/assign",       icon: Users,             roles: ["SUPER_ADMIN", "OPERATIONS"], iconColor: "text-indigo-400" },
-] as const;
-
-const SUB_ADMIN_ROLE_LABELS: Record<string, { label: string; color: string }> = {
-  SUPPORT:      { label: "support",      color: "#38BDF8" },
-  VERIFICATION: { label: "verification", color: "#C084FC" },
-  FINANCE:      { label: "finance",      color: "#34D399" },
-  OPERATIONS:   { label: "operations",   color: "#FB923C" },
-  MARKETING:    { label: "marketing",    color: "#F472B6" },
-  SUPER_ADMIN:  { label: "super_admin",  color: "#34D399" },
-};
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  badge?: number;
+  superAdminOnly?: boolean;
+}
 
 interface AdminSidebarProps {
   userName: string;
-  userEmail?: string;
-  userRole?: string;
+  userEmail: string;
+  userRole: string;
   subAdminRole?: string | null;
   customPermissions?: string[] | null;
+  kycPendingCount?: number;
 }
 
-export function AdminSidebar({ userName, userEmail, userRole = "SUPER_ADMIN", subAdminRole, customPermissions }: AdminSidebarProps) {
+export function AdminSidebar({
+  userName,
+  userEmail,
+  userRole,
+  subAdminRole,
+  customPermissions,
+  kycPendingCount = 0,
+}: AdminSidebarProps) {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [crmManual, setCrmManual] = useState<boolean | null>(null);
+  const crmExpanded = crmManual ?? pathname.startsWith("/admin/staff-leads");
+  const isSuperAdmin = userRole === "SUPER_ADMIN";
 
-  const effectiveRole = userRole === "SUB_ADMIN" ? (subAdminRole ?? "") : userRole;
-  const roleLabel = SUB_ADMIN_ROLE_LABELS[effectiveRole] ?? { label: effectiveRole.toLowerCase(), color: "#34D399" };
-
-  const allowedModules = userRole === "SUB_ADMIN"
-    ? getAllowedSubAdminModules({ role: userRole, subAdminRole, customPermissions })
-    : [];
-
-  const visibleNavItems = ALL_NAV_ITEMS.filter(({ roles, href }) => {
-    if (href === "/admin/dashboard") return true;
-    if (userRole === "SUPER_ADMIN") return true;
-
-    // For Sub-Admin (Staff), under Staff CRM: show My Shift & Timer and My Calling Queue
-    if (href.startsWith("/admin/staff-leads")) {
-      if (href === "/admin/staff-leads/my-dashboard" || href === "/admin/staff-leads/my-leads") {
-        return true;
-      }
-      if (subAdminRole === "OPERATIONS" && (
-        href === "/admin/staff-leads" ||
-        href === "/admin/staff-leads/manage" ||
-        href === "/admin/staff-leads/upload" ||
-        href === "/admin/staff-leads/assign"
-      )) {
-        return true;
-      }
-      return false;
-    }
-
-    return allowedModules.some((mod) => href === mod || href.startsWith(mod + "/"));
+  const allowedModules = getAllowedSubAdminModules({
+    role: userRole,
+    subAdminRole,
+    customPermissions,
   });
 
-  const commandItems = visibleNavItems.filter((i) =>
-    ["/admin/dashboard", "/admin/analytics", "/admin/search", "/admin/users", "/admin/kyc"].includes(i.href)
-  );
+  const roleLabel = isSuperAdmin
+    ? "SUPER ADMIN"
+    : (subAdminRole ?? userRole).replaceAll("_", " ");
 
-  const crmItems = visibleNavItems.filter((i) =>
-    i.href.startsWith("/admin/staff-leads")
-  );
+  const commandCenter: NavItem[] = [
+    { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/admin/users", label: "User Directory", icon: Users },
+    { href: "/admin/kyc", label: "KYC Queue", icon: ShieldCheck, badge: kycPendingCount },
+  ];
 
-  const opsItems = visibleNavItems.filter(
-    (i) => !commandItems.some((c) => c.href === i.href) && !crmItems.some((c) => c.href === i.href)
-  );
+  const operations: NavItem[] = [
+    { href: "/admin/leads", label: "Student Leads Feed", icon: FileText },
+    { href: "/admin/bookings", label: "Bookings", icon: Calendar },
+    { href: "/admin/chat", label: "Chat Monitor", icon: MessageSquare },
+    { href: "/admin/reviews", label: "Review Queue", icon: Star },
+    { href: "/admin/wallets", label: "Coin Wallet Ledger", icon: Wallet },
+    { href: "/admin/notifications", label: "Push Notification Hub", icon: Bell },
+    { href: "/admin/notifications/broadcast", label: "Broadcast Dispatch", icon: Radio },
+    { href: "/admin/coupons", label: "Coupon Engine", icon: Ticket },
+    { href: "/admin/search", label: "Search Engine", icon: Search, superAdminOnly: true },
+    { href: "/admin/settings", label: "System Settings", icon: Settings },
+    { href: "/admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
+    { href: "/admin/dummy-campaigns", label: "Dummy Campaigns", icon: Megaphone, superAdminOnly: true },
+    { href: "/admin/sub-admins", label: "Team & Roles", icon: UserCog, superAdminOnly: true },
+    { href: "/admin/sub-admins/analytics", label: "Staff Analytics", icon: BarChart3, superAdminOnly: true },
+  ];
 
-  const handleSignOut = async () => {
-    if (isSigningOut) return;
-    setIsSigningOut(true);
-    try {
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
-      await signOut({ callbackUrl: `${origin}/login` });
-    } catch {
-      setIsSigningOut(false);
+  const staffCrm: NavItem[] = [
+    { href: "/admin/staff-leads", label: "Staff CRM Dashboard", icon: Phone },
+    { href: "/admin/staff-leads/my-dashboard", label: "My Dashboard", icon: LayoutDashboard },
+    { href: "/admin/staff-leads/my-leads", label: "My Calling Queue", icon: PhoneCall },
+    { href: "/admin/staff-leads/manage", label: "Lead Pipeline", icon: FileText },
+    { href: "/admin/staff-leads/reports", label: "Reports", icon: BarChart3 },
+    { href: "/admin/staff-leads/upload", label: "Bulk Upload", icon: Upload },
+    { href: "/admin/staff-leads/assign", label: "Assign Leads", icon: UserPlus },
+  ];
+
+  function canSee(item: NavItem) {
+    if (item.superAdminOnly && !isSuperAdmin) return false;
+    if (isSuperAdmin) return true;
+    if (allowedModules.includes(item.href)) return true;
+    if (item.href === "/admin/staff-leads/my-dashboard") {
+      return allowedModules.includes("/admin/staff-leads/my-leads");
     }
-  };
+    return false;
+  }
 
-  const NavLink = ({ item }: { item: (typeof visibleNavItems)[number] }) => {
+  function isActive(href: string) {
+    if (pathname === href) return true;
+    if (href === "/admin/dashboard" || href === "/admin/notifications") return false;
+    if (href === "/admin/staff-leads") {
+      const reserved = new Set(["my-dashboard", "my-leads", "manage", "reports", "upload", "assign"]);
+      const parts = pathname.split("/");
+      return parts.length === 4 && parts[2] === "staff-leads" && !reserved.has(parts[3]);
+    }
+    if (href === "/admin/users" && pathname.startsWith("/admin/users/")) return true;
+    if (href === "/admin/dummy-campaigns" && pathname.startsWith("/admin/dummy-campaigns/")) return true;
+    return false;
+  }
+
+  const visibleCommand = commandCenter.filter(canSee);
+  const visibleOps = operations.filter(canSee);
+  const visibleCrm = staffCrm.filter(canSee);
+
+  const NavLink = ({ item }: { item: NavItem }) => {
     const Icon = item.icon;
-    const active =
-      item.href === "/admin/dashboard"
-        ? pathname === item.href
-        : pathname.startsWith(item.href);
-    const badge = "badge" in item ? (item as { badge?: string }).badge : undefined;
-
+    const active = isActive(item.href);
     return (
       <Link
         href={item.href}
-        onClick={() => setMobileOpen(false)}
-        className={`group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-xs transition-all duration-150 ${
-          active
-            ? "bg-[#0F172A] !text-white font-extrabold shadow-md border border-slate-700/80"
-            : "text-slate-300 hover:text-white font-semibold hover:bg-slate-800/80 border border-transparent"
+        onClick={() => setOpen(false)}
+        className={`relative flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-[13px] font-700 transition-colors ${
+          active ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
         }`}
       >
-        <Icon size={18} strokeWidth={active ? 2.5 : 2} className={`${item.iconColor} shrink-0`} />
-        <span className="truncate">{item.label}</span>
-        {badge && !active && (
-          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-extrabold text-white animate-bounce shadow-xs">
-            {badge}
-          </span>
-        )}
         {active && (
-          <ChevronRight size={16} className="ml-auto text-emerald-400 shrink-0" />
+          <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[#2D9E6B]" />
         )}
+        <Icon size={16} strokeWidth={1.75} className={active ? "text-white" : "text-white/55"} />
+        <span className="flex-1 truncate">{item.label}</span>
+        {item.badge && item.badge > 0 ? (
+          <span className="min-w-[18px] rounded-full bg-[#E11D48] px-1.5 py-0.5 text-center text-[10px] font-800 leading-none text-white">
+            {item.badge > 99 ? "99+" : item.badge}
+          </span>
+        ) : null}
       </Link>
     );
   };
 
-  const sidebarContent = (
-    <div className="flex h-full flex-col bg-[#1E293B] border-r border-slate-700/80 select-none text-white shadow-xl overflow-hidden">
-      {/* Brand Header */}
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-700/80 bg-[#0F172A] shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2D9E6B] text-white font-extrabold shadow-md shrink-0">
-            <GraduationCap size={22} strokeWidth={2.5} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-extrabold text-white tracking-tight truncate" style={{ fontFamily: "Poppins, sans-serif" }}>
-                ApnaTutorHub
-              </span>
-              <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                PRO
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2D9E6B] shrink-0" />
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 truncate">
-                {roleLabel.label}
-              </span>
-            </div>
-          </div>
+  const SidebarContent = (
+    <div className="flex h-full flex-col bg-[#0F2540] text-white">
+      <div className="border-b border-white/10 px-4 py-4">
+        <div className="flex items-center justify-between gap-2">
+          <Link href="/" className="inline-flex items-center" aria-label="ApnaTutorHub home">
+            <Logo size={32} />
+          </Link>
+          <span className="rounded-md bg-[#F5A623] px-1.5 py-0.5 text-[9px] font-800 tracking-wide text-[#0F2540]">
+            PRO
+          </span>
         </div>
-        {/* Mobile close button */}
-        <button
-          onClick={() => setMobileOpen(false)}
-          className="rounded-xl p-2 text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden cursor-pointer shrink-0 active:scale-95 transition-all touch-manipulation"
-          aria-label="Close sidebar"
-        >
-          <X size={20} />
-        </button>
+        <p className="mt-3 text-[10px] font-800 uppercase tracking-[0.18em] text-[#F5A623]">{roleLabel}</p>
+        <p className="mt-1 truncate text-[11px] font-600 text-white/45" title={userEmail}>
+          {userName}
+        </p>
       </div>
 
-      {/* Universal Search & Command Palette Bar */}
-      <div className="p-3 bg-[#0F172A] border-b border-slate-700/80">
-        <AdminCommandPalette />
-      </div>
-
-      {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-slate-700/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-        {/* Command Center */}
-        <div className="space-y-1">
-          <p className="px-3 text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1.5">
-            Command Center
-          </p>
-          {commandItems.map((item) => (
-            <NavLink key={item.href} item={item} />
-          ))}
-        </div>
-
-        {/* Operations & Growth */}
-        {opsItems.length > 0 && (
-          <div className="space-y-1">
-            <p className="px-3 text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1.5">
-              Operations &amp; Growth
+      <nav className="admin-sidebar-scroll flex-1 space-y-3 overflow-y-auto px-2.5 py-3">
+        {visibleCommand.length > 0 && (
+          <div>
+            <p className="mb-1.5 px-3 text-[10px] font-800 uppercase tracking-[0.16em] text-white/35">
+              Command Center
             </p>
-            {opsItems.map((item) => (
-              <NavLink key={item.href} item={item} />
-            ))}
-          </div>
-        )}
-
-        {/* Staff Lead CRM with Horizontal Line Divider */}
-        {crmItems.length > 0 && (
-          <div className="pt-2">
-            <div className="border-t border-slate-700/80 mb-3" />
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-3 mb-1.5">
-                <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400">
-                  Staff Lead CRM
-                </p>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  AI Staging
-                </span>
-              </div>
-              {crmItems.map((item) => (
+            <div className="space-y-0.5">
+              {visibleCommand.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
             </div>
           </div>
         )}
+
+        {visibleOps.length > 0 && (
+          <div>
+            <p className="mb-1.5 px-3 text-[10px] font-800 uppercase tracking-[0.16em] text-white/35">
+              Operations
+            </p>
+            <div className="space-y-0.5">
+              {visibleOps.map((item) => (
+                <NavLink key={item.href} item={item} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {visibleCrm.length > 0 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setCrmManual((v) => !(v ?? crmExpanded))}
+              className="mb-1.5 flex w-full items-center justify-between px-3 text-[10px] font-800 uppercase tracking-[0.16em] text-white/35"
+            >
+              Staff CRM
+              {crmExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </button>
+            {crmExpanded && (
+              <div className="space-y-0.5">
+                {visibleCrm.map((item) => (
+                  <NavLink key={item.href} item={item} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
-      {/* User Footer — pinned at bottom, never hidden on mobile */}
-      <div className="shrink-0 p-3 border-t border-slate-700/80 bg-[#0F172A] space-y-2.5">
-        {/* User Info */}
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-slate-800/80 border border-slate-700/80">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl font-extrabold text-sm text-white shrink-0 bg-[#2D9E6B]">
-            {userName.charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-extrabold text-white">
-              {userName}
-            </p>
-            {userEmail && (
-              <p className="truncate text-[11px] font-medium text-slate-400">
-                {userEmail}
-              </p>
-            )}
-            <span className="inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider mt-1 text-emerald-300 bg-emerald-500/20 border border-emerald-400/30">
-              {roleLabel.label}
-            </span>
-          </div>
-        </div>
-
-        {/* Sign Out Button — fully tappable on Android */}
+      <div className="border-t border-white/10 p-3 pb-14">
         <button
           type="button"
-          onClick={handleSignOut}
-          disabled={isSigningOut}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-extrabold text-rose-300 bg-rose-500/15 hover:bg-rose-500/30 active:bg-rose-500/40 border border-rose-500/30 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:pointer-events-none touch-manipulation active:scale-95"
-          style={{ WebkitTapHighlightColor: "transparent", minHeight: 44 }}
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2D9E6B] px-3 py-2.5 text-[13px] font-800 text-white hover:bg-[#238357]"
         >
-          {isSigningOut ? (
-            <>
-              <Loader2 size={15} className="animate-spin text-rose-300" />
-              <span>Signing out...</span>
-            </>
-          ) : (
-            <>
-              <LogOut size={15} className="text-rose-300" />
-              <span>Sign Out Admin</span>
-            </>
-          )}
+          <LogOut size={15} strokeWidth={1.75} />
+          Sign Out
         </button>
       </div>
     </div>
@@ -308,75 +242,38 @@ export function AdminSidebar({ userName, userEmail, userRole = "SUPER_ADMIN", su
 
   return (
     <>
-      {/* ── Mobile Topbar ── */}
-      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-700 bg-[#1E293B] px-4 py-3 lg:hidden">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="flex items-center justify-center w-10 h-10 rounded-xl border border-slate-700 bg-slate-800 text-white hover:bg-slate-700 active:scale-95 cursor-pointer transition-all touch-manipulation"
-            aria-label="Open navigation"
-            style={{ WebkitTapHighlightColor: "transparent", minWidth: 40, minHeight: 40 }}
-          >
-            <Menu size={20} />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2D9E6B] text-white font-extrabold shadow-sm shrink-0">
-              <GraduationCap size={16} />
-            </div>
-            <span className="font-extrabold text-white text-sm tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
-              ApnaTutorHub
-            </span>
-          </div>
-        </div>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="fixed left-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F2540] text-white shadow-lg lg:hidden"
+        aria-label="Open menu"
+      >
+        <Menu size={18} />
+      </button>
 
-        {/* Mobile user avatar + logout in topbar */}
-        <div className="flex items-center gap-2">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] lg:block">{SidebarContent}</aside>
+
+      {open ? (
+        <>
           <button
             type="button"
-            onClick={handleSignOut}
-            disabled={isSigningOut}
-            className="flex items-center justify-center w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 active:scale-95 cursor-pointer transition-all touch-manipulation disabled:opacity-60"
-            aria-label="Sign out"
-            title="Sign out"
-            style={{ WebkitTapHighlightColor: "transparent", minWidth: 36, minHeight: 36 }}
-          >
-            {isSigningOut ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <LogOut size={16} />
-            )}
-          </button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl font-extrabold text-sm text-white bg-[#2D9E6B] shrink-0">
-            {userName.charAt(0).toUpperCase()}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Desktop Sidebar (Fixed) ── */}
-      <aside
-        className="fixed inset-y-0 left-0 z-40 hidden lg:flex flex-col"
-        style={{ width: "260px" }}
-      >
-        {sidebarContent}
-      </aside>
-
-      {/* ── Mobile Drawer (Slide-Over with animation) ── */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            aria-label="Close menu"
+            onClick={() => setOpen(false)}
           />
-          {/* Drawer panel */}
-          <aside
-            className="relative flex flex-col bg-[#1E293B] shadow-2xl"
-            style={{ width: "min(280px, 85vw)", maxHeight: "100dvh" }}
-          >
-            {sidebarContent}
+          <aside className="fixed inset-y-0 left-0 z-50 w-[260px] lg:hidden">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute right-3 top-3 z-10 rounded-lg p-1 text-white/70"
+              aria-label="Close menu"
+            >
+              <X size={18} />
+            </button>
+            {SidebarContent}
           </aside>
-        </div>
-      )}
+        </>
+      ) : null}
     </>
   );
 }

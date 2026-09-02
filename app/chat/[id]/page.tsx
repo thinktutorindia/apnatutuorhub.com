@@ -57,21 +57,20 @@ export default async function ChatThreadPage({
     : conversation.parentProfile.user;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4 py-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-3xl mx-auto space-y-4">
+      <div className="flex items-center justify-between gap-2 min-w-0">
         <Link
           href="/chat"
-          className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#22C55E]"
+          className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#22C55E] min-h-11"
         >
           <ArrowLeft size={14} />
-          Back to Inbox
+          Inbox
         </Link>
       </div>
 
-      {/* Header */}
-      <header className="neu-card flex flex-wrap items-center justify-between gap-2 bg-[#FEF3C7] p-4">
+      <header className="ath-panel flex flex-wrap items-center justify-between gap-2 p-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-white text-xl shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#E8F7F0] text-xl">
             {isParent ? "🧑‍🏫" : "🏠"}
           </div>
           <div className="min-w-0">

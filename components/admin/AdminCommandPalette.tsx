@@ -37,7 +37,7 @@ export const ADMIN_FEATURES_REGISTRY: AdminFeatureItem[] = [
     keywords: ["grant coins", "add coins", "bonus", "free coins", "wallet credit"],
     href: "/admin/wallets",
     icon: Sparkles,
-    color: "text-purple-500 bg-purple-50 border-purple-200",
+    color: "text-[#2D9E6B] bg-[#E8F7F0] border-emerald-200",
   },
   {
     id: "refund-requests",
@@ -67,7 +67,7 @@ export const ADMIN_FEATURES_REGISTRY: AdminFeatureItem[] = [
     keywords: ["kyc", "verify", "identity", "aadhaar", "pan", "documents", "approve kyc"],
     href: "/admin/kyc",
     icon: ShieldCheck,
-    color: "text-indigo-500 bg-indigo-50 border-indigo-200",
+    color: "text-[#0F2540] bg-[#E8F7F0] border-emerald-200",
   },
   {
     id: "subadmin-permissions",
@@ -151,14 +151,42 @@ export const ADMIN_FEATURES_REGISTRY: AdminFeatureItem[] = [
   },
 ];
 
-export function AdminCommandPalette() {
+export function openAdminSearch() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("open-admin-search"));
+  }
+}
+
+export function AdminBannerSearch({ className = "" }: { className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={openAdminSearch}
+      className={`flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-full bg-white px-4 py-2.5 text-[#0F2540] shadow-sm ${className}`}
+      title="Search admin features (Ctrl+K)"
+    >
+      <span className="flex min-w-0 items-center gap-2 text-[13px] font-700 text-[#64748B]">
+        <Search size={16} className="shrink-0 text-[#2D9E6B]" />
+        <span className="truncate">Search tutors, leads, phone…</span>
+      </span>
+      <kbd className="hidden shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-[#F0F4F8] px-2 py-0.5 text-[10px] font-800 text-[#0F2540] sm:inline-flex">
+        <Command size={10} /> K
+      </kbd>
+    </button>
+  );
+}
+
+export function AdminCommandPalette({
+  variant = "topbar",
+}: {
+  variant?: "topbar" | "navy";
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Global Keyboard Shortcut: Ctrl + K or Cmd + K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -168,9 +196,14 @@ export function AdminCommandPalette() {
         setIsOpen(false);
       }
     };
+    const handleOpen = () => setIsOpen(true);
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("open-admin-search", handleOpen);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("open-admin-search", handleOpen);
+    };
   }, [isOpen]);
 
   // Focus input when modal opens
@@ -225,27 +258,36 @@ export function AdminCommandPalette() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-slate-800/90 border border-slate-700/80 text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer shadow-xs group"
-        title="Search Admin Features & Controls (Ctrl+K)"
+        className={
+          variant === "navy"
+            ? "flex w-full items-center justify-between gap-3 rounded-full border border-white/15 bg-white/10 px-3.5 py-2.5 text-white/80 hover:bg-white/15 hover:text-white"
+            : "hidden h-10 min-w-10 items-center justify-center rounded-full border border-[#E2E8F0] text-[#0F2540] hover:bg-[#F0F4F8] sm:inline-flex lg:min-w-[220px] lg:justify-between lg:px-3.5"
+        }
+        title="Search admin features (Ctrl+K)"
       >
-        <div className="flex items-center gap-2 text-xs font-semibold">
-          <Search size={15} className="text-[#2D9E6B] group-hover:scale-110 transition-transform" />
-          <span className="truncate">Search Features &amp; Controls...</span>
-        </div>
-        <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-slate-900 text-slate-400 border border-slate-700">
+        <span className="flex min-w-0 items-center gap-2 text-xs font-700">
+          <Search size={16} className={variant === "navy" ? "text-[#7DDBB1]" : "text-[#2D9E6B]"} />
+          <span className={`truncate ${variant === "topbar" ? "hidden lg:inline text-[#64748B]" : ""}`}>
+            Search tutors, leads, phone…
+          </span>
+        </span>
+        <kbd className="hidden items-center gap-1 rounded-md border border-slate-200 bg-[#F0F4F8] px-1.5 py-0.5 text-[10px] font-800 text-[#0F2540] xl:inline-flex">
           <Command size={10} /> K
         </kbd>
       </button>
 
       {/* Command Palette Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-start justify-center pt-16 sm:pt-24 px-4">
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-start justify-center pt-16 sm:pt-24 px-4"
+          onClick={() => setIsOpen(false)}
+        >
           <div
-            className="w-full max-w-2xl bg-[#0F172A] border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] text-slate-100 animate-in fade-in zoom-in-95 duration-150"
+            className="w-full max-w-2xl bg-[#0F2540] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] text-slate-100 animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Search Input Bar */}
-            <div className="p-4 border-b border-slate-700/80 flex items-center gap-3 bg-[#1E293B]">
+            <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-[#0A192F]">
               <Search size={18} className="text-[#2D9E6B] shrink-0" />
               <input
                 ref={inputRef}
@@ -320,7 +362,7 @@ export function AdminCommandPalette() {
             </div>
 
             {/* Footer Hints */}
-            <div className="px-4 py-3 bg-[#1E293B] border-t border-slate-700/80 flex items-center justify-between text-[11px] font-semibold text-slate-400">
+            <div className="px-4 py-3 bg-[#0A192F] border-t border-white/10 flex items-center justify-between text-[11px] font-semibold text-slate-400">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
                   <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-white font-mono">↑</kbd>

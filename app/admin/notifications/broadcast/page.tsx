@@ -26,14 +26,14 @@ export default async function AdminBroadcastPage() {
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Push &amp; Mail Dispatch</span>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Broadcast &amp; Push Notifications
+            Broadcast Dispatch
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Send platform-wide announcements, direct VAPID web push notifications, or test Resend mailer integration
+            Platform-wide announcements, VAPID web push, and Resend mailer tests
           </p>
         </div>
       </div>
@@ -49,7 +49,7 @@ export default async function AdminBroadcastPage() {
         <div className="space-y-6">
           <SendTestEmailForm currentUserEmail={session.user.email ?? undefined} />
 
-          <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-4">
+          <div className="ath-panel p-6 space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-200">
               <Bell size={20} className="text-[#2563EB]" />
               <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>

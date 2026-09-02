@@ -31,6 +31,7 @@ import { LeadRowActions } from "@/components/admin/LeadRowActions";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { getInquiryDisplayCode, getLeadRateType } from "@/lib/lead-utils";
+import { StudentLeadsPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lead Management — Admin" };
@@ -39,7 +40,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; border: string }>
   ACTIVE: { bg: "bg-emerald-50", text: "text-emerald-900 font-extrabold", border: "border-emerald-300" },
   MATCHING: { bg: "bg-blue-50", text: "text-blue-900 font-extrabold", border: "border-blue-300" },
   APPLICATIONS_RECEIVED: { bg: "bg-amber-50", text: "text-amber-900 font-extrabold", border: "border-amber-300" },
-  BOOKED: { bg: "bg-purple-50", text: "text-purple-900 font-extrabold", border: "border-purple-300" },
+  BOOKED: { bg: "bg-[#E8F7F0]", text: "text-[#0F2540] font-extrabold", border: "border-emerald-300" },
   COMPLETED: { bg: "bg-teal-50", text: "text-teal-900 font-extrabold", border: "border-teal-300" },
   EXPIRED: { bg: "bg-slate-100", text: "text-slate-700 font-bold", border: "border-slate-300" },
   CLOSED: { bg: "bg-red-50", text: "text-red-900 font-extrabold", border: "border-red-300" },
@@ -228,21 +229,17 @@ export default async function AdminLeadsPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#2D9E6B] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              Student Lead Management
-            </span>
-          </div>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1
-            className="text-2xl font-black text-[#0F2540]"
+            className="text-2xl font-800 text-[#0F2540]"
             style={{ fontFamily: "Poppins, sans-serif" }}
           >
-            Student Tuition Enquiries
+            Student Leads Feed
           </h1>
-          <p className="text-xs text-slate-600 font-semibold">
-            {total.toLocaleString("en-IN")} total parent tuition requirement posts
+          <p className="text-xs text-slate-600 font-600">
+            {total.toLocaleString("en-IN")} live parent tuition posts. Raw WhatsApp dumps stay in Staff CRM until you classify them.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -253,10 +250,12 @@ export default async function AdminLeadsPage({
         </div>
       </div>
 
+      <StudentLeadsPlaybook />
+
       {/* Filters */}
       <form
         method="GET"
-        className="flex flex-wrap gap-3 p-4 rounded-3xl bg-white border border-slate-200 shadow-xs"
+        className="ath-panel flex flex-wrap gap-3 p-4"
       >
         <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-slate-50 border border-slate-300 min-w-0 w-full sm:min-w-[200px] sm:flex-1">
           <Search size={16} className="text-slate-500 shrink-0" />
@@ -281,7 +280,7 @@ export default async function AdminLeadsPage({
         </select>
         <button
           type="submit"
-          className="px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+          className="px-5 py-2.5 rounded-full bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-xs cursor-pointer"
         >
           Filter Leads
         </button>
@@ -296,7 +295,7 @@ export default async function AdminLeadsPage({
       </form>
 
       {/* Leads Table */}
-      <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="overflow-hidden ath-panel">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -436,7 +435,7 @@ export default async function AdminLeadsPage({
                                 <span
                                   className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide ${
                                     isHourly
-                                      ? "bg-purple-100 text-purple-900 border border-purple-200"
+                                      ? "bg-[#E8F7F0] text-[#0F2540] border border-emerald-200"
                                       : "bg-emerald-50 text-emerald-900 border border-emerald-200"
                                   }`}
                                 >
@@ -517,7 +516,7 @@ export default async function AdminLeadsPage({
                           {lead.parentProfile?.user?.email}
                         </p>
                         {lead.tutorGenderPref && lead.tutorGenderPref !== "ANY" && (
-                          <span className="inline-block text-[10px] font-bold text-purple-800 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 mt-0.5">
+                          <span className="inline-block text-[10px] font-bold text-[#0F2540] bg-[#E8F7F0] px-2 py-0.5 rounded-md border border-emerald-200 mt-0.5">
                             {lead.tutorGenderPref === "FEMALE" ? "Female Tutor Pref" : "Male Tutor Pref"}
                           </span>
                         )}

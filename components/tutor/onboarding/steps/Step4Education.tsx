@@ -26,8 +26,8 @@ export function Step4Education({ formData, onNext, onBack, isLoading }: Props) {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <div className="w-16 h-16 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-3">
-          <GraduationCap size={28} className="text-purple-600" />
+        <div className="w-16 h-16 rounded-2xl bg-[#E8F7F0] flex items-center justify-center mx-auto mb-3">
+          <GraduationCap size={28} className="text-[#2D9E6B]" />
         </div>
         <p className="text-gray-500 text-sm">Your education builds parent trust. Share your academic background.</p>
       </div>
@@ -94,7 +94,7 @@ export function Step4Education({ formData, onNext, onBack, isLoading }: Props) {
         <button type="button" onClick={onBack} disabled={isLoading} className="flex-1 h-12 rounded-2xl border-2 border-gray-200 bg-white text-gray-600 font-700 text-sm flex items-center justify-center gap-2 hover:border-gray-300 transition-all cursor-pointer">
           <ArrowLeft size={16} /> Back
         </button>
-        <button type="button" onClick={handleSubmit} disabled={isLoading} className="flex-[2] h-12 rounded-2xl bg-[#1A3C5E] hover:bg-[#15304f] text-white font-800 text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 shadow-lg disabled:opacity-60 cursor-pointer">
+        <button type="button" onClick={handleSubmit} disabled={isLoading} className="flex-[2] h-12 rounded-2xl bg-[#1A3C5E] hover:bg-[#15304f] text-white font-800 text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 cursor-pointer">
           {isLoading ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <>Next <ArrowRight size={16} /></>}
         </button>
       </div>

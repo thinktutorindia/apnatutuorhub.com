@@ -14,18 +14,17 @@ import {
   Menu,
   X,
   User,
-  LogOut,
   Gift,
 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
 const LINKS = [
-  { href: "/tutor/dashboard", label: "Dashboard", shortLabel: "Dashboard", icon: LayoutDashboard },
-  { href: "/tutor/leads", label: "Leads Feed", shortLabel: "Leads", icon: Compass },
-  { href: "/tutor/bookings", label: "Bookings", shortLabel: "Bookings", icon: Calendar },
+  { href: "/tutor/dashboard", label: "Home", shortLabel: "Home", icon: LayoutDashboard },
+  { href: "/tutor/leads", label: "Find Student Leads", shortLabel: "Leads", icon: Compass },
+  { href: "/tutor/bookings", label: "Classes", shortLabel: "Classes", icon: Calendar },
   { href: "/chat", label: "Messages", shortLabel: "Messages", icon: MessageSquare },
-  { href: "/tutor/wallet", label: "Wallet & Coins", shortLabel: "Wallet", icon: Wallet },
-  { href: "/tutor/profile", label: "Profile & KYC", shortLabel: "KYC", icon: ShieldCheck },
+  { href: "/tutor/wallet", label: "Coin Wallet", shortLabel: "Wallet", icon: Wallet },
+  { href: "/tutor/profile", label: "Profile & KYC", shortLabel: "Profile", icon: ShieldCheck },
   { href: "/referrals", label: "Referrals", shortLabel: "Referrals", icon: Gift },
 ] as const;
 
@@ -45,83 +44,71 @@ export function TutorNav({ userName, userEmail, walletBalance = 0 }: TutorNavPro
     return () => clearTimeout(timer);
   }, []);
 
-  // Lock body scroll when mobile drawer is open
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
 
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
   const drawerJSX = (
     <div className="fixed inset-0 z-[999999] flex justify-end md:hidden">
-      {/* Dark Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs cursor-pointer"
+        className="fixed inset-0 bg-[#0A192F]/50 cursor-pointer"
         onClick={() => setMobileMenuOpen(false)}
       />
-
-      {/* Slide Drawer Panel */}
-      <div className="relative flex h-full w-[280px] sm:w-[320px] flex-col border-l-4 border-[#0F172A] bg-white p-5 shadow-[-8px_0px_0px_0px_rgba(15,23,42,0.15)] z-[1000000] overflow-y-auto">
-        {/* Header with Close X Button */}
-        <div className="mb-6 flex items-center justify-between border-b-2 border-[#0F172A] pb-4">
-          <span className="font-heading text-lg font-black text-[#0F172A]">Menu</span>
+      <div className="relative flex h-full w-[280px] sm:w-[320px] flex-col bg-white p-5 shadow-[0_18px_44px_rgba(15,37,64,0.18)] z-[1000000] overflow-y-auto border-l border-[#E2E8F0]">
+        <div className="mb-6 flex items-center justify-between border-b border-[#E2E8F0] pb-4">
+          <span className="text-lg font-800 text-[#0F2540]">Menu</span>
           <button
             type="button"
             onClick={() => setMobileMenuOpen(false)}
-            className="rounded-xl border-2 border-[#0F172A] bg-[#FAF8F5] p-2 text-[#0F172A] shadow-[2px_2px_0px_0px_#0F172A] hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
+            className="rounded-xl border border-[#E2E8F0] bg-white p-2 text-[#0F2540] hover:bg-[#F8FAFC] min-h-11 min-w-11 inline-flex items-center justify-center"
             aria-label="Close menu"
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* User Card */}
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border-2 border-[#0F172A] bg-[#FEF3C7] p-3.5 shadow-[3px_3px_0px_0px_#0F172A]">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#0F172A] bg-white shrink-0">
-            <User size={20} className="text-[#0F172A]" />
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#FFF3DC] p-3.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shrink-0 text-[#F5A623] border border-amber-100">
+            <User size={20} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-black text-[#0F172A]">{userName || "Tutor"}</p>
-            <p className="truncate text-[11px] font-bold text-slate-600">{userEmail}</p>
+            <p className="truncate text-xs font-800 text-[#0F2540]">{userName || "Tutor"}</p>
+            <p className="truncate text-[11px] font-600 text-[#64748B]">{userEmail}</p>
           </div>
-          <span className="rounded-full bg-[#0F172A] px-2 py-0.5 text-[9px] font-black uppercase text-white shrink-0">
+          <span className="rounded-full bg-[#0F2540] px-2 py-0.5 text-[10px] font-800 text-white shrink-0">
             {walletBalance} 🪙
           </span>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 space-y-2.5">
+        <nav className="flex-1 space-y-1.5">
           {LINKS.map((link) => {
-            const isActive = pathname.startsWith(link.href);
+            const active = isActive(link.href);
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3.5 rounded-2xl border-2 border-[#0F172A] px-4 py-3 text-sm font-extrabold shadow-[3px_3px_0px_0px_#0F172A] transition-all active:scale-98 ${
-                  isActive
-                    ? "bg-[#FEF3C7] text-[#0F172A]"
-                    : "bg-[#FAF8F5] text-[#0F172A] hover:bg-slate-50"
+                className={`flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-700 min-h-11 ${
+                  active ? "bg-[#E8F7F0] text-[#238357]" : "text-[#0F2540] hover:bg-[#F8FAFC]"
                 }`}
               >
-                <link.icon size={18} className={isActive ? "text-[#D97706]" : "text-slate-600"} />
+                <link.icon size={18} className={active ? "text-[#2D9E6B]" : "text-[#64748B]"} />
                 <span>{link.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Sign Out Button */}
-        <div className="mt-6 pt-4 border-t-2 border-[#0F172A]">
+        <div className="mt-6 pt-4 border-t border-[#E2E8F0]">
           <SignOutButton
             text="Sign Out"
             iconSize={18}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-[#0F172A] bg-[#FCE7F3] py-3.5 text-xs font-black text-[#EF4444] shadow-[3px_3px_0px_0px_#0F172A] hover:bg-red-100"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] py-3.5 text-xs font-800 text-[#DC2626] hover:bg-red-50 min-h-11"
           />
         </div>
       </div>
@@ -130,17 +117,16 @@ export function TutorNav({ userName, userEmail, walletBalance = 0 }: TutorNavPro
 
   return (
     <>
-      {/* Desktop Navigation Links (md+) */}
-      <div className="hidden items-center gap-1 text-xs lg:text-sm font-bold text-[#0F172A] md:flex">
+      <div className="hidden items-center gap-1 text-sm font-700 text-[#0F2540] md:flex">
         {LINKS.map((link) => {
-          const isActive = pathname.startsWith(link.href);
+          const active = isActive(link.href);
           return (
             <Link
               key={link.href}
               href={link.href}
-              aria-current={isActive ? "page" : undefined}
-              className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 lg:px-3 transition-colors whitespace-nowrap ${
-                isActive ? "border-2 border-[#0F172A] bg-[#FEF3C7]" : "hover:text-[#22C55E]"
+              aria-current={active ? "page" : undefined}
+              className={`flex items-center gap-1 rounded-none px-2.5 py-2 lg:px-3 whitespace-nowrap border-b-2 min-h-11 ${
+                active ? "border-[#2D9E6B] text-[#2D9E6B]" : "border-transparent hover:text-[#2D9E6B]"
               }`}
             >
               <link.icon size={14} />
@@ -150,17 +136,15 @@ export function TutorNav({ userName, userEmail, walletBalance = 0 }: TutorNavPro
         })}
       </div>
 
-      {/* Mobile Hamburger Button (md:hidden) */}
       <button
         type="button"
         onClick={() => setMobileMenuOpen(true)}
-        className="flex items-center justify-center rounded-xl border-2 border-[#0F172A] bg-[#FAF8F5] p-2 text-[#0F172A] shadow-[2px_2px_0px_0px_#0F172A] md:hidden hover:bg-slate-100 active:scale-95 transition-all cursor-pointer shrink-0"
+        className="flex items-center justify-center rounded-xl border border-[#E2E8F0] bg-white p-2 text-[#0F2540] md:hidden hover:bg-[#F8FAFC] min-h-11 min-w-11 shrink-0"
         aria-label="Open navigation menu"
       >
         <Menu size={20} />
       </button>
 
-      {/* Portal Drawer for Mobile */}
       {mobileMenuOpen && mounted && createPortal(drawerJSX, document.body)}
     </>
   );

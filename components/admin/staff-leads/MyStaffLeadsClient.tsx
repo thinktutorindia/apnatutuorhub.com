@@ -23,6 +23,11 @@ import {
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import type { StaffLeadStatus, CallOutcome } from "@prisma/client";
+import { StaffLeadTypeControl } from "@/components/admin/staff-leads/StaffLeadTypeControl";
+import { getStaffRecordType, staffNotesWithoutTypeTags } from "@/lib/staff-lead-type";
+import { getStaffNextStep } from "@/components/admin/staff-leads/StaffLeadWorkPlan";
+import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
+import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
 
 export type Lead = {
   id: string;
@@ -122,7 +127,7 @@ const QUICK_OUTCOMES: Array<{ outcome: CallOutcome; label: string; icon: string;
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
   NEW: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", label: "New Lead" },
-  ASSIGNED: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", label: "Assigned" },
+  ASSIGNED: { bg: "bg-[#E8F7F0]", text: "text-[#0F2540]", border: "border-emerald-200", label: "Assigned" },
   CONTACTED: { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200", label: "Contacted" },
   FOLLOW_UP: { bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200", label: "Follow-Up Due" },
   INTERESTED: { bg: "bg-emerald-50", text: "text-emerald-800", border: "border-emerald-200", label: "Interested 🔥" },
@@ -159,6 +164,7 @@ export function MyStaffLeadsClient({
   // Queue View State
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<QueueTab>("ALL");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "TUTOR" | "PARENT">("ALL");
   const [sortBy, setSortBy] = useState<"FOLLOW_UP" | "NEWEST" | "NAME" | "CALLS">("FOLLOW_UP");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
@@ -303,7 +309,7 @@ export function MyStaffLeadsClient({
         label: `📅 ${prefix} at ${dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`,
         isOverdue: false,
         isDueNow: false,
-        cls: "bg-purple-50 text-purple-800 border border-purple-200 font-bold",
+        cls: "bg-amber-50 text-amber-800 border border-amber-200 font-bold",
         timeStr: dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
         dateStr: prefix,
       };
@@ -473,6 +479,7 @@ export function MyStaffLeadsClient({
     if (activeTab === "CONVERTED") {
       if (!l.isPromoted && l.status !== "CONVERTED") return false;
     }
+    if (typeFilter !== "ALL" && getStaffRecordType(l.staffNotes) !== typeFilter) return false;
 
     if (!search.trim()) return true;
     const q = search.toLowerCase();
@@ -695,6 +702,11 @@ export function MyStaffLeadsClient({
 
   // 6. Promote Single Lead (One-by-One)
   const handlePromoteSingle = (leadId: string) => {
+    const target = leads.find((l) => l.id === leadId);
+    if (target && getStaffRecordType(target.staffNotes) === "PARENT") {
+      showMsg("error", "This is a parent requirement. Switch it to Tutor, or post it to Student Leads.");
+      return;
+    }
     setPendingLeadId(leadId);
     startTransition(async () => {
       const res = await promoteLeadToProfileAction(leadId);
@@ -727,7 +739,14 @@ export function MyStaffLeadsClient({
   // 7. Bulk Promote Selected Leads
   const handleBulkPromote = () => {
     if (selectedIds.size === 0) return;
-    const ids = Array.from(selectedIds);
+    const ids = Array.from(selectedIds).filter((id) => {
+      const row = leads.find((l) => l.id === id);
+      return row && getStaffRecordType(row.staffNotes) !== "PARENT";
+    });
+    if (ids.length === 0) {
+      showMsg("error", "Selected rows are parent requirements. Switch them to Tutor, or post each to Student Leads.");
+      return;
+    }
     setPendingLeadId("bulk");
 
     startTransition(async () => {
@@ -819,6 +838,8 @@ export function MyStaffLeadsClient({
   const interestedCount = leads.filter((l) => l.status === "INTERESTED").length;
   const noAnswerCount = leads.filter((l) => l.status === "NO_ANSWER").length;
   const convertedCount = leads.filter((l) => l.isPromoted || l.status === "CONVERTED").length;
+  const parentCount = leads.filter((l) => getStaffRecordType(l.staffNotes) === "PARENT").length;
+  const tutorCount = leads.length - parentCount;
   const processedCount = leads.length - freshCount;
   const progressPercent = leads.length > 0 ? Math.round((processedCount / leads.length) * 100) : 100;
   const workedTodayAssignedPercent = leads.length > 0 ? Math.round((workedTodayCount / leads.length) * 100) : 0;
@@ -834,19 +855,17 @@ export function MyStaffLeadsClient({
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* ── Top Header & Mode Switcher ── */}
-      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="ath-panel flex items-center justify-between flex-wrap gap-4 p-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-              Staff Portal · CRM
-            </span>
-            <span className="text-[11px] font-bold text-slate-400">
-              {leads.length} Assigned Leads Queue
+            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
+            <span className="text-[11px] font-700 text-slate-500">
+              {leads.length} assigned leads
             </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Staff CRM Hub</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Real-time daily work tracker, direct 1-click phone dialer, follow-up scheduler, and full tutor data control.
+          <h1 className="text-2xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>My Calling Queue</h1>
+          <p className="text-xs text-slate-600 mt-0.5 font-600">
+            Call, edit, and classify. Switch Parent ↔ Tutor if the dump was wrong. Log past calls and book the next follow-up.
           </p>
         </div>
 
@@ -856,7 +875,7 @@ export function MyStaffLeadsClient({
           <button
             type="button"
             onClick={handleStartPowerDial}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white text-xs font-black shadow-md hover:shadow-lg transition-all cursor-pointer animate-pulse"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#F5A623] hover:bg-[#e8960f] text-[#0F2540] text-xs font-800 cursor-pointer"
             title="Start Speed Power Dialing mode through all pending leads"
           >
             <Zap size={14} className="text-yellow-200" />
@@ -907,6 +926,8 @@ export function MyStaffLeadsClient({
           </div>
         </div>
       </div>
+
+      {activeMainView === "QUEUE" && <StaffCrmPlaybook compact />}
 
       {/* Global Alert Notification */}
       {message && (
@@ -1216,8 +1237,8 @@ export function MyStaffLeadsClient({
                 onClick={() => setActiveTab("FRESH_NEW")}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "FRESH_NEW"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100"
+                    ? "bg-[#0F2540] text-white"
+                    : "bg-[#E8F7F0] text-[#0F2540] border border-emerald-200 hover:bg-emerald-100"
                 }`}
               >
                 <Sparkles size={12} /> 🆕 Fresh Untouched ({freshCount})
@@ -1282,6 +1303,36 @@ export function MyStaffLeadsClient({
               >
                 All Assigned ({leads.length})
               </button>
+
+              <span className="w-px h-5 bg-slate-200 mx-1 hidden sm:inline-block" />
+
+              <button
+                type="button"
+                onClick={() => setTypeFilter("ALL")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer ${
+                  typeFilter === "ALL" ? "bg-[#0F2540] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                All types
+              </button>
+              <button
+                type="button"
+                onClick={() => setTypeFilter("TUTOR")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer ${
+                  typeFilter === "TUTOR" ? "bg-[#2D9E6B] text-white" : "bg-[#E8F7F0] text-[#166534]"
+                }`}
+              >
+                Tutors ({tutorCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTypeFilter("PARENT")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer ${
+                  typeFilter === "PARENT" ? "bg-[#2563EB] text-white" : "bg-[#E8F1FB] text-[#1D4ED8]"
+                }`}
+              >
+                Parents ({parentCount})
+              </button>
             </div>
 
             {/* Search & Bulk Controls */}
@@ -1323,7 +1374,7 @@ export function MyStaffLeadsClient({
                   className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {pendingLeadId === "bulk" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                  Move {selectedIds.size} to Primary →
+                  Move selected tutors →
                 </button>
               )}
             </div>
@@ -1370,6 +1421,14 @@ export function MyStaffLeadsClient({
                 const isLeadPending = pendingLeadId === lead.id;
                 const statusStyle = STATUS_STYLES[lead.status] ?? STATUS_STYLES.NEW;
                 const followUpBadge = getFollowUpBadge(lead.nextFollowUpAt);
+                const recordType = getStaffRecordType(lead.staffNotes);
+                const nextStep = getStaffNextStep({
+                  type: recordType,
+                  status: lead.status,
+                  isPromoted: lead.isPromoted,
+                  hasPhone: Boolean(lead.phone),
+                  nextFollowUpAt: lead.nextFollowUpAt,
+                });
 
                 const waText = encodeURIComponent(
                   `Hello ${lead.name || "Tutor"}, greetings from ApnaTutorHub! We are currently assigning home & online tuitions for ${
@@ -1404,8 +1463,17 @@ export function MyStaffLeadsClient({
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-extrabold text-slate-900 text-base">
-                              {lead.name ?? <span className="text-slate-400 italic">Unknown Tutor</span>}
+                              {lead.name ?? <span className="text-slate-400 italic">Unknown contact</span>}
                             </h3>
+                            <StaffLeadTypeControl
+                              leadId={lead.id}
+                              type={recordType}
+                              onChanged={(_next, notes) => {
+                                setLeads((prev) =>
+                                  prev.map((row) => (row.id === lead.id ? { ...row, staffNotes: notes } : row))
+                                );
+                              }}
+                            />
 
                             <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
                               {statusStyle.label}
@@ -1433,8 +1501,10 @@ export function MyStaffLeadsClient({
                               <History size={11} /> {lead._count.callLogs} call{lead._count.callLogs === 1 ? "" : "s"}
                             </button>
                           </div>
-
-                          {/* Contact Details & Direct Phone Dialing */}
+                          <p className="text-[11px] font-700 text-slate-500">
+                            Next: <span className="text-[#0F2540]">{nextStep.title}</span>
+                            <span className="font-600 text-slate-500"> — {nextStep.detail}</span>
+                          </p>
                           <div className="flex items-center gap-2.5 text-xs text-slate-600 flex-wrap">
                             {lead.phone ? (
                               <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-xl">
@@ -1596,7 +1666,23 @@ export function MyStaffLeadsClient({
                             <PhoneCall size={13} /> Detailed Call Log
                           </button>
 
-                          {!lead.isPromoted && lead.status !== "CONVERTED" ? (
+                          {!lead.isPromoted && lead.status !== "CONVERTED" && recordType === "PARENT" ? (
+                            <CreateLeadModal
+                              triggerLabel="Post to Student Leads"
+                              triggerClassName="px-4 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1d4ed8] !text-white text-xs font-black inline-flex items-center gap-1.5"
+                              defaults={{
+                                parentName: lead.name ?? undefined,
+                                parentPhone: lead.phone ?? undefined,
+                                parentEmail: lead.email ?? undefined,
+                                classLevel: lead.classes[0] ?? undefined,
+                                board: lead.board ?? undefined,
+                                subjects: lead.subjects,
+                                city: lead.location ?? undefined,
+                                pincode: lead.pincode ?? undefined,
+                                notes: staffNotesWithoutTypeTags(lead.staffNotes) || undefined,
+                              }}
+                            />
+                          ) : !lead.isPromoted && lead.status !== "CONVERTED" ? (
                             <button
                               type="button"
                               onClick={() => handlePromoteSingle(lead.id)}
@@ -1604,11 +1690,11 @@ export function MyStaffLeadsClient({
                               className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
                             >
                               {isLeadPending ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                              Move to Primary ✓
+                              Promote to tutor
                             </button>
                           ) : (
                             <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1">
-                              <CheckCircle2 size={13} className="text-emerald-600" /> Primary Active
+                              <CheckCircle2 size={13} className="text-emerald-600" /> {recordType === "PARENT" ? "Posted / closed" : "Tutor account live"}
                             </span>
                           )}
                         </div>
@@ -1913,10 +1999,24 @@ export function MyStaffLeadsClient({
             {/* Header */}
             <div className="flex items-center justify-between border-b pb-4">
               <div>
-                <h2 className="text-xl font-black text-slate-900">Edit Tutor Profile Details</h2>
-                <p className="text-xs text-slate-400">
-                  Update taxonomy, subjects, location, contact, qualification, and staff follow-up schedule.
+                <h2 className="text-xl font-black text-slate-900">Edit contact</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Change name, phone, subjects, and whether this row is a Parent or a Tutor.
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-800 text-slate-500">This row is a</span>
+                  <StaffLeadTypeControl
+                    leadId={editingLead.id}
+                    type={getStaffRecordType(editForm.staffNotes ?? editingLead.staffNotes)}
+                    onChanged={(_next, notes) => {
+                      setEditForm((prev) => ({ ...prev, staffNotes: notes }));
+                      setEditingLead((prev) => (prev ? { ...prev, staffNotes: notes } : prev));
+                      setLeads((prev) =>
+                        prev.map((row) => (row.id === editingLead.id ? { ...row, staffNotes: notes } : row))
+                      );
+                    }}
+                  />
+                </div>
               </div>
               <button
                 onClick={() => setEditingLead(null)}

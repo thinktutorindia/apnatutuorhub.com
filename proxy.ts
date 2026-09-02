@@ -58,6 +58,7 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/icons") ||
     pathname.startsWith("/loading.json") ||
+    pathname.startsWith("/animations") ||
     pathname === "/apple-touch-icon.png" ||
     pathname === "/apple-touch-icon-precomposed.png" ||
     pathname === "/sitemap.xml" ||

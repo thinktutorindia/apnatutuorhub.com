@@ -129,7 +129,7 @@ export default async function TutorBookingsPage({
           <BookOpen size={12} /> Schedule &amp; Classes
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h1 className="text-2xl sm:text-3xl font-800 text-gray-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
             Classes &amp; Bookings
           </h1>
           {pendingCount > 0 && (
@@ -166,7 +166,7 @@ export default async function TutorBookingsPage({
 
       {/* Booking list container */}
       {displayedBookings.length === 0 ? (
-        <div className="p-10 rounded-3xl bg-white border border-gray-200/80 shadow-xs text-center space-y-3">
+        <div className="ath-panel p-10 text-center space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center mx-auto">
             <Calendar size={24} />
           </div>

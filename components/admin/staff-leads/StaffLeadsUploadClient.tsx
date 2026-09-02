@@ -11,7 +11,19 @@ import {
 import Link from "next/link";
 import { SUBJECT_TAXONOMY, CLASS_LEVELS, SUBJECTS } from "@/lib/validations";
 
-type TabMode = "READY" | "HAS_PHONE" | "HAS_EMAIL" | "DUPLICATES" | "ALL";
+type TabMode =
+  | "READY"
+  | "COMPLETE"
+  | "HAS_PHONE"
+  | "HAS_NAME"
+  | "HAS_LOCATION"
+  | "HAS_SUBJECTS"
+  | "LOCATION_ONLY"
+  | "SUBJECT_ONLY"
+  | "PHONE_ONLY"
+  | "HAS_EMAIL"
+  | "DUPLICATES"
+  | "ALL";
 
 // ─── Real Dynamic Profile Completeness & Quality Score ─────────────────────────
 
@@ -85,6 +97,13 @@ export function StaffLeadsUploadClient() {
   const [totalEmailsCount, setTotalEmailsCount] = useState(0);
   const [totalDuplicatesCount, setTotalDuplicatesCount] = useState(0);
   const [totalReadyCount, setTotalReadyCount] = useState(0);
+  const [totalWithNamesCount, setTotalWithNamesCount] = useState(0);
+  const [totalWithLocationsCount, setTotalWithLocationsCount] = useState(0);
+  const [totalWithSubjectsCount, setTotalWithSubjectsCount] = useState(0);
+  const [totalCompleteProfilesCount, setTotalCompleteProfilesCount] = useState(0);
+  const [totalLocationOnlyCount, setTotalLocationOnlyCount] = useState(0);
+  const [totalSubjectOnlyCount, setTotalSubjectOnlyCount] = useState(0);
+  const [totalPhoneOnlyCount, setTotalPhoneOnlyCount] = useState(0);
   const [isPreviewCapped, setIsPreviewCapped] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -208,6 +227,13 @@ export function StaffLeadsUploadClient() {
       setTotalEmailsCount(data.totalEmailsCount ?? data.leads.filter((l: any) => Boolean(l.email)).length);
       setTotalDuplicatesCount(data.totalDuplicatesCount ?? data.leads.filter((l: any) => l.isDuplicate).length);
       setTotalReadyCount(data.totalReadyCount ?? data.leads.filter((l: any) => !l.isDuplicate).length);
+      setTotalWithNamesCount(data.totalWithNamesCount ?? data.leads.filter((l: any) => Boolean(l.name && l.name.trim().length > 1)).length);
+      setTotalWithLocationsCount(data.totalWithLocationsCount ?? data.leads.filter((l: any) => Boolean(l.location && l.location.trim().length > 1)).length);
+      setTotalWithSubjectsCount(data.totalWithSubjectsCount ?? data.leads.filter((l: any) => Boolean((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0))).length);
+      setTotalCompleteProfilesCount(data.totalCompleteProfilesCount ?? data.leads.filter((l: any) => Boolean(l.name && l.phone && l.location && ((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0)))).length);
+      setTotalLocationOnlyCount(data.totalLocationOnlyCount ?? data.leads.filter((l: any) => Boolean(l.location && (!l.subjects || l.subjects.length === 0) && (!l.classes || l.classes.length === 0))).length);
+      setTotalSubjectOnlyCount(data.totalSubjectOnlyCount ?? data.leads.filter((l: any) => Boolean(((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0)) && !l.location)).length);
+      setTotalPhoneOnlyCount(data.totalPhoneOnlyCount ?? data.leads.filter((l: any) => Boolean(l.phone && !l.location && (!l.subjects || l.subjects.length === 0))).length);
       setIsPreviewCapped(Boolean(data.isPreviewCapped));
       setManuallyExcludedIds(new Set());
 
@@ -310,32 +336,78 @@ export function StaffLeadsUploadClient() {
   const displayTotalEmails = totalEmailsCount > 0 ? totalEmailsCount : leads.filter((l) => Boolean(l.email)).length;
   const displayTotalDuplicates = totalDuplicatesCount > 0 ? totalDuplicatesCount : duplicateLeads.length;
   const displayTotalReady = totalReadyCount > 0 ? totalReadyCount : readyToSaveLeads.length;
+  const displayTotalNames = totalWithNamesCount > 0 ? totalWithNamesCount : leads.filter((l) => Boolean(l.name && l.name.trim().length > 1)).length;
+  const displayTotalLocations = totalWithLocationsCount > 0 ? totalWithLocationsCount : leads.filter((l) => Boolean(l.location && l.location.trim().length > 1)).length;
+  const displayTotalSubjects = totalWithSubjectsCount > 0 ? totalWithSubjectsCount : leads.filter((l) => Boolean((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0))).length;
+  const displayTotalComplete = totalCompleteProfilesCount > 0 ? totalCompleteProfilesCount : leads.filter((l) => Boolean(l.name && l.phone && l.location && ((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0)))).length;
+  const displayTotalLocationOnly = totalLocationOnlyCount > 0 ? totalLocationOnlyCount : leads.filter((l) => Boolean(l.location && (!l.subjects || l.subjects.length === 0) && (!l.classes || l.classes.length === 0))).length;
+  const displayTotalSubjectOnly = totalSubjectOnlyCount > 0 ? totalSubjectOnlyCount : leads.filter((l) => Boolean(((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0)) && !l.location)).length;
+  const displayTotalPhoneOnly = totalPhoneOnlyCount > 0 ? totalPhoneOnlyCount : leads.filter((l) => Boolean(l.phone && !l.location && (!l.subjects || l.subjects.length === 0))).length;
   const totalBothPhoneAndEmail = leads.filter((l) => Boolean(l.phone && l.email)).length;
 
   // Filtered List based on tab and filters
   const filteredIndexedLeads = leads
     .map((lead, originalIndex) => ({ lead, originalIndex }))
     .filter(({ lead, originalIndex }) => {
-      // Tab 1: DUPLICATES
+      // Tab: DUPLICATES
       if (activeTab === "DUPLICATES") {
         if (!lead.isDuplicate) return false;
       }
-      // Tab 2: READY
+      // Tab: READY
       else if (activeTab === "READY") {
         if (manuallyExcludedIds.has(originalIndex)) return false;
         if (excludeDuplicates && lead.isDuplicate) return false;
         if (requireContactMethod && !lead.phone && !lead.email) return false;
         if (requireBothPhoneAndEmail && (!lead.phone || !lead.email)) return false;
       }
-      // Tab 3: HAS_PHONE
+      // Tab: COMPLETE (Name + Phone + Location + Subjects)
+      else if (activeTab === "COMPLETE") {
+        const hasName = Boolean(lead.name && lead.name.trim().length > 1);
+        const hasPhone = Boolean(lead.phone);
+        const hasLoc = Boolean(lead.location && lead.location.trim().length > 1);
+        const hasSub = Boolean((lead.subjects && lead.subjects.length > 0) || (lead.classes && lead.classes.length > 0));
+        if (!(hasName && hasPhone && hasLoc && hasSub)) return false;
+      }
+      // Tab: HAS_PHONE
       else if (activeTab === "HAS_PHONE") {
         if (!lead.phone) return false;
       }
-      // Tab 4: HAS_EMAIL
+      // Tab: HAS_NAME
+      else if (activeTab === "HAS_NAME") {
+        if (!lead.name || lead.name.trim().length <= 1) return false;
+      }
+      // Tab: HAS_LOCATION
+      else if (activeTab === "HAS_LOCATION") {
+        if (!lead.location || lead.location.trim().length <= 1) return false;
+      }
+      // Tab: HAS_SUBJECTS
+      else if (activeTab === "HAS_SUBJECTS") {
+        const hasSub = (lead.subjects && lead.subjects.length > 0) || (lead.classes && lead.classes.length > 0);
+        if (!hasSub) return false;
+      }
+      // Tab: LOCATION_ONLY
+      else if (activeTab === "LOCATION_ONLY") {
+        const hasLoc = Boolean(lead.location && lead.location.trim().length > 1);
+        const hasSub = Boolean((lead.subjects && lead.subjects.length > 0) || (lead.classes && lead.classes.length > 0));
+        if (!hasLoc || hasSub) return false;
+      }
+      // Tab: SUBJECT_ONLY
+      else if (activeTab === "SUBJECT_ONLY") {
+        const hasLoc = Boolean(lead.location && lead.location.trim().length > 1);
+        const hasSub = Boolean((lead.subjects && lead.subjects.length > 0) || (lead.classes && lead.classes.length > 0));
+        if (!hasSub || hasLoc) return false;
+      }
+      // Tab: PHONE_ONLY
+      else if (activeTab === "PHONE_ONLY") {
+        const hasLoc = Boolean(lead.location && lead.location.trim().length > 1);
+        const hasSub = Boolean((lead.subjects && lead.subjects.length > 0) || (lead.classes && lead.classes.length > 0));
+        if (!lead.phone || hasLoc || hasSub) return false;
+      }
+      // Tab: HAS_EMAIL
       else if (activeTab === "HAS_EMAIL") {
         if (!lead.email) return false;
       }
-      // Tab 5: ALL (no exclusion)
+      // Tab: ALL (no exclusion)
 
       // Search Query Filter
       if (searchQuery.trim()) {
@@ -385,7 +457,7 @@ export function StaffLeadsUploadClient() {
     return (
       <div className="space-y-6">
         {/* Top Control Bar */}
-        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+        <div className="ath-panel p-6 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <button
@@ -396,24 +468,36 @@ export function StaffLeadsUploadClient() {
                 <ChevronRight size={18} className="rotate-180" />
               </button>
               <div>
-                <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2.5">
-                  Lead Extraction Review &amp; Staging
+                <h1 className="text-2xl font-800 text-[#0F2540] flex items-center gap-2.5" style={{ fontFamily: "Poppins, sans-serif" }}>
+                  Bulk Upload Review
                   <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold flex items-center gap-1">
                     <Sparkles size={12} /> High-Speed Lead Engine
                   </span>
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  <span>Wrong type? Click Parent / Tutor on each row before saving.</span>
+                  <span>·</span>
                   <span>Extracted <strong>{displayTotalLeads.toLocaleString()} leads</strong> from <strong>{totalMessages.toLocaleString()} records</strong></span>
                   <span>·</span>
                   <span className="font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 inline-flex items-center gap-1">
                     <Phone size={11} /> {displayTotalPhones.toLocaleString()} Phones
                   </span>
                   <span>·</span>
-                  <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1">
-                    <Mail size={11} /> {displayTotalEmails.toLocaleString()} Emails
+                  <span className="font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200 inline-flex items-center gap-1">
+                    <Users size={11} /> {displayTotalNames.toLocaleString()} Names
                   </span>
                   <span>·</span>
-                  <span><strong className="text-emerald-700">{displayTotalReady.toLocaleString()} ready to save</strong></span>
+                  <span className="font-extrabold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 inline-flex items-center gap-1">
+                    <MapPin size={11} /> {displayTotalLocations.toLocaleString()} Locations
+                  </span>
+                  <span>·</span>
+                  <span className="font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200 inline-flex items-center gap-1">
+                    <BookOpen size={11} /> {displayTotalSubjects.toLocaleString()} Subjects
+                  </span>
+                  <span>·</span>
+                  <span className="font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300 inline-flex items-center gap-1">
+                    <Sparkles size={11} /> {displayTotalComplete.toLocaleString()} Combined Full Data
+                  </span>
                   <span>·</span>
                   <span><strong className="text-amber-700">{displayTotalDuplicates.toLocaleString()} duplicates in DB</strong></span>
                   {isPreviewCapped && (
@@ -446,84 +530,141 @@ export function StaffLeadsUploadClient() {
             </div>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          {/* Comprehensive Data Breakdown Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+            {/* 1. Phone Numbers */}
             <div
               onClick={() => setActiveTab("HAS_PHONE")}
-              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+              className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
                 activeTab === "HAS_PHONE"
-                  ? "bg-blue-100/90 border-blue-400 ring-2 ring-blue-400/20 shadow-xs"
+                  ? "bg-blue-100 border-blue-400 ring-2 ring-blue-400/20 shadow-xs"
                   : "bg-blue-50/70 border-blue-200/80 hover:bg-blue-100/60"
               }`}
             >
-              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Phone size={17} />
+              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Phone size={15} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Total Phone Numbers</p>
-                <p className="text-lg font-black text-slate-900 leading-tight">
+                <p className="text-[9px] font-black uppercase tracking-wider text-blue-700 truncate">Phone Numbers</p>
+                <p className="text-base font-black text-slate-900 leading-tight">
                   {displayTotalPhones.toLocaleString()}
-                  <span className="text-[11px] font-semibold text-slate-500 ml-1.5 font-normal">
+                  <span className="text-[10px] font-semibold text-slate-500 ml-1 font-normal">
                     ({Math.round((displayTotalPhones / (displayTotalLeads || 1)) * 100)}%)
                   </span>
                 </p>
               </div>
             </div>
 
+            {/* 2. Names */}
             <div
-              onClick={() => setActiveTab("HAS_EMAIL")}
-              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
-                activeTab === "HAS_EMAIL"
-                  ? "bg-emerald-100/90 border-emerald-400 ring-2 ring-emerald-400/20 shadow-xs"
-                  : "bg-emerald-50/70 border-emerald-200/80 hover:bg-emerald-100/60"
+              onClick={() => setActiveTab("HAS_NAME")}
+              className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
+                activeTab === "HAS_NAME"
+                  ? "bg-indigo-100 border-indigo-400 ring-2 ring-indigo-400/20 shadow-xs"
+                  : "bg-indigo-50/70 border-indigo-200/80 hover:bg-indigo-100/60"
               }`}
             >
-              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Mail size={17} />
+              <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Users size={15} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Total Email Addresses</p>
-                <p className="text-lg font-black text-slate-900 leading-tight">
-                  {displayTotalEmails.toLocaleString()}
-                  <span className="text-[11px] font-semibold text-slate-500 ml-1.5 font-normal">
-                    ({Math.round((displayTotalEmails / (displayTotalLeads || 1)) * 100)}%)
+                <p className="text-[9px] font-black uppercase tracking-wider text-indigo-700 truncate">With Names</p>
+                <p className="text-base font-black text-slate-900 leading-tight">
+                  {displayTotalNames.toLocaleString()}
+                  <span className="text-[10px] font-semibold text-slate-500 ml-1 font-normal">
+                    ({Math.round((displayTotalNames / (displayTotalLeads || 1)) * 100)}%)
                   </span>
                 </p>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/80 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Sparkles size={17} />
+            {/* 3. Locations */}
+            <div
+              onClick={() => setActiveTab("HAS_LOCATION")}
+              className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
+                activeTab === "HAS_LOCATION"
+                  ? "bg-teal-100 border-teal-400 ring-2 ring-teal-400/20 shadow-xs"
+                  : "bg-teal-50/70 border-teal-200/80 hover:bg-teal-100/60"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <MapPin size={15} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-wider text-purple-700">Total Valid Ingest</p>
-                <p className="text-lg font-black text-slate-900 leading-tight">
-                  {displayTotalReady.toLocaleString()}
-                  <span className="text-[11px] font-semibold text-purple-600 ml-1.5 font-normal">
-                    (Ready)
+                <p className="text-[9px] font-black uppercase tracking-wider text-teal-700 truncate">With Location</p>
+                <p className="text-base font-black text-slate-900 leading-tight">
+                  {displayTotalLocations.toLocaleString()}
+                  <span className="text-[10px] font-semibold text-slate-500 ml-1 font-normal">
+                    ({Math.round((displayTotalLocations / (displayTotalLeads || 1)) * 100)}%)
                   </span>
                 </p>
               </div>
             </div>
 
+            {/* 4. Subjects & Classes */}
+            <div
+              onClick={() => setActiveTab("HAS_SUBJECTS")}
+              className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
+                activeTab === "HAS_SUBJECTS"
+                  ? "bg-sky-100 border-sky-400 ring-2 ring-sky-400/20 shadow-xs"
+                  : "bg-sky-50/70 border-sky-200/80 hover:bg-sky-100/60"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <BookOpen size={15} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-wider text-sky-700 truncate">With Subjects</p>
+                <p className="text-base font-black text-slate-900 leading-tight">
+                  {displayTotalSubjects.toLocaleString()}
+                  <span className="text-[10px] font-semibold text-slate-500 ml-1 font-normal">
+                    ({Math.round((displayTotalSubjects / (displayTotalLeads || 1)) * 100)}%)
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* 5. Complete Combined Data (Full Profile) */}
+            <div
+              onClick={() => setActiveTab("COMPLETE")}
+              className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
+                activeTab === "COMPLETE"
+                  ? "bg-emerald-100 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs"
+                  : "bg-emerald-50/80 border-emerald-300 hover:bg-emerald-100/70"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Sparkles size={15} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-wider text-emerald-800 truncate">Combined Full Data</p>
+                <p className="text-base font-black text-emerald-950 leading-tight">
+                  {displayTotalComplete.toLocaleString()}
+                  <span className="text-[10px] font-bold text-emerald-700 ml-1">
+                    (100% Rich)
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* 6. DB Duplicates */}
             <div
               onClick={() => setActiveTab("DUPLICATES")}
-              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+              className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
                 activeTab === "DUPLICATES"
-                  ? "bg-amber-100/90 border-amber-400 ring-2 ring-amber-400/20 shadow-xs"
+                  ? "bg-amber-100 border-amber-400 ring-2 ring-amber-400/20 shadow-xs"
                   : "bg-amber-50/70 border-amber-200/80 hover:bg-amber-100/60"
               }`}
             >
-              <div className="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <ShieldCheck size={17} />
+              <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <ShieldCheck size={15} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">DB Duplicates</p>
-                <p className="text-lg font-black text-slate-900 leading-tight">
+                <p className="text-[9px] font-black uppercase tracking-wider text-amber-700 truncate">DB Duplicates</p>
+                <p className="text-base font-black text-slate-900 leading-tight">
                   {displayTotalDuplicates.toLocaleString()}
-                  <span className="text-[11px] font-semibold text-amber-700 ml-1.5 font-normal">
-                    (In Database)
+                  <span className="text-[10px] font-semibold text-amber-700 ml-1 font-normal">
+                    (Already in DB)
                   </span>
                 </p>
               </div>
@@ -532,57 +673,140 @@ export function StaffLeadsUploadClient() {
 
           {/* Simple Tab Switcher + Filters */}
           <div className="flex items-center justify-between flex-wrap gap-3 pt-4 border-t border-slate-100">
-            {/* Direct Tabs */}
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* Direct Tabs with Granular Breakdowns */}
+            <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 onClick={() => setActiveTab("READY")}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeTab === "READY"
                     ? "bg-emerald-600 text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`}
               >
-                <CheckCircle2 size={14} /> Ready to Save ({displayTotalReady.toLocaleString()})
+                <CheckCircle2 size={13} /> Ready to Save ({displayTotalReady.toLocaleString()})
+              </button>
+
+              <button
+                onClick={() => setActiveTab("COMPLETE")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "COMPLETE"
+                    ? "bg-emerald-700 text-white shadow-sm"
+                    : "bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100"
+                }`}
+              >
+                <Sparkles size={13} /> Combined Full Data ({displayTotalComplete.toLocaleString()})
+              </button>
+
+              <button
+                onClick={() => setActiveTab("HAS_NAME")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "HAS_NAME"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100"
+                }`}
+              >
+                <Users size={12} /> With Name ({displayTotalNames.toLocaleString()})
               </button>
 
               <button
                 onClick={() => setActiveTab("HAS_PHONE")}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeTab === "HAS_PHONE"
                     ? "bg-blue-600 text-white shadow-sm"
                     : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
                 }`}
               >
-                <Phone size={13} /> With Phone ({displayTotalPhones.toLocaleString()})
+                <Phone size={12} /> With Phone ({displayTotalPhones.toLocaleString()})
               </button>
 
               <button
+                onClick={() => setActiveTab("HAS_LOCATION")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "HAS_LOCATION"
+                    ? "bg-teal-600 text-white shadow-sm"
+                    : "bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100"
+                }`}
+              >
+                <MapPin size={12} /> With Location ({displayTotalLocations.toLocaleString()})
+              </button>
+
+              <button
+                onClick={() => setActiveTab("HAS_SUBJECTS")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "HAS_SUBJECTS"
+                    ? "bg-sky-600 text-white shadow-sm"
+                    : "bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100"
+                }`}
+              >
+                <BookOpen size={12} /> With Subjects ({displayTotalSubjects.toLocaleString()})
+              </button>
+
+              {displayTotalLocationOnly > 0 && (
+                <button
+                  onClick={() => setActiveTab("LOCATION_ONLY")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === "LOCATION_ONLY"
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100"
+                  }`}
+                >
+                  <MapPin size={12} /> Location Only ({displayTotalLocationOnly.toLocaleString()})
+                </button>
+              )}
+
+              {displayTotalSubjectOnly > 0 && (
+                <button
+                  onClick={() => setActiveTab("SUBJECT_ONLY")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === "SUBJECT_ONLY"
+                      ? "bg-rose-600 text-white shadow-sm"
+                      : "bg-rose-50 text-rose-900 border border-rose-200 hover:bg-rose-100"
+                  }`}
+                >
+                  <BookOpen size={12} /> Subject Only ({displayTotalSubjectOnly.toLocaleString()})
+                </button>
+              )}
+
+              {displayTotalPhoneOnly > 0 && (
+                <button
+                  onClick={() => setActiveTab("PHONE_ONLY")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === "PHONE_ONLY"
+                      ? "bg-slate-700 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-800 border border-slate-200 hover:bg-slate-200"
+                  }`}
+                >
+                  <Phone size={12} /> Phone Only ({displayTotalPhoneOnly.toLocaleString()})
+                </button>
+              )}
+
+              <button
                 onClick={() => setActiveTab("HAS_EMAIL")}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeTab === "HAS_EMAIL"
                     ? "bg-emerald-700 text-white shadow-sm"
                     : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
                 }`}
               >
-                <Mail size={13} /> With Email ({displayTotalEmails.toLocaleString()})
+                <Mail size={12} /> With Email ({displayTotalEmails.toLocaleString()})
               </button>
 
               {displayTotalDuplicates > 0 && (
                 <button
                   onClick={() => setActiveTab("DUPLICATES")}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
                     activeTab === "DUPLICATES"
                       ? "bg-amber-600 text-white shadow-sm"
                       : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
                   }`}
                 >
-                  <ShieldCheck size={13} /> In Database ({displayTotalDuplicates.toLocaleString()})
+                  <ShieldCheck size={12} /> In Database ({displayTotalDuplicates.toLocaleString()})
                 </button>
               )}
 
               <button
                 onClick={() => setActiveTab("ALL")}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeTab === "ALL"
                     ? "bg-slate-800 text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -742,7 +966,7 @@ export function StaffLeadsUploadClient() {
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[11px] font-extrabold uppercase tracking-wider">
                     <th className="py-3.5 px-4 w-12 text-center">#</th>
-                    <th className="py-3.5 px-4 min-w-[200px]">Tutor Profile &amp; Status</th>
+                    <th className="py-3.5 px-4 min-w-[200px]">Contact &amp; type</th>
                     <th className="py-3.5 px-4 min-w-[150px]">Phone Number</th>
                     <th className="py-3.5 px-4 min-w-[220px]">Email Address</th>
                     <th className="py-3.5 px-4 min-w-[160px]">Location &amp; Address</th>
@@ -799,13 +1023,35 @@ export function StaffLeadsUploadClient() {
                                     {lead.name ?? <span className="text-slate-400 italic font-normal">{lead.leadType === "PARENT_LEAD" ? "Parent Requirement" : "Tutor Lead"}</span>}
                                   </p>
                                   {lead.leadType === "PARENT_LEAD" ? (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
-                                      Parent
-                                    </span>
+                                    <button
+                                      type="button"
+                                      title="Click to mark as Tutor"
+                                      onClick={() =>
+                                        setLeads((prev) =>
+                                          prev.map((row, idx) =>
+                                            idx === originalIndex ? { ...row, leadType: "TUTOR" } : row
+                                          )
+                                        )
+                                      }
+                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200"
+                                    >
+                                      Parent — click to Tutor
+                                    </button>
                                   ) : (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                      Tutor
-                                    </span>
+                                    <button
+                                      type="button"
+                                      title="Click to mark as Parent"
+                                      onClick={() =>
+                                        setLeads((prev) =>
+                                          prev.map((row, idx) =>
+                                            idx === originalIndex ? { ...row, leadType: "PARENT_LEAD" } : row
+                                          )
+                                        )
+                                      }
+                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
+                                    >
+                                      Tutor — click to Parent
+                                    </button>
                                   )}
                                   {lead.budgetFee && (
                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
@@ -1227,8 +1473,9 @@ export function StaffLeadsUploadClient() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Upload Raw Lead Data</h1>
-          <p className="text-sm text-slate-500 mt-1">Paste your entire WhatsApp chat export or tutor profiles below. Gemini AI will extract &amp; structure the data automatically.</p>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>Bulk Upload</h1>
+          <p className="text-sm text-slate-600 mt-1 font-600">Paste a WhatsApp export. Gemini extracts contacts — mark each as Tutor or Parent before saving.</p>
         </div>
         <Link href="/admin/staff-leads" className="text-sm text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold">
           ← Back to CRM

@@ -124,14 +124,14 @@ export default async function AdminSettingsPage() {
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">System Configuration</span>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Platform Settings &amp; Dynamic Pricing
+            System Settings
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Changes take effect immediately — matching workers, coin costs, and ranking engines read these dynamically
+            Matching, coin costs, and ranking engines read these values immediately
           </p>
         </div>
       </div>
@@ -142,7 +142,7 @@ export default async function AdminSettingsPage() {
           return (
             <div
               key={group}
-              className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs"
+              className="overflow-hidden ath-panel"
             >
               <div className="flex items-center gap-3 px-6 py-4 bg-slate-50 border-b border-slate-200">
                 <div className="h-2.5 w-2.5 rounded-full bg-[#2D9E6B]" />

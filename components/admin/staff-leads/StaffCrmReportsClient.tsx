@@ -15,6 +15,7 @@ import {
   getWorkSessionCallLogsAction,
   StaffWorkSessionReportItem
 } from "@/app/actions/staff-leads.actions";
+import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
 
 type DailyBreakdownItem = {
   dateKey: string;
@@ -282,43 +283,45 @@ export function StaffCrmReportsClient({
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* ── Top Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="ath-panel flex items-center justify-between flex-wrap gap-4 p-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Link
               href="/admin/staff-leads"
-              className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+              className="text-xs font-700 text-slate-500 hover:text-[#0F2540] flex items-center gap-1"
             >
               <ArrowLeft size={12} /> Back to CRM
             </Link>
             <span className="text-slate-300">·</span>
-            <span className="text-[11px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
-              Staff Operations &amp; Intelligence Suite
+            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">
+              Staff CRM
             </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Staff Shifts, Timesheets &amp; Live Cockpit
+          <h1 className="text-2xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+            Reports
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Monitor real-time team presence, login/logout timesheets, calls completed, conversions, and call timelines.
+          <p className="text-xs text-slate-600 mt-0.5 font-600">
+            Calls, conversions, timesheets, and follow-ups — previous work and what is still due.
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <Link
             href="/admin/staff-leads/my-dashboard"
-            className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 flex items-center gap-1.5 shadow-xs"
+            className="px-4 py-2 rounded-full bg-[#0F2540] text-white text-xs font-800 hover:bg-[#1e3a5f] flex items-center gap-1.5"
           >
-            <Clock size={14} className="text-emerald-400" /> My Shift Dashboard
+            <Clock size={14} className="text-[#2D9E6B]" /> My Dashboard
           </Link>
           <Link
             href="/admin/staff-leads/manage"
-            className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50"
+            className="px-4 py-2 rounded-full border border-slate-200 text-xs font-800 text-[#0F2540] bg-white hover:bg-slate-50"
           >
-            <Shield size={14} className="text-purple-600" /> CRM Ops &amp; Allocation
+            <Shield size={14} className="text-[#2D9E6B]" /> Lead Pipeline
           </Link>
         </div>
       </div>
+
+      <StaffCrmPlaybook compact />
 
       {/* ── Live Staff Presence Radar (Real-Time Cockpit) ── */}
       {liveStatus && (

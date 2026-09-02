@@ -54,14 +54,14 @@ export function ReferralClientView({
     <div className="min-h-screen pb-16" style={{ background: "#FAF8F5", fontFamily: "'Inter', sans-serif" }}>
       <div className="mx-auto max-w-4xl px-4 py-8">
         {/* Top Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <Link
             href={backHref}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-200"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-200 min-h-11"
             style={{ background: "#F1F5F9", border: "1.5px solid #0F172A" }}
           >
             <ArrowLeft size={16} />
-            Back to Dashboard
+            Back
           </Link>
 
           <span
@@ -69,7 +69,7 @@ export function ReferralClientView({
             style={{ background: "rgba(34,197,94,0.12)", color: "#16A34A", border: "1px solid #BBF7D0" }}
           >
             <Sparkles size={13} />
-            Referral Rewards Active
+            Rewards Active
           </span>
         </div>
 

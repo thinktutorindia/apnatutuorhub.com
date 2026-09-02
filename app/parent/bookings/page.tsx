@@ -128,7 +128,7 @@ export default async function ParentBookingsPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 ath-panel">
         <div className="space-y-1">
           <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Tuition Schedules</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
@@ -140,7 +140,7 @@ export default async function ParentBookingsPage({
         </div>
         <Link
           href="/parent/post-requirement"
-          className="px-5 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 shadow-md transition-all flex items-center gap-1.5 shrink-0"
+          className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 shadow-md transition-all inline-flex items-center justify-center gap-1.5 shrink-0 min-h-11"
         >
           <PlusCircle size={16} />
           <span>Book New Class</span>
@@ -169,7 +169,7 @@ export default async function ParentBookingsPage({
 
       {/* Bookings List */}
       {bookings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl py-20 bg-white border border-slate-200 text-center shadow-xs">
+        <div className="flex flex-col items-center justify-center gap-3 ath-panel py-20 text-center">
           <Calendar size={44} className="text-slate-400" />
           <h3 className="text-base font-800 text-[#0F2540]">No bookings found</h3>
           <p className="text-xs font-600 text-slate-600 max-w-sm">

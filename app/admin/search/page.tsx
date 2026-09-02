@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSearchEngineHealth } from "@/lib/search/health";
 import { reindexSearchEngineAction } from "@/app/actions/search.actions";
 import { Search, Database, Cpu, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 export const metadata = {
   title: "Search Engine Control Panel | ApnaTutorHub Admin",
@@ -19,22 +20,16 @@ export default async function AdminSearchPage() {
 
   return (
     <div className="space-y-6 text-slate-900">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
-        <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Search Infrastructure</span>
-          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Search Engine Control Panel 🔎
-          </h1>
-          <p className="text-xs text-slate-600 font-600">
-            Monitor search index cluster status, document counts, Redis query caching status, and trigger automated background reindexing jobs
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        eyebrow="Operations"
+        title="Search Engine"
+        description="Index health, document counts, Redis cache status, and background reindex jobs"
+        icon={Search}
+      />
 
       {/* Status Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-3xl p-5 bg-white border border-slate-200 shadow-xs space-y-2">
+        <div className="ath-panel p-5 space-y-2">
           <div className="flex items-center justify-between text-xs font-800 text-slate-900">
             <span>Engine Status</span>
             <Cpu size={16} className="text-[#2563EB]" />
@@ -52,10 +47,10 @@ export default async function AdminSearchPage() {
           </p>
         </div>
 
-        <div className="rounded-3xl p-5 bg-white border border-slate-200 shadow-xs space-y-2">
+        <div className="ath-panel p-5 space-y-2">
           <div className="flex items-center justify-between text-xs font-800 text-slate-900">
             <span>Indexed Documents</span>
-            <Database size={16} className="text-[#7C3AED]" />
+            <Database size={16} className="text-[#2D9E6B]" />
           </div>
           <div className="text-2xl font-800 text-[#0F2540]">
             {health.documentCounts.tutors + health.documentCounts.leads}
@@ -65,7 +60,7 @@ export default async function AdminSearchPage() {
           </p>
         </div>
 
-        <div className="rounded-3xl p-5 bg-white border border-slate-200 shadow-xs space-y-2">
+        <div className="ath-panel p-5 space-y-2">
           <div className="flex items-center justify-between text-xs font-800 text-slate-900">
             <span>Redis Cache</span>
             <RefreshCw size={16} className="text-[#2D9E6B]" />
@@ -74,7 +69,7 @@ export default async function AdminSearchPage() {
           <p className="text-xs font-600 text-slate-600">60s TTL Query Caching</p>
         </div>
 
-        <div className="rounded-3xl p-5 bg-white border border-slate-200 shadow-xs space-y-2">
+        <div className="ath-panel p-5 space-y-2">
           <div className="flex items-center justify-between text-xs font-800 text-slate-900">
             <span>Last Sync</span>
             <RefreshCw size={16} className="text-sky-600" />
@@ -90,7 +85,7 @@ export default async function AdminSearchPage() {
       </div>
 
       {/* Index Controls */}
-      <section className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-4">
+      <section className="ath-panel p-6 space-y-4">
         <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>Index Rebuild &amp; Operations</h2>
         <p className="text-xs font-600 text-slate-600">
           Execute a full entity scan of PostgreSQL and rebuild the search index across all collections.

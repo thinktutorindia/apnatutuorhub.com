@@ -32,7 +32,7 @@ export function WhatsAppHelpLink({
     >
       <span aria-hidden>💬</span>
       {compact ? (
-        <span>WhatsApp</span>
+        <span className="hidden lg:inline">{SUPPORT_PHONE_DISPLAY}</span>
       ) : (
         <span>WhatsApp {SUPPORT_PHONE_DISPLAY}</span>
       )}

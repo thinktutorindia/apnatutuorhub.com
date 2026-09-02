@@ -138,7 +138,7 @@ export default async function ApplicantsPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 ath-panel">
         <div className="space-y-1">
           <Link
             href="/parent/my-leads"
@@ -158,7 +158,7 @@ export default async function ApplicantsPage({
 
       {/* Applicant Cards List */}
       {ranked.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl py-20 bg-white border border-slate-200 text-center shadow-xs">
+        <div className="flex flex-col items-center justify-center gap-3 ath-panel py-20 text-center">
           <Users size={44} className="text-slate-400" />
           <h3 className="text-base font-800 text-[#0F2540]">No tutor responses received yet</h3>
           <p className="text-xs font-600 text-slate-600 max-w-sm">
@@ -172,7 +172,7 @@ export default async function ApplicantsPage({
             return (
               <div
                 key={applicant.id}
-                className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4 p-6"
+                className="ath-panel space-y-4 p-6"
               >
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
@@ -240,7 +240,7 @@ export default async function ApplicantsPage({
                           targetProfileId={tutor.id}
                           leadId={lead.id}
                           role="PARENT"
-                          className="px-4 py-2 rounded-2xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-800 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                          className="px-4 py-2 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 flex items-center gap-1.5 cursor-pointer"
                           buttonText="In-App Chat"
                         />
                         <BookApplicantButtons

@@ -30,10 +30,10 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <LogoBrand />
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 overflow-x-clip">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 min-w-0">
+          <LogoBrand heightClass="h-10 sm:h-11" />
+          <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/privacy"
               className="text-xs font-bold text-slate-700 hover:text-emerald-700 transition-colors"
@@ -42,13 +42,13 @@ export default function TermsPage() {
             </Link>
             <Link
               href="/tutor/plans"
-              className="text-xs font-bold text-slate-700 hover:text-emerald-700 transition-colors"
+              className="hidden sm:inline text-xs font-bold text-slate-700 hover:text-emerald-700 transition-colors"
             >
               Tutor Plans
             </Link>
             <Link
               href="/tutor/leads"
-              className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black shadow-xs transition-all"
+              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black shadow-xs transition-all min-h-11 inline-flex items-center"
             >
               Browse Leads
             </Link>

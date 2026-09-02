@@ -14,6 +14,7 @@ import {
   type DistributeMode
 } from "@/app/actions/staff-leads.actions";
 import type { StaffLeadStatus } from "@prisma/client";
+import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
 
 type Lead = {
   id: string;
@@ -164,19 +165,17 @@ export function StaffLeadsAssignClient({ leads: initialLeads, totalPoolCount = 0
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="ath-panel flex items-center justify-between flex-wrap gap-4 p-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-              Lead Distribution Engine
-            </span>
-            <span className="text-[11px] font-bold text-slate-500">
-              <strong className="text-emerald-700 font-extrabold">{totalPool.toLocaleString()}</strong> Unassigned Leads in Pool {totalPool > leads.length ? `(Showing ${leads.length} in table)` : ""}
+            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
+            <span className="text-[11px] font-700 text-slate-500">
+              <strong className="text-[#2D9E6B] font-800">{totalPool.toLocaleString()}</strong> unassigned {totalPool > leads.length ? `(showing ${leads.length})` : ""}
             </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Assign &amp; Distribute Leads</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Select multiple staff members to divide leads equally, set daily quotas (e.g. 100/day), or rotate stale records.
+          <h1 className="text-2xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>Assign Leads</h1>
+          <p className="text-xs text-slate-600 mt-0.5 font-600">
+            Split raw contacts across staff. Classify Parent vs Tutor after assignment, on the calling desk.
           </p>
         </div>
 
@@ -191,12 +190,14 @@ export function StaffLeadsAssignClient({ leads: initialLeads, totalPoolCount = 0
           </button>
           <Link
             href="/admin/staff-leads/upload"
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 shadow-xs transition-all"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#2D9E6B] text-white text-xs font-800 hover:bg-[#238357]"
           >
             <Upload size={14} /> Upload More Leads
           </Link>
         </div>
       </div>
+
+      <StaffCrmPlaybook compact />
 
       {/* Alert Notification */}
       {message && (

@@ -18,6 +18,9 @@ import {
   completeReminderAction,
   dismissReminderAction,
 } from "@/app/actions/staff-leads.actions";
+import { StaffLeadTypeBadge } from "@/components/admin/staff-leads/StaffLeadTypeControl";
+import { getStaffRecordType } from "@/lib/staff-lead-type";
+import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -277,26 +280,29 @@ export function StaffCommandCenter({ data, staffName, isSuperAdmin }: Props) {
       )}
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="ath-panel flex items-center justify-between flex-wrap gap-3 p-5 sm:p-6">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">
-            {activeSession ? "🟢" : "🔴"} {staffName.split(" ")[0]}'s Command Center
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+            {staffName.split(" ")[0]}&apos;s Dashboard
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          <p className="text-xs text-slate-600 mt-0.5 font-600">
+            {activeSession ? "On shift" : "Off shift"} · Clock, today&apos;s calls, due follow-ups, next contacts to work
           </p>
         </div>
         <div className="flex gap-2">
           <Link href="/admin/staff-leads/my-leads"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs">
-            <Phone size={14} className="text-blue-600" /> My Leads
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white border border-slate-200 text-xs font-800 text-[#0F2540] hover:bg-slate-50">
+            <Phone size={14} className="text-[#2563EB]" /> My Calling Queue
           </Link>
           <Link href="/admin/staff-leads"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 shadow-xs">
-            <BarChart3 size={14} className="text-emerald-400" /> CRM Dashboard
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#0F2540] text-white text-xs font-800 hover:bg-[#1e3a5f]">
+            <BarChart3 size={14} className="text-[#2D9E6B]" /> CRM Dashboard
           </Link>
         </div>
       </div>
+
+      <StaffCrmPlaybook compact />
 
       {/* ── Clock In/Out Banner ── */}
       <div className={`rounded-2xl p-5 border-2 shadow-lg transition-all ${
@@ -571,7 +577,8 @@ export function StaffCommandCenter({ data, staffName, isSuperAdmin }: Props) {
                       <span className="text-xs font-mono text-slate-400 w-5 text-center">#{i + 1}</span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-slate-800 truncate">{lead.name || "Unknown Lead"}</span>
+                          <span className="text-sm font-bold text-slate-800 truncate">{lead.name || "Unknown contact"}</span>
+                          <StaffLeadTypeBadge type={getStaffRecordType(lead.staffNotes)} />
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${st.color}`}>{st.label}</span>
                           {lead.priority > 0 && <Flame size={12} className="text-amber-500" />}
                         </div>

@@ -32,7 +32,7 @@ const ENTITY_ICON: Record<string, string> = {
 };
 
 const SUB_ADMIN_ROLE_BADGE: Record<string, { bg: string; text: string; label: string }> = {
-  VERIFICATION: { bg: "bg-purple-100 border-purple-300", text: "text-purple-950", label: "Verification" },
+  VERIFICATION: { bg: "bg-[#E8F7F0] border-emerald-300", text: "text-[#0F2540]", label: "Verification" },
   SUPPORT: { bg: "bg-[#E0F2FE] border-sky-300", text: "text-sky-950", label: "Support" },
   FINANCE: { bg: "bg-amber-100 border-amber-300", text: "text-amber-950", label: "Finance" },
   OPERATIONS: { bg: "bg-orange-100 border-orange-300", text: "text-orange-950", label: "Operations" },
@@ -110,26 +110,27 @@ export default async function AdminAuditLogsPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="flex items-center gap-3.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 border border-blue-200 text-[#2563EB] shrink-0">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E8F1FB] text-[#2563EB] shrink-0">
             <ClipboardList size={22} />
           </div>
           <div className="space-y-0.5">
+            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
             <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-              Sub-Admin Activity &amp; Governance Audit Logs
+              Audit Logs
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 font-600">
-              Track all actions, approvals, rejections, &amp; settings changes performed by staff
+              Approvals, rejections, and settings changes by staff
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-2">
-            <UserCheck size={16} className="text-amber-700" />
-            <span className="text-xs font-800 text-amber-950">
-              {totalSubAdminLogs} Sub-Admin Actions Logged
+          <div className="flex items-center gap-2 rounded-full bg-[#FFF3DC] px-4 py-2">
+            <UserCheck size={16} className="text-[#0F2540]" />
+            <span className="text-xs font-800 text-[#0F2540]">
+              {totalSubAdminLogs} staff actions
             </span>
           </div>
         </div>
@@ -145,7 +146,7 @@ export default async function AdminAuditLogsPage({
       />
 
       {/* Logs Table */}
-      <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="overflow-hidden ath-panel">
         {logs.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20">
             <ClipboardList size={40} className="text-slate-400" />

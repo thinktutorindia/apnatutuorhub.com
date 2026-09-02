@@ -432,9 +432,9 @@ export function EditLeadModal({
           )}
 
           {/* Activity & Correction History Quick Action Banner */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-950">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#E8F7F0] border border-emerald-200 text-[#0F2540]">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[#2D9E6B] text-white flex items-center justify-center font-bold shrink-0">
                 <Sparkles size={16} />
               </div>
               <div>
@@ -449,7 +449,7 @@ export function EditLeadModal({
             <button
               type="button"
               onClick={() => setIsHistoryModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer text-center"
+              className="px-3.5 py-1.5 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white text-xs font-bold shrink-0 cursor-pointer text-center"
             >
               View Full History Log →
             </button>
@@ -691,7 +691,7 @@ export function EditLeadModal({
                   onClick={() => handleBudgetRateTypeChange("HOURLY")}
                   className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
                     budgetRateType === "HOURLY"
-                      ? "bg-purple-600 text-white shadow-xs"
+                      ? "bg-[#0F2540] text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
@@ -787,8 +787,8 @@ export function EditLeadModal({
                       }}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
                         budgetMin === p.min && budgetMax === p.max
-                          ? "bg-purple-600 text-white border-purple-600 shadow-xs"
-                          : "bg-white text-purple-900 border-purple-200 hover:border-purple-300"
+                          ? "bg-[#0F2540] text-white border-[#0F2540] shadow-xs"
+                          : "bg-white text-[#0F2540] border-slate-200 hover:border-[#2D9E6B]"
                       }`}
                     >
                       {p.label}

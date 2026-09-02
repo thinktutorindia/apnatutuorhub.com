@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useSession } from "next-auth/react";
-import { ArrowRight, Loader2, Sparkles, Check } from "lucide-react";
+import { ArrowRight, Loader2, Check } from "lucide-react";
 import { selectUserRoleAction } from "@/app/actions/auth.actions";
 
 export default function SelectRolePage() {
-  const { data: session, status, update } = useSession();
+  const { data: session, update } = useSession();
   const [selectedRole, setSelectedRole] = useState<"PARENT" | "TUTOR">("PARENT");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -35,78 +35,74 @@ export default function SelectRolePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-lg space-y-6">
       <div className="text-center space-y-2">
-        <div className="neu-badge bg-[#DCFCE7] text-[#0F172A] inline-flex items-center gap-1.5 px-3 py-1 text-xs">
-          <Sparkles size={14} className="text-amber-500" />
-          <span>Account Role Selection</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
-          How do you want to use ApnaTutorHub? 🤔
+        <div className="ath-verified inline-flex">Choose how you want to use ApnaTutorHub</div>
+        <h1
+          className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight"
+          style={{ fontFamily: "Poppins, sans-serif" }}
+        >
+          Namaste{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}
         </h1>
-        <p className="text-sm font-semibold text-slate-600 max-w-sm mx-auto">
-          Choose your account role below. Parents can also register as a Tutor anytime.
+        <p className="text-[15px] font-500 text-[#64748B] max-w-sm mx-auto">
+          Parents post requirements. Teachers find nearby students. You can add the other role later.
         </p>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border-2 border-red-500 rounded-xl text-red-600 text-xs font-extrabold">
+        <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded-xl text-[#B91C1C] text-sm font-700">
           {error}
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Parent / Student Option */}
         <button
           type="button"
           onClick={() => setSelectedRole("PARENT")}
-          className={`neu-card text-left p-5 transition-all relative flex flex-col justify-between ${
-            selectedRole === "PARENT"
-              ? "bg-[#DCFCE7] border-4 border-[#0F172A] shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]"
-              : "bg-white opacity-80 hover:opacity-100"
+          aria-pressed={selectedRole === "PARENT"}
+          className={`ath-choice text-left p-5 h-auto flex-col items-start min-h-[160px] ${
+            selectedRole === "PARENT" ? "" : ""
           }`}
+          data-selected={selectedRole === "PARENT" ? "true" : "false"}
         >
           {selectedRole === "PARENT" && (
-            <div className="absolute top-3 right-3 h-6 w-6 rounded-full bg-[#22C55E] border-2 border-[#0F172A] flex items-center justify-center text-white">
+            <div className="absolute top-3 right-3 h-6 w-6 rounded-full bg-[#2D9E6B] flex items-center justify-center text-white relative">
               <Check size={14} strokeWidth={3} />
             </div>
           )}
-          <div className="space-y-3">
-            <div className="h-12 w-12 rounded-2xl border-2 border-[#0F172A] bg-white flex items-center justify-center text-2xl shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
+          <div className="space-y-3 w-full">
+            <div className="h-12 w-12 rounded-2xl bg-[#E8F7F0] flex items-center justify-center text-2xl">
               👨‍👩‍👧
             </div>
             <div>
-              <h3 className="text-lg font-black text-[#0F172A]">Parent / Student</h3>
-              <p className="text-xs font-semibold text-slate-600 mt-1 leading-relaxed">
-                I want to post tuition requirements and hire verified home & online tutors.
+              <h3 className="text-lg font-800 text-[#0F2540]">I am a Parent</h3>
+              <p className="text-xs font-500 text-[#64748B] mt-1 leading-relaxed">
+                Post what your child needs and get verified home or online tutors.
               </p>
             </div>
           </div>
         </button>
 
-        {/* Tutor Option */}
         <button
           type="button"
           onClick={() => setSelectedRole("TUTOR")}
-          className={`neu-card text-left p-5 transition-all relative flex flex-col justify-between ${
-            selectedRole === "TUTOR"
-              ? "bg-[#FEF3C7] border-4 border-[#0F172A] shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]"
-              : "bg-white opacity-80 hover:opacity-100"
-          }`}
+          aria-pressed={selectedRole === "TUTOR"}
+          className="ath-choice text-left p-5 h-auto flex-col items-start min-h-[160px]"
+          data-selected={selectedRole === "TUTOR" ? "true" : "false"}
         >
-          {selectedRole === "TUTOR" && (
-            <div className="absolute top-3 right-3 h-6 w-6 rounded-full bg-[#F59E0B] border-2 border-[#0F172A] flex items-center justify-center text-white">
-              <Check size={14} strokeWidth={3} />
-            </div>
-          )}
-          <div className="space-y-3">
-            <div className="h-12 w-12 rounded-2xl border-2 border-[#0F172A] bg-white flex items-center justify-center text-2xl shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
+          <div className="space-y-3 w-full">
+            {selectedRole === "TUTOR" && (
+              <div className="h-6 w-6 rounded-full bg-[#F5A623] flex items-center justify-center text-white ml-auto">
+                <Check size={14} strokeWidth={3} />
+              </div>
+            )}
+            <div className="h-12 w-12 rounded-2xl bg-[#FFF3DC] flex items-center justify-center text-2xl">
               🎓
             </div>
             <div>
-              <h3 className="text-lg font-black text-[#0F172A]">Tutor / Teacher</h3>
-              <p className="text-xs font-semibold text-slate-600 mt-1 leading-relaxed">
-                I want to find tuition leads, connect with parents, and earn money teaching.
+              <h3 className="text-lg font-800 text-[#0F2540]">I am a Tutor</h3>
+              <p className="text-xs font-500 text-[#64748B] mt-1 leading-relaxed">
+                Unlock nearby student enquiries and teach after a free demo class.
               </p>
             </div>
           </div>
@@ -117,7 +113,7 @@ export default function SelectRolePage() {
         type="button"
         onClick={handleConfirmRole}
         disabled={isSubmitting}
-        className="neu-btn neu-btn-primary w-full py-3.5 text-sm flex items-center justify-center gap-2"
+        className="neu-btn neu-btn-primary w-full py-3.5 text-sm min-h-12 flex items-center justify-center gap-2"
       >
         {isSubmitting ? (
           <span className="flex items-center gap-2">
@@ -126,7 +122,7 @@ export default function SelectRolePage() {
           </span>
         ) : (
           <span className="flex items-center gap-2">
-            Continue to {selectedRole === "PARENT" ? "Parent" : "Tutor"} Dashboard <ArrowRight size={18} />
+            Continue as {selectedRole === "PARENT" ? "Parent" : "Tutor"} <ArrowRight size={18} />
           </span>
         )}
       </button>

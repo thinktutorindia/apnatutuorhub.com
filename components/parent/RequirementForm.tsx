@@ -26,8 +26,8 @@ import { getMediaUrl } from "@/lib/s3";
 import { isTill5thClass } from "@/lib/lead-utils";
 import {
   BOARDS,
+  CLASS_LEVELS,
   LANGUAGE_PREFERENCES,
-  TEACHING_MODES,
   TIMING_PREFERENCES,
   TUTOR_GENDER_PREFS,
 } from "@/lib/validations";
@@ -35,10 +35,13 @@ import type { ParentStudent, RequirementFormValues } from "@/types/parent";
 
 const initialState: RequirementState = { success: false };
 
-const MODE_OPTIONS = TEACHING_MODES.map((mode) => ({
-  value: mode.value,
-  label: mode.label,
-}));
+const CLASS_GROUPS = [
+  { label: "Class 1 to 5", values: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"], setTo: "Class 5" },
+  { label: "Class 6 to 8", values: ["Class 6", "Class 7", "Class 8"], setTo: "Class 8" },
+  { label: "Class 9 & 10", values: ["Class 9", "Class 10"], setTo: "Class 10" },
+  { label: "Class 11 & 12", values: ["Class 11", "Class 12"], setTo: "Class 12" },
+  { label: "NEET / JEE", values: ["IIT-JEE", "NEET"], setTo: "NEET" },
+] as const;
 
 function SectionCard({
   title,
@@ -224,13 +227,6 @@ export function RequirementForm({
     }
   }, [isEarlyGrade, teachingMode]);
 
-  const availableModeOptions = useMemo(() => {
-    if (isEarlyGrade) {
-      return MODE_OPTIONS.filter((m) => m.value !== "ONLINE");
-    }
-    return MODE_OPTIONS;
-  }, [isEarlyGrade]);
-
   const isOnlineOnly = teachingMode === "ONLINE";
 
   return (
@@ -266,7 +262,7 @@ export function RequirementForm({
         <SectionCard
           title="Which child is this requirement for?"
           description="Optional — picking a saved child profile pre-fills their class and subjects."
-          background="#2563EB"
+          background="#0F2540"
         >
           <div className="flex flex-wrap gap-2">
             <button
@@ -319,6 +315,60 @@ export function RequirementForm({
           <FieldError messages={state.fieldErrors?.studentProfileId} />
         </SectionCard>
       )}
+
+      {/* Class group chips — mockup: Class 1-5, 6-8, 9-10, 11-12, NEET/JEE */}
+      <SectionCard
+        title="Student class"
+        description="Tap the class group. You can fine-tune the exact class below."
+        background="#2D9E6B"
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          {CLASS_GROUPS.map((group) => {
+            const selected =
+              (group.values as readonly string[]).includes(classLevel) ||
+              classLevel === group.setTo ||
+              (group.label.includes("9") && /9.?10|Class 9-10/i.test(classLevel)) ||
+              (group.label.includes("11") && /11.?12|Class 11-12/i.test(classLevel)) ||
+              (group.label.startsWith("Class 1 to 5") && /1-5|1 to 5|Nursery/i.test(classLevel));
+            return (
+              <button
+                key={group.label}
+                type="button"
+                disabled={locked}
+                aria-pressed={selected}
+                data-selected={selected ? "true" : "false"}
+                onClick={() => setClassLevel(group.setTo)}
+                className="ath-choice min-h-14 text-sm sm:text-[15px] w-full"
+              >
+                {selected && <Check size={16} className="text-[#2D9E6B]" />}
+                {group.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap gap-2 pt-2">
+          {CLASS_LEVELS.filter((lvl) => {
+            const group = CLASS_GROUPS.find((g) => g.values.includes(lvl as never) || g.setTo === classLevel);
+            if (!group) return ["College / Degree", "CA / Commerce", "Coding & IT", "Languages", "Music & Arts", "Competitive Exams"].includes(lvl);
+            return group.values.includes(classLevel as never) || group.setTo === classLevel || group.values.includes(lvl as never);
+          }).slice(0, 8).map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              disabled={locked}
+              onClick={() => setClassLevel(lvl)}
+              className={`px-3 py-2 rounded-xl text-xs font-800 border min-h-11 ${
+                classLevel === lvl
+                  ? "bg-[#E8F7F0] text-[#238357] border-[#2D9E6B]"
+                  : "bg-white text-[#0F2540] border-[#E2E8F0] hover:border-[#2D9E6B]"
+              }`}
+            >
+              {lvl}
+            </button>
+          ))}
+        </div>
+        <FieldError messages={state.fieldErrors?.classLevel} />
+      </SectionCard>
 
       {/* 1. Subjects Needed */}
       <SectionCard
@@ -425,21 +475,44 @@ export function RequirementForm({
 
       {/* 2. Mode & Budget Range */}
       <SectionCard
-        title="Teaching Mode & Budget Range"
-        description="Verified tutors review your budget quote before connecting."
+        title="How should the tutor teach?"
+        description="Home tutor at your house, or live online classes."
         background="#D97706"
       >
         <div className="space-y-2">
           <span className="block text-xs font-800 uppercase tracking-wider text-slate-700">
             Teaching Mode
           </span>
-          <OptionPills
-            name="mode"
-            options={availableModeOptions}
-            value={teachingMode}
-            onChange={setTeachingMode}
-            disabled={locked}
-          />
+          <input type="hidden" name="mode" value={teachingMode} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={locked}
+              aria-pressed={teachingMode === "OFFLINE" || teachingMode === "EITHER" || teachingMode === "COACHING"}
+              data-selected={teachingMode !== "ONLINE" ? "true" : "false"}
+              onClick={() => setTeachingMode("OFFLINE")}
+              className="ath-choice min-h-[88px] flex-col w-full"
+            >
+              <span className="text-2xl">🏠</span>
+              <span>Home Tutor</span>
+              <span className="text-xs font-500 text-[#64748B]">at your home</span>
+            </button>
+            <button
+              type="button"
+              disabled={locked || isEarlyGrade}
+              aria-pressed={teachingMode === "ONLINE"}
+              data-selected={teachingMode === "ONLINE" ? "true" : "false"}
+              onClick={() => setTeachingMode("ONLINE")}
+              className="ath-choice min-h-[88px] flex-col w-full"
+            >
+              <span className="text-2xl">💻</span>
+              <span>Online</span>
+              <span className="text-xs font-500 text-[#64748B]">live classes</span>
+            </button>
+          </div>
+          <p className="text-[11px] font-600 text-[#64748B]">
+            Need either? Tutors who do both will still see home-tuition posts in your area.
+          </p>
           {isEarlyGrade && (
             <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-2">
               <span className="text-sm">🚸</span>
@@ -473,7 +546,7 @@ export function RequirementForm({
               onClick={() => handleBudgetRateTypeChange("HOURLY")}
               className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-800 transition-all cursor-pointer ${
                 budgetRateType === "HOURLY"
-                  ? "bg-purple-50 border-purple-400 text-purple-950 shadow-xs ring-2 ring-purple-400/20"
+                  ? "bg-[#E8F7F0] border-[#2D9E6B] text-[#0F2540] shadow-xs ring-2 ring-[#2D9E6B]/20"
                   : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
               }`}
             >
@@ -564,8 +637,8 @@ export function RequirementForm({
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-800 border transition-all cursor-pointer ${
                     budgetMinVal === p.min && budgetMaxVal === p.max
-                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
-                      : "bg-white text-purple-900 border-purple-200 hover:border-purple-300"
+                      ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                      : "bg-white text-[#0F2540] border-[#E2E8F0] hover:border-[#2D9E6B]"
                   }`}
                 >
                   {p.label}
@@ -605,7 +678,7 @@ export function RequirementForm({
             ? "Online classes do not require home address matching."
             : "We rank nearby tutors based on physical distance in kilometers."
         }
-        background="#EA580C"
+        background="#F5A623"
       >
         <div className="space-y-1.5 pb-2">
           <label className="block text-xs font-800 uppercase tracking-wider text-[#0F2540] flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -785,7 +858,7 @@ export function RequirementForm({
       <SectionCard
         title="Schedule & Tutor Preferences"
         description="Always editable — helps match tutors with your timing expectations."
-        background="#7C3AED"
+        background="#2D9E6B"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -894,7 +967,7 @@ export function RequirementForm({
             {genderPref !== "ANY" && (
               <>
                 <span>•</span>
-                <span className="text-purple-700 font-bold">{genderPref === "FEMALE" ? "Female Tutor Preferred" : "Male Tutor Preferred"}</span>
+                <span className="text-[#238357] font-bold">{genderPref === "FEMALE" ? "Female Tutor Preferred" : "Male Tutor Preferred"}</span>
               </>
             )}
           </div>
@@ -924,8 +997,8 @@ export function RequirementForm({
             {isPending
               ? "Saving..."
               : mode === "create"
-                ? "Post Tuition Requirement"
-                : "Save Requirement Changes"}
+                ? "Get Free Tutor Recommendations"
+                : "Save changes"}
           </span>
         </button>
       </div>

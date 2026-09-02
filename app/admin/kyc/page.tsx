@@ -66,20 +66,20 @@ export default async function AdminKycPage({
   return (
     <div className="space-y-6 text-slate-900 pb-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">KYC Verification Governance</span>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Command Center</span>
           <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Identity &amp; Government ID Review Queue
+            KYC Queue
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Review uploaded government ID proofs and live selfies to grant verified badges and rank tutors higher
+            Review government ID proofs and live selfies before granting the verified badge
           </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="px-4 py-2 rounded-2xl text-xs font-800 bg-amber-100 text-amber-950 border border-amber-300">
-            {pendingCount} Applications Await Review
+          <span className="px-4 py-2 rounded-full text-xs font-800 bg-[#FFF3DC] text-[#0F2540]">
+            {pendingCount} pending review
           </span>
         </div>
       </div>
@@ -92,9 +92,9 @@ export default async function AdminKycPage({
             <Link
               key={tab.value}
               href={`/admin/kyc?status=${tab.value}`}
-              className={`px-5 py-3 rounded-2xl text-xs font-800 transition-all border flex items-center gap-2 ${
+              className={`px-5 py-2.5 rounded-full text-xs font-800 transition-all border flex items-center gap-2 ${
                 isActive
-                  ? "bg-[#2D9E6B] !text-white border-[#2D9E6B] shadow-xs"
+                  ? "bg-[#2D9E6B] !text-white border-[#2D9E6B]"
                   : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
               }`}
             >
@@ -111,7 +111,7 @@ export default async function AdminKycPage({
 
       {/* Tutor Submissions List */}
       {tutorsWithUrls.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl py-20 bg-white border border-slate-200 shadow-xs text-center">
+        <div className="flex flex-col items-center justify-center gap-3 ath-panel py-20 text-center">
           <ShieldCheck size={44} className="text-slate-400" />
           <p className="text-base font-800 text-[#0F2540]">
             No {statusFilter.toLowerCase()} KYC submissions in queue
@@ -125,7 +125,7 @@ export default async function AdminKycPage({
           {tutorsWithUrls.map((tutor) => (
             <div
               key={tutor.id}
-              className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4"
+              className="overflow-hidden ath-panel space-y-4"
             >
               {/* Tutor info header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50 border-b border-slate-200">

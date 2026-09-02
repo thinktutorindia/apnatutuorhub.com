@@ -147,6 +147,33 @@ export async function POST(req: NextRequest) {
     const totalDuplicates = enrichedLeads.filter((l) => l.isDuplicate).length;
     const totalReady = enrichedLeads.filter((l) => !l.isDuplicate && (l.phone || l.email)).length;
 
+    // Granular Extraction Metrics
+    const totalWithNames = enrichedLeads.filter((l) => Boolean(l.name && l.name.trim().length > 1)).length;
+    const totalWithLocations = enrichedLeads.filter((l) => Boolean(l.location && l.location.trim().length > 1)).length;
+    const totalWithSubjects = enrichedLeads.filter((l) => Boolean((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0))).length;
+    const totalCompleteProfiles = enrichedLeads.filter((l) => {
+      const hasName = Boolean(l.name && l.name.trim().length > 1);
+      const hasPhone = Boolean(l.phone);
+      const hasLoc = Boolean(l.location && l.location.trim().length > 1);
+      const hasSub = Boolean((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0));
+      return hasName && hasPhone && hasLoc && hasSub;
+    }).length;
+    const totalLocationOnly = enrichedLeads.filter((l) => {
+      const hasLoc = Boolean(l.location && l.location.trim().length > 1);
+      const hasSub = Boolean((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0));
+      return hasLoc && !hasSub;
+    }).length;
+    const totalSubjectOnly = enrichedLeads.filter((l) => {
+      const hasLoc = Boolean(l.location && l.location.trim().length > 1);
+      const hasSub = Boolean((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0));
+      return hasSub && !hasLoc;
+    }).length;
+    const totalPhoneOnly = enrichedLeads.filter((l) => {
+      const hasLoc = Boolean(l.location && l.location.trim().length > 1);
+      const hasSub = Boolean((l.subjects && l.subjects.length > 0) || (l.classes && l.classes.length > 0));
+      return Boolean(l.phone && !hasLoc && !hasSub);
+    }).length;
+
     // Cap preview slice to 500 records for fast browser rendering
     const previewSlice = enrichedLeads.slice(0, 500);
 
@@ -161,6 +188,13 @@ export async function POST(req: NextRequest) {
         totalEmailsCount: totalEmails,
         totalDuplicatesCount: totalDuplicates,
         totalReadyCount: totalReady,
+        totalWithNamesCount: totalWithNames,
+        totalWithLocationsCount: totalWithLocations,
+        totalWithSubjectsCount: totalWithSubjects,
+        totalCompleteProfilesCount: totalCompleteProfiles,
+        totalLocationOnlyCount: totalLocationOnly,
+        totalSubjectOnlyCount: totalSubjectOnly,
+        totalPhoneOnlyCount: totalPhoneOnly,
         isPreviewCapped: totalLeads > 500,
       },
     });

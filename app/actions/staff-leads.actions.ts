@@ -16,6 +16,7 @@ import { parseWhatsAppDump, type BatchParseResult } from "@/lib/staff-lead-parse
 import { extractLeadData } from "@/lib/gemini-lead-extractor";
 import type { StaffLeadStatus, CallOutcome } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { applyStaffRecordType, PARENT_TAG, staffNotesFromParsed } from "@/lib/staff-lead-type";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -347,12 +348,6 @@ export async function confirmBatchFromRawTextAction(
 
     const CHUNK_INSERT_SIZE = 1000;
     const leadsToInsert = finalToSave.map((l) => {
-      const metaParts: string[] = [];
-      if (l.leadType === "PARENT_LEAD") metaParts.push("[PARENT REQUIREMENT]");
-      if (l.budgetFee) metaParts.push(`[BUDGET: ${l.budgetFee}]`);
-      if (l.appliedCodes && l.appliedCodes.length > 0) metaParts.push(`[CODES: ${l.appliedCodes.join(", ")}]`);
-      if (l.operationalNotes) metaParts.push(`[NOTES: ${l.operationalNotes}]`);
-
       return {
         batchId: batch.id,
         rawText: l.rawText || null,
@@ -370,7 +365,7 @@ export async function confirmBatchFromRawTextAction(
         qualification: l.qualification || null,
         experienceYears: l.experienceYears ?? null,
         gender: l.gender || null,
-        staffNotes: metaParts.length > 0 ? metaParts.join(" | ") : null,
+        staffNotes: staffNotesFromParsed(l),
         createdById: session.user.id,
       };
     });
@@ -537,12 +532,6 @@ export async function confirmBatchUploadAction(
     // Chunked insert to prevent PostgreSQL parameter overflow (limit is 65k parameters)
     const CHUNK_INSERT_SIZE = 1000;
     const leadsToInsert = finalToSave.map((l) => {
-      const metaParts: string[] = [];
-      if (l.leadType === "PARENT_LEAD") metaParts.push("[PARENT REQUIREMENT]");
-      if (l.budgetFee) metaParts.push(`[BUDGET: ${l.budgetFee}]`);
-      if (l.appliedCodes && l.appliedCodes.length > 0) metaParts.push(`[CODES: ${l.appliedCodes.join(", ")}]`);
-      if (l.operationalNotes) metaParts.push(`[NOTES: ${l.operationalNotes}]`);
-
       return {
         batchId: batch.id,
         rawText: l.rawText || null,
@@ -560,7 +549,7 @@ export async function confirmBatchUploadAction(
         qualification: l.qualification || null,
         experienceYears: l.experienceYears ?? null,
         gender: l.gender || null,
-        staffNotes: metaParts.length > 0 ? metaParts.join(" | ") : null,
+        staffNotes: staffNotesFromParsed(l),
         createdById: session.user.id,
       };
     });
@@ -710,12 +699,6 @@ export async function directBulkImportAction(
 
     const CHUNK_INSERT_SIZE = 1000;
     const leadsToInsert = finalToSave.map((l) => {
-      const metaParts: string[] = [];
-      if (l.leadType === "PARENT_LEAD") metaParts.push("[PARENT REQUIREMENT]");
-      if (l.budgetFee) metaParts.push(`[BUDGET: ${l.budgetFee}]`);
-      if (l.appliedCodes && l.appliedCodes.length > 0) metaParts.push(`[CODES: ${l.appliedCodes.join(", ")}]`);
-      if (l.operationalNotes) metaParts.push(`[NOTES: ${l.operationalNotes}]`);
-
       return {
         batchId: batch.id,
         rawText: l.rawText || null,
@@ -733,7 +716,7 @@ export async function directBulkImportAction(
         qualification: l.qualification || null,
         experienceYears: l.experienceYears ?? null,
         gender: l.gender || null,
-        staffNotes: metaParts.length > 0 ? metaParts.join(" | ") : null,
+        staffNotes: staffNotesFromParsed(l),
         createdById: session.user.id,
       };
     });
@@ -823,6 +806,26 @@ export async function updateStaffLeadAction(
   revalidatePath("/admin/staff-leads");
   revalidatePath("/admin/staff-leads/my-leads");
   return actionSuccess({ lead: updated });
+}
+
+export async function setStaffLeadRecordTypeAction(
+  leadId: string,
+  type: "TUTOR" | "PARENT"
+): Promise<ActionResult<{ staffNotes: string }>> {
+  const { error, session, lead } = await requireAssignedOrCrmOps(leadId);
+  if (error || !session?.user || !lead) return actionError(error ?? "Unauthorized");
+
+  const staffNotes = applyStaffRecordType(lead.staffNotes, type);
+
+  await prisma.staffLead.update({
+    where: { id: leadId },
+    data: { staffNotes },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  revalidatePath(`/admin/staff-leads/${leadId}`);
+  revalidatePath("/admin/staff-leads/my-leads");
+  return actionSuccess({ staffNotes });
 }
 
 // ─── 4. Log a call outcome ────────────────────────────────────────────────────
@@ -1103,6 +1106,9 @@ export async function promoteLeadToProfileAction(
 ): Promise<ActionResult<{ userId: string; tutorProfileId: string; isNewUser: boolean; temporaryPassword?: string }>> {
   const { error, session, lead } = await requireAssignedOrCrmOps(leadId);
   if (error || !session?.user || !lead) return actionError(error ?? "Unauthorized");
+  if (lead.staffNotes?.includes(PARENT_TAG)) {
+    return actionError("This row is a parent requirement. Switch it to Tutor first, or post it in Student Leads Feed.");
+  }
   if (lead.isPromoted && lead.promotedTutorProfileId) {
     return actionSuccess({
       tutorProfileId: lead.promotedTutorProfileId,
@@ -1230,7 +1236,7 @@ export async function getStaffLeadsAction(opts?: {
     location: string | null; subjects: string[]; classes: string[]; status: StaffLeadStatus;
     assignedToId: string | null; assignedTo: { name: string | null } | null;
     isPromoted: boolean; createdAt: Date; lastContactedAt: Date | null;
-    nextFollowUpAt: Date | null; _count: { callLogs: number };
+    nextFollowUpAt: Date | null; staffNotes: string | null; _count: { callLogs: number };
   }>;
   total: number;
 }>> {
@@ -1261,7 +1267,7 @@ export async function getStaffLeadsAction(opts?: {
         subjects: true, classes: true, status: true, assignedToId: true,
         assignedTo: { select: { name: true } },
         isPromoted: true, createdAt: true, lastContactedAt: true,
-        nextFollowUpAt: true, _count: { select: { callLogs: true } },
+        nextFollowUpAt: true, staffNotes: true, _count: { select: { callLogs: true } },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -1436,11 +1442,12 @@ export async function getStaffMembersAction(): Promise<ActionResult<{
 export async function getStaffLeadStatsAction(): Promise<ActionResult<{
   total: number; newLeads: number; assigned: number; contacted: number;
   interested: number; converted: number; notInterested: number; noAnswer: number; followUp: number;
+  parentLeads: number; tutorLeads: number;
 }>> {
   const { error } = await requireCrmOps();
   if (error) return actionError(error);
 
-  const [total, newLeads, assigned, contacted, interested, converted, notInterested, noAnswer, followUp] = await Promise.all([
+  const [total, newLeads, assigned, contacted, interested, converted, notInterested, noAnswer, followUp, parentLeads] = await Promise.all([
     prisma.staffLead.count(),
     prisma.staffLead.count({ where: { status: "NEW" } }),
     prisma.staffLead.count({ where: { status: "ASSIGNED" } }),
@@ -1450,9 +1457,14 @@ export async function getStaffLeadStatsAction(): Promise<ActionResult<{
     prisma.staffLead.count({ where: { status: "NOT_INTERESTED" } }),
     prisma.staffLead.count({ where: { status: "NO_ANSWER" } }),
     prisma.staffLead.count({ where: { status: "FOLLOW_UP" } }),
+    prisma.staffLead.count({ where: { staffNotes: { contains: PARENT_TAG } } }),
   ]);
 
-  return actionSuccess({ total, newLeads, assigned, contacted, interested, converted, notInterested, noAnswer, followUp });
+  return actionSuccess({
+    total, newLeads, assigned, contacted, interested, converted, notInterested, noAnswer, followUp,
+    parentLeads,
+    tutorLeads: Math.max(0, total - parentLeads),
+  });
 }
 
 // ─── 14. Re-parse a single lead with AI ──────────────────────────────────────

@@ -2,45 +2,66 @@
 
 import React, { useEffect, useRef } from "react";
 import lottie from "lottie-web/build/player/lottie_light";
-import defaultLoadingData from "@/public/loading.json";
 
 interface LottieAnimationProps {
-  animationData?: any;
+  src?: string;
+  animationData?: object;
   width?: number | string;
   height?: number | string;
   className?: string;
+  loop?: boolean;
 }
 
 export function LottieAnimation({
-  animationData = defaultLoadingData,
-  width = 160,
-  height = 160,
+  src = "/animations/cute-tiger.json",
+  animationData,
+  width = 200,
+  height = 200,
   className = "",
+  loop = true,
 }: LottieAnimationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    containerRef.current.innerHTML = "";
-    const animInstance = lottie.loadAnimation({
-      container: containerRef.current,
-      renderer: "svg",
-      loop: true,
-      autoplay: true,
-      animationData: animationData || defaultLoadingData,
-    });
+    let cancelled = false;
+    let anim: ReturnType<typeof lottie.loadAnimation> | null = null;
+
+    async function play() {
+      let data = animationData;
+      if (!data && src) {
+        const res = await fetch(src);
+        if (!res.ok) return;
+        data = await res.json();
+      }
+      if (cancelled || !container || !data) return;
+
+      container.innerHTML = "";
+      anim = lottie.loadAnimation({
+        container,
+        renderer: "svg",
+        loop,
+        autoplay: true,
+        animationData: data,
+      });
+    }
+
+    void play();
 
     return () => {
-      animInstance.destroy();
+      cancelled = true;
+      anim?.destroy();
     };
-  }, [animationData]);
+  }, [animationData, src, loop]);
 
   return (
     <div
       ref={containerRef}
       style={{ width, height }}
       className={`flex items-center justify-center pointer-events-none ${className}`}
+      aria-hidden
     />
   );
 }

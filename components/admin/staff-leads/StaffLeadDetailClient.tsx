@@ -12,6 +12,10 @@ import {
   reParseLeadWithAIAction
 } from "@/app/actions/staff-leads.actions";
 import type { StaffLeadStatus, CallOutcome } from "@prisma/client";
+import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
+import { StaffLeadTypeControl } from "@/components/admin/staff-leads/StaffLeadTypeControl";
+import { StaffLeadWorkPlan } from "@/components/admin/staff-leads/StaffLeadWorkPlan";
+import { getStaffRecordType, staffNotesWithoutTypeTags, type StaffRecordType } from "@/lib/staff-lead-type";
 
 const STATUS_STYLES: Record<StaffLeadStatus, { label: string; bg: string; text: string }> = {
   NEW:            { label: "New",            bg: "bg-slate-100",   text: "text-slate-600"   },
@@ -69,6 +73,7 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
   const [nextFollowUp, setNextFollowUp] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [promoteConfirm, setPromoteConfirm] = useState(false);
+  const [recordType, setRecordType] = useState<StaffRecordType>(getStaffRecordType(initialLead.staffNotes));
 
   // Editable fields
   const [editing, setEditing] = useState(false);
@@ -180,10 +185,10 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
+      <div className="ath-panel flex items-start justify-between flex-wrap gap-3 p-5 sm:p-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link href="/admin/staff-leads" className="text-slate-400 hover:text-slate-700">
+            <Link href="/admin/staff-leads" className="text-slate-400 hover:text-[#0F2540]">
               <ChevronLeft size={18} />
             </Link>
             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${statusStyle.bg} ${statusStyle.text}`}>
@@ -195,11 +200,24 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-900">{lead.name ?? "Unknown Tutor"}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>{lead.name ?? "Unknown contact"}</h1>
+          <p className="text-sm text-slate-600 mt-0.5 font-600">
             {lead.phone ?? "No phone"} · {lead.location ?? "Unknown location"}
             {lead.assignedTo && <> · Assigned to <strong>{lead.assignedTo.name ?? lead.assignedTo.email}</strong></>}
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-800 text-slate-500">This row is a</span>
+            <StaffLeadTypeControl
+              leadId={lead.id}
+              type={recordType}
+              onChanged={(next, notes) => {
+                setRecordType(next);
+                setLead((prev) => ({ ...prev, staffNotes: notes }));
+                setForm((prev) => ({ ...prev, staffNotes: notes }));
+              }}
+            />
+            <span className="text-[11px] font-600 text-slate-500">Wrong dump? Switch Parent ↔ Tutor before converting.</span>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {lead.rawText && (
@@ -213,13 +231,29 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
             {editing ? <><Save size={14} /> Save Mode</> : <><Save size={14} /> Edit</>}
           </button>
           <button onClick={() => setShowLogCall(!showLogCall)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700">
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#2563EB] text-white text-sm font-800 hover:bg-[#1d4ed8]">
             <PhoneCall size={14} /> Log Call
           </button>
-          {!lead.isPromoted ? (
+          {!lead.isPromoted && recordType === "PARENT" ? (
+            <CreateLeadModal
+              triggerLabel="Post to Student Leads"
+              triggerClassName="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#2563EB] !text-white text-sm font-800 hover:bg-[#1d4ed8]"
+              defaults={{
+                parentName: lead.name ?? undefined,
+                parentPhone: lead.phone ?? undefined,
+                parentEmail: lead.email ?? undefined,
+                classLevel: lead.classes[0] ?? undefined,
+                board: lead.board ?? undefined,
+                subjects: lead.subjects,
+                city: lead.location ?? undefined,
+                pincode: lead.pincode ?? undefined,
+                notes: staffNotesWithoutTypeTags(lead.staffNotes) || undefined,
+              }}
+            />
+          ) : !lead.isPromoted ? (
             <button onClick={() => setPromoteConfirm(true)} disabled={isPending}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-bold hover:from-emerald-700 hover:to-teal-700 shadow-md shadow-emerald-200">
-              <ArrowUpRight size={14} /> Promote to Profile
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#2D9E6B] text-white text-sm font-800 hover:bg-[#238357]">
+              <ArrowUpRight size={14} /> Promote to tutor
             </button>
           ) : (
             <Link href={`/admin/users`}
@@ -229,6 +263,17 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
           )}
         </div>
       </div>
+
+      <StaffLeadWorkPlan
+        type={recordType}
+        status={lead.status}
+        isPromoted={lead.isPromoted}
+        hasPhone={Boolean(lead.phone)}
+        nextFollowUpAt={lead.nextFollowUpAt}
+        lastContactedAt={lead.callLogs[0]?.calledAt}
+        callCount={lead.callLogs.length}
+        assignedTo={lead.assignedTo?.name ?? lead.assignedTo?.email}
+      />
 
       {message && (
         <div className={`rounded-xl p-4 flex items-center gap-2 text-sm ${message.type === "success" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-red-50 border border-red-200 text-red-700"}`}>
@@ -287,9 +332,10 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
       {/* Promote confirm */}
       {promoteConfirm && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 space-y-3">
-          <h3 className="font-extrabold text-emerald-900">Promote to Real Tutor Profile?</h3>
+          <h3 className="font-extrabold text-emerald-900">Create a tutor account from this row?</h3>
           <p className="text-sm text-emerald-700">
-            This will create a <strong>User account</strong> + <strong>TutorProfile</strong> in the main database.
+            Use this only if they want to teach. Parent tuition needs should be posted to Student Leads instead.
+            This creates a <strong>User</strong> + <strong>TutorProfile</strong>.
             {lead.email ? <> Email: <code className="font-mono bg-emerald-100 px-1 rounded">{lead.email}</code></> : <> No email — will use <code className="font-mono bg-emerald-100 px-1 rounded">{lead.phone}@apnatutorhub.com</code></>}
             . Default password: <code className="font-mono bg-emerald-100 px-1 rounded">Apnatutor@123</code>
           </p>

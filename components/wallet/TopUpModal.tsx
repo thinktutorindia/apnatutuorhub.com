@@ -109,7 +109,7 @@ export function TopUpModal({
           order_id: orderId,
           name: "ApnaTutorHub",
           description: `${result.data.packageName} — ${totalCoins} Coins ${appliedCoupon ? `(Coupon ${appliedCoupon.code})` : ""}`,
-          image: "/logo.png",
+          image: "/icons/logo.png",
           prefill: {
             name: userName,
             email: userEmail,

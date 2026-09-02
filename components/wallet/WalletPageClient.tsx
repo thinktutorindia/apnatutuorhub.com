@@ -161,7 +161,7 @@ export function WalletPageClient({
             <button
               type="button"
               onClick={() => setTopUpOpen(true)}
-              className="btn-shine px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 shrink-0 flex items-center gap-2 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 shrink-0 inline-flex items-center justify-center gap-2 cursor-pointer min-h-11"
             >
               <Plus size={16} />
               <span className="!text-white font-800">Top Up Coins</span>
@@ -196,7 +196,7 @@ export function WalletPageClient({
               <button
                 type="button"
                 onClick={() => setTopUpOpen(true)}
-                className="btn-shine w-full py-2.5 px-4 rounded-xl bg-[#0F2540] hover:bg-black !text-white text-xs font-800 flex items-center justify-center gap-1.5 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow-md cursor-pointer mt-1"
+                className="w-full py-2.5 px-4 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] !text-white text-xs font-800 flex items-center justify-center gap-1.5 cursor-pointer mt-1"
               >
                 <Plus size={14} />
                 <span className="!text-white font-800">Buy Coins Now</span>
@@ -213,7 +213,7 @@ export function WalletPageClient({
 
           {/* Total Purchased */}
           <div className="group rounded-3xl p-6 bg-white border border-gray-200/90 shadow-xs hover:shadow-xl hover:shadow-slate-900/10 hover:border-emerald-300 transition-all duration-300 ease-out hover:-translate-y-1.5 flex flex-col items-center justify-center text-center space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2D9E6B] flex items-center justify-center font-800 text-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2D9E6B] flex items-center justify-center font-800 text-lg">
               <ArrowUpRight size={20} />
             </div>
             <p className="text-xs font-800 uppercase tracking-wider text-gray-500">Total Purchased</p>
@@ -259,7 +259,7 @@ export function WalletPageClient({
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-800 transition-all duration-200 cursor-pointer ${
                       isActive
                         ? "bg-[#2D9E6B] text-white shadow-xs scale-105"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     {FILTER_LABELS[type]}
@@ -281,7 +281,7 @@ export function WalletPageClient({
               <button
                 type="button"
                 onClick={() => setTopUpOpen(true)}
-                className="btn-shine px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 inline-flex items-center gap-1.5 transition-all duration-200 ease-out hover:scale-105 active:scale-95 shadow cursor-pointer mt-2"
+                className="px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 inline-flex items-center gap-1.5 cursor-pointer mt-2"
               >
                 <Plus size={14} />
                 <span className="!text-white font-800">Buy Your First Coins</span>
@@ -386,7 +386,7 @@ export function WalletPageClient({
                   {tier.badge}
                 </span>
                 <p className="text-sm font-800 text-[#0F2540]">{tier.label}</p>
-                <p className="text-3xl font-800 text-[#0F2540] tracking-tight group-hover:scale-105 transition-transform" style={{ fontFamily: "Poppins, sans-serif" }}>
+                <p className="text-3xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
                   {tier.cost} <span className="text-lg font-700 text-amber-600">🪙</span>
                 </p>
                 <p className="text-[11px] font-600 text-gray-500">per unlocked contact</p>

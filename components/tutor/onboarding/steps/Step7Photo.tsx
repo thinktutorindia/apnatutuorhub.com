@@ -192,7 +192,7 @@ export function Step7Photo({ formData, onNext, onBack, isLoading, profileId, isA
           type="button"
           onClick={handleSubmit}
           disabled={isLoading || uploading}
-          className="flex-[2] h-12 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 shadow-lg disabled:opacity-60 cursor-pointer"
+          className="flex-[2] h-12 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 cursor-pointer"
         >
           {isLoading ? (
             <><Loader2 size={16} className="animate-spin" /> Saving...</>

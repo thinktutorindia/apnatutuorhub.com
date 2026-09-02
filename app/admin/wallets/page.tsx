@@ -16,7 +16,7 @@ const TX_TYPE_STYLE: Record<string, { bg: string; text: string; border: string; 
   DEDUCTION: { bg: "bg-red-100", text: "text-red-950", border: "border-red-300", label: "Deduction" },
   REFUND: { bg: "bg-blue-100", text: "text-blue-950", border: "border-blue-300", label: "Refund" },
   BONUS: { bg: "bg-amber-100", text: "text-amber-950", border: "border-amber-300", label: "Bonus" },
-  ADMIN_CREDIT: { bg: "bg-purple-100", text: "text-purple-950", border: "border-purple-300", label: "Admin Credit" },
+  ADMIN_CREDIT: { bg: "bg-[#E8F7F0]", text: "text-[#0F2540]", border: "border-emerald-300", label: "Admin Credit" },
   ADMIN_DEBIT: { bg: "bg-orange-100", text: "text-orange-950", border: "border-orange-300", label: "Admin Debit" },
 };
 
@@ -101,14 +101,14 @@ export default async function AdminWalletsPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Monetization Governance</span>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Wallet &amp; Coin Oversight
+            Coin Wallet Ledger
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Monitor coin purchases, manual admin credits/debits, and refund requests
+            Coin purchases, admin credits/debits, and refund requests
           </p>
         </div>
         {session.user.role === "SUPER_ADMIN" && (
@@ -118,7 +118,7 @@ export default async function AdminWalletsPage({
 
       {/* Aggregate Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-1">
+        <div className="ath-panel p-5 space-y-1">
           <div className="flex items-center gap-2 text-xs font-800 text-slate-800">
             <Coins size={16} className="text-[#2D9E6B]" />
             <span>Circulating Balance</span>
@@ -128,7 +128,7 @@ export default async function AdminWalletsPage({
           </p>
         </div>
 
-        <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-1">
+        <div className="ath-panel p-5 space-y-1">
           <div className="flex items-center gap-2 text-xs font-800 text-slate-800">
             <TrendingUp size={16} className="text-[#2563EB]" />
             <span>Total Purchased</span>
@@ -138,12 +138,12 @@ export default async function AdminWalletsPage({
           </p>
         </div>
 
-        <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-1">
+        <div className="ath-panel p-5 space-y-1">
           <div className="flex items-center gap-2 text-xs font-800 text-slate-800">
-            <TrendingDown size={16} className="text-[#7C3AED]" />
+            <TrendingDown size={16} className="text-[#0F2540]" />
             <span>Total Spent on Leads</span>
           </div>
-          <p className="text-xl sm:text-2xl font-800 text-[#7C3AED]">
+          <p className="text-xl sm:text-2xl font-800 text-[#0F2540]">
             {(walletAgg._sum.totalSpent ?? 0).toLocaleString("en-IN")} Coins
           </p>
         </div>
@@ -193,7 +193,7 @@ export default async function AdminWalletsPage({
       )}
 
       {/* Wallets Directory Table */}
-      <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="overflow-hidden ath-panel">
         <div className="p-4 border-b border-slate-200 bg-slate-50">
           <form method="GET" className="flex items-center gap-2 rounded-2xl px-4 py-2 bg-white border border-slate-300">
             <Search size={16} className="text-slate-500" />

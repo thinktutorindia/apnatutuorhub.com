@@ -5,9 +5,12 @@ import Link from "next/link";
 import {
   Users, Upload, TrendingUp, CheckCircle2, XCircle, PhoneMissed,
   Phone, Star, Clock, Filter, Search, ArrowRight, RotateCcw, Sparkles,
-  BarChart3
+  BarChart3, GraduationCap
 } from "lucide-react";
 import type { StaffLeadStatus } from "@prisma/client";
+import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
+import { StaffLeadTypeBadge } from "@/components/admin/staff-leads/StaffLeadTypeControl";
+import { getStaffRecordType } from "@/lib/staff-lead-type";
 
 const STATUS_STYLES: Record<string, { label: string; bg: string; text: string; dot: string }> = {
   NEW:            { label: "New",           bg: "bg-slate-100",   text: "text-slate-600",   dot: "bg-slate-400"   },
@@ -27,12 +30,13 @@ type Lead = {
   location: string | null; subjects: string[]; classes: string[]; status: StaffLeadStatus;
   assignedToId: string | null; assignedTo: { name: string | null } | null;
   isPromoted: boolean; createdAt: Date; lastContactedAt: Date | null;
-  nextFollowUpAt: Date | null; _count: { callLogs: number };
+  nextFollowUpAt: Date | null; staffNotes?: string | null; _count: { callLogs: number };
 };
 
 type Stats = {
   total: number; newLeads: number; assigned: number; contacted: number;
   interested: number; converted: number; notInterested: number; noAnswer: number; followUp: number;
+  parentLeads?: number; tutorLeads?: number;
 } | null;
 
 type Batch = { id: string; name: string; totalParsed: number; createdAt: Date; _count: { leads: number } };
@@ -80,11 +84,13 @@ interface Props {
 export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeline, liveStatus, activityFeed, isSuperAdmin }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StaffLeadStatus | "ALL">("ALL");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "TUTOR" | "PARENT">("ALL");
 
   const filtered = leads.filter((l) => {
     const matchStatus = statusFilter === "ALL" || l.status === statusFilter;
     const matchSearch = !search || [l.name, l.phone, l.email, l.location].some((v) => v?.toLowerCase().includes(search.toLowerCase()));
-    return matchStatus && matchSearch;
+    const matchType = typeFilter === "ALL" || getStaffRecordType(l.staffNotes) === typeFilter;
+    return matchStatus && matchSearch && matchType;
   });
 
   const statCards = stats ? [
@@ -95,48 +101,31 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeli
     { label: "Converted",       value: stats.converted,       icon: CheckCircle2, color: "text-emerald-700", bg: "bg-emerald-50" },
     { label: "Not Interested",  value: stats.notInterested,   icon: XCircle,      color: "text-red-700",     bg: "bg-red-50"     },
     { label: "No Answer",       value: stats.noAnswer,        icon: PhoneMissed,  color: "text-orange-700",  bg: "bg-orange-50"  },
-    { label: "Follow Up",       value: stats.followUp,        icon: Clock,        color: "text-purple-700",  bg: "bg-purple-50"  },
+    { label: "Follow Up",       value: stats.followUp,        icon: Clock,        color: "text-amber-700",   bg: "bg-amber-50"   },
+    ...(typeof stats.parentLeads === "number"
+      ? [
+          { label: "Tutors",  value: stats.tutorLeads ?? 0,   icon: GraduationCap, color: "text-emerald-700", bg: "bg-emerald-50" },
+          { label: "Parents", value: stats.parentLeads,       icon: Users,         color: "text-blue-700",    bg: "bg-blue-50"    },
+        ]
+      : []),
   ] : [];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Staff Leads CRM</h1>
-          <p className="text-sm text-slate-500 mt-1">Staging area for raw leads — validate, follow up, then promote to main database</p>
-        </div>
-        <div className="flex gap-2 flex-wrap items-center">
-          <Link href="/admin/staff-leads/reports"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 text-white text-xs font-black hover:from-rose-700 hover:to-pink-700 shadow-xs">
-            <BarChart3 size={14} /> Staff Timesheets
-          </Link>
-          <Link href="/admin/staff-leads/my-dashboard"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-black hover:from-indigo-700 hover:to-purple-700 shadow-xs">
-            <Clock size={14} /> My Dashboard
-          </Link>
-          <Link href="/admin/staff-leads/manage"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 shadow-xs">
-            <TrendingUp size={14} className="text-emerald-400" /> CRM Management
-          </Link>
-          <Link href="/admin/staff-leads/my-leads"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 shadow-xs">
-            <Phone size={14} className="text-blue-600" /> My Leads & Logs
-          </Link>
-          <Link href="/admin/staff-leads/assign"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 shadow-xs">
-            <Users size={14} className="text-purple-600" /> Assign
-          </Link>
-          <Link href="/admin/staff-leads/upload"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 shadow-xs">
-            <Upload size={14} /> Upload Leads
-          </Link>
-        </div>
+      <div className="rounded-[20px] bg-[#0F2540] p-5 sm:p-6 text-white">
+        <p className="text-[11px] font-800 uppercase tracking-[0.16em] text-[#F5A623]">Staff CRM</p>
+        <h1 className="text-2xl font-800 tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>Calling desk</h1>
+        <p className="text-sm text-white/75 mt-1 font-600 max-w-2xl">
+          Raw data in → call and classify → tutors go to User Directory, parents go to Student Leads.
+        </p>
       </div>
+
+      <StaffCrmPlaybook />
 
       {/* Stat Cards */}
       {statCards.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-5 gap-3">
           {statCards.map(({ label, value, icon: Icon, color, bg }) => (
             <div key={label} className={`${bg} rounded-2xl p-4 text-center border border-white/80`}>
               <Icon size={18} className={`${color} mx-auto mb-2`} />
@@ -191,7 +180,7 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeli
                   <span className="font-black text-blue-600">{pipeline.overall.progressPercent}%</span>
                 </div>
                 <div className="h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all" style={{ width: `${pipeline.overall.progressPercent}%` }} />
+                  <div className="h-full bg-[#2D9E6B] rounded-full transition-all" style={{ width: `${pipeline.overall.progressPercent}%` }} />
                 </div>
                 <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-500">
                   <span>~{pipeline.overall.avgDailyThroughput} leads/day throughput</span>
@@ -287,7 +276,7 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeli
             {activityFeed && activityFeed.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <h2 className="font-extrabold text-slate-900 flex items-center gap-2 mb-3">
-                  <Sparkles size={16} className="text-purple-600" /> Live Activity
+                  <Sparkles size={16} className="text-[#2D9E6B]" /> Live Activity
                 </h2>
                 <div className="space-y-2 max-h-[260px] overflow-y-auto">
                   {activityFeed.map((log) => {
@@ -332,6 +321,22 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeli
           <option value="ALL">All Status</option>
           {Object.entries(STATUS_STYLES).map(([v, { label }]) => <option key={v} value={v}>{label}</option>)}
         </select>
+        <div className="inline-flex rounded-full border border-[#CBD5E1] bg-white p-0.5">
+          {(["ALL", "TUTOR", "PARENT"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTypeFilter(t)}
+              className={`rounded-full px-3 py-1.5 text-[11px] font-800 ${
+                typeFilter === t
+                  ? t === "PARENT" ? "bg-[#2563EB] text-white" : t === "TUTOR" ? "bg-[#2D9E6B] text-white" : "bg-[#0F2540] text-white"
+                  : "text-[#0F2540] hover:bg-slate-50"
+              }`}
+            >
+              {t === "ALL" ? "All types" : t === "TUTOR" ? "Tutors" : "Parents"}
+            </button>
+          ))}
+        </div>
         <span className="text-xs text-slate-400">{filtered.length} of {total}</span>
       </div>
 
@@ -341,7 +346,7 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeli
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                {["Name", "Phone", "Email", "Location", "Subjects", "Assigned To", "Status", "Calls", ""].map((h) => (
+                {["Name", "Type", "Phone", "Location", "Assigned To", "Status", "Calls", "Next", ""].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-extrabold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -363,20 +368,17 @@ export function StaffLeadsDashboardClient({ stats, leads, total, batches, pipeli
                   return (
                     <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-semibold text-slate-800">{lead.name ?? <span className="text-slate-300 italic text-xs">Unknown</span>}</td>
+                      <td className="px-4 py-3"><StaffLeadTypeBadge type={getStaffRecordType(lead.staffNotes)} /></td>
                       <td className="px-4 py-3 font-mono text-slate-800 text-xs font-bold whitespace-nowrap">{lead.phone ? `+91 ${lead.phone}` : <span className="text-red-400 font-bold text-xs">—</span>}</td>
-                      <td className="px-4 py-3 text-slate-600 text-xs break-all">{lead.email ?? <span className="text-slate-300">—</span>}</td>
                       <td className="px-4 py-3 text-slate-600 text-xs font-medium">{lead.location ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {lead.subjects.slice(0, 2).map((s) => <span key={s} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-100 font-medium">{s}</span>)}
-                          {lead.subjects.length > 2 && <span className="text-xs text-slate-400 font-bold">+{lead.subjects.length - 2}</span>}
-                        </div>
-                      </td>
                       <td className="px-4 py-3 text-slate-600 text-xs font-medium">{lead.assignedTo?.name ?? <span className="text-slate-300">Unassigned</span>}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${style.bg} ${style.text}`}>{style.label}</span>
                       </td>
                       <td className="px-4 py-3 text-slate-500 text-xs text-center font-bold">{lead._count.callLogs}</td>
+                      <td className="px-4 py-3 text-[11px] font-700 text-slate-600 whitespace-nowrap">
+                        {lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <Link href={`/admin/staff-leads/${lead.id}`}
                           className="text-xs text-emerald-600 font-bold hover:underline inline-flex items-center gap-1 whitespace-nowrap">

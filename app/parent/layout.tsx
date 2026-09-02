@@ -5,9 +5,9 @@ import { LogoBrand } from "@/components/brand/Logo";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { ParentNavClient } from "@/components/parent/ParentNavClient";
 import { NotificationBell } from "@/components/NotificationBell";
-import { WhatsAppHelpLink } from "@/components/support/WhatsAppHelpLink";
 import { prisma } from "@/lib/prisma";
 import { getMediaUrl } from "@/lib/s3";
+import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 
 export default async function ParentLayout({
   children,
@@ -43,35 +43,39 @@ export default async function ParentLayout({
   const userImage = getMediaUrl(user?.image || session.user.image);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8FAFC] text-slate-900 font-sans">
+    <div className="flex min-h-screen flex-col bg-[#F0F4F8] text-slate-900 font-sans">
       {/* Top Header Navbar */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-2xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 md:h-18 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-40 bg-white border-b border-[#E2E8F0] shadow-[0_2px_12px_rgba(15,37,64,0.05)] overflow-x-clip">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 md:h-[72px] flex items-center gap-4 min-w-0">
           <div className="shrink-0">
-            <LogoBrand size={30} href="/parent/dashboard" hideWordmarkOnMobile={true} />
+            <LogoBrand href="/parent/dashboard" />
           </div>
 
-          <div className="flex-1 min-w-0 flex items-center justify-end md:justify-center">
-            <ParentNavClient
-              userName={userName}
-              userEmail={userEmail}
-              userImage={userImage}
-              unreadCount={unreadMessages}
-            />
-          </div>
+          <ParentNavClient
+            userName={userName}
+            userEmail={userEmail}
+            userImage={userImage}
+            unreadCount={unreadMessages}
+          />
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            <a
+              href={getWhatsAppSupportLink()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden lg:inline-flex items-center min-h-11 text-sm font-700 text-[#2D9E6B] hover:text-[#238357] whitespace-nowrap"
+            >
+              Helpline {SUPPORT_PHONE_DISPLAY}
+            </a>
             <NotificationBell initialCount={unreadNotifications} viewerRole="PARENT" />
-            <WhatsAppHelpLink role="PARENT" compact />
-            <div className="hidden md:block">
-              <SignOutButton />
+            <div className="hidden lg:block">
+              <SignOutButton variant="link" />
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Page Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24 md:pb-12">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 sm:py-8 pb-24 xl:pb-12 min-w-0">
         {children}
       </main>
     </div>

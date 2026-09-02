@@ -52,14 +52,14 @@ export default async function AdminReviewsPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Quality Moderation</span>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Review Moderation &amp; Feedback
+            Review Queue
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Monitor, moderate, and remove inappropriate or fake tutor reviews ({totalCount} total)
+            Moderate tutor reviews and parent ratings ({totalCount} total)
           </p>
         </div>
       </div>
@@ -68,9 +68,9 @@ export default async function AdminReviewsPage({
       <div className="flex flex-wrap gap-2">
         <Link
           href={`/admin/reviews?q=${q}`}
-          className={`rounded-2xl px-4 py-2 text-xs font-800 transition-all border ${
+          className={`rounded-full px-4 py-2 text-xs font-800 transition-all border ${
             !ratingFilter
-              ? "bg-[#2D9E6B] !text-white border-[#2D9E6B] shadow-xs"
+              ? "bg-[#2D9E6B] !text-white border-[#2D9E6B]"
               : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
           }`}
         >
@@ -80,9 +80,9 @@ export default async function AdminReviewsPage({
           <Link
             key={stars}
             href={`/admin/reviews?rating=${stars}&q=${q}`}
-            className={`flex items-center gap-1.5 rounded-2xl px-4 py-2 text-xs font-800 transition-all border ${
+            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-800 transition-all border ${
               ratingFilter === stars
-                ? "bg-amber-500 !text-white border-amber-500 shadow-xs"
+                ? "bg-[#F5A623] !text-[#0F2540] border-[#F5A623]"
                 : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
             }`}
           >
@@ -93,13 +93,13 @@ export default async function AdminReviewsPage({
       </div>
 
       {/* Search */}
-      <form method="GET" className="flex flex-col gap-3 sm:flex-row p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <form method="GET" className="ath-panel flex flex-col gap-3 sm:flex-row p-4">
         {ratingFilter && <input type="hidden" name="rating" value={ratingFilter} />}
         <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-slate-50 border border-slate-300">
           <Search size={16} className="text-slate-500" />
           <input name="q" defaultValue={q} placeholder="Search by review text or tutor name…" className="flex-1 bg-transparent text-xs font-700 text-slate-900 outline-none placeholder:text-slate-500" />
         </div>
-        <button type="submit" className="rounded-2xl px-6 py-2.5 text-xs font-800 bg-[#2D9E6B] text-white hover:bg-[#238357] transition-all cursor-pointer">
+        <button type="submit" className="rounded-full px-6 py-2.5 text-xs font-800 bg-[#2D9E6B] text-white hover:bg-[#238357] cursor-pointer">
           Search
         </button>
       </form>
@@ -107,12 +107,12 @@ export default async function AdminReviewsPage({
       {/* Reviews Cards List */}
       <div className="space-y-4">
         {reviews.length === 0 ? (
-          <div className="p-12 text-center text-sm font-700 text-slate-700 rounded-3xl bg-white border border-slate-200 shadow-xs">
+          <div className="ath-panel p-12 text-center text-sm font-700 text-slate-700">
             No tutor reviews found matching criteria
           </div>
         ) : (
           reviews.map((r) => (
-            <div key={r.id} className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div key={r.id} className="ath-panel p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center text-amber-500 font-800 text-sm">

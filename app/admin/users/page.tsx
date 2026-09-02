@@ -23,6 +23,7 @@ import { resolveDocViewUrl } from "@/lib/s3";
 import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { can } from "@/lib/rbac";
+import { UserEntrySource } from "@/components/admin/UserEntrySource";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "User Management — Admin" };
@@ -35,10 +36,10 @@ const ROLE_COLOR: Record<string, { bg: string; text: string; border: string; ava
     avatarGrad: "bg-gradient-to-tr from-blue-600 to-cyan-600 text-white shadow-xs border border-blue-400/40",
   },
   TUTOR: {
-    bg: "bg-purple-100",
-    text: "text-purple-950",
-    border: "border-purple-300",
-    avatarGrad: "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-xs border border-purple-400/40",
+    bg: "bg-[#E8F7F0]",
+    text: "text-[#0F2540]",
+    border: "border-emerald-300",
+    avatarGrad: "bg-[#0F2540] text-white shadow-xs border border-[#1A3C5E]",
   },
   SUPER_ADMIN: {
     bg: "bg-emerald-100",
@@ -252,7 +253,10 @@ export default async function AdminUsersPage({
         email: admin.email,
       };
 
-      if (log.action === "CREATE_USER" || log.action === "ADMIN_CREATE_USER") {
+      if (
+        !existing.createdBy &&
+        (log.action === "CREATE_USER" || log.action === "ADMIN_CREATE_USER" || log.action === "CREATE_SUB_ADMIN")
+      ) {
         existing.createdBy = staffInfo;
       } else if (
         !existing.lastEditedBy &&
@@ -286,28 +290,30 @@ export default async function AdminUsersPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">User Management</span>
-            <span className="text-[11px] font-bold text-slate-400">•</span>
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-              ✨ {genuineTotal} Genuine Email Users ({genuineParentsTotal} Parents · {genuineTutorsTotal} Tutors)
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Command Center</span>
+            <span className="text-[11px] font-700 text-emerald-800 bg-[#E8F7F0] px-2.5 py-0.5 rounded-full">
+              {genuineTotal} genuine emails · {genuineParentsTotal} parents · {genuineTutorsTotal} tutors
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Account &amp; Role Directory
+            User Directory
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            {total.toLocaleString("en-IN")} total parents, tutors, and sub-admin staff matching filters
+            {total.toLocaleString("en-IN")} parents, tutors, and staff matching filters
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-2xl px-4 py-2 bg-emerald-50 border border-emerald-200 text-[#2D9E6B] font-800 text-sm">
-            <Users size={16} />
-            <span>{total} Filtered Users</span>
-          </div>
-          <CreateUserModal defaultQuery={q} />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 bg-[#E8F7F0] text-[#166534] font-800 text-xs">
+            <Users size={14} />
+            {total.toLocaleString("en-IN")} matching
+          </span>
+          <CreateUserModal
+            defaultQuery={q}
+            buttonClassName="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-800 !text-white bg-[#2D9E6B] hover:bg-[#238357]"
+          />
           {isSuperAdmin && <ExportCsvButton label="Export CSV" action={exportUsersCsv} />}
         </div>
       </div>
@@ -321,15 +327,17 @@ export default async function AdminUsersPage({
       />
 
       {/* Main User Directory Table */}
-      <div className="overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="overflow-hidden ath-panel">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                {["User", "Role", "KYC", "Location & Subjects", "Status", "Joined", "Actions"].map((h) => (
+              <tr className="bg-[#F8FAFC] border-b border-slate-200">
+                {["User", "Entered via", "Role", "KYC", "Location", "Status", "Joined", "Actions"].map((h) => (
                   <th
                     key={h}
-                    className="px-5 py-4 text-left text-xs font-800 uppercase tracking-wider text-slate-900"
+                    className={`px-4 py-3.5 text-left text-[11px] font-800 uppercase tracking-wider text-[#64748B] ${
+                      h === "Actions" ? "sticky right-0 bg-[#F8FAFC]" : ""
+                    }`}
                   >
                     {h}
                   </th>
@@ -339,7 +347,7 @@ export default async function AdminUsersPage({
             <tbody className="divide-y divide-slate-200">
               {resolvedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-14 text-center">
+                  <td colSpan={8} className="py-14 text-center">
                     <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3 px-4">
                       <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-[#2D9E6B] flex items-center justify-center border border-emerald-200 shadow-xs">
                         <Users size={22} />
@@ -397,10 +405,10 @@ export default async function AdminUsersPage({
                   return (
                     <tr
                       key={u.id}
-                      className="transition-colors hover:bg-slate-50/80"
+                      className="group transition-colors hover:bg-slate-50/80"
                     >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3.5">
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3 min-w-[220px]">
                           <UserAvatar
                             image={u.image}
                             name={u.name}
@@ -409,76 +417,52 @@ export default async function AdminUsersPage({
                           />
                           <div className="min-w-0">
                             <p className="truncate font-800 text-[#0F2540] text-sm">{u.name || "—"}</p>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="truncate text-xs font-semibold text-slate-600">{u.email}</p>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="truncate text-xs font-600 text-slate-600">{u.email}</p>
                               {isGenuineEmail ? (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                                  ✨ Genuine
+                                <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-800 bg-[#E8F7F0] text-[#166534]">
+                                  Genuine
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-slate-100 text-slate-500 border border-slate-200 shrink-0">
-                                  🤖 Auto-Assigned
+                                <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-700 bg-slate-100 text-slate-600">
+                                  Auto email
                                 </span>
                               )}
                             </div>
-                            {u.phone && (
+                            {u.phone ? (
                               isSuperAdmin ? (
-                                <p className="text-[11px] font-mono text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
+                                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-700 text-[#0F2540]">
                                   <Phone size={10} />
-                                  <span>{u.phone}</span>
+                                  {u.phone}
                                 </p>
                               ) : (
                                 <p
-                                  className="text-[11px] font-mono text-slate-500 font-bold flex items-center gap-1 mt-0.5"
+                                  className="mt-0.5 flex items-center gap-1 text-[11px] font-700 text-slate-500"
                                   title="Phone number masked for staff. Full number visible to Super Admin."
                                 >
                                   <Lock size={10} className="text-amber-500 shrink-0" />
-                                  <span>{maskPhoneNumber(u.phone)}</span>
+                                  {maskPhoneNumber(u.phone)}
                                 </p>
                               )
-                            )}
-
-                            {/* Staff / Sub-Admin Creator Attribution */}
-                            <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[10px]">
-                              {createdBy ? (
-                                <span
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200"
-                                  title={`Entry created by ${createdBy.name} (${createdBy.role})`}
-                                >
-                                  <span className="text-slate-400">Added by:</span>
-                                  <span className="font-extrabold text-[#0F2540]">👤 {createdBy.name}</span>
-                                  <span className="text-[9px] text-[#2D9E6B] font-extrabold">({createdBy.role})</span>
-                                </span>
-                              ) : isGenuineEmail ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50/80 px-2 py-0.5 rounded-md border border-blue-200/60">
-                                  <span>🌐 Direct Online Signup</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded-md border border-slate-200">
-                                  <span>✍️ Staff Manual Onboard</span>
-                                </span>
-                              )}
-
-                              {lastEditedBy && (
-                                <span
-                                  className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200"
-                                  title={`Last updated by ${lastEditedBy.name} (${lastEditedBy.role})`}
-                                >
-                                  <span>✏️ Updated by {lastEditedBy.name}</span>
-                                </span>
-                              )}
-                            </div>
+                            ) : null}
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-4">
+                        <UserEntrySource
+                          isGenuineEmail={isGenuineEmail}
+                          createdBy={createdBy}
+                          lastEditedBy={lastEditedBy}
+                        />
+                      </td>
+                      <td className="px-4 py-4">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-800 border ${roleStyle.bg} ${roleStyle.text} ${roleStyle.border}`}
                         >
-                          {u.role}
+                          {u.role.replace("_", " ")}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-4">
                         {u.tutorProfile ? (
                           <span
                             className={`flex items-center gap-1.5 text-xs font-800 ${
@@ -500,8 +484,8 @@ export default async function AdminUsersPage({
                           <span className="text-xs font-600 text-slate-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-5 py-4">
-                        <div className="space-y-1 max-w-xs">
+                      <td className="px-4 py-4">
+                        <div className="space-y-1 max-w-[200px]">
                           {locationText ? (
                             <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 truncate" title={locationText}>
                               <MapPin size={13} className="text-[#2D9E6B] shrink-0" />
@@ -517,7 +501,7 @@ export default async function AdminUsersPage({
                           <UserSubjectChips subjects={subjectsList} maxVisible={2} />
                         </div>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-4">
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-800 border ${
                             u.isActive
@@ -529,15 +513,12 @@ export default async function AdminUsersPage({
                           {u.isActive ? "Active" : "Suspended"}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-xs">
-                        <p className="font-extrabold text-[#0F2540]">
+                      <td className="px-4 py-4 text-xs whitespace-nowrap">
+                        <p className="font-800 text-[#0F2540]">
                           {new Date(u.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                         </p>
-                        <p className="text-[10px] text-slate-500 font-semibold truncate max-w-[120px]" title={createdBy ? `Created by ${createdBy.name} (${createdBy.role})` : isGenuineEmail ? "Direct Online Signup" : "Staff Onboard"}>
-                          {createdBy ? `by ${createdBy.name}` : isGenuineEmail ? "via Online Portal" : "via Staff Onboard"}
-                        </p>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="sticky right-0 bg-white px-4 py-4 group-hover:bg-slate-50">
                         <UserRowActions user={u} isSuperAdmin={isSuperAdmin} />
                       </td>
                     </tr>

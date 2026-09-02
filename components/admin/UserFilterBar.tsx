@@ -156,8 +156,7 @@ export function UserFilterBar({
   ];
 
   return (
-    <div className="mb-6 space-y-3.5">
-      {/* Search Input & Dropdown Selectors */}
+    <div className="ath-panel space-y-3.5 p-4 sm:p-5">
       <form onSubmit={handleFormSubmit} className="flex flex-wrap items-center gap-3">
         {/* Search Input with instant clear */}
         <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-white border border-slate-300 shadow-xs focus-within:border-[#2D9E6B] focus-within:ring-4 focus-within:ring-emerald-500/10 min-w-0 w-full sm:min-w-[260px] transition-all">
@@ -287,8 +286,8 @@ export function UserFilterBar({
           onClick={() => handleQuickPreset("TUTOR", "GENUINE")}
           className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer ${
             role === "TUTOR" && emailType === "GENUINE"
-              ? "bg-purple-600 !text-white border-purple-600 shadow-xs"
-              : "bg-purple-50/80 text-purple-900 border-purple-200 hover:bg-purple-100"
+              ? "bg-[#0F2540] !text-white border-[#0F2540]"
+              : "bg-[#EEF3F8] text-[#0F2540] border-[#CBD5E1] hover:bg-[#E2E8F0]"
           }`}
         >
           <span>👨‍🏫 Genuine Tutors</span>

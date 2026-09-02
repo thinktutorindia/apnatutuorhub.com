@@ -26,14 +26,14 @@ export default async function AdminCouponsPage() {
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Promotions &amp; Discounts</span>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Coupon &amp; Discount Management
+            Coupon Engine
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Create promo codes, percentage discounts, and flat coin bonus coupons
+            Promo codes, percentage discounts, and flat coin bonus coupons
           </p>
         </div>
       </div>
@@ -45,7 +45,7 @@ export default async function AdminCouponsPage() {
         </div>
 
         {/* Coupons List */}
-        <div className="rounded-3xl p-6 lg:col-span-2 bg-white border border-slate-200 shadow-xs space-y-5">
+        <div className="ath-panel p-6 lg:col-span-2 space-y-5">
           <div className="flex items-center justify-between pb-3 border-b border-slate-200">
             <div className="flex items-center gap-2">
               <Tag size={20} className="text-[#2563EB]" />

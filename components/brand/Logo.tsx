@@ -2,8 +2,11 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 
+const LOGO_SRC = "/icons/logo.png";
+const MARK_SRC = "/icons/logo-mark.png";
+
 export function Logo({
-  size = 60,
+  size = 40,
   className = "",
 }: {
   size?: number;
@@ -12,8 +15,8 @@ export function Logo({
 }) {
   return (
     <Image
-      src="/icons/icon-192x192.svg"
-      alt="ApnaTutorHub Logo Mark"
+      src={MARK_SRC}
+      alt="ApnaTutorHub"
       width={size}
       height={size}
       className={`object-contain shrink-0 ${className}`}
@@ -23,16 +26,29 @@ export function Logo({
   );
 }
 
-export function Wordmark() {
-  return null;
+export function Wordmark({
+  light = false,
+  className = "",
+}: {
+  light?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`font-800 tracking-tight leading-none ${light ? "text-white" : "text-[#0F2540]"} ${className}`}
+      style={{ fontFamily: "Poppins, sans-serif" }}
+    >
+      ApnaTutorHub
+    </span>
+  );
 }
 
 export function LogoBrand({
-  size,
+  size: _size = 44,
   className = "",
   href = "/",
-  heightClass = "h-16 sm:h-20 md:h-22",
-  hideWordmarkOnMobile,
+  heightClass = "h-9 sm:h-11",
+  hideWordmarkOnMobile: _hideWordmarkOnMobile,
   light = false,
 }: {
   size?: number;
@@ -42,32 +58,31 @@ export function LogoBrand({
   hideWordmarkOnMobile?: boolean;
   light?: boolean;
 }) {
-  return (
-    <Link
-      href={href}
-      className={`group inline-flex items-center no-underline shrink-0 transition-transform duration-300 ease-out hover:scale-105 active:scale-95 ${className}`}
-    >
-      {/* Compact square mark — shown on mobile when the wide wordmark would overflow */}
-      {hideWordmarkOnMobile && (
-        <Image
-          src="/icons/icon-192x192.svg"
-          alt="ApnaTutorHub"
-          width={80}
-          height={80}
-          className={`${heightClass} w-auto object-contain sm:hidden transition-transform duration-300 group-hover:drop-shadow-md ${light ? "brightness-0 invert" : ""}`}
-          priority
-          unoptimized
-        />
-      )}
+  const frame = (
+    <span className={`relative block h-10 w-[200px] sm:h-11 sm:w-[240px] max-w-[52vw]`}>
       <Image
-        src="/icons/icon-192x192.svg"
+        src={LOGO_SRC}
         alt="ApnaTutorHub"
-        width={360}
-        height={80}
-        className={`${heightClass} w-auto object-contain transition-transform duration-300 group-hover:drop-shadow-md ${light ? "brightness-0 invert" : ""} ${hideWordmarkOnMobile ? "hidden sm:block" : ""}`}
+        fill
+        sizes="240px"
+        className="object-contain object-left"
         priority
         unoptimized
       />
+    </span>
+  );
+
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center no-underline shrink-0 min-w-0 ${className}`}
+      aria-label="ApnaTutorHub home"
+    >
+      {light ? (
+        <span className="inline-flex items-center rounded-xl bg-white px-2 py-1">{frame}</span>
+      ) : (
+        frame
+      )}
     </Link>
   );
 }

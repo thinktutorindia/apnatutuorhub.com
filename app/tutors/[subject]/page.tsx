@@ -76,23 +76,24 @@ export default async function SubjectTutorPage({ params }: SubjectPageProps) {
   return (
     <div className="min-h-screen text-slate-900 bg-[#F8FAFC]">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/">
-            <LogoBrand size={40} />
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md overflow-x-clip">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 min-w-0">
+          <Link href="/" className="min-w-0">
+            <LogoBrand heightClass="h-10 sm:h-11" />
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/login"
-              className="text-xs font-extrabold text-slate-700 hover:text-slate-900 px-3 py-2"
+              className="hidden sm:inline-flex text-xs font-extrabold text-slate-700 hover:text-slate-900 px-3 py-2 min-h-11 items-center"
             >
               Sign In
             </Link>
             <Link
               href="/parent/post-requirement"
-              className="rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white px-4 py-2 text-xs font-black transition-all shadow-md"
+              className="rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white px-3 sm:px-4 py-2 text-xs font-black transition-all shadow-md min-h-11 inline-flex items-center"
             >
-              Post Requirement
+              <span className="sm:hidden">Post Free</span>
+              <span className="hidden sm:inline">Post Requirement</span>
             </Link>
           </div>
         </div>
@@ -109,7 +110,7 @@ export default async function SubjectTutorPage({ params }: SubjectPageProps) {
             Find Expert <span className="text-blue-600">{subjectName}</span> Tutors Near You
           </h1>
           <p className="text-sm sm:text-base font-semibold text-slate-600 max-w-2xl mx-auto">
-            Get personalized 1-on-1 home tuition or live online interactive sessions with background-verified {subjectName} subject specialists.
+            Post what you need and verified {subjectName} tutors near you will reach out — for home tuition or 1-on-1 online classes. Free for parents.
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">

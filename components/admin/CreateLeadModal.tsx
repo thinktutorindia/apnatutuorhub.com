@@ -62,8 +62,25 @@ const QUICK_CLASS_GROUPS = [
 
 export function CreateLeadModal({
   onLeadCreated,
+  triggerClassName,
+  triggerLabel = "+ Create Lead Requirement",
+  defaults,
 }: {
   onLeadCreated?: (leadId: string) => void;
+  triggerClassName?: string;
+  triggerLabel?: string;
+  defaults?: {
+    parentName?: string;
+    parentPhone?: string;
+    parentEmail?: string;
+    classLevel?: string;
+    board?: string;
+    subjects?: string[];
+    city?: string;
+    area?: string;
+    pincode?: string;
+    notes?: string;
+  };
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -260,6 +277,22 @@ export function CreateLeadModal({
   const handleOpen = () => {
     setErrorMsg(null);
     setCreatedLeadId(null);
+    if (defaults) {
+      if (defaults.parentName) setParentName(defaults.parentName);
+      if (defaults.parentPhone) setParentPhone(defaults.parentPhone);
+      if (defaults.parentEmail) setParentEmail(defaults.parentEmail);
+      if (defaults.classLevel) setClassLevel(defaults.classLevel);
+      if (defaults.board) setBoard(defaults.board);
+      if (defaults.subjects?.length) setSelectedSubjects(defaults.subjects);
+      if (defaults.notes) setNotes(defaults.notes);
+      if (defaults.city || defaults.area || defaults.pincode) {
+        setShowManualLocation(true);
+        setManualCity(defaults.city ?? "");
+        setManualArea(defaults.area ?? "");
+        setManualPincode(defaults.pincode ?? "");
+        setLocationQuery([defaults.area, defaults.city, defaults.pincode].filter(Boolean).join(", "));
+      }
+    }
     setIsOpen(true);
   };
 
@@ -391,10 +424,13 @@ export function CreateLeadModal({
       <button
         type="button"
         onClick={handleOpen}
-        className="inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] shadow-md hover:shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+        className={
+          triggerClassName ??
+          "inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-bold text-white bg-[#2D9E6B] hover:bg-[#238357] cursor-pointer"
+        }
       >
         <FilePlus size={16} />
-        <span>+ Create Lead Requirement</span>
+        <span>{triggerLabel}</span>
       </button>
 
       {isOpen && (
@@ -1044,7 +1080,7 @@ export function CreateLeadModal({
                           onClick={() => handleBudgetRateTypeChange("HOURLY")}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
                             budgetRateType === "HOURLY"
-                              ? "bg-purple-600 text-white shadow-xs"
+                              ? "bg-[#0F2540] text-white shadow-xs"
                               : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                           }`}
                         >
@@ -1136,8 +1172,8 @@ export function CreateLeadModal({
                               }}
                               className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
                                 budgetMin === p.min && budgetMax === p.max
-                                  ? "bg-purple-600 text-white border-purple-600 shadow-xs"
-                                  : "bg-white text-purple-900 border-purple-200 hover:border-purple-300"
+                                  ? "bg-[#0F2540] text-white border-[#0F2540] shadow-xs"
+                                  : "bg-white text-[#0F2540] border-slate-200 hover:border-[#2D9E6B]"
                               }`}
                             >
                               {p.label}

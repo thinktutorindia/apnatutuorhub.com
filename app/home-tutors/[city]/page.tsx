@@ -80,23 +80,24 @@ export default async function CityTutorPage({ params }: CityPageProps) {
 
   return (
     <div className="min-h-screen text-slate-900 bg-[#F8FAFC]">
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/">
-            <LogoBrand size={40} />
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md overflow-x-clip">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 min-w-0">
+          <Link href="/" className="min-w-0">
+            <LogoBrand heightClass="h-10 sm:h-11" />
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/login"
-              className="text-xs font-extrabold text-slate-700 hover:text-slate-900 px-3 py-2"
+              className="hidden sm:inline-flex text-xs font-extrabold text-slate-700 hover:text-slate-900 px-3 py-2 min-h-11 items-center"
             >
               Sign In
             </Link>
             <Link
               href="/parent/post-requirement"
-              className="rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white px-4 py-2 text-xs font-black transition-all shadow-md"
+              className="rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white px-3 sm:px-4 py-2 text-xs font-black transition-all shadow-md min-h-11 inline-flex items-center"
             >
-              Post Requirement
+              <span className="sm:hidden">Post Free</span>
+              <span className="hidden sm:inline">Post Requirement</span>
             </Link>
           </div>
         </div>

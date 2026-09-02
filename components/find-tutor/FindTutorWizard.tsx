@@ -32,6 +32,7 @@ import {
   ALL_STRUCTURED_CLASSES,
 } from "@/lib/subject-matcher";
 import Link from "next/link";
+import { getWhatsAppSupportLink } from "@/lib/support";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -302,8 +303,8 @@ function StepClass({
       </div>
 
       {suggestedNotice && (
-        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-950 text-xs font-semibold animate-in fade-in">
-          <Sparkles size={16} className="text-indigo-600 shrink-0" />
+        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-[#E8F7F0] border border-emerald-200 text-[#0F2540] text-xs font-semibold">
+          <Sparkles size={16} className="text-[#2D9E6B] shrink-0" />
           <span>{suggestedNotice}</span>
         </div>
       )}
@@ -707,7 +708,7 @@ function PreplyTutorCard({
           {tutor.isVerified && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-black">
               <ShieldCheck size={12} className="text-[#2D9E6B]" />
-              <span>Verified Tutor</span>
+              KYC Verified Teacher
             </span>
           )}
           {tutor.isFeatured && (
@@ -770,21 +771,22 @@ function PreplyTutorCard({
           <div className="text-[10px] font-semibold text-slate-400">per hour</div>
         </div>
 
-        <div className="flex md:flex-col gap-2 w-auto md:w-full">
+        <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full">
           <button
             type="button"
             onClick={() => onContactClick(tutor.id)}
-            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] hover:from-[#238357] hover:to-[#186843] text-white font-extrabold text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer text-center"
+            className="w-full px-3 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-xs min-h-11 text-center"
           >
-            Contact Tutor
+            Book Free Demo
           </button>
-          <Link
-            href={`/tutor/${tutor.id}`}
+          <a
+            href={getWhatsAppSupportLink(`Hi, I want to talk about a tutor for my child (${displayName}).`)}
             target="_blank"
-            className="px-3 py-2 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all cursor-pointer text-center"
+            rel="noopener noreferrer"
+            className="w-full px-3 py-2 rounded-xl border-2 border-[#2D9E6B] text-[#2D9E6B] font-800 text-xs min-h-11 inline-flex items-center justify-center text-center"
           >
-            View Profile
-          </Link>
+            Chat on WhatsApp
+          </a>
         </div>
       </div>
     </div>
@@ -855,7 +857,7 @@ function PreplyFilterBar({
           </button>
 
           {activeDropdown === "subject" && (
-            <div className="absolute left-0 top-full mt-2 z-40 w-72 bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
+            <div className="absolute left-0 top-full mt-2 z-40 w-[min(18rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
               <input
                 type="text"
                 value={subjectQuery}
@@ -918,7 +920,7 @@ function PreplyFilterBar({
           </button>
 
           {activeDropdown === "class" && (
-            <div className="absolute left-0 top-full mt-2 z-40 w-64 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2.5 max-h-60 overflow-y-auto space-y-1 animate-in zoom-in-95 duration-150">
+            <div className="absolute left-0 top-full mt-2 z-40 w-[min(16rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-2.5 max-h-60 overflow-y-auto space-y-1 animate-in zoom-in-95 duration-150">
               <button
                 type="button"
                 onClick={() => {
@@ -965,7 +967,7 @@ function PreplyFilterBar({
           </button>
 
           {activeDropdown === "mode" && (
-            <div className="absolute left-0 top-full mt-2 z-40 w-56 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 space-y-1 animate-in zoom-in-95 duration-150">
+            <div className="absolute left-0 top-full mt-2 z-40 w-[min(14rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 space-y-1 animate-in zoom-in-95 duration-150">
               {MODES.map((m) => (
                 <button
                   key={m.value}
@@ -1002,7 +1004,7 @@ function PreplyFilterBar({
           </button>
 
           {activeDropdown === "budget" && (
-            <div className="absolute left-0 top-full mt-2 z-40 w-64 bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
+            <div className="absolute left-0 top-full mt-2 z-40 w-[min(16rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
               <span className="text-[11px] font-bold text-slate-500 block">Monthly Price Range:</span>
               <div className="space-y-1">
                 {BUDGET_RANGES.map((b) => (
@@ -1041,7 +1043,7 @@ function PreplyFilterBar({
           </button>
 
           {activeDropdown === "city" && (
-            <div className="absolute left-0 sm:right-0 top-full mt-2 z-40 w-64 bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
+            <div className="absolute left-0 sm:right-0 top-full mt-2 z-40 w-[min(16rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
               <input
                 type="text"
                 value={state.city}
@@ -1105,7 +1107,7 @@ function PreplyFilterBar({
           </span>
         )}
         {state.city && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100/80 text-purple-900 font-bold text-[11px]">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#E8F7F0] text-[#0F2540] font-bold text-[11px]">
             📍 {state.city}
             <button onClick={() => onChange("city", "")} className="hover:text-rose-700 cursor-pointer">
               <X size={12} />
@@ -1242,7 +1244,15 @@ function PreplyResultsView({
 
 // ─── Main Wizard Component ────────────────────────────────────────────────────
 
-export function FindTutorWizard({ initialSubject = "" }: { initialSubject?: string }) {
+export function FindTutorWizard({
+  initialSubject = "",
+  initialCity = "",
+  initialClassLevel = "",
+}: {
+  initialSubject?: string;
+  initialCity?: string;
+  initialClassLevel?: string;
+}) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PublicTutorResult[] | null>(null);
@@ -1253,11 +1263,11 @@ export function FindTutorWizard({ initialSubject = "" }: { initialSubject?: stri
 
   const [state, setState] = useState<WizardState>({
     subject: initialSubject,
-    classLevel: "",
+    classLevel: initialClassLevel,
     board: "CBSE",
     mode: "EITHER",
     budgetMax: 10000,
-    city: "",
+    city: initialCity,
   });
 
   const update = useCallback(<K extends keyof WizardState>(key: K, val: WizardState[K]) => {
@@ -1389,15 +1399,32 @@ export function FindTutorWizard({ initialSubject = "" }: { initialSubject?: stri
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+            {/* Progress steps */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((n) => (
+                  <div
+                    key={n}
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-800 ${
+                      n < step
+                        ? "bg-[#2D9E6B] text-white"
+                        : n === step
+                          ? "bg-[#0F2540] text-white"
+                          : "bg-[#F0F4F8] text-[#64748B] border border-[#E2E8F0]"
+                    }`}
+                    style={{ fontFamily: "Poppins, sans-serif" }}
+                  >
+                    {n}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between text-xs font-700 text-[#64748B]">
                 <span>Step {step} of {TOTAL_STEPS}</span>
                 <span>{Math.round((step / TOTAL_STEPS) * 100)}% complete</span>
               </div>
-              <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div className="h-2 rounded-full bg-[#E2E8F0] overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-[#2D9E6B] transition-all duration-500"
+                  className="h-full rounded-full bg-[#2D9E6B]"
                   style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
                 />
               </div>

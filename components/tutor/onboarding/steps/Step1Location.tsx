@@ -265,7 +265,7 @@ export function Step1Location({
         type="button"
         onClick={handleDetectGPS}
         disabled={isGpsLoading}
-        className="w-full py-3 px-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 border-2 border-emerald-300 text-emerald-900 font-800 text-xs flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 cursor-pointer shadow-xs disabled:opacity-60"
+        className="w-full py-3 px-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 border-2 border-emerald-300 text-emerald-900 font-800 text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
       >
         {isGpsLoading ? (
           <>
@@ -410,7 +410,7 @@ export function Step1Location({
           type="button"
           onClick={handleSubmit}
           disabled={isLoading}
-          className={`${onBack ? "flex-[2]" : "w-full"} h-13 rounded-2xl bg-[#1A3C5E] hover:bg-[#15304f] text-white font-800 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 shadow-lg disabled:opacity-60 cursor-pointer`}
+          className={`${onBack ? "flex-[2]" : "w-full"} h-13 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer`}
         >
           {isLoading ? (
             <>

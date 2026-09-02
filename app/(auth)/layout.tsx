@@ -15,9 +15,9 @@ export default function AuthLayout({
     <div
       className="min-h-screen w-full flex flex-col justify-between items-center relative overflow-hidden"
       style={{
-        backgroundColor: "#F7F9FC",
+        backgroundColor: "#F0F4F8",
         backgroundImage:
-          "radial-gradient(ellipse at 50% 0%, rgba(26, 60, 94, 0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(45, 158, 107, 0.06) 0%, transparent 50%)",
+          "radial-gradient(ellipse at 50% 0%, rgba(15, 37, 64, 0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(45, 158, 107, 0.07) 0%, transparent 50%)",
       }}
     >
       {/* Background Ambient Glow Orbs */}

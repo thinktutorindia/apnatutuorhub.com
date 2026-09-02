@@ -95,16 +95,16 @@ export function EnablePushBanner({
 
   if (permission === "granted" || status === "success") {
     return (
-      <div className="neu-card flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-[#DCFCE7] p-4 text-xs font-bold text-[#0F172A]">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 size={16} className="text-[#22C55E]" />
-          <span>
+      <div className="ath-panel flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-4 text-xs font-bold text-[#0F2540] min-w-0">
+        <div className="flex items-start gap-2 min-w-0">
+          <CheckCircle2 size={16} className="text-[#2D9E6B] shrink-0 mt-0.5" />
+          <span className="leading-snug">
             {isParent
-              ? "Instant Tutor Applications & Class Update Notifications Active on this Device ✅"
-              : "Instant Student Lead & Inquiries Alerts Active on this Device ✅"}
+              ? "Tutor application alerts are on for this device."
+              : "Student lead alerts are on for this device."}
           </span>
         </div>
-        <span className="rounded-full border-2 border-[#0F172A] bg-white px-2.5 py-0.5 text-[10px] font-black">
+        <span className="rounded-full bg-[#E8F7F0] text-[#238357] px-2.5 py-0.5 text-[10px] font-800 w-fit">
           Connected
         </span>
       </div>
@@ -113,7 +113,7 @@ export function EnablePushBanner({
 
   return (
     <>
-      <div className="neu-card flex flex-col items-start justify-between gap-4 bg-[#FFEDD5] border-2 border-[#0F172A] shadow-[4px_4px_0px_0px_#0F172A] p-5 sm:flex-row sm:items-center relative">
+      <div className="ath-panel flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center relative min-w-0">
         <button
           type="button"
           aria-label="Dismiss notification banner"
@@ -121,11 +121,11 @@ export function EnablePushBanner({
             setDismissed(true);
             window.localStorage.setItem("ath-push-banner-dismissed", "1");
           }}
-          className="absolute top-3 right-3 p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/70 cursor-pointer"
+          className="absolute top-3 right-3 p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/70 cursor-pointer min-h-11 min-w-11 inline-flex items-center justify-center"
         >
           <X size={16} />
         </button>
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 pr-10 min-w-0">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_0px_#0F172A]">
             <Bell size={22} className="text-orange-600 animate-bounce" />
           </div>
@@ -148,7 +148,7 @@ export function EnablePushBanner({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
           {permission === "denied" && (
             <button
               onClick={() => setShowGuide(true)}

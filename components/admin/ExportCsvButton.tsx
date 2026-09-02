@@ -32,8 +32,10 @@ export function ExportCsvButton({ label, action, className }: ExportCsvButtonPro
         type="button"
         onClick={handleExport}
         disabled={isPending}
-        className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all hover:opacity-90 disabled:opacity-50 active:scale-95 ${className ?? ""}`}
-        style={{ background: "#1E293B", border: "1px solid #334155", color: "#94A3B8" }}
+        className={
+          className ??
+          "flex items-center gap-1.5 rounded-full px-4 py-2.5 text-xs font-800 bg-[#0F2540] !text-white hover:bg-[#1E3A5F] disabled:opacity-50"
+        }
       >
         {isPending ? (
           <Loader2 size={13} className="animate-spin" />

@@ -58,7 +58,7 @@ export default async function ParentProfilePage() {
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 ath-panel">
         <div className="space-y-1">
           <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Account Preferences</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
@@ -71,7 +71,7 @@ export default async function ParentProfilePage() {
       </div>
 
       {/* Dual Role / Teach as Tutor Banner */}
-      <div className="rounded-3xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 p-6 sm:p-8 border border-amber-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="ath-panel p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-extrabold">
             <Sparkles size={13} className="text-amber-600" />
@@ -86,7 +86,7 @@ export default async function ParentProfilePage() {
         </div>
         <Link
           href="/tutor/onboarding"
-          className="px-5 py-3 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs shadow-md hover:shadow-lg transition-all shrink-0 hover:scale-105 active:scale-95 flex items-center gap-2"
+          className="px-5 py-3 rounded-2xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white font-800 text-xs shrink-0 flex items-center gap-2 cursor-pointer"
         >
           <GraduationCap size={16} className="text-amber-400" />
           <span>Register as Tutor</span>
@@ -95,7 +95,7 @@ export default async function ParentProfilePage() {
       </div>
 
       {/* Profile Form Container */}
-      <div className="rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-xs">
+      <div className="ath-panel p-6 sm:p-8">
         <ParentProfileForm
           defaults={{
             name: user.name ?? "",
@@ -113,7 +113,7 @@ export default async function ParentProfilePage() {
       </div>
 
       {/* Student Profiles Section */}
-      <div className="rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-xs">
+      <div className="ath-panel p-6 sm:p-8">
         <StudentProfilesSection students={parentProfile.students} />
       </div>
     </div>

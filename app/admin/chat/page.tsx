@@ -82,25 +82,25 @@ export default async function AdminChatSupportPage({
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
         <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Support Moderation</span>
+          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Support &amp; Chat Inbox
+            Chat Monitor
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Platform-wide conversation monitoring &amp; support escalation management
+            Parent–tutor conversations and support escalation
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-2xl px-4 py-2 bg-blue-50 border border-blue-200 text-[#2563EB] font-800 text-xs shrink-0">
+        <div className="flex items-center gap-2 rounded-full px-4 py-2 bg-[#E8F1FB] text-[#2563EB] font-800 text-xs shrink-0">
           <MessageCircle size={15} />
-          <span>{totalConversations} Active Threads</span>
+          <span>{totalConversations} active threads</span>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-1">
+        <div className="ath-panel p-6 space-y-1">
           <p className="text-xs font-800 uppercase tracking-wider text-slate-900">
             Total Chat Threads
           </p>
@@ -110,7 +110,7 @@ export default async function AdminChatSupportPage({
           <p className="text-xs font-600 text-slate-600">All active parent-tutor conversations</p>
         </div>
 
-        <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-1">
+        <div className="ath-panel p-6 space-y-1">
           <p className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B]">
             Messages Sent
           </p>
@@ -120,7 +120,7 @@ export default async function AdminChatSupportPage({
           <p className="text-xs font-600 text-slate-600">Instant messages processed</p>
         </div>
 
-        <div className="rounded-3xl p-6 bg-white border border-slate-200 shadow-xs space-y-1 sm:col-span-2 lg:col-span-1">
+        <div className="ath-panel p-6 space-y-1 sm:col-span-2 lg:col-span-1">
           <p className="text-xs font-800 uppercase tracking-wider text-[#2563EB]">
             Support Governance
           </p>
@@ -132,7 +132,7 @@ export default async function AdminChatSupportPage({
       </div>
 
       {/* Search Input */}
-      <form method="GET" className="flex flex-col gap-3 sm:flex-row sm:items-center p-4 rounded-3xl bg-white border border-slate-200 shadow-xs">
+      <form method="GET" className="ath-panel flex flex-col gap-3 sm:flex-row sm:items-center p-4">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
@@ -152,7 +152,7 @@ export default async function AdminChatSupportPage({
       </form>
 
       {/* Conversations List */}
-      <div className="rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden">
+      <div className="ath-panel overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-800 text-[#0F2540] text-base" style={{ fontFamily: "Poppins, sans-serif" }}>
             Active Support &amp; Chat Threads

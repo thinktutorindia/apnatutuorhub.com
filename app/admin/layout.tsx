@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { StaffGlobalShiftBar } from "@/components/admin/StaffGlobalShiftBar";
 import { prisma } from "@/lib/prisma";
+import { getMediaUrl } from "@/lib/s3";
 
 export default async function AdminLayout({
   children,
@@ -21,36 +22,48 @@ export default async function AdminLayout({
   let customPermissions = session.user.customPermissions ?? null;
   let subAdminRole = session.user.subAdminRole ?? null;
 
-  if (session.user.role === "SUB_ADMIN" && session.user.id) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { subAdminRole: true, customPermissions: true, isActive: true },
-    });
-    if (dbUser) {
-      if (!dbUser.isActive) redirect("/login");
-      customPermissions = dbUser.customPermissions;
-      subAdminRole = dbUser.subAdminRole;
-    }
+  const [staffUser, unreadNotifications] = await Promise.all([
+    session.user.role === "SUB_ADMIN" && session.user.id
+      ? prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { subAdminRole: true, customPermissions: true, isActive: true, image: true },
+        })
+      : prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { image: true },
+        }),
+    prisma.notification.count({
+      where: { userId: session.user.id, isRead: false },
+    }),
+  ]);
+
+  if (session.user.role === "SUB_ADMIN" && staffUser && "isActive" in staffUser) {
+    if (!staffUser.isActive) redirect("/login");
+    customPermissions = staffUser.customPermissions;
+    subAdminRole = staffUser.subAdminRole;
   }
 
   return (
-    <div className="flex min-h-screen lg:min-h-screen flex-col lg:flex-row bg-[#F8FAFC] text-slate-900">
+    <div className="flex min-h-screen lg:min-h-screen flex-col lg:flex-row bg-[#F0F4F8] text-slate-900">
       <AdminSidebar
         userName={session.user.name || "Admin"}
         userEmail={session.user.email ?? ""}
         userRole={session.user.role}
         subAdminRole={subAdminRole}
         customPermissions={customPermissions}
+        kycPendingCount={await prisma.tutorProfile.count({ where: { kycStatus: "PENDING" } })}
       />
 
       {/* Main scrollable area */}
-      <div className="flex flex-1 flex-col lg:ml-[260px] min-w-0 bg-[#F8FAFC] min-h-screen">
+      <div className="flex flex-1 flex-col lg:ml-[260px] min-w-0 bg-[#F0F4F8] min-h-screen">
         {/* Persistent Global Shift & Presence Header Bar */}
         <StaffGlobalShiftBar
           userRole={session.user.role}
           userName={session.user.name ?? session.user.email ?? "Staff"}
+          userImage={getMediaUrl(staffUser?.image)}
+          unreadCount={unreadNotifications}
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 lg:pb-8">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 min-w-0 overflow-x-auto">{children}</main>
       </div>
     </div>
   );

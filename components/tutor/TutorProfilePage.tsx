@@ -334,12 +334,12 @@ export function TutorProfilePage({
             const isDone = profile.availability.length > 0;
             return (
               <div className={`p-5 rounded-3xl border-2 shadow-xs space-y-3 flex flex-col justify-between ${
-                isDone ? "bg-purple-50/60 border-purple-200" : "bg-amber-50/60 border-amber-300"
+                isDone ? "bg-[#E8F7F0] border-emerald-200" : "bg-amber-50/60 border-amber-300"
               }`}>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className={`w-10 h-10 rounded-2xl text-white flex items-center justify-center shadow-2xs ${
-                      isDone ? "bg-purple-600" : "bg-amber-600"
+                      isDone ? "bg-[#2D9E6B]" : "bg-amber-600"
                     }`}>
                       <Calendar size={20} />
                     </div>
@@ -351,7 +351,7 @@ export function TutorProfilePage({
                     </div>
                   </div>
                   <span className={`text-[10px] font-800 px-2 py-0.5 rounded-full ${
-                    isDone ? "bg-purple-200 text-purple-950" : "bg-amber-200 text-amber-950"
+                    isDone ? "bg-emerald-200 text-[#0F2540]" : "bg-amber-200 text-amber-950"
                   }`}>
                     {isDone ? "Set ✅" : "Pending ⏳"}
                   </span>
@@ -363,7 +363,7 @@ export function TutorProfilePage({
                   type="button"
                   onClick={() => setActiveEditStep(5)}
                   className={`w-full py-2.5 rounded-2xl !text-white text-xs font-800 flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    isDone ? "bg-purple-700 hover:bg-purple-800" : "bg-amber-600 hover:bg-amber-700"
+                    isDone ? "bg-[#2D9E6B] hover:bg-[#238357]" : "bg-amber-600 hover:bg-amber-700"
                   }`}
                 >
                   <Calendar size={14} className="!text-white" />

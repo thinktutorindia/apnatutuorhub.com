@@ -9,7 +9,7 @@ export interface SignOutButtonProps {
   text?: string;
   iconSize?: number;
   showIcon?: boolean;
-  variant?: "default" | "danger" | "ghost" | "full";
+  variant?: "default" | "danger" | "ghost" | "full" | "link";
 }
 
 export function SignOutButton({
@@ -47,18 +47,26 @@ export function SignOutButton({
   } else if (variant === "full") {
     variantClass =
       "w-full bg-red-50/80 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200/80 hover:border-red-300 shadow-2xs hover:shadow-md hover:shadow-red-500/10 text-sm font-700 px-4 py-3";
+  } else if (variant === "link") {
+    variantClass =
+      "bg-transparent text-[#0F2540] hover:text-[#2D9E6B] text-[15px] font-700 px-0 h-11 whitespace-nowrap shrink-0";
   }
 
   const combinedClass = className
     ? className
     : `rounded-xl font-600 ${variantClass}`;
 
+  const motionClass =
+    variant === "link"
+      ? "hover:scale-100 active:scale-100"
+      : "active:scale-95 active:duration-100 hover:scale-[1.04]";
+
   return (
     <button
       type="button"
       onClick={handleSignOut}
       disabled={isSigningOut}
-      className={`group relative inline-flex items-center justify-center gap-2 transition-all duration-300 ease-out select-none cursor-pointer active:scale-95 active:duration-100 hover:scale-[1.04] disabled:pointer-events-none disabled:opacity-75 overflow-hidden ${combinedClass}`}
+      className={`group relative inline-flex items-center justify-center gap-1.5 transition-colors duration-200 select-none cursor-pointer disabled:pointer-events-none disabled:opacity-75 ${variant === "link" ? "" : "overflow-hidden"} ${motionClass} ${combinedClass}`}
       title="Sign Out"
     >
       {/* Click ripple animation overlay */}
@@ -81,7 +89,7 @@ export function SignOutButton({
       )}
 
       {/* Text label with transition */}
-      <span className="relative font-semibold transition-colors duration-200 group-hover:text-red-600">
+      <span className="relative font-700 whitespace-nowrap transition-colors duration-200 group-hover:text-red-600">
         {isSigningOut ? "Signing out..." : text}
       </span>
     </button>

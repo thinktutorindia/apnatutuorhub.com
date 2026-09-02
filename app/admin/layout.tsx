@@ -23,21 +23,16 @@ export default async function AdminLayout({
   let subAdminRole = session.user.subAdminRole ?? null;
 
   const [staffUser, unreadNotifications] = await Promise.all([
-    session.user.role === "SUB_ADMIN" && session.user.id
-      ? prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { subAdminRole: true, customPermissions: true, isActive: true, image: true },
-        })
-      : prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { image: true },
-        }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subAdminRole: true, customPermissions: true, isActive: true, image: true },
+    }),
     prisma.notification.count({
       where: { userId: session.user.id, isRead: false },
     }),
   ]);
 
-  if (session.user.role === "SUB_ADMIN" && staffUser && "isActive" in staffUser) {
+  if (session.user.role === "SUB_ADMIN" && staffUser) {
     if (!staffUser.isActive) redirect("/login");
     customPermissions = staffUser.customPermissions;
     subAdminRole = staffUser.subAdminRole;

@@ -137,7 +137,7 @@ export function TutorOnboardingWizard({
         if (isAdminMode) {
           if (onFinishAdmin) onFinishAdmin();
         } else {
-          router.push("/tutor/dashboard");
+          router.push("/tutor/leads");
         }
       } else {
         setCurrentStep((s) => s + 1);

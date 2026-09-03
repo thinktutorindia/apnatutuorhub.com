@@ -13,6 +13,7 @@ import {
 import {
   getStaffDailyWorkReportsAction,
   getWorkSessionCallLogsAction,
+  getStaffMemberDetailedWorkAction,
   StaffWorkSessionReportItem
 } from "@/app/actions/staff-leads.actions";
 import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
@@ -74,11 +75,11 @@ type ActivityLogItem = {
   outcome: string;
   notes: string | null;
   calledAt: string;
-  calledBy: {
-    id?: string;
+  staff: {
+    id: string;
     name: string | null;
     email: string;
-    subAdminRole?: string | null;
+    subAdminRole: string | null;
   };
   lead: {
     id: string;
@@ -172,7 +173,7 @@ export function StaffCrmReportsClient({
   const [endDate, setEndDate] = useState("");
   const [selectedStaffId, setSelectedStaffId] = useState("all");
   const [expandedDateKeys, setExpandedDateKeys] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"TIMESHEETS" | "LIVE_RADAR" | "ACTIVITY_FEED" | "DAILY" | "STAFF_MATRIX">("TIMESHEETS");
+  const [activeTab, setActiveTab] = useState<"TIMESHEETS" | "LIVE_RADAR" | "ACTIVITY_FEED" | "DAILY" | "STAFF_MATRIX" | "PER_STAFF_WORK">("TIMESHEETS");
   const [searchQuery, setSearchQuery] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState("ALL");
 
@@ -182,6 +183,69 @@ export function StaffCrmReportsClient({
     callLogs: SessionCallLog[];
   } | null>(null);
   const [loadingSessionLogs, setLoadingSessionLogs] = useState(false);
+
+  // Per-Staff Detailed Work State
+  const [detailedStaffId, setDetailedStaffId] = useState<string>(staffList[0]?.id || "");
+  const [detailedWorkData, setDetailedWorkData] = useState<{
+    staffList: Array<{ id: string; name: string | null; email: string; subAdminRole: string | null }>;
+    selectedStaff: { id: string; name: string | null; email: string; subAdminRole: string | null } | null;
+    metrics: {
+      totalAssigned: number;
+      contactedCount: number;
+      followUpCount: number;
+      convertedCount: number;
+      callsCount: number;
+      editsCount: number;
+    };
+    assignedLeads: Array<{
+      id: string;
+      name: string | null;
+      phone: string | null;
+      location: string | null;
+      subjects: string[];
+      classes: string[];
+      status: any;
+      priority: number;
+      assignedAt: string | null;
+      lastContactedAt: string | null;
+      callsCount: number;
+      lastCall: { outcome: any; notes: string | null; calledAt: string } | null;
+      lastEdit: { editorName: string; summary: string; createdAt: string } | null;
+    }>;
+    recentActivity: Array<{
+      id: string;
+      type: "CALL" | "EDIT" | "ASSIGNMENT";
+      title: string;
+      details: string | null;
+      leadId: string;
+      leadName: string | null;
+      leadPhone: string | null;
+      timestamp: string;
+    }>;
+  } | null>(null);
+  const [isLoadingDetailedWork, setIsLoadingDetailedWork] = useState(false);
+  const [detailedLeadSearch, setDetailedLeadSearch] = useState("");
+  const [detailedWorkTab, setDetailedWorkTab] = useState<"LEADS" | "STREAM">("LEADS");
+
+  const fetchDetailedWork = async (staffId?: string, search?: string) => {
+    setIsLoadingDetailedWork(true);
+    try {
+      const res = await getStaffMemberDetailedWorkAction({
+        staffId: staffId || detailedStaffId,
+        search: search !== undefined ? search : detailedLeadSearch,
+      });
+      if (res.success && res.data) {
+        setDetailedWorkData(res.data);
+        if (res.data.selectedStaff) {
+          setDetailedStaffId(res.data.selectedStaff.id);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingDetailedWork(false);
+    }
+  };
 
   const [isPending, startTransition] = useTransition();
 
@@ -572,6 +636,23 @@ export function StaffCrmReportsClient({
           >
             <Award size={14} className={activeTab === "STAFF_MATRIX" ? "text-emerald-600" : ""} />
             🏆 Leaderboard ({staffWeeklyMatrix.length})
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("PER_STAFF_WORK");
+              if (!detailedWorkData && !isLoadingDetailedWork) {
+                fetchDetailedWork(selectedStaffId === "all" ? staffList[0]?.id : selectedStaffId);
+              }
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === "PER_STAFF_WORK"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <UserCheck size={14} className={activeTab === "PER_STAFF_WORK" ? "text-amber-600" : ""} />
+            👤 Per-Staff Leads &amp; Work History
           </button>
         </div>
 
@@ -1028,6 +1109,367 @@ export function StaffCrmReportsClient({
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════════════
+          TAB 5: PER-STAFF LEADS & WORK HISTORY (FULL AUDIT & ACTIVITY BREAKDOWN)
+         ══════════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "PER_STAFF_WORK" && (
+        <div className="space-y-6">
+          {/* Top Control Bar: Staff Selector & Quick Stats */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <UserCheck size={20} className="text-amber-600" />
+                  Per-Staff Leads, Calls &amp; Complete Work History
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Full admin visibility into what each staff member worked on: leads assigned, calls logged, notes taken, and real-time field edits.
+                </p>
+              </div>
+
+              {/* Staff Member Picker */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-slate-600">Select Staff:</span>
+                  <select
+                    value={detailedStaffId}
+                    onChange={(e) => {
+                      setDetailedStaffId(e.target.value);
+                      fetchDetailedWork(e.target.value);
+                    }}
+                    className="px-3.5 py-2 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                  >
+                    {staffList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name || s.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={() => fetchDetailedWork(detailedStaffId)}
+                  disabled={isLoadingDetailedWork}
+                  className="px-3 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  title="Refresh staff data"
+                >
+                  <RefreshCw size={13} className={isLoadingDetailedWork ? "animate-spin text-amber-600" : ""} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Selected Staff Profile Ribbon */}
+            {detailedWorkData?.selectedStaff && (
+              <div className="flex flex-wrap items-center gap-3 p-3 bg-amber-50/60 rounded-2xl border border-amber-200/80 text-xs">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white font-black flex items-center justify-center text-sm shadow-2xs">
+                  {detailedWorkData.selectedStaff.name?.charAt(0).toUpperCase() || "S"}
+                </div>
+                <div>
+                  <span className="font-extrabold text-slate-900 mr-2">{detailedWorkData.selectedStaff.name || "Staff Member"}</span>
+                  <span className="text-slate-500 text-[11px] mr-2">{detailedWorkData.selectedStaff.email}</span>
+                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-bold border border-amber-300">
+                    {detailedWorkData.selectedStaff.subAdminRole || "Staff"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {isLoadingDetailedWork && !detailedWorkData ? (
+            <div className="py-20 text-center space-y-3 bg-white rounded-3xl border border-slate-200 p-8">
+              <Loader2 size={32} className="animate-spin text-amber-600 mx-auto" />
+              <p className="text-xs font-bold text-slate-500">Loading staff assignments, calls, and edit history...</p>
+            </div>
+          ) : detailedWorkData ? (
+            <>
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Assigned Leads</p>
+                  <p className="text-2xl font-black text-slate-900">{detailedWorkData.metrics.totalAssigned}</p>
+                  <p className="text-[10px] text-slate-500 font-medium">In staff queue</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-teal-200 p-4 shadow-2xs space-y-1 bg-teal-50/20">
+                  <p className="text-[11px] font-bold text-teal-600 uppercase tracking-wider">Contacted</p>
+                  <p className="text-2xl font-black text-teal-800">{detailedWorkData.metrics.contactedCount}</p>
+                  <p className="text-[10px] text-teal-600 font-medium">Reached by phone</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-amber-200 p-4 shadow-2xs space-y-1 bg-amber-50/20">
+                  <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">In Follow-Up</p>
+                  <p className="text-2xl font-black text-amber-800">{detailedWorkData.metrics.followUpCount}</p>
+                  <p className="text-[10px] text-amber-600 font-medium">Scheduled callbacks</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-emerald-200 p-4 shadow-2xs space-y-1 bg-emerald-50/20">
+                  <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Converted</p>
+                  <p className="text-2xl font-black text-emerald-800">✓ {detailedWorkData.metrics.convertedCount}</p>
+                  <p className="text-[10px] text-emerald-600 font-medium">Plan purchased / active</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-blue-200 p-4 shadow-2xs space-y-1 bg-blue-50/20">
+                  <p className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Calls Made</p>
+                  <p className="text-2xl font-black text-blue-800">{detailedWorkData.metrics.callsCount}</p>
+                  <p className="text-[10px] text-blue-600 font-medium">Total logged calls</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-indigo-200 p-4 shadow-2xs space-y-1 bg-indigo-50/20">
+                  <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Lead Edits</p>
+                  <p className="text-2xl font-black text-indigo-800">{detailedWorkData.metrics.editsCount}</p>
+                  <p className="text-[10px] text-indigo-600 font-medium">Tracked field changes</p>
+                </div>
+              </div>
+
+              {/* Sub-Tabs: Assigned Leads vs Live Activity & Edit Stream */}
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setDetailedWorkTab("LEADS")}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                        detailedWorkTab === "LEADS"
+                          ? "bg-white text-slate-900 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      📋 Assigned Leads ({detailedWorkData.assignedLeads.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailedWorkTab("STREAM")}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                        detailedWorkTab === "STREAM"
+                          ? "bg-white text-slate-900 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      ⚡ Activity &amp; Edit Audit Stream ({detailedWorkData.recentActivity.length})
+                    </button>
+                  </div>
+
+                  {detailedWorkTab === "LEADS" && (
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search lead name, phone, city..."
+                        value={detailedLeadSearch}
+                        onChange={(e) => {
+                          setDetailedLeadSearch(e.target.value);
+                          fetchDetailedWork(detailedStaffId, e.target.value);
+                        }}
+                        className="pl-8 pr-3.5 py-1.5 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 w-56 text-slate-800 font-medium"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Sub-tab 1: Leads Table */}
+                {detailedWorkTab === "LEADS" && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-100">
+                          <th className="py-3 px-4">Lead Info</th>
+                          <th className="py-3 px-4">Subjects / Classes</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4">Calls Made</th>
+                          <th className="py-3 px-4">Last Call by Staff</th>
+                          <th className="py-3 px-4">Last Edit by Staff</th>
+                          <th className="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {detailedWorkData.assignedLeads.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center text-slate-400">
+                              No assigned leads found for this staff member matching criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          detailedWorkData.assignedLeads.map((lead) => (
+                            <tr key={lead.id} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="py-3 px-4">
+                                <p className="font-extrabold text-slate-900 text-sm">{lead.name || "Untitled Lead"}</p>
+                                <p className="text-slate-500 font-mono text-[11px]">{lead.phone || "No phone"}</p>
+                                {lead.location && (
+                                  <p className="text-slate-400 text-[10px] flex items-center gap-0.5 mt-0.5">
+                                    <MapPin size={9} /> {lead.location}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="space-y-1">
+                                  {lead.subjects.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {lead.subjects.slice(0, 3).map((s, idx) => (
+                                        <span key={idx} className="bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded text-[10px] font-bold">
+                                          {s}
+                                        </span>
+                                      ))}
+                                      {lead.subjects.length > 3 && (
+                                        <span className="text-[9px] text-slate-400 font-bold">+{lead.subjects.length - 3}</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400 italic text-[11px]">No subjects</span>
+                                  )}
+                                  {lead.classes.length > 0 && (
+                                    <p className="text-[10px] font-bold text-slate-500">
+                                      Classes: {lead.classes.join(", ")}
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  lead.status === "CONVERTED"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : lead.status === "FOLLOW_UP"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : lead.status === "CONTACTED"
+                                    ? "bg-teal-100 text-teal-800"
+                                    : lead.status === "NO_ANSWER"
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-slate-100 text-slate-700"
+                                }`}>
+                                  {lead.status.replace(/_/g, " ")}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="font-extrabold text-slate-800 text-xs">
+                                  {lead.callsCount} {lead.callsCount === 1 ? "call" : "calls"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                {lead.lastCall ? (
+                                  <div className="space-y-0.5">
+                                    <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700">
+                                      {lead.lastCall.outcome.replace(/_/g, " ")}
+                                    </span>
+                                    {lead.lastCall.notes && (
+                                      <p className="text-[11px] text-slate-600 line-clamp-1 max-w-[200px]" title={lead.lastCall.notes}>
+                                        {lead.lastCall.notes}
+                                      </p>
+                                    )}
+                                    <p className="text-[10px] text-slate-400">
+                                      {new Date(lead.lastCall.calledAt).toLocaleString("en-IN", {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic text-[11px]">Not called yet</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                {lead.lastEdit ? (
+                                  <div className="space-y-0.5">
+                                    <p className="text-[11px] font-semibold text-slate-700 line-clamp-1 max-w-[220px]" title={lead.lastEdit.summary}>
+                                      {lead.lastEdit.summary}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400">
+                                      {new Date(lead.lastEdit.createdAt).toLocaleString("en-IN", {
+                                        month: "short",
+                                        day: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic text-[11px]">No edits yet</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <Link
+                                  href={`/admin/staff-leads/${lead.id}`}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-amber-100 hover:text-amber-900 text-slate-700 font-extrabold text-xs transition-colors"
+                                >
+                                  <span>View Lead</span>
+                                  <ArrowUpRight size={12} />
+                                </Link>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Sub-tab 2: Activity & Edit Stream */}
+                {detailedWorkTab === "STREAM" && (
+                  <div className="p-6 space-y-3">
+                    {detailedWorkData.recentActivity.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400">
+                        No activity or edit entries recorded for this staff member yet.
+                      </div>
+                    ) : (
+                      detailedWorkData.recentActivity.map((act) => (
+                        <div key={act.id} className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                                act.type === "CALL"
+                                  ? "bg-blue-50 text-blue-800 border-blue-200"
+                                  : act.type === "ASSIGNMENT"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                  : "bg-indigo-50 text-indigo-800 border-indigo-200"
+                              }`}>
+                                {act.type === "CALL" ? "📞 Call Logged" : act.type === "ASSIGNMENT" ? "👤 Lead Assigned" : "✏️ Field Edit"}
+                              </span>
+                              <span className="text-xs font-black text-slate-900">{act.title}</span>
+                              {act.leadName && (
+                                <span className="text-xs font-bold text-slate-600">
+                                  on <span className="text-slate-900 font-extrabold">{act.leadName}</span>
+                                </span>
+                              )}
+                            </div>
+                            {act.details && (
+                              <p className="text-xs text-slate-600 bg-white/70 px-2.5 py-1 rounded-lg border border-slate-100 font-medium">
+                                {act.details}
+                              </p>
+                            )}
+                          </div>
+                          <div className="shrink-0 text-right space-y-1">
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              {new Date(act.timestamp).toLocaleString("en-IN", {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {act.leadId && (
+                              <div>
+                                <Link
+                                  href={`/admin/staff-leads/${act.leadId}`}
+                                  className="text-[11px] font-extrabold text-amber-700 hover:underline flex items-center gap-0.5 justify-end"
+                                >
+                                  <span>Open Lead</span>
+                                  <ArrowUpRight size={10} />
+                                </Link>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
         </div>
       )}
 

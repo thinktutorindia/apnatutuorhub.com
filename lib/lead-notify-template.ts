@@ -56,7 +56,28 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
     classBase = `${n}${suffix} Std`;
   }
 
-  const subjectsStr = data.subjects && data.subjects.length > 0 ? data.subjects.join(", ") : "";
+  // Clean and deduplicate subjects (strip "for Class VI", "for Grade 8", etc.)
+  const rawSubjects = data.subjects && data.subjects.length > 0 ? data.subjects : [];
+  const cleanedSubjects = Array.from(
+    new Set(
+      rawSubjects
+        .map((s) => {
+          let clean = s.trim();
+          clean = clean.replace(/\bmaths\b/i, "Mathematics");
+          clean = clean.replace(
+            /\s*(?:for|-|\(|\/|–|—|,)?\s*(?:class|grade|std|standard)\s*(?:[0-9]{1,2}|[ivx]+)(?:\s*(?:to|-|–|&|and)\s*(?:class|grade|std|standard)?\s*(?:[0-9]{1,2}|[ivx]+))?\s*(?:st|nd|rd|th)?\s*\)?/gi,
+            ""
+          );
+          clean = clean.replace(/\s+(?:[0-9]{1,2}|[ivx]+)\s*(?:st|nd|rd|th)?\s*(?:grade|class|std)?$/i, "");
+          clean = clean.replace(/\s*\([^)]*(?:class|grade|std|standard|[0-9]{1,2}|[ivx]+)[^)]*\)/gi, "");
+          clean = clean.replace(/^[-–—:,/]+|[-–—:,/]+$/g, "").trim();
+          return clean || s.trim();
+        })
+        .filter(Boolean)
+    )
+  );
+
+  const subjectsStr = cleanedSubjects.join(", ");
   const classStr = [
     classBase,
     subjectsStr ? `(${subjectsStr})` : "",
@@ -89,19 +110,29 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
     feesStr = `${data.budgetMax}/month`;
   }
 
-  let genderStr = "Any (Calm and Polite Tutor)";
+  // Clean gender preference (strictly Male, Female, or Any — no notes contamination)
+  let genderStr = "Any (Male or Female Tutor)";
   if (data.genderPreference) {
     const gUpper = data.genderPreference.toUpperCase();
     if (gUpper.includes("FEMALE")) genderStr = "Female Tutor Required";
     else if (gUpper.includes("MALE")) genderStr = "Male Tutor Required";
-    else if (gUpper === "ANY" || !data.genderPreference) genderStr = "Any (Calm and Polite Tutor)";
-    else genderStr = data.genderPreference;
+    else if (gUpper === "ANY" || !data.genderPreference) genderStr = "Any (Male or Female Tutor)";
+    else {
+      // Remove any leaked bracket tags like ([MONTHLY RATE])
+      genderStr = data.genderPreference.replace(/\s*\[[^\]]+\]\s*/g, "").trim() || "Any (Male or Female Tutor)";
+    }
   }
 
-  const notesExtra = data.notes && !genderStr.includes(data.notes) ? ` (${data.notes})` : "";
-  const genderWithNotes = `${genderStr}${notesExtra}`;
+  // Filter out system tags like [MONTHLY RATE] from user-facing notes
+  const rawNotes = (data.notes || "").replace(/\[(?:MONTHLY RATE|HOURLY|DAILY|SYSTEM)\]/gi, "").trim();
+  const cleanNotes = rawNotes && !genderStr.toLowerCase().includes(rawNotes.toLowerCase()) ? rawNotes : null;
 
-  const scheduleStr = data.schedule || data.timingPreference || "5 Days a Week";
+  // Real timing fallback — exclude impossible 12 PM - 3 PM school hours
+  let scheduleStr = data.schedule || data.timingPreference || "Evening (4 PM - 7 PM)";
+  if (/12\s*(?:pm)?\s*[-–]\s*(?:3|4)\s*pm/i.test(scheduleStr)) {
+    scheduleStr = "Evening (4 PM - 7 PM)";
+  }
+
   const whatsappNum = data.contactWhatsApp || "87997 07960";
 
   if (data.useStandardMarkdown) {
@@ -112,13 +143,16 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
       `*Mode:* ${modeStr}`,
       `*Location:* ${locationStr}${pinStr}`,
       `*Fees:* ${feesStr}`,
-      `*Gender Preference:* ${genderWithNotes}`,
+      `*Gender Preference:* ${genderStr}`,
+      cleanNotes ? `*Special Notes:* ${cleanNotes}` : null,
       `*Schedule:* ${scheduleStr}`,
       "",
       `Dm on WhatsApp  ${whatsappNum}`,
       `👑 VIP Membership Plan: https://apnatutorhub.com/tutor/plans`,
       `🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads`,
-    ].join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
   }
 
   return [
@@ -128,11 +162,14 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
     `𝐌𝐨𝐝𝐞: ${modeStr}`,
     `𝐋𝐨𝐜𝐚𝐭𝐢𝐨𝐧: ${locationStr}${pinStr}`,
     `𝐅𝐞𝐞𝐬: ${feesStr}`,
-    `𝐆𝐞𝐧𝐝𝐞𝐫 𝐏𝐫𝐞𝐟𝐞𝐫𝐞𝐧𝐜𝐞: ${genderWithNotes}`,
+    `𝐆𝐞𝐧𝐝𝐞𝐫 𝐏𝐫𝐞𝐟𝐞𝐫𝐞𝐧𝐜𝐞: ${genderStr}`,
+    cleanNotes ? `𝐒𝐩𝐞𝐜𝐢𝐚𝐥 𝐍𝐨𝐭𝐞𝐬: ${cleanNotes}` : null,
     `𝐒𝐜𝐡𝐞𝐝𝐮𝐥𝐞: ${scheduleStr}`,
     "",
     `Dm on WhatsApp  ${whatsappNum}`,
     `👑 VIP Membership Plan: https://apnatutorhub.com/tutor/plans`,
     `🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

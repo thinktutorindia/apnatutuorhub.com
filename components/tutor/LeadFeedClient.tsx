@@ -695,12 +695,14 @@ export function LeadFeedClient({
   tutorSubjects,
   subscriptionInfo,
   claimedBannerInfo,
+  kycStatus,
 }: {
   leads: FeedLead[];
   walletBalance: number;
   tutorSubjects: string[];
   subscriptionInfo?: SubscriptionInfo | null;
   claimedBannerInfo?: DummyClaimedLeadInfo | null;
+  kycStatus?: string;
 }) {
   const [viewTab, setViewTab] = useState<"available" | "shortlisted" | "unlocked" | "all">("available");
   const [searchQuery, setSearchQuery] = useState("");
@@ -761,6 +763,42 @@ export function LeadFeedClient({
 
       {/* Push Notification Setup Banner */}
       <LeadNotifReminderBanner />
+
+      {/* Quick Start / Get Coins or Plan Banner */}
+      {walletBalance < 25 && !subscriptionInfo?.hasActivePlan && (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0F2540] via-[#16365C] to-[#0A192F] p-5 sm:p-6 text-white shadow-lg border border-white/10">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
+                <Sparkles size={13} />
+                <span>KYC is optional • Unlock student contacts immediately</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+                Start Connecting with Students Today
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                No need to wait for KYC verification. Top up coins or choose a membership plan to unlock parent phone numbers, addresses, and chat directly.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <Link
+                href="/tutor/wallet"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F5A623] hover:bg-[#e69512] text-[#0F2540] font-extrabold text-xs shadow-md transition-all active:scale-95"
+              >
+                <Coins size={15} />
+                <span>Buy Coins</span>
+              </Link>
+              <Link
+                href="/tutor/plans"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs border border-white/20 shadow-md transition-all active:scale-95"
+              >
+                <Crown size={15} />
+                <span>View Plans (Free Unlocks)</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Page Header Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 ath-panel">

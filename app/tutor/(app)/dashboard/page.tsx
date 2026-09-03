@@ -76,7 +76,7 @@ export default async function TutorDashboardPage() {
     { done: (tutorProfile?.bio?.length ?? 0) >= 20, label: "Write your bio" },
     { done: !!tutorProfile?.feeMin, label: "Set your hourly fee" },
     { done: !!tutorProfile?.city, label: "Set your city" },
-    { done: isKycApproved, label: "Complete KYC verification" },
+    { done: isKycApproved, label: "Complete KYC verification (Optional)" },
   ];
   const profileScore = scoreBreakdown?.total ?? 0;
 
@@ -130,7 +130,7 @@ export default async function TutorDashboardPage() {
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-700 bg-amber-500/20 text-amber-200 border border-amber-400/40">
-                  <ShieldAlert size={14} /> Complete verification
+                  <ShieldAlert size={14} /> Verification (Optional)
                 </span>
               )}
               {tutorProfile?.isFeatured && (
@@ -145,7 +145,7 @@ export default async function TutorDashboardPage() {
             <p className="text-[15px] text-slate-200 font-500 leading-relaxed">
               {isKycApproved
                 ? "Parents near you are posting tuition requirements. Unlock a lead when you are ready to take the class."
-                : "Finish a quick identity check so parents can see you as a verified teacher."}
+                : "Unlock leads immediately with coins or a plan. Finish verification anytime to earn your Verified Teacher badge."}
             </p>
           </div>
 
@@ -194,14 +194,14 @@ export default async function TutorDashboardPage() {
                   ? "Documents under review"
                   : kycStatus === "REJECTED"
                     ? "Please re-upload your documents"
-                    : "Identity check needed"}
+                    : "Identity verification (Optional)"}
               </h3>
               <p className="text-sm text-slate-700 mt-0.5 leading-relaxed font-500">
                 {kycStatus === "PENDING"
                   ? "Our team usually finishes this within 24 hours. You will get a message when it is done."
                   : kycStatus === "REJECTED"
                     ? "Your last upload could not be verified. Please upload a clearer Aadhaar and selfie."
-                    : "Upload Aadhaar and a selfie to unlock parent phone numbers and student leads."}
+                    : "Upload Aadhaar and a selfie anytime to earn your Verified Teacher badge and build trust with parents. You can still unlock leads right now with coins or a plan!"}
               </p>
             </div>
           </div>

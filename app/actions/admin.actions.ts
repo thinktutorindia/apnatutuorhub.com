@@ -16,7 +16,8 @@ import { inferClassLevelFromSubjects } from "@/lib/validations";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
 import { maskPhoneNumber } from "@/lib/mask-utils";
-import { hasSubjectOverlap, coversClassLevel } from "@/lib/matching-engine";
+import { hasSubjectOverlap, coversClassLevel, isGenderCompatible } from "@/lib/matching-engine";
+import { geocodeAddressWithGemini } from "@/lib/gemini-geocoder";
 import { processReferralRewardOnKyc } from "@/app/actions/referral.actions";
 import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass } from "@/lib/lead-utils";
 
@@ -1081,6 +1082,9 @@ export type MatchedTutorSummary = {
   kycStatus: string;
   walletBalance: number;
   distanceKm: number | null;
+  gender?: string | null;
+  genderMatches?: boolean;
+  isWithin5Km?: boolean;
   alreadyPurchased: boolean;
   matchScore: number;
   hasNotificationSent?: boolean;
@@ -1384,8 +1388,18 @@ export async function adminGetMatchingTutorsForLeadAction(
   });
 
   const isOnlineLead = lead.mode === "ONLINE";
-  const leadSubjLower = lead.subjects.map((s) => s.toLowerCase());
-  const leadClassLower = lead.classLevel.toLowerCase();
+  const genderPref = lead.tutorGenderPref || (lead as any).genderPreference;
+
+  // Resolve lead coordinates via Gemini if missing for offline mode
+  let effectiveLeadLat = lead.latitude;
+  let effectiveLeadLng = lead.longitude;
+  if (!isOnlineLead && (effectiveLeadLat == null || effectiveLeadLng == null) && (lead.area || lead.city)) {
+    const geo = await geocodeAddressWithGemini({ address: lead.area, city: lead.city, pincode: lead.pincode });
+    if (geo) {
+      effectiveLeadLat = geo.lat;
+      effectiveLeadLng = geo.lng;
+    }
+  }
 
   const ranked: MatchedTutorSummary[] = tutors.map((tp) => {
     let subjectMatchCount = 0;
@@ -1400,17 +1414,20 @@ export async function adminGetMatchingTutorsForLeadAction(
     const classMatch = coversClassLevel(tp.classLevels, lead.classLevel);
 
     let distanceKm: number | null = null;
-    if (!isOnlineLead && lead.latitude && lead.longitude && tp.latitude && tp.longitude) {
+    if (!isOnlineLead && effectiveLeadLat && effectiveLeadLng && tp.latitude && tp.longitude) {
       distanceKm =
         Math.round(
           haversineDistanceKm(
-            lead.latitude,
-            lead.longitude,
+            effectiveLeadLat,
+            effectiveLeadLng,
             tp.latitude,
             tp.longitude
           ) * 10
         ) / 10;
     }
+
+    const genderMatches = isGenderCompatible(tp.gender, genderPref);
+    const isWithin5Km = distanceKm !== null ? distanceKm <= 5.0 : null;
 
     let score = 0;
     if (subjectMatchCount > 0) score += subjectMatchCount * 30;
@@ -1418,10 +1435,19 @@ export async function adminGetMatchingTutorsForLeadAction(
     
     if (isOnlineLead) {
       score += 30;
-    } else if (distanceKm !== null && distanceKm <= (lead.radiusKm || 10)) {
-      score += Math.max(0, 30 - Math.round(distanceKm * 2));
+    } else if (distanceKm !== null && distanceKm <= 5.0) {
+      // Reward tutors strictly within 5 km
+      score += Math.max(10, 35 - Math.round(distanceKm * 5));
+    } else if (distanceKm !== null && distanceKm > 5.0) {
+      // Heavy penalty for tutors outside 5 km radius
+      score = Math.max(0, score - 60);
     } else if (tp.city && lead.city && tp.city.trim().toLowerCase() === lead.city.trim().toLowerCase()) {
-      score += 20;
+      score += 10;
+    }
+
+    // Gender mismatch penalty
+    if (!genderMatches) {
+      score = Math.max(0, score - 80);
     }
 
     if (tp.kycStatus === "APPROVED") score += 10;
@@ -1438,6 +1464,9 @@ export async function adminGetMatchingTutorsForLeadAction(
       image: tp.user.image,
       city: tp.city,
       area: tp.address,
+      gender: tp.gender,
+      genderMatches,
+      isWithin5Km: isWithin5Km ?? undefined,
       subjects: tp.subjects,
       classLevels: tp.classLevels,
       averageRating: tp.averageRating,

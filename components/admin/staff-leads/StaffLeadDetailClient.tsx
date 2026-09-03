@@ -5,7 +5,8 @@ import Link from "next/link";
 import {
   Phone, Mail, MapPin, GraduationCap, BookOpen, Users, Clock, Star,
   CheckCircle2, XCircle, PhoneOff, PhoneMissed, RefreshCcw, AlertTriangle,
-  Sparkles, ArrowUpRight, ChevronLeft, Save, Loader2, PhoneCall, AlertCircle
+  Sparkles, ArrowUpRight, ChevronLeft, Save, Loader2, PhoneCall, AlertCircle,
+  History
 } from "lucide-react";
 import {
   updateStaffLeadAction, logCallAction, promoteLeadToProfileAction,
@@ -64,6 +65,17 @@ type Lead = {
   promotedTutorProfileId: string | null; nextFollowUpAt: Date | null;
   createdAt: Date; assignedTo: { name: string | null; email: string } | null;
   callLogs: Array<{ id: string; outcome: CallOutcome; notes: string | null; calledAt: Date; calledBy: { name: string | null } }>;
+  auditLogs?: Array<{
+    id: string;
+    action: string;
+    createdAt: Date | string;
+    adminId: string;
+    authorName: string;
+    authorEmail: string | null;
+    authorRole: string;
+    summary: string;
+    changes: Array<{ field: string; oldVal: string | null; newVal: string | null }>;
+  }>;
 };
 
 function MissingBadge({ label }: { label: string }) {
@@ -549,6 +561,98 @@ export function StaffLeadDetailClient({ lead: initialLead }: { lead: Lead }) {
           </div>
         </div>
       )}
+
+      {/* Lead Edit & Activity History (Audit Trail) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
+            <History size={17} className="text-indigo-600" />
+            Lead Edit & Activity Audit Trail
+            {lead.auditLogs && lead.auditLogs.length > 0 && (
+              <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold border border-indigo-200">
+                {lead.auditLogs.length} updates
+              </span>
+            )}
+          </h3>
+          <span className="text-xs text-slate-400 font-medium">Recorded with exact diffs</span>
+        </div>
+
+        {(!lead.auditLogs || lead.auditLogs.length === 0) ? (
+          <div className="text-center py-6 text-slate-400 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+            <p className="text-xs font-semibold">No edit history recorded yet</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Any changes made to this lead (notes, phone, status, subjects, etc.) by staff or admins are logged automatically.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {lead.auditLogs.map((log) => {
+              const isAssignment = log.action === "STAFF_LEAD_ASSIGNED";
+              const isTypeTag = log.action === "STAFF_LEAD_TYPE_TAG";
+              return (
+                <div key={log.id} className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                          isAssignment
+                            ? "bg-blue-50 text-blue-800 border-blue-200"
+                            : isTypeTag
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-indigo-50 text-indigo-800 border-indigo-200"
+                        }`}
+                      >
+                        {isAssignment ? "👤 Assignment" : isTypeTag ? "🏷️ Record Tag" : "✏️ Field Edit"}
+                      </span>
+                      <span className="text-xs font-extrabold text-slate-900">
+                        {log.authorName}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        ({log.authorRole})
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {new Date(log.createdAt).toLocaleString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+
+                  {log.summary && (
+                    <p className="text-xs font-semibold text-slate-700 bg-white/70 px-2.5 py-1 rounded-lg border border-slate-100">
+                      {log.summary}
+                    </p>
+                  )}
+
+                  {log.changes && log.changes.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {log.changes.map((c, idx) => (
+                        <div
+                          key={idx}
+                          className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600 bg-white px-2.5 py-1 rounded-md border border-slate-100"
+                        >
+                          <span className="font-extrabold text-slate-800 min-w-[90px]">{c.field}:</span>
+                          <span className="line-through text-rose-500 text-[11px] bg-rose-50 px-1 rounded">
+                            {c.oldVal ?? "empty"}
+                          </span>
+                          <span className="text-slate-400 font-bold">➔</span>
+                          <span className="font-bold text-emerald-700 text-[11px] bg-emerald-50 px-1 rounded">
+                            {c.newVal ?? "empty"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Raw Text */}
       {lead.rawText && (

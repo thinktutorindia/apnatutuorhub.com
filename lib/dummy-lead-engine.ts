@@ -261,8 +261,12 @@ const DAYS_OPTIONS = [
   "Weekend only", "Saturday & Sunday", "Daily", "3 days/week", "Flexible",
 ];
 const TIME_OPTIONS = [
-  "Morning (7–9 AM)", "Afternoon (12–3 PM)", "Evening (5–8 PM)",
-  "Late Evening (7–9 PM)", "Flexible timings",
+  "Late Afternoon (3:30–5:30 PM)",
+  "Evening (5–7 PM)",
+  "Late Evening (7–9 PM)",
+  "Early Morning (6–7:30 AM)",
+  "Weekends (10 AM–1 PM)",
+  "Flexible (After School Hours)",
 ];
 
 function seededRandom(seed: number): () => number {

@@ -70,8 +70,8 @@ export default async function TutorAppLayout({
       borderColor: "#FDE68A",
       icon: ShieldAlert,
       iconColor: "#D97706",
-      message: "Complete your identity verification to start receiving student enquiries.",
-      cta: "Complete Verification →",
+      message: "Optional: Complete identity verification anytime to earn a Verified Tutor badge and boost parent trust.",
+      cta: "Verify Profile →",
     },
     PENDING: {
       show: true,

@@ -182,7 +182,7 @@ export function SendLeadToTutorModal({
     if (filterType === "TOP_MATCH") {
       list = list.filter((t) => t.matchScore >= 40);
     } else if (filterType === "NEARBY") {
-      list = list.filter((t) => t.distanceKm !== null && t.distanceKm <= 15);
+      list = list.filter((t) => t.distanceKm !== null && t.distanceKm <= 5);
     } else if (filterType === "VERIFIED") {
       list = list.filter((t) => t.kycStatus === "APPROVED");
     } else if (filterType === "HAS_COINS") {
@@ -769,6 +769,57 @@ export function SendLeadToTutorModal({
               </div>
             </div>
 
+            {/* Row 2: Search, Filters & Sorting */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 p-4 sm:px-6">
+              <div className="flex flex-wrap items-center gap-2 flex-1">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search size={14} className="absolute left-3.5 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search tutor name, phone, city, subject..."
+                    className="w-full rounded-2xl pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-semibold text-xs"
+                  />
+                </div>
+
+                {/* Filter Dropdown */}
+                <div className="flex items-center gap-1 bg-slate-50 rounded-2xl px-3 py-1.5 border border-slate-200">
+                  <Filter size={13} className="text-slate-500" />
+                  <select
+                    value={filterType}
+                    onChange={(e: any) => setFilterType(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                  >
+                    <option value="ALL">All Matches ({displayedTutors.length})</option>
+                    <option value="TOP_MATCH">🎯 High Match Score (&gt;40)</option>
+                    <option value="NEARBY">📍 Within 5 km Radius (&le;5 km)</option>
+                    <option value="VERIFIED">🛡️ Verified KYC Only</option>
+                    <option value="HAS_COINS">💰 Has Sufficient Coins (&gt;={lead?.coinCost ?? 10})</option>
+                    <option value="TOP_RATED">⭐ Top Rated (4.0+ ⭐)</option>
+                    <option value="UNCLAIMED">🔓 Unclaimed Leads Only</option>
+                  </select>
+                </div>
+
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-1 bg-slate-50 rounded-2xl px-3 py-1.5 border border-slate-200">
+                  <SlidersHorizontal size={13} className="text-slate-500" />
+                  <select
+                    value={sortType}
+                    onChange={(e: any) => setSortType(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                  >
+                    <option value="MATCH_SCORE">Sort: Best Match Score</option>
+                    <option value="DISTANCE">Sort: Nearest Distance</option>
+                    <option value="COINS">Sort: Highest Coins</option>
+                    <option value="RATING">Sort: Highest Rating</option>
+                    <option value="NAME">Sort: Alphabetical (A-Z)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {/* Main Tutors List */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
               {isLoadingTutors ? (
@@ -852,13 +903,28 @@ export function SendLeadToTutorModal({
                               </span>
                             )}
 
+                            {tutor.gender && (
+                              <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded-md border ${
+                                tutor.genderMatches === false
+                                  ? "bg-red-50 text-red-700 border-red-200"
+                                  : "bg-slate-100 text-slate-700 border-slate-200"
+                              }`}>
+                                {tutor.gender === "FEMALE" ? "♀️ Female" : tutor.gender === "MALE" ? "♂️ Male" : tutor.gender}
+                                {tutor.genderMatches === false && " (Gender Mismatch)"}
+                              </span>
+                            )}
+
                             {lead?.mode === "ONLINE" ? (
                               <span className="text-[11px] font-bold text-teal-800 bg-teal-50 px-2 py-0.2 rounded-md border border-teal-200 flex items-center gap-0.5">
                                 <Sparkles size={11} className="text-teal-600" /> Online (Pan-India)
                               </span>
                             ) : tutor.distanceKm !== null ? (
-                              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.2 rounded-md border border-blue-200 flex items-center gap-0.5">
-                                <MapPin size={11} /> {tutor.distanceKm} km away
+                              <span className={`text-[11px] font-bold px-2 py-0.2 rounded-md border flex items-center gap-0.5 ${
+                                tutor.distanceKm <= 5.0
+                                  ? "text-emerald-800 bg-emerald-50 border-emerald-300"
+                                  : "text-amber-800 bg-amber-50 border-amber-300"
+                              }`}>
+                                <MapPin size={11} /> {tutor.distanceKm} km away {tutor.distanceKm <= 5.0 ? "(≤5 km radius)" : "(>5 km)"}
                               </span>
                             ) : null}
 

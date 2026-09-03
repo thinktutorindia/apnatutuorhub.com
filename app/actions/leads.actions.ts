@@ -509,11 +509,6 @@ export async function purchaseLeadAction(
     );
   }
 
-  if (tutorProfile?.kycStatus !== "APPROVED") {
-    return actionError(
-      "Your KYC must be approved before you can unlock leads."
-    );
-  }
 
   const now = new Date();
   const hasActivePlan = Boolean(
@@ -723,7 +718,7 @@ export async function purchaseLeadAction(
       userId: lead.parentProfile.user.id,
       type: "LEAD_UNLOCKED",
       title: "🎯 A Tutor Unlocked Your Requirement!",
-      message: `A verified tutor unlocked your requirement for ${lead.classLevel} ${lead.subjects.join(", ")}. Check your applicants list to chat with them!`,
+      message: `A tutor unlocked your requirement for ${lead.classLevel} ${lead.subjects.join(", ")}. Check your applicants list to chat with them!`,
       actionUrl: `/parent/my-leads/${leadId}/applicants`,
     });
 

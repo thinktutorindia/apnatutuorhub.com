@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { ShieldAlert, Wallet, Sparkles, ArrowRight } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints } from "@/lib/subscription-plans";
@@ -54,33 +52,6 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
 
   if (!tutorProfile) redirect("/tutor/dashboard");
 
-  // KYC gate
-  if (tutorProfile.kycStatus !== "APPROVED") {
-    return (
-      <div className="space-y-5 py-2">
-        <div className="rounded-3xl p-6 sm:p-8 bg-amber-50 border border-amber-200/80 shadow-xs space-y-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-              <ShieldAlert size={20} />
-            </div>
-            <div className="space-y-1">
-              <h1 className="text-xl font-800 text-amber-950">Identity Verification Required</h1>
-              <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
-                You need to complete identity verification (KYC) before viewing and unlocking student requirements. It only takes 2 minutes.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/tutor/profile"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-700 transition-colors shadow"
-          >
-            <span>Complete Verification Now</span>
-            <ArrowRight size={14} />
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   // Fetch already-purchased lead metadata for this tutor
   const purchasedMap = new Map(
@@ -266,6 +237,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
           hasActivePlan,
         }}
         claimedBannerInfo={claimedBannerInfo}
+        kycStatus={tutorProfile.kycStatus}
       />
     </div>
   );

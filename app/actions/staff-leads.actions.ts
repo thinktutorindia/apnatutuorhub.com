@@ -777,6 +777,8 @@ export async function updateStaffLeadAction(
   const { error, session } = await requireAssignedOrCrmOps(leadId);
   if (error || !session) return actionError(error ?? "Unauthenticated");
 
+  const existing = await prisma.staffLead.findUnique({ where: { id: leadId } });
+
   const updated = await prisma.staffLead.update({
     where: { id: leadId },
     data: {
@@ -803,6 +805,81 @@ export async function updateStaffLeadAction(
     },
   });
 
+  // Calculate changed fields for audit trail
+  const changes: Array<{ field: string; oldVal: string | null; newVal: string | null }> = [];
+  if (existing) {
+    if (data.status !== undefined && data.status !== existing.status) {
+      changes.push({ field: "Status", oldVal: existing.status, newVal: data.status });
+    }
+    if (data.name !== undefined && (data.name?.trim() || null) !== existing.name) {
+      changes.push({ field: "Name", oldVal: existing.name, newVal: data.name?.trim() || null });
+    }
+    if (data.phone !== undefined && (data.phone?.trim() || null) !== existing.phone) {
+      changes.push({ field: "Phone", oldVal: existing.phone, newVal: data.phone?.trim() || null });
+    }
+    if (data.email !== undefined && (data.email?.trim().toLowerCase() || null) !== existing.email) {
+      changes.push({ field: "Email", oldVal: existing.email, newVal: data.email?.trim().toLowerCase() || null });
+    }
+    if (data.location !== undefined && (data.location?.trim() || null) !== existing.location) {
+      changes.push({ field: "Location", oldVal: existing.location, newVal: data.location?.trim() || null });
+    }
+    if (data.staffNotes !== undefined && (data.staffNotes?.trim() || null) !== existing.staffNotes) {
+      changes.push({ field: "Staff Notes", oldVal: existing.staffNotes, newVal: data.staffNotes?.trim() || null });
+    }
+    if (data.qualification !== undefined && (data.qualification?.trim() || null) !== existing.qualification) {
+      changes.push({ field: "Qualification", oldVal: existing.qualification, newVal: data.qualification?.trim() || null });
+    }
+    if (data.subjects !== undefined && JSON.stringify(data.subjects) !== JSON.stringify(existing.subjects)) {
+      changes.push({ field: "Subjects", oldVal: existing.subjects.join(", "), newVal: data.subjects.join(", ") });
+    }
+    if (data.classes !== undefined && JSON.stringify(data.classes) !== JSON.stringify(existing.classes)) {
+      changes.push({ field: "Classes", oldVal: existing.classes.join(", "), newVal: data.classes.join(", ") });
+    }
+    if (data.priority !== undefined && data.priority !== existing.priority) {
+      changes.push({ field: "Priority", oldVal: String(existing.priority), newVal: String(data.priority) });
+    }
+    if (data.nextFollowUpAt !== undefined) {
+      const oldF = existing.nextFollowUpAt ? existing.nextFollowUpAt.toISOString() : null;
+      const newF = data.nextFollowUpAt ? new Date(data.nextFollowUpAt).toISOString() : null;
+      if (oldF !== newF) {
+        changes.push({
+          field: "Follow Up Date",
+          oldVal: oldF ? new Date(oldF).toLocaleDateString("en-IN") : "None",
+          newVal: newF ? new Date(newF).toLocaleDateString("en-IN") : "None",
+        });
+      }
+    }
+  }
+
+  if (changes.length > 0) {
+    const summary = changes.map((c) => `${c.field}: ${c.oldVal ?? "empty"} → ${c.newVal ?? "empty"}`).join("; ");
+    const userRole =
+      session.user.role === "SUB_ADMIN" && (session.user as any).subAdminRole
+        ? `${(session.user as any).subAdminRole} Sub-Admin`
+        : session.user.role;
+    try {
+      await prisma.auditLog.create({
+        data: {
+          adminId: session.user.id,
+          action: "STAFF_LEAD_EDIT",
+          entityType: "StaffLead",
+          entityId: leadId,
+          details: JSON.stringify({
+            editorName: session.user.name || session.user.email?.split("@")[0] || "Staff",
+            editorEmail: session.user.email,
+            editorRole: userRole,
+            changes,
+            summary,
+            leadName: updated.name,
+            status: updated.status,
+          }),
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[updateStaffLeadAction] Failed to create audit log:", auditErr);
+    }
+  }
+
   revalidatePath("/admin/staff-leads");
   revalidatePath("/admin/staff-leads/my-leads");
   return actionSuccess({ lead: updated });
@@ -821,6 +898,24 @@ export async function setStaffLeadRecordTypeAction(
     where: { id: leadId },
     data: { staffNotes },
   });
+
+  try {
+    await prisma.auditLog.create({
+      data: {
+        adminId: session.user.id,
+        action: "STAFF_LEAD_TYPE_TAG",
+        entityType: "StaffLead",
+        entityId: leadId,
+        details: JSON.stringify({
+          editorName: session.user.name || session.user.email?.split("@")[0] || "Staff",
+          editorEmail: session.user.email,
+          editorRole: session.user.role,
+          changes: [{ field: "Record Type", oldVal: getStaffRecordType(lead.staffNotes), newVal: type }],
+          summary: `Changed record type to ${type}`,
+        }),
+      },
+    });
+  } catch {}
 
   revalidatePath("/admin/staff-leads");
   revalidatePath(`/admin/staff-leads/${leadId}`);
@@ -932,7 +1027,7 @@ export async function assignLeadsAction(
   staffUserId: string,
   leadIds: string[]
 ): Promise<ActionResult<{ assigned: number }>> {
-  const { error } = await requireSuperAdmin();
+  const { error, session } = await requireSuperAdmin();
   if (error) return actionError(error);
 
   const now = new Date();
@@ -945,6 +1040,29 @@ export async function assignLeadsAction(
       status: "ASSIGNED",
     },
   });
+
+  try {
+    const targetUser = await prisma.user.findUnique({ where: { id: staffUserId }, select: { name: true, email: true } });
+    const targetName = targetUser?.name || targetUser?.email || "Staff";
+    await prisma.auditLog.createMany({
+      data: leadIds.map((id) => ({
+        adminId: session!.user.id,
+        action: "STAFF_LEAD_ASSIGNED",
+        entityType: "StaffLead",
+        entityId: id,
+        details: JSON.stringify({
+          editorName: session!.user.name || session!.user.email?.split("@")[0] || "Admin",
+          editorEmail: session!.user.email,
+          editorRole: session!.user.role,
+          assignedToId: staffUserId,
+          assignedToName: targetName,
+          summary: `Assigned to ${targetName}`,
+        }),
+      })),
+    });
+  } catch (auditErr) {
+    console.warn("[assignLeadsAction] Failed to log assignment audit:", auditErr);
+  }
 
   revalidatePath("/admin/staff-leads");
   return actionSuccess({ assigned: leadIds.length });
@@ -960,7 +1078,7 @@ export async function distributeLeadsMultiStaffAction(params: {
   quotaPerStaff?: number;
   distributeMode?: DistributeMode;
 }): Promise<ActionResult<{ totalAssigned: number; breakdown: Record<string, number> }>> {
-  const { error } = await requireSuperAdmin();
+  const { error, session } = await requireSuperAdmin();
   if (error) return actionError(error);
 
   const { staffUserIds, leadIds, quotaPerStaff, distributeMode = "EQUAL_SPLIT" } = params;
@@ -1017,6 +1135,13 @@ export async function distributeLeadsMultiStaffAction(params: {
     }
   }
 
+  // Fetch staff users for labeling audit logs
+  const staffUsers = await prisma.user.findMany({
+    where: { id: { in: staffUserIds } },
+    select: { id: true, name: true, email: true },
+  });
+  const staffUserMap = new Map(staffUsers.map((u) => [u.id, u.name || u.email]));
+
   // Execute database updates in parallel chunks
   let totalAssigned = 0;
   await Promise.all(
@@ -1032,6 +1157,28 @@ export async function distributeLeadsMultiStaffAction(params: {
       });
       breakdown[staffId] = ids.length;
       totalAssigned += ids.length;
+
+      const targetLabel = staffUserMap.get(staffId) || "Staff";
+      try {
+        await prisma.auditLog.createMany({
+          data: ids.map((id) => ({
+            adminId: session!.user.id,
+            action: "STAFF_LEAD_ASSIGNED",
+            entityType: "StaffLead",
+            entityId: id,
+            details: JSON.stringify({
+              editorName: session!.user.name || session!.user.email?.split("@")[0] || "Admin",
+              editorEmail: session!.user.email,
+              editorRole: session!.user.role,
+              assignedToId: staffId,
+              assignedToName: targetLabel,
+              summary: `Assigned in batch distribution to ${targetLabel}`,
+            }),
+          })),
+        });
+      } catch (err) {
+        console.warn("[distributeLeadsMultiStaffAction] Audit log write failed:", err);
+      }
     })
   );
 
@@ -1368,24 +1515,68 @@ export async function getStaffLeadDetailAction(
       id: string; outcome: CallOutcome; notes: string | null; calledAt: Date;
       calledBy: { name: string | null };
     }>;
+    auditLogs: Array<{
+      id: string;
+      action: string;
+      createdAt: Date;
+      adminId: string;
+      authorName: string;
+      authorEmail: string | null;
+      authorRole: string;
+      summary: string;
+      changes: Array<{ field: string; oldVal: string | null; newVal: string | null }>;
+    }>;
   };
 }>> {
   const assigned = await requireAssignedOrCrmOps(id);
   if (assigned.error || !assigned.session) return actionError(assigned.error ?? "Unauthenticated");
 
-  const detail = await prisma.staffLead.findUnique({
-    where: { id },
-    include: {
-      assignedTo: { select: { name: true, email: true } },
-      callLogs: {
-        include: { calledBy: { select: { name: true } } },
-        orderBy: { calledAt: "desc" },
+  const [detail, auditLogs] = await Promise.all([
+    prisma.staffLead.findUnique({
+      where: { id },
+      include: {
+        assignedTo: { select: { name: true, email: true } },
+        callLogs: {
+          include: { calledBy: { select: { name: true } } },
+          orderBy: { calledAt: "desc" },
+        },
       },
-    },
-  });
+    }),
+    prisma.auditLog.findMany({
+      where: {
+        entityType: "StaffLead",
+        entityId: id,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   if (!detail) return actionError("Lead not found");
-  return actionSuccess({ lead: detail as any });
+
+  const parsedAuditLogs = auditLogs.map((a) => {
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(a.details || "{}");
+    } catch {}
+    return {
+      id: a.id,
+      action: a.action,
+      createdAt: a.createdAt,
+      adminId: a.adminId,
+      authorName: parsed?.editorName || parsed?.authorName || "Staff",
+      authorEmail: parsed?.editorEmail || parsed?.authorEmail || null,
+      authorRole: parsed?.editorRole || parsed?.authorRole || "Staff",
+      summary: parsed?.summary || a.action,
+      changes: (parsed?.changes || []) as Array<{ field: string; oldVal: string | null; newVal: string | null }>,
+    };
+  });
+
+  return actionSuccess({
+    lead: {
+      ...detail,
+      auditLogs: parsedAuditLogs,
+    } as any,
+  });
 }
 
 // ─── 11. Get batches list ─────────────────────────────────────────────────────
@@ -2460,6 +2651,353 @@ export async function getWorkSessionCallLogsAction(sessionId: string): Promise<A
       calledAt: l.calledAt.toISOString(),
       lead: l.lead,
     })),
+  });
+}
+
+// ─── 24. Get Staff Lead Audit History ─────────────────────────────────────────
+
+export async function getStaffLeadAuditHistoryAction(
+  leadId: string
+): Promise<ActionResult<{
+  history: Array<{
+    id: string;
+    type: "EDIT" | "CALL" | "ASSIGNMENT" | "STATUS" | "PROMOTION";
+    authorName: string;
+    authorEmail: string | null;
+    authorRole: string;
+    action: string;
+    summary: string;
+    details: string | null;
+    outcome?: CallOutcome | null;
+    notes?: string | null;
+    changes?: Array<{ field: string; oldVal: string | null; newVal: string | null }>;
+    timestamp: string;
+  }>;
+}>> {
+  const { error } = await requireCrmOps();
+  if (error) return actionError(error);
+
+  const [auditLogs, callLogs] = await Promise.all([
+    prisma.auditLog.findMany({
+      where: { entityType: "StaffLead", entityId: leadId },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.staffLeadCallLog.findMany({
+      where: { leadId },
+      include: {
+        calledBy: { select: { id: true, name: true, email: true, subAdminRole: true, role: true } },
+      },
+      orderBy: { calledAt: "desc" },
+    }),
+  ]);
+
+  const history: Array<{
+    id: string;
+    type: "EDIT" | "CALL" | "ASSIGNMENT" | "STATUS" | "PROMOTION";
+    authorName: string;
+    authorEmail: string | null;
+    authorRole: string;
+    action: string;
+    summary: string;
+    details: string | null;
+    outcome?: CallOutcome | null;
+    notes?: string | null;
+    changes?: Array<{ field: string; oldVal: string | null; newVal: string | null }>;
+    timestamp: string;
+  }> = [];
+
+  auditLogs.forEach((a) => {
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(a.details || "{}");
+    } catch {}
+
+    let type: "EDIT" | "CALL" | "ASSIGNMENT" | "STATUS" | "PROMOTION" = "EDIT";
+    if (a.action === "STAFF_LEAD_ASSIGNED") type = "ASSIGNMENT";
+    else if (a.action === "STAFF_LEAD_PROMOTED") type = "PROMOTION";
+    else if (a.action === "STAFF_LEAD_STATUS") type = "STATUS";
+
+    history.push({
+      id: `audit-${a.id}`,
+      type,
+      authorName: parsed?.editorName || parsed?.authorName || "Staff Member",
+      authorEmail: parsed?.editorEmail || parsed?.authorEmail || null,
+      authorRole: parsed?.editorRole || parsed?.authorRole || "Staff",
+      action: a.action,
+      summary: parsed?.summary || a.action,
+      details: a.details,
+      changes: parsed?.changes || [],
+      timestamp: a.createdAt.toISOString(),
+    });
+  });
+
+  callLogs.forEach((c) => {
+    const callerRole = c.calledBy.subAdminRole || c.calledBy.role || "Staff";
+    history.push({
+      id: `call-${c.id}`,
+      type: "CALL",
+      authorName: c.calledBy.name || c.calledBy.email.split("@")[0],
+      authorEmail: c.calledBy.email,
+      authorRole: callerRole,
+      action: "CALL_LOGGED",
+      summary: `Call: ${c.outcome.replace(/_/g, " ")}`,
+      details: c.notes,
+      outcome: c.outcome,
+      notes: c.notes,
+      timestamp: c.calledAt.toISOString(),
+    });
+  });
+
+  history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  return actionSuccess({ history });
+}
+
+// ─── 25. Get Detailed Per-Staff Work Breakdown ────────────────────────────────
+
+export async function getStaffMemberDetailedWorkAction(opts?: {
+  staffId?: string;
+  search?: string;
+}): Promise<ActionResult<{
+  staffList: Array<{ id: string; name: string | null; email: string; subAdminRole: string | null }>;
+  selectedStaff: { id: string; name: string | null; email: string; subAdminRole: string | null } | null;
+  metrics: {
+    totalAssigned: number;
+    contactedCount: number;
+    followUpCount: number;
+    convertedCount: number;
+    callsCount: number;
+    editsCount: number;
+  };
+  assignedLeads: Array<{
+    id: string;
+    name: string | null;
+    phone: string | null;
+    location: string | null;
+    subjects: string[];
+    classes: string[];
+    status: StaffLeadStatus;
+    priority: number;
+    assignedAt: string | null;
+    lastContactedAt: string | null;
+    callsCount: number;
+    lastCall: { outcome: CallOutcome; notes: string | null; calledAt: string } | null;
+    lastEdit: { editorName: string; summary: string; createdAt: string } | null;
+  }>;
+  recentActivity: Array<{
+    id: string;
+    type: "CALL" | "EDIT" | "ASSIGNMENT";
+    title: string;
+    details: string | null;
+    leadId: string;
+    leadName: string | null;
+    leadPhone: string | null;
+    timestamp: string;
+  }>;
+}>> {
+  const { error, session } = await requireCrmOps();
+  if (error || !session?.user) return actionError(error ?? "Unauthorized");
+
+  const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+
+  const staffUsers = isSuperAdmin
+    ? await prisma.user.findMany({
+        where: { role: { in: ["SUPER_ADMIN", "SUB_ADMIN"] }, isActive: true },
+        select: { id: true, name: true, email: true, subAdminRole: true },
+        orderBy: { name: "asc" },
+      })
+    : await prisma.user.findMany({
+        where: { id: session.user.id },
+        select: { id: true, name: true, email: true, subAdminRole: true },
+      });
+
+  const selectedStaffId = isSuperAdmin
+    ? opts?.staffId && opts.staffId !== "all"
+      ? opts.staffId
+      : staffUsers[0]?.id
+    : session.user.id;
+
+  const selectedStaff = staffUsers.find((s) => s.id === selectedStaffId) || staffUsers[0] || null;
+
+  if (!selectedStaff) {
+    return actionSuccess({
+      staffList: staffUsers,
+      selectedStaff: null,
+      metrics: {
+        totalAssigned: 0,
+        contactedCount: 0,
+        followUpCount: 0,
+        convertedCount: 0,
+        callsCount: 0,
+        editsCount: 0,
+      },
+      assignedLeads: [],
+      recentActivity: [],
+    });
+  }
+
+  // Fetch leads assigned to this staff member
+  const rawLeads = await prisma.staffLead.findMany({
+    where: {
+      assignedToId: selectedStaff.id,
+      ...(opts?.search?.trim()
+        ? {
+            OR: [
+              { name: { contains: opts.search.trim(), mode: "insensitive" } },
+              { phone: { contains: opts.search.trim() } },
+              { location: { contains: opts.search.trim(), mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    include: {
+      callLogs: {
+        where: { calledById: selectedStaff.id },
+        orderBy: { calledAt: "desc" },
+        take: 1,
+      },
+      _count: {
+        select: {
+          callLogs: { where: { calledById: selectedStaff.id } },
+        },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 150,
+  });
+
+  const leadIds = rawLeads.map((l) => l.id);
+
+  // Fetch audit logs for these leads or where adminId is the staff member
+  const auditLogs = await prisma.auditLog.findMany({
+    where: {
+      entityType: "StaffLead",
+      OR: [
+        ...(leadIds.length > 0 ? [{ entityId: { in: leadIds } }] : []),
+        { adminId: selectedStaff.id },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  // Fetch recent calls by this staff member
+  const recentCalls = await prisma.staffLeadCallLog.findMany({
+    where: { calledById: selectedStaff.id },
+    include: { lead: { select: { id: true, name: true, phone: true } } },
+    orderBy: { calledAt: "desc" },
+    take: 60,
+  });
+
+  // Map each lead's most recent edit
+  const leadEditMap = new Map<string, { editorName: string; summary: string; createdAt: string }>();
+  auditLogs.forEach((a) => {
+    if (a.entityId && !leadEditMap.has(a.entityId)) {
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(a.details || "{}");
+      } catch {}
+      leadEditMap.set(a.entityId, {
+        editorName: parsed?.editorName || "Staff",
+        summary: parsed?.summary || a.action,
+        createdAt: a.createdAt.toISOString(),
+      });
+    }
+  });
+
+  const assignedLeads = rawLeads.map((l) => {
+    const latestCall = l.callLogs[0];
+    return {
+      id: l.id,
+      name: l.name,
+      phone: l.phone,
+      location: l.location,
+      subjects: l.subjects,
+      classes: l.classes,
+      status: l.status,
+      priority: l.priority,
+      assignedAt: l.assignedAt ? l.assignedAt.toISOString() : null,
+      lastContactedAt: l.lastContactedAt ? l.lastContactedAt.toISOString() : null,
+      callsCount: l._count.callLogs,
+      lastCall: latestCall
+        ? {
+            outcome: latestCall.outcome,
+            notes: latestCall.notes,
+            calledAt: latestCall.calledAt.toISOString(),
+          }
+        : null,
+      lastEdit: leadEditMap.get(l.id) || null,
+    };
+  });
+
+  const totalAssigned = rawLeads.length;
+  const contactedCount = rawLeads.filter(
+    (l) => l.status === "CONTACTED" || l.status === "FOLLOW_UP" || l.status === "INTERESTED" || l.status === "CONVERTED"
+  ).length;
+  const followUpCount = rawLeads.filter((l) => l.status === "FOLLOW_UP").length;
+  const convertedCount = rawLeads.filter((l) => l.status === "CONVERTED" || l.isPromoted).length;
+  const staffEdits = auditLogs.filter((a) => a.adminId === selectedStaff.id);
+  const editsCount = staffEdits.length;
+  const callsCount = recentCalls.length;
+
+  // Build unified activity feed for this staff member
+  const recentActivity: Array<{
+    id: string;
+    type: "CALL" | "EDIT" | "ASSIGNMENT";
+    title: string;
+    details: string | null;
+    leadId: string;
+    leadName: string | null;
+    leadPhone: string | null;
+    timestamp: string;
+  }> = [];
+
+  recentCalls.forEach((c) => {
+    recentActivity.push({
+      id: `call-${c.id}`,
+      type: "CALL",
+      title: `Call: ${c.outcome.replace(/_/g, " ")}`,
+      details: c.notes || null,
+      leadId: c.leadId,
+      leadName: c.lead.name,
+      leadPhone: c.lead.phone,
+      timestamp: c.calledAt.toISOString(),
+    });
+  });
+
+  staffEdits.forEach((a) => {
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(a.details || "{}");
+    } catch {}
+    const isAssign = a.action === "STAFF_LEAD_ASSIGNED";
+    recentActivity.push({
+      id: `audit-${a.id}`,
+      type: isAssign ? "ASSIGNMENT" : "EDIT",
+      title: isAssign ? "Lead Assigned" : "Updated Lead Details",
+      details: parsed?.summary || a.action,
+      leadId: a.entityId || "",
+      leadName: parsed?.leadName || null,
+      leadPhone: null,
+      timestamp: a.createdAt.toISOString(),
+    });
+  });
+
+  recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  return actionSuccess({
+    staffList: staffUsers,
+    selectedStaff,
+    metrics: {
+      totalAssigned,
+      contactedCount,
+      followUpCount,
+      convertedCount,
+      callsCount,
+      editsCount,
+    },
+    assignedLeads,
+    recentActivity: recentActivity.slice(0, 60),
   });
 }
 

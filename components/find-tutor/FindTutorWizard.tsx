@@ -1471,9 +1471,14 @@ export function FindTutorWizard({
     gender: searchParams.get("gender") || "",
   });
 
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   const runSearch = useCallback(async (customState?: WizardState) => {
     setLoading(true);
-    const targetState = customState || state;
+    const targetState = customState || stateRef.current;
     try {
       const res = await searchTutorsPublic({
         subjects: targetState.subject ? [targetState.subject] : [],
@@ -1487,14 +1492,19 @@ export function FindTutorWizard({
       setResults(res.tutors);
       setTotal(res.total);
       setFallbackReason(res.fallbackReason);
+    } catch (err) {
+      console.error("Search tutors error:", err);
     } finally {
       setLoading(false);
     }
-  }, [state]);
+  }, []); // Fully stable! Never causes re-render loops
 
-  // When user navigated with search criteria from hero or URL, immediately trigger search and show results
+  // Run initial search exactly once when mounted with search parameters
+  const initialSearchTriggered = useRef(false);
   useEffect(() => {
+    if (initialSearchTriggered.current) return;
     if (hasSearchIntent) {
+      initialSearchTriggered.current = true;
       const target: WizardState = {
         subject: effectiveSubject,
         classLevel: effectiveClass,
@@ -1502,14 +1512,17 @@ export function FindTutorWizard({
         mode: "EITHER",
         budgetMax: 10000,
         city: effectiveCity,
+        gender: searchParams.get("gender") || "",
       };
       setState(target);
       setPhase("results");
       void runSearch(target);
     }
-  }, [hasSearchIntent, effectiveSubject, effectiveClass, effectiveCity, runSearch]);
+  }, [hasSearchIntent, effectiveSubject, effectiveClass, effectiveCity, searchParams, runSearch]);
 
+  // Only update match count during questionnaire, never during directory results view
   useEffect(() => {
+    if (phase !== "ask") return;
     const timer = window.setTimeout(async () => {
       const res = await searchTutorsPublic({
         subjects: state.subject ? [state.subject] : [],
@@ -1520,9 +1533,9 @@ export function FindTutorWizard({
         city: state.city || undefined,
       });
       setMatchTotal(res.total > 0 ? res.total : 36);
-    }, 280);
+    }, 300);
     return () => window.clearTimeout(timer);
-  }, [state]);
+  }, [state.subject, state.classLevel, state.board, state.mode, state.budgetMax, state.city, phase]);
 
   const stepId = steps[Math.min(stepIndex, steps.length - 1)] ?? "board";
 
@@ -1675,11 +1688,11 @@ export function FindTutorWizard({
         callbackParams={callbackParams}
       />
 
-      {/* Loading overlay */}
-      {loading && (
+      {/* Loading overlay - only on initial fetch before results exist */}
+      {loading && !results && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs">
           <div className="bg-white rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-3">
-            <Loader2 size={36} className="animate-spin text-[#2D9E6B]" />
+            <Loader2 size={36} className="animate-spin text-[#16A34A]" />
             <p className="text-sm font-extrabold text-[#0F2540]">Finding verified tutors...</p>
           </div>
         </div>

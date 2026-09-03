@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
-import { ArrowRight, Loader2, Check } from "lucide-react";
+import { ArrowRight, Loader2, Check, Users, GraduationCap } from "lucide-react";
 import { selectUserRoleAction } from "@/app/actions/auth.actions";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export default function SelectRolePage() {
   const { data: session, update } = useSession();
@@ -25,7 +26,7 @@ export default function SelectRolePage() {
         }
         window.location.href = res.redirectTo;
       } else {
-        setError(res.error || "Failed to set role. Please try again.");
+        setError(res.error || "Could not save. Please try again.");
         setIsSubmitting(false);
       }
     } catch {
@@ -34,98 +35,90 @@ export default function SelectRolePage() {
     }
   };
 
+  const firstName = session?.user?.name?.split(" ")[0];
+
   return (
-    <div className="w-full max-w-lg space-y-6">
-      <div className="text-center space-y-2">
-        <div className="ath-verified inline-flex">Choose how you want to use ApnaTutorHub</div>
-        <h1
-          className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight"
-          style={{ fontFamily: "Poppins, sans-serif" }}
-        >
-          Namaste{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}
-        </h1>
-        <p className="text-[15px] font-500 text-[#64748B] max-w-sm mx-auto">
-          Parents post requirements. Teachers find nearby students. You can add the other role later.
-        </p>
-      </div>
-
-      {error && (
-        <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded-xl text-[#B91C1C] text-sm font-700">
-          {error}
+    <AuthShell variant={selectedRole === "TUTOR" ? "tutor" : "parent"}>
+      <div className="space-y-6 rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-8">
+        <div>
+          <h2
+            className="text-2xl font-800 text-[#0F2540] sm:text-[28px]"
+            style={{ fontFamily: "Poppins, sans-serif" }}
+          >
+            {firstName ? `Namaste, ${firstName}` : "One last step"}
+          </h2>
+          <p className="mt-1 text-[16px] font-500 text-[#64748B]">
+            How do you want to use ApnaTutorHub? Pick one. You can add the other later.
+          </p>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-[15px] font-700 text-red-800">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setSelectedRole("PARENT")}
+            aria-pressed={selectedRole === "PARENT"}
+            className={`min-h-[150px] rounded-2xl border-2 p-5 text-left ${
+              selectedRole === "PARENT" ? "border-[#2D9E6B] bg-[#E8F7F0]" : "border-[#E2E8F0] bg-white"
+            }`}
+          >
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white">
+              <Users size={22} className="text-[#2D9E6B]" />
+            </div>
+            <p className="flex items-center gap-2 text-[18px] font-800 text-[#0F2540]">
+              I am a Parent
+              {selectedRole === "PARENT" ? <Check size={16} className="text-[#2D9E6B]" /> : null}
+            </p>
+            <p className="mt-1 text-sm font-500 leading-relaxed text-[#64748B]">
+              Post what your child needs. Verified home or online tutors will reach out.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedRole("TUTOR")}
+            aria-pressed={selectedRole === "TUTOR"}
+            className={`min-h-[150px] rounded-2xl border-2 p-5 text-left ${
+              selectedRole === "TUTOR" ? "border-[#2D9E6B] bg-[#E8F7F0]" : "border-[#E2E8F0] bg-white"
+            }`}
+          >
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white">
+              <GraduationCap size={22} className="text-[#F5A623]" />
+            </div>
+            <p className="flex items-center gap-2 text-[18px] font-800 text-[#0F2540]">
+              I am a Teacher
+              {selectedRole === "TUTOR" ? <Check size={16} className="text-[#2D9E6B]" /> : null}
+            </p>
+            <p className="mt-1 text-sm font-500 leading-relaxed text-[#64748B]">
+              Unlock nearby student enquiries and teach after a free demo.
+            </p>
+          </button>
+        </div>
+
         <button
           type="button"
-          onClick={() => setSelectedRole("PARENT")}
-          aria-pressed={selectedRole === "PARENT"}
-          className={`ath-choice text-left p-5 h-auto flex-col items-start min-h-[160px] ${
-            selectedRole === "PARENT" ? "" : ""
-          }`}
-          data-selected={selectedRole === "PARENT" ? "true" : "false"}
+          onClick={handleConfirmRole}
+          disabled={isSubmitting}
+          className="flex h-13 min-h-13 w-full items-center justify-center gap-2 rounded-xl bg-[#2D9E6B] text-base font-800 !text-white hover:bg-[#238357] disabled:opacity-60"
         >
-          {selectedRole === "PARENT" && (
-            <div className="absolute top-3 right-3 h-6 w-6 rounded-full bg-[#2D9E6B] flex items-center justify-center text-white relative">
-              <Check size={14} strokeWidth={3} />
-            </div>
+          {isSubmitting ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Saving…
+            </>
+          ) : (
+            <>
+              Continue as {selectedRole === "PARENT" ? "Parent" : "Teacher"}
+              <ArrowRight size={18} />
+            </>
           )}
-          <div className="space-y-3 w-full">
-            <div className="h-12 w-12 rounded-2xl bg-[#E8F7F0] flex items-center justify-center text-2xl">
-              👨‍👩‍👧
-            </div>
-            <div>
-              <h3 className="text-lg font-800 text-[#0F2540]">I am a Parent</h3>
-              <p className="text-xs font-500 text-[#64748B] mt-1 leading-relaxed">
-                Post what your child needs and get verified home or online tutors.
-              </p>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedRole("TUTOR")}
-          aria-pressed={selectedRole === "TUTOR"}
-          className="ath-choice text-left p-5 h-auto flex-col items-start min-h-[160px]"
-          data-selected={selectedRole === "TUTOR" ? "true" : "false"}
-        >
-          <div className="space-y-3 w-full">
-            {selectedRole === "TUTOR" && (
-              <div className="h-6 w-6 rounded-full bg-[#F5A623] flex items-center justify-center text-white ml-auto">
-                <Check size={14} strokeWidth={3} />
-              </div>
-            )}
-            <div className="h-12 w-12 rounded-2xl bg-[#FFF3DC] flex items-center justify-center text-2xl">
-              🎓
-            </div>
-            <div>
-              <h3 className="text-lg font-800 text-[#0F2540]">I am a Tutor</h3>
-              <p className="text-xs font-500 text-[#64748B] mt-1 leading-relaxed">
-                Unlock nearby student enquiries and teach after a free demo class.
-              </p>
-            </div>
-          </div>
         </button>
       </div>
-
-      <button
-        type="button"
-        onClick={handleConfirmRole}
-        disabled={isSubmitting}
-        className="neu-btn neu-btn-primary w-full py-3.5 text-sm min-h-12 flex items-center justify-center gap-2"
-      >
-        {isSubmitting ? (
-          <span className="flex items-center gap-2">
-            <Loader2 size={18} className="animate-spin" />
-            Setting up your account...
-          </span>
-        ) : (
-          <span className="flex items-center gap-2">
-            Continue as {selectedRole === "PARENT" ? "Parent" : "Tutor"} <ArrowRight size={18} />
-          </span>
-        )}
-      </button>
-    </div>
+    </AuthShell>
   );
 }

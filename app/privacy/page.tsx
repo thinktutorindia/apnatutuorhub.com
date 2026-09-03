@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { ShieldCheck, ArrowLeft, Lock, EyeOff, FileText } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
+import { SiteFooter } from "@/components/home/SiteFooter";
 import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 
 export const metadata = {
@@ -128,7 +129,11 @@ export default function PrivacyPage() {
         <section className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-4 text-sm text-slate-600 font-medium leading-relaxed">
           <h2 className="text-xl font-black text-[#0F2540]">5. Cookies &amp; analytics</h2>
           <p>
-            We use essential cookies for sign-in and security. Optional product analytics (for example PostHog) may run on public pages to improve the product. Browser controls can block non-essential cookies.
+            We use essential cookies for sign-in and security. Optional product analytics (for example PostHog) may run on public pages to improve the product. Browser controls can block non-essential cookies. Full detail:{" "}
+            <Link href="/cookies" className="text-[#2D9E6B] hover:underline">
+              Cookie Policy
+            </Link>
+            .
           </p>
         </section>
 
@@ -137,8 +142,17 @@ export default function PrivacyPage() {
           <Link href="/terms" className="text-[#2D9E6B] hover:underline">
             Terms of Service
           </Link>
+          {" · "}
+          <Link href="/cookies" className="text-[#2D9E6B] hover:underline">
+            Cookie Policy
+          </Link>
+          {" · "}
+          <Link href="/disclaimer" className="text-[#2D9E6B] hover:underline">
+            Disclaimer
+          </Link>
         </p>
       </main>
+      <SiteFooter />
     </div>
   );
 }

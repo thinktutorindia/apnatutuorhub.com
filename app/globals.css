@@ -564,6 +564,19 @@ h1, h2, h3, h4, h5, h6 {
 /* iOS / notch safe-area padding for fixed bottom nav bars */
 .at-bottom-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
+/* Larger type + tap targets for first-time / older users in onboarding */
+.ath-easy-form label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f2540;
+}
+.ath-easy-form input:not([type="checkbox"]):not([type="radio"]),
+.ath-easy-form select,
+.ath-easy-form textarea {
+  min-height: 3.25rem;
+  font-size: 1rem;
+}
+
 /* Numeric font-weight utilities used throughout the app */
 .font-400 { font-weight: 400; }
 .font-500 { font-weight: 500; }

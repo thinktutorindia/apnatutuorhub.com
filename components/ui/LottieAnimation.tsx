@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import lottie from "lottie-web/build/player/lottie_light";
+import lottie from "lottie-web";
 
 interface LottieAnimationProps {
   src?: string;
@@ -13,7 +13,7 @@ interface LottieAnimationProps {
 }
 
 export function LottieAnimation({
-  src = "/animations/cute-tiger.json",
+  src,
   animationData,
   width = 200,
   height = 200,
@@ -21,6 +21,7 @@ export function LottieAnimation({
   loop = true,
 }: LottieAnimationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const fetchSrc = animationData ? undefined : (src ?? "/animations/cute-tiger.json");
 
   useEffect(() => {
     const container = containerRef.current;
@@ -31,8 +32,8 @@ export function LottieAnimation({
 
     async function play() {
       let data = animationData;
-      if (!data && src) {
-        const res = await fetch(src);
+      if (!data && fetchSrc) {
+        const res = await fetch(fetchSrc);
         if (!res.ok) return;
         data = await res.json();
       }
@@ -54,7 +55,7 @@ export function LottieAnimation({
       cancelled = true;
       anim?.destroy();
     };
-  }, [animationData, src, loop]);
+  }, [animationData, fetchSrc, loop]);
 
   return (
     <div

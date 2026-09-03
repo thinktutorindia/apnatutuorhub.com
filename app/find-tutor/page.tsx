@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { FindTutorWizard } from "@/components/find-tutor/FindTutorWizard";
 import { PublicSiteHeader } from "@/components/home/PublicSiteHeader";
+import { SiteFooter } from "@/components/home/SiteFooter";
 import { auth } from "@/auth";
 
 export const metadata: Metadata = {
@@ -51,6 +52,7 @@ export default async function FindTutorPage({
           initialClassLevel={initialClass}
         />
       </main>
+      <SiteFooter parentCtaUrl={parentCtaUrl} />
     </div>
   );
 }

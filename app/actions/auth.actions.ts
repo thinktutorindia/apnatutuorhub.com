@@ -16,6 +16,7 @@ export type RegisterFormState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
   role?: string;
+  redirectTo?: string;
 };
 
 export type LoginFormState = {
@@ -138,7 +139,25 @@ export async function registerAction(
     });
   }
 
-  return { success: true, role };
+  try {
+    await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+  } catch {
+    return {
+      success: true,
+      role,
+      redirectTo: role === "TUTOR" ? "/login?registered=true&role=tutor" : "/login?registered=true",
+    };
+  }
+
+  return {
+    success: true,
+    role,
+    redirectTo: role === "TUTOR" ? "/tutor/onboarding" : "/parent/post-requirement",
+  };
 }
 
 // ────────────────────────────────────────────────
@@ -370,7 +389,7 @@ export async function selectUserRoleAction(
       data: { role: "PARENT" },
     });
 
-    return { success: true, redirectTo: "/parent/dashboard" };
+    return { success: true, redirectTo: "/parent/post-requirement" };
   }
 }
 

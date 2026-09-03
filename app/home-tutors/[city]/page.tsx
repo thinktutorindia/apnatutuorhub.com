@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin, ShieldCheck, GraduationCap, ArrowRight } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
+import { SiteFooter } from "@/components/home/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,7 @@ export default async function CityTutorPage({ params }: CityPageProps) {
           </div>
         </div>
       </main>
+      <SiteFooter parentCtaUrl="/parent/post-requirement" />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BookOpen, ShieldCheck, Star, GraduationCap, ArrowRight, CheckCircle2 } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
+import { SiteFooter } from "@/components/home/SiteFooter";
 import { notFound } from "next/navigation";
 import { SUBJECTS } from "@/lib/validations";
 
@@ -163,6 +164,7 @@ export default async function SubjectTutorPage({ params }: SubjectPageProps) {
           </div>
         </div>
       </main>
+      <SiteFooter parentCtaUrl="/parent/post-requirement" />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { LogoBrand } from "@/components/brand/Logo";
+import { SiteFooter } from "@/components/home/SiteFooter";
 import { CLASS_LEAD_DISTRIBUTION, SUBSCRIPTION_PLANS } from "@/lib/subscription-plans";
 import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 
@@ -309,10 +310,7 @@ export default function TermsPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-8 px-4 text-center text-xs font-semibold text-slate-500">
-        <p>© 2026 ApnaTutorHub. All rights reserved. Registered under Indian Educational Services Act.</p>
-      </footer>
+      <SiteFooter tutorCtaUrl="/register?role=tutor" />
     </div>
   );
 }

@@ -153,7 +153,7 @@ export default async function ParentDashboardPage() {
         <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1.5">
             <h1 className="text-2xl sm:text-3xl font-800 tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
-              Namaste {displayName}! Welcome back.
+              Namaste {displayName}! {parentProfile.leads.length === 0 ? "Let’s find a tutor." : "Welcome back."}
             </h1>
             <p className="text-[15px] sm:text-base text-slate-200 font-500 max-w-xl">
               {child
@@ -166,7 +166,7 @@ export default async function ParentDashboardPage() {
             className="w-full min-h-12 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] px-5 py-3.5 text-[15px] font-800 text-white sm:w-auto shrink-0"
           >
             <PlusCircle size={18} />
-            Post New Subject Requirement
+            Post a requirement — it’s free
           </Link>
         </div>
       </div>

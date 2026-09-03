@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LogoBrand } from "@/components/brand/Logo";
-import { LottieAnimation } from "@/components/ui/LottieAnimation";
+import { NotFoundLottie } from "@/components/ui/NotFoundLottie";
 
 export const metadata = {
   title: "Page not found — ApnaTutorHub",
@@ -12,7 +12,7 @@ export default function NotFound() {
       <LogoBrand heightClass="h-10 sm:h-11" />
 
       <div className="flex-1 w-full max-w-lg flex flex-col items-center justify-center text-center pt-6">
-        <LottieAnimation src="/animations/cute-tiger.json" width={280} height={280} />
+        <NotFoundLottie />
         <p className="mt-2 text-[11px] font-800 uppercase tracking-[0.18em] text-[#2D9E6B]">404</p>
         <h1
           className="mt-2 text-2xl sm:text-3xl font-800 text-[#0F2540]"

@@ -32,7 +32,15 @@ import {
   ALL_STRUCTURED_CLASSES,
 } from "@/lib/subject-matcher";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getWhatsAppSupportLink } from "@/lib/support";
+import {
+  NeedMatchWizard,
+  BOARD_OPTIONS,
+  MODE_OPTIONS,
+  BUDGET_OPTIONS,
+  type NeedStepId,
+} from "@/components/find-tutor/NeedMatchWizard";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -101,7 +109,25 @@ interface WizardState {
   city: string;
 }
 
-const TOTAL_STEPS = 6;
+function parseClassFromSubject(subject: string): string {
+  const lower = subject.toLowerCase();
+  if (/\bneet\b/.test(lower)) return "NEET";
+  if (/\b(iit[- ]?jee|jee)\b/.test(lower)) return "IIT-JEE";
+  const m = subject.match(/class\s*(\d{1,2})/i);
+  if (m) return `Class ${Number(m[1])}`;
+  return "";
+}
+
+function buildNeedSteps(subject: string, city: string, classLevel: string): NeedStepId[] {
+  const steps: NeedStepId[] = [];
+  if (!subject.trim()) steps.push("subject");
+  if (!classLevel.trim()) steps.push("class");
+  steps.push("board");
+  steps.push("mode");
+  if (!city.trim()) steps.push("city");
+  steps.push("budget");
+  return steps;
+}
 
 // ─── Step 1: Subject ──────────────────────────────────────────────────────────
 
@@ -1253,26 +1279,33 @@ export function FindTutorWizard({
   initialCity?: string;
   initialClassLevel?: string;
 }) {
-  const [step, setStep] = useState(1);
+  const router = useRouter();
+  const parsedClass = parseClassFromSubject(initialSubject) || initialClassLevel;
+  const steps = useMemo(
+    () => buildNeedSteps(initialSubject, initialCity, parsedClass),
+    [initialSubject, initialCity, parsedClass]
+  );
+
+  const [stepIndex, setStepIndex] = useState(0);
+  const [dir, setDir] = useState<"forward" | "back">("forward");
+  const [showingAll, setShowingAll] = useState(false);
+  const [phase, setPhase] = useState<"ask" | "results">("ask");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PublicTutorResult[] | null>(null);
   const [total, setTotal] = useState(0);
+  const [matchTotal, setMatchTotal] = useState(36);
   const [fallbackReason, setFallbackReason] = useState<string | undefined>(undefined);
   const [gateOpen, setGateOpen] = useState(false);
   const [gateTargetId, setGateTargetId] = useState<string>("");
 
   const [state, setState] = useState<WizardState>({
     subject: initialSubject,
-    classLevel: initialClassLevel,
-    board: "CBSE",
+    classLevel: parsedClass,
+    board: "",
     mode: "EITHER",
     budgetMax: 10000,
     city: initialCity,
   });
-
-  const update = useCallback(<K extends keyof WizardState>(key: K, val: WizardState[K]) => {
-    setState((prev) => ({ ...prev, [key]: val }));
-  }, []);
 
   const runSearch = useCallback(async (customState?: WizardState) => {
     setLoading(true);
@@ -1294,22 +1327,109 @@ export function FindTutorWizard({
     }
   }, [state]);
 
-  const handleNext = async () => {
-    if (step < TOTAL_STEPS) {
-      setStep((s) => s + 1);
-    } else {
-      await runSearch();
-      setStep(TOTAL_STEPS + 1);
+  useEffect(() => {
+    const timer = window.setTimeout(async () => {
+      const res = await searchTutorsPublic({
+        subjects: state.subject ? [state.subject] : [],
+        classLevel: state.classLevel || undefined,
+        board: state.board || undefined,
+        mode: state.mode || undefined,
+        budgetMax: state.budgetMax,
+        city: state.city || undefined,
+      });
+      setMatchTotal(res.total > 0 ? res.total : 36);
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [state]);
+
+  const stepId = steps[Math.min(stepIndex, steps.length - 1)] ?? "board";
+
+  const { options, hasMore } = useMemo(() => {
+    if (stepId === "subject") {
+      return {
+        options: POPULAR_SUBJECTS.map((s) => ({ value: s.label, label: s.label })),
+        hasMore: false,
+      };
     }
+    if (stepId === "class") {
+      const { recommendedClasses, otherClasses } = getRelevantClassesForSubject(state.subject);
+      const rec = recommendedClasses.map((c) => ({ value: c.label, label: c.label }));
+      const other = otherClasses.map((c) => ({ value: c.label, label: c.label }));
+      return { options: showingAll ? [...rec, ...other] : rec, hasMore: other.length > 0 };
+    }
+    if (stepId === "board") {
+      return {
+        options: showingAll ? BOARD_OPTIONS : BOARD_OPTIONS.slice(0, 5),
+        hasMore: BOARD_OPTIONS.length > 5,
+      };
+    }
+    if (stepId === "mode") {
+      return { options: MODE_OPTIONS, hasMore: false };
+    }
+    if (stepId === "city") {
+      return {
+        options: POPULAR_CITIES.map((c) => ({ value: c, label: c })),
+        hasMore: false,
+      };
+    }
+    return {
+      options: BUDGET_OPTIONS.map((b) => ({ value: String(b.value), label: b.label })),
+      hasMore: false,
+    };
+  }, [stepId, state.subject, showingAll]);
+
+  const currentValue =
+    stepId === "subject"
+      ? state.subject
+      : stepId === "class"
+        ? state.classLevel
+        : stepId === "board"
+          ? state.board
+          : stepId === "mode"
+            ? state.mode
+            : stepId === "city"
+              ? state.city
+              : String(state.budgetMax);
+
+  const goNext = useCallback(async (nextState: WizardState, fromIndex: number) => {
+    if (fromIndex < steps.length - 1) {
+      setDir("forward");
+      setShowingAll(false);
+      setStepIndex(fromIndex + 1);
+      return;
+    }
+    await runSearch(nextState);
+    setPhase("results");
+  }, [runSearch, steps.length]);
+
+  const handlePick = (value: string) => {
+    const fromIndex = stepIndex;
+    const nextState: WizardState = { ...state };
+    if (stepId === "subject") nextState.subject = value;
+    else if (stepId === "class") nextState.classLevel = value;
+    else if (stepId === "board") nextState.board = value;
+    else if (stepId === "mode") nextState.mode = value;
+    else if (stepId === "city") nextState.city = value;
+    else nextState.budgetMax = Number(value) || nextState.budgetMax;
+    setState(nextState);
+    void goNext(nextState, fromIndex);
   };
 
   const handleBack = () => {
-    if (step === TOTAL_STEPS + 1) {
-      setStep(TOTAL_STEPS);
+    if (phase === "results") {
+      setPhase("ask");
       setResults(null);
-    } else {
-      setStep((s) => Math.max(1, s - 1));
+      setStepIndex(Math.max(0, steps.length - 1));
+      setDir("back");
+      return;
     }
+    if (stepIndex === 0) {
+      router.push("/");
+      return;
+    }
+    setDir("back");
+    setShowingAll(false);
+    setStepIndex((i) => Math.max(0, i - 1));
   };
 
   const handleFilterChange = <K extends keyof WizardState>(key: K, val: WizardState[K]) => {
@@ -1345,7 +1465,7 @@ export function FindTutorWizard({
     city: state.city,
   }).toString();
 
-  const showResults = step === TOTAL_STEPS + 1 && results !== null;
+  const showResults = phase === "results" && results !== null;
 
   return (
     <div className="relative">
@@ -1359,7 +1479,7 @@ export function FindTutorWizard({
 
       {/* Loading overlay */}
       {loading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs">
           <div className="bg-white rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-3">
             <Loader2 size={36} className="animate-spin text-[#2D9E6B]" />
             <p className="text-sm font-extrabold text-[#0F2540]">Finding verified tutors...</p>
@@ -1377,158 +1497,27 @@ export function FindTutorWizard({
           onResetFilters={handleResetFilters}
           onContactClick={handleContactClick}
           onRestartWizard={() => {
-            setStep(1);
+            setPhase("ask");
+            setStepIndex(0);
+            setDir("back");
             setResults(null);
           }}
         />
       ) : (
-        <div className="grid lg:grid-cols-5 gap-8 lg:gap-12 items-start">
-          {/* Left: Questionnaire Card */}
-          <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-xl">
-                🎓
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#2D9E6B]">
-                  Free to Browse
-                </p>
-                <h1 className="text-base font-black text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-                  Find Your Perfect Tutor
-                </h1>
-              </div>
-            </div>
-
-            {/* Progress steps */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((n) => (
-                  <div
-                    key={n}
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-800 ${
-                      n < step
-                        ? "bg-[#2D9E6B] text-white"
-                        : n === step
-                          ? "bg-[#0F2540] text-white"
-                          : "bg-[#F0F4F8] text-[#64748B] border border-[#E2E8F0]"
-                    }`}
-                    style={{ fontFamily: "Poppins, sans-serif" }}
-                  >
-                    {n}
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between text-xs font-700 text-[#64748B]">
-                <span>Step {step} of {TOTAL_STEPS}</span>
-                <span>{Math.round((step / TOTAL_STEPS) * 100)}% complete</span>
-              </div>
-              <div className="h-2 rounded-full bg-[#E2E8F0] overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-[#2D9E6B]"
-                  style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Questionnaire Step Content */}
-            <div key={step} className="animate-in fade-in duration-200">
-              {step === 1 && <StepSubject value={state.subject} onChange={(v) => update("subject", v)} />}
-              {step === 2 && (
-                <StepClass
-                  value={state.classLevel}
-                  onChange={(v) => update("classLevel", v)}
-                  subject={state.subject}
-                />
-              )}
-              {step === 3 && <StepBoard value={state.board} onChange={(v) => update("board", v)} />}
-              {step === 4 && <StepMode value={state.mode} onChange={(v) => update("mode", v)} />}
-              {step === 5 && <StepBudget value={state.budgetMax} onChange={(v) => update("budgetMax", v)} />}
-              {step === 6 && <StepCity value={state.city} onChange={(v) => update("city", v)} />}
-            </div>
-
-            {/* Navigation Controls */}
-            <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
-              {step > 1 && (
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="flex items-center gap-1.5 px-4 py-3 rounded-2xl border-2 border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
-                >
-                  <ArrowLeft size={16} />
-                  <span>Back</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={step === 1 && !state.subject}
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-black text-sm transition-all shadow-md shadow-emerald-500/20 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <span>{step === TOTAL_STEPS ? "Search Matching Tutors" : "Continue"}</span>
-                <ArrowRight size={16} />
-              </button>
-
-              {step > 2 && step < TOTAL_STEPS && (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="text-xs font-bold text-slate-400 hover:text-slate-700 px-2 py-1 cursor-pointer"
-                >
-                  Skip
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Right: Trust & How It Works Sidebar */}
-          <div className="lg:col-span-2 space-y-5">
-            {/* Stats */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-5 grid grid-cols-3 gap-3">
-              {[
-                { icon: Users, label: "Verified Tutors", value: "500+" },
-                { icon: ShieldCheck, label: "KYC Approved", value: "100%" },
-                { icon: Star, label: "Avg Rating", value: "4.7★" },
-              ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="text-center space-y-1">
-                  <div className="mx-auto w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
-                    <Icon size={16} className="text-[#2D9E6B]" />
-                  </div>
-                  <p className="text-base font-black text-[#0F2540]">{value}</p>
-                  <p className="text-[10px] font-semibold text-slate-500 leading-tight">{label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* How it works */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-5 space-y-4">
-              <h3 className="text-sm font-black text-[#0F2540]">How it works</h3>
-              {[
-                { step: "1", title: "Tell us what you need", desc: "Subject, class, board & location — takes 60 seconds." },
-                { step: "2", title: "Browse matched tutors", desc: "See verified tutors with ratings, subjects & fee range." },
-                { step: "3", title: "Sign up & connect", desc: "Create a free account to see phone numbers & chat directly." },
-              ].map((item) => (
-                <div key={item.step} className="flex gap-3 items-start">
-                  <div className="w-7 h-7 rounded-xl bg-[#0F2540] text-white text-xs font-black flex items-center justify-center shrink-0 mt-0.5">
-                    {item.step}
-                  </div>
-                  <div>
-                    <p className="text-xs font-extrabold text-[#0F2540]">{item.title}</p>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Trust badges */}
-            <div className="bg-emerald-50 rounded-3xl border border-emerald-200 p-4 space-y-2">
-              <p className="text-xs font-black text-[#0F2540]">✅ Always free for parents</p>
-              <p className="text-xs font-semibold text-slate-600">
-                Browsing tutors costs nothing. No subscription, no credit card needed.
-              </p>
-            </div>
-          </div>
-        </div>
+        <NeedMatchWizard
+          stepId={stepId}
+          stepIndex={stepIndex}
+          stepCount={steps.length}
+          matchTotal={matchTotal}
+          options={options}
+          value={currentValue}
+          onPick={handlePick}
+          onBack={handleBack}
+          onViewAll={() => setShowingAll((v) => !v)}
+          showingAll={showingAll}
+          hasMore={hasMore}
+          dir={dir}
+        />
       )}
     </div>
   );

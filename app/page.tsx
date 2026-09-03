@@ -1,17 +1,17 @@
 import { auth } from "@/auth";
 import Link from "next/link";
 import Image from "next/image";
-import { LogoBrand } from "@/components/brand/Logo";
 import { HomeHeroCard } from "@/components/home/HomeHeroCard";
 import { PublicSiteHeader } from "@/components/home/PublicSiteHeader";
 import { HomeFaqAccordion } from "@/components/home/HomeFaqAccordion";
 import { HomeBrowseNeeds } from "@/components/home/HomeBrowseNeeds";
+import { SiteFooter } from "@/components/home/SiteFooter";
 import { HomepageJsonLd } from "@/components/seo/JsonLdSchemas";
 import {
-  ArrowRight, ShieldCheck, CheckCircle2, Star, MapPin,
+  ArrowRight, Star, MapPin,
 } from "lucide-react";
 import type { Metadata } from "next";
-import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
+import { SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 
 export const metadata: Metadata = {
   title: "ApnaTutorHub — Find Verified Home & Online Tutors Near You",
@@ -155,11 +155,11 @@ export default async function HomePage() {
 
       <main>
         {/* ── Navy hero ──────────────────────────────────────── */}
-        <section className="relative overflow-hidden bg-[#0F2540] text-white">
+        <section className="relative z-20 bg-[#0F2540] text-white">
           <div className="absolute inset-y-0 right-0 w-2/5 hidden lg:block bg-[#F7F1E8] rounded-l-[80px]" />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-10 sm:pt-16 pb-14 lg:pb-24">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-              <div className="lg:col-span-7 space-y-6">
+              <div className="lg:col-span-7 space-y-6 relative z-30 overflow-visible">
                 <h1
                   className="text-3xl sm:text-4xl lg:text-[2.65rem] font-800 leading-[1.2] text-white"
                   style={{ fontFamily: "Poppins, sans-serif" }}
@@ -185,12 +185,12 @@ export default async function HomePage() {
                 </div>
               </div>
 
-              <div className="lg:col-span-5 relative z-10">
+              <div className="lg:col-span-5 relative z-[1]">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 lg:pt-4">
                   {REAL_TUTOR_PROFILES.slice(0, 2).map((tutor) => (
                     <div
                       key={tutor.name}
-                      className="bg-white rounded-3xl border border-[#E2E8F0] shadow-[0_12px_32px_rgba(15,37,64,0.12)] overflow-hidden flex gap-3 p-3"
+                      className="bg-white rounded-3xl border border-[#E2E8F0] shadow-[0_18px_44px_rgba(15,37,64,0.2)] overflow-hidden flex gap-3 p-3"
                     >
                       <Image
                         src={tutor.image}
@@ -222,7 +222,7 @@ export default async function HomePage() {
         </section>
 
         {/* ── How it works ───────────────────────────────────── */}
-        <section id="how-it-works" className="py-16 px-4 sm:px-6 bg-[#F0F4F8]">
+        <section id="how-it-works" className="relative z-0 py-16 px-4 sm:px-6 bg-[#F0F4F8]">
           <div className="max-w-6xl mx-auto space-y-10">
             <h2
               className="text-center text-2xl sm:text-3xl font-800 text-[#0F2540]"
@@ -432,59 +432,7 @@ export default async function HomePage() {
         </section>
       </main>
 
-      <footer className="bg-[#0A192F] text-slate-200 py-14 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto space-y-10">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="space-y-3">
-              <LogoBrand light heightClass="h-11" />
-              <p className="text-xs text-slate-400 font-500 leading-relaxed">
-                Connecting parents with verified home and online tutors across India.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-800 text-sm text-white mb-3" style={{ fontFamily: "Poppins, sans-serif" }}>
-                For Parents
-              </h4>
-              <ul className="space-y-2 text-xs font-600 text-slate-300">
-                <li><Link href={parentCtaUrl} className="hover:text-[#2D9E6B]">Post Requirement</Link></li>
-                <li><Link href="/find-tutor" className="hover:text-[#2D9E6B]">Find Tutors</Link></li>
-                <li><a href="#how-it-works" className="hover:text-[#2D9E6B]">How It Works</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-800 text-sm text-white mb-3" style={{ fontFamily: "Poppins, sans-serif" }}>
-                For Tutors
-              </h4>
-              <ul className="space-y-2 text-xs font-600 text-slate-300">
-                <li><Link href={tutorCtaUrl} className="hover:text-[#2D9E6B]">Join as a Tutor</Link></li>
-                <li><Link href="/login" className="hover:text-[#2D9E6B]">Tutor Login</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-800 text-sm text-white mb-3" style={{ fontFamily: "Poppins, sans-serif" }}>
-                Company
-              </h4>
-              <ul className="space-y-2 text-xs font-600 text-slate-300">
-                <li><Link href="/privacy" className="hover:text-[#2D9E6B]">Privacy Policy</Link></li>
-                <li><Link href="/terms" className="hover:text-[#2D9E6B]">Terms of Service</Link></li>
-                <li>
-                  <a href={getWhatsAppSupportLink()} className="hover:text-[#2D9E6B]" target="_blank" rel="noopener noreferrer">
-                    WhatsApp {SUPPORT_PHONE_DISPLAY}
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-600 text-slate-400">
-            <span>© {new Date().getFullYear()} ApnaTutorHub. All rights reserved.</span>
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck size={13} className="text-[#2D9E6B]" />
-              <CheckCircle2 size={13} className="text-[#2D9E6B]" />
-              KYC verified · Free for parents
-            </span>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter parentCtaUrl={parentCtaUrl} tutorCtaUrl={tutorCtaUrl} />
     </div>
   );
 }

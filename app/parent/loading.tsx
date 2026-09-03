@@ -5,8 +5,8 @@ export default function ParentDashboardLoading() {
   return (
     <div className="min-h-[70vh] flex items-center justify-center">
       <PageLoader
-        message="Loading Parent Dashboard..."
-        subtext="Fetching your requirements, applicants, and booking updates"
+        message="Just a moment…"
+        subtext="Opening your parent page"
       />
     </div>
   );

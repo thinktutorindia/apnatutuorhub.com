@@ -11,7 +11,8 @@ import { Step5Preferences } from "./steps/Step5Preferences";
 import { Step6Bio } from "./steps/Step6Bio";
 import { Step7Photo } from "./steps/Step7Photo";
 import { LogoBrand } from "@/components/brand/Logo";
-import { CheckCircle, ChevronRight, CheckCircle2, ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import { SignOutButton } from "@/components/auth/SignOutButton";
+import { CheckCircle, CheckCircle2, ArrowLeft, Sparkles } from "lucide-react";
 
 export interface OnboardingProfile {
   id: string;
@@ -136,7 +137,7 @@ export function TutorOnboardingWizard({
         if (isAdminMode) {
           if (onFinishAdmin) onFinishAdmin();
         } else {
-          router.push("/tutor/plans");
+          router.push("/tutor/dashboard");
         }
       } else {
         setCurrentStep((s) => s + 1);
@@ -188,17 +189,19 @@ export function TutorOnboardingWizard({
     <div className={`min-h-screen ${isAdminMode ? "bg-[#F0F4F8] p-4" : "bg-[#F0F4F8]"}`}>
       {/* Top Header */}
       {!isAdminMode && (
-        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xs">
-          <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
+        <div className="sticky top-0 z-10 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-md">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
             <LogoBrand heightClass="h-10 sm:h-11" />
-            <div className="text-xs font-700 text-gray-500 bg-gray-50 border border-gray-200 px-3 py-1 rounded-full">
-              Step <span className="text-[#1A3C5E] font-800">{currentStep}</span> of {totalSteps}
+            <div className="flex items-center gap-2">
+              <p className="hidden rounded-full border border-[#E2E8F0] bg-[#F0F4F8] px-3 py-1.5 text-sm font-800 text-[#0F2540] xs:block">
+                Step {currentStep} of {totalSteps}
+              </p>
+              <SignOutButton variant="link" text="Sign out" />
             </div>
           </div>
-          {/* Progress bar */}
-          <div className="h-1.5 bg-gray-100">
+          <div className="h-1.5 bg-[#E8F7F0]">
             <div
-              className="h-full bg-gradient-to-r from-[#2D9E6B] to-emerald-400 transition-all duration-500 ease-out"
+              className="h-full bg-[#2D9E6B] transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -272,13 +275,12 @@ export function TutorOnboardingWizard({
 
         {/* Step title */}
         {currentStep !== 3 && (
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-1.5 text-[11px] font-700 uppercase tracking-widest text-[#2D9E6B] bg-[#2D9E6B]/10 px-3 py-1 rounded-full mb-2">
-              <ChevronRight size={12} />
-              Step {currentStep} of {totalSteps} • {isAdminMode ? "Super Admin Privileged Mode" : "Auto-saves to profile"}
-            </div>
+          <div className="mb-6 text-center">
+            <p className="mb-2 text-sm font-800 uppercase tracking-wide text-[#2D9E6B]">
+              {STEPS[currentStep - 1]?.title} · saves as you go
+            </p>
             <h1
-              className="text-2xl font-800 text-[#1A3C5E] tracking-tight"
+              className="text-2xl font-800 text-[#0F2540] sm:text-3xl"
               style={{ fontFamily: "Poppins, sans-serif" }}
             >
               {STEPS[currentStep - 1]?.subtitle}
@@ -300,31 +302,23 @@ export function TutorOnboardingWizard({
         )}
 
         {/* Step content */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/40 p-6 sm:p-8">
+        <div className="ath-easy-form rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-8">
           {renderStep()}
         </div>
 
-        {/* Navigation bar at bottom of wizard card */}
-        <div className="flex items-center justify-between mt-6">
+        <div className="mt-6 flex items-center justify-between">
           <button
             type="button"
             onClick={handleBack}
             disabled={currentStep <= 1 || isPending}
-            className="px-5 py-2.5 rounded-2xl border-2 border-gray-200 bg-white text-gray-700 font-800 text-xs flex items-center gap-2 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-40"
+            className="inline-flex min-h-12 items-center gap-2 rounded-xl border-2 border-[#E2E8F0] bg-white px-5 text-[15px] font-800 text-[#0F2540] hover:bg-[#F8FAFC] disabled:opacity-40"
           >
-            <ArrowLeft size={16} /> Back Step
+            <ArrowLeft size={16} /> Previous
           </button>
-          <span className="text-xs font-bold text-gray-400">
-            Step {currentStep} of 7
+          <span className="text-sm font-700 text-slate-400">
+            {currentStep} / {totalSteps}
           </span>
-          <button
-            type="button"
-            onClick={() => handleJumpStep(Math.min(7, currentStep + 1))}
-            disabled={currentStep >= 7 || isPending}
-            className="px-5 py-2.5 rounded-2xl border-2 border-gray-200 bg-white text-gray-700 font-800 text-xs flex items-center gap-2 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-40"
-          >
-            Skip/Next <ArrowRight size={16} />
-          </button>
+          <span className="w-[7.5rem]" aria-hidden />
         </div>
       </div>
     </div>

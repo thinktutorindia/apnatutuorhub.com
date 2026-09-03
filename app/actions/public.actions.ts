@@ -15,6 +15,9 @@ export interface PublicTutorResult {
   feeMax: number | null;
   city: string | null;
   state: string | null;
+  address?: string | null;
+  gender?: string | null;
+  image?: string | null;
   averageRating: number;
   totalReviews: number;
   isVerified: boolean;
@@ -58,8 +61,9 @@ export async function searchTutorsPublic(params: {
   budgetMax?: number;
   city?: string;
   board?: string;
+  gender?: string;
 }): Promise<{ tutors: PublicTutorResult[]; total: number; isFallback?: boolean; fallbackReason?: string }> {
-  const { subjects, classLevel, mode, budgetMax, city } = params;
+  const { subjects, classLevel, mode, budgetMax, city, gender } = params;
 
   // Expand search subjects with synonyms and root aliases to prevent zero results on typos or naming variations
   let expandedSubjects: string[] | undefined = undefined;
@@ -89,6 +93,10 @@ export async function searchTutorsPublic(params: {
     where.teachingMode = { in: [mode, "EITHER"] };
   }
 
+  if (gender && gender !== "ANY" && gender !== "EITHER") {
+    where.gender = { equals: gender, mode: "insensitive" };
+  }
+
   if (budgetMax) {
     where.feeMin = { lte: budgetMax };
   }
@@ -96,6 +104,30 @@ export async function searchTutorsPublic(params: {
   if (city) {
     where.city = { contains: city.trim(), mode: "insensitive" };
   }
+
+  const profileSelect = {
+    id: true,
+    qualification: true,
+    experience: true,
+    subjects: true,
+    classLevels: true,
+    teachingMode: true,
+    feeMin: true,
+    feeMax: true,
+    city: true,
+    state: true,
+    address: true,
+    gender: true,
+    averageRating: true,
+    totalReviews: true,
+    isVerified: true,
+    isFeatured: true,
+    bio: true,
+    profileScore: true,
+    user: {
+      select: { name: true, image: true },
+    },
+  };
 
   let profiles = await prisma.tutorProfile.findMany({
     where,
@@ -105,27 +137,7 @@ export async function searchTutorsPublic(params: {
       { averageRating: "desc" },
     ],
     take: 40,
-    select: {
-      id: true,
-      qualification: true,
-      experience: true,
-      subjects: true,
-      classLevels: true,
-      teachingMode: true,
-      feeMin: true,
-      feeMax: true,
-      city: true,
-      state: true,
-      averageRating: true,
-      totalReviews: true,
-      isVerified: true,
-      isFeatured: true,
-      bio: true,
-      profileScore: true,
-      user: {
-        select: { name: true },
-      },
-    },
+    select: profileSelect,
   });
 
   let total = await prisma.tutorProfile.count({ where });
@@ -139,6 +151,9 @@ export async function searchTutorsPublic(params: {
     };
     if (classLevel) fallbackWhere.classLevels = { has: classLevel };
     if (mode && mode !== "EITHER") fallbackWhere.teachingMode = { in: [mode, "EITHER"] };
+    if (gender && gender !== "ANY" && gender !== "EITHER") {
+      fallbackWhere.gender = { equals: gender, mode: "insensitive" };
+    }
     if (city) fallbackWhere.city = { contains: city.trim(), mode: "insensitive" };
 
     profiles = await prisma.tutorProfile.findMany({
@@ -149,27 +164,7 @@ export async function searchTutorsPublic(params: {
         { averageRating: "desc" },
       ],
       take: 40,
-      select: {
-        id: true,
-        qualification: true,
-        experience: true,
-        subjects: true,
-        classLevels: true,
-        teachingMode: true,
-        feeMin: true,
-        feeMax: true,
-        city: true,
-        state: true,
-        averageRating: true,
-        totalReviews: true,
-        isVerified: true,
-        isFeatured: true,
-        bio: true,
-        profileScore: true,
-        user: {
-          select: { name: true },
-        },
-      },
+      select: profileSelect,
     });
 
     total = await prisma.tutorProfile.count({ where: fallbackWhere });
@@ -188,7 +183,7 @@ export async function searchTutorsPublic(params: {
     if (Number(b.isFeatured) !== Number(a.isFeatured)) return Number(b.isFeatured) - Number(a.isFeatured);
     if (b.profileScore !== a.profileScore) return b.profileScore - a.profileScore;
     return b.averageRating - a.averageRating;
-  }).slice(0, 12);
+  }).slice(0, 16);
 
   const tutors: PublicTutorResult[] = ranked.map((p) => ({
     id: p.id,
@@ -202,6 +197,9 @@ export async function searchTutorsPublic(params: {
     feeMax: p.feeMax,
     city: p.city,
     state: p.state,
+    address: p.address,
+    gender: p.gender,
+    image: p.user.image,
     averageRating: p.averageRating,
     totalReviews: p.totalReviews,
     isVerified: p.isVerified,

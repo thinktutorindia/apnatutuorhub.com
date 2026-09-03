@@ -131,6 +131,98 @@ export const SUBJECT_SYNONYMS: Record<string, string[]> = {
     "german language",
     "deutsch",
   ],
+  spanish: [
+    "es",
+    "spanish language",
+    "espanol",
+    "spoken spanish",
+  ],
+  japanese: [
+    "ja",
+    "japanese language",
+    "nihongo",
+    "spoken japanese",
+  ],
+  arabic: [
+    "ar",
+    "arabic language",
+    "spoken arabic",
+  ],
+  chinese: [
+    "mandarin",
+    "chinese language",
+    "mandarin chinese",
+  ],
+  russian: [
+    "ru",
+    "russian language",
+    "spoken russian",
+  ],
+  italian: [
+    "it",
+    "italian language",
+    "spoken italian",
+  ],
+  korean: [
+    "ko",
+    "korean language",
+    "hangul",
+    "spoken korean",
+  ],
+  urdu: [
+    "ur",
+    "urdu language",
+    "spoken urdu",
+  ],
+  punjabi: [
+    "pa",
+    "punjabi language",
+    "gurmukhi",
+    "spoken punjabi",
+  ],
+  bengali: [
+    "bn",
+    "bangla",
+    "bengali language",
+    "spoken bengali",
+  ],
+  marathi: [
+    "mr",
+    "marathi language",
+    "spoken marathi",
+  ],
+  gujarati: [
+    "gu",
+    "gujarati language",
+    "spoken gujarati",
+  ],
+  tamil: [
+    "ta",
+    "tamil language",
+    "spoken tamil",
+  ],
+  telugu: [
+    "te",
+    "telugu language",
+    "spoken telugu",
+  ],
+  kannada: [
+    "kn",
+    "kannada language",
+    "spoken kannada",
+  ],
+  malayalam: [
+    "ml",
+    "malayalam language",
+    "spoken malayalam",
+  ],
+  "spoken english": [
+    "english speaking",
+    "communication skills",
+    "english fluency",
+    "personality development",
+    "conversational english",
+  ],
 };
 
 // Flatten all subjects from the taxonomies for rapid fuzzy search
@@ -297,13 +389,10 @@ export type ClassLevelInfo = {
 };
 
 export const ALL_STRUCTURED_CLASSES: ClassLevelInfo[] = [
-  { label: "Class 11", sub: "Senior Secondary", category: "Senior" },
-  { label: "Class 12", sub: "Board & Entrance", category: "Senior" },
-  { label: "College / Degree", sub: "B.Sc, B.Com, BA, B.Tech, etc.", category: "College" },
-  { label: "IIT-JEE", sub: "Mains & Advanced", category: "Competitive" },
-  { label: "NEET", sub: "Medical Entrance", category: "Competitive" },
   { label: "Class 10", sub: "Board Exams", category: "High" },
+  { label: "Class 12", sub: "Board & Entrance", category: "Senior" },
   { label: "Class 9", sub: "Secondary Foundation", category: "High" },
+  { label: "Class 11", sub: "Senior Secondary", category: "Senior" },
   { label: "Class 8", sub: "Middle School", category: "Middle" },
   { label: "Class 7", sub: "Middle School", category: "Middle" },
   { label: "Class 6", sub: "Middle School", category: "Middle" },
@@ -313,6 +402,10 @@ export const ALL_STRUCTURED_CLASSES: ClassLevelInfo[] = [
   { label: "Class 2", sub: "Primary School", category: "Primary" },
   { label: "Class 1", sub: "Primary School", category: "Primary" },
   { label: "Nursery / KG", sub: "Pre-primary & Kindergarten", category: "Primary" },
+  { label: "Beginner / Spoken", sub: "Conversational & Fluency", category: "College" },
+  { label: "College / Degree", sub: "B.Sc, B.Com, BA, B.Tech, etc.", category: "College" },
+  { label: "IIT-JEE", sub: "Mains & Advanced", category: "Competitive" },
+  { label: "NEET", sub: "Medical Entrance", category: "Competitive" },
 ];
 
 /**
@@ -320,6 +413,7 @@ export const ALL_STRUCTURED_CLASSES: ClassLevelInfo[] = [
  * E.g., for Psychology/Accountancy/Sociology, shows Senior Secondary & College first.
  * For NEET/JEE, shows Entrance & Class 11-12 first.
  * For Nursery/Abacus, shows Primary first.
+ * For Languages, shows all school grades (Class 1 to 12) + Spoken / Conversational.
  */
 export function getRelevantClassesForSubject(subject: string): {
   recommendedClasses: ClassLevelInfo[];
@@ -327,6 +421,63 @@ export function getRelevantClassesForSubject(subject: string): {
   suggestedNotice?: string;
 } {
   const s = subject.trim().toLowerCase();
+
+  // 0. Languages (School 1st/2nd/3rd Language, Foreign, Regional & Spoken)
+  const isLanguage = [
+    "english",
+    "hindi",
+    "sanskrit",
+    "french",
+    "german",
+    "spanish",
+    "japanese",
+    "mandarin",
+    "chinese",
+    "arabic",
+    "russian",
+    "italian",
+    "korean",
+    "urdu",
+    "punjabi",
+    "bengali",
+    "marathi",
+    "gujarati",
+    "tamil",
+    "telugu",
+    "kannada",
+    "malayalam",
+    "odia",
+    "assamese",
+    "spoken",
+    "ielts",
+    "toefl",
+    "pte",
+    "language",
+    "linguistic",
+    "phonics",
+    "foreign",
+    "vyakaran",
+    "grammar",
+  ].some((kw) => s.includes(kw));
+
+  if (isLanguage) {
+    const isSpokenOnly = s.includes("spoken") || s.includes("fluency") || s.includes("ielts") || s.includes("toefl") || s.includes("speaking");
+    const recommended = isSpokenOnly
+      ? ALL_STRUCTURED_CLASSES.filter(
+          (c) => c.label.includes("Spoken") || c.category === "College" || c.category === "Senior" || c.category === "High"
+        )
+      : ALL_STRUCTURED_CLASSES.filter(
+          (c) => c.category === "High" || c.category === "Middle" || c.category === "Primary" || c.category === "Senior" || c.label.includes("Spoken")
+        );
+    const other = ALL_STRUCTURED_CLASSES.filter(
+      (c) => !recommended.some((r) => r.label === c.label)
+    );
+    return {
+      recommendedClasses: recommended,
+      otherClasses: other,
+      suggestedNotice: `${subject} is available across all classes (Class 1 to 12) as 1st, 2nd, or 3rd language, plus spoken & conversational fluency.`,
+    };
+  }
 
   // 1. Senior Secondary & Higher Ed Only subjects
   const isSeniorOnly = [
@@ -403,13 +554,12 @@ export function getRelevantClassesForSubject(subject: string): {
     };
   }
 
-  // 4. Middle & High School (e.g. Social Studies, General Science, Sanskrit)
+  // 4. Middle & High School (e.g. Social Studies, General Science)
   const isMiddleHigh = [
     "social studies",
     "sst",
     "social science",
     "general science",
-    "sanskrit",
     "history",
     "geography",
     "civics",
@@ -441,5 +591,105 @@ export function getRelevantClassesForSubject(subject: string): {
     recommendedClasses: recommended,
     otherClasses: other,
   };
+}
+
+/**
+ * Intelligently separates and extracts both class level and subject name
+ * from user search strings like:
+ * - "Class 10 Maths" -> { subject: "Maths", classLevel: "Class 10" }
+ * - "Class 1-5 All Subjects" -> { subject: "All Subjects", classLevel: "Class 1-5" }
+ * - "Class 9-10 Science & Math" -> { subject: "Science & Maths", classLevel: "Class 9-10" }
+ * - "Class 10" -> { subject: "All Subjects", classLevel: "Class 10" }
+ * - "Mathematics" -> { subject: "Mathematics", classLevel: "" }
+ * - "NEET Biology" -> { subject: "Biology", classLevel: "NEET" }
+ */
+export function parseClassAndSubject(input: string): { subject: string; classLevel: string } {
+  const raw = (input || "").trim();
+  if (!raw) return { subject: "", classLevel: "" };
+
+  let classLevel = "";
+  let subject = raw;
+
+  // 1. Check for combined class ranges e.g. "Class 1-5", "Class 9-10", "Class 11-12", "Class 6-8", "1 to 5"
+  const rangeMatch =
+    raw.match(/Class\s*(\d{1,2}\s*[-–to]+\s*\d{1,2})/i) ||
+    raw.match(/\b(\d{1,2}\s*[-–to]+\s*\d{1,2})\s*(?:std|class|grade)?\b/i);
+  if (rangeMatch) {
+    const cleanRange = rangeMatch[1].replace(/\s*to\s*/i, "-").replace(/\s+/g, "");
+    classLevel = `Class ${cleanRange}`;
+    subject = raw.replace(rangeMatch[0], "").trim();
+  }
+
+  // 2. Check for single class e.g. "Class 10", "Class 9", "Class 12"
+  if (!classLevel) {
+    const singleClassMatch = raw.match(/Class\s*(\d{1,2})\b/i);
+    if (singleClassMatch) {
+      classLevel = `Class ${Number(singleClassMatch[1])}`;
+      subject = raw.replace(singleClassMatch[0], "").trim();
+    }
+  }
+
+  // 3. Check Roman numerals e.g. "Class X", "Class XII", "Class VI"
+  if (!classLevel) {
+    const romanMatch = raw.match(/Class\s*(XII|XI|VIII|VII|VI|IV|IX|III|II|X|V|I)\b/i);
+    if (romanMatch) {
+      const ROMAN_MAP: Record<string, string> = {
+        I: "Class 1",
+        II: "Class 2",
+        III: "Class 3",
+        IV: "Class 4",
+        V: "Class 5",
+        VI: "Class 6",
+        VII: "Class 7",
+        VIII: "Class 8",
+        IX: "Class 9",
+        X: "Class 10",
+        XI: "Class 11",
+        XII: "Class 12",
+      };
+      classLevel = ROMAN_MAP[romanMatch[1].toUpperCase()] || "";
+      subject = raw.replace(romanMatch[0], "").trim();
+    }
+  }
+
+  // 4. Check ordinal numbers e.g. "10th", "12th", "9th Standard", "6th grade"
+  if (!classLevel) {
+    const ordinalMatch = raw.match(/\b(\d{1,2})(?:st|nd|rd|th)\s*(?:grade|class|std|standard)?\b/i);
+    if (ordinalMatch) {
+      const n = Number(ordinalMatch[1]);
+      if (n >= 1 && n <= 12) {
+        classLevel = `Class ${n}`;
+        subject = raw.replace(ordinalMatch[0], "").trim();
+      }
+    }
+  }
+
+  // 5. Check competitive entrance
+  if (/\bneet\b/i.test(raw)) {
+    classLevel = "NEET";
+    const subClean = raw.replace(/\bneet\b/gi, "").trim();
+    subject = subClean || "NEET";
+  } else if (/\b(iit[- ]?jee|jee)\b/i.test(raw)) {
+    classLevel = "IIT-JEE";
+    const subClean = raw.replace(/\b(iit[- ]?jee|jee)\b/gi, "").trim();
+    subject = subClean || "IIT-JEE";
+  }
+
+  // Clean remaining subject noise
+  subject = subject
+    .replace(/^for\s+/i, "")
+    .replace(/\s+for$/i, "")
+    .replace(/^(in|at|of|upto)\s+/i, "")
+    .replace(/\b(tuition|classes|coaching)\b/gi, "")
+    .trim();
+
+  // If user entered only a class (e.g. "Class 10" or "Class 1-5"), default subject to "All Subjects"
+  if (!subject && classLevel) {
+    subject = "All Subjects";
+  } else if (!subject) {
+    subject = raw;
+  }
+
+  return { subject, classLevel };
 }
 

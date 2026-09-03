@@ -16,7 +16,7 @@ import { parseWhatsAppDump, type BatchParseResult } from "@/lib/staff-lead-parse
 import { extractLeadData } from "@/lib/gemini-lead-extractor";
 import type { StaffLeadStatus, CallOutcome } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { applyStaffRecordType, PARENT_TAG, staffNotesFromParsed } from "@/lib/staff-lead-type";
+import { applyStaffRecordType, getStaffRecordType, PARENT_TAG, staffNotesFromParsed } from "@/lib/staff-lead-type";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 

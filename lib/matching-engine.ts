@@ -40,7 +40,7 @@ type CandidateTutor = {
   latitude: number | null;
   longitude: number | null;
   city: string | null;
-  gender: string | null;
+  gender?: string | null;
   kycStatus: KycStatus;
   isVerified: boolean;
   profileScore: number;
@@ -169,11 +169,21 @@ export function hasSubjectOverlap(tutorSubjects: string[], leadSubjects: string[
         (ts.includes("social") || ts.includes("sst") || ts.includes("history") || ts.includes("geography") || ts.includes("civics"))
       ) return true;
 
-      // English
+      // English & Spoken English
       if (ls.includes("english") && ts.includes("english")) return true;
 
       // Hindi
       if (ls.includes("hindi") && ts.includes("hindi")) return true;
+
+      // Languages (Indian Regional & Foreign)
+      const langKeywords = [
+        "sanskrit", "french", "german", "spanish", "punjabi", "bengali", "urdu",
+        "marathi", "gujarati", "tamil", "telugu", "kannada", "malayalam", "arabic",
+        "japanese", "chinese", "mandarin", "russian", "italian", "korean", "odia", "assamese"
+      ];
+      for (const lk of langKeywords) {
+        if (ls.includes(lk) && ts.includes(lk)) return true;
+      }
 
       // Commerce / Accounts
       if (
@@ -225,6 +235,13 @@ export function coversClassLevel(tutorClassLevels: string[], leadClassLevel: str
       if (/6\s*-\s*10|6\s*to\s*10/i.test(tc) && leadGrade >= 6 && leadGrade <= 10) return true;
       if (/1\s*-\s*10|1\s*to\s*10/i.test(tc) && leadGrade >= 1 && leadGrade <= 10) return true;
       if (/1\s*-\s*12|1\s*to\s*12/i.test(tc) && leadGrade >= 1 && leadGrade <= 12) return true;
+    }
+
+    if (
+      (leadClassLevel.toLowerCase().includes("spoken") || leadClassLevel.toLowerCase().includes("beginner")) &&
+      (tc.toLowerCase().includes("spoken") || tc.toLowerCase().includes("beginner") || tc.toLowerCase().includes("college") || tc.toLowerCase().includes("11") || tc.toLowerCase().includes("12"))
+    ) {
+      return true;
     }
 
     if (

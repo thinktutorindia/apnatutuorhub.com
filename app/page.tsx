@@ -47,11 +47,11 @@ const FAQ_ITEMS = [
 ];
 
 const QUICK_PILLS = [
-  { label: "Class 1–5 All Subjects", subject: "Class 1-5 All Subjects" },
-  { label: "Class 9–10 Science & Maths", subject: "Class 9-10 Science & Math" },
-  { label: "Class 11–12 Commerce", subject: "Class 11-12 Commerce" },
-  { label: "NEET / IIT-JEE", subject: "NEET / IIT-JEE" },
-  { label: "Female Home Tutor", subject: "Mathematics", extra: "gender=FEMALE" },
+  { label: "Class 1–5 All Subjects", subject: "All Subjects", classLevel: "Class 1-5" },
+  { label: "Class 9–10 Science & Maths", subject: "Science & Maths", classLevel: "Class 9-10" },
+  { label: "Class 11–12 Commerce", subject: "Commerce", classLevel: "Class 11-12" },
+  { label: "NEET / IIT-JEE", subject: "NEET / IIT-JEE", classLevel: "Competitive" },
+  { label: "Female Home Tutor", subject: "All Subjects", classLevel: "", extra: "gender=FEMALE" },
 ];
 
 const REAL_TUTOR_PROFILES = [
@@ -135,6 +135,7 @@ export default async function HomePage() {
 
   const pillHref = (pill: (typeof QUICK_PILLS)[number]) => {
     const params = new URLSearchParams({ subject: pill.subject });
+    if (pill.classLevel) params.set("classLevel", pill.classLevel);
     if (pill.extra) {
       const [k, v] = pill.extra.split("=");
       if (k && v) params.set(k, v);

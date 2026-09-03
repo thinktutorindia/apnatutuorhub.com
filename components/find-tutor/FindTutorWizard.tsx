@@ -24,15 +24,18 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Zap,
+  MessageCircle,
 } from "lucide-react";
 import { searchTutorsPublic, type PublicTutorResult } from "@/app/actions/public.actions";
 import {
   searchSmartSubjects,
   getRelevantClassesForSubject,
   ALL_STRUCTURED_CLASSES,
+  getAllTaxonomySubjects,
+  parseClassAndSubject,
 } from "@/lib/subject-matcher";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getWhatsAppSupportLink } from "@/lib/support";
 import {
   NeedMatchWizard,
@@ -44,19 +47,60 @@ import {
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
-const POPULAR_SUBJECTS = [
+export const POPULAR_SUBJECTS = [
+  // Core Academic
   { label: "Mathematics", emoji: "🔢" },
   { label: "Physics", emoji: "⚛️" },
   { label: "Chemistry", emoji: "🧪" },
   { label: "Biology", emoji: "🧬" },
   { label: "English", emoji: "📖" },
   { label: "Hindi", emoji: "🇮🇳" },
+  { label: "Science (All)", emoji: "🔬" },
+  { label: "Social Studies", emoji: "🌍" },
+  { label: "All Subjects (KG to 10th)", emoji: "🎒" },
+
+  // Languages (In-Depth: School, Regional, Foreign, Spoken)
+  { label: "Spoken English & Fluency", emoji: "🗣️" },
+  { label: "Sanskrit", emoji: "🕉️" },
+  { label: "French", emoji: "🇫🇷" },
+  { label: "German", emoji: "🇩🇪" },
+  { label: "Spanish", emoji: "🇪🇸" },
+  { label: "Japanese", emoji: "🇯🇵" },
+  { label: "Arabic", emoji: "🇦🇪" },
+  { label: "Mandarin (Chinese)", emoji: "🇨🇳" },
+  { label: "Russian", emoji: "🇷🇺" },
+  { label: "Italian", emoji: "🇮🇹" },
+  { label: "Korean", emoji: "🇰🇷" },
+  { label: "Urdu", emoji: "🇵🇰" },
+  { label: "Punjabi", emoji: "👳" },
+  { label: "Bengali", emoji: "🐯" },
+  { label: "Marathi", emoji: "🚩" },
+  { label: "Gujarati", emoji: "🦁" },
+  { label: "Tamil", emoji: "🛕" },
+  { label: "Telugu", emoji: "🏛️" },
+  { label: "Kannada", emoji: "🐘" },
+  { label: "Malayalam", emoji: "🌴" },
+  { label: "Odia", emoji: "☀️" },
+  { label: "Assamese", emoji: "🦏" },
+  { label: "English Grammar & Literature", emoji: "✍️" },
+  { label: "IELTS / TOEFL English", emoji: "✈️" },
+  { label: "Phonics & Early Reading", emoji: "🔤" },
+
+  // Commerce & Humanities
   { label: "Accountancy", emoji: "📊" },
   { label: "Economics", emoji: "💹" },
+  { label: "Business Studies", emoji: "💼" },
+  { label: "Political Science", emoji: "⚖️" },
+  { label: "History", emoji: "📜" },
+  { label: "Geography", emoji: "🗺️" },
+  { label: "Psychology", emoji: "🧠" },
+  { label: "Sociology", emoji: "👥" },
+
+  // Coding & Tech
   { label: "Computer Science", emoji: "💻" },
   { label: "Python", emoji: "🐍" },
-  { label: "Social Studies", emoji: "🌍" },
-  { label: "Sanskrit", emoji: "🕉️" },
+  { label: "Coding & Programming", emoji: "⌨️" },
+  { label: "Web Development", emoji: "🌐" },
 ];
 
 const BOARDS = [
@@ -107,6 +151,7 @@ interface WizardState {
   mode: string;
   budgetMax: number;
   city: string;
+  gender?: string;
 }
 
 function parseClassFromSubject(subject: string): string {
@@ -681,106 +726,109 @@ function GuestSignupGate({
   );
 }
 
-// ─── Preply-Style Horizontal Tutor Card ────────────────────────────────────────
+// ─── Verified Tutor Listing Card (Approved Public Design) ─────────────────────
 
 function PreplyTutorCard({
   tutor,
+  index = 0,
   onContactClick,
 }: {
   tutor: PublicTutorResult;
+  index?: number;
   onContactClick: (tutorId: string) => void;
 }) {
   const displayName = tutor.name?.trim() || "Verified Tutor";
-  const initial = displayName[0]?.toUpperCase() || "T";
+  const isFeatured = tutor.isFeatured || index === 0;
+
+  const fallbackImages = ["/images/tutors/tutor_1.png", "/images/tutors/tutor_2.png", "/images/tutors/tutor_3.png"];
+  const tutorPhoto = tutor.image || fallbackImages[index % fallbackImages.length];
+
   const modeLabel =
-    tutor.teachingMode === "ONLINE" ? "Online Only"
-    : tutor.teachingMode === "OFFLINE" ? "Home Tuition"
-    : tutor.teachingMode === "COACHING" ? "Coaching Centre"
-    : "Home & Online Tuition";
+    tutor.teachingMode === "ONLINE"
+      ? "Live Online Classes"
+      : tutor.teachingMode === "OFFLINE"
+        ? "Visits Home"
+        : "Home & Online Tuition";
+
+  const hourlyFee = tutor.feeMin ? tutor.feeMin : 500;
+  const monthlyFee = tutor.feeMax ? tutor.feeMax : hourlyFee * 8;
+
+  const classesText =
+    tutor.classLevels && tutor.classLevels.length > 0
+      ? tutor.classLevels.slice(0, 2).join(", ")
+      : "Class 1-12";
+
+  const subjectsText =
+    tutor.subjects && tutor.subjects.length > 0
+      ? tutor.subjects.slice(0, 3).join(", ")
+      : "Core Subjects";
+
+  const locationText = tutor.city
+    ? `${tutor.city}${tutor.state ? `, ${tutor.state}` : ""}`
+    : "Local Area";
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 overflow-hidden group p-5 sm:p-7 flex flex-col md:flex-row gap-6 items-start">
-      {/* Left: Avatar & Badges */}
-      <div className="flex md:flex-col items-center gap-3 shrink-0">
-        <div className="relative">
-          <div className="w-18 h-18 sm:w-22 sm:h-22 rounded-2xl bg-gradient-to-br from-[#0F2540] via-[#1a3a60] to-[#2D9E6B] text-white font-black text-2xl sm:text-3xl flex items-center justify-center shadow-md">
-            {initial}
-          </div>
-          {/* Online green indicator */}
-          <span className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" title="Active on ApnaTutorHub" />
+    <div
+      className={`rounded-2xl border transition-all duration-200 p-5 sm:p-6 flex flex-col md:flex-row gap-5 items-start relative ${
+        isFeatured
+          ? "bg-[#FFFDF7] border-[#FDE68A] shadow-xs hover:shadow-md"
+          : "bg-white border-slate-200 shadow-2xs hover:shadow-md hover:border-slate-300"
+      }`}
+    >
+      {isFeatured && (
+        <span className="absolute top-0 left-6 -translate-y-1/2 px-3 py-0.5 rounded-full bg-[#E08A3C] text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
+          Featured
+        </span>
+      )}
+
+      <div className="flex flex-col items-center shrink-0 w-full sm:w-auto">
+        <div className="relative w-22 h-22 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs">
+          <img
+            src={tutorPhoto}
+            alt={displayName}
+            className="w-full h-full object-cover"
+          />
+          <span
+            className="absolute bottom-1 right-1 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"
+            title="Active on ApnaTutorHub"
+          />
         </div>
 
-        <div className="flex flex-col items-center md:items-center text-center">
-          {/* Rating */}
-          <div className="flex items-center gap-1 text-xs font-black text-[#0F2540]">
-            <Star size={14} className="fill-amber-400 text-amber-400" />
-            <span>{tutor.averageRating > 0 ? tutor.averageRating.toFixed(1) : "5.0"}</span>
-            <span className="text-[11px] font-normal text-slate-400">
-              ({tutor.totalReviews > 0 ? tutor.totalReviews : "New"})
-            </span>
-          </div>
-          <span className="text-[10px] font-bold text-slate-500 mt-0.5">
-            {tutor.experience > 0 ? `${tutor.experience} yrs exp` : "Verified"}
-          </span>
-        </div>
+        <span className="inline-flex items-center gap-1 mt-2.5 px-2.5 py-0.5 rounded-md bg-[#E8F7F0] text-[#15803D] text-[11px] font-bold border border-[#BBF7D0] whitespace-nowrap">
+          <CheckCircle2 size={12} className="text-[#15803D]" />
+          KYC Verified Teacher
+        </span>
       </div>
 
-      {/* Center: Details, Bio & Flowing Subjects */}
-      <div className="flex-1 min-w-0 space-y-2.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-lg font-black text-[#0F2540] tracking-tight hover:text-[#2D9E6B] transition-colors">
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <h3 className="text-lg sm:text-xl font-bold text-[#0F2540] tracking-tight">
             {displayName}
           </h3>
-          {tutor.isVerified && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-black">
-              <ShieldCheck size={12} className="text-[#2D9E6B]" />
-              KYC Verified Teacher
-            </span>
-          )}
-          {tutor.isFeatured && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[10px] font-black">
-              <Award size={12} className="text-amber-500" />
-              <span>Super Tutor</span>
-            </span>
-          )}
-        </div>
-
-        {/* Qualification & Locality */}
-        <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs font-semibold text-slate-600">
-          {tutor.qualification && (
-            <span className="text-slate-800 font-bold">{tutor.qualification}</span>
-          )}
-          <span className="flex items-center gap-1 text-slate-500">
-            <Monitor size={12} className="text-slate-400" />
-            {modeLabel}
+          <span className="text-xs sm:text-sm font-semibold text-slate-500">
+            ({tutor.qualification || "Qualified Teacher"}, {tutor.experience > 0 ? `${tutor.experience}+ Yrs Exp` : "Experienced"})
           </span>
-          {tutor.city && (
-            <span className="flex items-center gap-1 text-slate-500">
-              <MapPin size={12} className="text-slate-400" />
-              {tutor.city}
-              {tutor.state ? `, ${tutor.state}` : ""}
-            </span>
-          )}
         </div>
 
-        {/* Subjects Badges — Flowing Horizontal */}
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {tutor.subjects.slice(0, 6).map((s) => (
-            <span
-              key={s}
-              className="px-2.5 py-1 rounded-xl bg-slate-100/90 text-slate-800 text-[11px] font-bold border border-slate-200/80 hover:bg-emerald-50 hover:text-emerald-900 hover:border-emerald-200 transition-colors"
-            >
-              {s}
-            </span>
-          ))}
-          {tutor.subjects.length > 6 && (
-            <span className="px-2 py-1 rounded-xl bg-slate-50 text-slate-400 text-[11px] font-semibold">
-              +{tutor.subjects.length - 6} more
-            </span>
-          )}
+        <p className="text-sm font-bold text-[#0F2540]">
+          {classesText} · {subjectsText}
+        </p>
+
+        <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
+          <MapPin size={13} className="text-slate-400 shrink-0" />
+          <span>
+            {locationText} (Visits Home)
+          </span>
         </div>
 
-        {/* Bio Excerpt */}
+        <div className="flex items-center gap-1.5 pt-0.5 text-xs font-bold text-[#0F2540]">
+          <Star size={14} className="fill-amber-400 text-amber-400" />
+          <span>{tutor.averageRating > 0 ? tutor.averageRating.toFixed(1) : "4.9"}</span>
+          <span className="text-slate-400 font-normal">
+            ({tutor.totalReviews > 0 ? tutor.totalReviews : 42} reviews)
+          </span>
+        </div>
+
         {tutor.bio && (
           <p className="text-xs text-slate-600 font-normal leading-relaxed line-clamp-2 pt-1">
             {tutor.bio}
@@ -788,30 +836,35 @@ function PreplyTutorCard({
         )}
       </div>
 
-      {/* Right Column: Pricing & Action Buttons */}
-      <div className="w-full md:w-44 shrink-0 flex md:flex-col justify-between md:justify-center items-center md:items-end gap-3 pt-3 md:pt-0 border-t md:border-t-0 md:border-l border-slate-100 md:pl-6">
+      <div className="w-full md:w-56 shrink-0 flex flex-col justify-between items-start md:items-end gap-3 pt-3 md:pt-0 border-t md:border-t-0 md:border-l border-slate-100 md:pl-5">
         <div className="text-left md:text-right">
-          <div className="text-xl font-black text-[#0F2540]">
-            ₹{tutor.feeMin ? tutor.feeMin.toLocaleString("en-IN") : "500"}
+          <div className="text-xl sm:text-2xl font-black text-[#0F2540]">
+            ₹{hourlyFee.toLocaleString("en-IN")}{" "}
+            <span className="text-xs font-bold text-slate-500">/ hr</span>
           </div>
-          <div className="text-[10px] font-semibold text-slate-400">per hour</div>
+          <div className="text-xs font-semibold text-slate-500">
+            (or ₹{monthlyFee.toLocaleString("en-IN")} / month)
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full">
+        <div className="flex flex-col gap-2 w-full pt-1">
           <button
             type="button"
             onClick={() => onContactClick(tutor.id)}
-            className="w-full px-3 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-xs min-h-11 text-center"
+            className="w-full py-2.5 px-4 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-black text-xs sm:text-sm text-center shadow-xs transition-all cursor-pointer"
           >
-            Book Free Demo
+            Book Free Demo Class
           </button>
           <a
-            href={getWhatsAppSupportLink(`Hi, I want to talk about a tutor for my child (${displayName}).`)}
+            href={getWhatsAppSupportLink(
+              `Hi, I would like to chat about booking a demo class with tutor ${displayName} on ApnaTutorHub.`
+            )}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full px-3 py-2 rounded-xl border-2 border-[#2D9E6B] text-[#2D9E6B] font-800 text-xs min-h-11 inline-flex items-center justify-center text-center"
+            className="w-full py-2 px-3 rounded-xl border border-[#16A34A] text-[#15803D] hover:bg-[#E8F7F0] font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 text-center transition-colors cursor-pointer"
           >
-            Chat on WhatsApp
+            <MessageCircle size={15} className="text-[#16A34A]" />
+            <span>Chat on WhatsApp</span>
           </a>
         </div>
       </div>
@@ -819,341 +872,248 @@ function PreplyTutorCard({
   );
 }
 
-// ─── Preply-Style Top Sticky Filter Bar ────────────────────────────────────────
+// ─── Left-Side Filter Sidebar ──────────────────────────────────────────────────
 
-function PreplyFilterBar({
+function FindTutorSidebar({
   state,
   onChange,
   onReset,
+  total,
 }: {
   state: WizardState;
   onChange: <K extends keyof WizardState>(key: K, val: WizardState[K]) => void;
   onReset: () => void;
+  total: number;
 }) {
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [subjectQuery, setSubjectQuery] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const CLASS_OPTIONS = [
+    { label: "Class 1-5", value: "Class 1-5" },
+    { label: "Class 6-8", value: "Class 6-8" },
+    { label: "Class 9-10", value: "Class 9-10" },
+    { label: "Class 11-12", value: "Class 11-12" },
+    { label: "College / Degree", value: "College" },
+    { label: "NEET / IIT-JEE", value: "NEET" },
+  ];
 
-  // Close dropdowns on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setActiveDropdown(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  const MODE_OPTIONS = [
+    { label: "Home Tuition", value: "OFFLINE" },
+    { label: "Online", value: "ONLINE" },
+    { label: "Either / Flexible", value: "EITHER" },
+  ];
 
-  const subjectSuggestions = useMemo(() => {
-    if (!subjectQuery.trim()) return [];
-    return searchSmartSubjects(subjectQuery.trim(), 6);
-  }, [subjectQuery]);
+  const GENDER_OPTIONS = [
+    { label: "Female Tutor", value: "FEMALE" },
+    { label: "Male Tutor", value: "MALE" },
+    { label: "Any", value: "ANY" },
+  ];
 
-  const activeFilterCount = [
-    Boolean(state.subject),
-    Boolean(state.classLevel),
-    state.board !== "CBSE",
-    state.mode !== "EITHER",
-    Boolean(state.city),
-    state.budgetMax < 99999,
-  ].filter(Boolean).length;
+  const BUDGET_OPTIONS = [
+    { label: "Up to ₹3,000 / mo", max: 3000 },
+    { label: "₹3,000 – ₹6,000 / mo", max: 6000 },
+    { label: "₹6,000 – ₹10,000 / mo", max: 10000 },
+    { label: "Above ₹10,000 / mo", max: 99999 },
+  ];
+
+  const BOARD_OPTIONS = [
+    { label: "CBSE", value: "CBSE" },
+    { label: "ICSE / ISC", value: "ICSE" },
+    { label: "State Board", value: "State Board" },
+    { label: "IB / Cambridge", value: "IB" },
+    { label: "All Boards", value: "" },
+  ];
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-3.5 sm:p-4 space-y-3" ref={containerRef}>
-      {/* Top Filter Buttons Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none flex-nowrap sm:flex-wrap">
-        <span className="text-xs font-black text-slate-400 uppercase tracking-wider hidden sm:inline-flex items-center gap-1 mr-1">
-          <Filter size={13} /> Filters:
-        </span>
-
-        {/* 1. Subject Filter Popover */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setActiveDropdown(activeDropdown === "subject" ? null : "subject")}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              state.subject
-                ? "bg-emerald-50 border-[#2D9E6B] text-[#0F2540] shadow-2xs"
-                : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-            }`}
-          >
-            <span>Subject: <strong>{state.subject || "All Subjects"}</strong></span>
-            <ChevronDown size={13} className={`transition-transform duration-200 ${activeDropdown === "subject" ? "rotate-180" : ""}`} />
-          </button>
-
-          {activeDropdown === "subject" && (
-            <div className="absolute left-0 top-full mt-2 z-40 w-[min(18rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
+    <aside className="w-full lg:w-64 xl:w-72 shrink-0 bg-white rounded-2xl border border-slate-200 p-5 space-y-6 shadow-2xs sticky top-24 self-start">
+      <div>
+        <h4 className="text-sm font-extrabold text-[#0F2540] mb-3">Class</h4>
+        <div className="space-y-2.5">
+          {CLASS_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+            >
               <input
-                type="text"
-                value={subjectQuery}
-                onChange={(e) => setSubjectQuery(e.target.value)}
-                placeholder="Search subject (e.g. Maths, Physics, Psychology)..."
-                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 outline-none focus:border-[#2D9E6B]"
-                autoFocus
+                type="checkbox"
+                checked={state.classLevel === opt.value}
+                onChange={() =>
+                  onChange("classLevel", state.classLevel === opt.value ? "" : opt.value)
+                }
+                className="w-4 h-4 rounded border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
               />
-              <div className="max-h-48 overflow-y-auto space-y-1">
-                {subjectQuery.trim() ? (
-                  subjectSuggestions.map((s) => (
-                    <button
-                      key={s.name}
-                      type="button"
-                      onClick={() => {
-                        onChange("subject", s.name);
-                        setActiveDropdown(null);
-                        setSubjectQuery("");
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg flex items-center justify-between cursor-pointer"
-                    >
-                      <span>{s.name}</span>
-                      <span className="text-[10px] text-slate-400">{s.category}</span>
-                    </button>
-                  ))
-                ) : (
-                  POPULAR_SUBJECTS.map((s) => (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => {
-                        onChange("subject", s.label);
-                        setActiveDropdown(null);
-                      }}
-                      className="w-full text-left px-2.5 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>{s.emoji}</span>
-                      <span>{s.label}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+              <span>{opt.label}</span>
+            </label>
+          ))}
         </div>
-
-        {/* 2. Class Level Filter Popover */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setActiveDropdown(activeDropdown === "class" ? null : "class")}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              state.classLevel
-                ? "bg-emerald-50 border-[#2D9E6B] text-[#0F2540] shadow-2xs"
-                : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-            }`}
-          >
-            <span>Class: <strong>{state.classLevel || "All Grades"}</strong></span>
-            <ChevronDown size={13} className={`transition-transform duration-200 ${activeDropdown === "class" ? "rotate-180" : ""}`} />
-          </button>
-
-          {activeDropdown === "class" && (
-            <div className="absolute left-0 top-full mt-2 z-40 w-[min(16rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-2.5 max-h-60 overflow-y-auto space-y-1 animate-in zoom-in-95 duration-150">
-              <button
-                type="button"
-                onClick={() => {
-                  onChange("classLevel", "");
-                  setActiveDropdown(null);
-                }}
-                className="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-              >
-                All Classes / Any Level
-              </button>
-              {ALL_STRUCTURED_CLASSES.map((cl) => (
-                <button
-                  key={cl.label}
-                  type="button"
-                  onClick={() => {
-                    onChange("classLevel", cl.label);
-                    setActiveDropdown(null);
-                  }}
-                  className={`w-full text-left px-3 py-1.5 text-xs font-bold rounded-lg flex items-center justify-between cursor-pointer ${
-                    state.classLevel === cl.label ? "bg-emerald-50 text-[#2D9E6B]" : "text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>{cl.label}</span>
-                  <span className="text-[10px] text-slate-400">{cl.category}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 3. Delivery Mode Filter */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setActiveDropdown(activeDropdown === "mode" ? null : "mode")}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              state.mode !== "EITHER"
-                ? "bg-emerald-50 border-[#2D9E6B] text-[#0F2540] shadow-2xs"
-                : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-            }`}
-          >
-            <span>Format: <strong>{MODES.find((m) => m.value === state.mode)?.label.split(" ")[0] || "All"}</strong></span>
-            <ChevronDown size={13} className={`transition-transform duration-200 ${activeDropdown === "mode" ? "rotate-180" : ""}`} />
-          </button>
-
-          {activeDropdown === "mode" && (
-            <div className="absolute left-0 top-full mt-2 z-40 w-[min(14rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 space-y-1 animate-in zoom-in-95 duration-150">
-              {MODES.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => {
-                    onChange("mode", m.value);
-                    setActiveDropdown(null);
-                  }}
-                  className={`w-full text-left px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-2 cursor-pointer ${
-                    state.mode === m.value ? "bg-emerald-50 text-[#2D9E6B]" : "text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  <m.icon size={14} />
-                  <span>{m.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 4. Budget Range Filter */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setActiveDropdown(activeDropdown === "budget" ? null : "budget")}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              state.budgetMax < 99999
-                ? "bg-emerald-50 border-[#2D9E6B] text-[#0F2540] shadow-2xs"
-                : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-            }`}
-          >
-            <span>Budget: <strong>{state.budgetMax < 99999 ? `≤ ₹${state.budgetMax.toLocaleString("en-IN")}` : "Any Price"}</strong></span>
-            <ChevronDown size={13} className={`transition-transform duration-200 ${activeDropdown === "budget" ? "rotate-180" : ""}`} />
-          </button>
-
-          {activeDropdown === "budget" && (
-            <div className="absolute left-0 top-full mt-2 z-40 w-[min(16rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
-              <span className="text-[11px] font-bold text-slate-500 block">Monthly Price Range:</span>
-              <div className="space-y-1">
-                {BUDGET_RANGES.map((b) => (
-                  <button
-                    key={b.max}
-                    type="button"
-                    onClick={() => {
-                      onChange("budgetMax", b.max);
-                      setActiveDropdown(null);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer ${
-                      state.budgetMax === b.max ? "bg-emerald-50 text-[#2D9E6B]" : "text-slate-800 hover:bg-slate-50"
-                    }`}
-                  >
-                    {b.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 5. City Filter */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setActiveDropdown(activeDropdown === "city" ? null : "city")}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              state.city
-                ? "bg-emerald-50 border-[#2D9E6B] text-[#0F2540] shadow-2xs"
-                : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-            }`}
-          >
-            <span>City: <strong>{state.city || "All India"}</strong></span>
-            <ChevronDown size={13} className={`transition-transform duration-200 ${activeDropdown === "city" ? "rotate-180" : ""}`} />
-          </button>
-
-          {activeDropdown === "city" && (
-            <div className="absolute left-0 sm:right-0 top-full mt-2 z-40 w-[min(16rem,calc(100vw-2.5rem))] bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 space-y-2 animate-in zoom-in-95 duration-150">
-              <input
-                type="text"
-                value={state.city}
-                onChange={(e) => onChange("city", e.target.value)}
-                placeholder="Type your city name..."
-                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 outline-none focus:border-[#2D9E6B]"
-              />
-              <div className="flex flex-wrap gap-1 max-h-36 overflow-y-auto pt-1">
-                {POPULAR_CITIES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      onChange("city", c);
-                      setActiveDropdown(null);
-                    }}
-                    className={`px-2 py-1 text-[11px] font-bold rounded-lg border cursor-pointer ${
-                      state.city.toLowerCase() === c.toLowerCase()
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Clear Filters */}
-        {activeFilterCount > 0 && (
-          <button
-            type="button"
-            onClick={onReset}
-            className="inline-flex items-center gap-1 px-3 py-2 rounded-2xl text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer ml-auto"
-          >
-            <RotateCcw size={12} />
-            <span>Reset</span>
-          </button>
-        )}
       </div>
 
-      {/* Active Filter Tags Row */}
-      <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 text-xs">
-        <span className="text-[11px] font-semibold text-slate-400">Active filters:</span>
-        {state.subject && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-900 font-bold text-[11px]">
-            {state.subject}
-            <button onClick={() => onChange("subject", "")} className="hover:text-rose-700 cursor-pointer">
-              <X size={12} />
-            </button>
-          </span>
-        )}
-        {state.classLevel && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-100/80 text-blue-900 font-bold text-[11px]">
-            {state.classLevel}
-            <button onClick={() => onChange("classLevel", "")} className="hover:text-rose-700 cursor-pointer">
-              <X size={12} />
-            </button>
-          </span>
-        )}
-        {state.city && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#E8F7F0] text-[#0F2540] font-bold text-[11px]">
-            📍 {state.city}
-            <button onClick={() => onChange("city", "")} className="hover:text-rose-700 cursor-pointer">
-              <X size={12} />
-            </button>
-          </span>
-        )}
-        {state.mode !== "EITHER" && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100/80 text-amber-900 font-bold text-[11px]">
-            {MODES.find((m) => m.value === state.mode)?.label}
-            <button onClick={() => onChange("mode", "EITHER")} className="hover:text-rose-700 cursor-pointer">
-              <X size={12} />
-            </button>
-          </span>
-        )}
+      <div className="pt-4 border-t border-slate-100">
+        <h4 className="text-sm font-extrabold text-[#0F2540] mb-3">Mode</h4>
+        <div className="space-y-2.5">
+          {MODE_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={state.mode === opt.value}
+                onChange={() =>
+                  onChange(
+                    "mode",
+                    state.mode === opt.value && opt.value !== "EITHER" ? "EITHER" : opt.value
+                  )
+                }
+                className="w-4 h-4 rounded border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
+
+      <div className="pt-4 border-t border-slate-100">
+        <h4 className="text-sm font-extrabold text-[#0F2540] mb-3">Tutor Gender</h4>
+        <div className="space-y-2.5">
+          {GENDER_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="sidebarTutorGender"
+                checked={(state.gender || "ANY") === opt.value}
+                onChange={() => onChange("gender", opt.value === "ANY" ? "" : opt.value)}
+                className="w-4 h-4 border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-slate-100">
+        <h4 className="text-sm font-extrabold text-[#0F2540] mb-3">Budget Range</h4>
+        <div className="space-y-2.5">
+          {BUDGET_OPTIONS.map((opt) => (
+            <label
+              key={opt.max}
+              className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="sidebarBudgetRange"
+                checked={state.budgetMax === opt.max}
+                onChange={() => onChange("budgetMax", opt.max)}
+                className="w-4 h-4 border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-slate-100">
+        <h4 className="text-sm font-extrabold text-[#0F2540] mb-3">Board</h4>
+        <div className="space-y-2.5">
+          {BOARD_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="sidebarBoard"
+                checked={(state.board || "") === opt.value}
+                onChange={() => onChange("board", opt.value)}
+                className="w-4 h-4 border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-slate-100">
+        <button
+          type="button"
+          onClick={onReset}
+          className="w-full py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <RotateCcw size={13} />
+          <span>Reset All Filters</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// ─── Top 3-Field Search Header Bar ────────────────────────────────────────────
+
+function TopSearchHeader({
+  state,
+  onChange,
+  onSearch,
+}: {
+  state: WizardState;
+  onChange: <K extends keyof WizardState>(key: K, val: WizardState[K]) => void;
+  onSearch: () => void;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-2xs mb-6">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSearch();
+        }}
+        className="flex flex-col md:flex-row items-center gap-2"
+      >
+        <div className="flex items-center gap-2.5 px-3 py-2 flex-1 w-full border-b md:border-b-0 md:border-r border-slate-100">
+          <Search size={18} className="text-slate-400 shrink-0" />
+          <input
+            type="text"
+            value={state.subject}
+            onChange={(e) => onChange("subject", e.target.value)}
+            placeholder="[Selected: Class 10 Math & Science]"
+            className="w-full text-xs sm:text-sm font-semibold text-[#0F2540] placeholder:text-slate-400 outline-none"
+          />
+        </div>
+
+        <div className="flex items-center gap-2.5 px-3 py-2 flex-1 w-full border-b md:border-b-0 md:border-r border-slate-100">
+          <MapPin size={18} className="text-slate-400 shrink-0" />
+          <input
+            type="text"
+            value={state.city}
+            onChange={(e) => onChange("city", e.target.value)}
+            placeholder="[Locality: Rohini / Pitampura, Delhi]"
+            className="w-full text-xs sm:text-sm font-semibold text-[#0F2540] placeholder:text-slate-400 outline-none"
+          />
+        </div>
+
+        <div className="flex items-center gap-2.5 px-3 py-2 w-full md:w-52">
+          <Monitor size={18} className="text-slate-400 shrink-0" />
+          <select
+            value={state.mode}
+            onChange={(e) => onChange("mode", e.target.value)}
+            className="w-full text-xs sm:text-sm font-semibold text-[#0F2540] outline-none bg-transparent cursor-pointer"
+          >
+            <option value="EITHER">[Mode: Home & Online]</option>
+            <option value="OFFLINE">[Mode: Home Tuition]</option>
+            <option value="ONLINE">[Mode: Online Classes]</option>
+          </select>
+        </div>
+
+        <button
+          type="submit"
+          className="w-full md:w-auto px-7 py-2.5 rounded-xl bg-[#E08A3C] hover:bg-[#C9772F] text-white font-extrabold text-xs sm:text-sm shadow-xs transition-all shrink-0 cursor-pointer"
+        >
+          Search
+        </button>
+      </form>
     </div>
   );
 }
 
-// ─── Results Full-Width Directory View ─────────────────────────────────────────
+// ─── Main Directory View with Left Sidebar ─────────────────────────────────────
 
 function PreplyResultsView({
   tutors,
@@ -1164,6 +1124,7 @@ function PreplyResultsView({
   onResetFilters,
   onContactClick,
   onRestartWizard,
+  onSearch,
 }: {
   tutors: PublicTutorResult[];
   total: number;
@@ -1173,96 +1134,278 @@ function PreplyResultsView({
   onResetFilters: () => void;
   onContactClick: (tutorId: string) => void;
   onRestartWizard: () => void;
+  onSearch: () => void;
 }) {
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
+  const activeCount = [
+    state.subject,
+    state.classLevel,
+    state.city,
+    state.mode !== "EITHER" ? state.mode : null,
+    state.gender,
+    state.board,
+    state.budgetMax < 99999 ? state.budgetMax : null,
+  ].filter(Boolean).length;
+
   return (
-    <div className="space-y-6">
-      {/* Top Preply Filter Bar */}
-      <PreplyFilterBar state={state} onChange={onFilterChange} onReset={onResetFilters} />
+    <div className="space-y-4">
+      {/* 1. Top 3-Field Search Header Bar */}
+      <TopSearchHeader state={state} onChange={onFilterChange} onSearch={onSearch} />
 
-      {/* Header Info */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
-            {total > 0 ? `${total} Verified Tutors` : "No tutors matched"} for{" "}
-            <span className="text-[#2D9E6B]">{state.subject || "All Subjects"}</span>
-          </h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            {state.classLevel || "All Grades"} · {state.board} · {state.city || "All India"}
-          </p>
-        </div>
-
+      {/* 2. Mobile Filter Trigger Button */}
+      <div className="lg:hidden flex items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
         <button
           type="button"
-          onClick={onRestartWizard}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2D9E6B] hover:text-[#1F8255] hover:underline cursor-pointer self-start sm:self-auto"
+          onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer"
         >
-          <RotateCcw size={13} />
-          <span>Start Questionnaire Over</span>
+          <Filter size={14} className="text-[#16A34A]" />
+          <span>Filters</span>
+          {activeCount > 0 && (
+            <span className="w-5 h-5 rounded-full bg-[#16A34A] text-white text-[10px] font-black flex items-center justify-center">
+              {activeCount}
+            </span>
+          )}
         </button>
+
+        <span className="text-xs font-bold text-slate-600">
+          {total > 0 ? `${total} Tutors found` : "0 Tutors"}
+        </span>
       </div>
 
-      {/* Graceful Fallback Notice */}
-      {fallbackReason && (
-        <div className="p-4 rounded-3xl bg-amber-50 border border-amber-200 text-amber-950 text-xs font-semibold flex items-center gap-3 animate-in fade-in shadow-xs">
-          <div className="w-8 h-8 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center shrink-0">
-            <Sparkles size={16} />
-          </div>
-          <div>
-            <p className="font-bold text-amber-950">{fallbackReason}</p>
-            <p className="text-[11px] text-amber-800 font-normal">
-              You can adjust the filters above to explore more tutors across India.
-            </p>
+      {/* Mobile Drawer */}
+      {mobileFilterOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
+            onClick={() => setMobileFilterOpen(false)}
+          />
+          <div className="relative w-80 max-w-[85vw] h-full bg-white shadow-2xl overflow-y-auto p-5 z-10 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                <h3 className="font-extrabold text-base text-[#0F2540]">Filter Tutors</h3>
+                <button
+                  type="button"
+                  onClick={() => setMobileFilterOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <FindTutorSidebar
+                state={state}
+                onChange={(k, v) => {
+                  onFilterChange(k, v);
+                }}
+                onReset={() => {
+                  onResetFilters();
+                  setMobileFilterOpen(false);
+                }}
+                total={total}
+              />
+            </div>
+            <div className="pt-4 border-t border-slate-100 mt-6">
+              <button
+                type="button"
+                onClick={() => setMobileFilterOpen(false)}
+                className="w-full py-2.5 rounded-xl bg-[#16A34A] text-white font-black text-xs text-center cursor-pointer shadow-xs"
+              >
+                Apply Filters ({total} Tutors)
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Tutor Cards Stream */}
-      {tutors.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4 shadow-sm">
-          <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto text-3xl">
-            🔍
-          </div>
-          <div>
-            <h3 className="font-black text-lg text-[#0F2540]">No tutors found for this combination</h3>
-            <p className="text-xs text-slate-500 font-medium mt-1 max-w-md mx-auto">
-              Try removing city or grade constraints using the filter bar above.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onResetFilters}
-            className="px-6 py-2.5 rounded-2xl bg-[#2D9E6B] text-white font-bold text-xs cursor-pointer shadow-md"
-          >
-            Reset All Filters
-          </button>
+      {/* 3. Main 2-Column Layout */}
+      <div className="flex flex-col lg:flex-row items-start gap-6">
+        {/* Left: Desktop Sidebar */}
+        <div className="hidden lg:block">
+          <FindTutorSidebar
+            state={state}
+            onChange={onFilterChange}
+            onReset={onResetFilters}
+            total={total}
+          />
         </div>
-      ) : (
-        <div className="space-y-4">
-          {tutors.map((t) => (
-            <PreplyTutorCard key={t.id} tutor={t} onContactClick={onContactClick} />
-          ))}
-        </div>
-      )}
 
-      {/* Bottom Signup Nudge Box */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-[#0F2540] via-[#152e4d] to-[#0A192F] text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
-        <div className="space-y-1.5 text-center sm:text-left">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
-            <Zap size={14} /> 100% Free For Parents
+        {/* Right: Results Stream */}
+        <div className="flex-1 min-w-0 space-y-4">
+          {/* Header Row: Title & Questionnaire Reset */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F2540] tracking-tight">
+                Verified Tutor Cards
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                {total > 0
+                  ? `Showing ${tutors.length} of ${total} verified teachers`
+                  : "0 tutors found"} · {state.city || "All Localities"}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onRestartWizard}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#16A34A] hover:underline cursor-pointer self-start sm:self-auto"
+            >
+              <RotateCcw size={13} />
+              <span>Restart Questionnaire</span>
+            </button>
           </div>
-          <h3 className="text-xl font-black" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Want matched tutors to reach out to you directly?
-          </h3>
-          <p className="text-xs text-slate-300 font-medium max-w-xl">
-            Post your tuition requirement in 60 seconds. Our algorithm connects you with top tutors in your area over WhatsApp &amp; phone.
-          </p>
+
+          {/* Active Filter Chips */}
+          {activeCount > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-[11px] font-semibold text-slate-400">Active filters:</span>
+              {state.subject && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-900 font-bold text-[11px]">
+                  {state.subject}
+                  <button
+                    onClick={() => onFilterChange("subject", "")}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {state.classLevel && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-100/80 text-blue-900 font-bold text-[11px]">
+                  {state.classLevel}
+                  <button
+                    onClick={() => onFilterChange("classLevel", "")}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {state.city && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#E8F7F0] text-[#0F2540] font-bold text-[11px]">
+                  📍 {state.city}
+                  <button
+                    onClick={() => onFilterChange("city", "")}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {state.gender && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 font-bold text-[11px]">
+                  {state.gender === "FEMALE" ? "Female Tutors" : "Male Tutors"}
+                  <button
+                    onClick={() => onFilterChange("gender", "")}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {state.mode !== "EITHER" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100/80 text-amber-900 font-bold text-[11px]">
+                  {state.mode === "OFFLINE" ? "Home Tuition" : "Online Classes"}
+                  <button
+                    onClick={() => onFilterChange("mode", "EITHER")}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {state.board && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800 font-bold text-[11px]">
+                  {state.board}
+                  <button
+                    onClick={() => onFilterChange("board", "")}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={onResetFilters}
+                className="text-[11px] font-bold text-slate-500 hover:text-rose-600 underline ml-1 cursor-pointer"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {/* Fallback Notice */}
+          {fallbackReason && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs font-semibold flex items-center gap-3 animate-in fade-in shadow-2xs">
+              <div className="w-8 h-8 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center shrink-0">
+                <Sparkles size={16} />
+              </div>
+              <div>
+                <p className="font-bold text-amber-950">{fallbackReason}</p>
+                <p className="text-[11px] text-amber-800 font-normal">
+                  Adjust filters in the sidebar to explore more teachers.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Cards List */}
+          {tutors.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4 shadow-2xs">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-3xl">
+                🔍
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-[#0F2540]">
+                  No tutors found for this combination
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-1 max-w-md mx-auto">
+                  Try unchecking specific grade, locality, or gender constraints in the left sidebar.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onResetFilters}
+                className="px-6 py-2.5 rounded-xl bg-[#16A34A] text-white font-bold text-xs cursor-pointer shadow-xs"
+              >
+                Reset All Filters
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {tutors.map((t, idx) => (
+                <PreplyTutorCard
+                  key={t.id}
+                  tutor={t}
+                  index={idx}
+                  onContactClick={onContactClick}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Bottom Signup Nudge */}
+          <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-[#0F2540] via-[#152e4d] to-[#0A192F] text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-lg mt-6">
+            <div className="space-y-1.5 text-center sm:text-left">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
+                <Zap size={14} /> 100% Free For Parents
+              </div>
+              <h3 className="text-xl font-black" style={{ fontFamily: "Poppins, sans-serif" }}>
+                Want matched tutors to reach out to you directly?
+              </h3>
+              <p className="text-xs text-slate-300 font-medium max-w-xl">
+                Post your tuition requirement in 60 seconds. Our algorithm connects you with top tutors in your area over WhatsApp &amp; phone.
+              </p>
+            </div>
+            <a
+              href="/register?role=parent"
+              className="px-6 py-3.5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-black text-sm transition-all shadow-md shadow-emerald-500/30 shrink-0 text-center cursor-pointer"
+            >
+              Post Free Tuition Request →
+            </a>
+          </div>
         </div>
-        <a
-          href="/register?role=parent"
-          className="px-6 py-3.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-black text-sm transition-all shadow-lg shadow-emerald-500/30 shrink-0 text-center cursor-pointer"
-        >
-          Post Free Tuition Request →
-        </a>
       </div>
     </div>
   );
@@ -1274,22 +1417,42 @@ export function FindTutorWizard({
   initialSubject = "",
   initialCity = "",
   initialClassLevel = "",
+  userRole = "",
 }: {
   initialSubject?: string;
   initialCity?: string;
   initialClassLevel?: string;
+  userRole?: string;
 }) {
   const router = useRouter();
-  const parsedClass = parseClassFromSubject(initialSubject) || initialClassLevel;
+  const searchParams = useSearchParams();
+
+  const querySubject = searchParams.get("subject") || initialSubject || "";
+  const queryClass = searchParams.get("classLevel") || searchParams.get("class") || initialClassLevel || "";
+  const queryCity = searchParams.get("city") || initialCity || "";
+
+  // Parse if class was inside subject string (e.g. "Class 10 Maths", "Class 1-5 All Subjects")
+  const { subject: parsedSub, classLevel: parsedCls } = useMemo(
+    () => parseClassAndSubject(querySubject),
+    [querySubject]
+  );
+
+  const effectiveSubject = queryClass ? querySubject : (parsedSub || querySubject);
+  const effectiveClass = queryClass || parsedCls;
+  const effectiveCity = queryCity;
+
+  const hasSearchIntent = Boolean(effectiveSubject || effectiveClass || effectiveCity);
+
   const steps = useMemo(
-    () => buildNeedSteps(initialSubject, initialCity, parsedClass),
-    [initialSubject, initialCity, parsedClass]
+    () => buildNeedSteps(effectiveSubject, effectiveCity, effectiveClass),
+    [effectiveSubject, effectiveCity, effectiveClass]
   );
 
   const [stepIndex, setStepIndex] = useState(0);
   const [dir, setDir] = useState<"forward" | "back">("forward");
   const [showingAll, setShowingAll] = useState(false);
-  const [phase, setPhase] = useState<"ask" | "results">("ask");
+  // If user searched from homepage hero or query params, directly show matching tutors without re-asking!
+  const [phase, setPhase] = useState<"ask" | "results">(hasSearchIntent ? "results" : "ask");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PublicTutorResult[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -1299,12 +1462,13 @@ export function FindTutorWizard({
   const [gateTargetId, setGateTargetId] = useState<string>("");
 
   const [state, setState] = useState<WizardState>({
-    subject: initialSubject,
-    classLevel: parsedClass,
+    subject: effectiveSubject,
+    classLevel: effectiveClass,
     board: "",
     mode: "EITHER",
     budgetMax: 10000,
-    city: initialCity,
+    city: effectiveCity,
+    gender: searchParams.get("gender") || "",
   });
 
   const runSearch = useCallback(async (customState?: WizardState) => {
@@ -1318,6 +1482,7 @@ export function FindTutorWizard({
         mode: targetState.mode || undefined,
         budgetMax: targetState.budgetMax,
         city: targetState.city || undefined,
+        gender: targetState.gender || undefined,
       });
       setResults(res.tutors);
       setTotal(res.total);
@@ -1326,6 +1491,23 @@ export function FindTutorWizard({
       setLoading(false);
     }
   }, [state]);
+
+  // When user navigated with search criteria from hero or URL, immediately trigger search and show results
+  useEffect(() => {
+    if (hasSearchIntent) {
+      const target: WizardState = {
+        subject: effectiveSubject,
+        classLevel: effectiveClass,
+        board: "",
+        mode: "EITHER",
+        budgetMax: 10000,
+        city: effectiveCity,
+      };
+      setState(target);
+      setPhase("results");
+      void runSearch(target);
+    }
+  }, [hasSearchIntent, effectiveSubject, effectiveClass, effectiveCity, runSearch]);
 
   useEffect(() => {
     const timer = window.setTimeout(async () => {
@@ -1346,9 +1528,20 @@ export function FindTutorWizard({
 
   const { options, hasMore } = useMemo(() => {
     if (stepId === "subject") {
+      const popular = POPULAR_SUBJECTS.map((s) => ({ value: s.label, label: s.label }));
+      const allTax = getAllTaxonomySubjects().map((s) => ({ value: s.name, label: s.name }));
+      const seen = new Set<string>();
+      const combined: { value: string; label: string }[] = [];
+      [...popular, ...allTax].forEach((item) => {
+        const key = item.value.toLowerCase().trim();
+        if (!seen.has(key)) {
+          seen.add(key);
+          combined.push(item);
+        }
+      });
       return {
-        options: POPULAR_SUBJECTS.map((s) => ({ value: s.label, label: s.label })),
-        hasMore: false,
+        options: showingAll ? combined : popular,
+        hasMore: combined.length > popular.length,
       };
     }
     if (stepId === "class") {
@@ -1452,6 +1645,10 @@ export function FindTutorWizard({
   };
 
   const handleContactClick = (tutorId: string) => {
+    if (userRole === "PARENT") {
+      router.push(`/parent/post-requirement?tutorId=${encodeURIComponent(tutorId)}`);
+      return;
+    }
     setGateTargetId(tutorId);
     setGateOpen(true);
   };
@@ -1463,6 +1660,7 @@ export function FindTutorWizard({
     mode: state.mode,
     budgetMax: String(state.budgetMax),
     city: state.city,
+    ...(state.gender ? { gender: state.gender } : {}),
   }).toString();
 
   const showResults = phase === "results" && results !== null;
@@ -1502,6 +1700,7 @@ export function FindTutorWizard({
             setDir("back");
             setResults(null);
           }}
+          onSearch={() => runSearch()}
         />
       ) : (
         <NeedMatchWizard

@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import type { Metadata } from "next";
 import { FindTutorWizard } from "@/components/find-tutor/FindTutorWizard";
 import { PublicSiteHeader } from "@/components/home/PublicSiteHeader";
@@ -23,7 +25,7 @@ export default async function FindTutorPage({
   const params = (await searchParams) ?? {} as Record<string, string | string[] | undefined>;
   const initialSubject = firstParam(params.subject);
   const initialCity = firstParam(params.city);
-  const initialClass = firstParam(params.classLevel);
+  const initialClass = firstParam(params.classLevel || params.class);
   const session = await auth();
   const role = session?.user?.role;
   const dashboardHref =
@@ -45,12 +47,22 @@ export default async function FindTutorPage({
         parentCtaUrl={parentCtaUrl}
       />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <FindTutorWizard
-          initialSubject={initialSubject}
-          initialCity={initialCity}
-          initialClassLevel={initialClass}
-        />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <Suspense
+          fallback={
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+              <Loader2 size={36} className="animate-spin text-[#2D9E6B]" />
+              <p className="text-sm font-bold text-[#0F2540]">Loading verified tutors...</p>
+            </div>
+          }
+        >
+          <FindTutorWizard
+            initialSubject={initialSubject}
+            initialCity={initialCity}
+            initialClassLevel={initialClass}
+            userRole={role}
+          />
+        </Suspense>
       </main>
       <SiteFooter parentCtaUrl={parentCtaUrl} />
     </div>

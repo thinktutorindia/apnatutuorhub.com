@@ -75,7 +75,13 @@ type ActivityLogItem = {
   outcome: string;
   notes: string | null;
   calledAt: string;
-  staff: {
+  calledBy: {
+    id?: string;
+    name: string | null;
+    email: string;
+    subAdminRole?: string | null;
+  };
+  staff?: {
     id: string;
     name: string | null;
     email: string;

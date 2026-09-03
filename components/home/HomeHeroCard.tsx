@@ -8,6 +8,7 @@ import {
   ALL_STRUCTURED_CLASSES,
   getAllTaxonomySubjects,
   searchSmartSubjects,
+  parseClassAndSubject,
 } from "@/lib/subject-matcher";
 
 interface HomeHeroCardProps {
@@ -424,10 +425,14 @@ export function HomeHeroCard({ user, dashboardUrl, isParent }: HomeHeroCardProps
   }, [openPanel, classSubject, locality]);
 
   const goSearch = useCallback(
-    (subject = classSubject, city = cityParam || locality) => {
+    (rawClassSubject = classSubject, rawCity = cityParam || locality) => {
+      const { subject, classLevel } = parseClassAndSubject(rawClassSubject);
+      const city = (rawCity || "").trim();
+
       const params = new URLSearchParams();
-      if (subject.trim()) params.set("subject", subject.trim());
-      if (city.trim()) params.set("city", city.trim());
+      if (subject) params.set("subject", subject);
+      if (classLevel) params.set("classLevel", classLevel);
+      if (city) params.set("city", city);
 
       if (user && isParent) {
         router.push(`/parent/post-requirement?${params.toString()}`);

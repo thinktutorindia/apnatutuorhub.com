@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { ArrowLeft, Search } from "lucide-react";
+import { searchSmartSubjects } from "@/lib/subject-matcher";
 
 export type NeedStepId = "subject" | "class" | "board" | "mode" | "city" | "budget";
 
@@ -114,8 +115,20 @@ export function NeedMatchWizard({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
-    return options.filter((o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q));
-  }, [options, query]);
+    const directMatches = options.filter(
+      (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
+    );
+    if (directMatches.length > 0) return directMatches;
+
+    if (stepId === "subject") {
+      const smart = searchSmartSubjects(query.trim(), 12);
+      if (smart.length > 0) {
+        return smart.map((s) => ({ value: s.name, label: s.name }));
+      }
+      return [{ value: query.trim(), label: `"${query.trim()}" (Custom Subject)` }];
+    }
+    return directMatches;
+  }, [options, query, stepId]);
 
   const needsScroll = filtered.length > 8;
 

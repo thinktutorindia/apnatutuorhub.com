@@ -931,7 +931,7 @@ export function MyStaffLeadsClient({
   };
 
   return (
-    <div className="space-y-2.5 pb-8 text-slate-900">
+    <div className="space-y-2 sm:space-y-2.5 lg:pb-8 text-slate-900">
       {/* ── Shift Gate & Activity Tracker ── */}
       <StaffShiftGate />
 
@@ -1157,7 +1157,7 @@ export function MyStaffLeadsClient({
         {/* Left Column: Lead Queue List (5 cols) */}
         <div className={`lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden ${
           mobileView === "DETAIL" ? "hidden lg:flex" : "flex"
-        } flex-col h-[calc(100vh-210px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-120px)] min-h-[460px]`}>
+        } flex-col h-[calc(100dvh-180px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-120px)] min-h-0 lg:min-h-[460px]`}>
           {/* List Header */}
           <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs shrink-0">
             <span className="font-extrabold text-[#0F2540] flex items-center gap-2">
@@ -1369,7 +1369,7 @@ export function MyStaffLeadsClient({
         {/* Right Column: Calling Workspace & Console (7 cols) */}
         <div className={`lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden ${
           mobileView === "QUEUE" ? "hidden lg:flex" : "flex"
-        } flex-col h-[calc(100vh-130px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-120px)] min-h-[460px]`}>
+        } flex-col h-[calc(100dvh-125px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-120px)] min-h-0 lg:min-h-[460px]`}>
           {currentLead ? (
             <>
               {/* Mobile Quick Navigation Bar */}
@@ -1407,12 +1407,12 @@ export function MyStaffLeadsClient({
                 </div>
               </div>
 
-              {/* Sticky Contact Header (Clean, Non-overlapping) */}
-              <div className="p-3 sm:p-3.5 bg-slate-50 border-b border-slate-200 space-y-2.5 shrink-0">
+              {/* Sticky Contact Header (Clean, Compact, Non-overlapping) */}
+              <div className="p-2.5 sm:p-3.5 bg-slate-50 border-b border-slate-200 space-y-2 shrink-0">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div
-                      className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black shadow-2xs shrink-0 ${
+                      className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-xs sm:text-sm font-black shadow-2xs shrink-0 ${
                         getStaffRecordType(currentLead.staffNotes) === "PARENT"
                           ? "bg-blue-100 text-blue-800 border border-blue-200"
                           : "bg-emerald-100 text-emerald-800 border border-emerald-200"
@@ -1423,13 +1423,13 @@ export function MyStaffLeadsClient({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <h2 className="text-base sm:text-lg font-black text-[#0F2540] tracking-tight truncate">
+                        <h2 className="text-sm sm:text-base font-black text-[#0F2540] tracking-tight truncate">
                           {currentLead.name && currentLead.name !== "Unknown Contact"
                             ? currentLead.name
                             : formatPhoneNumber(currentLead.phone)}
                         </h2>
                         <span
-                          className={`text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-full ${
+                          className={`text-[9px] sm:text-xs font-black px-1.5 py-0.2 rounded-full ${
                             getStaffRecordType(currentLead.staffNotes) === "PARENT"
                               ? "bg-blue-100 text-blue-900 border border-blue-200"
                               : "bg-emerald-100 text-emerald-900 border border-emerald-200"
@@ -1440,7 +1440,7 @@ export function MyStaffLeadsClient({
                       </div>
 
                       {currentLead.name && currentLead.name !== "Unknown Contact" && currentLead.phone && (
-                        <p className="text-[11px] font-mono font-bold text-slate-500 truncate">
+                        <p className="text-[10px] sm:text-[11px] font-mono font-bold text-slate-500 truncate">
                           {formatPhoneNumber(currentLead.phone)}
                         </p>
                       )}
@@ -1454,7 +1454,7 @@ export function MyStaffLeadsClient({
                         type="button"
                         onClick={() => handlePromoteLead(currentLead)}
                         disabled={isPromotingLead}
-                        className="p-1.5 sm:px-3 sm:py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-xs disabled:opacity-50 active:scale-95"
+                        className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-xs disabled:opacity-50 active:scale-95"
                         title={
                           getStaffRecordType(currentLead.staffNotes) === "PARENT"
                             ? "Publish live student requirement to platform"
@@ -1497,14 +1497,14 @@ export function MyStaffLeadsClient({
                 </div>
 
                 {/* Info Bar: Location & Subjects */}
-                <div className="text-[11px] text-slate-600 font-semibold flex items-center gap-2 flex-wrap bg-white/70 px-2.5 py-1.5 rounded-xl border border-slate-200/80">
+                <div className="text-[10px] sm:text-[11px] text-slate-600 font-semibold flex items-center gap-1.5 flex-wrap bg-white/80 px-2 py-1 rounded-xl border border-slate-200/80">
                   <span className="flex items-center gap-1 min-w-0">
-                    <MapPin size={12} className="text-slate-400 shrink-0" />
-                    <span className="truncate max-w-[140px] sm:max-w-none">{currentLead.location || "Location not recorded"}</span>
+                    <MapPin size={11} className="text-slate-400 shrink-0" />
+                    <span className="truncate max-w-[130px] sm:max-w-none">{currentLead.location || "Location not recorded"}</span>
                   </span>
                   <span>•</span>
                   <span className="flex items-center gap-1 min-w-0 flex-1">
-                    <BookOpen size={12} className="text-slate-400 shrink-0" />
+                    <BookOpen size={11} className="text-slate-400 shrink-0" />
                     <span className="truncate">{currentLead.subjects.length > 0 ? currentLead.subjects.join(", ") : "General Subjects"}</span>
                   </span>
                   {currentLead.experienceYears && <span>• {currentLead.experienceYears}y exp</span>}
@@ -1515,10 +1515,10 @@ export function MyStaffLeadsClient({
                   <div className="flex items-center gap-2 pt-0.5">
                     <a
                       href={`tel:+91${currentLead.phone.replace(/\D/g, "").slice(-10)}`}
-                      className="flex-1 py-3 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm transition-all active:scale-[0.98]"
                       title="Direct call (C or Space)"
                     >
-                      <PhoneCall size={16} />
+                      <PhoneCall size={15} />
                       <span>Call {formatPhoneNumber(currentLead.phone)}</span>
                     </a>
 
@@ -1530,35 +1530,35 @@ export function MyStaffLeadsClient({
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="py-3 px-3.5 rounded-2xl bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-[0.98] shrink-0"
+                      className="py-2.5 px-3 rounded-xl bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] shrink-0"
                       title="Send WhatsApp message (W)"
                     >
-                      <MessageCircle size={16} />
+                      <MessageCircle size={15} />
                       <span>WhatsApp</span>
                     </a>
 
                     <button
                       type="button"
                       onClick={() => copyPhone(currentLead.phone!, currentLead.id)}
-                      className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer shadow-2xs shrink-0"
+                      className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer shadow-2xs shrink-0"
                       title="Copy phone number"
                     >
-                      {copiedId === currentLead.id ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                      {copiedId === currentLead.id ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
                     </button>
                   </div>
                 ) : (
-                  <div className="p-2.5 rounded-xl bg-slate-100 text-center text-xs font-bold text-slate-500">
+                  <div className="p-2 rounded-xl bg-slate-100 text-center text-xs font-bold text-slate-500">
                     No phone number recorded for this lead
                   </div>
                 )}
 
                 {/* Tab Switcher: Console vs Live Preview */}
                 <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/80">
-                  <div className="flex items-center bg-slate-200/70 p-0.5 rounded-xl text-xs font-black">
+                  <div className="flex items-center bg-slate-200/70 p-0.5 rounded-xl text-[11px] sm:text-xs font-black">
                     <button
                       type="button"
                       onClick={() => setConsoleTab("CALL")}
-                      className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                      className={`px-2.5 sm:px-3 py-1 rounded-lg transition-all cursor-pointer ${
                         consoleTab === "CALL"
                           ? "bg-white text-[#0F2540] shadow-2xs"
                           : "text-slate-600 hover:text-slate-900"
@@ -1569,19 +1569,19 @@ export function MyStaffLeadsClient({
                     <button
                       type="button"
                       onClick={() => setConsoleTab("PREVIEW")}
-                      className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-2.5 sm:px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                         consoleTab === "PREVIEW"
                           ? "bg-white text-[#0F2540] shadow-2xs"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
-                      <Eye size={13} />
+                      <Eye size={12} />
                       <span>Live {getStaffRecordType(currentLead.staffNotes) === "PARENT" ? "Parent" : "Tutor"} View</span>
                     </button>
                   </div>
 
                   {currentLead.isPromoted && (
-                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                    <span className="text-[9px] sm:text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
                       ✓ Live on Platform
                     </span>
                   )}
@@ -1589,7 +1589,7 @@ export function MyStaffLeadsClient({
               </div>
 
               {/* Scrollable Body Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
                 {consoleTab === "PREVIEW" ? (
                   <StaffLeadLivePreview
                     lead={currentLead}
@@ -1616,7 +1616,7 @@ export function MyStaffLeadsClient({
                       </div>
 
                       {/* 3x2 tactile grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
                         {OUTCOMES.map((item) => {
                           const isSelected = callOutcome === item.outcome;
                           const isInstantAdvance = item.outcome === "NO_ANSWER" || item.outcome === "BUSY" || item.outcome === "NOT_INTERESTED";
@@ -1641,7 +1641,7 @@ export function MyStaffLeadsClient({
                                   else playChime("beep");
                                 }
                               }}
-                              className={`relative p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 group ${
+                              className={`relative p-2.5 sm:p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer flex flex-col items-center justify-center gap-1 sm:gap-1.5 group ${
                                 isSelected
                                   ? `${item.activeClass} scale-[1.02]`
                                   : `${item.defaultClass} hover:scale-[1.01]`
@@ -1808,8 +1808,8 @@ export function MyStaffLeadsClient({
                 )}
               </div>
 
-              {/* Sticky Action Footer */}
-              <div className="p-3 bg-white border-t border-slate-200 flex items-center justify-between gap-3 shrink-0 shadow-xs">
+              {/* Desktop Sticky Action Footer */}
+              <div className="hidden lg:flex p-3 bg-white border-t border-slate-200 items-center justify-between gap-3 shrink-0 shadow-xs">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -1908,6 +1908,32 @@ export function MyStaffLeadsClient({
                     </div>
                   </button>
                 </div>
+              </div>
+
+              {/* Mobile Ergonomic Action Footer (Single-row, 50px high, thumb-friendly) */}
+              <div className="lg:hidden p-2.5 bg-white border-t border-slate-200 shrink-0 shadow-lg flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isPending || isPromotingLead}
+                  onClick={handleSaveInQueueAndNext}
+                  className="flex-1 py-3 px-3 rounded-xl bg-[#0F2540] hover:bg-slate-900 active:bg-black text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                >
+                  <Clock size={16} className="text-amber-400 shrink-0" />
+                  <span className="truncate">Save Call &amp; Next Lead</span>
+                  <ArrowRight size={15} className="shrink-0" />
+                </button>
+                {!currentLead.isPromoted && (
+                  <button
+                    type="button"
+                    disabled={isPending || isPromotingLead}
+                    onClick={handleMoveToPrimaryAndNext}
+                    className="py-3 px-3.5 rounded-xl bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shrink-0"
+                    title="Save in Primary DB and advance to next lead"
+                  >
+                    <Sparkles size={14} className="text-amber-300 shrink-0" />
+                    <span>Primary</span>
+                  </button>
+                )}
               </div>
             </>
           ) : (

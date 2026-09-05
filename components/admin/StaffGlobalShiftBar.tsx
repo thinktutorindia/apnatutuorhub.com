@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
-  Play, Square, Calendar, Loader2, X, CheckCircle2, AlertCircle, ShieldCheck, ShieldOff, Lock
+  Play, Square, Calendar, Loader2, X, CheckCircle2, AlertCircle, ShieldCheck, ShieldOff, Lock, Menu
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { AdminCommandPalette } from "@/components/admin/AdminCommandPalette";
@@ -16,6 +16,7 @@ import {
 } from "@/app/actions/staff-leads.actions";
 import { setMyDutyAction } from "@/app/actions/staff-presence.actions";
 import { useStaffDutyStore } from "@/lib/stores/staff-duty-store";
+import { useAdminSidebarStore } from "@/lib/stores/sidebar-store";
 
 interface Props {
   userRole?: string;
@@ -56,6 +57,7 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
   const isIdle = useStaffDutyStore((s) => s.isIdle);
   const setDutySnapshot = useStaffDutyStore((s) => s.setSnapshot);
   const setShiftSession = useStaffDutyStore((s) => s.setShiftSession);
+  const openSidebar = useAdminSidebarStore((s) => s.open);
 
   // Sync session state with global duty store
   useEffect(() => {
@@ -238,8 +240,18 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
         </div>
       )}
 
-      <div className="w-full bg-white border-b border-[#E2E8F0] pl-14 pr-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3 text-xs select-none sticky top-0 z-30 lg:pl-6">
+      <div className="w-full bg-white border-b border-[#E2E8F0] px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3 text-xs select-none sticky top-0 z-30">
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 overflow-x-auto no-scrollbar">
+          {/* Mobile hamburger button cleanly integrated inline */}
+          <button
+            type="button"
+            onClick={openSidebar}
+            className="lg:hidden p-1.5 rounded-xl bg-[#0F2540] text-white hover:bg-slate-800 shrink-0 cursor-pointer shadow-xs active:scale-95"
+            aria-label="Open menu"
+          >
+            <Menu size={16} />
+          </button>
+
           {/* Badge hidden on small mobile to conserve space */}
           <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-[10px] font-800 uppercase tracking-wider bg-[#E8F7F0] text-[#238357] shrink-0">
             {isSuperAdmin ? "Super Admin" : "Staff Admin"}

@@ -16,11 +16,13 @@ import {
   Lock,
 } from "lucide-react";
 import { useStaffDutyStore } from "@/lib/stores/staff-duty-store";
+import { useAdminSidebarStore } from "@/lib/stores/sidebar-store";
 import { usePWAInstall } from "@/components/shared/PWAInstallPrompt";
 
 export function StaffMobileNavBar() {
   const pathname = usePathname();
   const { canInstall, isInstalled, install } = usePWAInstall();
+  const openSidebar = useAdminSidebarStore((s) => s.open);
 
   const shiftStatus = useStaffDutyStore((s) => s.shiftStatus);
   const isShiftActive = shiftStatus === "CLOCKED_IN";
@@ -45,12 +47,6 @@ export function StaffMobileNavBar() {
       label: "Leads Feed",
       icon: FileText,
       active: pathname === "/admin/leads",
-    },
-    {
-      href: "/admin/staff-leads",
-      label: "Ingestion",
-      icon: Clock,
-      active: pathname === "/admin/staff-leads",
     },
   ];
 
@@ -85,7 +81,7 @@ export function StaffMobileNavBar() {
       })}
 
       {/* PWA Install Button on mobile if not already installed */}
-      {canInstall && !isInstalled ? (
+      {canInstall && !isInstalled && (
         <button
           type="button"
           onClick={install}
@@ -97,22 +93,36 @@ export function StaffMobileNavBar() {
           </div>
           <span className="text-[10px] mt-0.5 tracking-tight font-black">Install</span>
         </button>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-1 px-2 text-[10px] font-bold text-slate-400">
-          <span
-            className={`w-2 h-2 rounded-full mb-0.5 ${
-              isShiftActive
-                ? "bg-emerald-500 animate-pulse"
-                : isOnBreak
-                ? "bg-amber-500"
-                : "bg-slate-300"
-            }`}
-          />
-          <span className="text-[9px] uppercase font-mono">
-            {isShiftActive ? "Shift On" : isOnBreak ? "Break" : "Duty"}
-          </span>
-        </div>
       )}
+
+      {/* Full Admin Navigation Drawer Trigger */}
+      <button
+        type="button"
+        onClick={openSidebar}
+        className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-slate-500 hover:text-slate-900 font-semibold cursor-pointer active:scale-95 transition-all"
+        title="Open admin navigation menu"
+      >
+        <div className="relative">
+          <Menu size={18} strokeWidth={1.75} />
+        </div>
+        <span className="text-[10px] mt-0.5 tracking-tight">Menu</span>
+      </button>
+
+      {/* Shift status pulse dot */}
+      <div className="flex flex-col items-center justify-center py-1 px-1.5 text-[10px] font-bold text-slate-400">
+        <span
+          className={`w-2 h-2 rounded-full mb-0.5 ${
+            isShiftActive
+              ? "bg-emerald-500 animate-pulse"
+              : isOnBreak
+              ? "bg-amber-500"
+              : "bg-slate-300"
+          }`}
+        />
+        <span className="text-[9px] uppercase font-mono">
+          {isShiftActive ? "Shift On" : isOnBreak ? "Break" : "Off"}
+        </span>
+      </div>
     </nav>
   );
 }

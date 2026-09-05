@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Logo } from "@/components/brand/Logo";
 import { getAllowedSubAdminModules } from "@/lib/rbac";
+import { useAdminSidebarStore } from "@/lib/stores/sidebar-store";
 import {
   LayoutDashboard,
   Users,
@@ -64,7 +65,8 @@ export function AdminSidebar({
   kycPendingCount = 0,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const open = useAdminSidebarStore((s) => s.isOpen);
+  const setOpen = useAdminSidebarStore((s) => (val: boolean) => (val ? s.open() : s.close()));
   const [crmManual, setCrmManual] = useState<boolean | null>(null);
   const crmExpanded = crmManual ?? pathname.startsWith("/admin/staff-leads");
   const isSuperAdmin = userRole === "SUPER_ADMIN";
@@ -310,15 +312,6 @@ export function AdminSidebar({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed left-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F2540] text-white shadow-lg lg:hidden"
-        aria-label="Open menu"
-      >
-        <Menu size={18} />
-      </button>
-
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] lg:block">{SidebarContent}</aside>
 
       {open ? (

@@ -7,6 +7,7 @@ interface AdminSidebarState {
   open: () => void;
   close: () => void;
   toggle: () => void;
+  setOpen: (val: boolean) => void;
 }
 
 export const useAdminSidebarStore = create<AdminSidebarState>((set) => ({
@@ -14,4 +15,5 @@ export const useAdminSidebarStore = create<AdminSidebarState>((set) => ({
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
   toggle: () => set((state) => ({ isOpen: !state.isOpen })),
+  setOpen: (val) => set({ isOpen: val }),
 }));

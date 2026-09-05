@@ -66,7 +66,7 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const open = useAdminSidebarStore((s) => s.isOpen);
-  const setOpen = useAdminSidebarStore((s) => (val: boolean) => (val ? s.open() : s.close()));
+  const setOpen = useAdminSidebarStore((s) => s.setOpen);
   const [crmManual, setCrmManual] = useState<boolean | null>(null);
   const crmExpanded = crmManual ?? pathname.startsWith("/admin/staff-leads");
   const isSuperAdmin = userRole === "SUPER_ADMIN";

@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { StaffGlobalShiftBar } from "@/components/admin/StaffGlobalShiftBar";
 import { StaffPresenceTracker } from "@/components/admin/StaffPresenceTracker";
+import { StaffMobileNavBar } from "@/components/admin/StaffMobileNavBar";
+import { PWAInstallBanner } from "@/components/shared/PWAInstallPrompt";
 import { prisma } from "@/lib/prisma";
 import { getMediaUrl } from "@/lib/s3";
 
@@ -61,7 +63,12 @@ export default async function AdminLayout({
           userImage={getMediaUrl(staffUser?.image)}
           unreadCount={unreadNotifications}
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 min-w-0 overflow-x-auto">{children}</main>
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 pb-24 lg:pb-8 min-w-0 overflow-x-auto">
+          <PWAInstallBanner className="mb-4" />
+          {children}
+        </main>
+        {/* Thumb-friendly mobile navigation bar for staff */}
+        <StaffMobileNavBar />
       </div>
     </div>
   );

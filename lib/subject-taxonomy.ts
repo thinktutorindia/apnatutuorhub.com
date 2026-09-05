@@ -1525,3 +1525,595 @@ export function normalizeTaxonomySubjects(inputs: string[]): string[] {
     .filter(Boolean);
   return Array.from(new Set(normalized));
 }
+
+export type TaxonomyNeedItem = {
+  label: string;
+  subject: string;
+  classLevel: string;
+  sub?: string;
+  badge?: string;
+};
+
+export type TaxonomyNeedGroup = {
+  groupName: string;
+  items: TaxonomyNeedItem[];
+};
+
+export type TaxonomyNeedTabId = "popular" | "school" | "senior" | "exams" | "skills";
+
+export type TaxonomyNeedTab = {
+  id: TaxonomyNeedTabId;
+  label: string;
+  icon: string;
+  tagline: string;
+  groups: TaxonomyNeedGroup[];
+};
+
+export const TAXONOMY_NEED_TABS: TaxonomyNeedTab[] = [
+  {
+    id: "popular",
+    label: "Popular Needs",
+    icon: "🌟",
+    tagline: "Most requested tuition packages by parents and students",
+    groups: [
+      {
+        groupName: "Top Tuition Packages",
+        items: [
+          {
+            label: "Class 1–5 All Subjects",
+            subject: "All Subjects For Class V",
+            classLevel: "Class 1-5",
+            sub: "English, Maths, EVS, Hindi & Phonics",
+            badge: "Primary",
+          },
+          {
+            label: "Class 6–8 All Subjects",
+            subject: "All Subjects For Class VIII",
+            classLevel: "Class 6-8",
+            sub: "Maths, Science, English, SST & Hindi",
+            badge: "Middle",
+          },
+          {
+            label: "Class 9–10 Science & Maths",
+            subject: "Science & Maths",
+            classLevel: "Class 9-10",
+            sub: "CBSE & ICSE Board Foundation Duo",
+            badge: "High School",
+          },
+          {
+            label: "Class 10 All Subjects (Boards)",
+            subject: "All Subjects For Class X",
+            classLevel: "Class 10",
+            sub: "Complete 10th Board Exam Syllabus",
+            badge: "Boards",
+          },
+          {
+            label: "Class 11–12 PCM (Science)",
+            subject: "Mathematics",
+            classLevel: "Class 11-12",
+            sub: "Physics, Chemistry & Mathematics",
+            badge: "PCM",
+          },
+          {
+            label: "Class 11–12 PCB (Medical)",
+            subject: "Biology",
+            classLevel: "Class 11-12",
+            sub: "Physics, Chemistry & Biology",
+            badge: "PCB",
+          },
+          {
+            label: "Class 11–12 Commerce",
+            subject: "Accountancy",
+            classLevel: "Class 11-12",
+            sub: "Accounts, Economics & Business Studies",
+            badge: "Commerce",
+          },
+          {
+            label: "NEET Medical Entrance",
+            subject: "NEET",
+            classLevel: "NEET",
+            sub: "Target NEET UG with Expert Faculty",
+            badge: "Medical",
+          },
+          {
+            label: "IIT-JEE Engineering",
+            subject: "IIT-JEE",
+            classLevel: "IIT-JEE",
+            sub: "Mains & Advanced Physics, Chem & Maths",
+            badge: "Engineering",
+          },
+          {
+            label: "Spoken English & Fluency",
+            subject: "Spoken English",
+            classLevel: "Beginner / Spoken",
+            sub: "Fluency, Accent, Public Speaking & Confidence",
+            badge: "Language",
+          },
+          {
+            label: "Coding & Computer Science",
+            subject: "Computer Science",
+            classLevel: "School / College",
+            sub: "Python, Web Development, Java & C++",
+            badge: "Tech",
+          },
+          {
+            label: "CUET / University Entrance",
+            subject: "CUET",
+            classLevel: "College",
+            sub: "General Test & Domain Subjects",
+            badge: "Entrance",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "school",
+    label: "School (KG–10)",
+    icon: "🎒",
+    tagline: "Pre-primary, Primary, Middle School & 10th Board Preparation",
+    groups: [
+      {
+        groupName: "Early Learning (KG & Nursery)",
+        items: [
+          {
+            label: "Nursery & Kindergarten",
+            subject: "Nursery",
+            classLevel: "Nursery / KG",
+            sub: "Early Learning, Playway & Activity",
+          },
+          {
+            label: "Jolly Phonics & Reading",
+            subject: "Jolly Phonics",
+            classLevel: "Nursery / KG",
+            sub: "Phonetics, Vocabulary & Pronunciation",
+          },
+          {
+            label: "Abacus & Mental Maths",
+            subject: "Abacus",
+            classLevel: "Class 1-5",
+            sub: "Speed Arithmetic & Mental Calculation",
+            badge: "Popular",
+          },
+        ],
+      },
+      {
+        groupName: "Primary School (Class 1–5)",
+        items: [
+          {
+            label: "Class 1–5 All Subjects",
+            subject: "All Subjects For Class V",
+            classLevel: "Class 1-5",
+            sub: "Maths, English, EVS, Hindi",
+            badge: "Popular",
+          },
+          {
+            label: "Class 1–5 Mathematics",
+            subject: "Maths for Class V",
+            classLevel: "Class 1-5",
+            sub: "Concept building & foundational arithmetic",
+          },
+          {
+            label: "Class 1–5 English & Grammar",
+            subject: "English upto V",
+            classLevel: "Class 1-5",
+            sub: "Grammar, Reading & Creative Writing",
+          },
+          {
+            label: "Class 1–5 Science / EVS",
+            subject: "Science upto Class V",
+            classLevel: "Class 1-5",
+            sub: "Environmental Science & Nature",
+          },
+          {
+            label: "Class 1–5 Hindi & Regional",
+            subject: "Hindi for Class upto V",
+            classLevel: "Class 1-5",
+            sub: "Reading, Writing & Vyakaran",
+          },
+        ],
+      },
+      {
+        groupName: "Middle School (Class 6–8)",
+        items: [
+          {
+            label: "Class 6–8 All Subjects",
+            subject: "All Subjects For Class VIII",
+            classLevel: "Class 6-8",
+            sub: "All Core School Subjects",
+            badge: "Popular",
+          },
+          {
+            label: "Class 6–8 Mathematics",
+            subject: "Maths for Class VIII",
+            classLevel: "Class 6-8",
+            sub: "Algebra, Geometry & Arithmetic",
+          },
+          {
+            label: "Class 6–8 General Science",
+            subject: "Science for Class VIII",
+            classLevel: "Class 6-8",
+            sub: "Physics, Chemistry & Biology Basics",
+          },
+          {
+            label: "Class 6–8 Social Studies (SST)",
+            subject: "Social Studies for Class VIII",
+            classLevel: "Class 6-8",
+            sub: "History, Civics & Geography",
+          },
+          {
+            label: "Class 6–8 English Literature & Grammar",
+            subject: "English for VI to VIII",
+            classLevel: "Class 6-8",
+            sub: "Comprehensive English Language",
+          },
+          {
+            label: "Class 6–8 Sanskrit / Hindi",
+            subject: "Sanskrit",
+            classLevel: "Class 6-8",
+            sub: "Language & Vyakaran",
+          },
+        ],
+      },
+      {
+        groupName: "Secondary / Board Foundation (Class 9–10)",
+        items: [
+          {
+            label: "Class 9–10 Science & Maths",
+            subject: "Science & Maths",
+            classLevel: "Class 9-10",
+            sub: "Core Board Duo for CBSE & ICSE",
+            badge: "High Demand",
+          },
+          {
+            label: "Class 10 All Subjects (Boards)",
+            subject: "All Subjects For Class X",
+            classLevel: "Class 10",
+            sub: "Complete 10th Board Syllabus Coverage",
+            badge: "Boards",
+          },
+          {
+            label: "Class 9–10 Mathematics",
+            subject: "Maths for Class X",
+            classLevel: "Class 9-10",
+            sub: "Standard & Basic Mathematics",
+          },
+          {
+            label: "Class 9–10 Science",
+            subject: "Science for Class X",
+            classLevel: "Class 9-10",
+            sub: "Physics, Chemistry & Biology",
+          },
+          {
+            label: "Class 9–10 Social Science (SST)",
+            subject: "Social Studies for Class X",
+            classLevel: "Class 9-10",
+            sub: "History, Pol Sci, Geo & Economics",
+          },
+          {
+            label: "Class 9–10 English",
+            subject: "English for IX - X",
+            classLevel: "Class 9-10",
+            sub: "Language & Literature",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "senior",
+    label: "Class 11–12",
+    icon: "🔬",
+    tagline: "Science, Commerce & Humanities Stream Specializations",
+    groups: [
+      {
+        groupName: "Science Stream (PCM & PCB)",
+        items: [
+          {
+            label: "Physics (Class 11–12)",
+            subject: "Physics For Class XII",
+            classLevel: "Class 11-12",
+            sub: "Mechanics, Electrodynamics & Optics",
+            badge: "Core",
+          },
+          {
+            label: "Chemistry (Class 11–12)",
+            subject: "Chemistry For Class XII",
+            classLevel: "Class 11-12",
+            sub: "Physical, Organic & Inorganic",
+            badge: "Core",
+          },
+          {
+            label: "Mathematics (Class 11–12)",
+            subject: "Maths for Class XII",
+            classLevel: "Class 11-12",
+            sub: "Calculus, Vectors & Probability",
+            badge: "Core",
+          },
+          {
+            label: "Biology (Class 11–12)",
+            subject: "Biology for Class XII",
+            classLevel: "Class 11-12",
+            sub: "Genetics, Physiology & Ecology",
+            badge: "Core",
+          },
+          {
+            label: "Computer Science / IP",
+            subject: "Computer Science",
+            classLevel: "Class 11-12",
+            sub: "Python, SQL & Informatics Practices",
+          },
+        ],
+      },
+      {
+        groupName: "Commerce Stream",
+        items: [
+          {
+            label: "Accountancy (Class 11–12)",
+            subject: "Accountancy for Class XII",
+            classLevel: "Class 11-12",
+            sub: "Partnership, Company Accounts & Financials",
+            badge: "Core",
+          },
+          {
+            label: "Economics (Micro & Macro)",
+            subject: "Economics for Class XII",
+            classLevel: "Class 11-12",
+            sub: "Microeconomics, Macroeconomics & Indian Eco",
+            badge: "Core",
+          },
+          {
+            label: "Business Studies (Class 11–12)",
+            subject: "Business Studies for Class XII",
+            classLevel: "Class 11-12",
+            sub: "Principles of Management & Business Finance",
+            badge: "Core",
+          },
+          {
+            label: "Applied Mathematics",
+            subject: "Applied Maths",
+            classLevel: "Class 11-12",
+            sub: "Financial Maths & Statistics for Commerce",
+          },
+        ],
+      },
+      {
+        groupName: "Humanities & Arts Stream",
+        items: [
+          {
+            label: "Psychology (Class 11–12)",
+            subject: "Psychology for Class XII",
+            classLevel: "Class 11-12",
+            sub: "Cognitive, Clinical & Social Psychology",
+            badge: "Popular",
+          },
+          {
+            label: "Political Science (Class 11–12)",
+            subject: "Political Science for Class XII",
+            classLevel: "Class 11-12",
+            sub: "Indian Constitution & World Politics",
+          },
+          {
+            label: "History (Class 11–12)",
+            subject: "History for Class XI - XII",
+            classLevel: "Class 11-12",
+            sub: "Indian History, Themes & World History",
+          },
+          {
+            label: "Sociology (Class 11–12)",
+            subject: "Sociology for Class XII",
+            classLevel: "Class 11-12",
+            sub: "Indian Society & Social Change",
+          },
+          {
+            label: "Geography (Class 11–12)",
+            subject: "Geography for Class XI - XII",
+            classLevel: "Class 11-12",
+            sub: "Physical & Human Geography",
+          },
+          {
+            label: "Legal Studies",
+            subject: "Legal Studies",
+            classLevel: "Class 11-12",
+            sub: "Jurisprudence, Judiciary & Arbitration",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "exams",
+    label: "Competitive & Exams",
+    icon: "🎯",
+    tagline: "Medical, Engineering, University & Defence Entrances",
+    groups: [
+      {
+        groupName: "Medical & Engineering Entrances",
+        items: [
+          {
+            label: "NEET Medical Entrance",
+            subject: "NEET",
+            classLevel: "NEET",
+            sub: "NEET-UG Physics, Chemistry & Biology",
+            badge: "Top Exam",
+          },
+          {
+            label: "IIT-JEE Engineering Entrance",
+            subject: "IIT-JEE",
+            classLevel: "IIT-JEE",
+            sub: "Mains & Advanced Physics, Chem & Maths",
+            badge: "Top Exam",
+          },
+          {
+            label: "BITSAT & State Engineering",
+            subject: "Maths for Engineering Entrance",
+            classLevel: "IIT-JEE",
+            sub: "Engineering Aptitude & Physics/Maths",
+          },
+        ],
+      },
+      {
+        groupName: "University & Career Entrances",
+        items: [
+          {
+            label: "CUET (Undergraduate Entrance)",
+            subject: "CUET",
+            classLevel: "College",
+            sub: "General Test, English & Domain Subjects",
+            badge: "Top Exam",
+          },
+          {
+            label: "CLAT / Law Entrance",
+            subject: "CLAT",
+            classLevel: "College",
+            sub: "Legal Reasoning, English & GK",
+          },
+          {
+            label: "NDA / CDS Defence Entrance",
+            subject: "NDA (National Defence Academy)",
+            classLevel: "Competitive",
+            sub: "Maths & General Ability Test (GAT)",
+          },
+          {
+            label: "CA Foundation / CPT",
+            subject: "CA CPT Maths",
+            classLevel: "College",
+            sub: "Accounting, Law, Maths & Economics",
+          },
+        ],
+      },
+      {
+        groupName: "Olympiads & International",
+        items: [
+          {
+            label: "Maths Olympiad (IMO)",
+            subject: "Maths for Olympiad (IMO)",
+            classLevel: "Class 6-8",
+            sub: "Mathematical Reasoning & Problem Solving",
+          },
+          {
+            label: "Science Olympiad (NSO)",
+            subject: "Olympiad",
+            classLevel: "Class 6-8",
+            sub: "National Science Olympiad Foundation",
+          },
+          {
+            label: "SAT / ACT (Study Abroad)",
+            subject: "SAT(Scholastic Assessment Test)",
+            classLevel: "College",
+            sub: "SAT Maths, Reading & Writing",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "skills",
+    label: "Languages & Skills",
+    icon: "🗣️",
+    tagline: "Spoken Languages, Coding, Music & Extracurricular Coaching",
+    groups: [
+      {
+        groupName: "Languages & Communication",
+        items: [
+          {
+            label: "Spoken English & Fluency",
+            subject: "Spoken English",
+            classLevel: "Beginner / Spoken",
+            sub: "Confidence, Accent & Fluency",
+            badge: "High Demand",
+          },
+          {
+            label: "French Language (DELF / School)",
+            subject: "French Language",
+            classLevel: "Beginner / Spoken",
+            sub: "School Curriculum & DELF Certification",
+          },
+          {
+            label: "German Language (Goethe / School)",
+            subject: "German Language",
+            classLevel: "Beginner / Spoken",
+            sub: "A1 to B2 Levels & School Support",
+          },
+          {
+            label: "Spanish Language",
+            subject: "Spanish Language",
+            classLevel: "Beginner / Spoken",
+            sub: "Conversational & DELE Preparation",
+          },
+          {
+            label: "Hindi Language & Vyakaran",
+            subject: "Hindi Speaking",
+            classLevel: "Beginner / Spoken",
+            sub: "Reading, Writing & Speaking Fluency",
+          },
+          {
+            label: "Sanskrit",
+            subject: "Sanskrit",
+            classLevel: "School / College",
+            sub: "Grammar, Slokas & Board Syllabus",
+          },
+        ],
+      },
+      {
+        groupName: "Coding & Computer Tech",
+        items: [
+          {
+            label: "Python Programming for Beginners",
+            subject: "Python Programming",
+            classLevel: "School / College",
+            sub: "Coding logic, problem solving & projects",
+            badge: "Popular",
+          },
+          {
+            label: "Web Development (HTML, CSS, JS)",
+            subject: "Web Designing",
+            classLevel: "School / College",
+            sub: "Build websites & frontend apps",
+          },
+          {
+            label: "Java & C++ Programming",
+            subject: "Java",
+            classLevel: "School / College",
+            sub: "Object-oriented programming & algorithms",
+          },
+          {
+            label: "Artificial Intelligence & Data Science",
+            subject: "Artificial Intelligence AI",
+            classLevel: "School / College",
+            sub: "AI basics, machine learning & data analysis",
+          },
+        ],
+      },
+      {
+        groupName: "Creative Arts & Wellness",
+        items: [
+          {
+            label: "Music (Guitar, Keyboard, Vocal)",
+            subject: "Guitar",
+            classLevel: "All Ages",
+            sub: "Instruments, Singing & Music Theory",
+          },
+          {
+            label: "Art, Drawing & Painting",
+            subject: "Drawing",
+            classLevel: "All Ages",
+            sub: "Sketching, Watercolor & Oil Painting",
+          },
+          {
+            label: "Chess Coaching",
+            subject: "Chess",
+            classLevel: "All Ages",
+            sub: "Openings, strategy, tactics & endgame",
+          },
+          {
+            label: "Yoga & Fitness",
+            subject: "Yoga",
+            classLevel: "All Ages",
+            sub: "Health, breathing, posture & wellness",
+          },
+        ],
+      },
+    ],
+  },
+];

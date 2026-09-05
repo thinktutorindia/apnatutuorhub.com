@@ -17,6 +17,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(clients.claim());
 });
 
+// ── Fetch Event (Required for Chrome PWA installability) ───────────────────────
+self.addEventListener("fetch", (event) => {
+  // Pass-through to network, allows normal browser caching and PWA install prompt
+});
+
 // ── Push Event ────────────────────────────────────────────────────────────────
 
 self.addEventListener("push", (event) => {

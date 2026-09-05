@@ -178,6 +178,7 @@ export function MyStaffLeadsClient({
       : "ALL"
   );
   const [viewMode, setViewMode] = useState<ViewMode>("SPLIT");
+  const [mobileView, setMobileView] = useState<"QUEUE" | "DETAIL">("QUEUE");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "TUTOR" | "PARENT">("ALL");
   const [retryFilter, setRetryFilter] = useState<"ALL" | "NEVER_ANSWERED" | "ATTEMPT_1" | "ATTEMPT_2" | "ATTEMPT_3_PLUS">("ALL");
@@ -196,6 +197,7 @@ export function MyStaffLeadsClient({
   useEffect(() => {
     if (leadIdParam && leads.some((l) => l.id === leadIdParam)) {
       setSelectedLeadId(leadIdParam);
+      setMobileView("DETAIL");
     }
   }, [leadIdParam, leads]);
 
@@ -949,10 +951,10 @@ export function MyStaffLeadsClient({
         </div>
       )}
 
-      {/* ── Simplified Calling Desk Command Bar ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs px-3.5 py-2 flex items-center justify-between gap-3 flex-wrap">
-        {/* Left: Queue Stage Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+      {/* ── Calling Desk Command Bar (Responsive 2-row layout on mobile) ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-2.5 sm:px-3.5 sm:py-2 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 sm:gap-3">
+        {/* Stage Pills (smooth horizontal swipe on mobile) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar shrink-0">
           {(
             [
               { key: "ALL" as QueueTab, label: `All (${leads.length})` },
@@ -991,70 +993,71 @@ export function MyStaffLeadsClient({
           })}
         </div>
 
-        {/* Center: Search with Quick Shortcut */}
-        <div className="relative min-w-[200px] max-w-[320px] flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            id="calling-desk-search"
-            type="text"
-            placeholder="Search leads by name, phone, area (/)..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
-          />
-          {search ? (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-            >
-              <X size={13} />
-            </button>
-          ) : (
-            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-400 bg-slate-200/70 px-1 py-0.2 rounded pointer-events-none">
-              /
-            </kbd>
-          )}
-        </div>
-
-        {/* Right: Shift Progress, Add Lead & Settings Menu */}
-        <div className="flex items-center gap-2 shrink-0 relative">
-          {/* Shift Progress Pill */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsProgressModalOpen(true);
-              fetchProgressReport();
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#0F2540] text-xs font-black cursor-pointer shadow-2xs transition-all shrink-0"
-            title="View Today's Progress & Call Log"
-          >
-            <TrendingUp size={13} className="text-[#2D9E6B]" />
-            <span>Shift: <strong className="text-emerald-800">{stats.workedToday}</strong> Calls</span>
-            {stats.converted > 0 && (
-              <span className="text-[10px] bg-[#2D9E6B] text-white px-1.5 py-0.2 rounded-md font-black">
-                {stats.converted}
-              </span>
+        {/* Search & Actions Row (Unified compact row on mobile) */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              id="calling-desk-search"
+              type="text"
+              placeholder="Search leads (/)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+            />
+            {search ? (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X size={13} />
+              </button>
+            ) : (
+              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-400 bg-slate-200/70 px-1 py-0.2 rounded pointer-events-none">
+                /
+              </kbd>
             )}
-          </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setIsNewLeadModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-[#0F2540] hover:bg-slate-800 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
-            title="Add a new lead"
-          >
-            <Plus size={14} />
-            <span>Add Lead</span>
-          </button>
+          {/* Right: Shift Progress, Add Lead & Settings */}
+          <div className="flex items-center gap-1.5 shrink-0 relative">
+            {/* Shift Progress Pill (Full on desktop, compact on mobile) */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsProgressModalOpen(true);
+                fetchProgressReport();
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#0F2540] text-xs font-black cursor-pointer shadow-2xs transition-all shrink-0"
+              title="View Today's Progress & Call Log"
+            >
+              <TrendingUp size={13} className="text-[#2D9E6B]" />
+              <span>Shift: <strong className="text-emerald-800">{stats.workedToday}</strong> Calls</span>
+              {stats.converted > 0 && (
+                <span className="text-[10px] bg-[#2D9E6B] text-white px-1.5 py-0.2 rounded-md font-black">
+                  {stats.converted}
+                </span>
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setIsSettingsOpen((prev) => !prev)}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer border border-slate-200"
-            title="Desk Settings"
-          >
-            <Settings size={15} />
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsNewLeadModalOpen(true)}
+              className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[#0F2540] hover:bg-slate-800 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95 shrink-0"
+              title="Add a new lead"
+            >
+              <Plus size={14} />
+              <span className="hidden xs:inline">Add Lead</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen((prev) => !prev)}
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer border border-slate-200 shrink-0"
+              title="Desk Settings"
+            >
+              <Settings size={15} />
+            </button>
 
           {isSettingsOpen && (
             <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 z-40 space-y-1 text-xs font-bold animate-in fade-in">
@@ -1113,11 +1116,44 @@ export function MyStaffLeadsClient({
           )}
         </div>
       </div>
+    </div>
+
+      {/* ── Mobile Queue vs Calling Desk Switcher (Phones / Small Screens) ── */}
+      <div className="lg:hidden flex items-center p-1 bg-slate-200/90 rounded-2xl mb-3 border border-slate-300 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setMobileView("QUEUE")}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            mobileView === "QUEUE"
+              ? "bg-[#0F2540] text-white shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Filter size={13} />
+          <span>Queue ({filteredLeads.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileView("DETAIL")}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            mobileView === "DETAIL"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <PhoneCall size={13} />
+          <span>
+            Calling Desk {currentLead ? `(${currentLeadIndex + 1}/${filteredLeads.length})` : ""}
+          </span>
+        </button>
+      </div>
 
       {/* ── 2-Column Split Calling Desk ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
         {/* Left Column: Lead Queue List (5 cols) */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-[calc(100vh-120px)] min-h-[460px]">
+        <div className={`lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden ${
+          mobileView === "DETAIL" ? "hidden lg:flex" : "flex"
+        } flex-col h-[calc(100vh-210px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-120px)] min-h-[460px]`}>
           {/* List Header */}
           <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs shrink-0">
             <span className="font-extrabold text-[#0F2540] flex items-center gap-2">
@@ -1168,6 +1204,7 @@ export function MyStaffLeadsClient({
                     setActiveTab("ALL");
                   }
                   setSelectedLeadId(lastWorkedLead.id);
+                  setMobileView("DETAIL");
                   showToast(`Resumed: ${lastWorkedLead.name || formatPhoneNumber(lastWorkedLead.phone)}`);
                 }}
                 className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-[#0F2540] text-[10px] font-black shrink-0 cursor-pointer shadow-2xs transition-all flex items-center gap-1 ml-2"
@@ -1225,7 +1262,10 @@ export function MyStaffLeadsClient({
                 return (
                   <div
                     key={lead.id}
-                    onClick={() => setSelectedLeadId(lead.id)}
+                    onClick={() => {
+                      setSelectedLeadId(lead.id);
+                      setMobileView("DETAIL");
+                    }}
                     className={`p-3 cursor-pointer transition-all border-l-4 ${
                       isSelected
                         ? "bg-emerald-50/90 border-emerald-600 shadow-2xs ring-1 ring-emerald-500/20"
@@ -1323,9 +1363,46 @@ export function MyStaffLeadsClient({
         </div>
 
         {/* Right Column: Calling Workspace & Console (7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-[calc(100vh-120px)] min-h-[460px]">
+        <div className={`lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden ${
+          mobileView === "QUEUE" ? "hidden lg:flex" : "flex"
+        } flex-col h-[calc(100vh-210px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-120px)] min-h-[460px]`}>
           {currentLead ? (
             <>
+              {/* Mobile Quick Navigation Bar */}
+              <div className="lg:hidden px-3.5 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMobileView("QUEUE")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-[#0F2540] font-black text-xs shadow-2xs active:scale-95 cursor-pointer"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Queue ({filteredLeads.length})</span>
+                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={advanceToPrevLead}
+                    disabled={currentLeadIndex === 0}
+                    className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold disabled:opacity-30 cursor-pointer"
+                    title="Previous Lead"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="text-[11px] font-mono font-bold text-slate-600 px-1">
+                    {currentLeadIndex + 1}/{filteredLeads.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={advanceToNextLead}
+                    disabled={currentLeadIndex + 1 >= filteredLeads.length}
+                    className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold disabled:opacity-30 cursor-pointer"
+                    title="Next Lead"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+
               {/* Sticky Contact Header */}
               <div className="p-3.5 bg-slate-50 border-b border-slate-200 space-y-2.5 shrink-0">
                 <div className="flex items-start justify-between gap-3">
@@ -1867,8 +1944,16 @@ export function MyStaffLeadsClient({
               </div>
             </>
           ) : (
-            <div className="p-16 text-center text-slate-400">
+            <div className="p-12 text-center text-slate-400 space-y-3">
               <p className="font-extrabold text-sm">Select a lead from the queue to start calling</p>
+              <button
+                type="button"
+                onClick={() => setMobileView("QUEUE")}
+                className="lg:hidden inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0F2540] text-white text-xs font-black shadow-xs cursor-pointer"
+              >
+                <ArrowLeft size={13} />
+                <span>Browse Queue</span>
+              </button>
             </div>
           )}
         </div>
@@ -1895,6 +1980,7 @@ export function MyStaffLeadsClient({
           onCreated={(newLead) => {
             setLeads((prev) => [newLead, ...prev]);
             setSelectedLeadId(newLead.id);
+            setMobileView("DETAIL");
             setIsNewLeadModalOpen(false);
             showToast("New lead added to queue!");
           }}
@@ -2088,6 +2174,7 @@ export function MyStaffLeadsClient({
                             type="button"
                             onClick={() => {
                               setSelectedLeadId(log.lead.id);
+                              setMobileView("DETAIL");
                               if (activeTab !== "ALL" && !filteredLeads.some((l) => l.id === log.lead.id)) {
                                 setActiveTab("ALL");
                               }

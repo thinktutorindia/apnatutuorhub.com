@@ -9,7 +9,25 @@ export const SUBJECT_SYNONYMS: Record<string, string[]> = {
     "mathematic",
     "mathmatics",
     "maths for class x",
+    "maths for class ix",
+    "maths for class xi",
     "maths for class xii",
+    "maths for class viii",
+    "maths for class vii",
+    "maths for class vi",
+    "maths for class v",
+    "maths for class iv",
+    "maths for class iii",
+    "science & maths",
+    "elementary maths",
+    "basic maths",
+    "high school math",
+    "vedic maths",
+    "mental maths",
+    "maths for iitjee",
+    "applied mathematics",
+    "business maths",
+    "quantitative aptitude maths",
     "algebra",
     "calculus",
     "geometry",
@@ -23,7 +41,9 @@ export const SUBJECT_SYNONYMS: Record<string, string[]> = {
     "physics for neet",
     "physics for iitjee",
     "physics for class xii",
+    "physics for class xi",
     "physics for class x",
+    "physics for class ix",
     "bhautiki",
   ],
   chemistry: [
@@ -32,6 +52,9 @@ export const SUBJECT_SYNONYMS: Record<string, string[]> = {
     "chemistry for neet",
     "chemistry for iitjee",
     "chemistry for class xii",
+    "chemistry for class xi",
+    "chemistry for class x",
+    "chemistry for class ix",
     "organic chemistry",
     "inorganic chemistry",
     "physical chemistry",
@@ -40,6 +63,10 @@ export const SUBJECT_SYNONYMS: Record<string, string[]> = {
   biology: [
     "bio",
     "biology for neet",
+    "biology for class xii",
+    "biology for class xi",
+    "biology for class x",
+    "biology for class ix",
     "botany",
     "zoology",
     "biotechnology",
@@ -106,10 +133,22 @@ export const SUBJECT_SYNONYMS: Record<string, string[]> = {
     "general science",
     "science for class x",
     "science for class ix",
+    "science for class viii",
+    "science for class vii",
+    "science for class vi",
     "science & maths",
     "evs",
     "environmental science",
     "vigyan",
+  ],
+  "all subjects": [
+    "all subjects",
+    "all subjects (kg to 10th)",
+    "class 10 all subjects",
+    "class 9 all subjects",
+    "nursery to fifth",
+    "1 to 8",
+    "class 1 to 10",
   ],
   "business studies": [
     "bst",
@@ -375,11 +414,90 @@ export function expandSubjectAliases(subject: string): string[] {
       syns.forEach((syn) => {
         aliases.add(syn);
         aliases.add(syn.charAt(0).toUpperCase() + syn.slice(1));
+        // Title Case each word (e.g. "Maths for Class X", "Science & Maths")
+        aliases.add(syn.replace(/\b[a-z]/g, (c) => c.toUpperCase()));
+        aliases.add(
+          syn
+            .split(" ")
+            .map((w) => (w.length <= 2 ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+            .join(" ")
+        );
       });
     }
   }
 
   return Array.from(aliases);
+}
+
+/**
+ * Expands a search or filter class level into all corresponding database class level tags
+ * (e.g. "Class 9-10" -> ["Class 9-10", "Class 9", "Class 10", "Class 1 to 10", "General"])
+ */
+export function expandClassLevel(cls?: string): string[] {
+  if (!cls) return [];
+  const clean = cls.trim();
+  if (!clean) return [];
+
+  const set = new Set<string>([clean, "General"]);
+
+  // Class 1-5 / Primary
+  if (/1\s*[-–to]+\s*5|primary|nursery|kg/i.test(clean)) {
+    [
+      "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+      "Nursery", "LKG", "UKG", "Nursery / KG", "Nursery to Fifth",
+      "1 to 8", "Class 1 to 10", "Class 1-5",
+    ].forEach((c) => set.add(c));
+  }
+
+  // Class 6-8 / Middle
+  if (/6\s*[-–to]+\s*8|middle/i.test(clean)) {
+    [
+      "Class 6", "Class 7", "Class 8",
+      "1 to 8", "Class 1 to 10", "Class 6-8",
+    ].forEach((c) => set.add(c));
+  }
+
+  // Class 9-10 / Secondary
+  if (/9\s*[-–to]+\s*10|secondary/i.test(clean) && !/1[12]/i.test(clean)) {
+    [
+      "Class 9", "Class 10", "Class 1 to 10", "Class 9-10",
+    ].forEach((c) => set.add(c));
+  }
+
+  // Class 11-12 / Senior
+  if (/11\s*[-–to]+\s*12|senior/i.test(clean)) {
+    [
+      "Class 11", "Class 12", "Class 11-12",
+    ].forEach((c) => set.add(c));
+  }
+
+  // Single class e.g. "Class 10", "Class 9", "Class 1"
+  const singleMatch = clean.match(/Class\s*(\d{1,2})\b/i);
+  if (singleMatch) {
+    const num = parseInt(singleMatch[1], 10);
+    set.add(`Class ${num}`);
+    if (num <= 5) {
+      ["Nursery to Fifth", "1 to 8", "Class 1 to 10", "Class 1-5"].forEach((c) => set.add(c));
+    } else if (num <= 8) {
+      ["1 to 8", "Class 1 to 10", "Class 6-8"].forEach((c) => set.add(c));
+    } else if (num <= 10) {
+      ["Class 1 to 10", "Class 9-10"].forEach((c) => set.add(c));
+    } else if (num <= 12) {
+      ["Class 11-12"].forEach((c) => set.add(c));
+    }
+  }
+
+  // College / Degree / CA / Commerce
+  if (/college|degree|b\.\s*tech|b\.\s*sc|b\.\s*com|graduation/i.test(clean)) {
+    ["College / Degree", "CA / Commerce", "Competitive Exams", "College"].forEach((c) => set.add(c));
+  }
+
+  // NEET / IIT-JEE / Competitive
+  if (/neet|jee|iit|competitive/i.test(clean)) {
+    ["NEET", "IIT-JEE", "Competitive Exams"].forEach((c) => set.add(c));
+  }
+
+  return Array.from(set);
 }
 
 export type ClassLevelInfo = {
@@ -610,12 +728,15 @@ export function parseClassAndSubject(input: string): { subject: string; classLev
   let classLevel = "";
   let subject = raw;
 
-  // 1. Check for combined class ranges e.g. "Class 1-5", "Class 9-10", "Class 11-12", "Class 6-8", "1 to 5"
+  // 1. Check for combined class ranges e.g. "Class 1-5", "Class 1–5", "Class 9-10", "Class 11-12", "Class 6-8", "1 to 5"
   const rangeMatch =
-    raw.match(/Class\s*(\d{1,2}\s*[-–to]+\s*\d{1,2})/i) ||
-    raw.match(/\b(\d{1,2}\s*[-–to]+\s*\d{1,2})\s*(?:std|class|grade)?\b/i);
+    raw.match(/Class\s*(\d{1,2}\s*[-–—to]+\s*\d{1,2})/i) ||
+    raw.match(/\b(\d{1,2}\s*[-–—to]+\s*\d{1,2})\s*(?:std|class|grade)?\b/i);
   if (rangeMatch) {
-    const cleanRange = rangeMatch[1].replace(/\s*to\s*/i, "-").replace(/\s+/g, "");
+    const cleanRange = rangeMatch[1]
+      .replace(/[–—]/g, "-")
+      .replace(/\s*to\s*/i, "-")
+      .replace(/\s+/g, "");
     classLevel = `Class ${cleanRange}`;
     subject = raw.replace(rangeMatch[0], "").trim();
   }
@@ -664,7 +785,7 @@ export function parseClassAndSubject(input: string): { subject: string; classLev
     }
   }
 
-  // 5. Check competitive entrance
+  // 5. Check competitive entrance and special stages
   if (/\bneet\b/i.test(raw)) {
     classLevel = "NEET";
     const subClean = raw.replace(/\bneet\b/gi, "").trim();
@@ -673,6 +794,35 @@ export function parseClassAndSubject(input: string): { subject: string; classLev
     classLevel = "IIT-JEE";
     const subClean = raw.replace(/\b(iit[- ]?jee|jee)\b/gi, "").trim();
     subject = subClean || "IIT-JEE";
+  } else if (/\bcuet\b/i.test(raw)) {
+    classLevel = "College";
+    const subClean = raw.replace(/\bcuet\b/gi, "").trim();
+    subject = subClean || "CUET";
+  } else if (/\bnda\b/i.test(raw)) {
+    classLevel = "Competitive";
+    const subClean = raw.replace(/\bnda\b/gi, "").trim();
+    subject = subClean || "NDA";
+  } else if (/\bclat\b/i.test(raw)) {
+    classLevel = "College";
+    const subClean = raw.replace(/\bclat\b/gi, "").trim();
+    subject = subClean || "CLAT";
+  } else if (/\bspoken\s*english\b/i.test(raw)) {
+    if (!classLevel) classLevel = "Beginner / Spoken";
+    subject = "Spoken English";
+  } else if (/\b(nursery|kindergarten|\bkg\b)/i.test(raw)) {
+    if (!classLevel) classLevel = "Nursery / KG";
+  }
+
+  // Handle stream combos (PCM, PCB, Commerce)
+  if (/\bpcm\b/i.test(raw)) {
+    if (!classLevel) classLevel = "Class 11-12";
+    subject = "Mathematics";
+  } else if (/\bpcb\b/i.test(raw)) {
+    if (!classLevel) classLevel = "Class 11-12";
+    subject = "Biology";
+  } else if (/\bcommerce\b/i.test(raw) && !subject) {
+    if (!classLevel) classLevel = "Class 11-12";
+    subject = "Accountancy";
   }
 
   // Clean remaining subject noise
@@ -680,7 +830,9 @@ export function parseClassAndSubject(input: string): { subject: string; classLev
     .replace(/^for\s+/i, "")
     .replace(/\s+for$/i, "")
     .replace(/^(in|at|of|upto)\s+/i, "")
-    .replace(/\b(tuition|classes|coaching)\b/gi, "")
+    .replace(/\b(tuition|classes|coaching|board prep|boards)\b/gi, "")
+    .replace(/[–—()]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 
   // If user entered only a class (e.g. "Class 10" or "Class 1-5"), default subject to "All Subjects"
@@ -692,4 +844,13 @@ export function parseClassAndSubject(input: string): { subject: string; classLev
 
   return { subject, classLevel };
 }
+
+export {
+  TAXONOMY_NEED_TABS,
+  type TaxonomyNeedItem,
+  type TaxonomyNeedGroup,
+  type TaxonomyNeedTab,
+  type TaxonomyNeedTabId,
+} from "@/lib/subject-taxonomy";
+
 

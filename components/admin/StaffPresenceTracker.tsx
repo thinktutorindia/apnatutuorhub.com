@@ -78,9 +78,21 @@ export function StaffPresenceTracker() {
     void sendHeartbeat(false);
     armIdleTimer();
 
-    const events: (keyof DocumentEventMap)[] = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel"];
+    const events: (keyof DocumentEventMap)[] = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "touchmove",
+      "touchend",
+      "pointerdown",
+      "pointermove",
+      "wheel",
+    ];
     events.forEach((e) => document.addEventListener(e, onActivity, { passive: true }));
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onActivity);
 
     const interval = setInterval(() => void sendHeartbeat(idleRef.current), HEARTBEAT_MS);
 
@@ -90,6 +102,7 @@ export function StaffPresenceTracker() {
       clearInterval(interval);
       events.forEach((e) => document.removeEventListener(e, onActivity));
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onActivity);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -34,6 +34,7 @@ import {
   getAllTaxonomySubjects,
   parseClassAndSubject,
 } from "@/lib/subject-matcher";
+import { TopSearchHeader } from "@/components/find-tutor/TopSearchHeader";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getWhatsAppSupportLink } from "@/lib/support";
@@ -152,6 +153,7 @@ interface WizardState {
   budgetMax: number;
   city: string;
   gender?: string;
+  radiusKm?: number;
 }
 
 function parseClassFromSubject(subject: string): string {
@@ -763,9 +765,13 @@ function PreplyTutorCard({
       ? tutor.subjects.slice(0, 3).join(", ")
       : "Core Subjects";
 
-  const locationText = tutor.city
-    ? `${tutor.city}${tutor.state ? `, ${tutor.state}` : ""}`
-    : "Local Area";
+  const tutorLocality = tutor.address?.trim();
+  const tutorCity = tutor.city?.trim();
+  const locationText = tutorLocality
+    ? tutorLocality
+    : tutorCity
+      ? `${tutorCity}${tutor.state ? `, ${tutor.state}` : ""}`
+      : "Local Area";
 
   return (
     <div
@@ -817,7 +823,7 @@ function PreplyTutorCard({
         <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
           <MapPin size={13} className="text-slate-400 shrink-0" />
           <span>
-            {locationText} (Visits Home)
+            {locationText} ({modeLabel}{tutor.teachingRadius ? ` · up to ${tutor.teachingRadius} km` : ""})
           </span>
         </div>
 
@@ -926,22 +932,31 @@ function FindTutorSidebar({
       <div>
         <h4 className="text-sm font-extrabold text-[#0F2540] mb-3">Class</h4>
         <div className="space-y-2.5">
-          {CLASS_OPTIONS.map((opt) => (
-            <label
-              key={opt.value}
-              className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={state.classLevel === opt.value}
-                onChange={() =>
-                  onChange("classLevel", state.classLevel === opt.value ? "" : opt.value)
-                }
-                className="w-4 h-4 rounded border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
-              />
-              <span>{opt.label}</span>
-            </label>
-          ))}
+          {CLASS_OPTIONS.map((opt) => {
+            const isChecked =
+              state.classLevel === opt.value ||
+              (opt.value === "Class 9-10" && (state.classLevel === "Class 9" || state.classLevel === "Class 10")) ||
+              (opt.value === "Class 11-12" && (state.classLevel === "Class 11" || state.classLevel === "Class 12")) ||
+              (opt.value === "Class 6-8" && ["Class 6", "Class 7", "Class 8"].includes(state.classLevel)) ||
+              (opt.value === "Class 1-5" &&
+                ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Nursery", "KG"].includes(state.classLevel)) ||
+              (opt.value === "College" && /college|degree/i.test(state.classLevel)) ||
+              (opt.value === "NEET" && /neet|jee|iit/i.test(state.classLevel));
+            return (
+              <label
+                key={opt.value}
+                className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => onChange("classLevel", isChecked ? "" : opt.value)}
+                  className="w-4 h-4 rounded border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                />
+                <span>{opt.label}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
 
@@ -963,6 +978,44 @@ function FindTutorSidebar({
                   )
                 }
                 className="w-4 h-4 rounded border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-extrabold text-[#0F2540]">Distance / Radius</h4>
+          {Boolean(state.radiusKm) && (
+            <button
+              type="button"
+              onClick={() => onChange("radiusKm", 0)}
+              className="text-[11px] font-bold text-slate-400 hover:text-rose-600 cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        <div className="space-y-2.5">
+          {[
+            { label: "Within 3 km (Local Neighborhood)", value: 3 },
+            { label: "Within 5 km (Nearby)", value: 5 },
+            { label: "Within 10 km (Standard Travel)", value: 10 },
+            { label: "Within 15 km (Wider City)", value: 15 },
+            { label: "Any Distance / Entire City", value: 0 },
+          ].map((opt) => (
+            <label
+              key={opt.value}
+              className="flex items-center gap-2.5 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="sidebarRadius"
+                checked={(state.radiusKm || 0) === opt.value}
+                onChange={() => onChange("radiusKm", opt.value)}
+                className="w-4 h-4 border-slate-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
               />
               <span>{opt.label}</span>
             </label>
@@ -1047,72 +1100,6 @@ function FindTutorSidebar({
   );
 }
 
-// ─── Top 3-Field Search Header Bar ────────────────────────────────────────────
-
-function TopSearchHeader({
-  state,
-  onChange,
-  onSearch,
-}: {
-  state: WizardState;
-  onChange: <K extends keyof WizardState>(key: K, val: WizardState[K]) => void;
-  onSearch: () => void;
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-2xs mb-6">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSearch();
-        }}
-        className="flex flex-col md:flex-row items-center gap-2"
-      >
-        <div className="flex items-center gap-2.5 px-3 py-2 flex-1 w-full border-b md:border-b-0 md:border-r border-slate-100">
-          <Search size={18} className="text-slate-400 shrink-0" />
-          <input
-            type="text"
-            value={state.subject}
-            onChange={(e) => onChange("subject", e.target.value)}
-            placeholder="[Selected: Class 10 Math & Science]"
-            className="w-full text-xs sm:text-sm font-semibold text-[#0F2540] placeholder:text-slate-400 outline-none"
-          />
-        </div>
-
-        <div className="flex items-center gap-2.5 px-3 py-2 flex-1 w-full border-b md:border-b-0 md:border-r border-slate-100">
-          <MapPin size={18} className="text-slate-400 shrink-0" />
-          <input
-            type="text"
-            value={state.city}
-            onChange={(e) => onChange("city", e.target.value)}
-            placeholder="[Locality: Rohini / Pitampura, Delhi]"
-            className="w-full text-xs sm:text-sm font-semibold text-[#0F2540] placeholder:text-slate-400 outline-none"
-          />
-        </div>
-
-        <div className="flex items-center gap-2.5 px-3 py-2 w-full md:w-52">
-          <Monitor size={18} className="text-slate-400 shrink-0" />
-          <select
-            value={state.mode}
-            onChange={(e) => onChange("mode", e.target.value)}
-            className="w-full text-xs sm:text-sm font-semibold text-[#0F2540] outline-none bg-transparent cursor-pointer"
-          >
-            <option value="EITHER">[Mode: Home & Online]</option>
-            <option value="OFFLINE">[Mode: Home Tuition]</option>
-            <option value="ONLINE">[Mode: Online Classes]</option>
-          </select>
-        </div>
-
-        <button
-          type="submit"
-          className="w-full md:w-auto px-7 py-2.5 rounded-xl bg-[#E08A3C] hover:bg-[#C9772F] text-white font-extrabold text-xs sm:text-sm shadow-xs transition-all shrink-0 cursor-pointer"
-        >
-          Search
-        </button>
-      </form>
-    </div>
-  );
-}
-
 // ─── Main Directory View with Left Sidebar ─────────────────────────────────────
 
 function PreplyResultsView({
@@ -1120,6 +1107,7 @@ function PreplyResultsView({
   total,
   fallbackReason,
   state,
+  loading = false,
   onFilterChange,
   onResetFilters,
   onContactClick,
@@ -1130,11 +1118,12 @@ function PreplyResultsView({
   total: number;
   fallbackReason?: string;
   state: WizardState;
+  loading?: boolean;
   onFilterChange: <K extends keyof WizardState>(key: K, val: WizardState[K]) => void;
   onResetFilters: () => void;
   onContactClick: (tutorId: string) => void;
   onRestartWizard: () => void;
-  onSearch: () => void;
+  onSearch: (customState?: WizardState) => void;
 }) {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
@@ -1145,6 +1134,7 @@ function PreplyResultsView({
     state.mode !== "EITHER" ? state.mode : null,
     state.gender,
     state.board,
+    state.radiusKm && state.radiusKm > 0 ? `${state.radiusKm}km` : null,
     state.budgetMax < 99999 ? state.budgetMax : null,
   ].filter(Boolean).length;
 
@@ -1239,9 +1229,11 @@ function PreplyResultsView({
                 Verified Tutor Cards
               </h2>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                {total > 0
-                  ? `Showing ${tutors.length} of ${total} verified teachers`
-                  : "0 tutors found"} · {state.city || "All Localities"}
+                {loading
+                  ? "Searching verified teachers..."
+                  : total > 0
+                    ? `Showing ${tutors.length} of ${total} verified teachers · ${state.city || "All Localities"}`
+                    : `0 tutors found · ${state.city || "All Localities"}`}
               </p>
             </div>
 
@@ -1325,6 +1317,17 @@ function PreplyResultsView({
                   </button>
                 </span>
               )}
+              {Boolean(state.radiusKm) && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-900 font-bold text-[11px]">
+                  🚗 Within {state.radiusKm} km
+                  <button
+                    onClick={() => onFilterChange("radiusKm", 0)}
+                    className="hover:text-rose-700 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
               <button
                 type="button"
                 onClick={onResetFilters}
@@ -1351,7 +1354,35 @@ function PreplyResultsView({
           )}
 
           {/* Cards List */}
-          {tutors.length === 0 ? (
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((n) => (
+                <div
+                  key={n}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 flex flex-col md:flex-row gap-5 items-start animate-pulse shadow-2xs"
+                >
+                  <div className="flex flex-col items-center shrink-0 w-full sm:w-auto">
+                    <div className="w-22 h-22 sm:w-24 sm:h-24 rounded-xl bg-slate-200" />
+                    <div className="mt-2.5 w-24 h-5 rounded-md bg-slate-100" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-3 w-full">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 bg-slate-200 rounded-md w-44" />
+                      <div className="h-4 bg-slate-100 rounded-md w-32" />
+                    </div>
+                    <div className="h-4 bg-slate-200 rounded-md w-60" />
+                    <div className="h-3.5 bg-slate-100 rounded-md w-36" />
+                    <div className="h-10 bg-slate-100/60 rounded-md w-full" />
+                  </div>
+                  <div className="w-full md:w-56 shrink-0 flex flex-col items-end gap-3 pt-3 md:pt-0">
+                    <div className="h-8 bg-slate-200 rounded-md w-28" />
+                    <div className="h-10 bg-slate-200 rounded-xl w-full" />
+                    <div className="h-10 bg-slate-100 rounded-xl w-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : tutors.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4 shadow-2xs">
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-3xl">
                 🔍
@@ -1461,6 +1492,8 @@ export function FindTutorWizard({
   const [gateOpen, setGateOpen] = useState(false);
   const [gateTargetId, setGateTargetId] = useState<string>("");
 
+  const queryRadius = searchParams.get("radius") || searchParams.get("radiusKm") || "";
+
   const [state, setState] = useState<WizardState>({
     subject: effectiveSubject,
     classLevel: effectiveClass,
@@ -1469,6 +1502,7 @@ export function FindTutorWizard({
     budgetMax: 10000,
     city: effectiveCity,
     gender: searchParams.get("gender") || "",
+    radiusKm: queryRadius ? Number(queryRadius) : 0,
   });
 
   const stateRef = useRef(state);
@@ -1488,6 +1522,7 @@ export function FindTutorWizard({
         budgetMax: targetState.budgetMax,
         city: targetState.city || undefined,
         gender: targetState.gender || undefined,
+        radiusKm: targetState.radiusKm || undefined,
       });
       setResults(res.tutors);
       setTotal(res.total);
@@ -1513,12 +1548,13 @@ export function FindTutorWizard({
         budgetMax: 10000,
         city: effectiveCity,
         gender: searchParams.get("gender") || "",
+        radiusKm: queryRadius ? Number(queryRadius) : 0,
       };
       setState(target);
       setPhase("results");
       void runSearch(target);
     }
-  }, [hasSearchIntent, effectiveSubject, effectiveClass, effectiveCity, searchParams, runSearch]);
+  }, [hasSearchIntent, effectiveSubject, effectiveClass, effectiveCity, searchParams, runSearch, queryRadius]);
 
   // Only update match count during questionnaire, never during directory results view
   useEffect(() => {
@@ -1652,6 +1688,7 @@ export function FindTutorWizard({
       mode: "EITHER",
       budgetMax: 99999,
       city: "",
+      radiusKm: 0,
     };
     setState(resetState);
     runSearch(resetState);
@@ -1674,9 +1711,10 @@ export function FindTutorWizard({
     budgetMax: String(state.budgetMax),
     city: state.city,
     ...(state.gender ? { gender: state.gender } : {}),
+    ...(state.radiusKm ? { radiusKm: String(state.radiusKm) } : {}),
   }).toString();
 
-  const showResults = phase === "results" && results !== null;
+  const showResults = phase === "results";
 
   return (
     <div className="relative">
@@ -1688,22 +1726,13 @@ export function FindTutorWizard({
         callbackParams={callbackParams}
       />
 
-      {/* Loading overlay - only on initial fetch before results exist */}
-      {loading && !results && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-3">
-            <Loader2 size={36} className="animate-spin text-[#16A34A]" />
-            <p className="text-sm font-extrabold text-[#0F2540]">Finding verified tutors...</p>
-          </div>
-        </div>
-      )}
-
-      {showResults && results ? (
+      {showResults ? (
         <PreplyResultsView
-          tutors={results}
+          tutors={results || []}
           total={total}
           fallbackReason={fallbackReason}
           state={state}
+          loading={loading}
           onFilterChange={handleFilterChange}
           onResetFilters={handleResetFilters}
           onContactClick={handleContactClick}
@@ -1713,7 +1742,7 @@ export function FindTutorWizard({
             setDir("back");
             setResults(null);
           }}
-          onSearch={() => runSearch()}
+          onSearch={(customState) => runSearch(customState)}
         />
       ) : (
         <NeedMatchWizard

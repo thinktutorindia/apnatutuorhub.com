@@ -30,11 +30,14 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export function PushNotificationProvider({ userId }: Props) {
   useEffect(() => {
-    if (!userId) return;
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      console.info("[push] Web Push not supported in this browser");
-      return;
-    }
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    // Unconditionally register the service worker for PWA installability and offline readiness
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/", updateViaCache: "none" })
+      .catch((err) => console.warn("[pwa] Service worker registration error:", err));
+
+    if (!userId || !("PushManager" in window)) return;
 
     async function setupPush() {
       try {

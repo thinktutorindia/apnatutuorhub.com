@@ -126,19 +126,33 @@ export function StaffShiftGate({ onClockedIn, compact = false }: Props) {
 
   if (isShiftActive && isIdle) {
     return (
-      <div className="rounded-2xl p-3.5 bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-400/40 text-amber-950 flex items-center justify-between gap-3 shadow-xs animate-in fade-in">
+      <div className="rounded-2xl p-3.5 bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-400/40 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-in fade-in">
         <div className="flex items-center gap-2.5">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
           <div>
             <p className="text-xs font-black text-amber-950 flex items-center gap-1.5">
               <MousePointer size={13} className="text-amber-600" />
-              Away — Move mouse to resume
+              Away — Tap or Move Mouse to Resume
             </p>
             <p className="text-[11px] text-amber-800 font-semibold mt-0.5">
-              Phone numbers are blurred and shift time is paused while away. Move your mouse or press any key to continue calling!
+              Shift time is paused while away. Tap anywhere, move your mouse, or tap the button to resume calling immediately!
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            const store = useStaffDutyStore.getState();
+            store.setIdleLocal(false);
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("mousemove"));
+              window.dispatchEvent(new Event("touchstart"));
+            }
+          }}
+          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs cursor-pointer shadow-xs active:scale-95 shrink-0 text-center transition-all"
+        >
+          ▶ Resume Calling Now
+        </button>
       </div>
     );
   }

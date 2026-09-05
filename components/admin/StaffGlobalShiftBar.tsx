@@ -238,92 +238,90 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
         </div>
       )}
 
-      <div className="w-full bg-white border-b border-[#E2E8F0] pl-14 pr-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 text-xs select-none sticky top-0 z-30 lg:pl-6">
-        <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-800 uppercase tracking-wider bg-[#E8F7F0] text-[#238357]">
+      <div className="w-full bg-white border-b border-[#E2E8F0] pl-14 pr-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3 text-xs select-none sticky top-0 z-30 lg:pl-6">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 overflow-x-auto no-scrollbar">
+          {/* Badge hidden on small mobile to conserve space */}
+          <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-[10px] font-800 uppercase tracking-wider bg-[#E8F7F0] text-[#238357] shrink-0">
             {isSuperAdmin ? "Super Admin" : "Staff Admin"}
           </span>
 
           {session ? (
             session.status === "ON_BREAK" ? (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-700 text-amber-800">
+              <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-800 bg-amber-50 px-2 sm:px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                On break {formatTimer(breakSec)}
+                Break {formatTimer(breakSec)}
               </span>
             ) : (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-700 text-[#238357]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#2D9E6B]" />
-                  On shift {formatTimer(elapsedSec)}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-[#238357] bg-emerald-50 px-2 sm:px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2D9E6B] animate-pulse" />
+                  <span className="hidden sm:inline">Shift</span> {formatTimer(elapsedSec)}
                 </span>
                 {isIdle ? (
                   <span
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
-                    title="Shift paused — No mouse movement for 1 minute. Time is not counting. Numbers are blurred. Move mouse to resume."
+                    className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                    title="Shift paused (idle). Tap anywhere to resume."
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    <span>⏸️ Paused (Idle &gt; 1m) · Move mouse</span>
+                    <span>⏸️ Idle</span>
                   </span>
-                ) : (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    title="Active — counting shift time &amp; tracking mouse movements"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Active
-                  </span>
-                )}
+                ) : null}
               </div>
             )
           ) : null}
 
           {session ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 shrink-0">
               <button
+                type="button"
                 onClick={handleToggleBreak}
                 disabled={isPending}
-                className="px-3 py-1.5 rounded-full font-800 text-[11px] cursor-pointer disabled:opacity-50 bg-[#FFF3DC] text-[#92400E]"
+                className="px-2 sm:px-3 py-1 rounded-full font-extrabold text-[10px] sm:text-[11px] cursor-pointer disabled:opacity-50 bg-[#FFF3DC] text-[#92400E] hover:bg-amber-200 transition-colors"
               >
-                {isPending ? <Loader2 size={12} className="animate-spin" /> : session.status === "ON_BREAK" ? "Resume" : "Break"}
+                {isPending ? <Loader2 size={11} className="animate-spin" /> : session.status === "ON_BREAK" ? "Resume" : "Break"}
               </button>
               <button
+                type="button"
                 onClick={() => setClockOutModal(true)}
                 disabled={isPending}
-                className="px-3 py-1.5 rounded-full bg-[#FEF2F2] text-[#BE123C] font-800 text-[11px] cursor-pointer disabled:opacity-50"
+                className="px-2 sm:px-3 py-1 rounded-full bg-[#FEF2F2] text-[#BE123C] hover:bg-rose-100 font-extrabold text-[10px] sm:text-[11px] cursor-pointer disabled:opacity-50 transition-colors"
               >
-                Clock out
+                Exit
               </button>
             </div>
           ) : (
             <button
+              type="button"
               onClick={handleClockIn}
               disabled={isPending}
-              className="px-3.5 py-1.5 rounded-full bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-[11px] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-2.5 sm:px-3.5 py-1 rounded-full bg-[#2D9E6B] hover:bg-[#238357] text-white font-extrabold text-[10px] sm:text-[11px] inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
             >
-              {isPending ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} />}
-              Clock In
+              {isPending ? <Loader2 size={11} className="animate-spin" /> : <Play size={10} />}
+              Start
             </button>
           )}
 
-          {/* ── Admin locked-off indicator only (no manual toggle) ── */}
+          {/* Locked-off indicator */}
           {dutyHydrated && dutyForcedOff && (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#FEF2F2] text-[#BE123C] font-800 text-[11px]" title="An admin locked you off duty">
-              <Lock size={11} /> Locked off
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FEF2F2] text-[#BE123C] font-extrabold text-[10px] shrink-0" title="Locked off duty">
+              <Lock size={10} /> Locked
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <AdminCommandPalette />
+        {/* Right side controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="hidden sm:block">
+            <AdminCommandPalette />
+          </div>
           <Link
             href="/admin/bookings"
-            className="w-10 h-10 rounded-full border border-[#E2E8F0] !text-[#0F2540] hover:bg-[#F0F4F8] inline-flex items-center justify-center"
+            className="hidden sm:inline-flex w-10 h-10 rounded-full border border-[#E2E8F0] !text-[#0F2540] hover:bg-[#F0F4F8] items-center justify-center"
             aria-label="Class requests"
           >
             <Calendar size={16} />
           </Link>
           <NotificationBell initialCount={unreadCount} viewerRole="ADMIN" />
-          <div className="w-9 h-9 rounded-full overflow-hidden bg-[#0F2540] text-white text-xs font-800 inline-flex items-center justify-center">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden bg-[#0F2540] text-white text-[11px] sm:text-xs font-extrabold inline-flex items-center justify-center shrink-0">
             {userImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={userImage} alt="" className="w-full h-full object-cover" />

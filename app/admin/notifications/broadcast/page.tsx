@@ -5,6 +5,8 @@ import { can } from "@/lib/rbac";
 import { ComposeBroadcastForm } from "@/components/admin/ComposeBroadcastForm";
 import { SendTestEmailForm } from "@/components/admin/SendTestEmailForm";
 import { SendDirectVapidPushForm } from "@/components/admin/SendDirectVapidPushForm";
+import { SendTestWhatsAppForm } from "@/components/admin/SendTestWhatsAppForm";
+import { getAquaWhatsAppStatus } from "@/lib/aqua-whatsapp";
 import { Bell, Radio } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -17,11 +19,14 @@ export default async function AdminBroadcastPage() {
     redirect("/admin/dashboard");
   }
 
-  const recentBroadcasts = await prisma.auditLog.findMany({
-    where: { action: { in: ["BROADCAST_NOTIFICATION", "SEND_DIRECT_VAPID_PUSH"] } },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-  });
+  const [recentBroadcasts, aquaStatus] = await Promise.all([
+    prisma.auditLog.findMany({
+      where: { action: { in: ["BROADCAST_NOTIFICATION", "SEND_DIRECT_VAPID_PUSH", "SEND_TEST_WHATSAPP"] } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
+    getAquaWhatsAppStatus(),
+  ]);
 
   return (
     <div className="space-y-6 text-slate-900">
@@ -33,7 +38,7 @@ export default async function AdminBroadcastPage() {
             Broadcast Dispatch
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Platform-wide announcements, VAPID web push, and Resend mailer tests
+            Platform-wide announcements, VAPID web push, Resend mailer tests, and Aqua WhatsApp demo sends
           </p>
         </div>
       </div>
@@ -47,6 +52,7 @@ export default async function AdminBroadcastPage() {
 
         {/* Right Column: Send Test Email + Recent Broadcasts */}
         <div className="space-y-6">
+          <SendTestWhatsAppForm status={aquaStatus} />
           <SendTestEmailForm currentUserEmail={session.user.email ?? undefined} />
 
           <div className="ath-panel p-6 space-y-4">

@@ -15,6 +15,7 @@ import {
 } from "@/app/actions/staff-leads.actions";
 import type { StaffLeadStatus } from "@prisma/client";
 import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
+import { StaffLeadsNavHeader } from "@/components/admin/staff-leads/StaffLeadsNavHeader";
 
 type Lead = {
   id: string;
@@ -164,18 +165,21 @@ export function StaffLeadsAssignClient({ leads: initialLeads, totalPoolCount = 0
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="ath-panel flex items-center justify-between flex-wrap gap-4 p-6">
+      {/* ── Unified Nav Header ── */}
+      <StaffLeadsNavHeader
+        activeKey="assign"
+        totalLeads={totalPool}
+        subtitle="Split raw unassigned contacts across active telecallers with fair-share quotas."
+      />
+
+      {/* Quick Action Ribbon */}
+      <div className="ath-panel flex items-center justify-between flex-wrap gap-4 p-4 sm:p-5">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
-            <span className="text-[11px] font-700 text-slate-500">
-              <strong className="text-[#2D9E6B] font-800">{totalPool.toLocaleString()}</strong> unassigned {totalPool > leads.length ? `(showing ${leads.length})` : ""}
-            </span>
-          </div>
-          <h1 className="text-2xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>Assign Leads</h1>
-          <p className="text-xs text-slate-600 mt-0.5 font-600">
-            Split raw contacts across staff. Classify Parent vs Tutor after assignment, on the calling desk.
+          <span className="text-[11px] font-bold text-slate-500">
+            Unassigned Lead Pool: <strong className="text-[#2D9E6B] font-extrabold">{totalPool.toLocaleString()}</strong> {totalPool > leads.length ? `(showing ${leads.length})` : ""}
+          </span>
+          <p className="text-xs text-slate-600 mt-0.5 font-semibold">
+            Choose staff members below to distribute contacts evenly or specify custom quotas.
           </p>
         </div>
 

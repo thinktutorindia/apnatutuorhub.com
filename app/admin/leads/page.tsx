@@ -227,80 +227,92 @@ export default async function AdminLeadsPage({
   ];
 
   return (
-    <div className="space-y-6 text-slate-900">
-      {/* Page Header */}
-      <div className="ath-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
-        <div className="space-y-1">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
-          <h1
-            className="text-2xl font-800 text-[#0F2540]"
-            style={{ fontFamily: "Poppins, sans-serif" }}
-          >
-            Student Leads Feed
-          </h1>
-          <p className="text-xs text-slate-600 font-600">
-            {total.toLocaleString("en-IN")} live parent tuition posts. Raw WhatsApp dumps stay in Staff CRM until you classify them.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <CreateLeadModal />
-          {isSuperAdmin && (
-            <ExportCsvButton label="Export Leads CSV" action={exportLeadsCsv} />
-          )}
+    <div className="space-y-6 text-slate-900 pb-12">
+      {/* Executive Page Header */}
+      <div className="rounded-3xl bg-gradient-to-r from-[#0F2540] via-[#162D4A] to-[#0F2540] p-6 sm:p-7 text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-400">
+                Tuition Marketplace
+              </span>
+              <span className="text-white/40">·</span>
+              <span className="text-xs font-bold text-amber-300 bg-amber-400/10 px-2.5 py-0.5 rounded-full border border-amber-400/20">
+                {total.toLocaleString("en-IN")} Live Enquiries
+              </span>
+            </div>
+            <h1
+              className="text-2xl sm:text-3xl font-black tracking-tight text-white"
+              style={{ fontFamily: "Poppins, sans-serif" }}
+            >
+              Student Leads &amp; Requirements
+            </h1>
+            <p className="text-xs text-slate-300 font-medium max-w-xl">
+              Verified parent tuition requests. Moderate pricing, match local tutors, or broadcast via SMS &amp; WhatsApp.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <CreateLeadModal />
+            {isSuperAdmin && (
+              <ExportCsvButton label="Export Leads CSV" action={exportLeadsCsv} />
+            )}
+          </div>
         </div>
       </div>
 
       <StudentLeadsPlaybook />
 
-      {/* Filters */}
+      {/* Modern Filter Card */}
       <form
         method="GET"
-        className="ath-panel flex flex-wrap gap-3 p-4"
+        className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-wrap gap-3 items-center"
       >
-        <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 bg-slate-50 border border-slate-300 min-w-0 w-full sm:min-w-[200px] sm:flex-1">
-          <Search size={16} className="text-slate-500 shrink-0" />
+        <div className="flex flex-1 items-center gap-2 rounded-xl px-3.5 py-2.5 bg-slate-50 border border-slate-200 min-w-0 w-full sm:min-w-[220px] focus-within:bg-white focus-within:border-[#0F2540] transition-colors">
+          <Search size={15} className="text-slate-400 shrink-0" />
           <input
             name="q"
             defaultValue={q}
             placeholder="Search by city, area, class, subjects..."
-            className="flex-1 bg-transparent text-xs font-bold text-slate-900 outline-none placeholder:text-slate-400"
+            className="flex-1 bg-transparent text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400"
           />
         </div>
         <select
           name="status"
           defaultValue={statusFilter}
-          className="rounded-2xl px-4 py-2.5 text-xs font-bold bg-slate-50 border border-slate-300 text-slate-900 outline-none cursor-pointer"
+          className="rounded-xl px-3.5 py-2.5 text-xs font-bold bg-slate-50 border border-slate-200 text-slate-800 outline-none cursor-pointer focus:border-[#0F2540]"
         >
           <option value="">All Lead Statuses</option>
           {ALL_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s}
+              {s.replace(/_/g, " ")}
             </option>
           ))}
         </select>
         <button
           type="submit"
-          className="px-5 py-2.5 rounded-full bg-[#2D9E6B] hover:bg-[#238357] text-white font-800 text-xs cursor-pointer"
+          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-xs cursor-pointer transition-all"
         >
           Filter Leads
         </button>
         {(q || statusFilter) && (
           <Link
             href="/admin/leads"
-            className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors flex items-center gap-1"
+            className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors flex items-center gap-1"
           >
             <X size={13} /> Reset
           </Link>
         )}
       </form>
 
-      {/* Leads Table */}
-      <div className="overflow-hidden ath-panel">
+      {/* Leads Table Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-50/90 border-b border-slate-200">
-                <th className="px-5 py-4 font-black uppercase tracking-wider text-slate-900 w-72">
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                <th className="px-5 py-3.5 font-black uppercase tracking-wider text-[11px] w-72">
                   Enquiry &amp; Subjects
                 </th>
                 <th className="px-4 py-4 font-black uppercase tracking-wider text-slate-900 w-44">

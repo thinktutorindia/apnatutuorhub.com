@@ -63,16 +63,19 @@ export default async function PostRequirementPage({
   const initialCity = params?.city?.trim() || parentProfile.city || "";
 
   return (
-    <div className="space-y-6 text-slate-900">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 ath-panel">
-        <div className="space-y-1.5">
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Free for parents</span>
-          <h1 className="text-2xl sm:text-3xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Tell us what your child needs
+    <div className="space-y-6 text-slate-900 pb-12">
+      {/* Friendly Header Card */}
+      <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-[#0F2540] to-[#163356] text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 space-y-2 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            100% Free for Parents · Zero Advance · Free Demo
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            Find the Perfect Tutor for Your Child
           </h1>
-          <p className="text-sm text-slate-600 font-500 max-w-xl">
-            Just the class, subject and your area. Verified tutors nearby will see it and reach out, usually within a few hours.
+          <p className="text-sm text-slate-200 leading-relaxed font-medium">
+            Fill in your child&apos;s class, subject, and locality below. Verified local teachers will reach out, usually within 2 hours.
           </p>
         </div>
       </div>
@@ -100,20 +103,20 @@ export default async function PostRequirementPage({
         }}
       />
 
-      {/* Reassurance strip (matches the promise parents see everywhere) */}
-      <div className="ath-panel p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Trust & Reassurance strip */}
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-5">
         {[
-          { icon: ShieldCheck, title: "100% verified teachers", sub: "Aadhaar & degree checked" },
-          { icon: HandCoins, title: "Pay only when satisfied", sub: "No advance, no parent fees" },
-          { icon: GraduationCap, title: "Free demo class first", sub: "Meet the tutor before you decide" },
+          { icon: ShieldCheck, title: "100% Verified Teachers", sub: "Aadhaar, address & degree verified" },
+          { icon: HandCoins, title: "Pay Only If Satisfied", sub: "Free demo class before making any payment" },
+          { icon: GraduationCap, title: "Personalized Matching", sub: "Home tutors near you or 1-on-1 online" },
         ].map((item) => (
-          <div key={item.title} className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[#2D9E6B] border border-emerald-100 shrink-0">
+          <div key={item.title} className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 shrink-0">
               <item.icon size={20} />
             </div>
             <div>
-              <p className="text-sm font-800 text-[#0F2540] leading-tight">{item.title}</p>
-              <p className="text-xs font-500 text-slate-500">{item.sub}</p>
+              <p className="text-sm font-extrabold text-[#0F2540] leading-tight">{item.title}</p>
+              <p className="text-xs font-medium text-slate-500 mt-0.5">{item.sub}</p>
             </div>
           </div>
         ))}

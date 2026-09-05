@@ -6,6 +6,16 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/action-resu
 import { revalidatePath } from "next/cache";
 import { broadcastNotification, sendNotification, type BroadcastTarget } from "@/lib/aws-notification";
 import { sendWebPush } from "@/lib/web-push";
+import {
+  getAquaWhatsAppConfig,
+  getAquaWhatsAppStatus,
+  normalizeIndiaWhatsApp,
+  parseAquaTemplatePlaceholders,
+  probeAquaWhatsAppLogin,
+  sendAquaWhatsAppMessage,
+  type AquaSendMode,
+  type AquaWhatsAppStatus,
+} from "@/lib/aqua-whatsapp";
 import { z } from "zod";
 
 // ── Mark Single Notification as Read ──────────────────────────────────────────
@@ -275,6 +285,111 @@ export async function sendTestEmailAction(
   });
 
   return actionSuccess({ sent: true, recipient: parsed.data.recipientEmail });
+}
+
+// ── Aqua SMS WhatsApp (credit-capped test + status) ───────────────────────────
+
+export async function getAquaWhatsAppStatusAction(): Promise<ActionResult<AquaWhatsAppStatus>> {
+  const session = await auth();
+  if (!session?.user) return actionError("Unauthenticated");
+  if (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN") {
+    return actionError("Forbidden");
+  }
+
+  return actionSuccess(await getAquaWhatsAppStatus());
+}
+
+export async function probeAquaWhatsAppLoginAction(): Promise<ActionResult<{ ok: boolean; message: string }>> {
+  const session = await auth();
+  if (!session?.user) return actionError("Unauthenticated");
+  if (session.user.role !== "SUPER_ADMIN") {
+    return actionError("Only Super Admins can probe the Aqua SMS API");
+  }
+
+  const result = await probeAquaWhatsAppLogin();
+  return actionSuccess({
+    ok: result.ok,
+    message: result.ok ? "Aqua SMS accepted the login probe." : (result.error ?? "Login probe failed"),
+  });
+}
+
+const testWhatsAppSchema = z.object({
+  recipientPhone: z.string().min(10, "Mobile number is required"),
+  mode: z.enum(["template", "text"]),
+  templateId: z.string().optional(),
+  placeholders: z.string().optional(),
+  message: z.string().optional(),
+  confirmSpend: z.string().refine((value) => value === "yes", "Confirm the small credit spend before sending."),
+});
+
+export type TestWhatsAppResult = ActionResult<{
+  sent: true;
+  recipient: string;
+  providerMessageId?: string;
+  billedEstimateInr?: number;
+  dailyRemaining: number;
+}>;
+
+export async function sendTestWhatsAppAction(
+  _prevState: TestWhatsAppResult,
+  formData: FormData
+): Promise<TestWhatsAppResult> {
+  const session = await auth();
+  if (!session?.user) return actionError("Unauthenticated");
+  if (session.user.role !== "SUPER_ADMIN") {
+    return actionError("Only Super Admins can spend Aqua SMS WhatsApp credits");
+  }
+
+  const parsed = testWhatsAppSchema.safeParse({
+    recipientPhone: formData.get("recipientPhone"),
+    mode: formData.get("mode") || "template",
+    templateId: formData.get("templateId") || undefined,
+    placeholders: formData.get("placeholders") || undefined,
+    message: formData.get("message") || undefined,
+    confirmSpend: formData.get("confirmSpend") || undefined,
+  });
+
+  if (!parsed.success) {
+    return actionError(parsed.error.issues[0]?.message ?? "Invalid input");
+  }
+
+  const phone = normalizeIndiaWhatsApp(parsed.data.recipientPhone);
+  if (!phone) return actionError("Enter a valid Indian mobile number (10 digits or 91…).");
+
+  const cfg = getAquaWhatsAppConfig();
+  const mode = parsed.data.mode as AquaSendMode;
+  const placeholders = parseAquaTemplatePlaceholders(parsed.data.placeholders);
+
+  const sendRes = await sendAquaWhatsAppMessage({
+    to: phone,
+    mode,
+    templateId: parsed.data.templateId || cfg.defaultTemplateId,
+    placeholders,
+    text: parsed.data.message,
+  });
+
+  if (!sendRes.ok) {
+    return actionError(sendRes.error ?? "Aqua SMS did not accept the message");
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      adminId: session.user.id,
+      action: "SEND_TEST_WHATSAPP",
+      entityType: "WhatsApp",
+      details: `Sent Aqua ${mode} WhatsApp to ${phone}${sendRes.providerMessageId ? ` (id ${sendRes.providerMessageId})` : ""}`,
+    },
+  });
+
+  const status = await getAquaWhatsAppStatus();
+  revalidatePath("/admin/notifications/broadcast");
+  return actionSuccess({
+    sent: true,
+    recipient: phone,
+    providerMessageId: sendRes.providerMessageId,
+    billedEstimateInr: sendRes.billedEstimateInr,
+    dailyRemaining: status.dailyRemaining,
+  });
 }
 
 // ── Notification & Communication Usage & Limits Actions ───────────────────────

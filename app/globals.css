@@ -136,17 +136,21 @@ input, select, textarea, button, a {
   max-width: 100%;
 }
 
-/* Hide native scrollbar on horizontal pill rows without losing scroll */
+/* Modern sleek scrollbar for admin sidebar */
 .admin-sidebar-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  scrollbar-gutter: stable;
 }
 .admin-sidebar-scroll::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 .admin-sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+.admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 .admin-sidebar-scroll::-webkit-scrollbar-track {
   background: transparent;

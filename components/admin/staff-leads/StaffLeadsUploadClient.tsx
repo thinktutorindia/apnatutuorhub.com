@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { SUBJECT_TAXONOMY, CLASS_LEVELS, SUBJECTS } from "@/lib/validations";
+import { StaffLeadsNavHeader } from "@/components/admin/staff-leads/StaffLeadsNavHeader";
 
 type TabMode =
   | "READY"
@@ -1470,17 +1471,11 @@ export function StaffLeadsUploadClient() {
   // ── Paste Step ──
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
-          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>Bulk Upload</h1>
-          <p className="text-sm text-slate-600 mt-1 font-600">Paste a WhatsApp export. Gemini extracts contacts — mark each as Tutor or Parent before saving.</p>
-        </div>
-        <Link href="/admin/staff-leads" className="text-sm text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold">
-          ← Back to CRM
-        </Link>
-      </div>
+      {/* ── Unified Nav Header ── */}
+      <StaffLeadsNavHeader
+        activeKey="upload"
+        subtitle="Ingest WhatsApp or bulk raw text contacts with Gemini AI extraction and deduplication."
+      />
 
       {/* Info badges */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

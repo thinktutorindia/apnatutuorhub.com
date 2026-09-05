@@ -17,6 +17,7 @@ import {
   StaffWorkSessionReportItem
 } from "@/app/actions/staff-leads.actions";
 import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
+import { StaffLeadsNavHeader } from "@/components/admin/staff-leads/StaffLeadsNavHeader";
 
 type DailyBreakdownItem = {
   dateKey: string;
@@ -350,46 +351,111 @@ export function StaffCrmReportsClient({
 
   const onlineStaffCount = liveStatus?.online.length ?? 0;
 
+  const downloadCsv = (filename: string, rows: (string | number)[][]) => {
+    const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportTimesheetsCsv = () => {
+    const headers = ["Staff Name", "Role", "Clock In", "Clock Out", "Duration", "Break (mins)", "Calls Made", "Converted", "Follow-ups Set"];
+    const rows = filteredSessions.map((s) => [
+      s.staffName,
+      s.subAdminRole || "Staff",
+      new Date(s.clockIn).toLocaleString("en-IN"),
+      s.clockOut ? new Date(s.clockOut).toLocaleString("en-IN") : "Active",
+      formatMinutes(s.totalMinutes),
+      s.totalBreakMins,
+      s.callsMade,
+      s.leadsConverted,
+      s.followUpsSet,
+    ]);
+    downloadCsv(`crm-timesheets-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows]);
+  };
+
+  const exportDailyBreakdownCsv = () => {
+    const headers = ["Date", "Total Calls", "Answered", "Converted", "Callbacks", "No Answer", "Active Staff"];
+    const rows = dailyBreakdown.map((d) => [
+      d.displayDate,
+      d.totalCalls,
+      d.answered,
+      d.converted,
+      d.callbacks,
+      d.noAnswer,
+      d.activeStaffCount,
+    ]);
+    downloadCsv(`crm-daily-breakdown-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows]);
+  };
+
+  const exportMatrixCsv = () => {
+    const headers = ["Staff Name", "Email", "Role", "Total Shifts", "Total Hours", "Total Calls", "Answered", "Converted", "Conversion Rate", "Callbacks", "No Answer", "Avg Calls/Day", "Assigned Leads"];
+    const rows = staffWeeklyMatrix.map((m) => [
+      m.staffName,
+      m.email,
+      m.subAdminRole || "Staff",
+      m.totalShifts,
+      m.totalHoursLogged,
+      m.totalCalls,
+      m.answered,
+      m.converted,
+      m.totalCalls > 0 ? `${Math.round((m.converted / m.totalCalls) * 100)}%` : "0%",
+      m.callbacks,
+      m.noAnswer,
+      m.avgCallsPerDay,
+      m.currentAssigned,
+    ]);
+    downloadCsv(`crm-staff-leaderboard-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows]);
+  };
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* ── Top Header ── */}
-      <div className="ath-panel flex items-center justify-between flex-wrap gap-4 p-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link
-              href="/admin/staff-leads"
-              className="text-xs font-700 text-slate-500 hover:text-[#0F2540] flex items-center gap-1"
-            >
-              <ArrowLeft size={12} /> Back to CRM
-            </Link>
-            <span className="text-slate-300">·</span>
-            <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">
-              Staff CRM
-            </span>
-          </div>
-          <h1 className="text-2xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Reports
-          </h1>
-          <p className="text-xs text-slate-600 mt-0.5 font-600">
-            Calls, conversions, timesheets, and follow-ups — previous work and what is still due.
-          </p>
-        </div>
+    <div className="max-w-7xl mx-auto space-y-5">
+      {/* ── Unified Nav Header ── */}
+      <StaffLeadsNavHeader
+        activeKey="reports"
+        onlineCount={onlineStaffCount}
+        subtitle="Live timesheets, daily call throughput, conversion rates, and per-staff audit logs."
+      />
+
+      {/* ── Sub-header Actions Strip ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+        <span className="text-xs font-bold text-slate-600 flex items-center gap-2">
+          <BarChart3 size={15} className="text-purple-600" />
+          <span>Detailed CRM Performance Metrics &amp; Audit Logs</span>
+        </span>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Link
-            href="/admin/staff-leads/my-dashboard"
-            className="px-4 py-2 rounded-full bg-[#0F2540] text-white text-xs font-800 hover:bg-[#1e3a5f] flex items-center gap-1.5"
-          >
-            <Clock size={14} className="text-[#2D9E6B]" /> My Dashboard
-          </Link>
-          <Link
-            href="/admin/staff-leads/manage"
-            className="px-4 py-2 rounded-full border border-slate-200 text-xs font-800 text-[#0F2540] bg-white hover:bg-slate-50"
-          >
-            <Shield size={14} className="text-[#2D9E6B]" /> Lead Pipeline
-          </Link>
+          {activeTab === "TIMESHEETS" && (
+            <button
+              onClick={exportTimesheetsCsv}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-900 text-xs font-bold text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            >
+              <Download size={13} /> Export Timesheets
+            </button>
+          )}
+          {activeTab === "DAILY" && (
+            <button
+              onClick={exportDailyBreakdownCsv}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-900 text-xs font-bold text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            >
+              <Download size={13} /> Export Daily CSV
+            </button>
+          )}
+          {activeTab === "STAFF_MATRIX" && (
+            <button
+              onClick={exportMatrixCsv}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-900 text-xs font-bold text-white hover:bg-slate-800 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            >
+              <Download size={13} /> Export Leaderboard
+            </button>
+          )}
         </div>
       </div>
+
 
       <StaffCrmPlaybook compact />
 

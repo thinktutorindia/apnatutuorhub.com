@@ -172,6 +172,24 @@ enum ReminderUrgency {
   CRITICAL
 }
 
+enum StaffDutyStatus {
+  ON_DUTY
+  OFF_DUTY
+}
+
+enum StaffActivityType {
+  NAVIGATE
+  IDLE
+  ACTIVE
+  DUTY_ON
+  DUTY_OFF
+  FORCED_OFF
+  FORCED_ON
+  REVEAL_CONTACT
+  EXPORT
+  RATE_LIMIT_HIT
+}
+
 // ────────────────────────────────────────────────
 // User & Auth
 // ────────────────────────────────────────────────
@@ -213,6 +231,8 @@ model User {
   staffLeadCallLogs  StaffLeadCallLog[] @relation("StaffLeadCaller")
   staffWorkSessions      StaffWorkSession[]       @relation("StaffWorkSessions")
   staffFollowUpReminders StaffFollowUpReminder[]  @relation("StaffFollowUpReminders")
+  staffPresence          StaffPresence?           @relation("StaffPresence")
+  staffActivityEvents    StaffActivityEvent[]     @relation("StaffActivityEvents")
 
   @@map("users")
 }
@@ -1020,4 +1040,61 @@ model StaffLeadBatchProgress {
   lastUpdatedAt    DateTime      @default(now()) @updatedAt
 
   @@map("staff_lead_batch_progress")
+}
+
+// ────────────────────────────────────────────────
+// Staff Presence, Duty & Anti-Data-Theft tracking
+// ────────────────────────────────────────────────
+
+/// Live presence + duty state for a staff member (1:1 with User).
+/// Duty gates access to sensitive lead contact data. Heartbeats keep the
+/// live board fresh; idle detection and admin overrides flip effective duty.
+model StaffPresence {
+  id           String          @id @default(cuid())
+  staffId      String          @unique
+  staff        User            @relation("StaffPresence", fields: [staffId], references: [id], onDelete: Cascade)
+
+  dutyStatus   StaffDutyStatus @default(OFF_DUTY)
+  /// When true, an admin has force-locked this staff OFF duty (blurs all data).
+  forcedOff    Boolean         @default(false)
+  forcedById   String?
+  forcedAt     DateTime?
+
+  // Live heartbeat state
+  online       Boolean         @default(false)
+  isIdle       Boolean         @default(false)
+  currentPath  String?
+  lastSeenAt   DateTime?
+  lastActiveAt DateTime?
+  sessionId    String?
+
+  // Rolling anti-theft counters (reset each UTC day by the reveal action)
+  revealCount  Int             @default(0)
+  revealDate   DateTime?
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([dutyStatus])
+  @@index([online])
+  @@map("staff_presence")
+}
+
+/// Append-only movement / anti-theft audit trail for staff.
+model StaffActivityEvent {
+  id        String            @id @default(cuid())
+  staffId   String
+  staff     User              @relation("StaffActivityEvents", fields: [staffId], references: [id], onDelete: Cascade)
+
+  type      StaffActivityType
+  path      String?
+  detail    String?           @db.Text
+  leadId    String?
+  ipAddress String?
+  createdAt DateTime          @default(now())
+
+  @@index([staffId, createdAt])
+  @@index([type, createdAt])
+  @@index([leadId])
+  @@map("staff_activity_events")
 }

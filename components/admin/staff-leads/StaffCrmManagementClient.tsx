@@ -14,6 +14,7 @@ import {
   bulkReassignLeadsAction
 } from "@/app/actions/staff-leads.actions";
 import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
+import { StaffLeadsNavHeader } from "@/components/admin/staff-leads/StaffLeadsNavHeader";
 
 type StaffStat = {
   id: string;
@@ -112,32 +113,13 @@ export function StaffCrmManagementClient({
   const totalLeads = Object.values(initialStatusBreakdown).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="ath-panel flex items-center justify-between flex-wrap gap-4 p-5 sm:p-6">
-        <div>
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
-          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>Lead Pipeline</h1>
-          <p className="text-sm text-slate-600 mt-1 font-600">
-            Daily allocation, rotations, staff performance, and batch staging. Calling work still happens in My Queue.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <Link
-            href="/admin/staff-leads/upload"
-            className="px-4 py-2.5 rounded-full bg-[#2D9E6B] text-white text-sm font-800 hover:bg-[#238357] flex items-center gap-2"
-          >
-            <Sparkles size={16} /> Bulk Upload
-          </Link>
-          <Link
-            href="/admin/staff-leads"
-            className="px-4 py-2.5 rounded-full border border-slate-200 text-sm font-800 text-[#0F2540] hover:bg-slate-50"
-          >
-            Staff CRM Dashboard
-          </Link>
-        </div>
-      </div>
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* ── Unified Nav Header ── */}
+      <StaffLeadsNavHeader
+        activeKey="manage"
+        totalLeads={totalLeads}
+        subtitle="Daily allocation, team fair-share auto-distribution, staff performance, and batch staging."
+      />
 
       <StaffCrmPlaybook compact />
 

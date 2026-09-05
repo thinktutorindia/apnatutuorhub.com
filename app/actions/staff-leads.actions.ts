@@ -46,10 +46,8 @@ async function requireAssignedOrCrmOps(leadId: string) {
   const lead = await prisma.staffLead.findUnique({ where: { id: leadId } });
   if (!lead) return { error: "Lead not found", session: result.session, lead: null };
 
-  if (result.session.user.role === "SUPER_ADMIN") {
-    return { error: null, session: result.session, lead };
-  }
-  if (result.session.user.subAdminRole === "OPERATIONS") {
+  // Allow Super Admin, any Sub Admin staff, or the assigned agent
+  if (result.session.user.role === "SUPER_ADMIN" || result.session.user.role === "SUB_ADMIN") {
     return { error: null, session: result.session, lead };
   }
   if (lead.assignedToId === result.session.user.id) {
@@ -885,6 +883,81 @@ export async function updateStaffLeadAction(
   return actionSuccess({ lead: updated });
 }
 
+export async function createSingleStaffLeadAction(data: {
+  name: string;
+  phone: string;
+  altPhone?: string;
+  whatsapp?: string;
+  email?: string;
+  location?: string;
+  fullAddress?: string;
+  pincode?: string;
+  qualification?: string;
+  experienceYears?: number;
+  gender?: string;
+  board?: string;
+  subjects?: string[];
+  classes?: string[];
+  status?: StaffLeadStatus;
+  staffNotes?: string;
+  priority?: number;
+  recordType?: "TUTOR" | "PARENT";
+}): Promise<ActionResult<{ lead: any }>> {
+  const { error, session } = await requireCrmOps();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const cleanPhone = data.phone?.replace(/\D/g, "").slice(-10);
+  if (!cleanPhone || cleanPhone.length < 10) {
+    return actionError("A valid 10-digit mobile number is required");
+  }
+
+  let finalNotes = data.staffNotes?.trim() || "";
+  if (data.recordType) {
+    finalNotes = applyStaffRecordType(finalNotes, data.recordType);
+  }
+
+  const lead = await prisma.staffLead.create({
+    data: {
+      name: data.name?.trim() || null,
+      phone: cleanPhone,
+      altPhone: data.altPhone?.trim() || null,
+      whatsapp: data.whatsapp?.trim() || null,
+      email: data.email?.trim().toLowerCase() || null,
+      location: data.location?.trim() || null,
+      fullAddress: data.fullAddress?.trim() || null,
+      pincode: data.pincode?.trim() || null,
+      qualification: data.qualification?.trim() || null,
+      experienceYears: data.experienceYears ?? null,
+      gender: data.gender?.trim() || null,
+      board: data.board?.trim() || null,
+      subjects: data.subjects || [],
+      classes: data.classes || [],
+      status: data.status || "NEW",
+      staffNotes: finalNotes || null,
+      priority: data.priority ?? 0,
+      assignedToId: session.user.id,
+      createdById: session.user.id,
+    },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  revalidatePath("/admin/staff-leads/my-leads");
+  return actionSuccess({ lead });
+}
+
+export async function deleteStaffLeadAction(leadId: string): Promise<ActionResult<{ success: true }>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  await prisma.staffLead.delete({
+    where: { id: leadId },
+  });
+
+  revalidatePath("/admin/staff-leads");
+  revalidatePath("/admin/staff-leads/my-leads");
+  return actionSuccess({ success: true });
+}
+
 export async function setStaffLeadRecordTypeAction(
   leadId: string,
   type: "TUTOR" | "PARENT"
@@ -1249,7 +1322,8 @@ export async function autoRotateLeadsAction(): Promise<ActionResult<{ rotated: n
 // ─── 7. Promote lead to real TutorProfile (one-click) ────────────────────────
 
 export async function promoteLeadToProfileAction(
-  leadId: string
+  leadId: string,
+  notes?: string
 ): Promise<ActionResult<{ userId: string; tutorProfileId: string; isNewUser: boolean; temporaryPassword?: string }>> {
   const { error, session, lead } = await requireAssignedOrCrmOps(leadId);
   if (error || !session?.user || !lead) return actionError(error ?? "Unauthorized");
@@ -1265,124 +1339,318 @@ export async function promoteLeadToProfileAction(
   }
 
   const phone = lead.phone?.trim() || null;
-  const email = lead.email?.trim().toLowerCase() || (phone ? `tutor_${phone}@apnatutorhub.com` : null);
+  const cleanPhone = lead.phone ? lead.phone.replace(/\D/g, "").slice(-10) : null;
+  const email = lead.email?.trim().toLowerCase() || (cleanPhone ? `tutor_${cleanPhone}@apnatutorhub.com` : null);
 
   if (!email && !phone) {
     return actionError("Lead must have at least a phone number or email address to create a primary Tutor account.");
   }
 
-  // 1. Check if user already exists
-  let user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        ...(email ? [{ email: { equals: email, mode: "insensitive" as const } }] : []),
-        ...(phone ? [{ phone }] : []),
-      ],
-    },
-    include: { tutorProfile: true },
-  });
+  try {
+    const phoneVariations = cleanPhone ? [cleanPhone, `+91${cleanPhone}`, `+91 ${cleanPhone}`, lead.phone].filter(Boolean) as string[] : [];
 
-  let isNewUser = false;
-  let temporaryPassword: string | undefined;
-
-  if (!user) {
-    temporaryPassword = "Apnatutor@123";
-    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
-
-    user = await prisma.user.create({
-      data: {
-        name: lead.name || "Tutor",
-        email: email!,
-        phone: phone,
-        role: "TUTOR",
-        passwordHash,
-        emailVerified: new Date(),
-        isActive: true,
+    // 1. Check if user already exists
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(email ? [{ email: { equals: email, mode: "insensitive" as const } }] : []),
+          ...(phoneVariations.length > 0 ? [{ phone: { in: phoneVariations } }] : []),
+        ],
       },
       include: { tutorProfile: true },
     });
-    isNewUser = true;
-  } else if (user.role !== "TUTOR" && user.role !== "SUPER_ADMIN" && user.role !== "SUB_ADMIN") {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { role: "TUTOR" },
-    });
-  }
 
-  // 2. Create or update TutorProfile
-  let tutorProfile = user.tutorProfile;
-  if (!tutorProfile) {
-    tutorProfile = await prisma.tutorProfile.create({
-      data: {
-        userId: user.id,
-        qualification: lead.qualification || "Graduate",
-        experience: lead.experienceYears || 1,
-        subjects: lead.subjects.length > 0 ? lead.subjects : ["All Subjects"],
-        classLevels: lead.classes.length > 0 ? lead.classes : ["Class 1 to 10"],
-        city: lead.location || "Delhi",
-        address: lead.fullAddress || lead.location || null,
-        pincode: lead.pincode || null,
-        gender: lead.gender === "Female" ? "FEMALE" : "MALE",
-        teachingMode: "EITHER",
-        isVerified: false,
-        kycStatus: "PENDING",
-        subscriptionPlan: "NONE",
-        wallet: {
-          create: {
-            balance: 50,
+    let isNewUser = false;
+    let temporaryPassword: string | undefined;
+
+    if (!user) {
+      temporaryPassword = "Apnatutor@123";
+      const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+      // Verify email doesn't collide
+      const emailExists = await prisma.user.findUnique({ where: { email: email! } });
+      const finalEmail = emailExists ? `tutor_${cleanPhone || Date.now()}@apnatutorhub.com` : email!;
+
+      user = await prisma.user.create({
+        data: {
+          name: lead.name?.trim() || (cleanPhone ? `Tutor ${cleanPhone.slice(-4)}` : "Tutor"),
+          email: finalEmail,
+          phone: cleanPhone || phone,
+          role: "TUTOR",
+          passwordHash,
+          emailVerified: new Date(),
+          isActive: true,
+        },
+        include: { tutorProfile: true },
+      });
+      isNewUser = true;
+    } else if (user.role !== "TUTOR" && user.role !== "SUPER_ADMIN" && user.role !== "SUB_ADMIN") {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { role: "TUTOR" },
+      });
+    }
+
+    // 2. Create or update TutorProfile
+    let tutorProfile = user.tutorProfile;
+    if (!tutorProfile) {
+      tutorProfile = await prisma.tutorProfile.create({
+        data: {
+          userId: user.id,
+          qualification: lead.qualification || "Graduate",
+          experience: lead.experienceYears || 1,
+          subjects: lead.subjects.length > 0 ? lead.subjects : ["All Subjects"],
+          classLevels: lead.classes.length > 0 ? lead.classes : ["Class 1 to 10"],
+          city: lead.location || "Delhi",
+          address: lead.fullAddress || lead.location || null,
+          pincode: lead.pincode || null,
+          gender: lead.gender === "Female" ? "FEMALE" : "MALE",
+          teachingMode: "EITHER",
+          isVerified: false,
+          kycStatus: "PENDING",
+          subscriptionPlan: "NONE",
+          wallet: {
+            create: {
+              balance: 50,
+            },
           },
         },
+      });
+    } else {
+      tutorProfile = await prisma.tutorProfile.update({
+        where: { id: tutorProfile.id },
+        data: {
+          qualification: lead.qualification || tutorProfile.qualification,
+          experience: lead.experienceYears || tutorProfile.experience,
+          subjects: lead.subjects.length > 0 ? lead.subjects : tutorProfile.subjects,
+          classLevels: lead.classes.length > 0 ? lead.classes : tutorProfile.classLevels,
+          city: lead.location || tutorProfile.city,
+          address: lead.fullAddress || tutorProfile.address,
+          pincode: lead.pincode || tutorProfile.pincode,
+        },
+      });
+    }
+
+    const now = new Date();
+
+    // 3. Mark StaffLead as CONVERTED & PROMOTED
+    await prisma.staffLead.update({
+      where: { id: lead.id },
+      data: {
+        status: "CONVERTED",
+        isPromoted: true,
+        promotedTutorProfileId: tutorProfile.id,
+        lastContactedAt: now,
+        staffNotes: notes ? `${lead.staffNotes ? lead.staffNotes + "\n" : ""}${notes}` : lead.staffNotes,
       },
     });
+
+    // 4. Log call / activity
+    await prisma.staffLeadCallLog.create({
+      data: {
+        leadId: lead.id,
+        calledById: session.user.id,
+        outcome: "CONVERTED",
+        notes: notes || "Promoted to Primary Tutor Profile by Staff Member",
+        calledAt: now,
+      },
+    });
+
+    // 5. Increment active work session
+    const activeSession = await prisma.staffWorkSession.findFirst({
+      where: { staffId: session.user.id, status: "CLOCKED_IN" },
+      orderBy: { clockIn: "desc" },
+    });
+    if (activeSession) {
+      await prisma.staffWorkSession.update({
+        where: { id: activeSession.id },
+        data: {
+          callsMade: { increment: 1 },
+          leadsConverted: { increment: 1 },
+        },
+      });
+    }
+
+    revalidatePath("/admin/staff-leads");
+    revalidatePath("/admin/staff-leads/my-leads");
+    revalidatePath("/admin/users");
+
+    return actionSuccess({
+      tutorProfileId: tutorProfile.id,
+      userId: user.id,
+      isNewUser,
+      ...(temporaryPassword ? { temporaryPassword } : {}),
+    });
+  } catch (err: any) {
+    console.error("[promoteLeadToProfileAction] Error:", err);
+    return actionError(err?.message || "Failed to promote tutor to Primary Directory");
+  }
+}
+
+export async function promoteLeadToStudentRequirementAction(
+  leadId: string,
+  notes?: string
+): Promise<ActionResult<{ leadId: string; inquiryNumber: number | null }>> {
+  const { error, session, lead } = await requireAssignedOrCrmOps(leadId);
+  if (error || !session?.user || !lead) return actionError(error ?? "Unauthorized");
+
+  const cleanPhone = lead.phone?.replace(/\D/g, "").slice(-10);
+  if (!cleanPhone || cleanPhone.length < 10) {
+    return actionError("Valid 10-digit mobile number required to publish requirement");
   }
 
-  // 3. Mark StaffLead as CONVERTED & PROMOTED
-  await prisma.staffLead.update({
-    where: { id: lead.id },
-    data: {
-      status: "CONVERTED",
-      isPromoted: true,
-      promotedTutorProfileId: tutorProfile.id,
-    },
-  });
+  try {
+    const phoneVariations = [cleanPhone, `+91${cleanPhone}`, `+91 ${cleanPhone}`, lead.phone].filter(Boolean) as string[];
 
-  // 4. Log call / activity
-  await prisma.staffLeadCallLog.create({
-    data: {
-      leadId: lead.id,
-      calledById: session.user.id,
-      outcome: "CONVERTED",
-      notes: "Promoted to Primary Tutor Profile by Staff Member",
-    },
-  });
+    // 1. Find or create User + ParentProfile for this phone number
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: { in: phoneVariations } },
+          ...(lead.email ? [{ email: { equals: lead.email.trim().toLowerCase(), mode: "insensitive" as const } }] : []),
+        ],
+      },
+      include: { parentProfile: true },
+    });
 
-  revalidatePath("/admin/staff-leads");
-  revalidatePath("/admin/staff-leads/my-leads");
-  revalidatePath("/admin/users");
+    if (!user) {
+      const generatedEmail = `parent_${cleanPhone}_${Date.now()}@apnatutorhub.in`;
+      const emailToUse = lead.email?.trim().toLowerCase() || generatedEmail;
+      const emailExists = await prisma.user.findUnique({ where: { email: emailToUse } });
+      const finalEmail = emailExists ? `parent_${cleanPhone}_${Date.now()}@apnatutorhub.in` : emailToUse;
 
-  return actionSuccess({
-    tutorProfileId: tutorProfile.id,
-    userId: user.id,
-    isNewUser,
-    ...(temporaryPassword ? { temporaryPassword } : {}),
-  });
+      user = await prisma.user.create({
+        data: {
+          phone: cleanPhone,
+          email: finalEmail,
+          name: lead.name?.trim() || "Parent Contact",
+          role: "PARENT",
+          parentProfile: {
+            create: {
+              city: lead.location?.split(",")[0]?.trim() || "Delhi",
+              pincode: lead.pincode || null,
+            },
+          },
+        },
+        include: { parentProfile: true },
+      });
+    } else if (!user.parentProfile) {
+      const parentProf = await prisma.parentProfile.create({
+        data: {
+          userId: user.id,
+          city: lead.location?.split(",")[0]?.trim() || "Delhi",
+          pincode: lead.pincode || null,
+        },
+      });
+      user = { ...user, parentProfile: parentProf };
+    }
+
+    // 2. Create the live Lead requirement
+    const lastInquiry = await prisma.lead.findFirst({
+      orderBy: { inquiryNumber: "desc" },
+      select: { inquiryNumber: true },
+    });
+    const nextInquiryNumber = (lastInquiry?.inquiryNumber ?? 1000) + 1;
+
+    const publishedLead = await prisma.lead.create({
+      data: {
+        inquiryNumber: nextInquiryNumber,
+        parentProfileId: user.parentProfile!.id,
+        subjects: lead.subjects.length > 0 ? lead.subjects : ["General Subjects"],
+        classLevel: lead.classes[0] || "Class 10",
+        board: lead.board || "CBSE",
+        mode: "OFFLINE",
+        budgetMin: 3000,
+        budgetMax: 8000,
+        city: lead.location?.split(",")[0]?.trim() || "Delhi",
+        area: lead.location?.split(",")[1]?.trim() || lead.location || null,
+        pincode: lead.pincode || null,
+        timingPreference: "Evening (5:00 PM - 7:00 PM)",
+        tutorGenderPref: "ANY",
+        notes: lead.staffNotes || `Verified lead created from Staff Calling Desk for ${lead.name || "Student"}.`,
+        status: "ACTIVE",
+        coinCost: 5,
+        radiusKm: 5,
+      },
+    });
+
+    const now = new Date();
+
+    // 3. Mark StaffLead as converted and link published requirement
+    await prisma.staffLead.update({
+      where: { id: leadId },
+      data: {
+        status: "CONVERTED",
+        isPromoted: true,
+        lastContactedAt: now,
+        staffNotes: `${lead.staffNotes ? lead.staffNotes + "\n" : ""}${notes || `Published as Student Lead #${nextInquiryNumber}`}`,
+      },
+    });
+
+    // 4. Log call / activity
+    await prisma.staffLeadCallLog.create({
+      data: {
+        leadId: lead.id,
+        calledById: session.user.id,
+        outcome: "CONVERTED",
+        notes: notes || `Promoted to Live Student Requirement #${nextInquiryNumber} by Staff Member`,
+        calledAt: now,
+      },
+    });
+
+    // 5. Increment active work session
+    const activeSession = await prisma.staffWorkSession.findFirst({
+      where: { staffId: session.user.id, status: "CLOCKED_IN" },
+      orderBy: { clockIn: "desc" },
+    });
+    if (activeSession) {
+      await prisma.staffWorkSession.update({
+        where: { id: activeSession.id },
+        data: {
+          callsMade: { increment: 1 },
+          leadsConverted: { increment: 1 },
+        },
+      });
+    }
+
+    revalidatePath("/admin/staff-leads");
+    revalidatePath("/admin/staff-leads/my-leads");
+    revalidatePath("/admin/leads");
+    return actionSuccess({ leadId: publishedLead.id, inquiryNumber: nextInquiryNumber });
+  } catch (err: any) {
+    console.error("[promoteLeadToStudentRequirementAction] Error:", err);
+    return actionError(err?.message || "Failed to publish student requirement");
+  }
 }
 
 // ─── 8. Get all leads (admin overview) ───────────────────────────────────────
 
+export type StaffLeadSortKey =
+  | "createdAt"
+  | "name"
+  | "status"
+  | "priority"
+  | "lastContactedAt"
+  | "nextFollowUpAt";
+
 export async function getStaffLeadsAction(opts?: {
   status?: StaffLeadStatus;
+  statusIn?: StaffLeadStatus[];
   assignedToId?: string;
+  unassignedOnly?: boolean;
   batchId?: string;
+  type?: "TUTOR" | "PARENT";
   search?: string;
   page?: number;
   pageSize?: number;
+  sortBy?: StaffLeadSortKey;
+  sortDir?: "asc" | "desc";
 }): Promise<ActionResult<{
   leads: Array<{
     id: string; name: string | null; phone: string | null; email: string | null;
     location: string | null; subjects: string[]; classes: string[]; status: StaffLeadStatus;
     assignedToId: string | null; assignedTo: { name: string | null } | null;
-    isPromoted: boolean; createdAt: Date; lastContactedAt: Date | null;
+    priority: number; isPromoted: boolean; createdAt: Date; lastContactedAt: Date | null;
     nextFollowUpAt: Date | null; staffNotes: string | null; _count: { callLogs: number };
   }>;
   total: number;
@@ -1390,21 +1658,40 @@ export async function getStaffLeadsAction(opts?: {
   const { error } = await requireCrmOps();
   if (error) return actionError(error);
 
-  const page = opts?.page ?? 1;
-  const pageSize = opts?.pageSize ?? 50;
+  const page = Math.max(1, opts?.page ?? 1);
+  const pageSize = Math.min(200, Math.max(1, opts?.pageSize ?? 50));
 
+  const and: Record<string, unknown>[] = [];
   const where: Record<string, unknown> = {};
   if (opts?.status) where.status = opts.status;
+  if (opts?.statusIn && opts.statusIn.length > 0) where.status = { in: opts.statusIn };
   if (opts?.assignedToId) where.assignedToId = opts.assignedToId;
+  if (opts?.unassignedOnly) where.assignedToId = null;
   if (opts?.batchId) where.batchId = opts.batchId;
-  if (opts?.search) {
-    where.OR = [
-      { name: { contains: opts.search, mode: "insensitive" } },
-      { phone: { contains: opts.search } },
-      { email: { contains: opts.search, mode: "insensitive" } },
-      { location: { contains: opts.search, mode: "insensitive" } },
-    ];
+  // Record-type is encoded inside staffNotes via PARENT_TAG.
+  if (opts?.type === "PARENT") where.staffNotes = { contains: PARENT_TAG };
+  if (opts?.type === "TUTOR") {
+    and.push({ OR: [{ staffNotes: null }, { NOT: { staffNotes: { contains: PARENT_TAG } } }] });
   }
+  if (opts?.search) {
+    and.push({
+      OR: [
+        { name: { contains: opts.search, mode: "insensitive" } },
+        { phone: { contains: opts.search } },
+        { email: { contains: opts.search, mode: "insensitive" } },
+        { location: { contains: opts.search, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (and.length > 0) where.AND = and;
+
+  const sortBy = opts?.sortBy ?? "createdAt";
+  const sortDir = opts?.sortDir ?? "desc";
+  // Keep null follow-up/contact dates last when sorting ascending so "soonest" is meaningful.
+  const orderBy =
+    sortBy === "nextFollowUpAt" || sortBy === "lastContactedAt"
+      ? { [sortBy]: { sort: sortDir, nulls: "last" } }
+      : { [sortBy]: sortDir };
 
   const [leads, total] = await Promise.all([
     prisma.staffLead.findMany({
@@ -1413,10 +1700,10 @@ export async function getStaffLeadsAction(opts?: {
         id: true, name: true, phone: true, email: true, location: true,
         subjects: true, classes: true, status: true, assignedToId: true,
         assignedTo: { select: { name: true } },
-        isPromoted: true, createdAt: true, lastContactedAt: true,
+        priority: true, isPromoted: true, createdAt: true, lastContactedAt: true,
         nextFollowUpAt: true, staffNotes: true, _count: { select: { callLogs: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: orderBy as any,
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

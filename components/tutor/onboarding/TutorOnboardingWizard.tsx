@@ -252,19 +252,19 @@ export function TutorOnboardingWizard({
                 key={s.num}
                 type="button"
                 onClick={() => handleJumpStep(s.num)}
-                className={`rounded-xl cursor-pointer ${
+                className={`rounded-xl cursor-pointer transition-all ${
                   s.num < currentStep
-                    ? "w-8 h-8 bg-[#2D9E6B] flex items-center justify-center"
+                    ? "w-8 h-8 bg-emerald-600 text-white flex items-center justify-center shadow-xs"
                     : s.num === currentStep
-                    ? "w-9 h-9 bg-[#0F2540] flex items-center justify-center"
-                    : "w-8 h-8 bg-white border border-[#E2E8F0] text-[#64748B] flex items-center justify-center hover:border-[#2D9E6B]"
+                    ? "w-9 h-9 bg-[#0F2540] text-white flex items-center justify-center shadow-md scale-105 ring-2 ring-emerald-500/30"
+                    : "w-8 h-8 bg-white border border-slate-200 text-slate-400 flex items-center justify-center hover:border-emerald-600 hover:text-slate-600"
                 }`}
-                title={`Jump to Step ${s.num}: ${s.title}`}
+                title={`Step ${s.num}: ${s.title}`}
               >
                 {s.num < currentStep ? (
-                  <CheckCircle size={14} className="text-white" />
+                  <CheckCircle size={15} className="text-white" />
                 ) : (
-                  <span className={`text-xs font-800 ${s.num === currentStep ? "text-white" : "text-gray-600"}`}>
+                  <span className={`text-xs font-black ${s.num === currentStep ? "text-white" : "text-slate-500"}`}>
                     {s.num}
                   </span>
                 )}
@@ -275,16 +275,18 @@ export function TutorOnboardingWizard({
 
         {/* Step title */}
         {currentStep !== 3 && (
-          <div className="mb-6 text-center">
-            <p className="mb-2 text-sm font-800 uppercase tracking-wide text-[#2D9E6B]">
-              {STEPS[currentStep - 1]?.title} · saves as you go
-            </p>
+          <div className="mb-6 text-center space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-extrabold border border-emerald-200">
+              <Sparkles size={12} className="text-emerald-600" />
+              <span>Step {currentStep} of {totalSteps}: {STEPS[currentStep - 1]?.title}</span>
+            </div>
             <h1
-              className="text-2xl font-800 text-[#0F2540] sm:text-3xl"
+              className="text-2xl font-black text-[#0F2540] sm:text-3xl tracking-tight"
               style={{ fontFamily: "Poppins, sans-serif" }}
             >
               {STEPS[currentStep - 1]?.subtitle}
             </h1>
+            <p className="text-xs text-slate-400 font-medium">Your progress is automatically saved at every step.</p>
           </div>
         )}
 
@@ -302,7 +304,7 @@ export function TutorOnboardingWizard({
         )}
 
         {/* Step content */}
-        <div className="ath-easy-form rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-8">
+        <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-sm sm:p-10 space-y-6">
           {renderStep()}
         </div>
 

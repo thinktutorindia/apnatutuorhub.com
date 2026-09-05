@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { StaffGlobalShiftBar } from "@/components/admin/StaffGlobalShiftBar";
+import { StaffPresenceTracker } from "@/components/admin/StaffPresenceTracker";
 import { prisma } from "@/lib/prisma";
 import { getMediaUrl } from "@/lib/s3";
 
@@ -40,6 +41,8 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen lg:min-h-screen flex-col lg:flex-row bg-[#F0F4F8] text-slate-900">
+      {/* Invisible presence/duty agent: heartbeats, idle detection, anti-theft state */}
+      <StaffPresenceTracker />
       <AdminSidebar
         userName={session.user.name || "Admin"}
         userEmail={session.user.email ?? ""}

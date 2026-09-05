@@ -21,6 +21,7 @@ import {
 import { StaffLeadTypeBadge } from "@/components/admin/staff-leads/StaffLeadTypeControl";
 import { getStaffRecordType } from "@/lib/staff-lead-type";
 import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
+import { StaffLeadsNavHeader } from "@/components/admin/staff-leads/StaffLeadsNavHeader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -279,117 +280,53 @@ export function StaffCommandCenter({ data, staffName, isSuperAdmin }: Props) {
         </div>
       )}
 
-      {/* ── Header ── */}
-      <div className="ath-panel flex items-center justify-between flex-wrap gap-3 p-5 sm:p-6">
-        <div>
-          <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Staff CRM</span>
-          <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            {staffName.split(" ")[0]}&apos;s Dashboard
-          </h1>
-          <p className="text-xs text-slate-600 mt-0.5 font-600">
-            {activeSession ? "On shift" : "Off shift"} · Clock, today&apos;s calls, due follow-ups, next contacts to work
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/admin/staff-leads/my-leads"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white border border-slate-200 text-xs font-800 text-[#0F2540] hover:bg-slate-50">
-            <Phone size={14} className="text-[#2563EB]" /> My Calling Queue
-          </Link>
-          <Link href="/admin/staff-leads"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#0F2540] text-white text-xs font-800 hover:bg-[#1e3a5f]">
-            <BarChart3 size={14} className="text-[#2D9E6B]" /> CRM Dashboard
-          </Link>
-        </div>
-      </div>
+      {/* ── Navigation Header ── */}
+      <StaffLeadsNavHeader
+        activeKey="my-dashboard"
+        isSuperAdmin={isSuperAdmin}
+        title={`${staffName.split(" ")[0]}'s Performance Hub`}
+        subtitle="Daily calling targets, callback reminders, sales playbook & conversion streak."
+      />
 
       <StaffCrmPlaybook compact />
 
-      {/* ── Clock In/Out Banner ── */}
-      <div className={`rounded-2xl p-5 border-2 shadow-lg transition-all ${
-        activeSession
-          ? activeSession.status === "ON_BREAK"
-            ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200"
-            : "bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200"
-          : "bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200"
-      }`}>
+      {/* ── Automated Shift Status & Telecalling Launcher ── */}
+      <div className="rounded-2xl p-5 border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-white shadow-md">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            {activeSession ? (
-              <>
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                  activeSession.status === "ON_BREAK" ? "bg-amber-100" : "bg-emerald-100"
-                }`}>
-                  {activeSession.status === "ON_BREAK" ? (
-                    <Coffee size={28} className="text-amber-600" />
-                  ) : (
-                    <Timer size={28} className="text-emerald-600" />
-                  )}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-lg ${
-                      activeSession.status === "ON_BREAK"
-                        ? "bg-amber-200 text-amber-800"
-                        : "bg-emerald-200 text-emerald-800"
-                    }`}>
-                      {activeSession.status === "ON_BREAK" ? "☕ ON BREAK" : "🟢 CLOCKED IN"}
-                    </span>
-                  </div>
-                  <p className="text-3xl font-black text-slate-900 mt-1 font-mono tracking-tight">
-                    {formatDuration(elapsedSeconds)}
-                  </p>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-600 font-medium">
-                    <span>📞 {activeSession.callsMade} calls</span>
-                    <span>👥 {activeSession.leadsContacted} contacted</span>
-                    <span>✅ {activeSession.leadsConverted} converted</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-14 h-14 rounded-2xl bg-slate-200 flex items-center justify-center">
-                  <Play size={28} className="text-slate-500" />
-                </div>
-                <div>
-                  <p className="text-lg font-black text-slate-700">Not Clocked In</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Clock in to start tracking your work session</p>
-                </div>
-              </>
-            )}
+            <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 shrink-0">
+              <PhoneCall size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300/60">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  AUTOMATED SHIFT ACTIVE
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600">
+                  <Timer size={12} className="text-slate-500" />
+                  Auto-pause if idle &gt; 60s
+                </span>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1 font-mono tracking-tight">
+                {formatDuration(elapsedSeconds)} <span className="text-xs font-sans font-bold text-slate-400">tracked shift</span>
+              </p>
+              <div className="flex items-center gap-3 mt-1 text-xs text-slate-600 font-medium flex-wrap">
+                <span>📞 <strong className="text-slate-900">{todayStats.calls}</strong> calls logged</span>
+                <span>👥 <strong className="text-slate-900">{activeSession?.leadsContacted ?? 0}</strong> contacted</span>
+                <span>✅ <strong className="text-slate-900">{todayStats.conversions}</strong> converted</span>
+                <span>🔔 <strong className="text-slate-900">{reminders.length}</strong> reminders</span>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {activeSession ? (
-              <>
-                <button
-                  onClick={handleBreakToggle}
-                  disabled={isPending}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-black shadow-sm transition-all ${
-                    activeSession.status === "ON_BREAK"
-                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                      : "bg-amber-500 text-white hover:bg-amber-600"
-                  }`}
-                >
-                  {activeSession.status === "ON_BREAK" ? <><Play size={14} /> Resume Work</> : <><Coffee size={14} /> Take Break</>}
-                </button>
-                <button
-                  onClick={handleClockOut}
-                  disabled={isPending}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 text-white text-xs font-black hover:bg-red-700 shadow-sm"
-                >
-                  <Square size={14} /> Clock Out
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={handleClockIn}
-                disabled={isPending}
-                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-700 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
-              >
-                {isPending ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
-                Clock In
-              </button>
-            )}
+            <Link
+              href="/admin/staff-leads/my-leads"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02]"
+            >
+              <PhoneCall size={14} /> Open Calling Desk
+            </Link>
           </div>
         </div>
       </div>
@@ -462,7 +399,7 @@ export function StaffCommandCenter({ data, staffName, isSuperAdmin }: Props) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <Link href={`/admin/staff-leads/${reminder.lead.id}`}
+                    <Link href={`/admin/staff-leads/my-leads?leadId=${reminder.lead.id}`}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-black hover:bg-blue-700 shadow-sm">
                       <PhoneCall size={11} /> Call Now
                     </Link>
@@ -571,7 +508,7 @@ export function StaffCommandCenter({ data, staffName, isSuperAdmin }: Props) {
               {data.nextLeads.slice(0, 6).map((lead, i) => {
                 const st = STATUS_LABELS[lead.status] || { label: lead.status, color: "bg-slate-100 text-slate-600" };
                 return (
-                  <Link key={lead.id} href={`/admin/staff-leads/${lead.id}`}
+                  <Link key={lead.id} href={`/admin/staff-leads/my-leads?leadId=${lead.id}`}
                     className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors group">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span className="text-xs font-mono text-slate-400 w-5 text-center">#{i + 1}</span>

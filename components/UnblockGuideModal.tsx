@@ -13,31 +13,34 @@ export function UnblockGuideModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-start sm:items-center justify-center overflow-y-auto py-4 p-4 bg-[#0F172A]/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         role="dialog"
         aria-modal="true"
-        className="neu-card relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto bg-white p-6 space-y-5 shadow-[8px_8px_0px_0px_#0F172A]"
+        className="relative z-10 w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-100 overflow-hidden space-y-4"
       >
+        {/* Soft background glow */}
+        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-36 h-36 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
+
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b-2 border-[#0F172A] pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-[#0F172A] bg-[#FEF3C7] shadow-[2px_2px_0px_0px_#0F172A]">
-              <Lock size={18} className="text-amber-600" />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 shadow-sm shrink-0">
+              <Lock size={20} />
             </div>
             <div>
-              <h3 className="text-base font-black text-[#0F172A] leading-tight">
-                How to Enable Notifications in Chrome
+              <h3 className="text-base font-extrabold text-[#0F2540] leading-tight">
+                Enable Notifications in Chrome
               </h3>
-              <p className="text-[11px] font-semibold text-slate-500">
-                Your browser is currently blocking notification popups
+              <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                Notifications are currently blocked in your browser
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="neu-btn neu-btn-white h-8 w-8 !p-0 flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer shrink-0"
             aria-label="Close"
           >
             <X size={15} />
@@ -45,64 +48,43 @@ export function UnblockGuideModal({
         </div>
 
         {/* Visual Mockup of Chrome Address Bar Dropdown */}
-        <div className="rounded-2xl border-2 border-[#0F172A] bg-[#0F172A] p-4 text-white space-y-3 shadow-[3px_3px_0px_0px_#22C55E]">
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-300 bg-[#1E293B] px-3 py-1.5 rounded-lg border border-slate-700">
+        <div className="rounded-2xl bg-slate-900 p-3.5 text-white space-y-2.5 shadow-md">
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-300 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
             <Lock size={12} className="text-emerald-400" />
-            <span className="font-bold text-white">apnatutorhub.com</span>
+            <span className="font-semibold text-white">apnatutorhub.com</span>
           </div>
 
-          {/* Simulated Chrome Dropdown */}
-          <div className="rounded-xl bg-[#1E293B] p-3 space-y-2 border border-slate-700 text-xs">
-            <div className="flex items-center justify-between py-1 border-b border-slate-700/60">
-              <div className="flex items-center gap-2 font-bold text-slate-200">
-                <span>🔔 Notifications</span>
-              </div>
-              {/* Animated Toggle Switch */}
+          <div className="rounded-xl bg-slate-800/90 p-2.5 space-y-1.5 border border-slate-700/80 text-xs">
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-slate-200 font-semibold text-[11px]">🔔 Notifications</span>
               <div className="flex items-center gap-1">
-                <span className="text-[10px] font-extrabold text-amber-400 animate-pulse">Switch ON →</span>
-                <div className="h-5 w-9 rounded-full bg-[#22C55E] p-0.5 flex items-center justify-end cursor-pointer shadow-inner">
-                  <div className="h-4 w-4 rounded-full bg-white shadow-md" />
+                <span className="text-[10px] font-bold text-emerald-400">Switch ON →</span>
+                <div className="h-4.5 w-8 rounded-full bg-[#16A34A] p-0.5 flex items-center justify-end">
+                  <div className="h-3.5 w-3.5 rounded-full bg-white shadow-xs" />
                 </div>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-              <span>Or click button:</span>
-              <span className="rounded-md border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] font-mono text-slate-300">
-                Reset permission
-              </span>
             </div>
           </div>
         </div>
 
         {/* Step-by-Step Instructions */}
-        <div className="space-y-2 text-xs font-semibold text-slate-700">
-          <div className="flex items-start gap-2.5 rounded-xl bg-[#DCFCE7] p-3 border-2 border-[#0F172A]">
-            <MousePointerClick size={16} className="mt-0.5 shrink-0 text-[#22C55E]" />
+        <div className="space-y-2 text-xs">
+          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-100">
+            <MousePointerClick size={15} className="mt-0.5 shrink-0 text-[#16A34A]" />
             <div>
-              <p className="font-black text-[#0F172A]">Step 1: Click the 🔒 Lock Icon</p>
-              <p className="text-[11px] font-semibold text-slate-700">
-                Look at the top left of your browser, next to the web address <code className="font-mono bg-white px-1 py-0.5 rounded border border-[#0F172A]">apnatutorhub.com</code>.
+              <p className="font-bold text-[#0F2540]">Step 1: Click the 🔒 Lock Icon</p>
+              <p className="text-[11px] text-slate-600">
+                At the top left of your browser next to the URL.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 rounded-xl bg-[#FEF3C7] p-3 border-2 border-[#0F172A]">
-            <ToggleRight size={16} className="mt-0.5 shrink-0 text-amber-600" />
+          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-amber-50/80 border border-amber-100">
+            <ToggleRight size={15} className="mt-0.5 shrink-0 text-amber-600" />
             <div>
-              <p className="font-black text-[#0F172A]">Step 2: Turn Notifications Switch ON</p>
-              <p className="text-[11px] font-semibold text-slate-700">
-                Click the toggle switch next to <strong>Notifications</strong> to turn it <strong>ON (Blue/Green)</strong>, or click <strong>Reset permission</strong>.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2.5 rounded-xl bg-[#E0F2FE] p-3 border-2 border-[#0F172A]">
-            <RefreshCw size={16} className="mt-0.5 shrink-0 text-blue-600" />
-            <div>
-              <p className="font-black text-[#0F172A]">Step 3: Refresh the Page</p>
-              <p className="text-[11px] font-semibold text-slate-700">
-                Click the button below to reload and activate real-time tuition lead alerts!
+              <p className="font-bold text-[#0F2540]">Step 2: Turn Notifications ON</p>
+              <p className="text-[11px] text-slate-600">
+                Toggle the switch next to <strong>Notifications</strong> to ON or click <strong>Reset permission</strong>.
               </p>
             </div>
           </div>
@@ -115,10 +97,10 @@ export function UnblockGuideModal({
             onClose();
             window.location.reload();
           }}
-          className="neu-btn neu-btn-primary w-full py-3.5 text-sm font-black flex items-center justify-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_#0F172A]"
+          className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-[#16A34A] to-[#15803D] hover:from-[#15803D] hover:to-[#166534] text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
         >
-          <RefreshCw size={16} />
-          <span>I&apos;ve Turned It On — Refresh Page Now</span>
+          <RefreshCw size={15} />
+          <span>I&apos;ve Turned It On — Refresh Page</span>
         </button>
       </div>
     </div>

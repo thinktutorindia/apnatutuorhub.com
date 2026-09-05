@@ -160,8 +160,11 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
     }
 
     if (session.user.role === "SUB_ADMIN" && pathname.startsWith("/admin")) {
-      // My Assigned Leads is always accessible to all Sub-Admins/Staff
-      if (pathname.startsWith("/admin/staff-leads/my-leads")) {
+      // My Assigned Leads and Staff Command Center are always accessible to all Sub-Admins/Staff
+      if (
+        pathname.startsWith("/admin/staff-leads/my-leads") ||
+        pathname.startsWith("/admin/staff-leads/my-dashboard")
+      ) {
         // Allowed
       } else {
         const allowedModules = getAllowedSubAdminModules(session.user as any);

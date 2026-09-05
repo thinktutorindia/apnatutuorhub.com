@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma";
 import { sendNotification as sendResendNotification, dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush, isWebPushConfigured } from "@/lib/web-push";
 import { isGenuineEmail } from "@/lib/lead-utils";
+import { getAquaWhatsAppConfig, sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
+import { buildAquaTuitionEnquiryPlaceholders } from "@/lib/lead-notify-template";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -129,12 +131,14 @@ async function dispatchNotification(
 ): Promise<void> {
   // Fetch user contact details
   let userEmail: string | null = null;
+  let userPhone: string | null = null;
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { email: true, phone: true },
     });
     userEmail = user?.email ?? null;
+    userPhone = user?.phone ?? null;
   } catch (err) {
     console.warn("[notification-engine] Failed to fetch user contact:", err);
   }
@@ -193,7 +197,6 @@ async function dispatchNotification(
         break;
 
       case "EMAIL":
-      case "WHATSAPP":
         if (!userEmail) {
           throw new Error("No email address for user");
         }
@@ -208,6 +211,45 @@ async function dispatchNotification(
         }
         await markDelivered(notificationId, delivery.id);
         break;
+
+      case "WHATSAPP": {
+        const aqua = getAquaWhatsAppConfig();
+        if (!aqua.autoDispatch) {
+          throw new Error(
+            "Aqua WhatsApp auto-dispatch is off. Use Broadcast → Aqua test send, then set AQUA_WHATSAPP_AUTO_DISPATCH=true after the trial."
+          );
+        }
+        if (!userPhone) {
+          throw new Error("No mobile number on this user account");
+        }
+        const placeholders = await resolveAquaWhatsAppPlaceholders(
+          notificationId,
+          title,
+          message
+        );
+        const wa = await sendAquaWhatsAppMessage({
+          to: userPhone,
+          mode: aqua.defaultTemplateId ? "template" : "text",
+          templateId: aqua.defaultTemplateId,
+          placeholders,
+          text: `${title}\n\n${message}${actionUrl ? `\n${actionUrl}` : ""}`,
+        });
+        if (!wa.ok) {
+          throw new Error(wa.error ?? "Aqua SMS WhatsApp send failed");
+        }
+        await prisma.notificationDelivery.update({
+          where: { id: delivery.id },
+          data: {
+            status: "DELIVERED",
+            providerMessageId: wa.providerMessageId ?? null,
+          },
+        });
+        await prisma.notification.update({
+          where: { id: notificationId },
+          data: { status: "DELIVERED", deliveredAt: new Date() },
+        });
+        break;
+      }
 
       case "PUSH":
         if (isWebPushConfigured()) {
@@ -263,6 +305,73 @@ async function markDelivered(
   });
 }
 
+async function resolveAquaWhatsAppPlaceholders(
+  notificationId: string,
+  title: string,
+  message: string
+): Promise<string[]> {
+  try {
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+      select: { type: true, metadata: true },
+    });
+    const meta = (notification?.metadata ?? {}) as Record<string, unknown>;
+    const leadId =
+      typeof meta.referenceId === "string"
+        ? meta.referenceId
+        : typeof meta.leadId === "string"
+          ? meta.leadId
+          : null;
+
+    if (notification?.type === "LEAD_MATCHED" && leadId) {
+      const lead = await prisma.lead.findUnique({
+        where: { id: leadId },
+        select: {
+          id: true,
+          inquiryNumber: true,
+          subjects: true,
+          classLevel: true,
+          board: true,
+          mode: true,
+          city: true,
+          area: true,
+          pincode: true,
+          budgetMin: true,
+          budgetMax: true,
+          tutorGenderPref: true,
+          notes: true,
+          timingPreference: true,
+          parentProfile: {
+            select: { user: { select: { name: true } } },
+          },
+        },
+      });
+      if (lead) {
+        return buildAquaTuitionEnquiryPlaceholders({
+          id: lead.id,
+          inquiryNumber: lead.inquiryNumber,
+          clientName: lead.parentProfile.user.name,
+          subjects: lead.subjects,
+          classLevel: lead.classLevel,
+          board: lead.board,
+          mode: lead.mode,
+          city: lead.city,
+          area: lead.area,
+          pincode: lead.pincode,
+          budgetMin: lead.budgetMin,
+          budgetMax: lead.budgetMax,
+          genderPreference: lead.tutorGenderPref,
+          notes: lead.notes,
+          timingPreference: lead.timingPreference,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[notification-engine] Could not build lead WhatsApp placeholders:", err);
+  }
+  return [title, message].filter(Boolean);
+}
+
 function resolveProvider(channel: NotificationChannel): string {
   switch (channel) {
     case "EMAIL":
@@ -270,7 +379,7 @@ function resolveProvider(channel: NotificationChannel): string {
     case "PUSH":
       return "VAPID";
     case "WHATSAPP":
-      return "RESEND_FALLBACK";
+      return "AQUA_SMS";
     case "WEB":
     default:
       return "INTERNAL";

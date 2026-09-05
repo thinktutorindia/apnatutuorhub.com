@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@/auth";
 import { getMyStaffLeadsAction } from "@/app/actions/staff-leads.actions";
 import { MyStaffLeadsClient } from "@/components/admin/staff-leads/MyStaffLeadsClient";
@@ -19,5 +20,15 @@ export default async function MyStaffLeadsPage() {
     nextFollowUpAt: l.nextFollowUpAt ? new Date(l.nextFollowUpAt).toISOString() : null,
   }));
 
-  return <MyStaffLeadsClient leads={leads as any} isSuperAdmin={isSuperAdmin} />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-[80vh] items-center justify-center text-slate-500 font-semibold text-sm">
+          Loading calling queue...
+        </div>
+      }
+    >
+      <MyStaffLeadsClient leads={leads as any} isSuperAdmin={isSuperAdmin} />
+    </Suspense>
+  );
 }

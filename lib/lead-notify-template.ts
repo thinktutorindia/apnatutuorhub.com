@@ -41,13 +41,35 @@ export interface LeadTemplateData {
   useStandardMarkdown?: boolean;
 }
 
-export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
-  // Format Lead ID code (6 digit or clean identifier)
-  const leadNum = getInquiryDisplayCode(data);
+export type LeadNotifyFields = {
+  inquiryNumber: string;
+  clientName: string;
+  classStr: string;
+  modeStr: string;
+  locationStr: string;
+  feesStr: string;
+  genderStr: string;
+  scheduleStr: string;
+  notes: string | null;
+  whatsappNum: string;
+};
 
+/** Sample values for Aqua template `tuition_enquiry_alert` ({{1}}–{{8}}). */
+export const AQUA_TUITION_ENQUIRY_SAMPLE_PLACEHOLDERS = [
+  "210984",
+  "Not Specified",
+  "10th Std (Mathematics, Science)",
+  "Home Tuition (Offline)",
+  "Sector 18B, Dwarka, New Delhi (Pin: 110078)",
+  "5000/month",
+  "Any (Male or Female Tutor)",
+  "Evening (4 PM - 7 PM)",
+] as const;
+
+export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
+  const inquiryNumber = getInquiryDisplayCode(data);
   const clientName = data.clientName?.trim() || "Not Specified";
 
-  // Clean class level string (e.g. "Class 12" -> "12th Std", "Class 5" -> "5th Std")
   let classBase = data.classLevel?.trim() || "5th Std";
   const numMatch = classBase.match(/\b(\d{1,2})\b/);
   if (numMatch) {
@@ -56,7 +78,6 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
     classBase = `${n}${suffix} Std`;
   }
 
-  // Clean and deduplicate subjects (strip "for Class VI", "for Grade 8", etc.)
   const rawSubjects = data.subjects && data.subjects.length > 0 ? data.subjects : [];
   const cleanedSubjects = Array.from(
     new Set(
@@ -90,27 +111,27 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
     data.mode === "OFFLINE" || data.mode === "IN_PERSON"
       ? "Home Tuition (Offline)"
       : data.mode === "ONLINE"
-      ? "Online Classes"
-      : "Home Tuition (Offline) / Online";
+        ? "Online Classes"
+        : "Home Tuition (Offline) / Online";
 
   const locationParts = [data.area, data.city, data.state].filter(Boolean);
-  const locationStr = locationParts.join(", ") || data.city || "Delhi NCR";
-  const pinStr = data.pincode ? ` (Pin: ${data.pincode})` : "";
+  const locationBase = locationParts.join(", ") || data.city || "Delhi NCR";
+  const locationStr = data.pincode ? `${locationBase} (Pin: ${data.pincode})` : locationBase;
 
   let feesStr = "5000/month";
   if (data.feeMonthly) {
     feesStr = `${data.feeMonthly}/month`;
   } else if (data.budgetMin && data.budgetMax) {
-    feesStr = data.budgetMin === data.budgetMax 
-      ? `${data.budgetMin}/month` 
-      : `${data.budgetMin} - ${data.budgetMax}/month`;
+    feesStr =
+      data.budgetMin === data.budgetMax
+        ? `${data.budgetMin}/month`
+        : `${data.budgetMin} - ${data.budgetMax}/month`;
   } else if (data.budgetMin) {
     feesStr = `${data.budgetMin}/month`;
   } else if (data.budgetMax) {
     feesStr = `${data.budgetMax}/month`;
   }
 
-  // Clean gender preference (strictly Male, Female, or Any — no notes contamination)
   let genderStr = "Any (Male or Female Tutor)";
   if (data.genderPreference) {
     const gUpper = data.genderPreference.toUpperCase();
@@ -118,33 +139,73 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
     else if (gUpper.includes("MALE")) genderStr = "Male Tutor Required";
     else if (gUpper === "ANY" || !data.genderPreference) genderStr = "Any (Male or Female Tutor)";
     else {
-      // Remove any leaked bracket tags like ([MONTHLY RATE])
-      genderStr = data.genderPreference.replace(/\s*\[[^\]]+\]\s*/g, "").trim() || "Any (Male or Female Tutor)";
+      genderStr =
+        data.genderPreference.replace(/\s*\[[^\]]+\]\s*/g, "").trim() ||
+        "Any (Male or Female Tutor)";
     }
   }
 
-  // Filter out system tags like [MONTHLY RATE] from user-facing notes
   const rawNotes = (data.notes || "").replace(/\[(?:MONTHLY RATE|HOURLY|DAILY|SYSTEM)\]/gi, "").trim();
-  const cleanNotes = rawNotes && !genderStr.toLowerCase().includes(rawNotes.toLowerCase()) ? rawNotes : null;
+  const notes = rawNotes && !genderStr.toLowerCase().includes(rawNotes.toLowerCase()) ? rawNotes : null;
 
-  // Real timing fallback — exclude impossible 12 PM - 3 PM school hours
   let scheduleStr = data.schedule || data.timingPreference || "Evening (4 PM - 7 PM)";
   if (/12\s*(?:pm)?\s*[-–]\s*(?:3|4)\s*pm/i.test(scheduleStr)) {
     scheduleStr = "Evening (4 PM - 7 PM)";
   }
 
-  const whatsappNum = data.contactWhatsApp || "87997 07960";
+  return {
+    inquiryNumber,
+    clientName,
+    classStr,
+    modeStr,
+    locationStr,
+    feesStr,
+    genderStr,
+    scheduleStr,
+    notes,
+    whatsappNum: data.contactWhatsApp || "87997 07960",
+  };
+}
+
+/** Aqua `tuition_enquiry_alert` body vars {{1}}–{{8}} in send order. */
+export function buildAquaTuitionEnquiryPlaceholders(data: LeadTemplateData): string[] {
+  const fields = getLeadNotifyFields(data);
+  return [
+    fields.inquiryNumber,
+    fields.clientName,
+    fields.classStr,
+    fields.modeStr,
+    fields.locationStr,
+    fields.feesStr,
+    fields.genderStr,
+    fields.scheduleStr,
+  ];
+}
+
+export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
+  const {
+    inquiryNumber,
+    clientName,
+    classStr,
+    modeStr,
+    locationStr,
+    feesStr,
+    genderStr,
+    scheduleStr,
+    notes,
+    whatsappNum,
+  } = getLeadNotifyFields(data);
 
   if (data.useStandardMarkdown) {
     return [
-      `*TUITION ENQUIRY: #${leadNum}*`,
+      `*TUITION ENQUIRY: #${inquiryNumber}*`,
       `*Client Name:* ${clientName}`,
       `*Class:* ${classStr}`,
       `*Mode:* ${modeStr}`,
-      `*Location:* ${locationStr}${pinStr}`,
+      `*Location:* ${locationStr}`,
       `*Fees:* ${feesStr}`,
       `*Gender Preference:* ${genderStr}`,
-      cleanNotes ? `*Special Notes:* ${cleanNotes}` : null,
+      notes ? `*Special Notes:* ${notes}` : null,
       `*Schedule:* ${scheduleStr}`,
       "",
       `Dm on WhatsApp  ${whatsappNum}`,
@@ -156,14 +217,14 @@ export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
   }
 
   return [
-    `𝐓𝐔𝐈𝐓𝐈𝐎𝐍 𝐄𝐍𝐐𝐔𝐈𝐑𝐘: #${leadNum}`,
+    `𝐓𝐔𝐈𝐓𝐈𝐎𝐍 𝐄𝐍𝐐𝐔𝐈𝐑𝐘: #${inquiryNumber}`,
     `𝐂𝐥𝐢𝐞𝐧𝐭 𝐍𝐚𝐦𝐞: ${clientName}`,
     `𝐂𝐥𝐚𝐬𝐬: ${classStr}`,
     `𝐌𝐨𝐝𝐞: ${modeStr}`,
-    `𝐋𝐨𝐜𝐚𝐭𝐢𝐨𝐧: ${locationStr}${pinStr}`,
+    `𝐋𝐨𝐜𝐚𝐭𝐢𝐨𝐧: ${locationStr}`,
     `𝐅𝐞𝐞𝐬: ${feesStr}`,
     `𝐆𝐞𝐧𝐝𝐞𝐫 𝐏𝐫𝐞𝐟𝐞𝐫𝐞𝐧𝐜𝐞: ${genderStr}`,
-    cleanNotes ? `𝐒𝐩𝐞𝐜𝐢𝐚𝐥 𝐍𝐨𝐭𝐞𝐬: ${cleanNotes}` : null,
+    notes ? `𝐒𝐩𝐞𝐜𝐢𝐚𝐥 𝐍𝐨𝐭𝐞𝐬: ${notes}` : null,
     `𝐒𝐜𝐡𝐞𝐝𝐮𝐥𝐞: ${scheduleStr}`,
     "",
     `Dm on WhatsApp  ${whatsappNum}`,

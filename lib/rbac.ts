@@ -217,10 +217,11 @@ export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
     "/admin/leads",
     "/admin/staff-leads",
     "/admin/staff-leads/my-leads",
+    "/admin/staff-leads/my-dashboard",
     "/admin/audit-logs",
   ],
-  VERIFICATION: ["/admin/dashboard", "/admin/kyc", "/admin/users", "/admin/staff-leads/my-leads", "/admin/audit-logs"],
-  FINANCE: ["/admin/dashboard", "/admin/wallets", "/admin/staff-leads/my-leads", "/admin/audit-logs"],
+  VERIFICATION: ["/admin/dashboard", "/admin/kyc", "/admin/users", "/admin/staff-leads/my-leads", "/admin/staff-leads/my-dashboard", "/admin/audit-logs"],
+  FINANCE: ["/admin/dashboard", "/admin/wallets", "/admin/staff-leads/my-leads", "/admin/staff-leads/my-dashboard", "/admin/audit-logs"],
   OPERATIONS: [
     "/admin/dashboard",
     "/admin/leads",
@@ -228,6 +229,7 @@ export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
     "/admin/staff-leads/manage",
     "/admin/staff-leads/upload",
     "/admin/staff-leads/my-leads",
+    "/admin/staff-leads/my-dashboard",
     "/admin/staff-leads/assign",
     "/admin/bookings",
     "/admin/chat",
@@ -251,11 +253,12 @@ export function getAllowedSubAdminModules(subject: RbacSubject): string[] {
 
   // If sub-admin has custom permissions explicitly saved
   if (subject.customPermissions && subject.customPermissions.length > 0) {
-    const routes = new Set<string>(["/admin/dashboard", "/admin/staff-leads/my-leads"]);
+    const routes = new Set<string>(["/admin/dashboard", "/admin/staff-leads/my-leads", "/admin/staff-leads/my-dashboard"]);
     for (const key of subject.customPermissions) {
       const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
       if (key === "staff-leads") {
         routes.add("/admin/staff-leads/my-leads");
+        routes.add("/admin/staff-leads/my-dashboard");
         if (subject.subAdminRole === "OPERATIONS") {
           routes.add("/admin/staff-leads");
           routes.add("/admin/staff-leads/reports");
@@ -273,11 +276,12 @@ export function getAllowedSubAdminModules(subject: RbacSubject): string[] {
   // Fallback to department role defaults
   const role = subject.subAdminRole ?? "SUPPORT";
   const defaultKeys = DEFAULT_ROLE_FEATURES[role] ?? DEFAULT_ROLE_FEATURES["SUPPORT"];
-  const routes = new Set<string>(["/admin/dashboard"]);
+  const routes = new Set<string>(["/admin/dashboard", "/admin/staff-leads/my-leads", "/admin/staff-leads/my-dashboard"]);
   for (const key of defaultKeys) {
     const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
     if (key === "staff-leads") {
       routes.add("/admin/staff-leads/my-leads");
+      routes.add("/admin/staff-leads/my-dashboard");
       if (role === "OPERATIONS") {
         routes.add("/admin/staff-leads");
         routes.add("/admin/staff-leads/reports");

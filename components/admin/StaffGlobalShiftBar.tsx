@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
-  Play, Square, Calendar, Loader2, X, CheckCircle2, AlertCircle
+  Play, Square, Calendar, Loader2, X, CheckCircle2, AlertCircle, ShieldCheck, ShieldOff, Lock
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { AdminCommandPalette } from "@/components/admin/AdminCommandPalette";
@@ -14,6 +14,8 @@ import {
   staffEndBreakAction,
   getMyActiveSessionAction
 } from "@/app/actions/staff-leads.actions";
+import { setMyDutyAction } from "@/app/actions/staff-presence.actions";
+import { useStaffDutyStore } from "@/lib/stores/staff-duty-store";
 
 interface Props {
   userRole?: string;
@@ -47,51 +49,95 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
     setTimeout(() => setToastMsg(null), 4000);
   };
 
-  // Fetch initial active session
+  // ── Duty (data-access) state, shared via the presence store ──
+  const dutyStatus = useStaffDutyStore((s) => s.dutyStatus);
+  const dutyForcedOff = useStaffDutyStore((s) => s.forcedOff);
+  const dutyHydrated = useStaffDutyStore((s) => s.hydrated);
+  const isIdle = useStaffDutyStore((s) => s.isIdle);
+  const setDutySnapshot = useStaffDutyStore((s) => s.setSnapshot);
+  const setShiftSession = useStaffDutyStore((s) => s.setShiftSession);
+
+  // Sync session state with global duty store
+  useEffect(() => {
+    if (session) {
+      setShiftSession({ id: session.id, status: session.status as any });
+    } else {
+      setShiftSession({ id: null, status: "CLOCKED_OUT" });
+    }
+  }, [session, setShiftSession]);
+
+  // Fetch initial active session or auto-clock in on mount
   useEffect(() => {
     let mounted = true;
-    getMyActiveSessionAction().then((res) => {
-      if (mounted) {
-        if (res.success && res.data?.session) {
+    getMyActiveSessionAction().then(async (res) => {
+      if (!mounted) return;
+      if (res.success && res.data?.session) {
+        const s = res.data.session;
+        setSession({
+          id: s.id,
+          clockIn: new Date(s.clockIn).toISOString(),
+          status: s.status,
+          breakStartedAt: s.breakStartedAt ? new Date(s.breakStartedAt).toISOString() : null,
+          totalBreakMins: s.totalBreakMins,
+          callsMade: s.callsMade,
+          leadsConverted: s.leadsConverted,
+        });
+        const initialMs = new Date(s.clockIn).getTime();
+        const initialElapsed = Math.max(0, Math.floor((Date.now() - initialMs) / 1000) - (s.totalBreakMins * 60));
+        setElapsedSec(initialElapsed);
+        setShiftSession({ id: s.id, status: s.status as any });
+        const dutyRes = await setMyDutyAction("ON_DUTY");
+        if (dutyRes.success && dutyRes.data) setDutySnapshot(dutyRes.data);
+      } else {
+        // Automatic clock-in on mount/login so staff is immediately on shift
+        const autoRes = await staffClockInAction();
+        if (mounted && autoRes.success && autoRes.data) {
           setSession({
-            id: res.data.session.id,
-            clockIn: new Date(res.data.session.clockIn).toISOString(),
-            status: res.data.session.status,
-            breakStartedAt: res.data.session.breakStartedAt
-              ? new Date(res.data.session.breakStartedAt).toISOString()
-              : null,
-            totalBreakMins: res.data.session.totalBreakMins,
-            callsMade: res.data.session.callsMade,
-            leadsConverted: res.data.session.leadsConverted,
+            id: autoRes.data.sessionId,
+            clockIn: new Date().toISOString(),
+            status: "CLOCKED_IN",
+            breakStartedAt: null,
+            totalBreakMins: 0,
+            callsMade: 0,
+            leadsConverted: 0,
           });
-        } else {
-          setSession(null);
+          setElapsedSec(0);
+          setShiftSession({ id: autoRes.data.sessionId, status: "CLOCKED_IN" });
+          const dutyRes = await setMyDutyAction("ON_DUTY");
+          if (dutyRes.success && dutyRes.data) setDutySnapshot(dutyRes.data);
         }
-        setLoading(false);
       }
+      if (mounted) setLoading(false);
     });
     return () => { mounted = false; };
-  }, []);
+  }, [setDutySnapshot, setShiftSession]);
 
-  // Ticking Timer
+  // Ticking Timer — Pauses when isIdle is true (does not count idle time on shift!)
   useEffect(() => {
-    if (!session) {
-      setElapsedSec(0);
+    if (!session || session.status !== "CLOCKED_IN") {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      // If idle (no mouse movement > 1 minute), DO NOT COUNT TIME!
+      if (isIdle) {
+        return;
+      }
+      setElapsedSec((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [session, isIdle]);
+
+  // Break Timer
+  useEffect(() => {
+    if (!session || session.status !== "ON_BREAK") {
       setBreakSec(0);
       return;
     }
 
     const interval = setInterval(() => {
-      const now = Date.now();
-      const clockInMs = new Date(session.clockIn).getTime();
-      const totalElapsed = Math.floor((now - clockInMs) / 1000);
-      const netWorking = Math.max(0, totalElapsed - (session.totalBreakMins * 60));
-      setElapsedSec(netWorking);
-
-      if (session.status === "ON_BREAK" && session.breakStartedAt) {
-        const breakMs = new Date(session.breakStartedAt).getTime();
-        setBreakSec(Math.max(0, Math.floor((now - breakMs) / 1000)));
-      }
+      setBreakSec((prev) => prev + 1);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -110,7 +156,11 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
           callsMade: 0,
           leadsConverted: 0,
         });
-        showToast("success", "🟢 Shift started! Clocked in successfully.");
+        if (dutyStatus !== "ON_DUTY" && !dutyForcedOff) {
+          const dutyRes = await setMyDutyAction("ON_DUTY");
+          if (dutyRes.success && dutyRes.data) setDutySnapshot(dutyRes.data);
+        }
+        showToast("success", "🟢 Shift started! Tracking mouse movement & duty unlocked.");
       } else {
         showToast("error", res.error ?? "Failed to clock in");
       }
@@ -146,10 +196,14 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
         setSession(null);
         setClockOutModal(false);
         setShiftNotes("");
+        if (dutyStatus === "ON_DUTY") {
+          const dutyRes = await setMyDutyAction("OFF_DUTY");
+          if (dutyRes.success && dutyRes.data) setDutySnapshot(dutyRes.data);
+        }
         const mins = res.data.totalMinutes;
         const h = Math.floor(mins / 60);
         const m = mins % 60;
-        showToast("success", `⏹️ Clocked out! Shift logged: ${h > 0 ? `${h}h ${m}m` : `${m}m`} (${res.data.callsMade} calls)`);
+        showToast("success", `⏹️ Clocked out! Shift logged: ${h > 0 ? `${h}h ${m}m` : `${m}m`} (${res.data.callsMade} calls). Duty locked.`);
       } else {
         showToast("error", res.error ?? "Failed to clock out");
       }
@@ -197,10 +251,29 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
                 On break {formatTimer(breakSec)}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-700 text-[#238357]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2D9E6B]" />
-                On shift {formatTimer(elapsedSec)}
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-700 text-[#238357]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2D9E6B]" />
+                  On shift {formatTimer(elapsedSec)}
+                </span>
+                {isIdle ? (
+                  <span
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                    title="Shift paused — No mouse movement for 1 minute. Time is not counting. Numbers are blurred. Move mouse to resume."
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <span>⏸️ Paused (Idle &gt; 1m) · Move mouse</span>
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    title="Active — counting shift time &amp; tracking mouse movements"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Active
+                  </span>
+                )}
+              </div>
             )
           ) : null}
 
@@ -230,6 +303,13 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
               {isPending ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} />}
               Clock In
             </button>
+          )}
+
+          {/* ── Admin locked-off indicator only (no manual toggle) ── */}
+          {dutyHydrated && dutyForcedOff && (
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#FEF2F2] text-[#BE123C] font-800 text-[11px]" title="An admin locked you off duty">
+              <Lock size={11} /> Locked off
+            </span>
           )}
         </div>
 

@@ -82,44 +82,71 @@ function RegisterFormContent() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <button
             type="button"
             onClick={() => pickRole("PARENT")}
             aria-pressed={!isTutor}
-            className={`flex min-h-[88px] items-start gap-3 rounded-2xl border-2 p-4 text-left ${
+            className={`flex min-h-[96px] items-start gap-3.5 rounded-2xl border-2 p-4 text-left transition-all cursor-pointer ${
               !isTutor
-                ? "border-[#2D9E6B] bg-[#E8F7F0]"
-                : "border-[#E2E8F0] bg-white hover:border-[#2D9E6B]/50"
+                ? "border-emerald-600 bg-emerald-50/80 shadow-sm ring-2 ring-emerald-500/20"
+                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
             }`}
           >
-            <Users size={22} className="mt-0.5 shrink-0 text-[#2D9E6B]" />
-            <span>
-              <span className="flex items-center gap-2 text-[17px] font-800 text-[#0F2540]">
-                I am a Parent
-                {!isTutor ? <Check size={16} className="text-[#2D9E6B]" /> : null}
+            <div className={`p-2.5 rounded-xl shrink-0 ${!isTutor ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+              <Users size={22} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[17px] font-extrabold text-[#0F2540]">
+                  I am a Parent
+                </span>
+                {!isTutor && (
+                  <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    Selected ✓
+                  </span>
+                )}
+              </div>
+              <span className="mt-1 block text-xs font-semibold text-slate-600 leading-snug">
+                Looking for a home or online tutor for my child
               </span>
-              <span className="mt-0.5 block text-sm font-500 text-[#64748B]">I need a tutor for my child</span>
-            </span>
+              <span className="mt-1.5 inline-block text-[11px] font-extrabold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                100% Free · No Charges
+              </span>
+            </div>
           </button>
+
           <button
             type="button"
             onClick={() => pickRole("TUTOR")}
             aria-pressed={isTutor}
-            className={`flex min-h-[88px] items-start gap-3 rounded-2xl border-2 p-4 text-left ${
+            className={`flex min-h-[96px] items-start gap-3.5 rounded-2xl border-2 p-4 text-left transition-all cursor-pointer ${
               isTutor
-                ? "border-[#2D9E6B] bg-[#E8F7F0]"
-                : "border-[#E2E8F0] bg-white hover:border-[#2D9E6B]/50"
+                ? "border-emerald-600 bg-emerald-50/80 shadow-sm ring-2 ring-emerald-500/20"
+                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
             }`}
           >
-            <GraduationCap size={22} className="mt-0.5 shrink-0 text-[#F5A623]" />
-            <span>
-              <span className="flex items-center gap-2 text-[17px] font-800 text-[#0F2540]">
-                I am a Teacher
-                {isTutor ? <Check size={16} className="text-[#2D9E6B]" /> : null}
+            <div className={`p-2.5 rounded-xl shrink-0 ${isTutor ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+              <GraduationCap size={22} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[17px] font-extrabold text-[#0F2540]">
+                  I am a Teacher
+                </span>
+                {isTutor && (
+                  <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    Selected ✓
+                  </span>
+                )}
+              </div>
+              <span className="mt-1 block text-xs font-semibold text-slate-600 leading-snug">
+                Want to teach students near my home or online
               </span>
-              <span className="mt-0.5 block text-sm font-500 text-[#64748B]">I want to teach students nearby</span>
-            </span>
+              <span className="mt-1.5 inline-block text-[11px] font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                Zero Commission · Keep 100% Fees
+              </span>
+            </div>
           </button>
         </div>
 

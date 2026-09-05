@@ -55,7 +55,7 @@ function subjectMatchScore(tutorSubjects: string[], requested: string[]): number
   return score;
 }
 
-export function getMetroName(locality: string): string {
+function getMetroName(locality: string): string {
   const loc = locality.toLowerCase().trim();
   if (
     /delhi|new delhi|sangam vihar|saket|malviya nagar|hauz khas|greater kailash|gk|lajpat|kalkaji|nehru place|vasant|dwarka|janakpuri|vikaspuri|uttam nagar|tilak nagar|rajouri|punjabi bagh|paschim vihar|kirti nagar|patel nagar|moti nagar|rohini|pitampura|shalimar|model town|ashok vihar|civil lines|mukherjee nagar|gtb nagar|burari|azadpur|jahangirpuri|karol bagh|laxmi nagar|mayur vihar|preet vihar|anand vihar|dilshad garden|shahdara|noida|greater noida|ghaziabad|indirapuram|vaishali|vasundhara|gurgaon|gurugram|faridabad/i.test(

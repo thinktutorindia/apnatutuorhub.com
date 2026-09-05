@@ -952,7 +952,9 @@ export function MyStaffLeadsClient({
       )}
 
       {/* ── Calling Desk Command Bar (Responsive 2-row layout on mobile) ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-2.5 sm:px-3.5 sm:py-2 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 sm:gap-3">
+      <div className={`bg-white rounded-2xl border border-slate-200 shadow-2xs p-2.5 sm:px-3.5 sm:py-2 ${
+        mobileView === "DETAIL" ? "hidden lg:flex" : "flex"
+      } flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 sm:gap-3`}>
         {/* Stage Pills (smooth horizontal swipe on mobile) */}
         <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar shrink-0">
           {(
@@ -1119,7 +1121,9 @@ export function MyStaffLeadsClient({
     </div>
 
       {/* ── Mobile Queue vs Calling Desk Switcher (Phones / Small Screens) ── */}
-      <div className="lg:hidden flex items-center p-1 bg-slate-200/90 rounded-2xl mb-3 border border-slate-300 shadow-2xs">
+      <div className={`lg:hidden ${
+        mobileView === "DETAIL" ? "hidden" : "flex"
+      } items-center p-1 bg-slate-200/90 rounded-2xl mb-3 border border-slate-300 shadow-2xs`}>
         <button
           type="button"
           onClick={() => setMobileView("QUEUE")}
@@ -1365,15 +1369,15 @@ export function MyStaffLeadsClient({
         {/* Right Column: Calling Workspace & Console (7 cols) */}
         <div className={`lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden ${
           mobileView === "QUEUE" ? "hidden lg:flex" : "flex"
-        } flex-col h-[calc(100vh-210px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-120px)] min-h-[460px]`}>
+        } flex-col h-[calc(100vh-130px)] sm:h-[calc(100vh-160px)] lg:h-[calc(100vh-120px)] min-h-[460px]`}>
           {currentLead ? (
             <>
               {/* Mobile Quick Navigation Bar */}
-              <div className="lg:hidden px-3.5 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="lg:hidden px-3.5 py-2.5 bg-slate-900 text-white flex items-center justify-between shrink-0 shadow-sm">
                 <button
                   type="button"
                   onClick={() => setMobileView("QUEUE")}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-[#0F2540] font-black text-xs shadow-2xs active:scale-95 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-black text-xs shadow-2xs active:scale-95 cursor-pointer"
                 >
                   <ArrowLeft size={14} />
                   <span>Queue ({filteredLeads.length})</span>
@@ -1383,19 +1387,19 @@ export function MyStaffLeadsClient({
                     type="button"
                     onClick={advanceToPrevLead}
                     disabled={currentLeadIndex === 0}
-                    className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold disabled:opacity-30 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold disabled:opacity-30 cursor-pointer text-white"
                     title="Previous Lead"
                   >
                     ← Prev
                   </button>
-                  <span className="text-[11px] font-mono font-bold text-slate-600 px-1">
+                  <span className="text-[11px] font-mono font-black text-emerald-400 px-1.5">
                     {currentLeadIndex + 1}/{filteredLeads.length}
                   </span>
                   <button
                     type="button"
                     onClick={advanceToNextLead}
                     disabled={currentLeadIndex + 1 >= filteredLeads.length}
-                    className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold disabled:opacity-30 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold disabled:opacity-30 cursor-pointer text-white"
                     title="Next Lead"
                   >
                     Next →
@@ -1403,12 +1407,12 @@ export function MyStaffLeadsClient({
                 </div>
               </div>
 
-              {/* Sticky Contact Header */}
-              <div className="p-3.5 bg-slate-50 border-b border-slate-200 space-y-2.5 shrink-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
+              {/* Sticky Contact Header (Clean, Non-overlapping) */}
+              <div className="p-3 sm:p-3.5 bg-slate-50 border-b border-slate-200 space-y-2.5 shrink-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center text-base font-black shadow-2xs shrink-0 ${
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black shadow-2xs shrink-0 ${
                         getStaffRecordType(currentLead.staffNotes) === "PARENT"
                           ? "bg-blue-100 text-blue-800 border border-blue-200"
                           : "bg-emerald-100 text-emerald-800 border border-emerald-200"
@@ -1417,74 +1421,40 @@ export function MyStaffLeadsClient({
                       {getStaffRecordType(currentLead.staffNotes) === "PARENT" ? "P" : "T"}
                     </div>
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-lg font-black text-[#0F2540] tracking-tight truncate">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h2 className="text-base sm:text-lg font-black text-[#0F2540] tracking-tight truncate">
                           {currentLead.name && currentLead.name !== "Unknown Contact"
                             ? currentLead.name
                             : formatPhoneNumber(currentLead.phone)}
                         </h2>
                         <span
-                          className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
+                          className={`text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-full ${
                             getStaffRecordType(currentLead.staffNotes) === "PARENT"
                               ? "bg-blue-100 text-blue-900 border border-blue-200"
                               : "bg-emerald-100 text-emerald-900 border border-emerald-200"
                           }`}
                         >
-                          {getStaffRecordType(currentLead.staffNotes) === "PARENT" ? "Student / Parent" : "Teacher / Tutor"}
+                          {getStaffRecordType(currentLead.staffNotes) === "PARENT" ? "Parent" : "Tutor"}
                         </span>
-
-                        {/* Stepper */}
-                        <div className="inline-flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-full border border-slate-200 text-[10px] font-extrabold text-slate-600 shadow-2xs">
-                          <button
-                            type="button"
-                            onClick={advanceToPrevLead}
-                            disabled={currentLeadIndex === 0}
-                            className="hover:text-slate-900 disabled:opacity-30 cursor-pointer"
-                            title="Previous Lead (↑)"
-                          >
-                            ←
-                          </button>
-                          <span>{currentLeadIndex + 1} of {filteredLeads.length}</span>
-                          <button
-                            type="button"
-                            onClick={advanceToNextLead}
-                            disabled={currentLeadIndex + 1 >= filteredLeads.length}
-                            className="hover:text-slate-900 disabled:opacity-30 cursor-pointer"
-                            title="Next Lead (↓)"
-                          >
-                            →
-                          </button>
-                        </div>
                       </div>
 
-                      <div className="text-xs text-slate-500 font-semibold mt-1 flex items-center gap-2 flex-wrap">
-                        {currentLead.name && currentLead.name !== "Unknown Contact" && currentLead.phone && (
-                          <span className="font-mono font-bold text-slate-700 bg-white px-1.5 py-0.2 rounded border border-slate-200">
-                            {formatPhoneNumber(currentLead.phone)}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <MapPin size={12} className="text-slate-400" />
-                          <span>{currentLead.location || "Location not recorded"}</span>
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <BookOpen size={12} className="text-slate-400" />
-                          <span>{currentLead.subjects.length > 0 ? currentLead.subjects.join(", ") : "General Subjects"}</span>
-                        </span>
-                        {currentLead.experienceYears && <span>• {currentLead.experienceYears} yrs exp</span>}
-                      </div>
+                      {currentLead.name && currentLead.name !== "Unknown Contact" && currentLead.phone && (
+                        <p className="text-[11px] font-mono font-bold text-slate-500 truncate">
+                          {formatPhoneNumber(currentLead.phone)}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Quick Action Tools */}
+                  <div className="flex items-center gap-1 shrink-0">
                     {!currentLead.isPromoted ? (
                       <button
                         type="button"
                         onClick={() => handlePromoteLead(currentLead)}
                         disabled={isPromotingLead}
-                        className="p-2 px-3.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50 active:scale-95"
+                        className="p-1.5 sm:px-3 sm:py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-xs disabled:opacity-50 active:scale-95"
                         title={
                           getStaffRecordType(currentLead.staffNotes) === "PARENT"
                             ? "Publish live student requirement to platform"
@@ -1492,44 +1462,33 @@ export function MyStaffLeadsClient({
                         }
                       >
                         {isPromotingLead ? (
-                          <Loader2 size={13} className="animate-spin" />
+                          <Loader2 size={12} className="animate-spin" />
                         ) : (
-                          <Sparkles size={13} />
+                          <Sparkles size={12} />
                         )}
-                        <span>Move to Primary</span>
+                        <span className="hidden sm:inline">Move to Primary</span>
                       </button>
                     ) : (
-                      <span className="p-1.5 px-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-extrabold flex items-center gap-1.5 shadow-2xs">
-                        <CheckCircle2 size={13} className="text-emerald-600" />
-                        <span>Primary ✓</span>
-                        {currentLead.promotedTutorProfileId && (
-                          <a
-                            href={`/tutors/${currentLead.promotedTutorProfileId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-emerald-700 hover:text-emerald-900 underline ml-0.5 font-bold"
-                            title="View in User Directory"
-                          >
-                            ↗
-                          </a>
-                        )}
+                      <span className="p-1 sm:px-2.5 sm:py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
+                        <CheckCircle2 size={12} className="text-emerald-600" />
+                        <span className="hidden sm:inline">Primary ✓</span>
                       </span>
                     )}
 
                     <button
                       type="button"
                       onClick={() => setIsEditLeadModalOpen(true)}
-                      className="p-2 px-3 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                      className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                       title="Edit details (E)"
                     >
                       <Edit3 size={13} />
-                      <span>Edit Details</span>
+                      <span className="hidden sm:inline">Edit</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleDeleteLead(currentLead.id)}
-                      className="p-2 rounded-xl bg-white border border-slate-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                      className="p-1.5 sm:p-2 rounded-xl bg-white border border-slate-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all cursor-pointer shadow-2xs"
                       title="Delete lead"
                     >
                       <Trash2 size={13} />
@@ -1537,19 +1496,30 @@ export function MyStaffLeadsClient({
                   </div>
                 </div>
 
+                {/* Info Bar: Location & Subjects */}
+                <div className="text-[11px] text-slate-600 font-semibold flex items-center gap-2 flex-wrap bg-white/70 px-2.5 py-1.5 rounded-xl border border-slate-200/80">
+                  <span className="flex items-center gap-1 min-w-0">
+                    <MapPin size={12} className="text-slate-400 shrink-0" />
+                    <span className="truncate max-w-[140px] sm:max-w-none">{currentLead.location || "Location not recorded"}</span>
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 min-w-0 flex-1">
+                    <BookOpen size={12} className="text-slate-400 shrink-0" />
+                    <span className="truncate">{currentLead.subjects.length > 0 ? currentLead.subjects.join(", ") : "General Subjects"}</span>
+                  </span>
+                  {currentLead.experienceYears && <span>• {currentLead.experienceYears}y exp</span>}
+                </div>
+
                 {/* Primary Action Buttons: Call & WhatsApp */}
                 {currentLead.phone ? (
                   <div className="flex items-center gap-2 pt-0.5">
                     <a
                       href={`tel:+91${currentLead.phone.replace(/\D/g, "").slice(-10)}`}
-                      className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.99]"
+                      className="flex-1 py-3 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
                       title="Direct call (C or Space)"
                     >
-                      <PhoneCall size={15} />
+                      <PhoneCall size={16} />
                       <span>Call {formatPhoneNumber(currentLead.phone)}</span>
-                      <kbd className="hidden sm:inline-block text-[9px] font-mono bg-emerald-800/60 px-1.5 py-0.2 rounded text-emerald-200">
-                        C
-                      </kbd>
                     </a>
 
                     <a
@@ -1560,20 +1530,17 @@ export function MyStaffLeadsClient({
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-[0.99]"
+                      className="py-3 px-3.5 rounded-2xl bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-[0.98] shrink-0"
                       title="Send WhatsApp message (W)"
                     >
-                      <MessageCircle size={15} />
+                      <MessageCircle size={16} />
                       <span>WhatsApp</span>
-                      <kbd className="hidden sm:inline-block text-[9px] font-mono bg-teal-800/60 px-1.5 py-0.2 rounded text-teal-200">
-                        W
-                      </kbd>
                     </a>
 
                     <button
                       type="button"
                       onClick={() => copyPhone(currentLead.phone!, currentLead.id)}
-                      className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer shadow-2xs"
+                      className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer shadow-2xs shrink-0"
                       title="Copy phone number"
                     >
                       {copiedId === currentLead.id ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}

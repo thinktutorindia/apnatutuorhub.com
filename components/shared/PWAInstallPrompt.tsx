@@ -110,35 +110,35 @@ export function PWAInstallBanner({ className = "" }: { className?: string }) {
   return (
     <>
       <div
-        className={`rounded-2xl p-3.5 bg-gradient-to-r from-[#0F2540] via-[#16355d] to-[#0A192F] text-white border border-white/10 shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-top-2 ${className}`}
+        className={`rounded-2xl p-2.5 sm:p-3.5 bg-gradient-to-r from-[#0F2540] via-[#16355d] to-[#0A192F] text-white border border-white/10 shadow-lg flex items-center justify-between gap-2.5 animate-in slide-in-from-top-2 ${className}`}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-[#2D9E6B] text-white flex items-center justify-center shrink-0 shadow-md">
-            <Smartphone size={20} />
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#2D9E6B] text-white flex items-center justify-center shrink-0 shadow-md">
+            <Smartphone size={16} className="sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-[#F5A623] text-[#0F2540] px-1.5 py-0.2 rounded font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="hidden sm:inline-block text-[10px] font-extrabold uppercase tracking-wider bg-[#F5A623] text-[#0F2540] px-1.5 py-0.2 rounded font-mono">
                 Staff App
               </span>
               <h4 className="text-xs sm:text-sm font-extrabold text-white truncate">
-                Install ApnaTutorHub on Chrome / Phone
+                Install Staff Web App
               </h4>
             </div>
-            <p className="text-[11px] text-white/70 truncate sm:whitespace-normal mt-0.5 font-medium">
-              1-tap home screen access, full-screen calling desk &amp; faster workflow on mobile.
+            <p className="text-[10px] sm:text-[11px] text-white/70 truncate sm:whitespace-normal font-medium">
+              1-tap fullscreen calling desk on Chrome / Phone
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={install}
-            className="px-3.5 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-black inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
+            className="px-3 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-black inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
           >
             <Download size={13} />
-            <span>Install App</span>
+            <span>Install</span>
           </button>
           <button
             type="button"
@@ -146,7 +146,7 @@ export function PWAInstallBanner({ className = "" }: { className?: string }) {
             className="p-1 rounded-lg text-white/40 hover:text-white/80 cursor-pointer"
             title="Dismiss"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
       </div>

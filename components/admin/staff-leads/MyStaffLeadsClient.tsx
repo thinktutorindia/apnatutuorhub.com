@@ -567,7 +567,10 @@ export function MyStaffLeadsClient({
     // 5. Background Server Sync
     startTransition(async () => {
       try {
-        await logCallAction(leadId, outcome, notesToSave);
+        const res = await logCallAction(leadId, outcome, notesToSave, followUpToSave);
+        if (!res.success) {
+          console.error("logCallAction notice:", res.error);
+        }
         await updateStaffLeadAction(leadId, {
           status: nextStatus,
           nextFollowUpAt: followUpToSave ? new Date(followUpToSave) : undefined,
@@ -597,15 +600,15 @@ export function MyStaffLeadsClient({
   // Action 2: Save in CRM Queue Only (No Primary DB) + Advance to Next Lead
   const handleSaveInQueueAndNext = async () => {
     if (!currentLead) return;
-    if (!callOutcome && !callNotes.trim() && !followUpDate) {
-      // Just advance to next lead if nothing changed
-      advanceToNextLead();
-      return;
-    }
 
+    // Always log the call so the lead moves from NEW/ASSIGNED to CONTACTED/FOLLOW_UP
     const outcome: CallOutcome =
       callOutcome || (followUpDate ? "CALLBACK_REQUESTED" : "ANSWERED");
-    logCallAndAdvance(outcome, callNotes || "Logged in CRM Queue", followUpDate || null);
+    const notesToSave =
+      callNotes.trim() ||
+      (callOutcome ? `Call logged: ${callOutcome.replace(/_/g, " ")}` : "Contacted via Calling Desk");
+
+    logCallAndAdvance(outcome, notesToSave, followUpDate || null);
   };
   const handleSaveAndNext = handleSaveInQueueAndNext;
 
@@ -1910,30 +1913,65 @@ export function MyStaffLeadsClient({
                 </div>
               </div>
 
-              {/* Mobile Ergonomic Action Footer (Single-row, 50px high, thumb-friendly) */}
-              <div className="lg:hidden p-2.5 bg-white border-t border-slate-200 shrink-0 shadow-lg flex items-center gap-2">
+              {/* Mobile Ergonomic Action Footer (Both full buttons always visible and clearly labeled) */}
+              <div className="lg:hidden p-2 bg-white border-t border-slate-200 shrink-0 shadow-lg space-y-1.5">
+                {/* ── BUTTON 1: Move/Save to Primary Database + Advance to Next Lead ── */}
+                <button
+                  type="button"
+                  disabled={isPending || isPromotingLead}
+                  onClick={handleMoveToPrimaryAndNext}
+                  className={`w-full py-2 px-3 rounded-xl font-black text-xs shadow-xs flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 text-left border ${
+                    currentLead.isPromoted
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-emerald-100"
+                      : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-violet-500 shadow-violet-100"
+                  }`}
+                  title="Moves lead to Primary Database + marks Converted + advances to next lead"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isPromotingLead ? (
+                      <Loader2 size={15} className="animate-spin shrink-0" />
+                    ) : currentLead.isPromoted ? (
+                      <CheckCircle2 size={15} className="text-emerald-200 shrink-0" />
+                    ) : (
+                      <Sparkles size={15} className="text-amber-300 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-black text-xs truncate">
+                        {currentLead.isPromoted
+                          ? "🚀 Primary DB ✓ & Next Lead"
+                          : "🚀 Move to Primary & Next Lead"}
+                      </div>
+                      <div className="text-[9px] opacity-85 font-medium truncate">
+                        {currentLead.isPromoted
+                          ? "Already in Live Database • Advance"
+                          : "Save in Primary DB + Queue Converted"}
+                      </div>
+                    </div>
+                  </div>
+                  <ArrowRight size={14} className="shrink-0 opacity-80 ml-1" />
+                </button>
+
+                {/* ── BUTTON 2: Save in CRM Queue Only (No Primary DB) + Advance to Next Lead ── */}
                 <button
                   type="button"
                   disabled={isPending || isPromotingLead}
                   onClick={handleSaveInQueueAndNext}
-                  className="flex-1 py-3 px-3 rounded-xl bg-[#0F2540] hover:bg-slate-900 active:bg-black text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                  className="w-full py-2 px-3 rounded-xl bg-[#0F2540] hover:bg-slate-900 active:bg-black text-white font-black text-xs shadow-xs flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 border border-slate-700"
+                  title="Keeps contact in CRM queue for follow-up + advances to next lead"
                 >
-                  <Clock size={16} className="text-amber-400 shrink-0" />
-                  <span className="truncate">Save Call &amp; Next Lead</span>
-                  <ArrowRight size={15} className="shrink-0" />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Clock size={15} className="text-amber-400 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-black text-xs truncate">
+                        ⏳ Save in Queue &amp; Next Lead
+                      </div>
+                      <div className="text-[9px] text-slate-300 font-medium truncate">
+                        Keep in CRM Queue (No Primary DB)
+                      </div>
+                    </div>
+                  </div>
+                  <ArrowRight size={14} className="shrink-0 text-slate-400 ml-1" />
                 </button>
-                {!currentLead.isPromoted && (
-                  <button
-                    type="button"
-                    disabled={isPending || isPromotingLead}
-                    onClick={handleMoveToPrimaryAndNext}
-                    className="py-3 px-3.5 rounded-xl bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 shrink-0"
-                    title="Save in Primary DB and advance to next lead"
-                  >
-                    <Sparkles size={14} className="text-amber-300 shrink-0" />
-                    <span>Primary</span>
-                  </button>
-                )}
               </div>
             </>
           ) : (

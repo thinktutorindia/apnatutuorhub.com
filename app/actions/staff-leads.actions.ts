@@ -1091,6 +1091,7 @@ export async function logCallAction(
   }
 
   revalidatePath("/admin/staff-leads");
+  revalidatePath("/admin/staff-leads/my-leads");
   return actionSuccess({ logged: true });
 }
 

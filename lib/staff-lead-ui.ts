@@ -70,3 +70,13 @@ export function maskPhone(phone: string | null | undefined): string {
   const tail = digits.slice(-2);
   return `${head}${"•".repeat(Math.max(4, digits.length - 4))}${tail}`;
 }
+
+export function formatPhoneNumber(phone: string | null | undefined): string {
+  if (!phone) return "No phone";
+  const cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length === 10) {
+    return `+91 ${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
+  }
+  return phone;
+}
+

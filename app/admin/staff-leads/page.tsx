@@ -13,15 +13,21 @@ import { auth } from "@/auth";
 export const metadata = { title: "Staff Leads CRM — ApnaTutorHub Admin" };
 export const dynamic = "force-dynamic";
 
-export default async function StaffLeadsPage() {
+export default async function StaffLeadsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ batchId?: string; assignedToId?: string; status?: string }>;
+}) {
   const session = await auth();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+  const params = searchParams ? await searchParams : {};
+  const activeBatchId = params.batchId || undefined;
 
   const DEFAULT_PAGE_SIZE = 50;
 
   const [statsRes, leadsRes, batchesRes, pipelineRes, liveStatusRes, activityRes, staffRes] = await Promise.all([
     getStaffLeadStatsAction().catch(() => ({ success: false, data: null })),
-    getStaffLeadsAction({ pageSize: DEFAULT_PAGE_SIZE }).catch(() => ({ success: false, data: null })),
+    getStaffLeadsAction({ pageSize: DEFAULT_PAGE_SIZE, batchId: activeBatchId }).catch(() => ({ success: false, data: null })),
     getStaffLeadBatchesAction().catch(() => ({ success: false, data: null })),
     getDataPipelineAction().catch(() => ({ success: false, data: null })),
     getStaffLiveStatusAction().catch(() => ({ success: false, data: null })),
@@ -69,6 +75,7 @@ export default async function StaffLeadsPage() {
       liveStatus={liveStatus as any}
       activityFeed={activityFeed as any}
       isSuperAdmin={isSuperAdmin}
+      initialBatchFilter={activeBatchId}
     />
   );
 }

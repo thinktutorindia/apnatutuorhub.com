@@ -27,6 +27,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { searchTutorsPublic, type PublicTutorResult } from "@/app/actions/public.actions";
+import { UnifiedAvatar } from "@/components/ui/UnifiedAvatar";
 import {
   searchSmartSubjects,
   getRelevantClassesForSubject,
@@ -742,9 +743,6 @@ function PreplyTutorCard({
   const displayName = tutor.name?.trim() || "Verified Tutor";
   const isFeatured = tutor.isFeatured || index === 0;
 
-  const fallbackImages = ["/images/tutors/tutor_1.png", "/images/tutors/tutor_2.png", "/images/tutors/tutor_3.png"];
-  const tutorPhoto = tutor.image || fallbackImages[index % fallbackImages.length];
-
   const modeLabel =
     tutor.teachingMode === "ONLINE"
       ? "Live Online Classes"
@@ -756,14 +754,16 @@ function PreplyTutorCard({
   const monthlyFee = tutor.feeMax ? tutor.feeMax : hourlyFee * 8;
 
   const classesText =
-    tutor.classLevels && tutor.classLevels.length > 0
-      ? tutor.classLevels.slice(0, 2).join(", ")
-      : "Class 1-12";
+    tutor.displayedClasses ||
+    (tutor.classLevels && tutor.classLevels.length > 0
+      ? tutor.classLevels.filter((c) => c !== "General").slice(0, 2).join(", ") || "All Classes"
+      : "Class 1-12");
 
   const subjectsText =
-    tutor.subjects && tutor.subjects.length > 0
+    tutor.displayedSubjects ||
+    (tutor.subjects && tutor.subjects.length > 0
       ? tutor.subjects.slice(0, 3).join(", ")
-      : "Core Subjects";
+      : "Core Subjects");
 
   const tutorLocality = tutor.address?.trim();
   const tutorCity = tutor.city?.trim();
@@ -788,14 +788,16 @@ function PreplyTutorCard({
       )}
 
       <div className="flex flex-col items-center shrink-0 w-full sm:w-auto">
-        <div className="relative w-22 h-22 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs">
-          <img
-            src={tutorPhoto}
-            alt={displayName}
-            className="w-full h-full object-cover"
+        <div className="relative">
+          <UnifiedAvatar
+            src={tutor.image}
+            name={displayName}
+            gender={tutor.gender}
+            size={96}
+            className="w-22 h-22 sm:w-24 sm:h-24 rounded-xl border border-slate-200 shadow-2xs"
           />
           <span
-            className="absolute bottom-1 right-1 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"
+            className="absolute bottom-1 right-1 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full ring-2 ring-white"
             title="Active on ApnaTutorHub"
           />
         </div>
@@ -820,11 +822,18 @@ function PreplyTutorCard({
           {classesText} · {subjectsText}
         </p>
 
-        <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
-          <MapPin size={13} className="text-slate-400 shrink-0" />
-          <span>
-            {locationText} ({modeLabel}{tutor.teachingRadius ? ` · up to ${tutor.teachingRadius} km` : ""})
-          </span>
+        <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600 font-medium">
+          <div className="flex items-center gap-1.5">
+            <MapPin size={13} className="text-slate-400 shrink-0" />
+            <span>
+              {locationText} ({modeLabel}{tutor.teachingRadius ? ` · up to ${tutor.teachingRadius} km` : ""})
+            </span>
+          </div>
+          {typeof tutor.distanceKm === "number" && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              📍 {tutor.distanceKm} km away
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 pt-0.5 text-xs font-bold text-[#0F2540]">

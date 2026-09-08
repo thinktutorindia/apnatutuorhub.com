@@ -59,6 +59,12 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
   const setShiftSession = useStaffDutyStore((s) => s.setShiftSession);
   const openSidebar = useAdminSidebarStore((s) => s.open);
 
+  const [todayStats, setTodayStats] = useState<{
+    totalWorkingMinutes: number;
+    totalCallsToday: number;
+    totalConversionsToday: number;
+  } | null>(null);
+
   // Sync session state with global duty store
   useEffect(() => {
     if (session) {
@@ -75,6 +81,9 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
       if (!mounted) return;
       if (res.success && res.data?.session) {
         const s = res.data.session;
+        if (res.data.todayStats) {
+          setTodayStats(res.data.todayStats);
+        }
         setSession({
           id: s.id,
           clockIn: new Date(s.clockIn).toISOString(),
@@ -84,14 +93,29 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
           callsMade: s.callsMade,
           leadsConverted: s.leadsConverted,
         });
+
+        // Check localStorage for active seconds to prevent time jumps on page refresh
+        const storageKey = `staff_shift_${s.id}_active_sec`;
+        const storedSec = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
+
         const initialMs = new Date(s.clockIn).getTime();
-        const initialElapsed = Math.max(0, Math.floor((Date.now() - initialMs) / 1000) - (s.totalBreakMins * 60));
+        const rawElapsed = Math.max(0, Math.floor((Date.now() - initialMs) / 1000) - (s.totalBreakMins * 60));
+        // Hard cap at 14 hours to strictly prevent phantom multi-day timers
+        const cappedElapsed = Math.min(rawElapsed, 14 * 3600);
+
+        let initialElapsed = cappedElapsed;
+        if (storedSec !== null) {
+          const parsedStored = parseInt(storedSec, 10);
+          if (!isNaN(parsedStored) && parsedStored > 0 && parsedStored <= cappedElapsed) {
+            initialElapsed = parsedStored;
+          }
+        }
         setElapsedSec(initialElapsed);
         setShiftSession({ id: s.id, status: s.status as any });
         const dutyRes = await setMyDutyAction("ON_DUTY");
         if (dutyRes.success && dutyRes.data) setDutySnapshot(dutyRes.data);
       } else {
-        // Automatic clock-in on mount/login so staff is immediately on shift
+        // Automatic clock-in on mount/login for today's fresh shift
         const autoRes = await staffClockInAction();
         if (mounted && autoRes.success && autoRes.data) {
           setSession({
@@ -121,15 +145,56 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
     }
 
     const interval = setInterval(() => {
-      // If idle (no mouse movement > 1 minute), DO NOT COUNT TIME!
+      // If idle (no mouse movement on desktop or backgrounded on mobile), DO NOT COUNT TIME!
       if (isIdle) {
         return;
       }
-      setElapsedSec((prev) => prev + 1);
+      setElapsedSec((prev) => {
+        const next = prev + 1;
+        // Periodically save to localStorage every 5 seconds
+        if (next % 5 === 0 && session?.id && typeof window !== "undefined") {
+          try {
+            localStorage.setItem(`staff_shift_${session.id}_active_sec`, String(next));
+          } catch {
+            /* ignore */
+          }
+        }
+        return next;
+      });
     }, 1000);
 
     return () => clearInterval(interval);
   }, [session, isIdle]);
+
+  // Midnight / Daily boundary check: auto-resets when the day rolls over
+  useEffect(() => {
+    if (!session?.clockIn) return;
+    const checkMidnight = () => {
+      const sessionDay = new Date(session.clockIn).toDateString();
+      const today = new Date().toDateString();
+      if (sessionDay !== today) {
+        // Date changed! Clock out old session and start fresh for today
+        staffClockOutAction("[Daily midnight cutoff]").then(() => {
+          staffClockInAction().then((res) => {
+            if (res.success && res.data) {
+              setSession({
+                id: res.data.sessionId,
+                clockIn: new Date().toISOString(),
+                status: "CLOCKED_IN",
+                breakStartedAt: null,
+                totalBreakMins: 0,
+                callsMade: 0,
+                leadsConverted: 0,
+              });
+              setElapsedSec(0);
+            }
+          });
+        });
+      }
+    };
+    const interval = setInterval(checkMidnight, 60_000);
+    return () => clearInterval(interval);
+  }, [session]);
 
   // Break Timer
   useEffect(() => {
@@ -195,6 +260,14 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
     startTransition(async () => {
       const res = await staffClockOutAction(shiftNotes);
       if (res.success && res.data) {
+        if (session?.id && typeof window !== "undefined") {
+          try {
+            localStorage.removeItem(`staff_shift_${session.id}_active_sec`);
+          } catch {
+            /* ignore */
+          }
+        }
+        setElapsedSec(0);
         setSession(null);
         setClockOutModal(false);
         setShiftNotes("");
@@ -265,16 +338,23 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
               </span>
             ) : (
               <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-[#238357] bg-emerald-50 px-2 sm:px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#2D9E6B] animate-pulse" />
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-[#238357] bg-emerald-50 px-2 sm:px-2.5 py-0.5 rounded-full border border-emerald-200"
+                  title={
+                    todayStats
+                      ? `Today's Shift Activity: ${Math.floor(todayStats.totalWorkingMinutes / 60)}h ${todayStats.totalWorkingMinutes % 60}m (${todayStats.totalCallsToday} calls, ${todayStats.totalConversionsToday} conversions)`
+                      : "Active work shift"
+                  }
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full bg-[#2D9E6B] ${isIdle ? "" : "animate-pulse"}`} />
                   <span className="hidden sm:inline">Shift</span> {formatTimer(elapsedSec)}
                 </span>
                 {isIdle ? (
                   <span
-                    className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
-                    title="Shift paused (idle). Tap anywhere to resume."
+                    className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300"
+                    title="Shift timer paused (idle). Move mouse or tap screen to resume work."
                   >
-                    <span>⏸️ Idle</span>
+                    <span>⏸️ Idle (Paused)</span>
                   </span>
                 ) : null}
               </div>
@@ -322,7 +402,7 @@ export function StaffGlobalShiftBar({ userRole, userName, userImage, unreadCount
 
         {/* Right side controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <div className="hidden sm:block">
+          <div>
             <AdminCommandPalette />
           </div>
           <Link

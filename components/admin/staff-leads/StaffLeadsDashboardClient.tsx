@@ -14,6 +14,7 @@ import { StaffPresenceBoard } from "@/components/admin/staff-leads/StaffPresence
 import { StaffLeadsNavHeader } from "@/components/admin/staff-leads/StaffLeadsNavHeader";
 import { StaffPowerDialer } from "@/components/admin/staff-leads/StaffPowerDialer";
 import { StaffShiftGate } from "@/components/admin/staff-leads/StaffShiftGate";
+import { BatchDetailedReportModal } from "@/components/admin/staff-leads/BatchDetailedReportModal";
 
 type Stats = {
   total: number; newLeads: number; assigned: number; contacted: number;
@@ -63,6 +64,7 @@ interface Props {
     lead: { id: string; name: string | null; phone: string | null; status: string };
   }>;
   isSuperAdmin?: boolean;
+  initialBatchFilter?: string;
 }
 
 /* ─── Elevated KPI Card ────────────────────────────────────────────────── */
@@ -121,11 +123,14 @@ export function StaffLeadsDashboardClient({
   liveStatus,
   activityFeed,
   isSuperAdmin,
+  initialBatchFilter,
 }: Props) {
   const [cockpitMode, setCockpitMode] = useState<"CALLING" | "PIPELINE" | "RADAR">("CALLING");
   const [showPlaybook, setShowPlaybook] = useState(false);
   const [showPipelineFlow, setShowPipelineFlow] = useState(true);
   const [isPowerDialing, setIsPowerDialing] = useState(false);
+  const [selectedReportBatchId, setSelectedReportBatchId] = useState<string | null>(null);
+  const [activeBatchFilter, setActiveBatchFilter] = useState<string | undefined>(initialBatchFilter);
 
   // Conversion rate percentage
   const convRate = stats && stats.total > 0
@@ -289,6 +294,7 @@ export function StaffLeadsDashboardClient({
           staff={staff}
           batches={batches.map((b) => ({ id: b.id, name: b.name }))}
           isSuperAdmin={!!isSuperAdmin}
+          initialBatchFilter={activeBatchFilter}
         />
       )}
 
@@ -421,10 +427,18 @@ export function StaffLeadsDashboardClient({
                       completed: "🔵 Completed",
                     };
                     return (
-                      <div key={b.id} className="flex items-center gap-3">
+                      <div key={b.id} className="flex items-center gap-3 group">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between text-[11px] mb-0.5">
-                            <span className="font-bold text-slate-700 truncate">{b.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedReportBatchId(b.id)}
+                              className="font-bold text-slate-700 hover:text-emerald-700 truncate hover:underline text-left cursor-pointer flex items-center gap-1"
+                              title="Click to view full batch report"
+                            >
+                              <span>{b.name}</span>
+                              <BarChart3 size={11} className="text-emerald-600" />
+                            </button>
                             <span className={`text-[9px] font-extrabold ${sc[b.status]}`}>
                               {sl[b.status]} · {b.progressPercent}%
                             </span>
@@ -457,15 +471,41 @@ export function StaffLeadsDashboardClient({
                     <Upload size={14} className="text-blue-500" /> Recent Upload Batches
                   </h2>
                   <div className="space-y-2">
-                    {batches.slice(0, 6).map((b) => (
-                      <div key={b.id} className="flex items-center gap-2 text-[11px] py-1.5 px-2 rounded-lg hover:bg-slate-50 border border-slate-100">
-                        <div className="w-6 h-6 rounded-md bg-blue-100 flex items-center justify-center shrink-0">
-                          <Upload size={11} className="text-blue-600" />
+                    {batches.slice(0, 8).map((b) => (
+                      <div key={b.id} className="flex items-center justify-between gap-2 text-xs py-2 px-2.5 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 font-black">
+                            <Upload size={13} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-extrabold text-slate-800 text-xs truncate">{b.name}</p>
+                            <span className="text-[10px] text-slate-400 font-semibold">{b._count.leads} leads</span>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-slate-700 truncate">{b.name}</p>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReportBatchId(b.id)}
+                            className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 text-[10px] font-black flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Open full batch report"
+                          >
+                            <BarChart3 size={11} />
+                            <span>Report</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveBatchFilter(b.id);
+                              setCockpitMode("CALLING");
+                            }}
+                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-extrabold flex items-center gap-0.5 cursor-pointer transition-colors"
+                            title="Filter calling desk to this batch"
+                          >
+                            <span>Leads</span>
+                            <ArrowRight size={10} />
+                          </button>
                         </div>
-                        <span className="text-[10px] text-slate-400 font-semibold shrink-0">{b._count.leads} leads</span>
                       </div>
                     ))}
                   </div>
@@ -521,6 +561,14 @@ export function StaffLeadsDashboardClient({
           initialIndex={0}
           onClose={() => setIsPowerDialing(false)}
           onLeadUpdated={() => {}}
+        />
+      )}
+
+      {/* ── Batch Detailed Telemetry Modal ── */}
+      {selectedReportBatchId && (
+        <BatchDetailedReportModal
+          batchId={selectedReportBatchId}
+          onClose={() => setSelectedReportBatchId(null)}
         />
       )}
     </div>

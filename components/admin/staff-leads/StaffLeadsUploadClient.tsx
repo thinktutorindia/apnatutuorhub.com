@@ -436,13 +436,25 @@ export function StaffLeadsUploadClient() {
           <strong className="text-emerald-700 font-extrabold">{displayTotalReady.toLocaleString()} valid leads</strong> have been saved into the CRM database.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
+          {savedBatchId && (
+            <Link
+              href={`/admin/staff-leads/batches/${savedBatchId}`}
+              className="px-6 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-700 text-white rounded-2xl font-black text-sm hover:from-teal-700 hover:to-emerald-800 transition-all shadow-md flex items-center gap-2"
+            >
+              <span>📊 View Full Batch Report &amp; Staff Telemetry →</span>
+            </Link>
+          )}
+          {savedBatchId && (
+            <Link
+              href={`/admin/staff-leads?batchId=${savedBatchId}`}
+              className="px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-black transition-all flex items-center gap-1.5"
+            >
+              <span>📞 Work Batch Leads in Desk</span>
+            </Link>
+          )}
           <Link href="/admin/staff-leads/manage"
             className="px-6 py-3.5 bg-emerald-600 text-white rounded-2xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-md shadow-emerald-200">
             Open CRM Management Center →
-          </Link>
-          <Link href="/admin/staff-leads/assign"
-            className="px-6 py-3.5 bg-slate-800 text-white rounded-2xl font-bold text-sm hover:bg-slate-900 transition-all">
-            Assign to Staff
           </Link>
           <button onClick={() => { setStep("paste"); setRawText(""); setLeads([]); setBatchName(""); setManuallyExcludedIds(new Set()); setSavedBatchId(null); }}
             className="px-6 py-3.5 bg-slate-100 text-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-all">

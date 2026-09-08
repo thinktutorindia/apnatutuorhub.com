@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="100%" height="100%">
+  <defs>
+    <linearGradient id="neu-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF3C7" />
+      <stop offset="100%" stop-color="#FDE68A" />
+    </linearGradient>
+    <linearGradient id="neu-hair" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4B5563" />
+      <stop offset="100%" stop-color="#1F2937" />
+    </linearGradient>
+    <linearGradient id="neu-shirt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+    <filter id="neu-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <!-- Background Circle -->
+  <circle cx="80" cy="80" r="78" fill="url(#neu-bg)" stroke="#F59E0B" stroke-width="3" />
+
+  <!-- Torso / Hoodie -->
+  <path d="M34 148 C34 116, 50 104, 80 104 C110 104, 126 116, 126 148 Z" fill="url(#neu-shirt)" filter="url(#neu-shadow)" />
+
+  <!-- White V-neck -->
+  <path d="M68 104 L80 120 L92 104 Z" fill="#FFFFFF" />
+
+  <!-- Neck -->
+  <rect x="73" y="86" width="14" height="20" rx="7" fill="#FCD34D" opacity="0.9" />
+
+  <!-- Head -->
+  <circle cx="80" cy="68" r="28" fill="#FDE68A" filter="url(#neu-shadow)" />
+
+  <!-- Hair -->
+  <path d="M52 64 C50 40, 64 34, 80 34 C96 34, 110 40, 108 64 C102 50, 94 44, 80 44 C66 44, 58 50, 52 64 Z" fill="url(#neu-hair)" />
+
+  <!-- Cheeks Blush -->
+  <ellipse cx="64" cy="74" rx="4" ry="2.5" fill="#FB7185" opacity="0.4" />
+  <ellipse cx="96" cy="74" rx="4" ry="2.5" fill="#FB7185" opacity="0.4" />
+
+  <!-- Eyes -->
+  <circle cx="68" cy="68" r="3.5" fill="#1E293B" />
+  <circle cx="69.5" cy="66.5" r="1.2" fill="#FFFFFF" />
+  <circle cx="92" cy="68" r="3.5" fill="#1E293B" />
+  <circle cx="93.5" cy="66.5" r="1.2" fill="#FFFFFF" />
+
+  <!-- Eyebrows -->
+  <path d="M63 59 Q68 56, 73 59" stroke="#1F2937" stroke-width="2.2" stroke-linecap="round" fill="none" />
+  <path d="M87 59 Q92 56, 97 59" stroke="#1F2937" stroke-width="2.2" stroke-linecap="round" fill="none" />
+
+  <!-- Cute Glasses -->
+  <rect x="58" y="60" width="18" height="15" rx="4" fill="none" stroke="#92400E" stroke-width="2.5" />
+  <rect x="84" y="60" width="18" height="15" rx="4" fill="none" stroke="#92400E" stroke-width="2.5" />
+  <line x1="76" y1="67" x2="84" y2="67" stroke="#92400E" stroke-width="2.5" />
+
+  <!-- Warm Smile -->
+  <path d="M74 76 Q80 82, 86 76" stroke="#9A3412" stroke-width="2.2" stroke-linecap="round" fill="none" />
+
+  <!-- Star Badge -->
+  <g transform="translate(112, 112) scale(0.8)">
+    <circle cx="16" cy="16" r="15" fill="#F59E0B" stroke="#FFFFFF" stroke-width="2" />
+    <path d="M16 8 L18.5 13 L24 13.8 L20 17.7 L21 23.2 L16 20.6 L11 23.2 L12 17.7 L8 13.8 L13.5 13 Z" fill="#FFFFFF" />
+  </g>
+</svg>

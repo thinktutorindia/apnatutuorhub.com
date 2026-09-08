@@ -4,8 +4,13 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, Coins, Users, ShieldCheck, Settings, Bell, Tag, Calendar,
-  CreditCard, Sparkles, Command, ArrowRight, X, AlertTriangle, FileText, CheckCircle2
+  CreditCard, Sparkles, Command, ArrowRight, X, AlertTriangle, FileText, CheckCircle2,
+  Phone, MapPin, GraduationCap, BookOpen, Loader2
 } from "lucide-react";
+import {
+  globalAdminUnifiedSearchAction,
+  type GlobalUnifiedSearchResult,
+} from "@/app/actions/search.actions";
 
 export interface AdminFeatureItem {
   id: string;
@@ -187,6 +192,35 @@ export function AdminCommandPalette({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [liveResults, setLiveResults] = useState<GlobalUnifiedSearchResult | null>(null);
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
+
+  // Live database search debounced on query
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setLiveResults(null);
+      setIsSearchingLive(false);
+      return;
+    }
+
+    setIsSearchingLive(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await globalAdminUnifiedSearchAction(q);
+        if (res.success && res.data) {
+          setLiveResults(res.data);
+        }
+      } catch (err) {
+        console.error("Live search error:", err);
+      } finally {
+        setIsSearchingLive(false);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -213,6 +247,7 @@ export function AdminCommandPalette({
     } else {
       setQuery("");
       setSelectedIndex(0);
+      setLiveResults(null);
     }
   }, [isOpen]);
 
@@ -261,9 +296,10 @@ export function AdminCommandPalette({
         className={
           variant === "navy"
             ? "flex w-full items-center justify-between gap-3 rounded-full border border-white/15 bg-white/10 px-3.5 py-2.5 text-white/80 hover:bg-white/15 hover:text-white"
-            : "hidden h-10 min-w-10 items-center justify-center rounded-full border border-[#E2E8F0] text-[#0F2540] hover:bg-[#F0F4F8] sm:inline-flex lg:min-w-[220px] lg:justify-between lg:px-3.5"
+            : "inline-flex h-9 w-9 sm:h-10 sm:w-auto min-w-9 sm:min-w-10 items-center justify-center rounded-full border border-[#E2E8F0] text-[#0F2540] hover:bg-[#F0F4F8] lg:min-w-[220px] lg:justify-between px-2 sm:px-3 lg:px-3.5 shadow-2xs"
         }
-        title="Search admin features (Ctrl+K)"
+        title="Search tutors, leads, phone, or admin tools (Ctrl+K)"
+        aria-label="Search"
       >
         <span className="flex min-w-0 items-center gap-2 text-xs font-700">
           <Search size={16} className={variant === "navy" ? "text-[#7DDBB1]" : "text-[#2D9E6B]"} />
@@ -313,15 +349,158 @@ export function AdminCommandPalette({
             </div>
 
             {/* Results List */}
-            <div className="overflow-y-auto p-3 space-y-1.5 flex-1">
-              {filtered.length === 0 ? (
-                <div className="py-12 text-center space-y-2 text-slate-400">
-                  <AlertTriangle size={24} className="mx-auto text-amber-400" />
-                  <p className="text-sm font-bold">No matching admin feature found.</p>
-                  <p className="text-xs text-slate-500">Try searching "topup", "users", "kyc", "whatsapp", or "settings".</p>
+            <div className="overflow-y-auto p-3 space-y-3 flex-1 max-h-[65vh]">
+              {isSearchingLive && (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-400 font-bold">
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Searching database leads &amp; users…</span>
                 </div>
-              ) : (
-                filtered.map((item, index) => {
+              )}
+
+              {/* 1. Calling Desk Leads Section */}
+              {liveResults?.staffLeads && liveResults.staffLeads.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="px-2 text-[11px] font-800 uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <Phone size={12} />
+                    <span>Calling Desk Leads ({liveResults.staffLeads.length})</span>
+                  </div>
+                  {liveResults.staffLeads.map((sl) => (
+                    <div
+                      key={`staff-lead-${sl.id}`}
+                      onClick={() => {
+                        setIsOpen(false);
+                        router.push(`/admin/staff-leads/my-leads?search=${encodeURIComponent(sl.phone || sl.name || "")}`);
+                      }}
+                      className="p-3 rounded-2xl flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-800 border border-slate-700/60 transition-all bg-slate-900/60"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2 rounded-xl shrink-0 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <Phone size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs sm:text-sm font-black text-white truncate">
+                              {sl.name || "Lead Contact"}
+                            </span>
+                            {sl.phone && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-emerald-300 border border-slate-700">
+                                {sl.phone}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                              {sl.status}
+                            </span>
+                            {sl.isPromoted && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">
+                                ✓ Primary
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 font-semibold truncate mt-0.5">
+                            {sl.location ? `📍 ${sl.location}` : ""} {sl.subjects?.length ? `• 📚 ${sl.subjects.slice(0, 2).join(", ")}` : ""} {sl.recordType === "PARENT" ? "• Student Requirement" : "• Tutor Lead"}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-500 shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 2. Primary Users & Tutors Section */}
+              {liveResults?.users && liveResults.users.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="px-2 text-[11px] font-800 uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                    <GraduationCap size={12} />
+                    <span>Primary User Directory ({liveResults.users.length})</span>
+                  </div>
+                  {liveResults.users.map((u) => (
+                    <div
+                      key={`user-${u.id}`}
+                      onClick={() => {
+                        setIsOpen(false);
+                        router.push(`/admin/users?search=${encodeURIComponent(u.phone || u.email || u.name || "")}`);
+                      }}
+                      className="p-3 rounded-2xl flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-800 border border-slate-700/60 transition-all bg-slate-900/60"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2 rounded-xl shrink-0 bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                          <GraduationCap size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs sm:text-sm font-black text-white truncate">
+                              {u.name || "User"}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-blue-300 border border-slate-700">
+                              {u.role}
+                            </span>
+                            {u.isVerified && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">
+                                ✓ Verified
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 font-semibold truncate mt-0.5">
+                            {u.phone ? `📞 ${u.phone}` : ""} {u.email ? `• ✉️ ${u.email}` : ""} {u.city ? `• 📍 ${u.city}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-500 shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 3. Live Student Requirements Section */}
+              {liveResults?.liveLeads && liveResults.liveLeads.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="px-2 text-[11px] font-800 uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                    <BookOpen size={12} />
+                    <span>Live Student Requirements ({liveResults.liveLeads.length})</span>
+                  </div>
+                  {liveResults.liveLeads.map((ll) => (
+                    <div
+                      key={`live-lead-${ll.id}`}
+                      onClick={() => {
+                        setIsOpen(false);
+                        router.push(`/admin/leads?search=${encodeURIComponent(ll.phone || ll.studentName || "")}`);
+                      }}
+                      className="p-3 rounded-2xl flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-800 border border-slate-700/60 transition-all bg-slate-900/60"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2 rounded-xl shrink-0 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                          <BookOpen size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs sm:text-sm font-black text-white truncate">
+                              {ll.studentName || "Student Requirement"}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-cyan-300 border border-slate-700">
+                              {ll.subject || "Tuition"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 font-semibold truncate mt-0.5">
+                            {ll.classLevel ? `${ll.classLevel}` : ""} {ll.city ? `• 📍 ${ll.city}` : ""} {ll.phone ? `• 📞 ${ll.phone}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-500 shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 4. Admin Feature Navigation Section */}
+              <div className="space-y-1.5">
+                {query.trim() && (
+                  <div className="px-2 text-[11px] font-800 uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Sparkles size={12} />
+                    <span>Admin Navigation &amp; Tools ({filtered.length})</span>
+                  </div>
+                )}
+                {filtered.map((item, index) => {
                   const Icon = item.icon;
                   const isSelected = index === selectedIndex;
                   return (
@@ -357,8 +536,23 @@ export function AdminCommandPalette({
                       <ChevronRight size={16} className={`shrink-0 transition-transform ${isSelected ? "text-[#2D9E6B] translate-x-1" : "text-slate-600"}`} />
                     </div>
                   );
-                })
-              )}
+                })}
+              </div>
+
+              {/* Empty state when everything is 0 */}
+              {filtered.length === 0 &&
+                (!liveResults ||
+                  (liveResults.staffLeads.length === 0 &&
+                    liveResults.users.length === 0 &&
+                    liveResults.liveLeads.length === 0)) && (
+                  <div className="py-12 text-center space-y-2 text-slate-400">
+                    <AlertTriangle size={24} className="mx-auto text-amber-400" />
+                    <p className="text-sm font-bold">No matching records found.</p>
+                    <p className="text-xs text-slate-500">
+                      Try typing a phone number (e.g. 9876543210), tutor name, locality, or admin feature.
+                    </p>
+                  </div>
+                )}
             </div>
 
             {/* Footer Hints */}

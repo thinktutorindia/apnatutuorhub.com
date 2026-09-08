@@ -115,7 +115,20 @@ export const URBANPRO_CATALOG: UrbanProItem[] = [
   { lead: "CLAT Exam Coaching", rest: "in Law Entrance", subject: "CLAT", classLevel: "CLAT", label: "CLAT Exam Coaching in Law Entrance" },
 ];
 
-const URBANPRO_POPULAR: UrbanProItem[] = URBANPRO_CATALOG.slice(0, 12);
+export const URBANPRO_POPULAR: UrbanProItem[] = [
+  { lead: "Mathematics", rest: "in Class 10 Tuition", subject: "Mathematics", classLevel: "Class 9-10", label: "Mathematics in Class 10 Tuition" },
+  { lead: "Science", rest: "in Class 9–10 Tuition", subject: "Science", classLevel: "Class 9-10", label: "Science in Class 9-10 Tuition" },
+  { lead: "Physics", rest: "in Class 11–12 Tuition", subject: "Physics", classLevel: "Class 11-12", label: "Physics in Class 11-12 Tuition" },
+  { lead: "Chemistry", rest: "in Class 11–12 Tuition", subject: "Chemistry", classLevel: "Class 11-12", label: "Chemistry in Class 11-12 Tuition" },
+  { lead: "Biology", rest: "in NEET-UG Coaching", subject: "Biology", classLevel: "NEET", label: "Biology in NEET-UG Coaching" },
+  { lead: "English", rest: "in Class 9–10 Tuition", subject: "English", classLevel: "Class 9-10", label: "English in Class 9-10 Tuition" },
+  { lead: "Accountancy", rest: "in Class 11–12 Tuition", subject: "Accountancy", classLevel: "Class 11-12", label: "Accountancy in Class 11-12 Tuition" },
+  { lead: "Economics", rest: "in Class 11–12 Tuition", subject: "Economics", classLevel: "Class 11-12", label: "Economics in Class 11-12 Tuition" },
+  { lead: "All Subjects", rest: "in Class 1–5 Tuition", subject: "All Subjects", classLevel: "Class 1-5", label: "All Subjects in Class 1-5 Tuition" },
+  { lead: "Coding & Python", rest: "in Computer Classes", subject: "Python", classLevel: "School / College", label: "Coding & Python in Computer Classes" },
+  { lead: "Mathematics", rest: "in Class 12 Tuition", subject: "Mathematics", classLevel: "Class 11-12", label: "Mathematics in Class 12 Tuition" },
+  { lead: "IIT-JEE Coaching", rest: "in Engineering Entrance", subject: "IIT-JEE", classLevel: "IIT-JEE", label: "IIT-JEE Coaching in Engineering Entrance" },
+];
 
 const POPULAR_CITIES: LocHit[] = [
   { label: "Delhi", city: "Delhi", meta: "NCR" },
@@ -243,19 +256,28 @@ function searchUrbanProSubjects(query: string): UrbanProItem[] {
     const key = `${item.lead}::${item.rest}`.toLowerCase();
     if (seen.has(key)) return;
 
-    // Limit repetition of the same lead subject (e.g. at most 3 entries for "Mathematics")
+    // Limit repetition of the same lead subject (at most 2 entries per subject unless few total hits)
     const leadKey = item.lead.toLowerCase();
     const count = leadCounts.get(leadKey) || 0;
-    if (!force && count >= 3 && hits.length >= 4) return;
+    if (!force && count >= 2 && hits.length >= 4) return;
 
     seen.add(key);
     leadCounts.set(leadKey, count + 1);
     hits.push(item);
   };
 
-  // 1. Matches in the curated UrbanPro catalog
-  const catalogExactLead: UrbanProItem[] = [];
-  const catalogPrefixLead: UrbanProItem[] = [];
+  // 1. Direct matches in Centralized Taxonomy Subjects (Exact & Prefix)
+  for (const item of FLATTENED_TAXONOMY_SUBJECTS) {
+    if (hits.length >= 8) break;
+    const subLow = item.subject.toLowerCase();
+    if (subLow === qLower || subLow.startsWith(qLower)) {
+      pushHit(formatUrbanProLine(item.subject, item.breadcrumb));
+    }
+  }
+
+  // 2. Curated high-converting UrbanPro catalog items
+  const catalogExact: UrbanProItem[] = [];
+  const catalogPrefix: UrbanProItem[] = [];
   const catalogOther: UrbanProItem[] = [];
 
   for (const item of URBANPRO_CATALOG) {
@@ -264,19 +286,19 @@ function searchUrbanProSubjects(query: string): UrbanProItem[] {
     const labelLow = item.label.toLowerCase();
 
     if (leadLow === qLower) {
-      catalogExactLead.push(item);
+      catalogExact.push(item);
     } else if (leadLow.startsWith(qLower) || labelLow.startsWith(qLower)) {
-      catalogPrefixLead.push(item);
+      catalogPrefix.push(item);
     } else if (leadLow.includes(qLower) || restLow.includes(qLower) || item.subject.toLowerCase().includes(qLower)) {
       catalogOther.push(item);
     }
   }
 
-  for (const it of [...catalogExactLead, ...catalogPrefixLead, ...catalogOther]) {
+  for (const it of [...catalogExact, ...catalogPrefix, ...catalogOther]) {
     pushHit(it);
   }
 
-  // 2. Structured Classes (e.g. "Class 10", "Class 9")
+  // 3. Structured Classes (e.g. "Class 10 All Subjects")
   if (hits.length < 10) {
     for (const cls of ALL_STRUCTURED_CLASSES) {
       if (`${cls.label} ${cls.sub}`.toLowerCase().includes(qLower)) {
@@ -291,20 +313,13 @@ function searchUrbanProSubjects(query: string): UrbanProItem[] {
     }
   }
 
-  // 3. Fallback to smart typo and synonym search (sanitized)
-  if (hits.length < 10) {
-    for (const s of searchSmartSubjects(q, 12)) {
-      const item = formatUrbanProLine(s.name, s.category);
-      pushHit(item);
-    }
-  }
-
-  // 4. Matches across 300+ taxonomy tree subjects (sanitized)
+  // 4. Word & Substring matches across Taxonomy Tree
   if (hits.length < 10) {
     for (const item of FLATTENED_TAXONOMY_SUBJECTS) {
       if (hits.length >= 10) break;
+      const subLow = item.subject.toLowerCase();
       if (
-        item.subject.toLowerCase().includes(qLower) ||
+        subLow.includes(qLower) ||
         (item.subcategory && item.subcategory.toLowerCase().includes(qLower)) ||
         item.category.toLowerCase().includes(qLower)
       ) {

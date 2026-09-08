@@ -2117,3 +2117,303 @@ export const TAXONOMY_NEED_TABS: TaxonomyNeedTab[] = [
     ],
   },
 ];
+
+// ─── UNIFIED TAXONOMY SEARCH & CLASS RESOLVER ENGINE ─────────────────────────
+
+export interface ParsedTaxonomyItem {
+  subject: string;
+  domain: string;
+  grades: number[]; // 0 = Nursery/KG, 1..12, 13 = Entrance/College
+  category: string;
+}
+
+export function parseGradeNumbers(text: string): number[] {
+  const grades = new Set<number>();
+  const lower = text.toLowerCase();
+
+  if (/preparatory|kg|kindergarten|nursery|lkg|ukg/i.test(lower)) {
+    grades.add(0);
+  }
+  if (/upto\s+class\s+v\b|nursery\s+to\s+fifth/i.test(lower)) {
+    [0, 1, 2, 3, 4, 5].forEach((g) => grades.add(g));
+  }
+  if (/vi\s+to\s+viii\b|6\s*[-–to\s]+\s*8/i.test(lower)) {
+    [6, 7, 8].forEach((g) => grades.add(g));
+  }
+  if (/ix\s*(?:or|to|-|–|\s)\s*x\b|9\s*[-–to\s]+\s*10/i.test(lower)) {
+    [9, 10].forEach((g) => grades.add(g));
+  }
+  if (/xi\s*(?:-|–|to|and|\s)\s*xii\b|11\s*[-–to\s]+\s*12/i.test(lower)) {
+    [11, 12].forEach((g) => grades.add(g));
+  }
+  if (/kg\s+to\s+10th|class\s+1\s+to\s+10/i.test(lower)) {
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((g) => grades.add(g));
+  }
+  if (/iitjee|iit-jee|neet|entrance/i.test(lower)) {
+    [11, 12, 13].forEach((g) => grades.add(g));
+  }
+
+  // Roman numeral single class checks
+  if (/\bClass\s+XII\b/i.test(text) || /\bfor\s+XII\b/i.test(text)) grades.add(12);
+  else if (/\bClass\s+XI\b/i.test(text) || /\bfor\s+XI\b/i.test(text)) grades.add(11);
+  else if (/\bClass\s+X\b/i.test(text) || /\bfor\s+X\b/i.test(text)) grades.add(10);
+  else if (/\bClass\s+IX\b/i.test(text) || /\bfor\s+IX\b/i.test(text)) grades.add(9);
+  else if (/\bClass\s+VIII\b/i.test(text) || /\bfor\s+VIII\b/i.test(text)) grades.add(8);
+  else if (/\bClass\s+VII\b/i.test(text) || /\bfor\s+VII\b/i.test(text)) grades.add(7);
+  else if (/\bClass\s+VI\b/i.test(text) || /\bfor\s+VI\b/i.test(text)) grades.add(6);
+  else if (/\bClass\s+V\b/i.test(text) || /\bfor\s+V\b/i.test(text)) grades.add(5);
+  else if (/\bClass\s+IV\b/i.test(text) || /\bfor\s+IV\b/i.test(text)) grades.add(4);
+  else if (/\bClass\s+III\b/i.test(text) || /\bfor\s+III\b/i.test(text)) grades.add(3);
+  else if (/\bClass\s+II\b/i.test(text) || /\bfor\s+II\b/i.test(text)) grades.add(2);
+  else if (/\bClass\s+I\b/i.test(text) || /\bfor\s+I\b/i.test(text)) grades.add(1);
+
+  // Arabic single class check
+  const numMatch = text.match(/\b(?:Class|Grade|Std)\s*(\d{1,2})\b/i);
+  if (numMatch) {
+    const num = parseInt(numMatch[1], 10);
+    if (num >= 1 && num <= 12) grades.add(num);
+  }
+
+  return Array.from(grades);
+}
+
+function detectSubjectDomain(name: string, category: string): string {
+  const t = `${name} ${category}`.toLowerCase();
+  if (/science\s*&\s*maths|all subjects|combo subjects/i.test(t)) return "combo";
+  if (/physics/i.test(t)) return "physics";
+  if (/chemistry/i.test(t)) return "chemistry";
+  if (/biology|botany|zoology/i.test(t)) return "biology";
+  if (/science/i.test(t)) return "science";
+  if (/math|mathematics|algebra|calculus|geometry|trigonometry|vedic maths/i.test(t)) return "maths";
+  if (/english|ielts|toefl|grammar/i.test(t)) return "english";
+  if (/hindi/i.test(t)) return "hindi";
+  if (/sanskrit/i.test(t)) return "sanskrit";
+  if (/account|commerce|business studies|economics/i.test(t)) return "commerce";
+  if (/history|geography|civics|political|social studies|sst/i.test(t)) return "social_studies";
+  if (/computer|python|java|coding|c\+\+|programming/i.test(t)) return "coding";
+  if (/french|german|spanish|japanese|foreign/i.test(t)) return "foreign_language";
+  return "general";
+}
+
+/**
+ * Pre-compiled index of all canonical taxonomy subjects with their domain and grade mapping
+ */
+export const PARSED_TAXONOMY_INDEX: ParsedTaxonomyItem[] = FLATTENED_TAXONOMY_SUBJECTS.map((item) => ({
+  subject: item.subject,
+  domain: detectSubjectDomain(item.subject, item.category),
+  grades: parseGradeNumbers(item.subject),
+  category: item.category,
+}));
+
+/**
+ * Parses user class string into numeric target grade array
+ * e.g. "Class 9-10" -> [9, 10], "Class 11-12" -> [11, 12], "Class 1-5" -> [1, 2, 3, 4, 5]
+ */
+export function getGradesForClassLevel(cls?: string): number[] {
+  if (!cls) return [];
+  const c = cls.toLowerCase().trim();
+
+  if (/11\s*[-–to\s]+\s*12|senior/i.test(c)) return [11, 12];
+  if (/9\s*[-–to\s]+\s*10|secondary/i.test(c)) return [9, 10];
+  if (/6\s*[-–to\s]+\s*8|middle/i.test(c)) return [6, 7, 8];
+  if (/1\s*[-–to\s]+\s*5|primary/i.test(c)) return [1, 2, 3, 4, 5];
+  if (/nursery|kg|kindergarten/i.test(c)) return [0];
+  if (/neet|iit|jee|competitive/i.test(c)) return [11, 12, 13];
+
+  const single = c.match(/\b(\d{1,2})\b/);
+  if (single) {
+    const n = parseInt(single[1], 10);
+    if (n >= 1 && n <= 12) return [n];
+  }
+
+  return [];
+}
+
+/**
+ * Resolves all matching canonical database subject strings for any search query & class level
+ * directly from the Centralized Taxonomy.
+ */
+export function getTaxonomySubjectsForSearch(searchSubject?: string, searchClassLevel?: string): string[] {
+  const subQuery = (searchSubject || "").trim().toLowerCase();
+  const targetGrades = getGradesForClassLevel(searchClassLevel);
+
+  // If both empty, return empty
+  if (!subQuery && targetGrades.length === 0) return [];
+
+  // Determine query domains
+  const targetDomains = new Set<string>();
+  if (subQuery) {
+    if (/science\s*&\s*maths|science\s+and\s+maths|maths\s*&\s*science/i.test(subQuery)) {
+      targetDomains.add("combo");
+      targetDomains.add("science");
+      targetDomains.add("maths");
+    } else if (/math|mathematics/i.test(subQuery)) {
+      targetDomains.add("maths");
+    } else if (/physics/i.test(subQuery)) {
+      targetDomains.add("physics");
+      targetDomains.add("science");
+    } else if (/chemistry/i.test(subQuery)) {
+      targetDomains.add("chemistry");
+      targetDomains.add("science");
+    } else if (/biology/i.test(subQuery)) {
+      targetDomains.add("biology");
+      targetDomains.add("science");
+    } else if (/science/i.test(subQuery)) {
+      targetDomains.add("science");
+      targetDomains.add("physics");
+      targetDomains.add("chemistry");
+      targetDomains.add("biology");
+      targetDomains.add("combo");
+    } else if (/all subjects|combo/i.test(subQuery)) {
+      targetDomains.add("all_subjects");
+      targetDomains.add("combo");
+    } else if (/english/i.test(subQuery)) {
+      targetDomains.add("english");
+    } else if (/hindi/i.test(subQuery)) {
+      targetDomains.add("hindi");
+    } else if (/commerce|account|economic|business/i.test(subQuery)) {
+      targetDomains.add("commerce");
+    } else if (/social|history|geography|civics|sst/i.test(subQuery)) {
+      targetDomains.add("social_studies");
+    } else if (/computer|coding|python|java/i.test(subQuery)) {
+      targetDomains.add("coding");
+    } else {
+      targetDomains.add("general");
+    }
+  }
+
+  const matches = new Set<string>();
+
+  for (const item of PARSED_TAXONOMY_INDEX) {
+    const itemSubLower = item.subject.toLowerCase();
+
+    // 1. Domain match
+    const matchesDomain =
+      targetDomains.size === 0 ||
+      targetDomains.has(item.domain) ||
+      (subQuery && itemSubLower.includes(subQuery));
+
+    if (!matchesDomain) continue;
+
+    // 2. Grade match
+    if (targetGrades.length > 0) {
+      if (item.grades.length > 0) {
+        // Must intersect with target grades
+        const hasOverlap = item.grades.some((g) => targetGrades.includes(g));
+        if (!hasOverlap) continue;
+      } else {
+        // Broad subject without explicit grade tags
+        if (subQuery && !itemSubLower.includes(subQuery) && !subQuery.includes(itemSubLower)) {
+          continue;
+        }
+        if (/preparatory|kindergarten|kg|nursery|phonics|abacus/i.test(itemSubLower)) {
+          continue;
+        }
+      }
+    }
+
+    matches.add(item.subject);
+  }
+
+  // Always include the exact search string
+  if (searchSubject?.trim()) {
+    matches.add(searchSubject.trim());
+  }
+
+  return Array.from(matches);
+}
+
+/**
+ * Intelligently formats the tutor's class levels and selects their most relevant subjects
+ * to present on tutor cards for any given search. Replaces raw "General" and irrelevant primary grades!
+ */
+export function inferTutorClassesAndSubjects(
+  tutorSubjects: string[],
+  tutorClassLevels: string[],
+  searchSubject?: string,
+  searchClassLevel?: string
+): { displayClasses: string; displaySubjects: string } {
+  const subjects = tutorSubjects || [];
+  const rawClasses = (tutorClassLevels || []).filter((c) => c && c !== "General");
+
+  // Collect all grade numbers tutor teaches from their subjects
+  const allTutorGrades = new Set<number>();
+  subjects.forEach((s) => {
+    parseGradeNumbers(s).forEach((g) => allTutorGrades.add(g));
+  });
+
+  // Infer readable class ranges
+  let inferredClassText = "Class 1-12";
+  if (rawClasses.length > 0) {
+    inferredClassText = rawClasses.slice(0, 2).join(", ");
+  } else if (allTutorGrades.size > 0) {
+    const gradesSorted = Array.from(allTutorGrades).sort((a, b) => a - b);
+    const minG = gradesSorted[0];
+    const maxG = gradesSorted[gradesSorted.length - 1];
+
+    if (minG >= 11 && maxG <= 12) inferredClassText = "Class 11-12";
+    else if (minG >= 9 && maxG <= 10) inferredClassText = "Class 9-10";
+    else if (minG >= 6 && maxG <= 8) inferredClassText = "Class 6-8";
+    else if (minG >= 1 && maxG <= 5) inferredClassText = "Class 1-5";
+    else if (maxG >= 11) inferredClassText = `Class ${minG === 0 ? "KG" : minG} to 12th`;
+    else if (maxG >= 9) inferredClassText = `Class ${minG === 0 ? "KG" : minG} to 10th`;
+    else inferredClassText = `Class ${minG === 0 ? "KG" : minG} to ${maxG}`;
+  } else {
+    inferredClassText = "Class 1-12";
+  }
+
+  // Filter and prioritize subjects matching the user's search
+  const targetGrades = getGradesForClassLevel(searchClassLevel);
+  const subQuery = (searchSubject || "").trim().toLowerCase();
+
+  const matchingSubs: string[] = [];
+  const otherSubs: string[] = [];
+
+  for (const s of subjects) {
+    const sLower = s.toLowerCase();
+    const itemGrades = parseGradeNumbers(s);
+
+    let isGradeMatch = true;
+    if (targetGrades.length > 0 && itemGrades.length > 0) {
+      isGradeMatch = itemGrades.some((g) => targetGrades.includes(g));
+    }
+
+    let isSubjectMatch = true;
+    if (subQuery) {
+      isSubjectMatch =
+        sLower.includes(subQuery) ||
+        (subQuery.includes("math") && sLower.includes("math")) ||
+        (subQuery.includes("science") && sLower.includes("science")) ||
+        sLower.includes("all subjects") ||
+        sLower.includes("combo");
+    }
+
+    if (isGradeMatch && isSubjectMatch) {
+      matchingSubs.push(s);
+    } else {
+      otherSubs.push(s);
+    }
+  }
+
+  const chosenSubs = (matchingSubs.length > 0 ? matchingSubs : otherSubs).slice(0, 3);
+  const displaySubjects = chosenSubs.length > 0 ? chosenSubs.join(", ") : "Core Subjects";
+
+  // Normalize searchClassLevel cleanly (e.g. "Class 11 12" or "Class 11-12" -> "Class 11-12")
+  let normalizedSearchClass = "";
+  if (searchClassLevel) {
+    const c = searchClassLevel.trim();
+    if (/11\s*[-–to\s]+\s*12/i.test(c)) normalizedSearchClass = "Class 11-12";
+    else if (/9\s*[-–to\s]+\s*10/i.test(c)) normalizedSearchClass = "Class 9-10";
+    else if (/6\s*[-–to\s]+\s*8/i.test(c)) normalizedSearchClass = "Class 6-8";
+    else if (/1\s*[-–to\s]+\s*5/i.test(c)) normalizedSearchClass = "Class 1-5";
+    else normalizedSearchClass = c;
+  }
+
+  // If user searched for a class level and tutor qualifies, align displayClasses
+  const displayClasses =
+    normalizedSearchClass && (rawClasses.includes(normalizedSearchClass) || rawClasses.includes(searchClassLevel!) || targetGrades.some((g) => allTutorGrades.has(g)))
+      ? normalizedSearchClass
+      : inferredClassText;
+
+  return { displayClasses, displaySubjects };
+}

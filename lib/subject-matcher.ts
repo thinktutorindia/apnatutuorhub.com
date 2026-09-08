@@ -3,28 +3,21 @@ import { SUBJECT_TAXONOMY } from "@/lib/validations";
 
 // Common synonyms and abbreviations dictionary
 export const SUBJECT_SYNONYMS: Record<string, string[]> = {
+  "science & maths": [
+    "science and maths",
+    "maths & science",
+    "maths and science",
+    "mathematics & science",
+    "mathematics and science",
+    "maths",
+    "science",
+    "mathematics",
+  ],
   mathematics: [
     "math",
     "maths",
     "mathematic",
     "mathmatics",
-    "maths for class x",
-    "maths for class ix",
-    "maths for class xi",
-    "maths for class xii",
-    "maths for class viii",
-    "maths for class vii",
-    "maths for class vi",
-    "maths for class v",
-    "maths for class iv",
-    "maths for class iii",
-    "science & maths",
-    "elementary maths",
-    "basic maths",
-    "high school math",
-    "vedic maths",
-    "mental maths",
-    "maths for iitjee",
     "applied mathematics",
     "business maths",
     "quantitative aptitude maths",
@@ -34,6 +27,7 @@ export const SUBJECT_SYNONYMS: Record<string, string[]> = {
     "trigonometry",
     "statistics",
     "ganit",
+    "vedic maths",
   ],
   physics: [
     "phy",
@@ -438,10 +432,10 @@ export function expandClassLevel(cls?: string): string[] {
   const clean = cls.trim();
   if (!clean) return [];
 
-  const set = new Set<string>([clean, "General"]);
+  const set = new Set<string>([clean]);
 
   // Class 1-5 / Primary
-  if (/1\s*[-–to]+\s*5|primary|nursery|kg/i.test(clean)) {
+  if (/1\s*[-–to\s]+\s*5|primary|nursery|kg/i.test(clean)) {
     [
       "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
       "Nursery", "LKG", "UKG", "Nursery / KG", "Nursery to Fifth",
@@ -450,7 +444,7 @@ export function expandClassLevel(cls?: string): string[] {
   }
 
   // Class 6-8 / Middle
-  if (/6\s*[-–to]+\s*8|middle/i.test(clean)) {
+  if (/6\s*[-–to\s]+\s*8|middle/i.test(clean)) {
     [
       "Class 6", "Class 7", "Class 8",
       "1 to 8", "Class 1 to 10", "Class 6-8",
@@ -458,14 +452,14 @@ export function expandClassLevel(cls?: string): string[] {
   }
 
   // Class 9-10 / Secondary
-  if (/9\s*[-–to]+\s*10|secondary/i.test(clean) && !/1[12]/i.test(clean)) {
+  if (/9\s*[-–to\s]+\s*10|secondary/i.test(clean) && !/1[12]/i.test(clean)) {
     [
       "Class 9", "Class 10", "Class 1 to 10", "Class 9-10",
     ].forEach((c) => set.add(c));
   }
 
   // Class 11-12 / Senior
-  if (/11\s*[-–to]+\s*12|senior/i.test(clean)) {
+  if (/11\s*[-–to\s]+\s*12|senior/i.test(clean)) {
     [
       "Class 11", "Class 12", "Class 11-12",
     ].forEach((c) => set.add(c));
@@ -851,6 +845,9 @@ export {
   type TaxonomyNeedGroup,
   type TaxonomyNeedTab,
   type TaxonomyNeedTabId,
+  getTaxonomySubjectsForSearch,
+  inferTutorClassesAndSubjects,
 } from "@/lib/subject-taxonomy";
+
 
 

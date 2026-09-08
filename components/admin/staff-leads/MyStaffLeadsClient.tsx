@@ -508,19 +508,29 @@ export function MyStaffLeadsClient({
     const followUpToSave = followUpOverride !== undefined ? followUpOverride : (followUpDate || null);
 
     let nextStatus: StaffLeadStatus = targetLead.status;
-    if (outcome === "CONVERTED") nextStatus = "CONVERTED";
-    else if (outcome === "CALLBACK_REQUESTED") nextStatus = "FOLLOW_UP";
-    else if (outcome === "NO_ANSWER") nextStatus = "NO_ANSWER";
-    else if (outcome === "NOT_INTERESTED") nextStatus = "NOT_INTERESTED";
-    else if (outcome === "ANSWERED") nextStatus = "CONTACTED";
-    else if (outcome === "BUSY") nextStatus = "NO_ANSWER";
+    if (outcome === "CONVERTED") {
+      nextStatus = "CONVERTED";
+    } else if (targetLead.status === "CONVERTED" || targetLead.isPromoted) {
+      // PRESERVE CONVERTED: Prevent routine check-in calls or note saves from demoting converted leads back to CONTACTED or NO_ANSWER
+      nextStatus = "CONVERTED";
+    } else if (outcome === "CALLBACK_REQUESTED") {
+      nextStatus = "FOLLOW_UP";
+    } else if (outcome === "NO_ANSWER") {
+      nextStatus = "NO_ANSWER";
+    } else if (outcome === "NOT_INTERESTED") {
+      nextStatus = "NOT_INTERESTED";
+    } else if (outcome === "ANSWERED") {
+      nextStatus = "CONTACTED";
+    } else if (outcome === "BUSY") {
+      nextStatus = "NO_ANSWER";
+    }
 
     const leadName = targetLead.name && targetLead.name !== "Unknown Contact"
       ? targetLead.name
       : formatPhoneNumber(targetLead.phone);
 
     // Audio feedback
-    if (outcome === "CONVERTED") {
+    if (outcome === "CONVERTED" || nextStatus === "CONVERTED") {
       playChime("fanfare");
     } else {
       playChime("beep");
@@ -542,6 +552,7 @@ export function MyStaffLeadsClient({
         return {
           ...l,
           status: nextStatus,
+          isPromoted: (outcome === "CONVERTED" || nextStatus === "CONVERTED") ? (l.isPromoted || true) : l.isPromoted,
           lastContactedAt: new Date().toISOString(),
           nextFollowUpAt: followUpToSave ? new Date(followUpToSave).toISOString() : l.nextFollowUpAt,
           _count: { callLogs: l._count.callLogs + 1 },
@@ -576,6 +587,49 @@ export function MyStaffLeadsClient({
           nextFollowUpAt: followUpToSave ? new Date(followUpToSave) : undefined,
           staffNotes: notesToSave ? `${targetLead.staffNotes ? targetLead.staffNotes + "\n" : ""}${notesToSave}` : undefined,
         });
+
+        // AUTO-PROMOTE TO PRIMARY PLATFORM when marked CONVERTED and not already promoted
+        if ((outcome === "CONVERTED" || nextStatus === "CONVERTED") && !targetLead.isPromoted) {
+          const isParent = getStaffRecordType(targetLead.staffNotes) === "PARENT";
+          try {
+            if (isParent) {
+              const promRes = await promoteLeadToStudentRequirementAction(leadId, notesToSave);
+              if (promRes.success && promRes.data) {
+                setLeads((prev) =>
+                  prev.map((l) =>
+                    l.id === leadId
+                      ? {
+                          ...l,
+                          isPromoted: true,
+                          status: "CONVERTED" as StaffLeadStatus,
+                        }
+                      : l
+                  )
+                );
+                showToast(`✓ Auto-promoted to live student requirement #${promRes.data.inquiryNumber}!`);
+              }
+            } else {
+              const promRes = await promoteLeadToProfileAction(leadId, notesToSave);
+              if (promRes.success && promRes.data) {
+                setLeads((prev) =>
+                  prev.map((l) =>
+                    l.id === leadId
+                      ? {
+                          ...l,
+                          isPromoted: true,
+                          status: "CONVERTED" as StaffLeadStatus,
+                          promotedTutorProfileId: promRes.data!.tutorProfileId,
+                        }
+                      : l
+                  )
+                );
+                showToast("✓ Auto-promoted tutor to Primary User Directory!");
+              }
+            }
+          } catch (promErr) {
+            console.error("Auto-promotion error during CONVERTED log:", promErr);
+          }
+        }
       } catch (err) {
         console.error("Failed to sync call log:", err);
       }
@@ -601,12 +655,13 @@ export function MyStaffLeadsClient({
   const handleSaveInQueueAndNext = async () => {
     if (!currentLead) return;
 
-    // Always log the call so the lead moves from NEW/ASSIGNED to CONTACTED/FOLLOW_UP
+    // If lead is already converted or promoted, preserve CONVERTED outcome so it never drops back
+    const isAlreadyConverted = currentLead.status === "CONVERTED" || currentLead.isPromoted;
     const outcome: CallOutcome =
-      callOutcome || (followUpDate ? "CALLBACK_REQUESTED" : "ANSWERED");
+      callOutcome || (isAlreadyConverted ? "CONVERTED" : followUpDate ? "CALLBACK_REQUESTED" : "ANSWERED");
     const notesToSave =
       callNotes.trim() ||
-      (callOutcome ? `Call logged: ${callOutcome.replace(/_/g, " ")}` : "Contacted via Calling Desk");
+      (callOutcome ? `Call logged: ${callOutcome.replace(/_/g, " ")}` : isAlreadyConverted ? "Updated converted lead" : "Contacted via Calling Desk");
 
     logCallAndAdvance(outcome, notesToSave, followUpDate || null);
   };
@@ -954,12 +1009,12 @@ export function MyStaffLeadsClient({
         </div>
       )}
 
-      {/* ── Calling Desk Command Bar (Responsive 2-row layout on mobile) ── */}
+      {/* ── Calling Desk Command Bar (Responsive layout on mobile/tablet/laptop) ── */}
       <div className={`bg-white rounded-2xl border border-slate-200 shadow-2xs p-2.5 sm:px-3.5 sm:py-2 ${
         mobileView === "DETAIL" ? "hidden lg:flex" : "flex"
-      } flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 sm:gap-3`}>
-        {/* Stage Pills (smooth horizontal swipe on mobile) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar shrink-0">
+      } flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2.5 sm:gap-3`}>
+        {/* Stage Pills (smooth horizontal swipe on mobile & laptop) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar flex-1 min-w-0">
           {(
             [
               { key: "ALL" as QueueTab, label: `All (${leads.length})` },
@@ -998,10 +1053,10 @@ export function MyStaffLeadsClient({
           })}
         </div>
 
-        {/* Search & Actions Row (Unified compact row on mobile) */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="relative flex-1 min-w-0">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        {/* Search & Actions Row (Guaranteed unsquashable min-width) */}
+        <div className="flex items-center gap-2 shrink-0 sm:shrink flex-1 sm:flex-initial min-w-[240px] xl:min-w-[320px]">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none shrink-0" />
             <input
               id="calling-desk-search"
               type="text"
@@ -1182,6 +1237,29 @@ export function MyStaffLeadsClient({
                   {t === "ALL" ? "All" : t === "TUTOR" ? "Tutors" : "Parents"}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Dedicated In-Queue Quick Search */}
+          <div className="px-3 py-2 bg-white border-b border-slate-200 shrink-0">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Filter queue by name, phone, city..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -2685,7 +2763,7 @@ function EditLeadModalCustom({
       board: board || null,
       classes,
       subjects,
-      status,
+      status: (lead.isPromoted || lead.status === "CONVERTED") ? "CONVERTED" : status,
       priority,
       staffNotes: staffNotes || null,
     });

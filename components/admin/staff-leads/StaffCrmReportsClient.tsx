@@ -8,7 +8,7 @@ import {
   ChevronRight, ArrowUpRight, TrendingUp, Sparkles, Layers,
   Clock, Shield, BarChart3, ArrowLeft, RefreshCw, Loader2,
   Coffee, Timer, CheckCheck, X, Eye, Phone, MapPin, Award,
-  Activity, Zap, UserCheck, ShieldAlert
+  Activity, Zap, UserCheck, ShieldAlert, Package
 } from "lucide-react";
 import {
   getStaffDailyWorkReportsAction,
@@ -18,6 +18,7 @@ import {
 } from "@/app/actions/staff-leads.actions";
 import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
 import { StaffLeadsNavHeader } from "@/components/admin/staff-leads/StaffLeadsNavHeader";
+import { BatchDetailedReportModal } from "@/components/admin/staff-leads/BatchDetailedReportModal";
 
 type DailyBreakdownItem = {
   dateKey: string;
@@ -138,6 +139,15 @@ interface Props {
   staffList: Array<{ id: string; name: string | null; email: string }>;
   liveStatus?: LiveStatusData | null;
   initialActivityFeed?: ActivityLogItem[];
+  initialBatches?: Array<{
+    id: string;
+    name: string;
+    totalParsed: number;
+    totalJunk: number;
+    createdAt: string;
+    leadCount: number;
+    convertedCount: number;
+  }>;
   isSuperAdmin: boolean;
 }
 
@@ -167,6 +177,7 @@ export function StaffCrmReportsClient({
   staffList,
   liveStatus,
   initialActivityFeed = [],
+  initialBatches = [],
   isSuperAdmin,
 }: Props) {
   const [workSessions, setWorkSessions] = useState(initialWorkSessions);
@@ -174,15 +185,19 @@ export function StaffCrmReportsClient({
   const [staffWeeklyMatrix, setStaffWeeklyMatrix] = useState(initialStaffWeeklyMatrix);
   const [periodSummary, setPeriodSummary] = useState(initialPeriodSummary);
   const [activityFeed, setActivityFeed] = useState<ActivityLogItem[]>(initialActivityFeed);
+  const [batchesList] = useState(initialBatches);
 
   const [activePeriod, setActivePeriod] = useState<"today" | "yesterday" | "7days" | "30days" | "all" | "custom">("30days");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedStaffId, setSelectedStaffId] = useState("all");
   const [expandedDateKeys, setExpandedDateKeys] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"TIMESHEETS" | "LIVE_RADAR" | "ACTIVITY_FEED" | "DAILY" | "STAFF_MATRIX" | "PER_STAFF_WORK">("TIMESHEETS");
+  const [activeTab, setActiveTab] = useState<"TIMESHEETS" | "LIVE_RADAR" | "ACTIVITY_FEED" | "DAILY" | "STAFF_MATRIX" | "PER_STAFF_WORK" | "BATCH_REPORTS">("TIMESHEETS");
   const [searchQuery, setSearchQuery] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState("ALL");
+
+  // Modal for Batch Detailed Report
+  const [selectedBatchReportId, setSelectedBatchReportId] = useState<string | null>(null);
 
   // Modal for Shift Call Logs Drill-down
   const [selectedSessionModal, setSelectedSessionModal] = useState<{
@@ -725,6 +740,18 @@ export function StaffCrmReportsClient({
           >
             <UserCheck size={14} className={activeTab === "PER_STAFF_WORK" ? "text-amber-600" : ""} />
             👤 Per-Staff Leads &amp; Work History
+          </button>
+
+          <button
+            onClick={() => setActiveTab("BATCH_REPORTS")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === "BATCH_REPORTS"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Package size={14} className={activeTab === "BATCH_REPORTS" ? "text-indigo-600" : ""} />
+            📦 Uploaded Batches ({batchesList.length})
           </button>
         </div>
 
@@ -1546,6 +1573,128 @@ export function StaffCrmReportsClient({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════════
+          TAB: UPLOADED BATCH REPORTS & TELEMETRY
+         ══════════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "BATCH_REPORTS" && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <Package size={16} className="text-indigo-600" /> Uploaded Ingestion Batches &amp; Telemetry Reports
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Inspect which staff worked on which batch, conversions, call coverage, location breakdown, and detailed telemetry.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin/staff-leads/upload"
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-black text-xs hover:bg-indigo-700 transition flex items-center gap-1.5"
+              >
+                <span>+ Upload New Batch</span>
+              </Link>
+              <span className="text-xs font-bold text-slate-400">
+                {batchesList.length} Batches Uploaded
+              </span>
+            </div>
+          </div>
+
+          {batchesList.length === 0 ? (
+            <div className="p-16 text-center text-slate-400">
+              <Package size={48} className="mx-auto mb-3 opacity-30 text-slate-400" />
+              <p className="font-extrabold text-sm text-slate-700">No batches uploaded yet</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                Upload raw CSV or Excel lead files to immediately distribute leads among telecallers and view full telemetry.
+              </p>
+              <Link
+                href="/admin/staff-leads/upload"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black hover:bg-indigo-700"
+              >
+                Upload First Lead Batch
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 uppercase font-extrabold tracking-wider text-[10px]">
+                    <th className="py-3.5 px-4">Batch Name &amp; Ingestion Date</th>
+                    <th className="py-3.5 px-4">Parsed Leads</th>
+                    <th className="py-3.5 px-4">Active Leads</th>
+                    <th className="py-3.5 px-4">Converted</th>
+                    <th className="py-3.5 px-4">Conversion Rate</th>
+                    <th className="py-3.5 px-4 text-right">Instant Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {batchesList
+                    .filter((b) => !searchQuery || b.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((batch) => {
+                      const convRate = batch.leadCount > 0 ? Math.round((batch.convertedCount / batch.leadCount) * 100) : 0;
+                      return (
+                        <tr key={batch.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-black text-slate-900 text-xs flex items-center gap-2">
+                              <Package size={14} className="text-indigo-500 shrink-0" />
+                              <span className="truncate max-w-xs">{batch.name}</span>
+                            </div>
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              Uploaded {new Date(batch.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-black text-slate-800 text-xs">{batch.totalParsed.toLocaleString()}</span>
+                            {batch.totalJunk > 0 && (
+                              <span className="text-[10px] text-amber-600 block">({batch.totalJunk} junk cleaned)</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-slate-700">{batch.leadCount.toLocaleString()} leads</span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-black text-emerald-600">✓ {batch.convertedCount.toLocaleString()}</span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="bg-emerald-500 h-full rounded-full transition-all"
+                                  style={{ width: `${Math.min(convRate, 100)}%` }}
+                                />
+                              </div>
+                              <span className="font-black text-slate-700 text-xs">{convRate}%</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBatchReportId(batch.id)}
+                                className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-black text-xs hover:bg-indigo-600 hover:text-white transition cursor-pointer flex items-center gap-1"
+                              >
+                                <BarChart3 size={12} />
+                                <span>Full Report</span>
+                              </button>
+                              <Link
+                                href={`/admin/staff-leads?batchId=${batch.id}`}
+                                className="px-3 py-1.5 rounded-xl bg-slate-900 text-white font-black text-xs hover:bg-slate-800 transition flex items-center gap-1"
+                              >
+                                <Phone size={12} />
+                                <span>Work Desk</span>
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════════════
           DRILL-DOWN MODAL: SHIFT CALL LOGS TIMELINE
          ══════════════════════════════════════════════════════════════════════════════ */}
       {selectedSessionModal && (
@@ -1571,9 +1720,9 @@ export function StaffCrmReportsClient({
               </div>
               <button
                 onClick={() => setSelectedSessionModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 cursor-pointer"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
@@ -1662,6 +1811,15 @@ export function StaffCrmReportsClient({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Batch Detailed Report Modal with instant switcher */}
+      {selectedBatchReportId && (
+        <BatchDetailedReportModal
+          batchId={selectedBatchReportId}
+          isOpen={!!selectedBatchReportId}
+          onClose={() => setSelectedBatchReportId(null)}
+        />
       )}
     </div>
   );

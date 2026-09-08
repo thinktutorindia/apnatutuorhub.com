@@ -5,7 +5,8 @@ import Link from "next/link";
 import {
   Users, UserCheck, PhoneCall, Sparkles, RotateCcw, Trash2, ArrowRight,
   TrendingUp, CheckCircle2, AlertCircle, Clock, Star, PhoneOff, PhoneMissed,
-  Shield, Layers, ChevronRight, RefreshCw, Loader2, ArrowUpRight, BarChart3
+  Shield, Layers, ChevronRight, RefreshCw, Loader2, ArrowUpRight, BarChart3,
+  MapPin, Mail, ExternalLink, SlidersHorizontal
 } from "lucide-react";
 import {
   smartAutoDistributeAction,
@@ -15,6 +16,7 @@ import {
 } from "@/app/actions/staff-leads.actions";
 import { StaffCrmPlaybook } from "@/components/admin/staff-leads/StaffCrmPlaybook";
 import { StaffLeadsNavHeader } from "@/components/admin/staff-leads/StaffLeadsNavHeader";
+import { BatchDetailedReportModal } from "@/components/admin/staff-leads/BatchDetailedReportModal";
 
 type StaffStat = {
   id: string;
@@ -30,14 +32,25 @@ type StaffStat = {
   followUpsDue: number;
 };
 
-type BatchStat = {
+export type BatchStat = {
   id: string;
   name: string;
   totalParsed: number;
-  createdAt: Date;
+  totalJunk?: number;
+  createdAt: Date | string;
   totalLeads: number;
   convertedLeads: number;
   conversionRate: number;
+  promotedCount?: number;
+  assignedCount?: number;
+  unassignedCount?: number;
+  callsCount?: number;
+  emailCount?: number;
+  emailCoveragePercent?: number;
+  locationsCount?: number;
+  topLocations?: string[];
+  staffCount?: number;
+  staffMembers?: Array<{ id: string; name: string; email: string; assignedCount: number; conversions: number }>;
 };
 
 interface Props {
@@ -63,6 +76,7 @@ export function StaffCrmManagementClient({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
+  const [selectedReportBatchId, setSelectedReportBatchId] = useState<string | null>(null);
 
   const handleAutoDistribute = () => {
     startTransition(async () => {
@@ -320,92 +334,197 @@ export function StaffCrmManagementClient({
         </div>
       </div>
 
-      {/* Batch History & Conversion Metrics */}
+      {/* Batch History & In-Depth Performance Hub */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
               <Layers size={18} className="text-blue-600" /> Upload Batches &amp; Staging Performance
             </h2>
-            <p className="text-xs text-slate-500">Track conversion rates and manage uploaded data batches.</p>
+            <p className="text-xs text-slate-500">
+              Deep telemetry on every uploaded batch: staff activity, conversion rates, email coverage, and locality breakdown.
+            </p>
           </div>
-          <span className="text-xs font-bold text-slate-400">{batchStats.length} batches</span>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/staff-leads/upload"
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-xs transition-colors"
+            >
+              <span>+ Upload New Batch</span>
+            </Link>
+            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-xl">
+              {batchStats.length} batches
+            </span>
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-xs font-extrabold text-slate-500 uppercase tracking-wider">Batch Name</th>
-                  <th className="text-left px-4 py-3 text-xs font-extrabold text-slate-500 uppercase tracking-wider">Date Uploaded</th>
-                  <th className="text-left px-4 py-3 text-xs font-extrabold text-slate-500 uppercase tracking-wider">Total Leads</th>
-                  <th className="text-left px-4 py-3 text-xs font-extrabold text-slate-500 uppercase tracking-wider">Converted</th>
-                  <th className="text-left px-4 py-3 text-xs font-extrabold text-slate-500 uppercase tracking-wider">Conversion %</th>
-                  <th className="text-right px-4 py-3 text-xs font-extrabold text-slate-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {batchStats.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
-                      No batches uploaded yet.
-                    </td>
-                  </tr>
-                ) : (
-                  batchStats.map((b) => (
-                    <tr key={b.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-bold text-slate-800">{b.name}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500 font-mono">
-                        {new Date(b.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-slate-700">{b.totalLeads}</td>
-                      <td className="px-4 py-3 font-bold text-emerald-600">{b.convertedLeads}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div
-                              className="bg-emerald-500 h-full rounded-full"
-                              style={{ width: `${Math.min(100, b.conversionRate)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs font-bold text-slate-700">{b.conversionRate}%</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            href={`/admin/staff-leads?batchId=${b.id}`}
-                            className="text-xs text-emerald-600 font-bold hover:underline"
-                          >
-                            View Leads
-                          </Link>
-                          <button
-                            onClick={() => handleDeleteBatch(b.id)}
-                            disabled={deletingBatchId === b.id}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            title="Delete batch and unpromoted leads"
-                          >
-                            {deletingBatchId === b.id ? (
-                              <Loader2 size={13} className="animate-spin text-red-500" />
-                            ) : (
-                              <Trash2 size={13} />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {batchStats.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 space-y-2">
+            <Layers size={32} className="mx-auto text-slate-300" />
+            <p className="font-bold">No batches uploaded yet.</p>
+            <p className="text-xs text-slate-400">Import WhatsApp dumps or CSV files to see comprehensive batch telemetry.</p>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-3">
+            {batchStats.map((b) => {
+              const dateLabel = new Date(b.createdAt).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              });
+
+              return (
+                <div
+                  key={b.id}
+                  className="bg-white rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition-all p-4 sm:p-5 space-y-4"
+                >
+                  {/* Top Bar: Title, Badges & Actions */}
+                  <div className="flex items-start justify-between flex-wrap gap-3">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-black text-slate-900 truncate">
+                          {b.name}
+                        </h3>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                          {b.totalLeads} Leads
+                        </span>
+                        {b.promotedCount !== undefined && b.promotedCount > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                            <CheckCircle2 size={10} />
+                            {b.promotedCount} Promoted to Primary
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          Uploaded {dateLabel}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReportBatchId(b.id)}
+                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                      >
+                        <BarChart3 size={13} />
+                        <span>Full Report &amp; Filters</span>
+                      </button>
+
+                      <Link
+                        href={`/admin/staff-leads?batchId=${b.id}`}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-extrabold flex items-center gap-1 transition-colors"
+                      >
+                        <span>Desk Queue</span>
+                        <ArrowRight size={12} />
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBatch(b.id)}
+                        disabled={deletingBatchId === b.id}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        title="Delete batch and unpromoted leads"
+                      >
+                        {deletingBatchId === b.id ? (
+                          <Loader2 size={14} className="animate-spin text-red-500" />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4 In-Depth Key Metric Pillars */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
+                    {/* 1. Conversions */}
+                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80 space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">Conversions</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-black text-emerald-800">
+                          {b.convertedLeads} <span className="text-xs text-emerald-600 font-semibold">/ {b.totalLeads}</span>
+                        </span>
+                        <span className="text-xs font-black text-emerald-700">{b.conversionRate}%</span>
+                      </div>
+                      <div className="w-full bg-emerald-200 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-emerald-600 h-full rounded-full"
+                          style={{ width: `${Math.min(100, b.conversionRate)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 2. Staff Activity ("Which staff doing what") */}
+                    <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800 block">
+                        Team Activity &amp; Calls
+                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-black text-blue-900">
+                          {b.callsCount || 0} <span className="text-xs text-blue-600 font-semibold">calls logged</span>
+                        </span>
+                        <span className="text-xs font-extrabold text-blue-700">
+                          {b.assignedCount || 0} assigned
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-blue-700 font-semibold truncate">
+                        {b.staffMembers && b.staffMembers.length > 0
+                          ? `Active: ${b.staffMembers.map((s) => `${s.name} (${s.conversions} conv)`).slice(0, 2).join(", ")}`
+                          : "Ready for auto-distribution"}
+                      </p>
+                    </div>
+
+                    {/* 3. Email Coverage & Readiness */}
+                    <div className="p-3 rounded-xl bg-teal-50/70 border border-teal-200/80 space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 block">
+                        Email Outreach Coverage
+                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-black text-teal-900">
+                          {b.emailCount || 0} <span className="text-xs text-teal-600 font-semibold">with email</span>
+                        </span>
+                        <span className="text-xs font-black text-teal-700">{b.emailCoveragePercent || 0}%</span>
+                      </div>
+                      <p className="text-[10px] text-teal-700 font-semibold">
+                        {b.emailCount && b.emailCount > 0 ? "Ready for direct mailing" : "Phone-primary batch"}
+                      </p>
+                    </div>
+
+                    {/* 4. Locality Coverage */}
+                    <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 block">
+                        Geographic Reach
+                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-black text-amber-900">
+                          {b.locationsCount || 0} <span className="text-xs text-amber-700 font-semibold">localities</span>
+                        </span>
+                        <MapPin size={14} className="text-amber-600 shrink-0" />
+                      </div>
+                      <p className="text-[10px] text-amber-800 font-bold truncate">
+                        {b.topLocations && b.topLocations.length > 0
+                          ? b.topLocations.slice(0, 2).join(", ")
+                          : "Various Delhi NCR"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* ── In-Depth Batch Report Modal ── */}
+      {selectedReportBatchId && (
+        <BatchDetailedReportModal
+          batchId={selectedReportBatchId}
+          onClose={() => setSelectedReportBatchId(null)}
+          onBatchUpdated={() => {
+            // Re-fetch management hub data if updated
+          }}
+        />
+      )}
     </div>
   );
 }

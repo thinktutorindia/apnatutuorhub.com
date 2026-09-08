@@ -17,6 +17,7 @@ import {
   Sparkles, CheckCircle2, ChevronLeft, ChevronRight, Columns3,
   Users, AlertTriangle, Download, Phone, PhoneCall,
   ExternalLink, Clock, Filter, MessageCircle, Copy, Check, Zap, HelpCircle, Flame,
+  BarChart3, Layers
 } from "lucide-react";
 import type { StaffLeadStatus } from "@prisma/client";
 import {
@@ -37,6 +38,7 @@ import { StaffLeadDetailDrawer } from "@/components/admin/staff-leads/StaffLeadD
 import { StaffPowerDialer } from "@/components/admin/staff-leads/StaffPowerDialer";
 import { StaffLeadsFeatureGuide } from "@/components/admin/staff-leads/StaffLeadsFeatureGuide";
 import { StaffShiftGate } from "@/components/admin/staff-leads/StaffShiftGate";
+import { BatchDetailedReportModal } from "@/components/admin/staff-leads/BatchDetailedReportModal";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -79,6 +81,7 @@ interface Props {
   batches: Array<{ id: string; name: string }>;
   isSuperAdmin: boolean;
   protectData?: boolean;
+  initialBatchFilter?: string;
 }
 
 const PAGE_SIZES = [25, 50, 100, 200];
@@ -156,6 +159,7 @@ function InlineStatusBadge({ status, onChange, disabled }: {
 export function LeadsWorkspace({
   initialLeads, initialTotal, pageSize: initialPageSize = 50,
   staff, batches, isSuperAdmin, protectData = false,
+  initialBatchFilter,
 }: Props) {
   const [data, setData] = useState<WorkspaceLead[]>(initialLeads);
   const [total, setTotal] = useState(initialTotal);
@@ -172,8 +176,15 @@ export function LeadsWorkspace({
   const [statusFilter, setStatusFilter] = useState<StaffLeadStatus | "ALL">("ALL");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [assignFilter, setAssignFilter] = useState<AssignFilter>("ALL");
-  const [batchFilter, setBatchFilter] = useState<string>("ALL");
+  const [batchFilter, setBatchFilter] = useState<string>(initialBatchFilter || "ALL");
+  const [batchReportModalId, setBatchReportModalId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    if (initialBatchFilter) {
+      setBatchFilter(initialBatchFilter);
+    }
+  }, [initialBatchFilter]);
 
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [drawerLead, setDrawerLead] = useState<WorkspaceLead | null>(null);
@@ -639,6 +650,50 @@ export function LeadsWorkspace({
             {ALL_STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
           </select>
 
+          {/* Prominent Batch Switcher on Main Toolbar */}
+          {batches.length > 0 && (
+            <div className="flex items-center gap-1">
+              <select
+                value={batchFilter}
+                onChange={(e) => setBatchFilter(e.target.value)}
+                className={`px-2.5 py-2 border rounded-lg text-[11px] font-extrabold focus:outline-none focus:ring-2 focus:ring-[#16A34A]/20 cursor-pointer max-w-[170px] truncate ${
+                  batchFilter !== "ALL"
+                    ? "border-blue-500 bg-blue-50 text-blue-900"
+                    : "border-slate-200 text-slate-700 bg-slate-50"
+                }`}
+              >
+                <option value="ALL">📦 All Batches</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    📦 {b.name}
+                  </option>
+                ))}
+              </select>
+
+              {batchFilter !== "ALL" ? (
+                <button
+                  type="button"
+                  onClick={() => setBatchReportModalId(batchFilter)}
+                  className="px-2.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1 shadow-2xs transition-all cursor-pointer shrink-0"
+                  title="View full report for this batch"
+                >
+                  <BarChart3 size={12} />
+                  <span className="hidden sm:inline">Report</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setBatchReportModalId(batches[0]?.id || null)}
+                  className="px-2.5 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-700 text-[11px] font-extrabold flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                  title="Open batch telemetry report"
+                >
+                  <BarChart3 size={12} />
+                  <span className="hidden sm:inline">Batches</span>
+                </button>
+              )}
+            </div>
+          )}
+
           {/* More filters */}
           <button type="button" onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-1 px-2.5 py-2 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
@@ -935,6 +990,15 @@ export function LeadsWorkspace({
         onClose={() => setShowGuide(false)}
         onLaunchDialer={() => setIsPowerDialing(true)}
       />
+
+      {/* ── Batch Detailed Telemetry & Performance Modal ── */}
+      {batchReportModalId && (
+        <BatchDetailedReportModal
+          batchId={batchReportModalId}
+          onClose={() => setBatchReportModalId(null)}
+          onBatchUpdated={() => fetchLeads()}
+        />
+      )}
     </div>
   );
 }

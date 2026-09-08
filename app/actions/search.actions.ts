@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
 import {
   searchTutorsService,
@@ -121,3 +122,180 @@ export async function reindexSearchEngineAction(): Promise<
     return actionError(err instanceof Error ? err.message : "Failed to rebuild index.");
   }
 }
+
+export type GlobalUnifiedSearchResult = {
+  staffLeads: Array<{
+    id: string;
+    name: string | null;
+    phone: string | null;
+    location: string | null;
+    status: string;
+    isPromoted: boolean;
+    subjects: string[];
+    recordType: "TUTOR" | "PARENT";
+  }>;
+  users: Array<{
+    id: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    role: string;
+    city: string | null;
+    isVerified: boolean;
+  }>;
+  liveLeads: Array<{
+    id: string;
+    studentName: string | null;
+    phone: string | null;
+    subject: string | null;
+    classLevel: string | null;
+    city: string | null;
+    status: string;
+  }>;
+};
+
+export async function globalAdminUnifiedSearchAction(
+  query: string
+): Promise<ActionResult<GlobalUnifiedSearchResult>> {
+  try {
+    const session = await auth();
+    if (!session?.user || !["SUPER_ADMIN", "SUB_ADMIN"].includes(session.user.role)) {
+      return actionError("Unauthorized. Admin or staff privileges required.");
+    }
+
+    const clean = (query || "").trim();
+    if (!clean || clean.length < 2) {
+      return actionSuccess({ staffLeads: [], users: [], liveLeads: [] });
+    }
+
+    const cleanDigits = clean.replace(/\D/g, "");
+
+    const [staffLeads, users, liveLeads] = await Promise.all([
+      // 1. StaffLeads (CRM Calling Desk)
+      prisma.staffLead.findMany({
+        where: {
+          OR: [
+            { name: { contains: clean, mode: "insensitive" } },
+            ...(cleanDigits.length >= 3 ? [{ phone: { contains: cleanDigits } }] : []),
+            { email: { contains: clean, mode: "insensitive" } },
+            { location: { contains: clean, mode: "insensitive" } },
+            { subjects: { hasSome: [clean] } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          location: true,
+          status: true,
+          isPromoted: true,
+          subjects: true,
+          staffNotes: true,
+        },
+        take: 8,
+      }),
+
+      // 2. Users & Tutors (Primary Directory)
+      prisma.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: clean, mode: "insensitive" } },
+            ...(cleanDigits.length >= 3 ? [{ phone: { contains: cleanDigits } }] : []),
+            { email: { contains: clean, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          role: true,
+          tutorProfile: {
+            select: {
+              id: true,
+              city: true,
+              isVerified: true,
+            },
+          },
+        },
+        take: 6,
+      }),
+
+      // 3. Live Parent Requirements (Leads Feed)
+      prisma.lead.findMany({
+        where: {
+          OR: [
+            { subjects: { hasSome: [clean] } },
+            { classLevel: { contains: clean, mode: "insensitive" } },
+            { city: { contains: clean, mode: "insensitive" } },
+            { area: { contains: clean, mode: "insensitive" } },
+            {
+              parentProfile: {
+                user: {
+                  OR: [
+                    { name: { contains: clean, mode: "insensitive" } },
+                    ...(cleanDigits.length >= 3 ? [{ phone: { contains: cleanDigits } }] : []),
+                  ],
+                },
+              },
+            },
+            ...(Number.isInteger(Number(clean)) ? [{ inquiryNumber: Number(clean) }] : []),
+          ],
+        },
+        select: {
+          id: true,
+          subjects: true,
+          classLevel: true,
+          city: true,
+          area: true,
+          status: true,
+          parentProfile: {
+            select: {
+              user: {
+                select: {
+                  name: true,
+                  phone: true,
+                },
+              },
+            },
+          },
+        },
+        take: 6,
+      }),
+    ]);
+
+    return actionSuccess({
+      staffLeads: staffLeads.map((sl) => ({
+        id: sl.id,
+        name: sl.name,
+        phone: sl.phone,
+        location: sl.location,
+        status: sl.status,
+        isPromoted: sl.isPromoted,
+        subjects: sl.subjects,
+        recordType: sl.staffNotes?.includes("[RECORD_TYPE:PARENT]") ? "PARENT" : "TUTOR",
+      })),
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        email: u.email,
+        role: u.role,
+        city: u.tutorProfile?.city || null,
+        isVerified: u.tutorProfile?.isVerified || false,
+      })),
+      liveLeads: liveLeads.map((l) => ({
+        id: l.id,
+        studentName: l.parentProfile?.user?.name || null,
+        phone: l.parentProfile?.user?.phone || null,
+        subject: l.subjects?.join(", ") || null,
+        classLevel: l.classLevel,
+        city: l.area ? `${l.area}, ${l.city || ""}` : l.city || null,
+        status: l.status,
+      })),
+    });
+  } catch (err) {
+    return actionError(err instanceof Error ? err.message : "Unified admin search failed.");
+  }
+}
+

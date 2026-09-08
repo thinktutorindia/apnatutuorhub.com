@@ -3,6 +3,7 @@ import {
   getStaffDailyWorkReportsAction,
   getStaffLiveStatusAction,
   getStaffLeadActivityFeedAction,
+  getStaffLeadBatchesAction,
 } from "@/app/actions/staff-leads.actions";
 import { StaffCrmReportsClient } from "@/components/admin/staff-leads/StaffCrmReportsClient";
 
@@ -13,11 +14,23 @@ export default async function StaffCrmReportsPage() {
   const session = await auth();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
 
-  const [reportsRes, liveStatusRes, activityRes] = await Promise.all([
+  const [reportsRes, liveStatusRes, activityRes, batchesRes] = await Promise.all([
     getStaffDailyWorkReportsAction().catch(() => ({ success: false, data: null })),
     getStaffLiveStatusAction().catch(() => ({ success: false, data: null })),
     getStaffLeadActivityFeedAction({ limit: 40 }).catch(() => ({ success: false, data: null })),
+    getStaffLeadBatchesAction().catch(() => ({ success: false, data: null })),
   ]);
+
+  const rawBatches = (batchesRes.success && batchesRes.data) ? batchesRes.data.batches : [];
+  const batches = rawBatches.map((b: any) => ({
+    id: b.id,
+    name: b.name,
+    totalParsed: b.totalParsed,
+    totalJunk: b.totalJunk ?? 0,
+    createdAt: new Date(b.createdAt).toISOString(),
+    leadCount: b._count?.leads ?? 0,
+    convertedCount: b.convertedCount ?? 0,
+  }));
 
   const workSessions = (reportsRes.success && reportsRes.data) ? reportsRes.data.workSessions : [];
   const dailyBreakdown = (reportsRes.success && reportsRes.data) ? reportsRes.data.dailyBreakdown : [];
@@ -51,6 +64,7 @@ export default async function StaffCrmReportsPage() {
       staffList={staffList}
       liveStatus={liveStatus as any}
       initialActivityFeed={activityFeed as any}
+      initialBatches={batches}
       isSuperAdmin={isSuperAdmin}
     />
   );

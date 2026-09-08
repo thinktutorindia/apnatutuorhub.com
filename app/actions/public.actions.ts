@@ -1,7 +1,8 @@
-"use server";
-
 import { prisma } from "@/lib/prisma";
 import { expandSubjectAliases, expandClassLevel } from "@/lib/subject-matcher";
+import { getTaxonomySubjectsForSearch, inferTutorClassesAndSubjects, getGradesForClassLevel, parseGradeNumbers } from "@/lib/subject-taxonomy";
+import { resolveLocationCoordinates } from "@/lib/geocoding";
+import { haversineDistanceKm } from "@/lib/haversine";
 
 export interface PublicTutorResult {
   id: string;
@@ -25,6 +26,10 @@ export interface PublicTutorResult {
   bio: string | null;
   profileScore: number;
   teachingRadius?: number;
+  distanceKm?: number | null;
+  displayedClasses?: string;
+  displayedSubjects?: string;
+  isOnlineMatch?: boolean;
 }
 
 function maskName(fullName: string | null): string {
@@ -80,6 +85,7 @@ function getMetroName(locality: string): string {
 }
 
 export async function searchTutorsPublic(params: {
+  subject?: string;
   subjects?: string[];
   classLevel?: string;
   mode?: string;
@@ -89,29 +95,70 @@ export async function searchTutorsPublic(params: {
   gender?: string;
   radiusKm?: number;
 }): Promise<{ tutors: PublicTutorResult[]; total: number; isFallback?: boolean; fallbackReason?: string }> {
-  const { subjects, classLevel, mode, budgetMax, city, gender, radiusKm } = params;
+  const { classLevel, mode, budgetMax, city, gender, radiusKm } = params;
+  const inputSubjects =
+    params.subjects && params.subjects.length > 0
+      ? params.subjects
+      : params.subject
+        ? [params.subject]
+        : [];
+  const primarySubject = inputSubjects[0] || "";
 
-  // Expand search subjects with synonyms and root aliases to prevent zero results on typos or naming variations
-  let expandedSubjects: string[] | undefined = undefined;
-  if (subjects && subjects.length > 0) {
-    const set = new Set<string>();
-    subjects.forEach((s) => {
-      expandSubjectAliases(s).forEach((alias) => set.add(alias));
+  // Normalize classLevel format (e.g. "Class 11 12" -> "Class 11-12")
+  const cleanClassLevel = classLevel
+    ? classLevel
+        .replace(/(?:class\s*)?11\s*[-–to\s]+\s*12/i, "Class 11-12")
+        .replace(/(?:class\s*)?9\s*[-–to\s]+\s*10/i, "Class 9-10")
+        .replace(/(?:class\s*)?6\s*[-–to\s]+\s*8/i, "Class 6-8")
+        .replace(/(?:class\s*)?1\s*[-–to\s]+\s*5/i, "Class 1-5")
+    : undefined;
+
+  // 1. Resolve exact matching canonical subjects directly from Centralized Taxonomy
+  const taxonomySubjects = getTaxonomySubjectsForSearch(primarySubject, cleanClassLevel);
+
+  // Isolate grade-specific taxonomy subjects when classLevel is specified to prevent junior tutors matching
+  const targetGrades = cleanClassLevel ? getGradesForClassLevel(cleanClassLevel) : [];
+  const gradeSpecificTaxonomySubjects =
+    cleanClassLevel && targetGrades.length > 0
+      ? taxonomySubjects.filter((s) => {
+          const g = parseGradeNumbers(s);
+          return g.length > 0 && g.some((n) => targetGrades.includes(n));
+        })
+      : taxonomySubjects;
+
+  // If a class level is requested, searchSubjectSet should be strictly governed by taxonomy subjects
+  // for that class level, plus primary subject
+  const searchSubjectSet = new Set<string>(taxonomySubjects);
+  if (inputSubjects.length > 0) {
+    inputSubjects.forEach((s) => {
+      if (!cleanClassLevel) {
+        expandSubjectAliases(s).forEach((alias) => searchSubjectSet.add(alias));
+      } else {
+        searchSubjectSet.add(s);
+      }
     });
-    expandedSubjects = Array.from(set);
   }
+  const querySubjectsList = Array.from(searchSubjectSet);
 
-  // Expand class level into matching tags (e.g. "Class 9-10" -> ["Class 9", "Class 10", "Class 1 to 10", "General"])
-  const expandedClassLevels = classLevel ? expandClassLevel(classLevel) : undefined;
+  // 2. Expand class levels without leaky "General"
+  const expandedClassLevels = cleanClassLevel ? expandClassLevel(cleanClassLevel) : undefined;
 
   const andClauses: any[] = [{ user: { isActive: true } }];
 
-  if (expandedSubjects && expandedSubjects.length > 0) {
-    andClauses.push({ subjects: { hasSome: expandedSubjects } });
+  if (querySubjectsList.length > 0) {
+    andClauses.push({ subjects: { hasSome: querySubjectsList } });
   }
 
   if (expandedClassLevels && expandedClassLevels.length > 0) {
-    andClauses.push({ classLevels: { hasSome: expandedClassLevels } });
+    // A tutor matches if their classLevels has target tags OR they teach matching grade-specific subjects
+    const subjectAlternatives =
+      gradeSpecificTaxonomySubjects.length > 0 ? gradeSpecificTaxonomySubjects : taxonomySubjects;
+    andClauses.push({
+      OR: [
+        { classLevels: { hasSome: expandedClassLevels } },
+        ...(subjectAlternatives.length > 0 ? [{ subjects: { hasSome: subjectAlternatives } }] : []),
+      ],
+    });
   }
 
   if (mode && mode !== "EITHER") {
@@ -128,19 +175,19 @@ export async function searchTutorsPublic(params: {
     });
   }
 
-  if (radiusKm && radiusKm > 0) {
-    andClauses.push({ teachingRadius: { gte: Math.min(radiusKm, 3) } });
-  }
-
+  // City & Locality Filter
   if (city && city.trim()) {
     const loc = city.trim();
     const tokens = loc.split(/[,–-]/).map((t) => t.trim()).filter(Boolean);
     const primaryLoc = tokens[0] || loc;
+    const widerMetro = getMetroName(loc);
     andClauses.push({
       OR: [
         { city: { contains: primaryLoc, mode: "insensitive" } },
         { address: { contains: primaryLoc, mode: "insensitive" } },
-        ...(tokens.length > 1 ? [{ city: { contains: tokens[1], mode: "insensitive" } }] : []),
+        { city: { contains: widerMetro, mode: "insensitive" } },
+        { address: { contains: widerMetro, mode: "insensitive" } },
+        { teachingMode: { in: ["ONLINE", "EITHER"] } },
       ],
     });
   }
@@ -155,6 +202,8 @@ export async function searchTutorsPublic(params: {
     classLevels: true,
     teachingMode: true,
     teachingRadius: true,
+    latitude: true,
+    longitude: true,
     feeMin: true,
     feeMax: true,
     city: true,
@@ -179,7 +228,7 @@ export async function searchTutorsPublic(params: {
       { profileScore: "desc" },
       { averageRating: "desc" },
     ],
-    take: 40,
+    take: 60,
     select: profileSelect,
   });
 
@@ -187,159 +236,127 @@ export async function searchTutorsPublic(params: {
   let isFallback = false;
   let fallbackReason: string | undefined = undefined;
 
-  // Locality Enrichment & Fallback:
-  // If user specified a locality/city and local count is small (< 5), enrich with verified tutors from the broader metro/online
-  if (city && city.trim() && profiles.length < 5) {
-    const loc = city.trim();
-    const widerMetro = getMetroName(loc);
+  // 3. Coordinate Resolution & Distance Calculation
+  const searchCoords = city ? resolveLocationCoordinates(city) : null;
 
-    const metroAndClauses: any[] = [{ user: { isActive: true } }];
-    if (expandedSubjects && expandedSubjects.length > 0) {
-      metroAndClauses.push({ subjects: { hasSome: expandedSubjects } });
+  type ProfileWithDistance = (typeof profiles)[number] & {
+    distanceKm: number | null;
+    isOnlineMatch?: boolean;
+  };
+
+  const scoredProfiles: ProfileWithDistance[] = profiles.map((p) => {
+    let tutorLat = p.latitude;
+    let tutorLng = p.longitude;
+
+    if ((tutorLat === null || tutorLng === null) && (p.address || p.city)) {
+      const resolved = resolveLocationCoordinates(p.address || p.city);
+      if (resolved) {
+        tutorLat = resolved.lat;
+        tutorLng = resolved.lng;
+      }
     }
-    if (expandedClassLevels && expandedClassLevels.length > 0) {
-      metroAndClauses.push({ classLevels: { hasSome: expandedClassLevels } });
+
+    let distanceKm: number | null = null;
+    if (searchCoords && tutorLat !== null && tutorLng !== null) {
+      distanceKm = Math.round(haversineDistanceKm(searchCoords.lat, searchCoords.lng, tutorLat, tutorLng) * 10) / 10;
     }
-    if (mode && mode !== "EITHER") {
-      metroAndClauses.push({ teachingMode: { in: [mode, "EITHER"] } });
-    }
-    if (gender && gender !== "ANY" && gender !== "EITHER") {
-      metroAndClauses.push({ gender: { equals: gender, mode: "insensitive" } });
-    }
-    metroAndClauses.push({
-      OR: [
-        { city: { contains: widerMetro, mode: "insensitive" } },
-        { address: { contains: widerMetro, mode: "insensitive" } },
-        { teachingMode: { in: ["ONLINE", "EITHER"] } },
-      ],
+
+    const isOnline = p.teachingMode === "ONLINE" || p.teachingMode === "EITHER";
+
+    return {
+      ...p,
+      distanceKm,
+      isOnlineMatch: isOnline,
+    };
+  });
+
+  // 4. Radius Filter Enforcement
+  let filteredProfiles = scoredProfiles;
+  if (radiusKm && radiusKm > 0 && searchCoords) {
+    const strictlyWithinRadius = scoredProfiles.filter((p) => {
+      return p.distanceKm !== null && p.distanceKm <= radiusKm;
     });
 
-    const metroProfiles = await prisma.tutorProfile.findMany({
-      where: { AND: metroAndClauses },
-      orderBy: [
-        { isFeatured: "desc" },
-        { profileScore: "desc" },
-        { averageRating: "desc" },
-      ],
-      take: 40,
-      select: profileSelect,
-    });
-
-    const existingIds = new Set(profiles.map((p) => p.id));
-    const addedMetro = metroProfiles.filter((p) => !existingIds.has(p.id));
-
-    if (profiles.length === 0 && addedMetro.length > 0) {
-      profiles = addedMetro;
-      total = addedMetro.length;
+    if (strictlyWithinRadius.length > 0) {
+      filteredProfiles = strictlyWithinRadius;
+      total = strictlyWithinRadius.length;
+    } else {
+      // Grace fallback when 0 tutors are in strict local neighborhood
       isFallback = true;
-      fallbackReason = `Showing ${addedMetro.length} verified teachers in ${widerMetro} serving ${loc} & nearby areas.`;
-    } else if (profiles.length > 0 && addedMetro.length > 0) {
-      const localCount = profiles.length;
-      profiles = [...profiles, ...addedMetro.slice(0, 35)];
-      total = profiles.length;
-      isFallback = true;
-      fallbackReason = `Found ${localCount} verified tutor in ${loc} + ${addedMetro.length} verified teachers across ${widerMetro} serving your area.`;
+      const sortedByDist = scoredProfiles
+        .filter((p) => p.distanceKm !== null)
+        .sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
+
+      const closestOffline = sortedByDist[0];
+      const nearestKm = closestOffline?.distanceKm ? `${closestOffline.distanceKm} km` : "nearby";
+      fallbackReason = `No home tutors found within ${radiusKm} km of ${city}. Showing nearest verified teachers in surrounding areas (closest is ${nearestKm} away).`;
+      filteredProfiles = sortedByDist.length > 0 ? sortedByDist.slice(0, 10) : scoredProfiles.slice(0, 10);
+      total = filteredProfiles.length;
     }
   }
 
-  // Grace Fallback: If still 0 results because subject was too niche, relax subject filter to show top tutors in this class/mode
-  if (profiles.length === 0 && expandedSubjects && expandedSubjects.length > 0) {
-    const fallbackAndClauses: any[] = [{ user: { isActive: true } }];
-    if (expandedClassLevels && expandedClassLevels.length > 0) {
-      fallbackAndClauses.push({ classLevels: { hasSome: expandedClassLevels } });
+  // 5. Ranking & Sorting
+  const ranked = [...filteredProfiles].sort((a, b) => {
+    // If user searched a location, sort by closest distance first
+    if (searchCoords) {
+      const distA = a.distanceKm !== null ? a.distanceKm : 999;
+      const distB = b.distanceKm !== null ? b.distanceKm : 999;
+      if (Math.abs(distA - distB) >= 2) {
+        return distA - distB; // Closest tutors appear first!
+      }
     }
-    if (mode && mode !== "EITHER") {
-      fallbackAndClauses.push({ teachingMode: { in: [mode, "EITHER"] } });
-    }
-    if (gender && gender !== "ANY" && gender !== "EITHER") {
-      fallbackAndClauses.push({ gender: { equals: gender, mode: "insensitive" } });
-    }
-    const widerMetro = city ? getMetroName(city) : "Delhi";
-    fallbackAndClauses.push({
-      OR: [
-        { city: { contains: widerMetro, mode: "insensitive" } },
-        { address: { contains: widerMetro, mode: "insensitive" } },
-        { teachingMode: { in: ["ONLINE", "EITHER"] } },
-      ],
-    });
 
-    const fallbackProfiles = await prisma.tutorProfile.findMany({
-      where: { AND: fallbackAndClauses },
-      orderBy: [
-        { isFeatured: "desc" },
-        { profileScore: "desc" },
-        { averageRating: "desc" },
-      ],
-      take: 30,
-      select: profileSelect,
-    });
-
-    if (fallbackProfiles.length > 0) {
-      profiles = fallbackProfiles;
-      total = fallbackProfiles.length;
-      isFallback = true;
-      fallbackReason = `Showing top verified teachers in ${widerMetro || "your area"} for ${classLevel || "all classes"}.`;
-    }
-  }
-
-  const locToken = city ? city.trim().toLowerCase() : "";
-  const metroToken = city ? getMetroName(city).toLowerCase() : "";
-
-  function locationPriorityScore(p: { city: string | null; address: string | null }): number {
-    if (!locToken) return 0;
-    const c = (p.city || "").toLowerCase();
-    const a = (p.address || "").toLowerCase();
-    if (c.includes(locToken) || a.includes(locToken)) return 2000;
-    if (
-      metroToken &&
-      (c.includes(metroToken) ||
-        a.includes(metroToken) ||
-        /delhi|ncr|noida|gurgaon|gurugram|faridabad|ghaziabad/i.test(c) ||
-        /delhi|ncr|noida|gurgaon|gurugram|faridabad|ghaziabad/i.test(a))
-    ) {
-      return 500;
-    }
-    return 100;
-  }
-
-  const ranked = [...profiles].sort((a, b) => {
-    if (locToken) {
-      const locDelta = locationPriorityScore(b) - locationPriorityScore(a);
-      if (locDelta !== 0) return locDelta;
-    }
-    if (expandedSubjects && expandedSubjects.length > 0) {
+    // Secondary: Subject overlap match score
+    if (querySubjectsList.length > 0) {
       const overlapDelta =
-        subjectMatchScore(b.subjects, expandedSubjects) - subjectMatchScore(a.subjects, expandedSubjects);
+        subjectMatchScore(b.subjects, querySubjectsList) - subjectMatchScore(a.subjects, querySubjectsList);
       if (overlapDelta !== 0) return overlapDelta;
     }
+
+    // Tertiary: Featured & Profile score
     if (Number(b.isFeatured) !== Number(a.isFeatured)) return Number(b.isFeatured) - Number(a.isFeatured);
     if (b.profileScore !== a.profileScore) return b.profileScore - a.profileScore;
     return b.averageRating - a.averageRating;
   }).slice(0, 16);
 
-  const tutors: PublicTutorResult[] = ranked.map((p) => ({
-    id: p.id,
-    name: maskName(p.user.name),
-    qualification: p.qualification ?? "",
-    experience: p.experience ?? 0,
-    subjects: p.subjects,
-    classLevels: p.classLevels,
-    teachingMode: p.teachingMode,
-    teachingRadius: p.teachingRadius ?? 10,
-    feeMin: p.feeMin,
-    feeMax: p.feeMax,
-    city: p.city,
-    state: p.state,
-    address: p.address,
-    gender: p.gender,
-    image: p.user.image,
-    averageRating: p.averageRating,
-    totalReviews: p.totalReviews,
-    isVerified: p.isVerified,
-    isFeatured: p.isFeatured,
-    bio: p.bio,
-    profileScore: p.profileScore,
-  }));
+  // 6. Format Tutor Results with Taxonomy-Derived Classes and Relevant Subjects
+  const tutors: PublicTutorResult[] = ranked.map((p) => {
+    const { displayClasses, displaySubjects } = inferTutorClassesAndSubjects(
+      p.subjects,
+      p.classLevels,
+      primarySubject,
+      cleanClassLevel
+    );
 
-  return { tutors, total, isFallback, fallbackReason };
+    return {
+      id: p.id,
+      name: maskName(p.user.name),
+      qualification: p.qualification ?? "",
+      experience: p.experience ?? 0,
+      subjects: p.subjects,
+      classLevels: p.classLevels,
+      teachingMode: p.teachingMode,
+      teachingRadius: p.teachingRadius ?? 10,
+      distanceKm: p.distanceKm,
+      displayedClasses: displayClasses,
+      displayedSubjects: displaySubjects,
+      isOnlineMatch: p.isOnlineMatch,
+      feeMin: p.feeMin,
+      feeMax: p.feeMax,
+      city: p.city,
+      state: p.state,
+      address: p.address,
+      gender: p.gender,
+      image: p.user.image,
+      averageRating: p.averageRating,
+      totalReviews: p.totalReviews,
+      isVerified: p.isVerified,
+      isFeatured: p.isFeatured,
+      bio: p.bio,
+      profileScore: p.profileScore,
+    };
+  });
+
+  return { tutors, total: filteredProfiles.length || total, isFallback, fallbackReason };
 }
+

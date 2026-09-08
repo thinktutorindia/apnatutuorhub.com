@@ -39,7 +39,6 @@ import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import { AvailabilityGrid } from "@/components/tutor/AvailabilityGrid";
 import { LocationSearchInput, type LocationResult } from "@/components/ui/LocationSearchInput";
 import { InlineLocationMap } from "@/components/tutor/onboarding/InlineLocationMap";
-import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import {
   CLASS_LEVELS,
   TEACHING_MODES,
@@ -219,33 +218,6 @@ export function TutorProfileForm({
   const [classLevels, setClassLevels] = useState<string[]>(defaults.classLevels);
   const [classSearch, setClassSearch] = useState("");
   const [smartNotice, setSmartNotice] = useState<string | null>(null);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["Combo Subjects KG to 10th", "Science Subjects"]));
-
-  const toggleNode = (key: string) => {
-    setExpandedNodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const toggleSubject = (subjName: string) => {
-    if (subjects.includes(subjName)) {
-      handleSubjectsChange(subjects.filter((s) => s !== subjName));
-    } else {
-      handleSubjectsChange([...subjects, subjName]);
-    }
-  };
-
-  const toggleSelectAll = (subjList: string[]) => {
-    const allSelected = subjList.every((s) => subjects.includes(s));
-    if (allSelected) {
-      handleSubjectsChange(subjects.filter((s) => !subjList.includes(s)));
-    } else {
-      handleSubjectsChange(Array.from(new Set([...subjects, ...subjList])));
-    }
-  };
 
   // ── Step 2 state ──
   const [teachingMode, setTeachingMode] = useState(defaults.teachingMode || "EITHER");
@@ -425,152 +397,6 @@ export function TutorProfileForm({
           <div className="space-y-2">
             <SubjectPicker value={subjects} onChange={handleSubjectsChange} />
             <FieldError messages={stepState.fieldErrors?.subjects} />
-          </div>
-
-          {/* ── ONBOARDING SUBJECT CATEGORIES TREE (Matching TryMyTutor Onboarding 1:1) ── */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-xs font-800 text-gray-900 uppercase tracking-wider">
-              Mark Your Skills &amp; Subjects (Category Tree)
-            </h3>
-            <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/50 space-y-3 max-h-[380px] overflow-y-auto">
-              {TRUEMYTUTOR_TREE.map((parent) => {
-                const isExpanded = expandedNodes.has(parent.name);
-                const hasSelectedSub =
-                  (parent.subjects && parent.subjects.some((s) => subjects.includes(s))) ||
-                  (parent.subcategories &&
-                    parent.subcategories.some((sub) => sub.subjects.some((s) => subjects.includes(s))));
-
-                return (
-                  <div key={parent.name} className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-2xs">
-                    <div
-                      onClick={() => toggleNode(parent.name)}
-                      className="flex items-center justify-between p-3 cursor-pointer hover:bg-emerald-50/50 transition-colors select-none"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-sm text-[#2D9E6B] w-4 text-center">
-                          {isExpanded ? "−" : "+"}
-                        </span>
-                        <span className="text-xs font-800 text-gray-900">{parent.name}</span>
-                      </div>
-                      {hasSelectedSub && (
-                        <span className="text-[10px] font-800 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-300">
-                          Selected ✓
-                        </span>
-                      )}
-                    </div>
-
-                    {isExpanded && (
-                      <div className="p-3 border-t border-gray-100 bg-white space-y-3">
-                        {parent.subjects && (
-                          <>
-                            <label className="flex items-center gap-2 text-[11px] font-700 text-[#2D9E6B] cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={
-                                  parent.subjects.length > 0 &&
-                                  parent.subjects.every((s) => subjects.includes(s))
-                                }
-                                onChange={() => toggleSelectAll(parent.subjects!)}
-                                className="w-3.5 h-3.5 rounded border-gray-300 text-[#2D9E6B] focus:ring-[#2D9E6B] cursor-pointer accent-[#2D9E6B]"
-                              />
-                              <span>Select all</span>
-                            </label>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                              {parent.subjects.map((s) => {
-                                const isChecked = subjects.includes(s);
-                                return (
-                                  <label
-                                    key={s}
-                                    className={`flex items-start gap-2 p-2 rounded-xl border text-[11px] font-700 cursor-pointer transition-all ${
-                                      isChecked
-                                        ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-800"
-                                        : "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => toggleSubject(s)}
-                                      className="w-3.5 h-3.5 mt-0.5 rounded border-gray-300 text-[#2D9E6B] focus:ring-[#2D9E6B] shrink-0 cursor-pointer accent-[#2D9E6B]"
-                                    />
-                                    <span className="leading-tight">{s}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </>
-                        )}
-
-                        {parent.subcategories && (
-                          <div className="space-y-3">
-                            {parent.subcategories.map((sub) => {
-                              const subKey = `${parent.name} > ${sub.name}`;
-                              const isSubExpanded = expandedNodes.has(subKey);
-
-                              return (
-                                <div key={subKey} className="space-y-2 border-l-2 border-emerald-200 pl-3">
-                                  <div
-                                    onClick={() => toggleNode(subKey)}
-                                    className="flex items-center gap-2 text-xs font-800 text-gray-800 cursor-pointer hover:text-[#2D9E6B] select-none"
-                                  >
-                                    <span className="font-extrabold text-xs text-[#2D9E6B]">
-                                      {isSubExpanded ? "−" : "+"}
-                                    </span>
-                                    <span>{sub.name}</span>
-                                  </div>
-
-                                  {isSubExpanded && (
-                                    <div className="space-y-2 pt-1">
-                                      <label className="flex items-center gap-2 text-[11px] font-700 text-[#2D9E6B] cursor-pointer select-none">
-                                        <input
-                                          type="checkbox"
-                                          checked={
-                                            sub.subjects.length > 0 &&
-                                            sub.subjects.every((s) => subjects.includes(s))
-                                          }
-                                          onChange={() => toggleSelectAll(sub.subjects)}
-                                          className="w-3.5 h-3.5 rounded border-gray-300 text-[#2D9E6B] focus:ring-[#2D9E6B] cursor-pointer accent-[#2D9E6B]"
-                                        />
-                                        <span>Select all</span>
-                                      </label>
-
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                        {sub.subjects.map((s) => {
-                                          const isChecked = subjects.includes(s);
-                                          return (
-                                            <label
-                                              key={s}
-                                              className={`flex items-start gap-2 p-2 rounded-xl border text-[11px] font-700 cursor-pointer transition-all ${
-                                                isChecked
-                                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-800"
-                                                  : "bg-white border-gray-200 text-gray-800 hover:bg-gray-50"
-                                              }`}
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                checked={isChecked}
-                                                onChange={() => toggleSubject(s)}
-                                                className="w-3.5 h-3.5 mt-0.5 rounded border-gray-300 text-[#2D9E6B] focus:ring-[#2D9E6B] shrink-0 cursor-pointer accent-[#2D9E6B]"
-                                              />
-                                              <span className="leading-tight">{s}</span>
-                                            </label>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           </div>
 
           <div className="space-y-2">

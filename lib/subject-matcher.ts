@@ -330,17 +330,30 @@ export function searchSmartSubjects(query: string, limit = 8): SubjectSuggestion
 
   // 1. Check direct synonym dictionary match
   for (const [canonical, aliases] of Object.entries(SUBJECT_SYNONYMS)) {
-    if (
+    const isDirectMatch =
       cleanQ === canonical ||
-      aliases.some((alias) => alias === cleanQ || cleanQ.startsWith(alias) || alias.startsWith(cleanQ))
-    ) {
+      canonical.startsWith(cleanQ) ||
+      aliases.some((alias) => {
+        if (alias === cleanQ) return true;
+        if (cleanQ.length >= 3 && cleanQ.startsWith(alias)) return true;
+        // For multi-word aliases (e.g. 'physical chemistry'), don't let 'phy' match chemistry
+        const firstWord = alias.split(/\s+/)[0];
+        if (firstWord === cleanQ || (cleanQ.length >= 4 && firstWord.startsWith(cleanQ))) return true;
+        return false;
+      });
+
+    if (isDirectMatch) {
       // Find matching items that correspond to this canonical subject
-      const matchingItems = allSubjects.filter(
-        (s) =>
-          s.name.toLowerCase() === canonical ||
-          s.name.toLowerCase().includes(canonical) ||
-          aliases.some((a) => s.name.toLowerCase().includes(a))
-      );
+      const matchingItems = allSubjects.filter((s) => {
+        const sNameLow = s.name.toLowerCase();
+        if (sNameLow === canonical || sNameLow.startsWith(canonical)) return true;
+        return aliases.some((a) => {
+          if (a.length <= 3) {
+            return new RegExp(`\\b${a}`, "i").test(sNameLow);
+          }
+          return sNameLow.includes(a);
+        });
+      });
 
       matchingItems.slice(0, 4).forEach((item) => {
         if (!seen.has(item.name)) {

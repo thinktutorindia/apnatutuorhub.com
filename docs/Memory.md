@@ -144,3 +144,25 @@ If you are an AI assistant starting a new chat session on this project:
 - Verified Phase 1 as 100% complete (`npx tsc --noEmit` passed with 0 errors).
 - Confirmed database migration, auth flows, landing page, session navbar, parent dashboard, and tutor dashboard.
 - Ready to build Phase 2 (Parent Requirement Posting & Management).
+
+---
+
+### Session 15 (2026-09-09) — Parent Leads Data Ingestion & Business Domain Rules
+- **Parent Inquiries Pipeline Processing**:
+  - Parsed WhatsApp chat dump (`09/09/2026`) containing **714 raw message blocks**.
+  - Deduplicated and consolidated into **513 unique, validated parent leads**.
+  - Generated production-ready artifacts:
+    - `datauploadrawdata/today_parents_dashboard_upload.html` (Interactive web application with instant search, grade/locality/budget/gender filters, WhatsApp quick links, and 1-click CSV/JSON exporters)
+    - `datauploadrawdata/today_parents_data_09_sep_2026.csv` (RFC-4180 compliant CSV ready for parent dashboard bulk upload)
+    - `datauploadrawdata/today_parents_data_09_sep_2026.json` (Structured JSON mapped to Prisma schema)
+- **Core Domain Knowledge Ingestion ("Brain" Rules)**:
+  1. **Class 1 to 8 All Subjects Rule**: In the Indian home tuition ecosystem, students from Class 1st to 8th (and Pre-Primary/KG/Nursery) require all core subjects (English, Maths, Science/EVS, SST, Hindi). When a specific subject is highlighted by a parent (e.g. "Class 4th English grammar" or "Class 7th Maths"), it is mapped as `All Core Subjects (English Grammar Focus)` or `All Core Subjects (Maths Focus)`, ensuring tutors know the full scope of home tutoring responsibilities. Standalone subjects for Class 1-8 are reserved for specialized foreign languages (French, German, Spanish), creative arts (Music, Guitar, Dance, Art), and special education (Shadow Teacher).
+  2. **Class 9-10 & 11-12 Specialization**: Class 9th-10th is structured around `Mathematics & Science` or `All Core Subjects`. Class 11th-12th follows stream-specific combinations: `PCM`, `PCB`, `Commerce (Accounts, Eco, BST)`, and `Humanities (History, Pol Sci, Geo, Sociology, Psychology)`.
+  3. **Strict Message Boundary Isolation**: Phone-number clustering operates strictly within parsed message headers (`Date, Time - Sender:`) to prevent address and subject bleeding between consecutive parent postings in WhatsApp chat exports.
+  4. **Financial Normalization**: Fee representations (`30thousand`, `13000/`, `4-4.5 k`, `7K`, `500/hr`, `350per hour`) are standardized into uniform Indian currency strings (`₹30,000 / month`, `₹13,000 / month`, `₹4,000 - ₹4,500 / month`, `₹500 / hour`).
+  5. **Mobile-First Parent Dashboard Architecture**:
+     - **Static Pre-Rendering for Android Compatibility**: All 513 lead cards and table rows are 100% pre-rendered directly into the static HTML markup. This guarantees immediate visibility on Android devices (e.g. Android HTMLViewer / Google Docs Viewer / file manager viewers) where JavaScript execution is restricted or disabled by default.
+     - Defaults to **Cards View** on mobile (<768px) and **Table View** on desktop with a seamless toggle.
+     - Sets `font-size: 16px` on mobile form inputs & selects to prevent iOS Safari auto-zoom viewport glitching.
+     - Strict `overflow-x: hidden` viewport boundary isolation prevents mobile horizontal scrolling.
+     - Touch targets: Min 36-40px height with 1-tap **💬 WhatsApp** (`wa.me`), **📞 Call** (`tel:`), and **📋 Copy** buttons.

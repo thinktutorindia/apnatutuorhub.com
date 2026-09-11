@@ -7,6 +7,7 @@ import { can } from "@/lib/rbac";
 import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { exportPaymentsCsv } from "@/app/actions/analytics.actions";
 import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
+import { AdminManualPaymentRequests } from "@/components/admin/AdminManualPaymentRequests";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Wallet Management — Admin" };
@@ -52,7 +53,7 @@ export default async function AdminWalletsPage({
     }
     : {};
 
-  const [wallets, total, walletAgg, pendingRefunds] = await Promise.all([
+  const [wallets, total, walletAgg, pendingRefunds, manualPayments] = await Promise.all([
     prisma.wallet.findMany({
       where: walletWhere,
       orderBy: { balance: "desc" },
@@ -90,6 +91,18 @@ export default async function AdminWalletsPage({
             tutorProfile: {
               include: { user: { select: { name: true, email: true } } },
             },
+          },
+        },
+      },
+    }),
+    prisma.manualPaymentRequest.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 60,
+      include: {
+        tutorProfile: {
+          include: {
+            user: { select: { name: true, email: true, phone: true } },
+            wallet: { select: { balance: true } },
           },
         },
       },
@@ -148,6 +161,9 @@ export default async function AdminWalletsPage({
           </p>
         </div>
       </div>
+
+      {/* Manual UPI QR Payment Verification & Approval Gateway */}
+      <AdminManualPaymentRequests initialRequests={manualPayments as any} canManage={canManageWallets} />
 
       {/* Bulk Governance & Top-Up Access Control Panel */}
       <AdminBulkUserTopupControl canGrantCoins={canManageWallets} />

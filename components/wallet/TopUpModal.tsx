@@ -3,12 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Wallet, X, Ticket, Tag, AlertCircle } from "lucide-react";
 import { CoinPackageGrid } from "@/components/wallet/CoinPackageGrid";
-import {
-  createCoinOrderAction,
-  confirmCoinPaymentAction,
-} from "@/app/actions/wallet.actions";
 import { validateCouponAction, type ValidateCouponResult } from "@/app/actions/coupon.actions";
-import type { CoinPackageId } from "@/lib/razorpay";
+import { COIN_PACKAGES, type CoinPackageId } from "@/lib/razorpay";
+import { UpiQrPaymentCard } from "@/components/payment/UpiQrPaymentCard";
 
 declare global {
   interface Window {
@@ -17,7 +14,7 @@ declare global {
   }
 }
 
-type ModalState = "packages" | "paying" | "success" | "error";
+type ModalState = "packages" | "qr_payment" | "submitted" | "paying" | "success" | "error";
 
 export function TopUpModal({
   userEmail,
@@ -31,6 +28,8 @@ export function TopUpModal({
   onSuccess: (coins: number) => void;
 }) {
   const [modalState, setModalState] = useState<ModalState>("packages");
+  const [selectedPkg, setSelectedPkg] = useState<any>(null);
+  const [submittedReqId, setSubmittedReqId] = useState<string>("");
   const [loadingPkg, setLoadingPkg] = useState<CoinPackageId | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [creditedCoins, setCreditedCoins] = useState(0);
@@ -84,95 +83,20 @@ export function TopUpModal({
     }
   };
 
-  const handleSelectPackage = async (pkgId: CoinPackageId) => {
-    setLoadingPkg(pkgId);
-    setErrorMsg("");
+  const handleSelectPackage = (pkgId: CoinPackageId) => {
+    const pkg = COIN_PACKAGES.find((p: any) => p.id === pkgId);
+    if (!pkg) return;
+    setSelectedPkg(pkg);
+    setModalState("qr_payment");
+  };
 
-    const result = await createCoinOrderAction(pkgId, appliedCoupon?.code);
-    setLoadingPkg(null);
-
-    if (!result.success || !result.data) {
-      setErrorMsg(result.error ?? "Failed to create order. Please try again.");
-      return;
-    }
-
-    const { orderId, amount, currency, keyId, totalCoins } = result.data;
-
-    // Check if Razorpay script is available
-    if (window.Razorpay) {
-      setModalState("paying");
-      try {
-        const rzp = new window.Razorpay({
-          key: keyId,
-          amount,
-          currency,
-          order_id: orderId,
-          name: "ApnaTutorHub",
-          description: `${result.data.packageName} — ${totalCoins} Coins ${appliedCoupon ? `(Coupon ${appliedCoupon.code})` : ""}`,
-          image: "/icons/logo.png",
-          prefill: {
-            name: userName,
-            email: userEmail,
-            contact: "9999999999",
-          },
-          theme: { color: "#1A7F5A" },
-          handler: async (response: {
-            razorpay_payment_id: string;
-            razorpay_order_id: string;
-            razorpay_signature: string;
-          }) => {
-            setModalState("paying");
-            const confirmRes = await confirmCoinPaymentAction({
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-              packageId: pkgId,
-            });
-
-            if (confirmRes.success) {
-              setCreditedCoins(totalCoins);
-              setModalState("success");
-              onSuccess(totalCoins);
-            } else {
-              setErrorMsg(confirmRes.error ?? "Failed to confirm payment.");
-              setModalState("error");
-            }
-          },
-          modal: {
-            ondismiss: () => {
-              setModalState("packages");
-            },
-          },
-        });
-
-        rzp.open();
-        return;
-      } catch (e) {
-        console.warn("Razorpay window open failed, using test mode fallback", e);
-      }
-    }
-
-    // Dev / Test Mode Instant Fallback when Razorpay JS SDK is unavailable
-    setModalState("paying");
-    const testConfirm = await confirmCoinPaymentAction({
-      orderId,
-      paymentId: `pay_mock_${Date.now()}`,
-      signature: "mock_signature_test",
-      packageId: pkgId,
-    });
-
-    if (testConfirm.success) {
-      setCreditedCoins(totalCoins);
-      setModalState("success");
-      onSuccess(totalCoins);
-    } else {
-      setErrorMsg(testConfirm.error ?? "Test payment processing failed.");
-      setModalState("error");
-    }
+  const getFinalPrice = (basePrice: number) => {
+    if (!appliedCoupon) return basePrice;
+    return Math.max(1, basePrice - (appliedCoupon.discountAmountInr ?? 0));
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 py-10 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8 backdrop-blur-xs">
       {modalState !== "paying" && (
         <button
           type="button"
@@ -186,7 +110,7 @@ export function TopUpModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="topup-modal-title"
-        className="relative z-10 w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-6 space-y-5 shadow-xl border border-gray-200"
+        className="relative z-10 w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-white p-6 space-y-5 shadow-2xl border border-gray-200"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 pb-3 border-b border-gray-100">
@@ -195,11 +119,11 @@ export function TopUpModal({
               <Wallet size={20} />
             </div>
             <div>
-              <h2 id="topup-modal-title" className="text-lg font-700 text-gray-900">
+              <h2 id="topup-modal-title" className="text-lg font-800 text-gray-900">
                 Top Up Coins
               </h2>
-              <p className="text-xs text-gray-500">
-                Secure payment via Razorpay · Apply coupon codes for instant discounts!
+              <p className="text-xs text-gray-500 font-medium">
+                Scan BharatPe QR to pay via any UPI app · Instant admin verification!
               </p>
             </div>
           </div>
@@ -217,33 +141,32 @@ export function TopUpModal({
 
         {/* Coupon Code Redemption Input Section */}
         {modalState === "packages" && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Ticket size={16} className="text-amber-700" />
-              <span className="text-xs font-600 text-gray-900 uppercase tracking-wide">
-                Have a Coupon Code?
-              </span>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Ticket size={16} className="text-amber-700" />
+                <span className="text-xs font-700 text-amber-900">Have a Promo or Referral Coupon?</span>
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex gap-2">
               <div className="relative flex-1">
                 <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="Enter code (e.g. WELCOME50, APNATUTOR25)"
-                  className="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-4 py-2 text-xs font-600 text-gray-900 uppercase outline-none focus:border-green-600 placeholder:text-gray-400 placeholder:normal-case font-mono"
+                  placeholder="Enter code (e.g. NEWJOINING, APNATUTOR25)"
+                  className="w-full pl-9 pr-3 py-2 text-xs uppercase font-700 tracking-wider rounded-xl border border-amber-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
-
               <button
                 type="button"
                 onClick={() => handleApplyCoupon(500)}
                 disabled={couponLoading || !couponCode.trim()}
-                className="at-btn at-btn-accent at-btn-sm shrink-0 w-full sm:w-auto"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-700 shrink-0 disabled:opacity-50 transition-colors"
               >
-                {couponLoading ? "Checking..." : "Apply Coupon"}
+                {couponLoading ? "Checking..." : "Apply"}
               </button>
             </div>
 
@@ -278,11 +201,11 @@ export function TopUpModal({
 
             {/* Applied Coupon Badge */}
             {appliedCoupon && (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-green-50 border border-green-200 p-2.5 text-xs text-gray-900">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-green-50 border border-green-200 p-2.5 text-xs text-gray-900">
                 <div className="flex items-center gap-2 min-w-0">
                   <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-                  <span className="min-w-0">
-                    Coupon <strong>&quot;{appliedCoupon.code}&quot;</strong> Applied! Discount: ₹{appliedCoupon.discountAmountInr} OFF
+                  <span className="min-w-0 font-bold">
+                    Coupon &quot;{appliedCoupon.code}&quot; Applied! Discount: ₹{appliedCoupon.discountAmountInr} OFF
                   </span>
                 </div>
                 <button
@@ -291,7 +214,7 @@ export function TopUpModal({
                     setAppliedCoupon(null);
                     setCouponCode("");
                   }}
-                  className="text-gray-500 hover:text-gray-800 underline text-xs"
+                  className="text-gray-500 hover:text-gray-800 underline text-xs font-bold"
                 >
                   Remove
                 </button>
@@ -304,12 +227,57 @@ export function TopUpModal({
         {modalState === "packages" && (
           <>
             {errorMsg && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-500 text-red-600">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-500 text-red-600">
                 {errorMsg}
               </div>
             )}
             <CoinPackageGrid onSelect={handleSelectPackage} loading={loadingPkg} appliedCoupon={appliedCoupon} />
           </>
+        )}
+
+        {/* UPI QR Payment Step */}
+        {modalState === "qr_payment" && selectedPkg && (
+          <UpiQrPaymentCard
+            type="COIN_TOPUP"
+            title="Coin Top-Up Package"
+            itemTitle={`${selectedPkg.name} — ${selectedPkg.totalCoins} Coins`}
+            amountInr={getFinalPrice(selectedPkg.priceInr)}
+            coinsAmount={selectedPkg.totalCoins}
+            couponCode={appliedCoupon?.code}
+            discountInr={appliedCoupon?.discountAmountInr ?? 0}
+            onSuccess={(reqId: string) => {
+              setSubmittedReqId(reqId);
+              setModalState("submitted");
+            }}
+            onCancel={() => setModalState("packages")}
+          />
+        )}
+
+        {/* Payment Submitted Confirmation */}
+        {modalState === "submitted" && (
+          <div className="flex flex-col items-center gap-4 py-10 text-center space-y-2">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 shadow-md">
+              <CheckCircle2 size={36} />
+            </div>
+            <div>
+              <span className="text-xs font-black uppercase text-emerald-600 tracking-wider">
+                Payment Verification Pending
+              </span>
+              <h3 className="text-2xl font-black text-[#0F2540] mt-1">
+                Payment Submitted! 🎉
+              </h3>
+              <p className="mt-2 text-xs text-gray-600 max-w-md mx-auto leading-relaxed">
+                Your payment screenshot and UTR reference have been sent to our admin team. Once verified (usually within <strong>15–30 minutes</strong>), your coins will be automatically credited to your wallet.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-4 px-8 py-3 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white text-xs font-extrabold shadow-md cursor-pointer transition-all"
+            >
+              Done / Return to Wallet
+            </button>
+          </div>
         )}
 
         {modalState === "paying" && (
@@ -353,7 +321,7 @@ export function TopUpModal({
             <button
               type="button"
               onClick={() => setModalState("packages")}
-              className="at-btn at-btn-primary px-6 py-2.5 text-sm"
+              className="px-6 py-2.5 rounded-xl bg-[#0F2540] text-white text-xs font-bold"
             >
               Try Again
             </button>

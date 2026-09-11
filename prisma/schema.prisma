@@ -190,6 +190,17 @@ enum StaffActivityType {
   RATE_LIMIT_HIT
 }
 
+enum PaymentRequestType {
+  COIN_TOPUP
+  PLAN_SUBSCRIPTION
+}
+
+enum PaymentRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ────────────────────────────────────────────────
 // User & Auth
 // ────────────────────────────────────────────────
@@ -385,6 +396,7 @@ model TutorProfile {
   availability  TutorAvailability[]
   conversations Conversation[]
   subscriptions TutorSubscription[]
+  manualPayments ManualPaymentRequest[]
 
   @@map("tutor_profiles")
 }
@@ -417,6 +429,31 @@ model TutorSubscription {
 
   @@index([tutorProfileId])
   @@map("tutor_subscriptions")
+}
+
+model ManualPaymentRequest {
+  id               String               @id @default(cuid())
+  tutorProfileId   String
+  type             PaymentRequestType
+  plan             SubscriptionPlan?
+  coinsAmount      Int?                 // Coins to credit on approval
+  amountInr        Int                  // In INR rupees
+  utrNumber        String               // 12-digit UPI reference ID
+  screenshotUrl    String               // Supabase storage, public path, or base64
+  couponCode       String?
+  discountInr      Int                  @default(0)
+  status           PaymentRequestStatus @default(PENDING)
+  rejectionReason  String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tutorProfile TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([tutorProfileId])
+  @@map("manual_payment_requests")
 }
 
 // ────────────────────────────────────────────────

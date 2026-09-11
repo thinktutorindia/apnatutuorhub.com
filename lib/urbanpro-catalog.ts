@@ -17,78 +17,123 @@ export type LocHit = {
 };
 
 export const URBANPRO_CATALOG: UrbanProItem[] = [
-  // Mathematics
+  // ── Mathematics ─────────────────────────────────────────────────────────────
   { lead: "Mathematics", rest: "in Class 10 Tuition", subject: "Mathematics", classLevel: "Class 9-10", label: "Mathematics in Class 10 Tuition" },
   { lead: "Mathematics", rest: "in Class 12 Tuition", subject: "Mathematics", classLevel: "Class 11-12", label: "Mathematics in Class 12 Tuition" },
-  { lead: "Mathematics", rest: "in Class 9–10 Tuition", subject: "Mathematics", classLevel: "Class 9-10", label: "Mathematics in Class 9-10 Tuition" },
-  { lead: "Mathematics", rest: "in Class 11–12 Tuition", subject: "Mathematics", classLevel: "Class 11-12", label: "Mathematics in Class 11-12 Tuition" },
-  { lead: "Mathematics", rest: "in Class 6–8 Tuition", subject: "Mathematics", classLevel: "Class 6-8", label: "Mathematics in Class 6-8 Tuition" },
-  { lead: "Mathematics", rest: "in Class I–V Tuition", subject: "Mathematics", classLevel: "Class 1-5", label: "Mathematics in Class I-V Tuition" },
-  { lead: "Science & Maths", rest: "in Class 9–10 Tuition", subject: "Science & Maths", classLevel: "Class 9-10", label: "Science & Maths in Class 9-10 Tuition" },
+  { lead: "Mathematics", rest: "in Class 9 Tuition", subject: "Mathematics", classLevel: "Class 9-10", label: "Mathematics in Class 9 Tuition" },
+  { lead: "Mathematics", rest: "in Class 11 Tuition", subject: "Mathematics", classLevel: "Class 11-12", label: "Mathematics in Class 11 Tuition" },
+  { lead: "Mathematics", rest: "in Class 8 Tuition", subject: "Mathematics", classLevel: "Class 6-8", label: "Mathematics in Class 8 Tuition" },
+  { lead: "Mathematics", rest: "in Class 7 Tuition", subject: "Mathematics", classLevel: "Class 6-8", label: "Mathematics in Class 7 Tuition" },
+  { lead: "Mathematics", rest: "in Class 6 Tuition", subject: "Mathematics", classLevel: "Class 6-8", label: "Mathematics in Class 6 Tuition" },
+  { lead: "Mathematics", rest: "in Class 6–8 Tuition", subject: "Mathematics", classLevel: "Class 6-8", label: "Mathematics in Class 6–8 Tuition" },
+  { lead: "Mathematics", rest: "in Class 1–5 Tuition", subject: "Mathematics", classLevel: "Class 1-5", label: "Mathematics in Class 1–5 Tuition" },
+  { lead: "Science & Maths", rest: "in Class 9–10 Tuition", subject: "Science & Maths", classLevel: "Class 9-10", label: "Science & Maths in Class 9–10 Tuition" },
+  { lead: "Science & Maths", rest: "in Class 6–8 Tuition", subject: "Science & Maths", classLevel: "Class 6-8", label: "Science & Maths in Class 6–8 Tuition" },
   { lead: "Mathematics", rest: "in IIT-JEE Coaching", subject: "Mathematics", classLevel: "IIT-JEE", label: "Mathematics in IIT-JEE Coaching" },
   { lead: "Vedic Maths", rest: "in Mental Maths Classes", subject: "Vedic Maths", classLevel: "All Grades", label: "Vedic Maths in Mental Maths Classes" },
-  { lead: "Business Mathematics", rest: "in Class 11–12 Commerce Tuition", subject: "Mathematics", classLevel: "Class 11-12", label: "Business Mathematics in Class 11-12 Commerce Tuition" },
-  { lead: "Applied Mathematics", rest: "in Class 11–12 Tuition", subject: "Mathematics", classLevel: "Class 11-12", label: "Applied Mathematics in Class 11-12 Tuition" },
+  { lead: "Business Mathematics", rest: "in Class 11–12 Commerce Tuition", subject: "Mathematics", classLevel: "Class 11-12", label: "Business Mathematics in Class 11–12 Commerce Tuition" },
+  { lead: "Applied Mathematics", rest: "in Class 11–12 Tuition", subject: "Mathematics", classLevel: "Class 11-12", label: "Applied Mathematics in Class 11–12 Tuition" },
 
-  // Science
-  { lead: "Science", rest: "in Class 9–10 Tuition", subject: "Science", classLevel: "Class 9-10", label: "Science in Class 9-10 Tuition" },
-  { lead: "Science", rest: "in Class 6–8 Tuition", subject: "Science", classLevel: "Class 6-8", label: "Science in Class 6-8 Tuition" },
-  { lead: "Science", rest: "in Class I–V Tuition", subject: "Science", classLevel: "Class 1-5", label: "Science in Class I-V Tuition" },
-  { lead: "Social Science", rest: "in Class 9–10 Tuition", subject: "Social Science", classLevel: "Class 9-10", label: "Social Science in Class 9-10 Tuition" },
-  { lead: "Social Science", rest: "in Class 6–8 Tuition", subject: "Social Science", classLevel: "Class 6-8", label: "Social Science in Class 6-8 Tuition" },
-  { lead: "Social Studies", rest: "in Class I–V Tuition", subject: "Social Studies", classLevel: "Class 1-5", label: "Social Studies in Class I-V Tuition" },
-
-  // Physics, Chemistry, Biology
-  { lead: "Physics", rest: "in Class 11–12 Tuition", subject: "Physics", classLevel: "Class 11-12", label: "Physics in Class 11-12 Tuition" },
-  { lead: "Physics", rest: "in Class 9–10 Tuition", subject: "Physics", classLevel: "Class 9-10", label: "Physics in Class 9-10 Tuition" },
+  // ── Physics ─────────────────────────────────────────────────────────────────
+  { lead: "Physics", rest: "in Class 12 Tuition", subject: "Physics", classLevel: "Class 11-12", label: "Physics in Class 12 Tuition" },
+  { lead: "Physics", rest: "in Class 11 Tuition", subject: "Physics", classLevel: "Class 11-12", label: "Physics in Class 11 Tuition" },
+  { lead: "Physics", rest: "in Class 10 Tuition", subject: "Physics", classLevel: "Class 9-10", label: "Physics in Class 10 Tuition" },
+  { lead: "Physics", rest: "in Class 9 Tuition", subject: "Physics", classLevel: "Class 9-10", label: "Physics in Class 9 Tuition" },
   { lead: "Physics", rest: "in NEET-UG Coaching", subject: "Physics", classLevel: "NEET", label: "Physics in NEET-UG Coaching" },
   { lead: "Physics", rest: "in IIT-JEE Coaching", subject: "Physics", classLevel: "IIT-JEE", label: "Physics in IIT-JEE Coaching" },
-  { lead: "Chemistry", rest: "in Class 11–12 Tuition", subject: "Chemistry", classLevel: "Class 11-12", label: "Chemistry in Class 11-12 Tuition" },
-  { lead: "Chemistry", rest: "in Class 9–10 Tuition", subject: "Chemistry", classLevel: "Class 9-10", label: "Chemistry in Class 9-10 Tuition" },
+  { lead: "Physics", rest: "in Class 6–8 Tuition", subject: "Physics", classLevel: "Class 6-8", label: "Physics in Class 6–8 Tuition" },
+
+  // ── Chemistry ───────────────────────────────────────────────────────────────
+  { lead: "Chemistry", rest: "in Class 12 Tuition", subject: "Chemistry", classLevel: "Class 11-12", label: "Chemistry in Class 12 Tuition" },
+  { lead: "Chemistry", rest: "in Class 11 Tuition", subject: "Chemistry", classLevel: "Class 11-12", label: "Chemistry in Class 11 Tuition" },
+  { lead: "Chemistry", rest: "in Class 10 Tuition", subject: "Chemistry", classLevel: "Class 9-10", label: "Chemistry in Class 10 Tuition" },
+  { lead: "Chemistry", rest: "in Class 9 Tuition", subject: "Chemistry", classLevel: "Class 9-10", label: "Chemistry in Class 9 Tuition" },
   { lead: "Chemistry", rest: "in NEET-UG Coaching", subject: "Chemistry", classLevel: "NEET", label: "Chemistry in NEET-UG Coaching" },
   { lead: "Chemistry", rest: "in IIT-JEE Coaching", subject: "Chemistry", classLevel: "IIT-JEE", label: "Chemistry in IIT-JEE Coaching" },
-  { lead: "Biology", rest: "in Class 11–12 Tuition", subject: "Biology", classLevel: "Class 11-12", label: "Biology in Class 11-12 Tuition" },
+  { lead: "Organic Chemistry", rest: "in Class 11–12 Tuition", subject: "Chemistry", classLevel: "Class 11-12", label: "Organic Chemistry in Class 11–12 Tuition" },
+
+  // ── Biology ─────────────────────────────────────────────────────────────────
+  { lead: "Biology", rest: "in Class 12 Tuition", subject: "Biology", classLevel: "Class 11-12", label: "Biology in Class 12 Tuition" },
+  { lead: "Biology", rest: "in Class 11 Tuition", subject: "Biology", classLevel: "Class 11-12", label: "Biology in Class 11 Tuition" },
   { lead: "Biology", rest: "in NEET-UG Coaching", subject: "Biology", classLevel: "NEET", label: "Biology in NEET-UG Coaching" },
-  { lead: "Biology", rest: "in Class 9–10 Tuition", subject: "Biology", classLevel: "Class 9-10", label: "Biology in Class 9-10 Tuition" },
+  { lead: "Biology", rest: "in Class 10 Tuition", subject: "Biology", classLevel: "Class 9-10", label: "Biology in Class 10 Tuition" },
+  { lead: "Biology", rest: "in Class 9 Tuition", subject: "Biology", classLevel: "Class 9-10", label: "Biology in Class 9 Tuition" },
+  { lead: "Biology", rest: "in Class 8 Tuition", subject: "Biology", classLevel: "Class 6-8", label: "Biology in Class 8 Tuition" },
 
-  // Commerce & Humanities
-  { lead: "Accountancy", rest: "in Class 11–12 Tuition", subject: "Accountancy", classLevel: "Class 11-12", label: "Accountancy in Class 11-12 Tuition" },
-  { lead: "Economics", rest: "in Class 11–12 Tuition", subject: "Economics", classLevel: "Class 11-12", label: "Economics in Class 11-12 Tuition" },
-  { lead: "Business Studies", rest: "in Class 11–12 Tuition", subject: "Business Studies", classLevel: "Class 11-12", label: "Business Studies in Class 11-12 Tuition" },
-  { lead: "Commerce (All Subjects)", rest: "in Class 11–12 Tuition", subject: "Commerce", classLevel: "Class 11-12", label: "Commerce in Class 11-12 Tuition" },
-  { lead: "Political Science", rest: "in Class 11–12 Tuition", subject: "Political Science", classLevel: "Class 11-12", label: "Political Science in Class 11-12 Tuition" },
-  { lead: "History", rest: "in Class 11–12 Tuition", subject: "History", classLevel: "Class 11-12", label: "History in Class 11-12 Tuition" },
-  { lead: "Geography", rest: "in Class 11–12 Tuition", subject: "Geography", classLevel: "Class 11-12", label: "Geography in Class 11-12 Tuition" },
-  { lead: "Psychology", rest: "in Class 11–12 Tuition", subject: "Psychology", classLevel: "Class 11-12", label: "Psychology in Class 11-12 Tuition" },
+  // ── Science (General & Middle/Primary) ───────────────────────────────────────
+  { lead: "Science", rest: "in Class 10 Tuition", subject: "Science", classLevel: "Class 9-10", label: "Science in Class 10 Tuition" },
+  { lead: "Science", rest: "in Class 9 Tuition", subject: "Science", classLevel: "Class 9-10", label: "Science in Class 9 Tuition" },
+  { lead: "Science", rest: "in Class 8 Tuition", subject: "Science", classLevel: "Class 6-8", label: "Science in Class 8 Tuition" },
+  { lead: "Science", rest: "in Class 7 Tuition", subject: "Science", classLevel: "Class 6-8", label: "Science in Class 7 Tuition" },
+  { lead: "Science", rest: "in Class 6 Tuition", subject: "Science", classLevel: "Class 6-8", label: "Science in Class 6 Tuition" },
+  { lead: "Science", rest: "in Class 6–8 Tuition", subject: "Science", classLevel: "Class 6-8", label: "Science in Class 6–8 Tuition" },
+  { lead: "Science", rest: "in Class 1–5 Tuition", subject: "Science", classLevel: "Class 1-5", label: "Science in Class 1–5 Tuition" },
 
-  // Languages
+  // ── Social Science & Social Studies ─────────────────────────────────────────
+  { lead: "Social Science", rest: "in Class 10 Tuition", subject: "Social Science", classLevel: "Class 9-10", label: "Social Science in Class 10 Tuition" },
+  { lead: "Social Science", rest: "in Class 9 Tuition", subject: "Social Science", classLevel: "Class 9-10", label: "Social Science in Class 9 Tuition" },
+  { lead: "Social Science", rest: "in Class 8 Tuition", subject: "Social Science", classLevel: "Class 6-8", label: "Social Science in Class 8 Tuition" },
+  { lead: "Social Science", rest: "in Class 6–8 Tuition", subject: "Social Science", classLevel: "Class 6-8", label: "Social Science in Class 6–8 Tuition" },
+  { lead: "Social Studies", rest: "in Class 1–5 Tuition", subject: "Social Studies", classLevel: "Class 1-5", label: "Social Studies in Class 1–5 Tuition" },
+
+  // ── Commerce & Humanities ───────────────────────────────────────────────────
+  { lead: "Accountancy", rest: "in Class 12 Tuition", subject: "Accountancy", classLevel: "Class 11-12", label: "Accountancy in Class 12 Tuition" },
+  { lead: "Accountancy", rest: "in Class 11 Tuition", subject: "Accountancy", classLevel: "Class 11-12", label: "Accountancy in Class 11 Tuition" },
+  { lead: "Accountancy", rest: "in Class 11–12 Tuition", subject: "Accountancy", classLevel: "Class 11-12", label: "Accountancy in Class 11–12 Tuition" },
+  { lead: "Economics", rest: "in Class 12 Tuition", subject: "Economics", classLevel: "Class 11-12", label: "Economics in Class 12 Tuition" },
+  { lead: "Economics", rest: "in Class 11 Tuition", subject: "Economics", classLevel: "Class 11-12", label: "Economics in Class 11 Tuition" },
+  { lead: "Economics", rest: "in Class 11–12 Tuition", subject: "Economics", classLevel: "Class 11-12", label: "Economics in Class 11–12 Tuition" },
+  { lead: "Business Studies", rest: "in Class 12 Tuition", subject: "Business Studies", classLevel: "Class 11-12", label: "Business Studies in Class 12 Tuition" },
+  { lead: "Business Studies", rest: "in Class 11 Tuition", subject: "Business Studies", classLevel: "Class 11-12", label: "Business Studies in Class 11 Tuition" },
+  { lead: "Business Studies", rest: "in Class 11–12 Tuition", subject: "Business Studies", classLevel: "Class 11-12", label: "Business Studies in Class 11–12 Tuition" },
+  { lead: "Commerce (All Subjects)", rest: "in Class 11–12 Tuition", subject: "Commerce", classLevel: "Class 11-12", label: "Commerce (All Subjects) in Class 11–12 Tuition" },
+  { lead: "Political Science", rest: "in Class 12 Tuition", subject: "Political Science", classLevel: "Class 11-12", label: "Political Science in Class 12 Tuition" },
+  { lead: "Political Science", rest: "in Class 11 Tuition", subject: "Political Science", classLevel: "Class 11-12", label: "Political Science in Class 11 Tuition" },
+  { lead: "Political Science", rest: "in Class 11–12 Tuition", subject: "Political Science", classLevel: "Class 11-12", label: "Political Science in Class 11–12 Tuition" },
+  { lead: "History", rest: "in Class 12 Tuition", subject: "History", classLevel: "Class 11-12", label: "History in Class 12 Tuition" },
+  { lead: "History", rest: "in Class 11 Tuition", subject: "History", classLevel: "Class 11-12", label: "History in Class 11 Tuition" },
+  { lead: "History", rest: "in Class 11–12 Tuition", subject: "History", classLevel: "Class 11-12", label: "History in Class 11–12 Tuition" },
+  { lead: "Geography", rest: "in Class 11–12 Tuition", subject: "Geography", classLevel: "Class 11-12", label: "Geography in Class 11–12 Tuition" },
+  { lead: "Psychology", rest: "in Class 11–12 Tuition", subject: "Psychology", classLevel: "Class 11-12", label: "Psychology in Class 11–12 Tuition" },
+  { lead: "Sociology", rest: "in Class 11–12 Tuition", subject: "Sociology", classLevel: "Class 11-12", label: "Sociology in Class 11–12 Tuition" },
+
+  // ── Languages ───────────────────────────────────────────────────────────────
   { lead: "Spoken English", rest: "in Language Classes", subject: "Spoken English", classLevel: "Beginner / Spoken", label: "Spoken English in Language Classes" },
-  { lead: "English", rest: "in Class 9–10 Tuition", subject: "English", classLevel: "Class 9-10", label: "English in Class 9-10 Tuition" },
-  { lead: "English", rest: "in Class 11–12 Tuition", subject: "English", classLevel: "Class 11-12", label: "English in Class 11-12 Tuition" },
-  { lead: "English", rest: "in Class 6–8 Tuition", subject: "English", classLevel: "Class 6-8", label: "English in Class 6-8 Tuition" },
-  { lead: "English", rest: "in Class I–V Tuition", subject: "English", classLevel: "Class 1-5", label: "English in Class I-V Tuition" },
-  { lead: "Hindi", rest: "in Class 9–10 Tuition", subject: "Hindi", classLevel: "Class 9-10", label: "Hindi in Class 9-10 Tuition" },
-  { lead: "Hindi", rest: "in Class 6–8 Tuition", subject: "Hindi", classLevel: "Class 6-8", label: "Hindi in Class 6-8 Tuition" },
-  { lead: "Hindi", rest: "in Class I–V Tuition", subject: "Hindi", classLevel: "Class 1-5", label: "Hindi in Class I-V Tuition" },
-  { lead: "Sanskrit", rest: "in Class 6–8 Tuition", subject: "Sanskrit", classLevel: "Class 6-8", label: "Sanskrit in School Tuition" },
-  { lead: "Sanskrit", rest: "in Class 9–10 Tuition", subject: "Sanskrit", classLevel: "Class 9-10", label: "Sanskrit in School Tuition" },
+  { lead: "English", rest: "in Class 10 Tuition", subject: "English", classLevel: "Class 9-10", label: "English in Class 10 Tuition" },
+  { lead: "English", rest: "in Class 12 Tuition", subject: "English", classLevel: "Class 11-12", label: "English in Class 12 Tuition" },
+  { lead: "English", rest: "in Class 9 Tuition", subject: "English", classLevel: "Class 9-10", label: "English in Class 9 Tuition" },
+  { lead: "English", rest: "in Class 11 Tuition", subject: "English", classLevel: "Class 11-12", label: "English in Class 11 Tuition" },
+  { lead: "English", rest: "in Class 6–8 Tuition", subject: "English", classLevel: "Class 6-8", label: "English in Class 6–8 Tuition" },
+  { lead: "English", rest: "in Class 1–5 Tuition", subject: "English", classLevel: "Class 1-5", label: "English in Class 1–5 Tuition" },
+  { lead: "Hindi", rest: "in Class 10 Tuition", subject: "Hindi", classLevel: "Class 9-10", label: "Hindi in Class 10 Tuition" },
+  { lead: "Hindi", rest: "in Class 9 Tuition", subject: "Hindi", classLevel: "Class 9-10", label: "Hindi in Class 9 Tuition" },
+  { lead: "Hindi", rest: "in Class 6–8 Tuition", subject: "Hindi", classLevel: "Class 6-8", label: "Hindi in Class 6–8 Tuition" },
+  { lead: "Hindi", rest: "in Class 1–5 Tuition", subject: "Hindi", classLevel: "Class 1-5", label: "Hindi in Class 1–5 Tuition" },
+  { lead: "Sanskrit", rest: "in Class 6–8 Tuition", subject: "Sanskrit", classLevel: "Class 6-8", label: "Sanskrit in Class 6–8 Tuition" },
+  { lead: "Sanskrit", rest: "in Class 9–10 Tuition", subject: "Sanskrit", classLevel: "Class 9-10", label: "Sanskrit in Class 9–10 Tuition" },
   { lead: "French", rest: "in Foreign Language Classes", subject: "French Language", classLevel: "Beginner / Spoken", label: "French in Foreign Language Classes" },
   { lead: "German", rest: "in Foreign Language Classes", subject: "German Language", classLevel: "Beginner / Spoken", label: "German in Foreign Language Classes" },
   { lead: "Spanish", rest: "in Foreign Language Classes", subject: "Spanish Language", classLevel: "Beginner / Spoken", label: "Spanish in Foreign Language Classes" },
+  { lead: "Japanese", rest: "in Foreign Language Classes", subject: "Japanese Language", classLevel: "Beginner / Spoken", label: "Japanese in Foreign Language Classes" },
 
-  // School Grade Bundles
+  // ── School Grade Bundles (All Subjects) ─────────────────────────────────────
   { lead: "Class 10 All Subjects", rest: "in Secondary School Tuition", subject: "All Subjects", classLevel: "Class 9-10", label: "Class 10 All Subjects in Secondary School Tuition" },
   { lead: "Class 9 All Subjects", rest: "in Secondary School Tuition", subject: "All Subjects", classLevel: "Class 9-10", label: "Class 9 All Subjects in Secondary School Tuition" },
-  { lead: "All Subjects", rest: "in Class 1–5 Tuition", subject: "All Subjects", classLevel: "Class 1-5", label: "All Subjects in Class 1-5 Tuition" },
-  { lead: "All Subjects", rest: "in Class 6–8 Tuition", subject: "All Subjects", classLevel: "Class 6-8", label: "All Subjects in Class 6-8 Tuition" },
+  { lead: "Class 8 All Subjects", rest: "in Middle School Tuition", subject: "All Subjects", classLevel: "Class 6-8", label: "Class 8 All Subjects in Middle School Tuition" },
+  { lead: "Class 7 All Subjects", rest: "in Middle School Tuition", subject: "All Subjects", classLevel: "Class 6-8", label: "Class 7 All Subjects in Middle School Tuition" },
+  { lead: "Class 6 All Subjects", rest: "in Middle School Tuition", subject: "All Subjects", classLevel: "Class 6-8", label: "Class 6 All Subjects in Middle School Tuition" },
+  { lead: "All Subjects", rest: "in Class 6–8 Tuition", subject: "All Subjects", classLevel: "Class 6-8", label: "All Subjects in Class 6–8 Tuition" },
+  { lead: "All Subjects", rest: "in Class 1–5 Tuition", subject: "All Subjects", classLevel: "Class 1-5", label: "All Subjects in Class 1–5 Tuition" },
+  { lead: "All Subjects", rest: "for Kindergarten (KG / Nursery)", subject: "All Subjects", classLevel: "Class 1-5", label: "All Subjects for Kindergarten (KG / Nursery)" },
 
-  // Coding & Computer Science
+  // ── Coding & Computer Science ───────────────────────────────────────────────
   { lead: "Coding & Python", rest: "in Computer Classes", subject: "Python", classLevel: "School / College", label: "Coding & Python in Computer Classes" },
-  { lead: "Computer Science", rest: "in Class 11–12 Tuition", subject: "Computer Science", classLevel: "Class 11-12", label: "Computer Science in Class 11-12 Tuition" },
-  { lead: "Informatics Practices (IP)", rest: "in Class 11–12 Tuition", subject: "Informatics Practices", classLevel: "Class 11-12", label: "Informatics Practices in Class 11-12 Tuition" },
+  { lead: "Computer Science", rest: "in Class 11–12 Tuition", subject: "Computer Science", classLevel: "Class 11-12", label: "Computer Science in Class 11–12 Tuition" },
+  { lead: "Computer Science", rest: "in Class 9–10 Tuition", subject: "Computer Science", classLevel: "Class 9-10", label: "Computer Science in Class 9–10 Tuition" },
+  { lead: "Informatics Practices (IP)", rest: "in Class 11–12 Tuition", subject: "Informatics Practices", classLevel: "Class 11-12", label: "Informatics Practices in Class 11–12 Tuition" },
   { lead: "Java Programming", rest: "in Computer Classes", subject: "Java", classLevel: "School / College", label: "Java Programming in Computer Classes" },
 
-  // Competitive Exams
+  // ── Competitive Exams ───────────────────────────────────────────────────────
   { lead: "IIT-JEE Coaching", rest: "in Engineering Entrance", subject: "IIT-JEE", classLevel: "IIT-JEE", label: "IIT-JEE Coaching in Engineering Entrance" },
   { lead: "NEET-UG Coaching", rest: "in Medical Entrance", subject: "NEET", classLevel: "NEET", label: "NEET-UG Coaching in Medical Entrance" },
   { lead: "CUET Coaching", rest: "in University Entrance", subject: "CUET", classLevel: "CUET", label: "CUET Coaching in University Entrance" },
@@ -197,11 +242,121 @@ export function formatUrbanProLine(name: string, category: string): UrbanProItem
   };
 }
 
+// Obscure university / specialist jargon patterns that should NEVER pollute general search
+const OBSCURE_SUBJECT_PATTERNS = [
+  /mathematical literacy/i,
+  /mathematical physics/i,
+  /mathematical methods in economics/i,
+  /actuarial/i,
+  /network theory/i,
+  /polytechnic/i,
+  /ring theory/i,
+  /group theory/i,
+  /approximation theory/i,
+  /topology/i,
+  /biophysics/i,
+  /geophysics/i,
+  /acoustics/i,
+  /molecular physics/i,
+  /atomic physics/i,
+  /solid state physics/i,
+  /astrophysics/i,
+  /environmental engineering/i,
+  /histopathology/i,
+  /paleontology/i,
+  /medical morphology/i,
+  /obstetrics gynecology/i,
+  /psychiatric nursing/i,
+  /pediatric nursing/i,
+  /pharmacology/i,
+  /pathology/i,
+  /otorhinolaryngology/i,
+  /biomedical informatics/i,
+  /aerobiology/i,
+  /recombinant dna/i,
+  /process engineering/i,
+  /material science/i,
+  /spectroscopy/i,
+];
+
+// Resolves common stems and abbreviations to canonical subjects
+function resolveSearchAliases(query: string): string[] {
+  const q = query.trim().toLowerCase();
+  const aliases: string[] = [q];
+
+  if (/^(math|maths|mathematic|mathematics)$/i.test(q)) {
+    aliases.push("mathematics", "maths", "math", "science & maths", "vedic maths");
+  } else if (/^(phy|physic|physics)$/i.test(q)) {
+    aliases.push("physics", "phy");
+  } else if (/^(chem|chemist|chemistry)$/i.test(q)) {
+    aliases.push("chemistry", "chem");
+  } else if (/^(bio|biology)$/i.test(q)) {
+    aliases.push("biology", "bio");
+  } else if (/^(sci|science)$/i.test(q)) {
+    aliases.push("science", "science & maths");
+  } else if (/^(acc|account|accounts|accounting|accountancy)$/i.test(q)) {
+    aliases.push("accountancy", "accounts", "account");
+  } else if (/^(eco|economic|economics)$/i.test(q)) {
+    aliases.push("economics", "eco");
+  } else if (/^(bst|business|business studies)$/i.test(q)) {
+    aliases.push("business studies", "business");
+  } else if (/^(comm|commerce)$/i.test(q)) {
+    aliases.push("commerce", "accountancy", "economics", "business studies");
+  } else if (/^(eng|english)$/i.test(q)) {
+    aliases.push("english", "spoken english");
+  } else if (/^(hin|hindi)$/i.test(q)) {
+    aliases.push("hindi");
+  } else if (/^(sans|sanskrit)$/i.test(q)) {
+    aliases.push("sanskrit");
+  } else if (/^(sst|social|social studies|social science)$/i.test(q)) {
+    aliases.push("social science", "social studies");
+  } else if (/^(comp|computer|coding|python|java|cs)$/i.test(q)) {
+    aliases.push("computer science", "python", "coding", "java");
+  } else if (/^(jee|iit|iit-jee|iitjee)$/i.test(q)) {
+    aliases.push("iit-jee", "iit");
+  } else if (/^(neet|medical)$/i.test(q)) {
+    aliases.push("neet");
+  }
+
+  return aliases;
+}
+
+function matchStem(text: string, stem: string): boolean {
+  const t = text.toLowerCase();
+  const s = stem.toLowerCase();
+  if (s.length <= 3) {
+    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\b${escaped}`, "i").test(t);
+  }
+  return t.includes(s);
+}
+
 export function Highlight({ text, query }: { text: string; query: string }) {
   const q = query.trim();
   if (!q) return React.createElement(React.Fragment, null, text);
-  const i = text.toLowerCase().indexOf(q.toLowerCase());
+
+  const textLower = text.toLowerCase();
+  const qLower = q.toLowerCase();
+
+  let i = textLower.indexOf(qLower);
+  let matchLen = q.length;
+
+  // If exact query didn't match (e.g. query is "maths" but text is "Mathematics"),
+  // find the longest matching prefix (at least 3 characters)
+  if (i < 0 && q.length >= 3) {
+    for (let len = q.length - 1; len >= 3; len--) {
+      const sub = qLower.slice(0, len);
+      const idx = textLower.indexOf(sub);
+      if (idx >= 0) {
+        i = idx;
+        matchLen = len;
+        break;
+      }
+    }
+  }
+
   if (i < 0) return React.createElement(React.Fragment, null, text);
+
   return React.createElement(
     React.Fragment,
     null,
@@ -209,9 +364,9 @@ export function Highlight({ text, query }: { text: string; query: string }) {
     React.createElement(
       "strong",
       { className: "font-bold text-[#0F2540] underline decoration-[#0284C7]/50 underline-offset-2" },
-      text.slice(i, i + q.length)
+      text.slice(i, i + matchLen)
     ),
-    text.slice(i + q.length)
+    text.slice(i + matchLen)
   );
 }
 
@@ -223,45 +378,55 @@ export function searchUrbanProSubjects(query: string): UrbanProItem[] {
   const seen = new Set<string>();
   const leadCounts = new Map<string, number>();
   const qLower = q.toLowerCase();
+  const searchStems = resolveSearchAliases(q);
 
   const pushHit = (item: UrbanProItem, force = false) => {
     const key = `${item.lead}::${item.rest}`.toLowerCase();
     if (seen.has(key)) return;
 
-    // Limit repetition of the same lead subject (e.g. at most 3 entries for "Mathematics")
+    // Do NOT prematurely block grades for the searched subject!
+    // Only cap if we have at least 8 hits AND the same lead subject already has 6+ entries
     const leadKey = item.lead.toLowerCase();
     const count = leadCounts.get(leadKey) || 0;
-    if (!force && count >= 3 && hits.length >= 4) return;
+    if (!force && count >= 6 && hits.length >= 8) return;
 
     seen.add(key);
     leadCounts.set(leadKey, count + 1);
     hits.push(item);
   };
 
-  // 1. Matches in the curated UrbanPro catalog
+  // 1. Matches in the curated UrbanPro catalog (Prioritizing Board Classes 10, 12, 9, 11, 6-8, 1-5, Entrance)
   const catalogExactLead: UrbanProItem[] = [];
   const catalogPrefixLead: UrbanProItem[] = [];
+  const catalogStemLead: UrbanProItem[] = [];
   const catalogOther: UrbanProItem[] = [];
 
   for (const item of URBANPRO_CATALOG) {
     const leadLow = item.lead.toLowerCase();
     const restLow = item.rest.toLowerCase();
     const labelLow = item.label.toLowerCase();
+    const subLow = item.subject.toLowerCase();
 
     if (leadLow === qLower) {
       catalogExactLead.push(item);
     } else if (leadLow.startsWith(qLower) || labelLow.startsWith(qLower)) {
       catalogPrefixLead.push(item);
-    } else if (leadLow.includes(qLower) || restLow.includes(qLower) || item.subject.toLowerCase().includes(qLower)) {
+    } else if (searchStems.some((stem) => matchStem(leadLow, stem) || matchStem(subLow, stem))) {
+      catalogStemLead.push(item);
+    } else if (
+      searchStems.some(
+        (stem) => matchStem(restLow, stem) || matchStem(labelLow, stem)
+      )
+    ) {
       catalogOther.push(item);
     }
   }
 
-  for (const it of [...catalogExactLead, ...catalogPrefixLead, ...catalogOther]) {
+  for (const it of [...catalogExactLead, ...catalogPrefixLead, ...catalogStemLead, ...catalogOther]) {
     pushHit(it);
   }
 
-  // 2. Structured Classes (e.g. "Class 10", "Class 9")
+  // 2. Structured Classes (e.g. "Class 10", "Class 9", "Class 12")
   if (hits.length < 10) {
     for (const cls of ALL_STRUCTURED_CLASSES) {
       if (`${cls.label} ${cls.sub}`.toLowerCase().includes(qLower)) {
@@ -276,20 +441,31 @@ export function searchUrbanProSubjects(query: string): UrbanProItem[] {
     }
   }
 
-  // 3. Fallback to smart typo and synonym search (sanitized)
+  // 3. Fallback to smart typo and synonym search
   if (hits.length < 10) {
-    for (const s of searchSmartSubjects(q, 12)) {
+    for (const s of searchSmartSubjects(q, 10)) {
       const item = formatUrbanProLine(s.name, s.category);
       pushHit(item);
     }
   }
 
-  // 4. Matches across 300+ taxonomy tree subjects (sanitized)
+  // 4. Matches across taxonomy tree subjects from TRUEMYTUTOR_TREE
+  // Filter out obscure college / medical jargon unless user explicitly typed those words!
   if (hits.length < 10) {
     for (const item of FLATTENED_TAXONOMY_SUBJECTS) {
       if (hits.length >= 10) break;
+      const subLow = item.subject.toLowerCase();
+
+      // Check if this item is obscure jargon
+      const isObscure = OBSCURE_SUBJECT_PATTERNS.some((pat) => pat.test(subLow));
+      if (isObscure) {
+        // Only allow if user explicitly typed a word from this obscure subject
+        const matchesQueryDirectly = qLower.length >= 4 && subLow.includes(qLower);
+        if (!matchesQueryDirectly) continue;
+      }
+
       if (
-        item.subject.toLowerCase().includes(qLower) ||
+        subLow.includes(qLower) ||
         (item.subcategory && item.subcategory.toLowerCase().includes(qLower)) ||
         item.category.toLowerCase().includes(qLower)
       ) {

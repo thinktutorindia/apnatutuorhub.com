@@ -126,16 +126,12 @@ export async function searchTutorsPublic(params: {
         })
       : taxonomySubjects;
 
-  // If a class level is requested, searchSubjectSet should be strictly governed by taxonomy subjects
-  // for that class level, plus primary subject
+  // If a class level is requested, searchSubjectSet should include taxonomy subjects
+  // for that class level, plus primary subject and its canonical aliases
   const searchSubjectSet = new Set<string>(taxonomySubjects);
   if (inputSubjects.length > 0) {
     inputSubjects.forEach((s) => {
-      if (!cleanClassLevel) {
-        expandSubjectAliases(s).forEach((alias) => searchSubjectSet.add(alias));
-      } else {
-        searchSubjectSet.add(s);
-      }
+      expandSubjectAliases(s).forEach((alias) => searchSubjectSet.add(alias));
     });
   }
   const querySubjectsList = Array.from(searchSubjectSet);

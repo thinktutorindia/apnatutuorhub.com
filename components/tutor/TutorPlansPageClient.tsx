@@ -16,6 +16,7 @@ import {
 } from "@/lib/subscription-plans";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { validateCouponAction, type ValidateCouponResult } from "@/app/actions/coupon.actions";
+import { UpiQrPaymentCard } from "@/components/payment/UpiQrPaymentCard";
 
 interface Props {
   currentPlan: string;
@@ -70,6 +71,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
   // Checkout modal & coupon state
   const [checkoutPlanId, setCheckoutPlanId] = useState<SubscriptionPlanId | null>(null);
+  const [planStep, setPlanStep] = useState<"summary" | "qr_payment" | "submitted">("summary");
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -80,6 +82,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
   const handleOpenCheckout = (planId: SubscriptionPlanId) => {
     setCheckoutPlanId(planId);
+    setPlanStep("summary");
     setCouponCode("");
     setCouponError(null);
     setAppliedCoupon(null);
@@ -994,20 +997,66 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="pt-3 border-t border-gray-200">
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleRazorpaySubscribe(checkoutPlanId)}
-                className="w-full py-3.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-900 flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Lock size={15} className="!text-white" />
-                <span className="!text-white font-900">
-                  {isLoading ? "Processing Payment..." : `Proceed to Pay ₹${(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr).toLocaleString("en-IN")} →`}
-                </span>
-              </button>
-            </div>
+            {/* Action Buttons / QR Payment Flow */}
+            {planStep === "summary" && (
+              <div className="pt-3 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setPlanStep("qr_payment")}
+                  className="w-full py-3.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-900 flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                >
+                  <Lock size={15} className="!text-white" />
+                  <span className="!text-white font-900">
+                    Pay ₹{(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr).toLocaleString("en-IN")} via BharatPe UPI QR →
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {planStep === "qr_payment" && (
+              <div className="pt-2">
+                <UpiQrPaymentCard
+                  type="PLAN_SUBSCRIPTION"
+                  title="Tutor Membership Plan"
+                  itemTitle={`${SUBSCRIPTION_PLANS[checkoutPlanId].name} • ${SUBSCRIPTION_PLANS[checkoutPlanId].totalLeads} Leads`}
+                  plan={checkoutPlanId as any}
+                  amountInr={appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr}
+                  couponCode={appliedCoupon?.code}
+                  discountInr={appliedCoupon?.discountAmountInr ?? 0}
+                  onSuccess={() => setPlanStep("submitted")}
+                  onCancel={() => setPlanStep("summary")}
+                />
+              </div>
+            )}
+
+            {planStep === "submitted" && (
+              <div className="flex flex-col items-center gap-4 py-8 text-center space-y-2">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 shadow-md">
+                  <CheckCircle2 size={36} />
+                </div>
+                <div>
+                  <span className="text-xs font-black uppercase text-emerald-600 tracking-wider">
+                    Payment Verification Under Review
+                  </span>
+                  <h3 className="text-2xl font-black text-[#0F2540] mt-1">
+                    Plan Payment Submitted! 🎉
+                  </h3>
+                  <p className="mt-2 text-xs text-gray-600 max-w-md mx-auto leading-relaxed">
+                    Your {SUBSCRIPTION_PLANS[checkoutPlanId].name} payment screenshot has been sent for admin verification. Once verified (usually within <strong>15–30 minutes</strong>), your membership and leads quota will be instantly activated.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckoutPlanId(null);
+                    setPlanStep("summary");
+                  }}
+                  className="mt-4 px-8 py-3 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white text-xs font-extrabold shadow-md cursor-pointer transition-all"
+                >
+                  Done / Close
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

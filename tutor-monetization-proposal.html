@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ApnaTutorHub — Tutor Starter Monetization & Coin Economy Blueprint</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <!-- Tailwind CSS CDN for presentation polish -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"Space Grotesk"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              navy: '#0B192C',
+              navyLight: '#1E3E62',
+              emerald: '#2D9E6B',
+              emeraldDark: '#1E6F4B',
+              amber: '#F59E0B',
+              gold: '#D97706',
+              bgLight: '#F8FAFC',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: #F1F5F9;
+      color: #0F172A;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      scroll-behavior: smooth;
+    }
+    .gradient-hero {
+      background: radial-gradient(circle at top right, #1E3E62 0%, #0B192C 100%);
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+    }
+    .table-container {
+      scrollbar-width: thin;
+    }
+    @media print {
+      body { background: white; }
+      .no-print { display: none; }
+      .shadow-xl, .shadow-2xl { box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen">
+
+  <!-- TOP ANNOUNCEMENT BAR -->
+  <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white text-xs font-semibold py-2.5 px-4 text-center tracking-wide flex items-center justify-center gap-2 shadow-sm">
+    <span class="bg-white/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">Client Presentation Deck</span>
+    <span>Monetization Model, Coin Economy & Tutor Starter Pricing Blueprint for ApnaTutorHub</span>
+    <span class="hidden md:inline text-emerald-200">| Prepared for Client Review</span>
+  </div>
+
+  <!-- NAVIGATION -->
+  <nav class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 lg:px-8 py-3.5 transition-all">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0B192C] to-[#2D9E6B] flex items-center justify-center text-white font-black text-xl shadow-md">
+          A
+        </div>
+        <div>
+          <span class="text-lg font-black tracking-tight text-[#0B192C]">ApnaTutor<span class="text-[#2D9E6B]">Hub</span></span>
+          <span class="text-[10px] block font-bold text-slate-400 tracking-wider uppercase">Strategic Monetization Engine</span>
+        </div>
+      </div>
+
+      <div class="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-600">
+        <a href="#summary" class="hover:text-emerald-600 transition-colors">Executive Summary</a>
+        <a href="#approaches" class="hover:text-emerald-600 transition-colors">The 5 Approaches</a>
+        <a href="#calculator" class="hover:text-emerald-600 transition-colors">Interactive Simulator</a>
+        <a href="#pricing-matrix" class="hover:text-emerald-600 transition-colors">Area & Class Matrix</a>
+        <a href="#unit-economics" class="hover:text-emerald-600 transition-colors">Platform Profitability</a>
+        <a href="#recommendation" class="hover:text-emerald-600 transition-colors">Client Decision</a>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="window.print()" class="px-3.5 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+          Print / PDF
+        </button>
+        <a href="#approaches" class="px-4 py-2 text-xs font-extrabold bg-[#2D9E6B] hover:bg-[#238357] text-white rounded-xl shadow-sm hover:shadow transition-all">
+          Explore Options ↓
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <header class="gradient-hero text-white pt-16 pb-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#2D9E6B_1px,transparent_1px)] [background-size:16px_16px]"></div>
+    <div class="max-w-5xl mx-auto text-center relative z-10 space-y-6">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-emerald-300 text-xs font-bold tracking-wide">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>Goal: Rapid Platform Profitability & High Tutor Retention</span>
+      </div>
+
+      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
+        Monetization & Starter Top-Up <br class="hidden sm:block" />
+        <span class="bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-200 to-amber-300">
+          Strategic Blueprints
+        </span>
+      </h1>
+
+      <p class="text-sm sm:text-base text-slate-300 max-w-3xl mx-auto leading-relaxed font-medium">
+        How to price the initial tutor top-up at <strong class="text-white">₹849</strong> (or ₹899), calibrate coins so <strong class="text-emerald-300">zero coins are wasted</strong> (even for Class 11–12 and JEE tutors), offer high-converting <strong class="text-amber-300">Solo Exclusive Leads</strong>, and guarantee <strong class="text-white">75%+ gross profit margins</strong> for ApnaTutorHub.
+      </p>
+
+      <!-- KEY METRICS ROW -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto pt-6">
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+          <p class="text-[11px] font-bold text-slate-400 uppercase">Target Starter Price</p>
+          <p class="text-2xl sm:text-3xl font-black text-white mt-1">₹849</p>
+          <p class="text-[10px] text-emerald-400 font-semibold mt-0.5">High Conversion Sweetspot</p>
+        </div>
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+          <p class="text-[11px] font-bold text-slate-400 uppercase">Starter Wallet Balance</p>
+          <p class="text-2xl sm:text-3xl font-black text-amber-400 mt-1">100 🪙</p>
+          <p class="text-[10px] text-slate-300 font-semibold mt-0.5">85 Base + 15 Launch Bonus</p>
+        </div>
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+          <p class="text-[11px] font-bold text-slate-400 uppercase">Max Tutors / Shared Lead</p>
+          <p class="text-2xl sm:text-3xl font-black text-teal-300 mt-1">5 Tutors</p>
+          <p class="text-[10px] text-slate-300 font-semibold mt-0.5">₹1,000 – ₹1,500 Gross Rev</p>
+        </div>
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+          <p class="text-[11px] font-bold text-slate-400 uppercase">Platform Gross Margin</p>
+          <p class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">75% – 82%</p>
+          <p class="text-[10px] text-emerald-400 font-semibold mt-0.5">Guaranteed Cash Positive</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 space-y-16 pb-24 relative z-20">
+
+    <!-- EXECUTIVE CHALLENGE & SOLUTION OVERVIEW -->
+    <section id="summary" class="glass-card rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-xl space-y-6">
+      <div class="border-b border-slate-100 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-black uppercase tracking-wider text-emerald-600">Strategic Alignment</span>
+          <h2 class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">The Problem We Are Solving</h2>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1">Balancing platform profitability with tutor trust and high class/subject equity.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+            ⚠️ The UrbanPro Trap: Never let senior tutors feel their coins are useless!
+          </span>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="p-5 rounded-2xl bg-rose-50/70 border border-rose-200/80 space-y-2.5">
+          <div class="w-8 h-8 rounded-lg bg-rose-200 text-rose-800 flex items-center justify-center font-black text-sm">❌</div>
+          <h3 class="font-extrabold text-rose-950 text-sm">The Pitfall to Avoid</h3>
+          <p class="text-xs text-rose-900 leading-relaxed">
+            If higher class leads (Class 11–12, JEE) cost 50+ coins and a starter pack only gives 100 coins, a senior teacher can only unlock 1 or 2 leads. If they don't convert, they feel cheated and claim: <em>"ApnaTutorHub is a scam that eats money!"</em>
+          </p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-200 text-emerald-800 flex items-center justify-center font-black text-sm">✓</div>
+          <h3 class="font-extrabold text-emerald-950 text-sm">The Core Solution</h3>
+          <p class="text-xs text-emerald-900 leading-relaxed">
+            Every tutor—whether primary or JEE—must get <strong>at least 3 complete lead contacts OR 1 guaranteed Solo Exclusive Buyout</strong> from their ₹849 starter pack, backed by a 48h invalid-lead coin refund.
+          </p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-blue-50/70 border border-blue-200/80 space-y-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-200 text-blue-800 flex items-center justify-center font-black text-sm">👑</div>
+          <h3 class="font-extrabold text-blue-950 text-sm">The Solo Exclusive Goldmine</h3>
+          <p class="text-xs text-blue-900 leading-relaxed">
+            Parents hate talking to 5 different tutors. Tutors hate competing against 4 others. By offering a <strong>Solo Exclusive Buyout at 3.2x–3.5x</strong> base cost, serious tutors happily pay 80–100 coins in 1 click!
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: THE 5 APPROACHES -->
+    <section id="approaches" class="space-y-8">
+      <div class="text-center max-w-3xl mx-auto space-y-2">
+        <span class="text-xs font-black uppercase tracking-wider text-emerald-600">Client Evaluation Matrix</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-slate-900">5 Concrete Approaches for ApnaTutorHub</h2>
+        <p class="text-sm text-slate-500 font-medium">Review the mechanics, pros, cons, and revenue impact of each approach below to choose the perfect fit.</p>
+      </div>
+
+      <!-- SIDE-BY-SIDE SUMMARY TABLE -->
+      <div class="glass-card rounded-3xl border border-slate-200 shadow-lg overflow-hidden">
+        <div class="p-6 bg-slate-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h3 class="text-lg font-black tracking-tight">Executive Comparison Matrix</h3>
+            <p class="text-xs text-slate-300 font-medium">Side-by-side snapshot of all 5 monetization models</p>
+          </div>
+          <span class="text-xs font-extrabold px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full">
+            Recommended: Hybrid Approach (1 + 4)
+          </span>
+        </div>
+
+        <div class="overflow-x-auto table-container">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100/90 text-slate-700 font-extrabold uppercase tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="p-4">Approach</th>
+                <th class="p-4">Starter Pack Details</th>
+                <th class="p-4">How Senior Tutors (11-12/JEE) Fare</th>
+                <th class="p-4">Solo Exclusive Mechanism</th>
+                <th class="p-4">Tutor Psychology</th>
+                <th class="p-4">Implementation Effort</th>
+                <th class="p-4 text-right">Recommendation</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
+              <!-- Approach 1 -->
+              <tr class="hover:bg-emerald-50/40 transition-colors bg-white">
+                <td class="p-4 font-bold text-slate-900">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center justify-center">1</span>
+                    <div>
+                      <p class="font-extrabold text-sm">Universal Balanced Coin Economy</p>
+                      <p class="text-[10px] text-slate-400">"The 3-Unlock / 1-Solo Model"</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="p-4">
+                  <strong class="text-slate-900">₹849</strong><br>
+                  <span class="text-amber-600 font-bold">100 Coins</span> (85 + 15 Bonus)
+                </td>
+                <td class="p-4">
+                  <span class="text-emerald-700 font-bold">✓ 3 Full Leads (30c each)</span><br>
+                  OR 1 Full Solo Lead (90c)
+                </td>
+                <td class="p-4">
+                  <strong>3.2x – 3.5x Multiplier</strong><br>
+                  (e.g., 30c shared $\rightarrow$ 90c solo)
+                </td>
+                <td class="p-4">Clean, transparent. 100 coins feels like a round bounty.</td>
+                <td class="p-4">
+                  <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Instant (Ready in Code)</span>
+                </td>
+                <td class="p-4 text-right font-extrabold text-emerald-600">
+                  ⭐⭐⭐⭐⭐<br><span class="text-[10px] font-bold text-emerald-700">Highest Recommended</span>
+                </td>
+              </tr>
+
+              <!-- Approach 2 -->
+              <tr class="hover:bg-blue-50/40 transition-colors bg-white">
+                <td class="p-4 font-bold text-slate-900">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-800 text-[10px] font-black flex items-center justify-center">2</span>
+                    <div>
+                      <p class="font-extrabold text-sm">Segment-Smart Welcome Boosters</p>
+                      <p class="text-[10px] text-slate-400">Class-Tailored Bonus Coins</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="p-4">
+                  <strong class="text-slate-900">₹849</strong><br>
+                  Junior: 100c | High: 125c | Senior: 150c
+                </td>
+                <td class="p-4">
+                  <span class="text-blue-700 font-bold">✓ Gets 150 Coins!</span><br>
+                  Unlocks 5 high-class leads easily
+                </td>
+                <td class="p-4">
+                  Higher solo price (120c), easily covered by the 150c wallet
+                </td>
+                <td class="p-4">Senior tutors feel treated like VIPs with extra welcome coins.</td>
+                <td class="p-4">
+                  <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">Low (1-2 days)</span>
+                </td>
+                <td class="p-4 text-right font-extrabold text-blue-600">
+                  ⭐⭐⭐⭐<br><span class="text-[10px] font-bold text-blue-700">Great for Senior Focus</span>
+                </td>
+              </tr>
+
+              <!-- Approach 3 -->
+              <tr class="hover:bg-purple-50/40 transition-colors bg-white">
+                <td class="p-4 font-bold text-slate-900">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black flex items-center justify-center">3</span>
+                    <div>
+                      <p class="font-extrabold text-sm">The "Lead Pass / Token" Model</p>
+                      <p class="text-[10px] text-slate-400">1 Pass = 1 Lead, Zero Math</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="p-4">
+                  <strong class="text-slate-900">₹849</strong><br>
+                  <span class="text-purple-700 font-bold">4 Lead Passes</span>
+                </td>
+                <td class="p-4">
+                  <span class="text-purple-700 font-bold">✓ Unlocks any 4 leads</span><br>
+                  (No difference in coin cost by class)
+                </td>
+                <td class="p-4">
+                  1 Solo Buyout = Burns 3 Lead Passes
+                </td>
+                <td class="p-4">Easiest possible to understand. 0 math anxiety.</td>
+                <td class="p-4">
+                  <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">Moderate (DB updates)</span>
+                </td>
+                <td class="p-4 text-right font-extrabold text-purple-600">
+                  ⭐⭐⭐⭐<br><span class="text-[10px] font-bold text-purple-700">High Conversion</span>
+                </td>
+              </tr>
+
+              <!-- Approach 4 -->
+              <tr class="hover:bg-amber-50/40 transition-colors bg-white">
+                <td class="p-4 font-bold text-slate-900">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black flex items-center justify-center">4</span>
+                    <div>
+                      <p class="font-extrabold text-sm">Hybrid Split-Pay & Micro-Topups</p>
+                      <p class="text-[10px] text-slate-400">Zero Trapped Coins Guarantee</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="p-4">
+                  <strong class="text-slate-900">₹849 (100c)</strong><br>
+                  + Micro refills (₹299 for 30c)
+                </td>
+                <td class="p-4">
+                  <span class="text-emerald-700 font-bold">✓ Never trapped!</span><br>
+                  Pay ₹100 via UPI if short 10 coins
+                </td>
+                <td class="p-4">
+                  Can pay using (All Coins + remaining UPI balance)
+                </td>
+                <td class="p-4">Tutors love flexibility. Maximum trust.</td>
+                <td class="p-4">
+                  <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-bold text-[10px]">Low (Razorpay hook)</span>
+                </td>
+                <td class="p-4 text-right font-extrabold text-amber-600">
+                  ⭐⭐⭐⭐⭐<br><span class="text-[10px] font-bold text-amber-700">Crucial Add-On</span>
+                </td>
+              </tr>
+
+              <!-- Approach 5 -->
+              <tr class="hover:bg-teal-50/40 transition-colors bg-white">
+                <td class="p-4 font-bold text-slate-900">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-teal-100 text-teal-800 text-[10px] font-black flex items-center justify-center">5</span>
+                    <div>
+                      <p class="font-extrabold text-sm">The "Golden Solo Pass" First-Timer</p>
+                      <p class="text-[10px] text-slate-400">1 Guaranteed Exclusive Student</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="p-4">
+                  <strong class="text-slate-900">₹849</strong><br>
+                  1 Golden Solo Lead + 2 Shared Leads
+                </td>
+                <td class="p-4">
+                  <span class="text-teal-700 font-bold">✓ 100% Solo Guarantee!</span><br>
+                  Zero competition on their 1st lead
+                </td>
+                <td class="p-4">
+                  The Golden Pass guarantees 1 solo lead regardless of class
+                </td>
+                <td class="p-4">Unbeatable value proposition. Tutors don't fear competing.</td>
+                <td class="p-4">
+                  <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">Moderate</span>
+                </td>
+                <td class="p-4 text-right font-extrabold text-teal-600">
+                  ⭐⭐⭐⭐<br><span class="text-[10px] font-bold text-teal-700">Best Closure Rate</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DETAILED BREAKDOWN CARDS FOR EACH APPROACH -->
+      <div class="grid md:grid-cols-2 gap-8">
+
+        <!-- CARD 1: APPROACH 1 -->
+        <div class="glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-md space-y-5 relative overflow-hidden">
+          <div class="absolute top-0 right-0 bg-emerald-600 text-white text-[10px] font-black uppercase px-4 py-1.5 rounded-bl-2xl">
+            Client Recommendation #1
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xl">
+              1
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-slate-900">Universal Balanced Coin Economy</h3>
+              <p class="text-xs text-slate-500 font-semibold">"The 3-Unlock or 1-Solo Guarantee"</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-600 leading-relaxed">
+            The tutor recharges for <strong>₹849</strong> and receives <strong>100 Coins</strong> (85 Base + 15 Launch Bonus). The coin costs for senior classes are calibrated to exactly <strong>30 Coins</strong> (Shared) and <strong>90 Coins</strong> (Solo Exclusive).
+          </p>
+
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
+            <p class="text-xs font-bold text-slate-800 uppercase tracking-wider">How Tutors Spend 100 Coins:</p>
+            <ul class="text-xs text-slate-600 space-y-1.5">
+              <li class="flex items-center justify-between">
+                <span>📚 <strong>Junior Tutor (Class 1–8):</strong> 15–20 coins/lead</span>
+                <span class="font-bold text-emerald-700">5 to 6 Leads</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span>🎓 <strong>Senior / Board Tutor (Class 9–12):</strong> 25–30 coins/lead</span>
+                <span class="font-bold text-blue-700">3 to 4 Leads</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span>👑 <strong>Solo Exclusive Buyout (Any Class):</strong> 80–90 coins</span>
+                <span class="font-bold text-amber-700">1 Guaranteed Solo Lead</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 text-xs border-t border-slate-100">
+            <span class="text-slate-500">Already 95% built into current codebase</span>
+            <span class="font-black text-emerald-700">Fastest to deploy</span>
+          </div>
+        </div>
+
+        <!-- CARD 2: APPROACH 2 -->
+        <div class="glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-md space-y-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center font-black text-xl">
+              2
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-slate-900">Segment-Smart Welcome Boosters</h3>
+              <p class="text-xs text-slate-500 font-semibold">Same ₹849, Tailored Bonus Coins</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Instead of giving everybody 100 coins, the system reads the tutor's teaching category during signup and rewards higher bonus coins to higher-class tutors to balance the higher lead costs:
+          </p>
+
+          <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-200/80 space-y-2">
+            <p class="text-xs font-bold text-blue-900 uppercase tracking-wider">Dynamic Starter Packs (All for ₹849):</p>
+            <ul class="text-xs text-slate-700 space-y-1.5">
+              <li class="flex items-center justify-between">
+                <span>Class 1–8 Profile:</span>
+                <span class="font-extrabold text-slate-900">100 Coins (85 + 15 bonus)</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span>Class 9–10 Profile:</span>
+                <span class="font-extrabold text-blue-800">125 Coins (85 + 40 bonus)</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span>Class 11–12 & JEE/NEET:</span>
+                <span class="font-extrabold text-emerald-700">150 Coins (85 + 65 bonus)</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 text-xs border-t border-slate-100">
+            <span class="text-slate-500">Every teacher gets 5 lead unlocks</span>
+            <span class="font-black text-blue-700">Zero feeling of discrimination</span>
+          </div>
+        </div>
+
+        <!-- CARD 3: APPROACH 3 -->
+        <div class="glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-md space-y-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xl">
+              3
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-slate-900">The "Lead Pass / Token" Model</h3>
+              <p class="text-xs text-slate-500 font-semibold">1 Pass = 1 Unlocked Student (Zero Math)</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Eliminates coin math completely. The tutor pays <strong>₹849</strong> and receives <strong>4 Lead Passes</strong>. Regardless of whether the lead is Class 2 Math or Class 12 JEE Physics, 1 Lead Pass unlocks the contact!
+          </p>
+
+          <div class="bg-purple-50/60 p-4 rounded-2xl border border-purple-200/80 space-y-2">
+            <p class="text-xs font-bold text-purple-900 uppercase tracking-wider">How Lead Passes Work:</p>
+            <ul class="text-xs text-slate-700 space-y-1.5">
+              <li class="flex items-center justify-between">
+                <span>Unlock 1 Shared Student Lead:</span>
+                <span class="font-extrabold text-purple-900">1 Lead Pass</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span>Unlock 1 Solo Exclusive Buyout:</span>
+                <span class="font-extrabold text-purple-900">3 Lead Passes</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span>Effective Cost per Lead to Tutor:</span>
+                <span class="font-extrabold text-emerald-700">₹212 / student contact</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 text-xs border-t border-slate-100">
+            <span class="text-slate-500">Highest landing page conversion</span>
+            <span class="font-black text-purple-700">No leftover coin complaints</span>
+          </div>
+        </div>
+
+        <!-- CARD 4: APPROACH 4 (HYBRID FEATURE) -->
+        <div class="glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-md space-y-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-black text-xl">
+              4
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-slate-900">Split-Pay & Micro-Topups</h3>
+              <p class="text-xs text-slate-500 font-semibold">Eliminating "Trapped Coins" Forever</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Tutors often end up with an odd number of coins (e.g. 15 coins left, but the next lead costs 30 coins). This feature introduces <strong>"Pay Remaining via UPI"</strong>:
+          </p>
+
+          <div class="bg-amber-50/60 p-4 rounded-2xl border border-amber-200/80 space-y-2">
+            <p class="text-xs font-bold text-amber-900 uppercase tracking-wider">Example In-App Flow:</p>
+            <p class="text-xs text-slate-700">
+              Teacher clicks <em>"Unlock Class 12 Lead"</em> (Cost: 30 Coins).<br>
+              Wallet Balance: <strong>12 Coins</strong> (Worth ₹120).<br>
+              Dialog shows: <strong class="text-emerald-700">"Pay ₹180 via UPI to unlock right now!"</strong>
+            </p>
+            <div class="pt-1">
+              <span class="inline-block px-2.5 py-1 bg-amber-200 text-amber-900 font-extrabold text-[11px] rounded-lg">
+                + Also offers 1-Lead Micro-Pack: ₹299 for 30 coins
+              </span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 text-xs border-t border-slate-100">
+            <span class="text-slate-500">Can be combined with Approach 1 or 2</span>
+            <span class="font-black text-amber-700">Zero tutor frustration</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: INTERACTIVE SIMULATOR / CALCULATOR -->
+    <section id="calculator" class="glass-card rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-xl space-y-8">
+      <div class="text-center max-w-2xl mx-auto space-y-2">
+        <span class="text-xs font-black uppercase tracking-wider text-emerald-600">Live Client Tool</span>
+        <h2 class="text-2xl sm:text-3xl font-black text-slate-900">Interactive Starter Pack & ROI Simulator</h2>
+        <p class="text-xs sm:text-sm text-slate-500 font-medium">Test how any class level and area tier behaves under the ₹849 Starter Pack.</p>
+      </div>
+
+      <div class="grid lg:grid-cols-12 gap-8 items-center bg-slate-50/80 p-6 sm:p-8 rounded-3xl border border-slate-200">
+        <!-- Controls Column -->
+        <div class="lg:col-span-6 space-y-5">
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2">
+              1. Select Student Class Level
+            </label>
+            <select id="simClass" onchange="runSimulation()" class="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
+              <option value="primary">Primary (Class 1–5)</option>
+              <option value="middle">Middle (Class 6–8)</option>
+              <option value="high" selected>High School (Class 9–10 Board)</option>
+              <option value="senior">Senior Secondary (Class 11–12)</option>
+              <option value="competitive">Competitive (JEE / NEET / Coding)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2">
+              2. Select Locality Tier
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" onclick="setSimTier('tier3')" id="btnTier3" class="tier-btn py-2.5 px-3 rounded-xl border text-xs font-bold text-slate-700 bg-white hover:bg-slate-100">
+                Tier 3 / Suburb
+              </button>
+              <button type="button" onclick="setSimTier('tier2')" id="btnTier2" class="tier-btn py-2.5 px-3 rounded-xl border text-xs font-bold text-emerald-950 bg-emerald-100 border-emerald-500">
+                Tier 2 / Urban
+              </button>
+              <button type="button" onclick="setSimTier('tier1')" id="btnTier1" class="tier-btn py-2.5 px-3 rounded-xl border text-xs font-bold text-slate-700 bg-white hover:bg-slate-100">
+                Tier 1 / Posh
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2">
+              3. Lead Type Preference
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button" onclick="setSimMode('shared')" id="btnModeShared" class="mode-btn py-3 px-4 rounded-xl border text-xs font-bold text-emerald-950 bg-emerald-100 border-emerald-500 flex items-center justify-center gap-2">
+                <span>👥 Shared (Max 5 Tutors)</span>
+              </button>
+              <button type="button" onclick="setSimMode('solo')" id="btnModeSolo" class="mode-btn py-3 px-4 rounded-xl border text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 flex items-center justify-center gap-2">
+                <span>👑 Solo Exclusive (1 Tutor)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output KPI Card Column -->
+        <div class="lg:col-span-6 bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-md space-y-5">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+              <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Simulation Results</span>
+              <h4 class="text-base font-black text-slate-900" id="simTitle">Class 9–10 in Urban Area</h4>
+            </div>
+            <span class="text-xs font-extrabold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">
+              Starter Pack: ₹849 (100 🪙)
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-center">
+              <p class="text-[10px] uppercase font-bold text-slate-400">Cost Per Lead</p>
+              <p class="text-2xl font-black text-slate-900 mt-0.5" id="simCoinCost">25 🪙</p>
+              <p class="text-[10px] text-slate-500 font-semibold" id="simInrCost">Worth ₹250</p>
+            </div>
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-center">
+              <p class="text-[10px] uppercase font-bold text-slate-400">Leads Unlocked with ₹849</p>
+              <p class="text-2xl font-black text-emerald-600 mt-0.5" id="simLeadsUnlocked">4 Leads</p>
+              <p class="text-[10px] text-emerald-700 font-semibold" id="simRemainder">0 coins remainder</p>
+            </div>
+          </div>
+
+          <!-- Tutor ROI Box -->
+          <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 space-y-1">
+            <div class="flex justify-between items-center text-xs font-bold text-emerald-950">
+              <span>Expected Monthly Tutor Fee:</span>
+              <span id="simTutorFee" class="text-sm font-black text-emerald-900">₹8,000 / month</span>
+            </div>
+            <div class="flex justify-between items-center text-xs text-emerald-800">
+              <span>Annual Income from 1 student:</span>
+              <span id="simAnnualIncome" class="font-extrabold">₹80,000</span>
+            </div>
+            <div class="flex justify-between items-center text-xs text-emerald-900 pt-1 font-black">
+              <span>Tutor ROI on ₹849 Investment:</span>
+              <span id="simRoiMultiplier" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[11px]">94x Return!</span>
+            </div>
+          </div>
+
+          <!-- Platform Profit Box -->
+          <div class="bg-slate-900 text-white p-4 rounded-xl space-y-1 text-xs">
+            <div class="flex justify-between items-center text-slate-300 font-semibold">
+              <span>ApnaTutorHub Gross Rev per Lead:</span>
+              <span id="simPlatformRev" class="text-emerald-400 font-bold">₹1,250 (if 5 tutors buy)</span>
+            </div>
+            <div class="flex justify-between items-center text-slate-300 font-semibold">
+              <span>Estimated Lead Acquisition Cost (CAC):</span>
+              <span class="text-slate-400">~₹180</span>
+            </div>
+            <div class="flex justify-between items-center text-white pt-1 font-black border-t border-white/10">
+              <span>ApnaTutorHub Net Profit per Lead:</span>
+              <span id="simPlatformProfit" class="text-emerald-400 font-extrabold">₹1,070 (85% Margin)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: AREA & CLASS PRICING MATRIX -->
+    <section id="pricing-matrix" class="space-y-6">
+      <div class="text-center max-w-2xl mx-auto space-y-2">
+        <span class="text-xs font-black uppercase tracking-wider text-emerald-600">Transparent Pricing Table</span>
+        <h2 class="text-2xl sm:text-3xl font-black text-slate-900">Class & Area Pricing Master Matrix</h2>
+        <p class="text-xs sm:text-sm text-slate-500 font-medium">Comprehensive breakdown of lead unlock costs calibrated across all localities in India.</p>
+      </div>
+
+      <div class="glass-card rounded-3xl border border-slate-200 overflow-hidden shadow-lg">
+        <div class="overflow-x-auto table-container">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900 text-white font-extrabold uppercase tracking-wider">
+              <tr>
+                <th class="p-4">Class Level</th>
+                <th class="p-4">Average Market Fee / Month</th>
+                <th class="p-4">Locality Tier</th>
+                <th class="p-4">👥 Shared Lead Cost (Max 5)</th>
+                <th class="p-4">👑 Solo Exclusive Buyout</th>
+                <th class="p-4">Platform Revenue Potential</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
+              <!-- Class 1-5 -->
+              <tr class="hover:bg-slate-50">
+                <td class="p-4 font-black text-slate-900">Primary (Class 1–5)</td>
+                <td class="p-4 text-emerald-700 font-bold">₹3,000 – ₹6,000</td>
+                <td class="p-4">Tier 3 / Suburbs<br>Tier 2 / Urban<br>Tier 1 / Posh</td>
+                <td class="p-4"><strong>12 🪙</strong> (₹120)<br><strong>15 🪙</strong> (₹150)<br><strong>20 🪙</strong> (₹200)</td>
+                <td class="p-4 font-bold text-amber-700">40 🪙 (₹400)<br>50 🪙 (₹500)<br>65 🪙 (₹650)</td>
+                <td class="p-4 text-slate-500">₹600 – ₹1,000 / lead</td>
+              </tr>
+              <!-- Class 6-8 -->
+              <tr class="hover:bg-slate-50 bg-slate-50/40">
+                <td class="p-4 font-black text-slate-900">Middle (Class 6–8)</td>
+                <td class="p-4 text-emerald-700 font-bold">₹5,000 – ₹9,000</td>
+                <td class="p-4">Tier 3 / Suburbs<br>Tier 2 / Urban<br>Tier 1 / Posh</td>
+                <td class="p-4"><strong>18 🪙</strong> (₹180)<br><strong>20 🪙</strong> (₹200)<br><strong>25 🪙</strong> (₹250)</td>
+                <td class="p-4 font-bold text-amber-700">60 🪙 (₹600)<br>65 🪙 (₹650)<br>85 🪙 (₹850)</td>
+                <td class="p-4 text-slate-500">₹900 – ₹1,250 / lead</td>
+              </tr>
+              <!-- Class 9-10 -->
+              <tr class="hover:bg-slate-50">
+                <td class="p-4 font-black text-slate-900">High School (Class 9–10)</td>
+                <td class="p-4 text-emerald-700 font-bold">₹7,000 – ₹14,000</td>
+                <td class="p-4">Tier 3 / Suburbs<br>Tier 2 / Urban<br>Tier 1 / Posh</td>
+                <td class="p-4"><strong>22 🪙</strong> (₹220)<br><strong>25 🪙</strong> (₹250)<br><strong>30 🪙</strong> (₹300)</td>
+                <td class="p-4 font-bold text-amber-700">70 🪙 (₹700)<br>80 🪙 (₹800)<br>95 🪙 (₹950)</td>
+                <td class="p-4 text-slate-500">₹1,100 – ₹1,500 / lead</td>
+              </tr>
+              <!-- Class 11-12 -->
+              <tr class="hover:bg-slate-50 bg-slate-50/40">
+                <td class="p-4 font-black text-slate-900">Senior Secondary (Class 11–12)</td>
+                <td class="p-4 text-emerald-700 font-bold">₹10,000 – ₹20,000</td>
+                <td class="p-4">Tier 3 / Suburbs<br>Tier 2 / Urban<br>Tier 1 / Posh</td>
+                <td class="p-4"><strong>25 🪙</strong> (₹250)<br><strong>30 🪙</strong> (₹300)<br><strong>35 🪙</strong> (₹350)</td>
+                <td class="p-4 font-bold text-amber-700">80 🪙 (₹800)<br>90 🪙 (₹900)<br>110 🪙 (₹1,100)</td>
+                <td class="p-4 text-slate-500">₹1,250 – ₹1,750 / lead</td>
+              </tr>
+              <!-- Competitive -->
+              <tr class="hover:bg-slate-50">
+                <td class="p-4 font-black text-slate-900">JEE / NEET / Coding / CUET</td>
+                <td class="p-4 text-emerald-700 font-bold">₹15,000 – ₹35,000+</td>
+                <td class="p-4">All Localities / Online</td>
+                <td class="p-4"><strong>33 🪙</strong> (₹330)</td>
+                <td class="p-4 font-bold text-amber-700">100 🪙 (₹1,000)</td>
+                <td class="p-4 text-slate-500">₹1,650 / lead</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: PLATFORM PROFITABILITY PROOF -->
+    <section id="unit-economics" class="glass-card rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-xl space-y-8">
+      <div class="text-center max-w-2xl mx-auto space-y-2">
+        <span class="text-xs font-black uppercase tracking-wider text-emerald-600">Financial Modeling</span>
+        <h2 class="text-2xl sm:text-3xl font-black text-slate-900">Platform Unit Economics & Projections</h2>
+        <p class="text-xs sm:text-sm text-slate-500 font-medium">Demonstrating how ApnaTutorHub becomes self-sustaining and cash-flow positive.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold text-slate-400 uppercase">Stage 1</span>
+            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[10px]">Launch Month</span>
+          </div>
+          <h3 class="text-xl font-black text-slate-900">100 Active Tutors</h3>
+          <ul class="text-xs text-slate-600 space-y-2 border-t border-slate-100 pt-3">
+            <li class="flex justify-between">
+              <span>Starter Top-Up Revenue:</span>
+              <strong class="text-slate-900">₹84,900</strong>
+            </li>
+            <li class="flex justify-between">
+              <span>Parent Leads Handled:</span>
+              <strong class="text-slate-900">~120 Leads</strong>
+            </li>
+            <li class="flex justify-between">
+              <span>Ad Spend (CAC @ ₹180):</span>
+              <span class="text-rose-600 font-bold">-₹21,600</span>
+            </li>
+            <li class="flex justify-between border-t border-slate-100 pt-2 text-emerald-700 font-black text-sm">
+              <span>Net Platform Profit:</span>
+              <span>₹63,300 (74%)</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-emerald-50/50 border border-emerald-300 shadow-md space-y-4 relative">
+          <div class="absolute -top-3 right-4 bg-emerald-600 text-white text-[10px] font-black uppercase px-3 py-0.5 rounded-full">
+            Target Scale
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold text-emerald-800 uppercase">Stage 2</span>
+            <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Month 3–6</span>
+          </div>
+          <h3 class="text-xl font-black text-slate-900">500 Active Tutors</h3>
+          <ul class="text-xs text-slate-600 space-y-2 border-t border-emerald-100 pt-3">
+            <li class="flex justify-between">
+              <span>Starter + Repeat Top-Ups:</span>
+              <strong class="text-slate-900">₹5,40,000</strong>
+            </li>
+            <li class="flex justify-between">
+              <span>Parent Leads Handled:</span>
+              <strong class="text-slate-900">~650 Leads</strong>
+            </li>
+            <li class="flex justify-between">
+              <span>Ad Spend (CAC @ ₹170):</span>
+              <span class="text-rose-600 font-bold">-₹1,10,500</span>
+            </li>
+            <li class="flex justify-between border-t border-emerald-200 pt-2 text-emerald-800 font-black text-sm">
+              <span>Net Platform Profit:</span>
+              <span>₹4,29,500 (79%)</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold text-slate-400 uppercase">Stage 3</span>
+            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[10px]">Full Operation</span>
+          </div>
+          <h3 class="text-xl font-black text-slate-900">1,500 Active Tutors</h3>
+          <ul class="text-xs text-slate-600 space-y-2 border-t border-slate-100 pt-3">
+            <li class="flex justify-between">
+              <span>Monthly Coin Top-Up GMV:</span>
+              <strong class="text-slate-900">₹18,50,000</strong>
+            </li>
+            <li class="flex justify-between">
+              <span>Parent Leads Handled:</span>
+              <strong class="text-slate-900">~2,200 Leads</strong>
+            </li>
+            <li class="flex justify-between">
+              <span>SEO + Referral Inbound CAC:</span>
+              <span class="text-rose-600 font-bold">-₹3,08,000</span>
+            </li>
+            <li class="flex justify-between border-t border-slate-100 pt-2 text-emerald-700 font-black text-sm">
+              <span>Net Platform Profit:</span>
+              <span>₹15,42,000 (83%)</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: CLIENT DECISION & NEXT STEPS -->
+    <section id="recommendation" class="glass-card rounded-3xl p-6 sm:p-10 border-2 border-emerald-500 shadow-2xl space-y-8 bg-gradient-to-b from-white via-white to-emerald-50/30">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+        <div>
+          <span class="text-xs font-black uppercase tracking-wider text-emerald-600">The Recommended Choice</span>
+          <h2 class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">What to Propose to the Client Tomorrow</h2>
+        </div>
+        <div class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-extrabold shadow-sm">
+          <span>Official Recommendation</span>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="p-5 rounded-2xl bg-white border border-emerald-200 shadow-xs flex items-start gap-4">
+          <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center shrink-0">
+            A
+          </div>
+          <div>
+            <h4 class="font-extrabold text-slate-900 text-sm">Launch with Approach 1 + Approach 4 (The Hybrid Model)</h4>
+            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+              Price the starter pack at <strong>₹849 for 100 Coins</strong>. Set Class 11–12 shared leads to <strong>30 Coins</strong> so every senior teacher can unlock <strong>3 full inquiries OR 1 Solo Exclusive Buyout (90 Coins)</strong>. Add the <strong>"Pay Remaining Balance via UPI"</strong> button so no tutor ever complains about trapped coins.
+            </p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-white border border-emerald-200 shadow-xs flex items-start gap-4">
+          <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center shrink-0">
+            B
+          </div>
+          <div>
+            <h4 class="font-extrabold text-slate-900 text-sm">Activate the 48-Hour Coin-Back Guarantee</h4>
+            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+              If a parent doesn't answer after 3 attempts or syllabus doesn't match, coins are automatically credited back. This removes all hesitation during the initial top-up!
+            </p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-white border border-emerald-200 shadow-xs flex items-start gap-4">
+          <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center shrink-0">
+            C
+          </div>
+          <div>
+            <h4 class="font-extrabold text-slate-900 text-sm">Clear Post-Trial Ladder Packs</h4>
+            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+              Once they consume their ₹849 starter pack, offer standard top-ups: <strong>₹549</strong> (60 Coins), <strong>₹1,499</strong> (180 Coins + 20 Bonus), and <strong>₹3,499</strong> (450 Coins + 80 Bonus).
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- DECISION CONFIRMATION BOX -->
+      <div class="p-6 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h4 class="font-black text-base text-emerald-400">Ready for Implementation</h4>
+          <p class="text-xs text-slate-300 mt-0.5">Whichever approach the client approves tomorrow, we will immediately configure it in `lib/razorpay.ts` and `lib/platform-settings.ts`.</p>
+        </div>
+        <button onclick="window.print()" class="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs shadow-md transition-all shrink-0">
+          Save / Print Client Copy
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 space-y-2">
+      <p class="font-bold text-slate-700">ApnaTutorHub Platform Monetization Strategy</p>
+      <p>Prepared for Client Review & Engineering Implementation • Confidential & Proprietary</p>
+    </div>
+  </footer>
+
+  <!-- SCRIPT FOR INTERACTIVE CALCULATOR -->
+  <script>
+    let currentTier = 'tier2';
+    let currentMode = 'shared';
+
+    // Pricing dataset
+    const DATA = {
+      primary: {
+        title: 'Primary (Class 1–5)',
+        monthlyFee: { tier3: 3500, tier2: 5000, tier1: 6500 },
+        coins: {
+          tier3: { shared: 12, solo: 40 },
+          tier2: { shared: 15, solo: 50 },
+          tier1: { shared: 20, solo: 65 },
+        }
+      },
+      middle: {
+        title: 'Middle (Class 6–8)',
+        monthlyFee: { tier3: 5500, tier2: 7000, tier1: 9500 },
+        coins: {
+          tier3: { shared: 18, solo: 60 },
+          tier2: { shared: 20, solo: 65 },
+          tier1: { shared: 25, solo: 85 },
+        }
+      },
+      high: {
+        title: 'High School (Class 9–10 Board)',
+        monthlyFee: { tier3: 7500, tier2: 10000, tier1: 14000 },
+        coins: {
+          tier3: { shared: 22, solo: 70 },
+          tier2: { shared: 25, solo: 80 },
+          tier1: { shared: 30, solo: 95 },
+        }
+      },
+      senior: {
+        title: 'Senior Secondary (Class 11–12)',
+        monthlyFee: { tier3: 10000, tier2: 14000, tier1: 20000 },
+        coins: {
+          tier3: { shared: 25, solo: 80 },
+          tier2: { shared: 30, solo: 90 },
+          tier1: { shared: 35, solo: 110 },
+        }
+      },
+      competitive: {
+        title: 'Competitive (JEE / NEET / Coding)',
+        monthlyFee: { tier3: 15000, tier2: 20000, tier1: 30000 },
+        coins: {
+          tier3: { shared: 33, solo: 100 },
+          tier2: { shared: 33, solo: 100 },
+          tier1: { shared: 35, solo: 115 },
+        }
+      }
+    };
+
+    function setSimTier(tier) {
+      currentTier = tier;
+      ['tier1', 'tier2', 'tier3'].forEach(t => {
+        const btn = document.getElementById('btn' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (t === tier) {
+          btn.className = 'tier-btn py-2.5 px-3 rounded-xl border text-xs font-bold text-emerald-950 bg-emerald-100 border-emerald-500';
+        } else {
+          btn.className = 'tier-btn py-2.5 px-3 rounded-xl border text-xs font-bold text-slate-700 bg-white hover:bg-slate-100';
+        }
+      });
+      runSimulation();
+    }
+
+    function setSimMode(mode) {
+      currentMode = mode;
+      const btnShared = document.getElementById('btnModeShared');
+      const btnSolo = document.getElementById('btnModeSolo');
+      if (mode === 'shared') {
+        btnShared.className = 'mode-btn py-3 px-4 rounded-xl border text-xs font-bold text-emerald-950 bg-emerald-100 border-emerald-500 flex items-center justify-center gap-2';
+        btnSolo.className = 'mode-btn py-3 px-4 rounded-xl border text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 flex items-center justify-center gap-2';
+      } else {
+        btnShared.className = 'mode-btn py-3 px-4 rounded-xl border text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 flex items-center justify-center gap-2';
+        btnSolo.className = 'mode-btn py-3 px-4 rounded-xl border text-xs font-bold text-amber-950 bg-amber-100 border-amber-500 flex items-center justify-center gap-2';
+      }
+      runSimulation();
+    }
+
+    function runSimulation() {
+      const clsKey = document.getElementById('simClass').value;
+      const classData = DATA[clsKey];
+      const tierName = currentTier === 'tier1' ? 'Posh Area' : (currentTier === 'tier2' ? 'Urban Area' : 'Suburban/Periphery');
+
+      document.getElementById('simTitle').innerText = `${classData.title} in ${tierName} (${currentMode === 'shared' ? 'Shared' : 'Solo Exclusive'})`;
+
+      const coinCost = classData.coins[currentTier][currentMode];
+      document.getElementById('simCoinCost').innerText = `${coinCost} 🪙`;
+      document.getElementById('simInrCost').innerText = `Equivalent to ₹${coinCost * 10}`;
+
+      const totalWalletCoins = 100;
+      const leadsUnlocked = Math.floor(totalWalletCoins / coinCost);
+      const remainder = totalWalletCoins % coinCost;
+
+      document.getElementById('simLeadsUnlocked').innerText = `${leadsUnlocked} ${leadsUnlocked === 1 ? 'Lead' : 'Leads'}`;
+      document.getElementById('simRemainder').innerText = remainder === 0 ? '0 coins remainder' : `${remainder} coins left in wallet`;
+
+      // ROI calculations
+      const monthlyFee = classData.monthlyFee[currentTier];
+      const annualFee = monthlyFee * 10;
+      const roi = Math.round(annualFee / 849);
+
+      document.getElementById('simTutorFee').innerText = `₹${monthlyFee.toLocaleString('en-IN')} / month`;
+      document.getElementById('simAnnualIncome').innerText = `₹${annualFee.toLocaleString('en-IN')}`;
+      document.getElementById('simRoiMultiplier').innerText = `${roi}x Return on ₹849!`;
+
+      // Platform profit
+      const grossRev = currentMode === 'shared' ? (coinCost * 10 * 5) : (coinCost * 10);
+      const profit = grossRev - 180;
+      const margin = Math.round((profit / grossRev) * 100);
+
+      document.getElementById('simPlatformRev').innerText = currentMode === 'shared' 
+        ? `₹${grossRev.toLocaleString('en-IN')} (if 5 tutors buy @ ₹${coinCost*10})` 
+        : `₹${grossRev.toLocaleString('en-IN')} (Single Solo Unlock)`;
+      document.getElementById('simPlatformProfit').innerText = `₹${profit.toLocaleString('en-IN')} (${margin}% Margin)`;
+    }
+
+    // Initialize on load
+    runSimulation();
+  </script>
+</body>
+</html>

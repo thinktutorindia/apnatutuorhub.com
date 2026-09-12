@@ -262,270 +262,380 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
         {/* 🎉 Festival Season ₹99 First-Time Pass Hero Card */}
         {currentPlan === "NONE" && (
-          <div className="relative overflow-hidden rounded-3xl p-[2px] mb-2 shadow-2xl" style={{background: 'linear-gradient(135deg, #F97316, #FBBF24, #F97316)'}}>
-            <div className="relative overflow-hidden rounded-[22px] p-5 sm:p-7" style={{background: 'linear-gradient(135deg, #1A0A00 0%, #2D1200 40%, #1A0800 100%)'}}>
-              <div className="absolute top-0 right-0 w-72 h-72 rounded-full blur-[80px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(249,115,22,0.25) 0%, transparent 70%)', transform: 'translate(20%, -20%)'}} />
-              <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-[80px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(251,191,36,0.15) 0%, transparent 70%)', transform: 'translate(-20%, 20%)'}} />
-
-              <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-                {/* Left content */}
-                <div className="flex-1 space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black text-white" style={{background: 'linear-gradient(90deg, #F97316, #EA580C)'}}>
-                      🔥 LIMITED FESTIVAL OFFER
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black text-yellow-300 border" style={{background: 'rgba(251,191,36,0.1)', borderColor: 'rgba(251,191,36,0.3)'}}>
-                      🌟 First-Time Tutor Welcome Pass
-                    </span>
-                  </div>
-
-                  <div>
-                    <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight" style={{fontFamily: "'Poppins', sans-serif"}}>
-                      Get Your First Lead for{' '}
-                      <span style={{background: 'linear-gradient(90deg, #F97316, #FBBF24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>₹99</span>{' '}
-                      <span className="text-sm font-bold text-slate-500 line-through">₹999</span>
-                    </h2>
-                    <p className="text-[13px] text-slate-300 mt-1">One verified lead of ANY class, ANY location — this festival season!</p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { icon: '✅', text: '1 Verified Lead' },
-                      { icon: '📚', text: 'Any Class (1–12)' },
-                      { icon: '📍', text: 'Any Location' },
-                      { icon: '💰', text: '30% Commission (1st Month)' },
-                    ].map(item => (
-                      <span key={item.text} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-semibold text-orange-200 border" style={{background: 'rgba(249,115,22,0.12)', borderColor: 'rgba(249,115,22,0.25)'}}>
-                        {item.icon} {item.text}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-slate-500">*30% commission from first month fee once tuition confirmed. Festival discounts on next plans.</p>
+          <div className="rounded-3xl border-2 border-amber-300 bg-gradient-to-r from-amber-50/80 via-white to-orange-50/50 p-6 sm:p-8 mb-8 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              {/* Left content */}
+              <div className="flex-1 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black text-white bg-amber-600 shadow-2xs">
+                    🔥 LIMITED FESTIVAL OFFER
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-amber-900 bg-amber-100 border border-amber-200">
+                    🌟 First-Time Tutor Welcome Pass
+                  </span>
                 </div>
 
-                {/* Right CTA */}
-                <div className="flex flex-col items-center gap-3 shrink-0 sm:min-w-[160px]">
-                  <div className="text-center">
-                    <div className="text-5xl font-black" style={{fontFamily: "'Poppins', sans-serif", background: 'linear-gradient(90deg, #F97316, #FBBF24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>₹99</div>
-                    <div className="text-[11px] font-black text-orange-300 uppercase tracking-widest mt-0.5">90% OFF · Festival</div>
-                    <div className="text-[10px] text-slate-500 line-through">Regular ₹999</div>
-                    <div className="text-[10px] text-emerald-400 font-bold">✅ No GST</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenCheckout('STARTER')}
-                    disabled={isLoading || ['STARTER','BRONZE','SILVER','GOLD','PLATINUM'].includes(currentPlan.toUpperCase())}
-                    className="w-full px-6 py-3.5 rounded-xl font-black text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95"
-                    style={{background: 'linear-gradient(135deg, #F97316, #FBBF24)', color: '#1A0800', boxShadow: '0 8px 32px rgba(249,115,22,0.4)'}}
-                  >
-                    {['STARTER','BRONZE','SILVER','GOLD','PLATINUM'].includes(currentPlan.toUpperCase()) ? '✅ Plan Active' : '🎉 Grab This — ₹99'}
-                  </button>
-                  <p className="text-[9px] text-slate-600 text-center">No hidden charges · Instant activation</p>
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-[#0F2540] leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    Get Your First Verified Lead for{" "}
+                    <span className="text-amber-600">₹99</span>{" "}
+                    <span className="text-sm font-semibold text-slate-400 line-through">₹999</span>
+                  </h2>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 mt-1">
+                    One verified lead of ANY class, ANY location — this festival season!
+                  </p>
                 </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[
+                    { icon: '✅', text: '1 Verified Lead' },
+                    { icon: '📚', text: 'Any Class (1–12)' },
+                    { icon: '📍', text: 'Any Location' },
+                    { icon: '💰', text: '30% Commission (1st Month)' },
+                  ].map(item => (
+                    <span key={item.text} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 shadow-2xs">
+                      <span>{item.icon}</span>
+                      <span>{item.text}</span>
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium">*30% commission from first month fee once tuition confirmed. Festival discounts on next plans.</p>
+              </div>
+
+              {/* Right CTA */}
+              <div className="flex flex-col items-center sm:items-end gap-3 shrink-0 w-full sm:w-auto text-center sm:text-right">
+                <div>
+                  <div className="text-4xl sm:text-5xl font-black text-[#0F2540]" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    ₹99
+                  </div>
+                  <div className="text-xs font-black text-amber-600 uppercase tracking-wider mt-0.5">
+                    90% OFF · Festival Special
+                  </div>
+                  <div className="text-xs text-slate-400 line-through font-medium">Regular ₹999</div>
+                  <div className="text-xs text-emerald-600 font-bold mt-0.5">✅ No GST on ₹99 Plan</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenCheckout('STARTER')}
+                  disabled={isLoading || ['STARTER','BRONZE','SILVER','GOLD','PLATINUM'].includes(currentPlan.toUpperCase())}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-black text-sm bg-[#0F2540] hover:bg-[#1A3C5E] text-white shadow-md cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {['STARTER','BRONZE','SILVER','GOLD','PLATINUM'].includes(currentPlan.toUpperCase()) ? '✅ Plan Active' : '🎉 Grab This — ₹99'}
+                </button>
+                <p className="text-[10px] text-slate-400">No hidden charges · Instant activation</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* 4 Plans Grid — clean white cards with coloured top strips */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch pt-4">
+        {/* 4 Plans Grid — clean white cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch pt-2">
 
           {/* ── BRONZE ── */}
-          <div className="rounded-2xl bg-white flex flex-col justify-between shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200 overflow-hidden border border-slate-100">
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between p-5 sm:p-6">
             <div>
-              {/* Colour strip */}
-              <div className="px-5 pt-5 pb-4" style={{background: 'linear-gradient(135deg, #92400E, #D97706, #F59E0B)'}}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black text-amber-100 uppercase tracking-wider">🥉 Bronze</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">50% OFF</span>
-                </div>
-                <div className="text-white">
-                  <div className="text-3xl font-black" style={{fontFamily:"'Poppins',sans-serif"}}>₹2,999</div>
-                  <div className="text-amber-200 text-xs line-through">₹6,000</div>
-                  <div className="text-amber-100 text-[10px] mt-0.5">+ ₹{getGstAmount(2999).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(2999).toLocaleString('en-IN')} total</div>
-                </div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                  🥉 Bronze
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  50% OFF
+                </span>
               </div>
-              {/* Body */}
-              <div className="px-5 py-4 space-y-3">
-                <div>
-                  <div className="font-black text-slate-800 text-sm">Bronze Plan</div>
-                  <div className="text-slate-400 text-xs">Essential entry tier for all subjects</div>
+
+              {/* Pricing */}
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black text-[#0F2540] tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    ₹2,999
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 line-through">₹6,000</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100 text-amber-800 text-xs font-bold">
-                  <Users size={13} className="shrink-0 text-amber-600" />
+                <div className="text-[11px] font-medium text-slate-500 mt-1">
+                  + ₹{getGstAmount(2999).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(2999).toLocaleString('en-IN')} total
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Essential entry tier for all subjects
+                </p>
+              </div>
+
+              {/* Competition & Quota */}
+              <div className="mt-4 space-y-2.5">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold">
+                  <Users size={14} className="shrink-0 text-slate-500" />
                   <span>Shared — up to 5 tutors per lead</span>
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">⚡ 10 Leads*</span>
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-50 text-slate-500 border border-slate-100">📅 1 Month</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">⚡ 10 Leads*</span>
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600">📅 1 Month</span>
                 </div>
-                <ul className="space-y-1.5 pt-1">
-                  {['10 Verified Leads* included','Shared with up to 5 tutors','Any class or subject','Full Parent Contact','Distance Matching 10km','24/7 Support Desk'].map(f => (
-                    <li key={f} className="flex items-start gap-2 text-xs text-slate-600">
-                      <span className="text-amber-500 shrink-0 mt-0.5 font-bold">✓</span><span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              {/* Features */}
+              <ul className="space-y-2">
+                {[
+                  '10 Verified Leads* included',
+                  'Shared with up to 5 tutors',
+                  'Any class or subject',
+                  'Full Parent Contact',
+                  'Distance Matching 10km',
+                  '24/7 Support Desk'
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
+                    <Check size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="px-5 pb-5">
-              <button type="button" disabled={isLoading || currentPlan === 'BRONZE'} onClick={() => handleOpenCheckout('BRONZE')}
-                className="w-full py-3 rounded-xl text-sm font-black transition-all cursor-pointer hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={currentPlan === 'BRONZE' ? {background:'#F1F5F9', color:'#64748B'} : {background:'linear-gradient(135deg,#92400E,#D97706)', color:'#fff', boxShadow:'0 4px 16px rgba(217,119,6,0.3)'}}>
+
+            {/* CTA */}
+            <div className="pt-6">
+              <button
+                type="button"
+                disabled={isLoading || currentPlan === 'BRONZE'}
+                onClick={() => handleOpenCheckout('BRONZE')}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#0F2540] hover:bg-[#1A3C5E] text-white shadow-sm active:scale-98"
+              >
                 {currentPlan === 'BRONZE' ? '✅ Active Plan' : 'Select Bronze Plan'}
               </button>
             </div>
           </div>
 
           {/* ── SILVER ── */}
-          <div className="rounded-2xl bg-white flex flex-col justify-between shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200 overflow-hidden border border-slate-100">
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between p-5 sm:p-6">
             <div>
-              <div className="px-5 pt-5 pb-4" style={{background: 'linear-gradient(135deg, #1E3A5F, #2563EB, #3B82F6)'}}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black text-blue-100 uppercase tracking-wider">🥈 Silver</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">25% OFF</span>
-                </div>
-                <div className="text-white">
-                  <div className="text-3xl font-black" style={{fontFamily:"'Poppins',sans-serif"}}>₹6,750</div>
-                  <div className="text-blue-200 text-xs line-through">₹9,000</div>
-                  <div className="text-blue-100 text-[10px] mt-0.5">+ ₹{getGstAmount(6750).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(6750).toLocaleString('en-IN')} total</div>
-                </div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                  🥈 Silver
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  25% OFF
+                </span>
               </div>
-              <div className="px-5 py-4 space-y-3">
-                <div>
-                  <div className="font-black text-slate-800 text-sm">Silver Plan</div>
-                  <div className="text-slate-400 text-xs">Low competition for steady leads</div>
+
+              {/* Pricing */}
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black text-[#0F2540] tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    ₹6,750
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 line-through">₹9,000</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 border border-blue-100 text-blue-800 text-xs font-bold">
-                  <UserCheck size={13} className="shrink-0 text-blue-600" />
+                <div className="text-[11px] font-medium text-slate-500 mt-1">
+                  + ₹{getGstAmount(6750).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(6750).toLocaleString('en-IN')} total
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Low competition for steady leads
+                </p>
+              </div>
+
+              {/* Competition & Quota */}
+              <div className="mt-4 space-y-2.5">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold">
+                  <UserCheck size={14} className="shrink-0 text-slate-600" />
                   <span>Low Competition — max 3 tutors</span>
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">⚡ 15 Leads*</span>
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-50 text-slate-500 border border-slate-100">📅 2 Months</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">⚡ 15 Leads*</span>
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600">📅 2 Months</span>
                 </div>
-                <ul className="space-y-1.5 pt-1">
-                  {['15 Verified Leads* included','Max 3 Tutors per Lead','Any class or subject','Direct Parent Call & Chat','Expanded Radius 15km','Priority Feed +1,500 Boost'].map(f => (
-                    <li key={f} className="flex items-start gap-2 text-xs text-slate-600">
-                      <span className="text-blue-500 shrink-0 mt-0.5 font-bold">✓</span><span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              {/* Features */}
+              <ul className="space-y-2">
+                {[
+                  '15 Verified Leads* included',
+                  'Max 3 Tutors per Lead',
+                  'Any class or subject',
+                  'Direct Parent Call & Chat',
+                  'Expanded Radius 15km',
+                  'Priority Feed +1,500 Boost'
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
+                    <Check size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="px-5 pb-5">
-              <button type="button" disabled={isLoading || currentPlan === 'SILVER'} onClick={() => handleOpenCheckout('SILVER')}
-                className="w-full py-3 rounded-xl text-sm font-black transition-all cursor-pointer hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={currentPlan === 'SILVER' ? {background:'#F1F5F9', color:'#64748B'} : {background:'linear-gradient(135deg,#1E3A5F,#2563EB)', color:'#fff', boxShadow:'0 4px 16px rgba(37,99,235,0.3)'}}>
+
+            {/* CTA */}
+            <div className="pt-6">
+              <button
+                type="button"
+                disabled={isLoading || currentPlan === 'SILVER'}
+                onClick={() => handleOpenCheckout('SILVER')}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#0F2540] hover:bg-[#1A3C5E] text-white shadow-sm active:scale-98"
+              >
                 {currentPlan === 'SILVER' ? '✅ Active Plan' : 'Select Silver Plan'}
               </button>
             </div>
           </div>
 
           {/* ── GOLD — Most Popular ── */}
-          <div className="rounded-2xl bg-white flex flex-col justify-between shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden relative" style={{border:'2px solid #F59E0B'}}>
-            <div className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1 rounded-b-xl text-[10px] font-black text-white z-10 whitespace-nowrap" style={{background:'linear-gradient(90deg,#D97706,#F59E0B)'}}>🔥 MOST POPULAR</div>
-            <div>
-              <div className="px-5 pt-8 pb-4" style={{background: 'linear-gradient(135deg, #78350F, #D97706, #FBBF24)'}}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black text-yellow-100 uppercase tracking-wider">🥇 Gold</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">25% OFF</span>
-                </div>
-                <div className="text-white">
-                  <div className="text-3xl font-black" style={{fontFamily:"'Poppins',sans-serif"}}>₹9,000</div>
-                  <div className="text-yellow-200 text-xs line-through">₹12,000</div>
-                  <div className="text-yellow-100 text-[10px] mt-0.5">+ ₹{getGstAmount(9000).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(9000).toLocaleString('en-IN')} total</div>
-                </div>
-              </div>
-              <div className="px-5 py-4 space-y-3">
-                <div>
-                  <div className="font-black text-slate-800 text-sm">Gold Plan</div>
-                  <div className="text-slate-400 text-xs">Semi-exclusive leads for busy tutors</div>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold">
-                  <Lock size={13} className="shrink-0 text-amber-600" />
-                  <span>🔒 Semi-Exclusive — max 2 tutors</span>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">⚡ 20 Leads*</span>
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-50 text-slate-500 border border-slate-100">📅 2 Months</span>
-                </div>
-                <ul className="space-y-1.5 pt-1">
-                  {['20 Verified Leads* included','Semi-Exclusive: Max 2 Tutors (2× conversion)','Any class or subject','High Priority Feed +3,000 Boost','Instant WhatsApp Alerts','🪙 +50 Bonus Wallet Coins'].map(f => (
-                    <li key={f} className="flex items-start gap-2 text-xs text-slate-600">
-                      <span className="text-amber-500 shrink-0 mt-0.5 font-bold">✓</span><span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <div className="rounded-2xl bg-white border-2 border-amber-400 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between p-5 sm:p-6 relative ring-4 ring-amber-400/10">
+            {/* Top Tag */}
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full text-[11px] font-black tracking-wide text-white bg-amber-500 shadow-sm whitespace-nowrap">
+              ⭐ MOST POPULAR
             </div>
-            <div className="px-5 pb-5">
-              <button type="button" disabled={isLoading || currentPlan === 'GOLD'} onClick={() => handleOpenCheckout('GOLD')}
-                className="w-full py-3 rounded-xl text-sm font-black transition-all cursor-pointer hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={currentPlan === 'GOLD' ? {background:'#FEF9C3', color:'#92400E'} : {background:'linear-gradient(135deg,#D97706,#FBBF24)', color:'#fff', boxShadow:'0 4px 20px rgba(217,119,6,0.4)'}}>
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3 mt-1">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                  🥇 Gold
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  25% OFF
+                </span>
+              </div>
+
+              {/* Pricing */}
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black text-[#0F2540] tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    ₹9,000
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 line-through">₹12,000</span>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500 mt-1">
+                  + ₹{getGstAmount(9000).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(9000).toLocaleString('en-IN')} total
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Semi-exclusive leads for busy tutors
+                </p>
+              </div>
+
+              {/* Competition & Quota */}
+              <div className="mt-4 space-y-2.5">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 text-xs font-semibold">
+                  <Lock size={14} className="shrink-0 text-amber-600" />
+                  <span>Semi-Exclusive — max 2 tutors</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">⚡ 20 Leads*</span>
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600">📅 2 Months</span>
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              {/* Features */}
+              <ul className="space-y-2">
+                {[
+                  '20 Verified Leads* included',
+                  'Semi-Exclusive: Max 2 Tutors (2× conversion)',
+                  'Any class or subject',
+                  'High Priority Feed +3,000 Boost',
+                  'Instant WhatsApp Alerts',
+                  '🪙 +50 Bonus Wallet Coins'
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
+                    <Check size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* CTA */}
+            <div className="pt-6">
+              <button
+                type="button"
+                disabled={isLoading || currentPlan === 'GOLD'}
+                onClick={() => handleOpenCheckout('GOLD')}
+                className="w-full py-3 rounded-xl text-sm font-extrabold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-amber-500 hover:bg-amber-600 text-white shadow-md active:scale-98"
+              >
                 {currentPlan === 'GOLD' ? '✅ Active Plan' : 'Select Gold Plan'}
               </button>
             </div>
           </div>
 
           {/* ── PLATINUM VIP ── */}
-          <div className="rounded-2xl flex flex-col justify-between shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden relative" style={{background:'#0C0A1A', border:'2px solid #7C3AED'}}>
-            <div className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1 rounded-b-xl text-[10px] font-black text-white z-10 whitespace-nowrap flex items-center gap-1" style={{background:'linear-gradient(90deg,#6D28D9,#7C3AED)'}}>
-              <Sparkles size={9} />VIP SOLO LOCK 👑
+          <div className="rounded-2xl bg-white border-2 border-[#0F2540] shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between p-5 sm:p-6 relative ring-4 ring-slate-900/5">
+            {/* Top Tag */}
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full text-[11px] font-black tracking-wide text-white bg-[#0F2540] shadow-sm whitespace-nowrap flex items-center gap-1">
+              <Crown size={12} className="text-amber-400" />
+              SOLO EXCLUSIVE
             </div>
             <div>
-              <div className="px-5 pt-8 pb-4" style={{background: 'linear-gradient(135deg, #2E1065, #5B21B6, #7C3AED)'}}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black text-purple-200 uppercase tracking-wider">👑 Platinum VIP</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">25% OFF</span>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3 mt-1">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#0F2540] text-white">
+                  👑 Platinum VIP
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  25% OFF
+                </span>
+              </div>
+
+              {/* Pricing */}
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black text-[#0F2540] tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    ₹18,000
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 line-through">₹24,000</span>
                 </div>
-                <div className="text-white">
-                  <div className="text-3xl font-black" style={{fontFamily:"'Poppins',sans-serif"}}>₹18,000</div>
-                  <div className="text-purple-300 text-xs line-through">₹24,000</div>
-                  <div className="text-purple-200 text-[10px] mt-0.5">+ ₹{getGstAmount(18000).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(18000).toLocaleString('en-IN')} total</div>
+                <div className="text-[11px] font-medium text-slate-500 mt-1">
+                  + ₹{getGstAmount(18000).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(18000).toLocaleString('en-IN')} total
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  100% Solo Exclusivity — all classes
+                </p>
+              </div>
+
+              {/* Competition & Quota */}
+              <div className="mt-4 space-y-2.5">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 text-xs font-bold">
+                  <Crown size={14} className="shrink-0 text-emerald-700" />
+                  <span>100% Solo Exclusive — locks to you</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">⚡ 30 Leads*</span>
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600">📅 3 Months</span>
                 </div>
               </div>
-              <div className="px-5 py-4 space-y-3">
-                <div>
-                  <div className="font-black text-purple-200 text-sm">Platinum VIP Plan</div>
-                  <div className="text-purple-400 text-xs">100% Solo Exclusivity — all classes</div>
-                </div>
-                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl border" style={{background:'rgba(124,58,237,0.15)', borderColor:'rgba(124,58,237,0.35)'}}>
-                  <Crown size={14} className="shrink-0 mt-0.5 text-purple-400" />
-                  <div>
-                    <div className="text-[11px] font-black text-purple-200">👑 100% Exclusive Solo Lead</div>
-                    <div className="text-[10px] text-purple-400 mt-0.5">Lead locks instantly — zero competition!</div>
-                  </div>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold" style={{background:'rgba(16,185,129,0.15)', color:'#34D399', border:'1px solid rgba(16,185,129,0.2)'}}>⚡ 30 Leads*</span>
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold" style={{background:'rgba(255,255,255,0.07)', color:'#C4B5FD', border:'1px solid rgba(196,181,253,0.2)'}}>📅 3 Months</span>
-                </div>
-                <ul className="space-y-1.5 pt-1">
-                  {['30 High-Value Leads* included','👑 100% Exclusive Solo Lead (Zero competition)','Any class, board, or entrance exam','🥇 #1 Priority Access +10,000 Boost','🪙 +100 Bonus Wallet Coins','📞 24/7 VIP Phone & WhatsApp Helpline'].map(f => (
-                    <li key={f} className="flex items-start gap-2 text-xs text-purple-300">
-                      <span className="text-purple-400 shrink-0 mt-0.5 font-bold">✓</span><span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              {/* Features */}
+              <ul className="space-y-2">
+                {[
+                  '30 High-Value Leads* included',
+                  '👑 100% Exclusive Solo Lead (Zero competition)',
+                  'Any class, board, or entrance exam',
+                  '🥇 #1 Priority Access +10,000 Boost',
+                  '🪙 +100 Bonus Wallet Coins',
+                  '📞 24/7 VIP Phone & WhatsApp Helpline'
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
+                    <Check size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="px-5 pb-5">
-              <button type="button" disabled={isLoading || currentPlan === 'PLATINUM'} onClick={() => handleOpenCheckout('PLATINUM')}
-                className="w-full py-3 rounded-xl text-sm font-black transition-all cursor-pointer hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={currentPlan === 'PLATINUM' ? {background:'rgba(124,58,237,0.2)', color:'#C4B5FD', border:'1px solid rgba(124,58,237,0.4)'} : {background:'linear-gradient(135deg,#5B21B6,#7C3AED)', color:'#fff', boxShadow:'0 4px 24px rgba(124,58,237,0.45)'}}>
+
+            {/* CTA */}
+            <div className="pt-6">
+              <button
+                type="button"
+                disabled={isLoading || currentPlan === 'PLATINUM'}
+                onClick={() => handleOpenCheckout('PLATINUM')}
+                className="w-full py-3 rounded-xl text-sm font-extrabold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#0F2540] hover:bg-[#1A3C5E] text-white shadow-md active:scale-98"
+              >
                 {currentPlan === 'PLATINUM' ? '✅ Active VIP' : '👑 Upgrade to Platinum VIP'}
               </button>
             </div>
           </div>
         </div>
-
-
-          {/* ── BRONZE ── */}
-          <div className="rounded-2xl flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl" style={{background: 'linear-gradient(160deg, #1C1408 0%, #2A1E08 50%, #1A1206 100%)', border: '1.5px solid rgba(217,119,6,0.4)'}}>
-            <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-[60px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(217,119,6,0.2) 0%, transparent 70%)', transform: 'translate(30%, -30%)'}} />
-            <div className="p-5 space-y-4 relative z-10">
-              {/* Header */}
 
         {/* Asterisk Footnote */}
 

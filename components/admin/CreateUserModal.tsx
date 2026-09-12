@@ -271,6 +271,18 @@ export function CreateUserModal({
   const [parentCustomSubject, setParentCustomSubject] = useState("");
   const [parentNotes, setParentNotes] = useState("");
 
+  // Lead / Entry Source Tag State
+  const [leadSourceTag, setLeadSourceTag] = useState("WhatsApp Inquiries (Direct / Chat)");
+  const [customLeadSource, setCustomLeadSource] = useState("");
+
+  // Parent Lead Creation Options
+  const [createParentLead, setCreateParentLead] = useState(true);
+  const [parentTeachingMode, setParentTeachingMode] = useState<TeachingMode>("OFFLINE");
+  const [parentBudgetRateType, setParentBudgetRateType] = useState<"MONTHLY" | "HOURLY">("MONTHLY");
+  const [parentBudgetMin, setParentBudgetMin] = useState("");
+  const [parentBudgetMax, setParentBudgetMax] = useState("");
+  const [parentGenderPref, setParentGenderPref] = useState("ANY");
+
   // Result state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [existingUserMatch, setExistingUserMatch] = useState<{
@@ -296,6 +308,9 @@ export function CreateUserModal({
     qualification?: string;
     experience?: number;
     locationSummary?: string;
+    leadId?: string;
+    inquiryNumber?: number;
+    leadSourceTag?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -522,6 +537,15 @@ export function CreateUserModal({
     setParentCustomSubject("");
     setParentNotes("");
 
+    setLeadSourceTag("WhatsApp Inquiries (Direct / Chat)");
+    setCustomLeadSource("");
+    setCreateParentLead(true);
+    setParentTeachingMode("OFFLINE");
+    setParentBudgetRateType("MONTHLY");
+    setParentBudgetMin("");
+    setParentBudgetMax("");
+    setParentGenderPref("ANY");
+
     setErrorMsg(null);
     setCreatedResult(null);
   };
@@ -653,6 +677,11 @@ export function CreateUserModal({
     const roleLabel = role === "TUTOR" ? "Tutor" : role === "PARENT" ? "Parent" : "User";
     const displayName = rawName || (normalizedPhone ? `${roleLabel} (${normalizedPhone.slice(-4)})` : roleLabel);
 
+    const finalSourceTag =
+      leadSourceTag === "CUSTOM"
+        ? (customLeadSource.trim() || "Custom / Staff Entry")
+        : leadSourceTag;
+
     const payload: CreateUserInput = {
       name: rawName || undefined,
       email: email.trim() || undefined,
@@ -666,6 +695,7 @@ export function CreateUserModal({
       address: effectiveAddress,
       latitude: selectedLocation?.lat,
       longitude: selectedLocation?.lon,
+      leadSourceTag: finalSourceTag,
     };
 
     if (role === "TUTOR") {
@@ -686,6 +716,12 @@ export function CreateUserModal({
       payload.board = parentBoard;
       payload.subjects = parentSubjects;
       payload.notes = parentNotes.trim() || undefined;
+      payload.createLead = createParentLead;
+      payload.leadMode = parentTeachingMode;
+      payload.leadBudgetMin = parentBudgetMin ? parseInt(parentBudgetMin, 10) : undefined;
+      payload.leadBudgetMax = parentBudgetMax ? parseInt(parentBudgetMax, 10) : undefined;
+      payload.leadGenderPref = parentGenderPref;
+      payload.leadNotes = parentNotes.trim() || undefined;
     }
 
     startTransition(async () => {
@@ -729,6 +765,9 @@ export function CreateUserModal({
           qualification: role === "TUTOR" ? tutorQualification.trim() || undefined : undefined,
           experience: role === "TUTOR" && tutorExperience ? parseInt(tutorExperience, 10) : undefined,
           locationSummary: locSummary,
+          leadId: res.data?.leadId,
+          inquiryNumber: res.data?.inquiryNumber,
+          leadSourceTag: finalSourceTag,
         });
       }
     });
@@ -741,6 +780,14 @@ export function CreateUserModal({
 
     if (createdResult.phone) {
       text += `\n📱 Mobile: +91 ${createdResult.phone}`;
+    }
+
+    if (createdResult.inquiryNumber) {
+      text += `\n📋 Lead Inquiry Code: #${createdResult.inquiryNumber} (Active for Matching)`;
+    }
+
+    if (createdResult.leadSourceTag) {
+      text += `\n🏷️ Lead Source: ${createdResult.leadSourceTag}`;
     }
 
     if (createdResult.role === "TUTOR") {
@@ -917,6 +964,28 @@ export function CreateUserModal({
                           {createdResult.temporaryPassword || customPassword || "12345678"}
                         </span>
                       </div>
+
+                      {/* Lead Source & Created Lead Info */}
+                      {(createdResult.leadSourceTag || createdResult.inquiryNumber) && (
+                        <div className="sm:col-span-2 text-[11px] bg-emerald-50/90 border border-emerald-200 p-2.5 rounded-xl text-emerald-950 flex flex-wrap items-center justify-between gap-2">
+                          {createdResult.leadSourceTag && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-emerald-700 font-semibold">🏷️ Source Tag:</span>
+                              <strong className="font-bold bg-white px-2 py-0.5 rounded border border-emerald-300">
+                                {createdResult.leadSourceTag}
+                              </strong>
+                            </div>
+                          )}
+                          {createdResult.inquiryNumber && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-emerald-700 font-semibold">⚡ Active Tuition Lead:</span>
+                              <strong className="font-bold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 font-mono">
+                                #{createdResult.inquiryNumber} (Published)
+                              </strong>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Location Summary */}
                       {createdResult.locationSummary && (
@@ -1308,6 +1377,45 @@ export function CreateUserModal({
                           )}
                         </div>
                       )}
+
+                      {/* Lead / Entry Source Tag Dropdown */}
+                      <div className="pt-2 border-t border-slate-200/80">
+                        <label className="mb-1.5 flex items-center justify-between font-bold text-slate-700 text-xs">
+                          <span className="flex items-center gap-1.5">
+                            <Layers size={14} className="text-[#2D9E6B]" />
+                            <span>Mark Lead / Entry Source</span>
+                          </span>
+                          <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Source Tracking
+                          </span>
+                        </label>
+                        <select
+                          value={leadSourceTag}
+                          onChange={(e) => setLeadSourceTag(e.target.value)}
+                          className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 outline-none cursor-pointer focus:border-[#2D9E6B] font-semibold text-xs transition-all shadow-2xs"
+                        >
+                          <option value="WhatsApp Inquiries (Direct / Chat)">📱 WhatsApp Inquiries (Direct / Chat)</option>
+                          <option value="Telecalling / Direct Call Entry">📞 Telecalling / Direct Call Entry</option>
+                          <option value="Website / Organic Form Entry">🌐 Website / Organic Form Entry</option>
+                          <option value="Offline / Pamphlet / Canopy Marketing">📋 Offline / Pamphlet / Canopy Marketing</option>
+                          <option value="Staff Direct Entry / Walk-in">👥 Staff Direct Entry / Walk-in</option>
+                          <option value="Batch Upload / Data Import">📦 Batch Upload / Data Import</option>
+                          <option value="Referral / Partner Recommendation">🤝 Referral / Partner Recommendation</option>
+                          <option value="CUSTOM">✍️ Other / Custom Tag…</option>
+                        </select>
+                        {leadSourceTag === "CUSTOM" && (
+                          <input
+                            type="text"
+                            value={customLeadSource}
+                            onChange={(e) => setCustomLeadSource(e.target.value)}
+                            placeholder="Type custom source (e.g. Newspaper Ad, Event Booth)"
+                            className="mt-2 w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] text-xs font-semibold shadow-2xs"
+                          />
+                        )}
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Marks this lead &amp; user account so staff can filter, run campaigns, and analyze conversions in future.
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -1682,6 +1790,90 @@ export function CreateUserModal({
                           placeholder="e.g. Looking for an experienced home tutor 4 days/week near Sangam Vihar for Class 10 CBSE Math & Science."
                           className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 text-xs font-medium outline-none focus:border-blue-500 shadow-2xs resize-none"
                         />
+                      </div>
+
+                      {/* Create Active Tuition Lead Toggle */}
+                      <div className="pt-2 border-t border-blue-200/60 space-y-3">
+                        <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-blue-200 shadow-2xs cursor-pointer hover:border-blue-300 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={createParentLead}
+                            onChange={(e) => setCreateParentLead(e.target.checked)}
+                            className="h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                          />
+                          <div>
+                            <span className="font-bold text-[#0F2540] text-xs flex items-center gap-1.5">
+                              <span>⚡ Also Create Active Tuition Lead for Tutors</span>
+                              <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                Recommended
+                              </span>
+                            </span>
+                            <span className="text-[11px] text-slate-500 block">
+                              Automatically posts this tuition requirement to the Tutor Lead Board, marked with your chosen Lead Source tag.
+                            </span>
+                          </div>
+                        </label>
+
+                        {createParentLead && (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-blue-100/40 border border-blue-200 animate-in fade-in duration-150">
+                            <div>
+                              <label className="mb-1 block font-bold text-slate-700 text-xs">Teaching Mode</label>
+                              <select
+                                value={parentTeachingMode}
+                                onChange={(e) => setParentTeachingMode(e.target.value as TeachingMode)}
+                                className="w-full rounded-xl px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-semibold outline-none cursor-pointer focus:border-blue-500 shadow-2xs"
+                              >
+                                <option value="OFFLINE">Home Tuition (Offline)</option>
+                                <option value="ONLINE">Online Only</option>
+                                <option value="EITHER">Home &amp; Online (Either)</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="font-bold text-slate-700 text-xs">
+                                  Budget ({parentBudgetRateType === "MONTHLY" ? "₹/mo" : "₹/hr"})
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => setParentBudgetRateType(parentBudgetRateType === "MONTHLY" ? "HOURLY" : "MONTHLY")}
+                                  className="text-[10px] font-extrabold text-blue-600 hover:text-blue-800 cursor-pointer bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200"
+                                >
+                                  {parentBudgetRateType === "MONTHLY" ? "📅 /mo" : "⏱️ /hr"}
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <input
+                                  type="number"
+                                  value={parentBudgetMin}
+                                  onChange={(e) => setParentBudgetMin(e.target.value)}
+                                  placeholder="Min ₹"
+                                  className="w-full rounded-xl px-2.5 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-semibold outline-none focus:border-blue-500 shadow-2xs"
+                                />
+                                <input
+                                  type="number"
+                                  value={parentBudgetMax}
+                                  onChange={(e) => setParentBudgetMax(e.target.value)}
+                                  placeholder="Max ₹"
+                                  className="w-full rounded-xl px-2.5 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-semibold outline-none focus:border-blue-500 shadow-2xs"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block font-bold text-slate-700 text-xs">Tutor Gender</label>
+                              <select
+                                value={parentGenderPref}
+                                onChange={(e) => setParentGenderPref(e.target.value)}
+                                className="w-full rounded-xl px-3 py-2 bg-white border border-slate-200 text-slate-900 text-xs font-semibold outline-none cursor-pointer focus:border-blue-500 shadow-2xs"
+                              >
+                                <option value="ANY">Any Tutor (Male/Female)</option>
+                                <option value="FEMALE">Female Tutor Preferred</option>
+                                <option value="MALE">Male Tutor Preferred</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

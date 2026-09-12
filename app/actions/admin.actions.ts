@@ -157,11 +157,19 @@ export type CreateUserInput = {
   classLevel?: string;
   board?: string;
   notes?: string;
+  // Lead & Source Tagging
+  leadSourceTag?: string;
+  createLead?: boolean;
+  leadMode?: TeachingMode;
+  leadBudgetMin?: number;
+  leadBudgetMax?: number;
+  leadGenderPref?: string;
+  leadNotes?: string;
 };
 
 export async function adminCreateUserAction(
   input: CreateUserInput
-): Promise<ActionResult<{ userId: string; email: string; temporaryPassword?: string }>> {
+): Promise<ActionResult<{ userId: string; email: string; temporaryPassword?: string; leadId?: string; inquiryNumber?: number }>> {
   const { error, session } = await requirePermission("users:manage");
   if (error) return actionError(error);
 
@@ -256,6 +264,8 @@ export async function adminCreateUserAction(
       },
     });
 
+    let createdLead: any = null;
+
     if (input.role === "PARENT") {
       const parent = await tx.parentProfile.create({
         data: {
@@ -269,6 +279,7 @@ export async function adminCreateUserAction(
         },
       });
 
+      let createdStudentId: string | null = null;
       const studentSubjects = input.subjects && input.subjects.length > 0 ? input.subjects : [];
       if (
         input.studentName ||
@@ -282,7 +293,7 @@ export async function adminCreateUserAction(
           inferClassLevelFromSubjects(studentSubjects) ||
           "General";
 
-        await tx.studentProfile.create({
+        const student = await tx.studentProfile.create({
           data: {
             parentProfileId: parent.id,
             name: input.studentName?.trim() || `${finalName}'s Child`,
@@ -290,6 +301,44 @@ export async function adminCreateUserAction(
             board: input.board?.trim() || null,
             subjects: studentSubjects,
             notes: input.notes?.trim() || null,
+          },
+        });
+        createdStudentId = student.id;
+      }
+
+      if (input.createLead && studentSubjects.length > 0) {
+        const finalClassLevel =
+          input.classLevel?.trim() ||
+          inferClassLevelFromSubjects(studentSubjects) ||
+          "General";
+        const nextInquiryNumber = await getNextInquiryNumber(tx);
+        const sourceTag = input.leadSourceTag?.trim() || "Staff Direct Entry";
+        const sourcePrefix = `[Source: ${sourceTag}]`;
+        const rawNote = input.leadNotes?.trim() || input.notes?.trim() || "";
+        const combinedNotes = [sourcePrefix, rawNote].filter(Boolean).join(" ");
+
+        createdLead = await tx.lead.create({
+          data: {
+            inquiryNumber: nextInquiryNumber,
+            parentProfileId: parent.id,
+            studentProfileId: createdStudentId,
+            subjects: studentSubjects,
+            classLevel: finalClassLevel,
+            board: input.board?.trim() || null,
+            mode: input.leadMode || "OFFLINE",
+            budgetMin: input.leadBudgetMin ?? null,
+            budgetMax: input.leadBudgetMax ?? null,
+            latitude: input.latitude ?? null,
+            longitude: input.longitude ?? null,
+            city: input.city?.trim() || null,
+            area: input.address?.trim() || input.city?.trim() || null,
+            pincode: input.pincode?.trim() || null,
+            tutorGenderPref: input.leadGenderPref || "ANY",
+            notes: combinedNotes,
+            status: "ACTIVE",
+            coinCost: 10,
+            maxTutors: 5,
+            radiusKm: 5,
           },
         });
       }
@@ -332,24 +381,31 @@ export async function adminCreateUserAction(
       });
     }
 
+    const sourceTag = input.leadSourceTag?.trim() ? ` [Source: ${input.leadSourceTag.trim()}]` : "";
+    const leadInfo = createdLead ? ` with Lead #${createdLead.inquiryNumber}` : "";
     await tx.auditLog.create({
       data: {
         adminId: session!.user.id,
         action: "CREATE_USER",
         entityType: "User",
         entityId: user.id,
-        details: `Created ${input.role} account for ${user.email} (${finalName})`,
+        details: `Created ${input.role} account for ${user.email} (${finalName})${sourceTag}${leadInfo}`,
       },
     });
 
-    return user;
+    return { user, createdLeadId: createdLead?.id, createdInquiryNumber: createdLead?.inquiryNumber };
   });
 
-    revalidatePath("/admin/users");
+  revalidatePath("/admin/users");
+  if (newUser.createdLeadId) {
+    revalidatePath("/admin/leads");
+  }
   return actionSuccess({
-    userId: newUser.id,
-    email: newUser.email,
+    userId: newUser.user.id,
+    email: newUser.user.email,
     temporaryPassword: input.password ? undefined : rawPassword,
+    leadId: newUser.createdLeadId,
+    inquiryNumber: newUser.createdInquiryNumber,
   });
 }
 
@@ -880,6 +936,7 @@ export type AdminCreateLeadInput = {
   tutorGenderPref?: string;
   languagePref?: string;
   notes?: string;
+  leadSourceTag?: string;
   coinCost?: number;
   maxTutors?: number;
   radiusKm?: number;
@@ -990,6 +1047,9 @@ export async function adminCreateLeadAction(
   // 3. Create Lead Record with Sequential Inquiry Number
   const nextInquiryNumber = await getNextInquiryNumber(prisma);
 
+  const sourcePrefix = input.leadSourceTag?.trim() ? `[Source: ${input.leadSourceTag.trim()}]` : "";
+  const finalLeadNotes = [sourcePrefix, input.notes?.trim()].filter(Boolean).join(" ") || null;
+
   const newLead = await prisma.lead.create({
     data: {
       inquiryNumber: nextInquiryNumber,
@@ -1009,7 +1069,7 @@ export async function adminCreateLeadAction(
       timingPreference: input.timingPreference ?? null,
       tutorGenderPref: input.tutorGenderPref ?? null,
       languagePref: input.languagePref ?? null,
-      notes: input.notes ?? null,
+      notes: finalLeadNotes,
       status: "ACTIVE",
       coinCost: input.coinCost && input.coinCost > 0 ? input.coinCost : 10,
       maxTutors: input.maxTutors && input.maxTutors > 0 ? input.maxTutors : 5,
@@ -2779,11 +2839,29 @@ export async function adminUpdateFullUserAction(
       },
     });
 
+    let finalLat = latitude;
+    let finalLon = longitude;
+    if ((finalLat === null || finalLon === null) && (address || city)) {
+      try {
+        const geo = await geocodeAddressWithGemini({
+          address: address || undefined,
+          city: city || undefined,
+          pincode: pincode || undefined,
+        });
+        if (geo?.lat && geo?.lng) {
+          finalLat = geo.lat;
+          finalLon = geo.lng;
+        }
+      } catch (err) {
+        console.warn("[adminUpdateFullUserAction] Geocode fallback:", err);
+      }
+    }
+
     if (role === "PARENT") {
       await tx.parentProfile.upsert({
         where: { userId },
-        create: { userId, city, state, pincode, address, latitude, longitude },
-        update: { city, state, pincode, address, latitude, longitude },
+        create: { userId, city, state, pincode, address, latitude: finalLat, longitude: finalLon },
+        update: { city, state, pincode, address, latitude: finalLat, longitude: finalLon },
       });
     } else if (role === "TUTOR") {
       const tp = await tx.tutorProfile.upsert({
@@ -2794,8 +2872,8 @@ export async function adminUpdateFullUserAction(
           state,
           pincode,
           address,
-          latitude,
-          longitude,
+          latitude: finalLat,
+          longitude: finalLon,
           onboardingStep,
           gender,
           dateOfBirth,
@@ -2831,8 +2909,8 @@ export async function adminUpdateFullUserAction(
           state,
           pincode,
           ...(address ? { address } : {}),
-          ...(latitude !== null ? { latitude } : {}),
-          ...(longitude !== null ? { longitude } : {}),
+          ...(finalLat !== null ? { latitude: finalLat } : {}),
+          ...(finalLon !== null ? { longitude: finalLon } : {}),
           onboardingStep,
           gender,
           dateOfBirth,

@@ -83,6 +83,7 @@ export default async function AdminLeadsPage({
               { area: { contains: q, mode: "insensitive" as const } },
               { classLevel: { contains: q, mode: "insensitive" as const } },
               { subjects: { hasSome: [q] } },
+              { notes: { contains: q, mode: "insensitive" as const } },
             ],
           }
         : {},
@@ -384,6 +385,27 @@ export default async function AdminLeadsPage({
                         <div className="pt-0.5">
                           <UserSubjectChips subjects={lead.subjects} maxVisible={4} />
                         </div>
+
+                        {/* Batch & Source Tag Badges */}
+                        {(() => {
+                          const batchMatch = lead.notes?.match(/\[Batch:\s*([^\]]+)\]/i);
+                          const sourceMatch = lead.notes?.match(/\[Source:\s*([^\]]+)\]/i);
+                          if (!batchMatch && !sourceMatch) return null;
+                          return (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                              {batchMatch && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-900 border border-purple-200 shadow-2xs">
+                                  <span>📦</span> {batchMatch[1]}
+                                </span>
+                              )}
+                              {sourceMatch && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs">
+                                  <span>🏷️</span> {sourceMatch[1]}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {lead.notes && (
                           <p className="text-[11px] font-medium text-slate-600 italic bg-slate-50 p-2 rounded-xl border border-slate-200/80 line-clamp-2">

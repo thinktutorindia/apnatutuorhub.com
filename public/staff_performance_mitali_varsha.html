@@ -1,0 +1,2757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Performance Audit: Mitali & Varsha | ApnaTutorHub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0F2540;
+      --primary-accent: #2563EB;
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --success-bg: #ECFDF5;
+      --success-text: #059669;
+      --purple-bg: #F5F3FF;
+      --purple-text: #7C3AED;
+      --amber-bg: #FFFBEB;
+      --amber-text: #D97706;
+      --blue-bg: #EFF6FF;
+      --blue-text: #1D4ED8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .container { max-width: 1280px; margin: 0 auto; }
+    header {
+      background: linear-gradient(135deg, #0F2540 0%, #1E3A8A 100%);
+      color: #fff;
+      padding: 32px;
+      border-radius: 20px;
+      margin-bottom: 28px;
+      box-shadow: 0 10px 25px -5px rgba(15, 37, 64, 0.15);
+    }
+    .header-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      padding: 4px 12px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .header-sub { color: #94A3B8; font-size: 14px; }
+    
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+    .staff-card {
+      background: var(--card-bg);
+      border-radius: 18px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04);
+    }
+    .staff-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .staff-name { font-size: 22px; font-weight: 800; color: var(--primary); }
+    .staff-role {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+      background: var(--blue-bg);
+      color: var(--blue-text);
+    }
+    .staff-email { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-box {
+      background: #F8FAFC;
+      border: 1px solid #EEF2F6;
+      padding: 14px;
+      border-radius: 12px;
+    }
+    .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+    .stat-val { font-size: 24px; font-weight: 800; color: var(--primary); }
+    .stat-desc { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+
+    .kpi-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .pill-green { background: var(--success-bg); color: var(--success-text); }
+    .pill-purple { background: var(--purple-bg); color: var(--purple-text); }
+    .pill-blue { background: var(--blue-bg); color: var(--blue-text); }
+
+    .tabs-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 2px;
+    }
+    .tab-btn {
+      padding: 10px 18px;
+      border-radius: 10px 10px 0 0;
+      border: none;
+      background: none;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: var(--primary-accent);
+      background: #fff;
+      border-bottom: 3px solid var(--primary-accent);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .table-container {
+      background: var(--card-bg);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; text-align: left; }
+    th {
+      background: #F8FAFC;
+      color: var(--text-muted);
+      font-weight: 700;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    td { padding: 14px 16px; border-bottom: 1px solid #F1F5F9; }
+    tr:hover td { background-color: #F8FAFC; }
+    .badge-primary { background: #EDE9FE; color: #6D28D9; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 11px; }
+    .badge-conv { background: #DEF7EC; color: #03543F; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 11px; }
+
+    .search-input {
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      width: 100%;
+      max-width: 380px;
+      margin-bottom: 16px;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--primary-accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+    @media (max-width: 900px) {
+      .comparison-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-badge">Executive Staff Audit</div>
+      <h1>Performance & Conversion Statistics: Mitali vs Varsha</h1>
+      <p class="header-sub">Detailed breakdown of primary leads moved, user account entries created, CRM telecalling metrics, and hours logged.</p>
+    </header>
+
+    <!-- Side-by-side Comparison -->
+    <div class="comparison-grid">
+      <!-- Mitali Card -->
+      <div class="staff-card">
+        <div class="staff-card-head">
+          <div>
+            <div class="staff-name">Mitali Jain</div>
+            <div class="staff-email">mitalijain0604@gmail.com</div>
+          </div>
+          <span class="staff-role">Sub-Admin (Support)</span>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-label">Conversions to Primary</div>
+            <div class="stat-val" style="color: #059669;">49</div>
+            <div class="stat-desc">CRM Leads Promoted (6.12% rate)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Direct Tutor Entries</div>
+            <div class="stat-val" style="color: #2563EB;">82</div>
+            <div class="stat-desc">Created in Admin Portal</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Total Calls Logged</div>
+            <div class="stat-val">649</div>
+            <div class="stat-desc">142 Answered, 48 Converted</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Total Work Logged</div>
+            <div class="stat-val">68.1 hrs</div>
+            <div class="stat-desc">12 Clocked Work Sessions</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <span class="kpi-pill pill-green">✓ 131 Total Primary Additions (49 CRM + 82 Direct)</span>
+          <span class="kpi-pill pill-purple">📞 801 Total CRM Leads Assigned</span>
+          <span class="kpi-pill pill-blue">✏️ 312 CRM Lead Edits</span>
+        </div>
+      </div>
+
+      <!-- Varsha Card -->
+      <div class="staff-card">
+        <div class="staff-card-head">
+          <div>
+            <div class="staff-name">Varsha Verma</div>
+            <div class="staff-email">varshuverma77@gmail.com</div>
+          </div>
+          <span class="staff-role">Sub-Admin (Support)</span>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-label">Direct Tutor Entries</div>
+            <div class="stat-val" style="color: #2563EB;">62</div>
+            <div class="stat-desc">Created in Admin Portal (61 Active)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Total Audit Actions</div>
+            <div class="stat-val" style="color: #7C3AED;">67</div>
+            <div class="stat-desc">62 Creates, 4 Edits, 1 Reset</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">CRM Leads Assigned</div>
+            <div class="stat-val">0</div>
+            <div class="stat-desc">Direct Entry Specialization</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">CRM Calls Logged</div>
+            <div class="stat-val">0</div>
+            <div class="stat-desc">No telecalling assignments</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <span class="kpi-pill pill-blue">✓ 62 Total Primary Tutor Additions</span>
+          <span class="kpi-pill pill-green">🧑‍🏫 100% Verified Tutor Profiles</span>
+          <span class="kpi-pill pill-purple">🛡️ Admin Portal Profile Management</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabbed Data Tables -->
+    <div class="tabs-bar">
+      <button class="tab-btn active" onclick="switchTab('mitali-crm')">Mitali: Converted CRM Leads (49)</button>
+      <button class="tab-btn" onclick="switchTab('mitali-tutors')">Mitali: Direct Tutor Entries (82)</button>
+      <button class="tab-btn" onclick="switchTab('varsha-tutors')">Varsha: Direct Tutor Entries (61)</button>
+      <button class="tab-btn" onclick="switchTab('mitali-sessions')">Mitali: Work Sessions (12)</button>
+    </div>
+
+    <input type="text" class="search-input" id="tableSearch" placeholder="🔍 Search records by name, phone, subject, location..." onkeyup="filterTable()">
+
+    <!-- Tab 1: Mitali CRM Leads -->
+    <div id="tab-mitali-crm" class="tab-content active">
+      <div class="table-container">
+        <table id="tableMitaliCrm">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Lead Name & Phone</th>
+              <th>Classes & Subjects</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Calls</th>
+              <th>Promoted</th>
+              <th>Date Converted</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>1</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Amar</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8376000427</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Chemistry, Physics For Class XI, Physics For Class XII, Chemistry For Class XI, Chemistry For Class XII</div>
+              </td>
+              <td>Geeta Colony, East Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">9 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>2</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Jagat Sharma</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8989067719</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 11, Class 12</div>
+                <div style="font-size: 12px; color: #64748B;">Physics For Class XII, Physics For Class XI, Physics for IITJEE</div>
+              </td>
+              <td>nainital</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>3</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Nikita</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9958554572</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Chemistry For Class XI, Chemistry For Class XII</div>
+              </td>
+              <td>north delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>4</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Shweta</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9810113423</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Psychology for Class XI, Psychology for Class XII, Economics for Class XI, Economics for Class XII, All Subjects For Class VIII, All Subjects For Class IX, All Subjects For Class X</div>
+              </td>
+              <td>Janakpuri, West Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>5</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">imran</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9205249481</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class IX, Maths for Class XII, Maths for Class X, Maths for Class XI, German Language</div>
+              </td>
+              <td>okhla</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>6</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Parent / Student</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9416805229</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class IX, Maths for Class XII, Maths for Class X, Maths for Class XI</div>
+              </td>
+              <td>Aadham pur</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>7</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Tripti</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9473526441</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">French</div>
+              </td>
+              <td>Rohini, North West Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>8</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Tanvi</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9699922026</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">German</div>
+              </td>
+              <td>MUMBAI</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>9</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Psychology</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9818274977</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Economics for Class XI, Economics for Class XII, All Subjects For Class VIII, All Subjects For Class IX, All Subjects For Class X</div>
+              </td>
+              <td>dwarka</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>10</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Sajjan Kumar</div>
+                <div style="font-size: 12px; color: #64748B;">📞 7042160501</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 11, Class 12</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class VIII, Maths for Class XI, Maths for Class X, Maths for Class IX, Maths for Class XII, Physics For Class XI, Physics For Class XII, Physics For Class X, Physics For Class IX, Physics upto Class VIII</div>
+              </td>
+              <td>Ashok vihar</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>11</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">yogesh</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8287558278</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class IX, Maths for Class X, Maths for Class XI, Maths for Class XII</div>
+              </td>
+              <td>North delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">7 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>12</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">tushar</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9315104094</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Accountancy for Class XI, Accountancy for Class XII</div>
+              </td>
+              <td>uttam nagar</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>13</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">shweta</div>
+                <div style="font-size: 12px; color: #64748B;">📞 7045002179</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Chemistry, All Subjects For Class VIII, All Subjects For Class IX, All Subjects For Class X, Physics For Class XI, Physics For Class XII, Maths for Class XII, Maths for Class XI</div>
+              </td>
+              <td>thane</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>14</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">ravi</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9311754214</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 8, Class 12</div>
+                <div style="font-size: 12px; color: #64748B;">Physics, Chemistry, Biology, History for Class XI - XII, Political Science for Class XI, Political Science for Class XII, History for College, Geography for Class XI - XII</div>
+              </td>
+              <td>vijay nagar</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>15</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Parent / Student</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9650859576</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Mathematics, All Subjects, All Subjects For Class X, All Subjects For Class IX</div>
+              </td>
+              <td>4</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>16</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Macs</div>
+                <div style="font-size: 12px; color: #64748B;">📞 7355682074</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 9, Class 10, Class 5, Class 8, Class 6, Class 7, Class 4, Class 3</div>
+                <div style="font-size: 12px; color: #64748B;">Physics For Class IX, Physics For Class X, All Subjects For Class V, All Subjects For Class VIII, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class IV, All Subjects For Class III</div>
+              </td>
+              <td>Sector 63 Road, Noida</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>17</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Tanu</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8882760200</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 8, Class 5, Class 2, Class 3, Class 6, Class 7, Class 4, Class 1</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For Class VIII, All Subjects For Class V, All Subjects For Class II, All Subjects For Class III, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class IV, All Subjects For Class I</div>
+              </td>
+              <td>GTB Nagar, Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>18</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Daya ram</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9571817056</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">English for XI - XII, English for IX - X</div>
+              </td>
+              <td>pratpat nagar</td>
+              <td><span class="badge-conv">NO_ANSWER</span></td>
+              <td><b>3</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>19</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Vivek tyagi</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9350230115</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 11, Class 12</div>
+                <div style="font-size: 12px; color: #64748B;">Economics for Class XI, Economics for Class XII, Accountancy for Class XI, Accountancy for Class XII</div>
+              </td>
+              <td>South, Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>20</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Somya</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9643292556</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Nursery / KG, Class 1, Class 5, Class 2, Class 3, Class 4</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For KG (Kindergarten), All Subjects For Class I, All Subjects For Class V, All Subjects For Class II, All Subjects For Class III, All Subjects For Class IV</div>
+              </td>
+              <td>Pari Chowk, Greater Noida</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>21</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Lokesh</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9911939693</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 9, Class 10, Class 2, Class 5, Class 8, Class 6, Class 3, Class 7</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class IX, Maths for Class X, All Subjects For Class II, All Subjects For Class V, All Subjects For Class VIII, All Subjects For Class VI, All Subjects For Class III, All Subjects For Class VII</div>
+              </td>
+              <td>Chandni Chowk, Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>22</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Parent / Student</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8871625536</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">History</div>
+              </td>
+              <td>Delhi NCR</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>0</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">5 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>23</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Bijay</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9354330172</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 9, Class 12, Class 10, Class 11</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class IX, Maths for Class XII, Maths for Class X, Maths for Class XI</div>
+              </td>
+              <td>Pitampura, Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>24</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">prathamesh</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8169131250</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 8, Class 5, Class 6, Class 7, Class 3, Class 4</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For Class VIII, All Subjects For Class V, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class III, All Subjects For Class IV</div>
+              </td>
+              <td>Mumbai</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>25</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">P Pavani</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9337599402</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 6, Class 7, Class 8, Class 9, Class 10, Class 11, Class 12</div>
+                <div style="font-size: 12px; color: #64748B;">Mathematics, Economics, Social Science, Political Science, Geography, History, Sanskrit, English</div>
+              </td>
+              <td>Laxmi Nagar, East Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>2</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>26</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Rohit</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9999570924</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 9, Class 10, Class 11, Class 12</div>
+                <div style="font-size: 12px; color: #64748B;">Accountancy, Maths for Class IX, Maths for Class X, Maths for Class XI, Maths for Class XII, Economics for Class XI, Economics for Class XII, Business Studies for Class XI, Business Studies for Class XII, Accountancy for Class XI, Accountancy for Class XII</div>
+              </td>
+              <td>GTB Nagar, North Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>27</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">shristi</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9910437591</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">Class 6, Class 10, Class 7, Class 9, Class 8</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For Class VI, All Subjects For Class X, All Subjects For Class VII, All Subjects For Class IX, All Subjects For Class VIII</div>
+              </td>
+              <td>Bhiwadi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>28</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Nitin</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9958684852</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class XII, Maths for Class IX, Maths for Class X, Maths for Class XI</div>
+              </td>
+              <td>noida sec - 50</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">1 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>29</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Anurag</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9899336605</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For Class VIII, All Subjects For Class V, All Subjects For Class II, All Subjects For Class VI, All Subjects For Class III, All Subjects For Class VII, All Subjects For Class IV, All Subjects For Class I, Accountancy for Class XI, Accountancy for Class XII, Economics for Class XI, Economics for Class XII</div>
+              </td>
+              <td>Pitampura</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">1 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>30</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Kunika Arora</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8368434712</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Hindi, All Subjects For Class V, All Subjects For Class VIII, All Subjects For Class II, All Subjects For Class III, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class IV, All Subjects For Class I</div>
+              </td>
+              <td>Azadpur</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>2</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">1 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>31</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Ajay</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8368584762</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Economics for Class XI, Economics for Class XII, Accountancy for Class XI, Accountancy for Class XII</div>
+              </td>
+              <td>preet vihar</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>32</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Chetna</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8587881806</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For KG (Kindergarten), All Subjects For Class I, All Subjects For Class IV, All Subjects For Class VI, All Subjects For Class III, All Subjects For Class II, All Subjects For Class V</div>
+              </td>
+              <td>Pitampura</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>33</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Bhawna</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8851304013</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For Class VIII, All Subjects For Class V, All Subjects For Class II, All Subjects For Class VI, All Subjects For Class III, All Subjects For Class IV, All Subjects For Class VII, All Subjects For Class I</div>
+              </td>
+              <td>Saket</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>34</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Anuja</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9711567381</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">History for Class XI - XII, Sociology for Class XI, Sociology for Class XII, Psychology for Class XI, Psychology for Class XII, Political Science for Class XI, Political Science for Class XII</div>
+              </td>
+              <td>Patel Nagar, Central Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>35</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Rada Mohan</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9818693878</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Economics for Class XI, Economics for Class XII, Business Studies for Class XI, Business Studies for Class XII, Accountancy for Class XI, Accountancy for Class XII</div>
+              </td>
+              <td>suth delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>36</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Bhavya</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8527694238</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Psychology for Class XI, Psychology for Class XII</div>
+              </td>
+              <td>gurgaon sec-43</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>37</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Sri Niwas</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8445400992</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class IX, Maths for Class XII, Maths for Class X, Maths for Class XI</div>
+              </td>
+              <td>Lucknow</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>2</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>38</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Roshan</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9599586675</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Economics for XI, Economics for XII, Accountancy for Class XI, Accountancy for Class XII, Business Studies for XII, Business Studies for XI</div>
+              </td>
+              <td>Rohini, GTB Nagar</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>2</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>39</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Manish</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9871500182</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Physics For Class XI, Physics For Class XII, Physics for IITJEE</div>
+              </td>
+              <td>north delhi</td>
+              <td><span class="badge-conv">CONTACTED</span></td>
+              <td><b>4</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>40</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Mk</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9911991288</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Maths for Class IX, Maths for Class X, Maths for Class XII, Maths for Class XI, Science for Class IX, Science for Class X, Biology for Class XI, Biology for Class XII, Chemistry For Class XI, Chemistry For Class XII, Physics For Class XI, Physics For Class XII</div>
+              </td>
+              <td>South Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>41</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Anisha</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9899746982</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">German</div>
+              </td>
+              <td>Dwarka</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>2</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>42</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Atab khari</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8368604494</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Biology for Class XI, Biology for Class XII, Chemistry For Class XI, Chemistry For Class XII</div>
+              </td>
+              <td>nagloi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>2</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>43</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">raj kishor</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9871718246</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Science for Class IX, Science for Class X, Physics For Class XI, Physics For Class XII, Chemistry For Class XI, Chemistry For Class XII, Maths for Class IX, Maths for Class X</div>
+              </td>
+              <td>Civil lines</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>2</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>44</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Runjan</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9217712944</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Biology, Biology for Class XI, Biology for Class XII, All Subjects For Class IX, All Subjects For Class X</div>
+              </td>
+              <td>east delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>45</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Pankaj</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9278234234</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Biology for Class XI, Biology for Class XII</div>
+              </td>
+              <td>Noida sec-28</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>46</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">knasreen</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9211903945</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">Hindi for Class VI to VIII, Hindi for Class IX or X, Hindi for Class XI or XII, Sanskrit</div>
+              </td>
+              <td>Patel Nagar, Central Delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>2</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>47</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">chetna</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9311702821</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">German</div>
+              </td>
+              <td>west delhi</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>48</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Ravi raj</div>
+                <div style="font-size: 12px; color: #64748B;">📞 8920399556</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For Class VIII, All Subjects For Class V, All Subjects For Class II, All Subjects For Class I, All Subjects For Class IV, All Subjects For Class VII, All Subjects For Class VI, All Subjects For Class III, Maths for Class IX, Maths for Class X, Maths for Class XI, Maths for Class XII</div>
+              </td>
+              <td>Noida, UP</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>49</td>
+              <td>
+                <div style="font-weight: 700; color: #0F2540;">Esha Manjar</div>
+                <div style="font-size: 12px; color: #64748B;">📞 9911105602</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">N/A</div>
+                <div style="font-size: 12px; color: #64748B;">All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class X, All Subjects For Class IX, All Subjects For Class VIII</div>
+              </td>
+              <td>kamla Nagar, Ghanta ghar</td>
+              <td><span class="badge-conv">CONVERTED</span></td>
+              <td><b>1</b></td>
+              <td><span class="badge-primary">✓ Moved to Primary</span></td>
+              <td style="font-size: 12px; color: #64748B;">30 Aug 2026</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 2: Mitali Direct Tutors -->
+    <div id="tab-mitali-tutors" class="tab-content">
+      <div class="table-container">
+        <table id="tableMitaliTutors">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tutor Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Location</th>
+              <th>Subjects</th>
+              <th>Date Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>1</td>
+              <td><b>Mishti Agarwal</b></td>
+              <td>📞 7428022512</td>
+              <td style="font-size: 12px; color: #64748B;">mishtiagarwal1412@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Psychology for Class XI, Psychology for Class XII, History for Class XI - XII, English for XI - XII</td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>2</td>
+              <td><b>Himanshu</b></td>
+              <td>📞 7488729595</td>
+              <td style="font-size: 12px; color: #64748B;">hsrollercoster5@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">History for Class XI - XII, Geography for Class XI - XII, Political Science for Class XI, Political Science for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>3</td>
+              <td><b>vikas tiwari</b></td>
+              <td>📞 8052375081</td>
+              <td style="font-size: 12px; color: #64748B;">tiwarivikas2004@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science for Class IX, Science for Class X, Biology for Class XII, Biology for Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>4</td>
+              <td><b>tanisha</b></td>
+              <td>📞 8882828826</td>
+              <td style="font-size: 12px; color: #64748B;">tanishatagra12@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class III, All Subjects For Class II, All Subjects For KG (Kindergarten), All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>5</td>
+              <td><b>Anshaj</b></td>
+              <td>📞 8920352253</td>
+              <td style="font-size: 12px; color: #64748B;">anshaj170@gmail.com</td>
+              <td>Gurgaon</td>
+              <td style="max-width: 250px;">History for Class XI - XII, Geography for Class XI - XII, Political Science for Class XI, Political Science for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>6</td>
+              <td><b>charu</b></td>
+              <td>📞 9811898736</td>
+              <td style="font-size: 12px; color: #64748B;">charbst@gmailo.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VIII, All Subjects For Class VII, All Subjects For Class VI, All Subjects For Class II</td>
+              <td style="font-size: 12px; color: #64748B;">4 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>7</td>
+              <td><b>askarif</b></td>
+              <td>📞 9339618233</td>
+              <td style="font-size: 12px; color: #64748B;">askarif214@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Biology for Class XII, Biology for Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">1 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>8</td>
+              <td><b>Sneha Rawat</b></td>
+              <td>📞 9968219753</td>
+              <td style="font-size: 12px; color: #64748B;">snrawat100@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class X, All Subjects For Class IX, Physics For Class XII, Physics For Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">1 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>9</td>
+              <td><b>kuldeep singh</b></td>
+              <td>📞 9711345197</td>
+              <td style="font-size: 12px; color: #64748B;">erkuldeep.research@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Physics For Class XII, Physics For Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">1 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>10</td>
+              <td><b>Satyam</b></td>
+              <td>📞 9984603271</td>
+              <td style="font-size: 12px; color: #64748B;">satyamsatty940@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science for Class IX, Science for Class X, Physics For Class XII, Physics For Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">1 Sept 2026</td>
+            </tr>
+
+            <tr>
+              <td>11</td>
+              <td><b>Shivangi Sharma</b></td>
+              <td>📞 9026749709</td>
+              <td style="font-size: 12px; color: #64748B;">user9026749709@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class X, All Subjects For Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">29 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>12</td>
+              <td><b>Yaduvanshi Ram</b></td>
+              <td>📞 8169219940</td>
+              <td style="font-size: 12px; color: #64748B;">ry114264@gmail.com</td>
+              <td>Mumbai</td>
+              <td style="max-width: 250px;">All Subjects For Class II, All Subjects For Class VI, All Subjects For Class X, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">29 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>13</td>
+              <td><b>kanchan</b></td>
+              <td>📞 9958277430</td>
+              <td style="font-size: 12px; color: #64748B;">anjuyadav74507@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class II, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>14</td>
+              <td><b>Aman pal singh</b></td>
+              <td>📞 8826039446</td>
+              <td style="font-size: 12px; color: #64748B;">rainoaman5@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class V, All Subjects For Class IX, All Subjects For Class VIII, All Subjects For Class VII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>15</td>
+              <td><b>Sunita</b></td>
+              <td>📞 9871493803</td>
+              <td style="font-size: 12px; color: #64748B;">sanjanasahanichirag@hmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class II, All Subjects For Class III, All Subjects For KG (Kindergarten), All Subjects For Class I</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>16</td>
+              <td><b>Jyoti Sharma</b></td>
+              <td>📞 9310182512</td>
+              <td style="font-size: 12px; color: #64748B;">user9310182512@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Economics for XI, Economics for XII, Business Studies for Class XI, Business Studies for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>17</td>
+              <td><b>Simran singh</b></td>
+              <td>📞 9971906759</td>
+              <td style="font-size: 12px; color: #64748B;">user9971906759@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class II, All Subjects For Class III, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>18</td>
+              <td><b>priyanka</b></td>
+              <td>📞 9650711312</td>
+              <td style="font-size: 12px; color: #64748B;">user9650711312@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class VIII, All Subjects For Class V, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>19</td>
+              <td><b>Bhumi singh</b></td>
+              <td>📞 8287575683</td>
+              <td style="font-size: 12px; color: #64748B;">bhumisingh0251@gmail.com</td>
+              <td>Ghaziabad</td>
+              <td style="max-width: 250px;">All Subjects For Class X, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>20</td>
+              <td><b>sonam</b></td>
+              <td>📞 9599562339</td>
+              <td style="font-size: 12px; color: #64748B;">sonamverma00880@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class X, All Subjects For Class VI, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>21</td>
+              <td><b>Manu</b></td>
+              <td>📞 9992544500</td>
+              <td style="font-size: 12px; color: #64748B;">phd2msc@gmail.com</td>
+              <td>Gurgaon</td>
+              <td style="max-width: 250px;">Science for Class IX, Science for Class X, Chemistry For Class XII, Chemistry For Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>22</td>
+              <td><b>Shabnam</b></td>
+              <td>📞 8447435893</td>
+              <td style="font-size: 12px; color: #64748B;">user8447435893@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VII, All Subjects For Class VI, All Subjects For Class III, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>23</td>
+              <td><b>Renuka</b></td>
+              <td>📞 8708755052</td>
+              <td style="font-size: 12px; color: #64748B;">user8708755052@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class X, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>24</td>
+              <td><b>Sejal</b></td>
+              <td>📞 9310934751</td>
+              <td style="font-size: 12px; color: #64748B;">user9310934751@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class X, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>25</td>
+              <td><b>Shariq  Manzoor</b></td>
+              <td>📞 7838848080</td>
+              <td style="font-size: 12px; color: #64748B;">user7838848080@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Economics for XI, Economics for XII, Accountancy for Class XI, Accountancy for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>26</td>
+              <td><b>Amit Kumar</b></td>
+              <td>📞 7678188415</td>
+              <td style="font-size: 12px; color: #64748B;">amitkumar.teacher2014@gmail.com</td>
+              <td>Noida</td>
+              <td style="max-width: 250px;">All Subjects For Class II, All Subjects For Class VI, All Subjects For Class X, All Subjects For Class VII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>27</td>
+              <td><b>Manoj yadav</b></td>
+              <td>📞 8750639728</td>
+              <td style="font-size: 12px; color: #64748B;">manojyadavgraduation@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class VIII, All Subjects For Class VII, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>28</td>
+              <td><b>Pankaj Rampal Badgujar</b></td>
+              <td>📞 9729744600</td>
+              <td style="font-size: 12px; color: #64748B;">user9729744600@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Maths for Class X, Maths for Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>29</td>
+              <td><b>Deepak Gupta</b></td>
+              <td>📞 8851397979</td>
+              <td style="font-size: 12px; color: #64748B;">samdeepak82@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Economics for Class XI, Economics for Class XII, Accountancy for Class XI, Accountancy for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>30</td>
+              <td><b>Priyamvada Singh</b></td>
+              <td>📞 9899075150</td>
+              <td style="font-size: 12px; color: #64748B;">cool_parulsingh@rediffmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">All Subjects For Class VII, All Subjects For Class VIII, All Subjects For Class IX, All Subjects For Class VI</td>
+              <td style="font-size: 12px; color: #64748B;">27 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>31</td>
+              <td><b>Gurpreet kaur</b></td>
+              <td>📞 9711449830</td>
+              <td style="font-size: 12px; color: #64748B;">gurpreetkaur97144@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class II, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>32</td>
+              <td><b>Naman</b></td>
+              <td>📞 7838541006</td>
+              <td style="font-size: 12px; color: #64748B;">namannamdev1006@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">Economics for Class XII, Economics for Class XI, Business Studies for Class XI, Business Studies for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>33</td>
+              <td><b>Abhishek Kumar Das</b></td>
+              <td>📞 8336012167</td>
+              <td style="font-size: 12px; color: #64748B;">akdita1996@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science for Class IX, Science for Class X, Maths for Class IX, Maths for Class X</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>34</td>
+              <td><b>Faisal khan</b></td>
+              <td>📞 7503505172</td>
+              <td style="font-size: 12px; color: #64748B;">faizy6192@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">English for VI to VIII, English for IX - X, English for XI - XII, Arabic Language</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>35</td>
+              <td><b>Shailesh Kumar</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">roundoffeducations@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">Economics for Class XI, Economics for Class XII, Income Tax, Business Law</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>36</td>
+              <td><b>Diya</b></td>
+              <td>📞 9643105322</td>
+              <td style="font-size: 12px; color: #64748B;">diya3548@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Economics for Class XI, Economics for Class XII, Business Studies for Class XI, Business Studies for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>37</td>
+              <td><b>Vibha Verma</b></td>
+              <td>📞 9711955741</td>
+              <td style="font-size: 12px; color: #64748B;">varmavibha058@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class II, All Subjects For Class III, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>38</td>
+              <td><b>shikha gupta</b></td>
+              <td>📞 9873138560</td>
+              <td style="font-size: 12px; color: #64748B;">user9873138560@apnatutorhub.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class III, All Subjects For Class II, All Subjects For Class I, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>39</td>
+              <td><b>Tasneem Rehman</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">rehmanrinku525@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">English for VI to VIII, English upto V, English for IX - X, All Subjects For Class II</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>40</td>
+              <td><b>Mahesh Kumar</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">maheshchandravansi@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science for Class VI, Science for Class X, Science for Class VII, Science for Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>41</td>
+              <td><b>Sangeeta</b></td>
+              <td>📞 8638590325</td>
+              <td style="font-size: 12px; color: #64748B;">sangeetagoyal5515@gmail.com</td>
+              <td>Assam</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class VIII, All Subjects For Class V, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>42</td>
+              <td><b>Vinay Kumar</b></td>
+              <td>📞 7080258059</td>
+              <td style="font-size: 12px; color: #64748B;">vinaykumar596859@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class X, All Subjects For Class VI, All Subjects For Class II, All Subjects For Class VII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>43</td>
+              <td><b>Sumbul</b></td>
+              <td>📞 9871502718</td>
+              <td style="font-size: 12px; color: #64748B;">sumbulkhan292@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class II, All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>44</td>
+              <td><b>Roshni Sharma</b></td>
+              <td>📞 9350454542</td>
+              <td style="font-size: 12px; color: #64748B;">roshnisharma2210@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">English for IX - X, English for XI - XII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>45</td>
+              <td><b>Jubi Das</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">jubidas13@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>46</td>
+              <td><b>Shweta Saini</b></td>
+              <td>📞 9643248165</td>
+              <td style="font-size: 12px; color: #64748B;">ms5668368@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science for Class IX, Science for Class X, Maths for Class XI, Maths for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>47</td>
+              <td><b>Vipin</b></td>
+              <td>📞 9285342184</td>
+              <td style="font-size: 12px; color: #64748B;">am7466312@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science for Class IX, Science for Class X, Science for Class VII, Science for Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>48</td>
+              <td><b>Jyoti</b></td>
+              <td>📞 9999560829</td>
+              <td style="font-size: 12px; color: #64748B;">9990059313@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class X, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>49</td>
+              <td><b>Gunika Singhal</b></td>
+              <td>📞 9711890834</td>
+              <td style="font-size: 12px; color: #64748B;">gunikasinghal05@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class V, All Subjects For Class I, All Subjects For Class IV, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>50</td>
+              <td><b>Neerja Kaushik Mishra</b></td>
+              <td>📞 8178027546</td>
+              <td style="font-size: 12px; color: #64748B;">neerjakaushikmishra@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class V, All Subjects For Class IX, All Subjects For Class VIII, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>51</td>
+              <td><b>Charu Garg</b></td>
+              <td>📞 7011465395</td>
+              <td style="font-size: 12px; color: #64748B;">charugarg284@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For KG (Kindergarten), All Subjects For Class I, All Subjects For Class V, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>52</td>
+              <td><b>Neetu Agarwal</b></td>
+              <td>📞 9773687222</td>
+              <td style="font-size: 12px; color: #64748B;">neetuagarwal5239@gmail.com</td>
+              <td>Ghaziabad</td>
+              <td style="max-width: 250px;">All Subjects For Class VII, All Subjects For Class VIII, All Subjects For Class IX, All Subjects For Class V</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>53</td>
+              <td><b>Komal Saini</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">komalsaini99326@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class III, All Subjects For Class V, All Subjects For Class IX, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>54</td>
+              <td><b>Rajeev Jain</b></td>
+              <td>📞 9873470250</td>
+              <td style="font-size: 12px; color: #64748B;">30rajeev@gmail.com</td>
+              <td>Noida</td>
+              <td style="max-width: 250px;">Economics for XII, Economics for XI, Accounts for XII, Accounts for XI</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>55</td>
+              <td><b>Muskan Yadav</b></td>
+              <td>📞 9389395080</td>
+              <td style="font-size: 12px; color: #64748B;">my9373904@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VIII, All Subjects For Class VII, All Subjects For Class VI, All Subjects For Class II</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>56</td>
+              <td><b>Jai Kumar</b></td>
+              <td>📞 9911589924</td>
+              <td style="font-size: 12px; color: #64748B;">jk_mus@rediffmail.com</td>
+              <td>Faridabad</td>
+              <td style="max-width: 250px;">Science for Class IX, Science for Class X, Physics For Class XII, Physics For Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>57</td>
+              <td><b>Amit</b></td>
+              <td>📞 7503241869</td>
+              <td style="font-size: 12px; color: #64748B;">amit6611560@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Psychology for Class XI, Psychology for Class XII, Economics for Class XI, Economics for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>58</td>
+              <td><b>Desh Deepak</b></td>
+              <td>📞 7088245195</td>
+              <td style="font-size: 12px; color: #64748B;">panditdeepak7088@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class II, All Subjects For Class VI, All Subjects For Class X, All Subjects For Class VII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>59</td>
+              <td><b>Ajay kumar</b></td>
+              <td>📞 9832686726</td>
+              <td style="font-size: 12px; color: #64748B;">p.ajaykumar1310@gmail.com</td>
+              <td>India</td>
+              <td style="max-width: 250px;">Maths for Class VII, Maths for Class VI, Maths for Class X, Maths for Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>60</td>
+              <td><b>Ruby Kapoor</b></td>
+              <td>📞 7982009356</td>
+              <td style="font-size: 12px; color: #64748B;">rubykapoor050@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII, All Subjects For Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>61</td>
+              <td><b>Dolsy</b></td>
+              <td>📞 8287405009</td>
+              <td style="font-size: 12px; color: #64748B;">dolsyarora8@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class V, All Subjects For Class IV, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>62</td>
+              <td><b>Rajender Singh Mehra</b></td>
+              <td>📞 8087772002</td>
+              <td style="font-size: 12px; color: #64748B;">8rajenderm@gmail.com</td>
+              <td>Greater Noida</td>
+              <td style="max-width: 250px;">Science for Class X, Science for Class IX, Maths for Class IX, Maths for Class X</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>63</td>
+              <td><b>Gopal Sharma</b></td>
+              <td>📞 9999183670</td>
+              <td style="font-size: 12px; color: #64748B;">gopalsharmaclasses@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Economics for XI, Economics for XII, Accountancy for Class XI, Accountancy for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>64</td>
+              <td><b>Preeti tanwar</b></td>
+              <td>📞 7703837488</td>
+              <td style="font-size: 12px; color: #64748B;">pt5682521@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class V, All Subjects For Class IV, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>65</td>
+              <td><b>Jessica Jatolia</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">anuragkapoor976@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">All Subjects For Class VII, All Subjects For Class VI, All Subjects For Class V, All Subjects For Class II</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>66</td>
+              <td><b>Sneha Kansal</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">kansalsneha9@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">History for Class XI - XII, Home Science for Class XII, Home Science for Class XI, Political Science for Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>67</td>
+              <td><b>AP</b></td>
+              <td>📞 9336540683</td>
+              <td style="font-size: 12px; color: #64748B;">ap5851914@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class X, All Subjects For Class VI, All Subjects For Class II</td>
+              <td style="font-size: 12px; color: #64748B;">26 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>68</td>
+              <td><b>Sameer</b></td>
+              <td>📞 9625024317</td>
+              <td style="font-size: 12px; color: #64748B;">samthakur1080@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class X, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>69</td>
+              <td><b>Vinita Bhargav</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">gitak6864@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">Chemistry For Class XI, Chemistry For Class XII, Chemistry for NEET, Chemistry for IITJEE</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>70</td>
+              <td><b>Sushen Kumar</b></td>
+              <td>📞 9162002661</td>
+              <td style="font-size: 12px; color: #64748B;">91sushen@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class II, All Subjects For Class VIII, All Subjects For Class IV, All Subjects For Class VII</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>71</td>
+              <td><b>Mukul Solanki</b></td>
+              <td>📞 8368161212</td>
+              <td style="font-size: 12px; color: #64748B;">solankimukul25@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Political Science for Class XI, Political Science for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>72</td>
+              <td><b>Varsha Mehta</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">vrisham2004@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class II, All Subjects For Class III, All Subjects For Class VII</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>73</td>
+              <td><b>Neha</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">nehasingh24426@gmail.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">All Subjects For KG (Kindergarten), All Subjects For Class I, All Subjects For Class II, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>74</td>
+              <td><b>Mohammad Mahboob Alam</b></td>
+              <td>📞 8076450268</td>
+              <td style="font-size: 12px; color: #64748B;">mahboobmd36@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII, All Subjects For Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>75</td>
+              <td><b>Dr. Ram Sevak Jatav</b></td>
+              <td>📞 8802462450</td>
+              <td style="font-size: 12px; color: #64748B;">ramkumaranand419@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">History for Class XI - XII</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>76</td>
+              <td><b>Aditya Kumar</b></td>
+              <td>📞 6206531396</td>
+              <td style="font-size: 12px; color: #64748B;">adityasrvn@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class II, All Subjects For Class I, All Subjects For Class III, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>77</td>
+              <td><b>Sikha Sinha</b></td>
+              <td>📞 6005695945</td>
+              <td style="font-size: 12px; color: #64748B;">sikhasinha281999@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class V, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>78</td>
+              <td><b>Showkat Ahmad Mir</b></td>
+              <td>📞 7780859089</td>
+              <td style="font-size: 12px; color: #64748B;">showkatalam450@gmail.com</td>
+              <td>Jammu and Kashmir</td>
+              <td style="max-width: 250px;">Maths for Class VII, Maths for Class VIII, Maths for Class IX, Maths for Class X</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>79</td>
+              <td><b>Bhupender</b></td>
+              <td>📞 9560632298</td>
+              <td style="font-size: 12px; color: #64748B;">bupender0006@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Accountancy for Class XI, Accountancy for Class XII, Business Studies for Class XI, Business Studies for Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>80</td>
+              <td><b>Rajesh</b></td>
+              <td>📞 9871178708</td>
+              <td style="font-size: 12px; color: #64748B;">rajeshgarg91272@gmail.com</td>
+              <td>Faridabad</td>
+              <td style="max-width: 250px;">All Subjects For Class IX, All Subjects For Class X, Maths for Class XII, History for Class XI - XII</td>
+              <td style="font-size: 12px; color: #64748B;">25 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>81</td>
+              <td><b>Muskan</b></td>
+              <td>📞 9773812528</td>
+              <td style="font-size: 12px; color: #64748B;">muskan144315@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class II, All Subjects For Class III, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">24 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>82</td>
+              <td><b>R.C Yadav</b></td>
+              <td>📞 9818488852</td>
+              <td style="font-size: 12px; color: #64748B;">rchandradps@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science for Class X, Science for Class IX, Maths for Class IX, Maths for Class X</td>
+              <td style="font-size: 12px; color: #64748B;">24 Aug 2026</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 3: Varsha Direct Tutors -->
+    <div id="tab-varsha-tutors" class="tab-content">
+      <div class="table-container">
+        <table id="tableVarshaTutors">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tutor Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Location</th>
+              <th>Subjects</th>
+              <th>Date Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>1</td>
+              <td><b>Nandita Chauhan</b></td>
+              <td>📞 7838861875</td>
+              <td style="font-size: 12px; color: #64748B;">nanditapchauhan@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class IV, All Subjects For Class I, All Subjects For Class II, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>2</td>
+              <td><b>Kiran Gulati</b></td>
+              <td>📞 9711299260</td>
+              <td style="font-size: 12px; color: #64748B;">kirangulsti05@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class II, All Subjects For Class III, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>3</td>
+              <td><b>Swati jain</b></td>
+              <td>📞 8373938860</td>
+              <td style="font-size: 12px; color: #64748B;">arhamswati01@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class IV, All Subjects For Class VII, All Subjects For Class X</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>4</td>
+              <td><b>Mohammad Aquib</b></td>
+              <td>📞 8419021145</td>
+              <td style="font-size: 12px; color: #64748B;">aquibmohammad9211@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">French Language, All Subjects For Class I, All Subjects For Class II, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>5</td>
+              <td><b>Nidhi Gupta</b></td>
+              <td>📞 9873681824</td>
+              <td style="font-size: 12px; color: #64748B;">nidhigupta1824@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects for Preparatory, All Subjects For KG (Kindergarten), All Subjects For Class I, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>6</td>
+              <td><b>Deepanshu</b></td>
+              <td>📞 8851201432</td>
+              <td style="font-size: 12px; color: #64748B;">dkprajapati8305@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Physics For Class XI, Physics For Class XII, Chemistry For Class XI, Chemistry For Class XII</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>7</td>
+              <td><b>Savita Mulchandani</b></td>
+              <td>📞 7042162473</td>
+              <td style="font-size: 12px; color: #64748B;">savitamulchandani306@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For KG (Kindergarten), All Subjects For Class I, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>8</td>
+              <td><b>Anil ghai</b></td>
+              <td>📞 8588089123</td>
+              <td style="font-size: 12px; color: #64748B;">agvp235a@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII, All Subjects For Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>9</td>
+              <td><b>Gopikaa</b></td>
+              <td>📞 9501232444</td>
+              <td style="font-size: 12px; color: #64748B;">jindalgopikaa@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VII, All Subjects For Class VIII, All Subjects For Class VI, All Subjects For Class V</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>10</td>
+              <td><b>Rajnikant bharti</b></td>
+              <td>📞 8744026796</td>
+              <td style="font-size: 12px; color: #64748B;">rajnikantbharti55@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Maths</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>11</td>
+              <td><b>Mohit jha</b></td>
+              <td>📞 9717544177</td>
+              <td style="font-size: 12px; color: #64748B;">m76448649@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class IX, All Subjects For Class X, All Subjects For Class VII, All Subjects For Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>12</td>
+              <td><b>anisha</b></td>
+              <td>📞 9818541405</td>
+              <td style="font-size: 12px; color: #64748B;">anishabhatia1712@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class V, All Subjects For Class II, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>13</td>
+              <td><b>Prashita</b></td>
+              <td>📞 9718994049</td>
+              <td style="font-size: 12px; color: #64748B;">prashitasikka@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Economics for IX - X, Economics for XI, Economics for XII</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>14</td>
+              <td><b>Harpal</b></td>
+              <td>📞 9811913030</td>
+              <td style="font-size: 12px; color: #64748B;">harpal.taneja@yahoo.com</td>
+              <td>Delhi NCR</td>
+              <td style="max-width: 250px;">German Language, English, Business Studies for XII, Business Studies for XI</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>15</td>
+              <td><b>Sheetal</b></td>
+              <td>📞 9582696120</td>
+              <td style="font-size: 12px; color: #64748B;">sheetalnayyarteacher00@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For KG (Kindergarten), All Subjects For Class I, All Subjects For Class IV, All Subjects For Class X</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>16</td>
+              <td><b>Deepanshu</b></td>
+              <td>📞 9625360805</td>
+              <td style="font-size: 12px; color: #64748B;">deepanshu2023happy@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Chemistry For Class X, Chemistry For Class IX, Chemistry For Class XI, Physics For Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>17</td>
+              <td><b>Manish</b></td>
+              <td>📞 9958762552</td>
+              <td style="font-size: 12px; color: #64748B;">jtopcdma@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VII, All Subjects For Class X, All Subjects For Class IX, All Subjects For Class VI</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>18</td>
+              <td><b>Riya</b></td>
+              <td>📞 9717184525</td>
+              <td style="font-size: 12px; color: #64748B;">riyasain0112@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class II, All Subjects For Class III, All Subjects For Class VI</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>19</td>
+              <td><b>Gurpreet Kaur</b></td>
+              <td>📞 9711440830</td>
+              <td style="font-size: 12px; color: #64748B;">gurpreetkaur971144@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class VIII, All Subjects For Class V, All Subjects For Class VI</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>20</td>
+              <td><b>ajay kumar</b></td>
+              <td>📞 8076696178</td>
+              <td style="font-size: 12px; color: #64748B;">jhsynr@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Psychology, Sociology, English</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>21</td>
+              <td><b>NARAYAN DUTT RAY</b></td>
+              <td>📞 7061606326</td>
+              <td style="font-size: 12px; color: #64748B;">narayan1485dps@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science &amp; Maths, Social Science, Science for Class VIII, Science for Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>22</td>
+              <td><b>Prachi Sethi</b></td>
+              <td>📞 9205376249</td>
+              <td style="font-size: 12px; color: #64748B;">prachisethi230@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">French Language</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>23</td>
+              <td><b>versha Garg</b></td>
+              <td>📞 8168436986</td>
+              <td style="font-size: 12px; color: #64748B;">vershagarg49@gmail.com</td>
+              <td>Faridabad</td>
+              <td style="max-width: 250px;">Accounts for IX, Accounts for X, Accounts for XI, Accounts for XII</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>24</td>
+              <td><b>Shreya Vishwakarma</b></td>
+              <td>📞 8188007422</td>
+              <td style="font-size: 12px; color: #64748B;">shreyav925@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class V, All Subjects For Class II, All Subjects For Class III</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>25</td>
+              <td><b>Altamash</b></td>
+              <td>📞 8057310545</td>
+              <td style="font-size: 12px; color: #64748B;">qabrialtamash76@gmail.com</td>
+              <td>Bareilly</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class II, All Subjects For Class III, All Subjects For Class V</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>26</td>
+              <td><b>indra sen</b></td>
+              <td>📞 9315785330</td>
+              <td style="font-size: 12px; color: #64748B;">isen47914@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class V, All Subjects For Class VI, All Subjects For Class X, All Subjects For Class VII</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>27</td>
+              <td><b>Rasik sibal</b></td>
+              <td>📞 8800498576</td>
+              <td style="font-size: 12px; color: #64748B;">rasiksibal@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class IV, All Subjects For Class VIII, All Subjects For Class V</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>28</td>
+              <td><b>Sapna</b></td>
+              <td>📞 9773638193</td>
+              <td style="font-size: 12px; color: #64748B;">baberwal8193@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class II, All Subjects For Class III, All Subjects For Class VI</td>
+              <td style="font-size: 12px; color: #64748B;">21 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>29</td>
+              <td><b>om prakash gupta</b></td>
+              <td>📞 6299461174</td>
+              <td style="font-size: 12px; color: #64748B;">omprakashgupta10798@gmail.com</td>
+              <td>patel nagar</td>
+              <td style="max-width: 250px;">Maths for Class X, Science for Class X, Science upto Class V, Science for Class VI</td>
+              <td style="font-size: 12px; color: #64748B;">20 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>30</td>
+              <td><b>manoj goyal</b></td>
+              <td>📞 8178320170</td>
+              <td style="font-size: 12px; color: #64748B;">goyalmanu81@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Maths for Class X, Maths for Class IX, Maths for Class VIII, Accounts for IX</td>
+              <td style="font-size: 12px; color: #64748B;">20 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>31</td>
+              <td><b>Pawansut kumar</b></td>
+              <td>📞 9953560030</td>
+              <td style="font-size: 12px; color: #64748B;">pawansutkumar2020@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class VI, All Subjects For Class VII, All Subjects For Class VIII, All Subjects For Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">20 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>32</td>
+              <td><b>Ravi Kant Sharma</b></td>
+              <td>📞 7982373726</td>
+              <td style="font-size: 12px; color: #64748B;">rks5395@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Maths for Class X, Science for Class X, Science for Class IX, Maths for Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">20 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>33</td>
+              <td><b>Randhir Kumar Sharma</b></td>
+              <td>📞 9990077691</td>
+              <td style="font-size: 12px; color: #64748B;">rksharma01061999@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Science for Class X, Science for Class IX, Chemistry For Class XII, Chemistry For Class XI</td>
+              <td style="font-size: 12px; color: #64748B;">20 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>34</td>
+              <td><b>Damini Aggarwal</b></td>
+              <td>📞 8588872535</td>
+              <td style="font-size: 12px; color: #64748B;">daminigupta678@gmail.com</td>
+              <td>Ghanta Ghar</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>35</td>
+              <td><b>SANJAY SHARMA</b></td>
+              <td>📞 9910832909 |</td>
+              <td style="font-size: 12px; color: #64748B;">smsacademyofcommerce@gmail.com</td>
+              <td>BEGUMPUR</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>36</td>
+              <td><b>saumya</b></td>
+              <td>📞 9958367533</td>
+              <td style="font-size: 12px; color: #64748B;">saumyaaix@gmail.com</td>
+              <td>Burari</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>37</td>
+              <td><b>Rahul ranjan</b></td>
+              <td>📞 7667438967</td>
+              <td style="font-size: 12px; color: #64748B;">ranjanrah555@gmail.com</td>
+              <td>patel nagar</td>
+              <td style="max-width: 250px;">Maths for Class X, Maths for Class IX, Maths for Class VII, Maths for Class VIII</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>38</td>
+              <td><b>REENA SINGH</b></td>
+              <td>📞 8851745301</td>
+              <td style="font-size: 12px; color: #64748B;">reenaa5301@gmail.com</td>
+              <td>Sarita Vihar</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>39</td>
+              <td><b>Suman  Maurya</b></td>
+              <td>📞 9205245937</td>
+              <td style="font-size: 12px; color: #64748B;">mauryasuman275@gmail.com</td>
+              <td>Jharoda  New Delhi</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>40</td>
+              <td><b>abhay</b></td>
+              <td>📞 9716910002</td>
+              <td style="font-size: 12px; color: #64748B;">abhay12th@gmail.com</td>
+              <td>dwarka, Gurgaon</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>41</td>
+              <td><b>Mohd khan</b></td>
+              <td>📞 N/A</td>
+              <td style="font-size: 12px; color: #64748B;">khan7790@gmail.com</td>
+              <td>noida extension</td>
+              <td style="max-width: 250px;">Maths for Class X, Maths for Class IX, Maths for Class VIII, Maths for Class VII</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>42</td>
+              <td><b>Updesh sharma</b></td>
+              <td>📞 9871259755</td>
+              <td style="font-size: 12px; color: #64748B;">updeshsharma4316@gmail.com</td>
+              <td>mukharjee nagar, gtb nagar, delhi</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>43</td>
+              <td><b>Naveen Bhatnagar</b></td>
+              <td>📞 9773946019</td>
+              <td style="font-size: 12px; color: #64748B;">nbr270670@gmail.com</td>
+              <td>maya puri delhi</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>44</td>
+              <td><b>Somya</b></td>
+              <td>📞 6395322935</td>
+              <td style="font-size: 12px; color: #64748B;">somyarajgit9@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">Neuroscience, Osteology, Paleontology, Virology</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>45</td>
+              <td><b>Neha verma</b></td>
+              <td>📞 9818364406</td>
+              <td style="font-size: 12px; color: #64748B;">neetuverma224411@gmail.com</td>
+              <td>brahampuri</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>46</td>
+              <td><b>Samridhi Syal</b></td>
+              <td>📞 9205917063</td>
+              <td style="font-size: 12px; color: #64748B;">samridhisyal1@gmail.com</td>
+              <td>SECTOR 126 NOIDA</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>47</td>
+              <td><b>Himani</b></td>
+              <td>📞 9953801081</td>
+              <td style="font-size: 12px; color: #64748B;">himmanisth@gmail.com</td>
+              <td>Badshahpur Sector 68 , Gurugram</td>
+              <td style="max-width: 250px;">All Subjects for Preparatory, All Subjects For Class I, All Subjects For Class IV, All Subjects For Class V</td>
+              <td style="font-size: 12px; color: #64748B;">17 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>48</td>
+              <td><b>Shivam Chowdhury</b></td>
+              <td>📞 9650346781</td>
+              <td style="font-size: 12px; color: #64748B;">shivamchowdhary1972@gmail.com</td>
+              <td>west Delhi North Delhi</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">14 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>49</td>
+              <td><b>Vikash Yadav</b></td>
+              <td>📞 7065837710</td>
+              <td style="font-size: 12px; color: #64748B;">vikasyadav2111997@gmail.com</td>
+              <td>delhi</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">14 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>50</td>
+              <td><b>Avneet kaur</b></td>
+              <td>📞 9354179617</td>
+              <td style="font-size: 12px; color: #64748B;">mattakaur33@gmail.com</td>
+              <td>Mukherjee Nagar</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">14 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>51</td>
+              <td><b>Akshay Kumar</b></td>
+              <td>📞 85889 73516</td>
+              <td style="font-size: 12px; color: #64748B;">ak960295@gmail.com</td>
+              <td>noida Sector 3 vasundhara</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">14 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>52</td>
+              <td><b>Vartika kesari</b></td>
+              <td>📞 6387992215</td>
+              <td style="font-size: 12px; color: #64748B;">vartikakesari2600@gmail.com</td>
+              <td>indore</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">14 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>53</td>
+              <td><b>kundan Singh</b></td>
+              <td>📞 9891617765</td>
+              <td style="font-size: 12px; color: #64748B;">kundankumarsingh333@gmail.com</td>
+              <td>mayur vihar -1</td>
+              <td style="max-width: 250px;">All Subjects For Class V, All Subjects For Class VI, All Subjects For Class VII, Maths for Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">14 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>54</td>
+              <td><b>Priya Khanna</b></td>
+              <td>📞 9999979483</td>
+              <td style="font-size: 12px; color: #64748B;">priyanotimood@gmail.com</td>
+              <td>Dilshad Garden</td>
+              <td style="max-width: 250px;">Maths for Class VI, Maths for Class VII, Maths for Class VIII, Maths for Class IX</td>
+              <td style="font-size: 12px; color: #64748B;">14 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>55</td>
+              <td><b>Naveen Malhotra</b></td>
+              <td>📞 9810395876</td>
+              <td style="font-size: 12px; color: #64748B;">naveen71malhotra@gmail.com</td>
+              <td>Ashok Vihar shastri nagar</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">13 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>56</td>
+              <td><b>Anchal</b></td>
+              <td>📞 6307409144</td>
+              <td style="font-size: 12px; color: #64748B;">keshariachal01@gmail.com</td>
+              <td>Nehru vihar Mukherjee Nagar</td>
+              <td style="max-width: 250px;">All Subjects For KG (Kindergarten), All Subjects For Class I, All Subjects For Class II, All Subjects For Class V</td>
+              <td style="font-size: 12px; color: #64748B;">13 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>57</td>
+              <td><b>Mahima Shukla</b></td>
+              <td>📞 7217672787</td>
+              <td style="font-size: 12px; color: #64748B;">shuklamahima79@gmail.com</td>
+              <td>Baprola Nagali vihar dwarka delhi</td>
+              <td style="max-width: 250px;">All Subjects For Class I, All Subjects For Class II, All Subjects For Class III, All Subjects For Class IV</td>
+              <td style="font-size: 12px; color: #64748B;">13 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>58</td>
+              <td><b>Kiran Garg</b></td>
+              <td>📞 8744087504</td>
+              <td style="font-size: 12px; color: #64748B;">angelgarg627@gmail.com</td>
+              <td>West Gorakhpur park shahdara</td>
+              <td style="max-width: 250px;">General</td>
+              <td style="font-size: 12px; color: #64748B;">13 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>59</td>
+              <td><b>Neha</b></td>
+              <td>📞 9818494978</td>
+              <td style="font-size: 12px; color: #64748B;">neharaizada827@gmail.com</td>
+              <td>Budh Vihar Delhi</td>
+              <td style="max-width: 250px;">all subjects</td>
+              <td style="font-size: 12px; color: #64748B;">12 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>60</td>
+              <td><b>Kanika Verma</b></td>
+              <td>📞 8851218116</td>
+              <td style="font-size: 12px; color: #64748B;">bansalkanika15@gmail.com</td>
+              <td>Patel Nagar </td>
+              <td style="max-width: 250px;">Hindi for Class upto V, Hindi for Class VI to VIII, Hindi for Class IX or X, Hindi for Class XI or XII</td>
+              <td style="font-size: 12px; color: #64748B;">12 Aug 2026</td>
+            </tr>
+
+            <tr>
+              <td>61</td>
+              <td><b>Nitish</b></td>
+              <td>📞 9250192507</td>
+              <td style="font-size: 12px; color: #64748B;">studyhelpline.co.in@gmail.com</td>
+              <td>Delhi</td>
+              <td style="max-width: 250px;">English</td>
+              <td style="font-size: 12px; color: #64748B;">12 Aug 2026</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 4: Mitali Work Sessions -->
+    <div id="tab-mitali-sessions" class="tab-content">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Session Date</th>
+              <th>Duration (Minutes)</th>
+              <th>Calls Logged</th>
+              <th>Reported Conversions</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>9 Sept 2026, 3:06 pm</td>
+              <td><b>214 mins</b> (3.6 hrs)</td>
+              <td>13</td>
+              <td><b>1</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>9 Sept 2026, 11:17 am</td>
+              <td><b>1 mins</b> (0.0 hrs)</td>
+              <td>0</td>
+              <td><b>0</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>7 Sept 2026, 8:16 pm</td>
+              <td><b>1 mins</b> (0.0 hrs)</td>
+              <td>0</td>
+              <td><b>0</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>7 Sept 2026, 8:13 pm</td>
+              <td><b>3 mins</b> (0.1 hrs)</td>
+              <td>0</td>
+              <td><b>0</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>7 Sept 2026, 10:53 am</td>
+              <td><b>342 mins</b> (5.7 hrs)</td>
+              <td>217</td>
+              <td><b>10</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>7 Sept 2026, 10:45 am</td>
+              <td><b>7 mins</b> (0.1 hrs)</td>
+              <td>1</td>
+              <td><b>0</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>6 Sept 2026, 12:32 pm</td>
+              <td><b>1333 mins</b> (22.2 hrs)</td>
+              <td>0</td>
+              <td><b>0</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>5 Sept 2026, 10:44 am</td>
+              <td><b>430 mins</b> (7.2 hrs)</td>
+              <td>142</td>
+              <td><b>9</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>4 Sept 2026, 10:29 pm</td>
+              <td><b>734 mins</b> (12.2 hrs)</td>
+              <td>0</td>
+              <td><b>0</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>4 Sept 2026, 10:47 am</td>
+              <td><b>386 mins</b> (6.4 hrs)</td>
+              <td>92</td>
+              <td><b>5</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>1 Sept 2026, 10:49 am</td>
+              <td><b>353 mins</b> (5.9 hrs)</td>
+              <td>68</td>
+              <td><b>3</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+
+            <tr>
+              <td>30 Aug 2026, 11:49 am</td>
+              <td><b>280 mins</b> (4.7 hrs)</td>
+              <td>116</td>
+              <td><b>20</b></td>
+              <td><span class="badge-conv">CLOCKED_OUT</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabId).classList.add('active');
+      filterTable();
+    }
+    function filterTable() {
+      const q = document.getElementById('tableSearch').value.toLowerCase();
+      const activeTab = document.querySelector('.tab-content.active');
+      if (!activeTab) return;
+      const rows = activeTab.querySelectorAll('tbody tr');
+      rows.forEach(r => {
+        const txt = r.textContent.toLowerCase();
+        r.style.display = txt.includes(q) ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>

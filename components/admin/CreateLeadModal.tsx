@@ -150,6 +150,8 @@ export function CreateLeadModal({
   const [timingPreference, setTimingPreference] = useState("Evening (4 PM - 7 PM)");
   const [languagePref, setLanguagePref] = useState("Hindi & English");
   const [notes, setNotes] = useState("");
+  const [leadSourceTag, setLeadSourceTag] = useState("WhatsApp Inquiries (Direct / Chat)");
+  const [customLeadSource, setCustomLeadSource] = useState("");
 
   // Result state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -348,6 +350,11 @@ export function CreateLeadModal({
       }
     }
 
+    const finalSourceTag =
+      leadSourceTag === "CUSTOM"
+        ? (customLeadSource.trim() || "Custom / Staff Tag")
+        : leadSourceTag;
+
     const payload: AdminCreateLeadInput = {
       parentProfileId: parentMode === "EXISTING" ? selectedParentId || undefined : undefined,
       parentName: parentMode === "NEW" ? parentName.trim() || undefined : undefined,
@@ -369,6 +376,7 @@ export function CreateLeadModal({
       tutorGenderPref: tutorGenderPref || undefined,
       languagePref: languagePref.trim() || undefined,
       notes: finalNotes || undefined,
+      leadSourceTag: finalSourceTag,
       coinCost: coinCost ? parseInt(coinCost, 10) : 10,
       maxTutors: maxTutors ? parseInt(maxTutors, 10) : 5,
       radiusKm: radiusKm ? parseInt(radiusKm, 10) : 10,
@@ -1260,6 +1268,42 @@ export function CreateLeadModal({
                           className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B]"
                         />
                       </div>
+                    </div>
+
+                    {/* Mark Lead / Entry Source Dropdown */}
+                    <div>
+                      <label className="mb-1.5 flex items-center justify-between font-bold text-slate-700 text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <Layers size={14} className="text-[#2D9E6B]" />
+                          <span>Mark Lead / Entry Source</span>
+                        </span>
+                        <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Source Tracking
+                        </span>
+                      </label>
+                      <select
+                        value={leadSourceTag}
+                        onChange={(e) => setLeadSourceTag(e.target.value)}
+                        className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 outline-none cursor-pointer focus:border-[#2D9E6B] font-semibold text-xs transition-all shadow-2xs"
+                      >
+                        <option value="WhatsApp Inquiries (Direct / Chat)">📱 WhatsApp Inquiries (Direct / Chat)</option>
+                        <option value="Telecalling / Direct Call Entry">📞 Telecalling / Direct Call Entry</option>
+                        <option value="Website / Organic Form Entry">🌐 Website / Organic Form Entry</option>
+                        <option value="Offline / Pamphlet / Canopy Marketing">📋 Offline / Pamphlet / Canopy Marketing</option>
+                        <option value="Staff Direct Entry / Walk-in">👥 Staff Direct Entry / Walk-in</option>
+                        <option value="Batch Upload / Data Import">📦 Batch Upload / Data Import</option>
+                        <option value="Referral / Partner Recommendation">🤝 Referral / Partner Recommendation</option>
+                        <option value="CUSTOM">✍️ Other / Custom Tag…</option>
+                      </select>
+                      {leadSourceTag === "CUSTOM" && (
+                        <input
+                          type="text"
+                          value={customLeadSource}
+                          onChange={(e) => setCustomLeadSource(e.target.value)}
+                          placeholder="Type custom source tag (e.g. Newspaper Ad, Event Nov)"
+                          className="mt-2 w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] text-xs font-semibold shadow-2xs"
+                        />
+                      )}
                     </div>
 
                     <div>

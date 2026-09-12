@@ -41,6 +41,7 @@ import { getLeadPointCost } from "@/lib/subscription-plans";
 import { RequestLeadRefundButton } from "@/components/tutor/RequestLeadRefundButton";
 import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 import type { DummyClaimedLeadInfo } from "@/lib/dummy-campaign-types";
+import { hasSubjectOverlap, isLeadMatchedToTutor } from "@/lib/feed-matching";
 
 export type ParentDetails = {
   name: string;
@@ -692,19 +693,36 @@ function LeadCard({
 export function LeadFeedClient({
   leads,
   walletBalance,
-  tutorSubjects,
+  tutorSubjects = [],
   subscriptionInfo,
   claimedBannerInfo,
   kycStatus,
+  teachingRadius = 10,
+  tutorClassLevels = [],
+  tutorLocation,
 }: {
   leads: FeedLead[];
   walletBalance: number;
-  tutorSubjects: string[];
+  tutorSubjects?: string[];
   subscriptionInfo?: SubscriptionInfo | null;
   claimedBannerInfo?: DummyClaimedLeadInfo | null;
   kycStatus?: string;
+  teachingRadius?: number;
+  tutorClassLevels?: string[];
+  tutorLocation?: {
+    city?: string | null;
+    address?: string | null;
+    lat?: number | null;
+    lon?: number | null;
+  };
 }) {
-  const [viewTab, setViewTab] = useState<"available" | "shortlisted" | "unlocked" | "all">("available");
+  const hasTutorLocation = Boolean(tutorLocation?.lat && tutorLocation?.lon);
+  const hasTutorSubjects = Boolean(tutorSubjects && tutorSubjects.length > 0);
+  const hasFilterConfig = hasTutorLocation || hasTutorSubjects;
+
+  const [viewTab, setViewTab] = useState<"matched" | "nearby" | "all" | "shortlisted" | "unlocked">(
+    hasFilterConfig ? "matched" : "all"
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [subjectFilter, setSubjectFilter] = useState<string>("ALL");
   const [modeFilter, setModeFilter] = useState<string>("ALL");
@@ -713,20 +731,77 @@ export function LeadFeedClient({
     Boolean(claimedBannerInfo?.claimed)
   );
 
-  const unpurchased = leads.filter((l) => !l.isPurchased && l.purchaseCount < (l.maxTutors || 5));
-  const shortlisted = leads.filter((l) => l.isShortlisted);
-  const purchased = leads.filter((l) => l.isPurchased);
+  const unpurchased = useMemo(
+    () => leads.filter((l) => !l.isPurchased && l.purchaseCount < (l.maxTutors || 5)),
+    [leads]
+  );
+  const shortlisted = useMemo(() => leads.filter((l) => l.isShortlisted), [leads]);
+  const purchased = useMemo(() => leads.filter((l) => l.isPurchased), [leads]);
+
+  const matchedLeads = useMemo(() => {
+    return unpurchased.filter((l) =>
+      isLeadMatchedToTutor({
+        lead: {
+          distanceKm: l.distanceKm,
+          mode: l.mode,
+          subjects: l.subjects,
+          classLevel: l.classLevel,
+          tutorGenderPref: l.tutorGenderPref,
+        },
+        tutorSubjects,
+        tutorClassLevels,
+        teachingRadius,
+        hasTutorLocation,
+      })
+    );
+  }, [unpurchased, tutorSubjects, tutorClassLevels, teachingRadius, hasTutorLocation]);
+
+  const nearbyLeads = useMemo(() => {
+    return unpurchased.filter((l) => {
+      if (!hasTutorLocation) return true;
+      if (l.mode === "ONLINE") return true;
+      return l.distanceKm !== null && l.distanceKm <= (teachingRadius || 10);
+    });
+  }, [unpurchased, hasTutorLocation, teachingRadius]);
 
   const filtered = useMemo(() => {
     return leads
       .filter((l) => {
         // Tab filtering
-        if (viewTab === "available" && (l.isPurchased || l.purchaseCount >= (l.maxTutors || 5))) return false;
-        if (viewTab === "shortlisted" && !l.isShortlisted) return false;
-        if (viewTab === "unlocked" && !l.isPurchased) return false;
+        if (viewTab === "matched") {
+          if (l.isPurchased || l.purchaseCount >= (l.maxTutors || 5)) return false;
+          const isMatch = isLeadMatchedToTutor({
+            lead: {
+              distanceKm: l.distanceKm,
+              mode: l.mode,
+              subjects: l.subjects,
+              classLevel: l.classLevel,
+              tutorGenderPref: l.tutorGenderPref,
+            },
+            tutorSubjects,
+            tutorClassLevels,
+            teachingRadius,
+            hasTutorLocation,
+          });
+          if (!isMatch) return false;
+        } else if (viewTab === "nearby") {
+          if (l.isPurchased || l.purchaseCount >= (l.maxTutors || 5)) return false;
+          if (hasTutorLocation && l.mode !== "ONLINE") {
+            if (l.distanceKm === null || l.distanceKm > (teachingRadius || 10)) return false;
+          }
+        } else if (viewTab === "shortlisted") {
+          if (!l.isShortlisted) return false;
+        } else if (viewTab === "unlocked") {
+          if (!l.isPurchased) return false;
+        } else if (viewTab === "all") {
+          if (l.isPurchased || l.purchaseCount >= (l.maxTutors || 5)) return false;
+        }
 
-        // Subject filter
-        if (subjectFilter !== "ALL" && !l.subjects.includes(subjectFilter)) return false;
+        // Subject filter dropdown
+        if (subjectFilter !== "ALL") {
+          const matchSub = hasSubjectOverlap([subjectFilter], l.subjects);
+          if (!matchSub) return false;
+        }
 
         // Mode filter
         if (modeFilter !== "ALL" && l.mode !== modeFilter) return false;
@@ -736,7 +811,9 @@ export function LeadFeedClient({
           const q = searchQuery.trim().toLowerCase();
           const matchSubj = l.subjects.some((s) => s.toLowerCase().includes(q));
           const matchClass = l.classLevel.toLowerCase().includes(q);
-          const matchLoc = (l.city && l.city.toLowerCase().includes(q)) || (l.area && l.area.toLowerCase().includes(q));
+          const matchLoc =
+            (l.city && l.city.toLowerCase().includes(q)) ||
+            (l.area && l.area.toLowerCase().includes(q));
           if (!matchSubj && !matchClass && !matchLoc) return false;
         }
 
@@ -752,7 +829,18 @@ export function LeadFeedClient({
         if (sortBy === "budget") return (b.budgetMax || 0) - (a.budgetMax || 0);
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
-  }, [leads, viewTab, subjectFilter, modeFilter, searchQuery, sortBy]);
+  }, [
+    leads,
+    viewTab,
+    subjectFilter,
+    modeFilter,
+    searchQuery,
+    sortBy,
+    tutorSubjects,
+    tutorClassLevels,
+    teachingRadius,
+    hasTutorLocation,
+  ]);
 
   return (
     <div className="space-y-6 text-slate-900">
@@ -886,16 +974,44 @@ export function LeadFeedClient({
       {/* View Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Lead Feed Tabs" className="flex flex-wrap gap-2">
+          {hasFilterConfig && (
+            <button
+              type="button"
+              onClick={() => setViewTab("matched")}
+              className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                viewTab === "matched"
+                  ? "bg-[#2D9E6B] text-white shadow-md shadow-emerald-500/20"
+                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+              }`}
+            >
+              🎯 Matched for Me ({matchedLeads.length})
+            </button>
+          )}
+
+          {hasTutorLocation && (
+            <button
+              type="button"
+              onClick={() => setViewTab("nearby")}
+              className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                viewTab === "nearby"
+                  ? "bg-[#0F2540] text-white shadow-md shadow-slate-900/20"
+                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+              }`}
+            >
+              📍 Within {teachingRadius || 10} km ({nearbyLeads.length})
+            </button>
+          )}
+
           <button
             type="button"
-            onClick={() => setViewTab("available")}
+            onClick={() => setViewTab("all")}
             className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-              viewTab === "available"
-                ? "bg-[#2D9E6B] text-white shadow-md shadow-emerald-500/20"
+              viewTab === "all"
+                ? "bg-slate-800 text-white shadow-md"
                 : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
             }`}
           >
-            🟢 Available Leads ({unpurchased.length})
+            🌐 All City Leads ({unpurchased.length})
           </button>
 
           <button
@@ -921,20 +1037,85 @@ export function LeadFeedClient({
           >
             ✓ Unlocked Leads ({purchased.length})
           </button>
-
-          <button
-            type="button"
-            onClick={() => setViewTab("all")}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-              viewTab === "all"
-                ? "bg-slate-800 text-white shadow-md"
-                : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-            }`}
-          >
-            All ({leads.length})
-          </button>
         </nav>
       </div>
+
+      {/* Informative Context Banners */}
+      {viewTab === "matched" && hasFilterConfig && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-medium">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white font-black text-sm">
+              🎯
+            </span>
+            <div>
+              <span className="font-bold text-emerald-900">
+                Auto-filtered for your profile:
+              </span>{" "}
+              Showing {filtered.length} leads within {teachingRadius || 10} km
+              {tutorLocation?.city ? ` of ${tutorLocation.city}` : ""} matching your teaching subjects &amp; grades.
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {hasTutorLocation && (
+              <button
+                type="button"
+                onClick={() => setViewTab("nearby")}
+                className="px-2.5 py-1 rounded-xl bg-white border border-emerald-300 text-emerald-800 font-bold hover:bg-emerald-100 transition-colors text-[11px] cursor-pointer"
+              >
+                View all {nearbyLeads.length} within {teachingRadius || 10} km
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setViewTab("all")}
+              className="px-2.5 py-1 rounded-xl bg-emerald-700 text-white font-bold hover:bg-emerald-800 transition-colors text-[11px] cursor-pointer"
+            >
+              Browse all {unpurchased.length} city leads
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewTab === "nearby" && hasTutorLocation && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-950 text-xs font-medium">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white font-black text-sm">
+              📍
+            </span>
+            <div>
+              <span className="font-bold text-sky-900">
+                Neighborhood View:
+              </span>{" "}
+              Showing all {filtered.length} student leads within {teachingRadius || 10} km radius
+              {tutorLocation?.address ? ` (${tutorLocation.address})` : ""} across all subjects.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setViewTab("matched")}
+            className="px-2.5 py-1 rounded-xl bg-sky-700 text-white font-bold hover:bg-sky-800 transition-colors text-[11px] cursor-pointer shrink-0"
+          >
+            ← Back to Matched ({matchedLeads.length})
+          </button>
+        </div>
+      )}
+
+      {!hasTutorLocation && (
+        <div className="flex items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs font-medium">
+          <div className="flex items-center gap-2.5">
+            <MapPin size={18} className="text-amber-600 shrink-0" />
+            <span>
+              <strong>Location not configured:</strong> Set your teaching locality and radius in your profile to auto-filter leads near you.
+            </span>
+          </div>
+          <Link
+            href="/tutor/profile"
+            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 transition-colors"
+          >
+            Set Location →
+          </Link>
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <div className="p-4 sm:p-5 ath-panel flex flex-col md:flex-row md:items-center justify-between gap-3.5">
@@ -1003,7 +1184,7 @@ export function LeadFeedClient({
 
       {/* Leads Grid */}
       {filtered.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200/80 bg-white p-16 text-center space-y-3 shadow-xs">
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-12 text-center space-y-3 shadow-xs">
           <div className="h-14 w-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
             <BookOpen size={28} />
           </div>
@@ -1011,8 +1192,30 @@ export function LeadFeedClient({
             No student requirements found
           </p>
           <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
-            Try adjusting your search keyword, subject filter, or mode toggle to see more inquiries.
+            {viewTab === "matched"
+              ? `No student requirements strictly match your subjects within ${teachingRadius || 10} km right now.`
+              : "Try adjusting your search keyword, subject filter, or mode toggle to see more inquiries."}
           </p>
+          {viewTab === "matched" && (
+            <div className="pt-2 flex flex-wrap justify-center gap-2">
+              {hasTutorLocation && nearbyLeads.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setViewTab("nearby")}
+                  className="px-4 py-2 rounded-xl bg-[#0F2540] text-white font-bold text-xs cursor-pointer"
+                >
+                  View {nearbyLeads.length} nearby in {teachingRadius || 10} km
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setViewTab("all")}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-300 cursor-pointer"
+              >
+                Browse all {unpurchased.length} city leads
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

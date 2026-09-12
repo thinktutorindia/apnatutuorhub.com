@@ -294,13 +294,13 @@ export function AdminEditUserForm({
     }
   };
 
-  // Parent profile state
-  const [parentCity, setParentCity] = useState<string>(parentProfile?.city || "");
-  const [parentState, setParentState] = useState<string>(parentProfile?.state || "");
-  const [parentPincode, setParentPincode] = useState<string>(parentProfile?.pincode || "");
-  const [parentAddress, setParentAddress] = useState<string>(parentProfile?.address || "");
-  const [parentLat, setParentLat] = useState<number | null>(parentProfile?.latitude ?? null);
-  const [parentLng, setParentLng] = useState<number | null>(parentProfile?.longitude ?? null);
+  // Location profile state (falls back to tutorProfile when editing a tutor)
+  const [parentCity, setParentCity] = useState<string>(parentProfile?.city || tutorProfile?.city || "");
+  const [parentState, setParentState] = useState<string>(parentProfile?.state || tutorProfile?.state || "");
+  const [parentPincode, setParentPincode] = useState<string>(parentProfile?.pincode || tutorProfile?.pincode || "");
+  const [parentAddress, setParentAddress] = useState<string>(parentProfile?.address || tutorProfile?.address || "");
+  const [parentLat, setParentLat] = useState<number | null>(parentProfile?.latitude ?? tutorProfile?.latitude ?? null);
+  const [parentLng, setParentLng] = useState<number | null>(parentProfile?.longitude ?? tutorProfile?.longitude ?? null);
   const [isParentMapOpen, setIsParentMapOpen] = useState(false);
 
   // Parent Students State

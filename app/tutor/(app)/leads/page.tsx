@@ -41,6 +41,8 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       feeMin: true,
       latitude: true,
       longitude: true,
+      city: true,
+      address: true,
       kycStatus: true,
       subscriptionPlan: true,
       subscriptionExpiresAt: true,
@@ -226,6 +228,14 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
         leads={feedLeads}
         walletBalance={walletBalance}
         tutorSubjects={tutorProfile.subjects}
+        teachingRadius={tutorProfile.teachingRadius || 10}
+        tutorClassLevels={tutorProfile.classLevels}
+        tutorLocation={{
+          city: tutorProfile.city,
+          address: tutorProfile.address,
+          lat: tutorProfile.latitude,
+          lon: tutorProfile.longitude,
+        }}
         subscriptionInfo={{
           planId: tutorProfile.subscriptionPlan,
           planName: planConfig?.name ?? null,

@@ -327,208 +327,208 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </div>
         )}
 
-        {/* 4 Plans Grid — unified dark glassmorphism theme */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch pt-4">
+        {/* 4 Plans Grid — clean white cards with coloured top strips */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch pt-4">
 
           {/* ── BRONZE ── */}
-          <div className="rounded-2xl flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl" style={{background: 'linear-gradient(160deg, #1C1408 0%, #2A1E08 50%, #1A1206 100%)', border: '1.5px solid rgba(217,119,6,0.4)'}}>
-            <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-[60px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(217,119,6,0.2) 0%, transparent 70%)', transform: 'translate(30%, -30%)'}} />
-            <div className="p-5 space-y-4 relative z-10">
-              {/* Header */}
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black" style={{background: 'rgba(217,119,6,0.2)', color: '#FBBF24', border: '1px solid rgba(217,119,6,0.4)'}}>🥉 Bronze Tier</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black" style={{background: 'linear-gradient(90deg, #16A34A, #15803D)', color: '#fff'}}>50% OFF</span>
+          <div className="rounded-2xl bg-white flex flex-col justify-between shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200 overflow-hidden border border-slate-100">
+            <div>
+              {/* Colour strip */}
+              <div className="px-5 pt-5 pb-4" style={{background: 'linear-gradient(135deg, #92400E, #D97706, #F59E0B)'}}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-amber-100 uppercase tracking-wider">🥉 Bronze</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">50% OFF</span>
                 </div>
-                <h3 className="text-xl font-black text-white" style={{fontFamily: "'Poppins', sans-serif"}}>Bronze Plan</h3>
-                <p className="text-[11px] text-amber-200/60">Essential entry tier for all subjects</p>
-              </div>
-              {/* Competition badge */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold" style={{background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.25)', color: '#FCD34D'}}>
-                <Users size={13} className="shrink-0" />
-                <span>👥 Shared — max 5 tutors</span>
-              </div>
-              {/* Pricing */}
-              <div className="py-3 space-y-1" style={{borderTop: '1px solid rgba(255,255,255,0.07)', borderBottom: '1px solid rgba(255,255,255,0.07)'}}>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-white" style={{fontFamily: "'Poppins', sans-serif"}}>₹2,999</span>
-                  <span className="text-sm font-bold line-through" style={{color: 'rgba(251,191,36,0.4)'}}>₹6,000</span>
-                </div>
-                <p className="text-[10px] text-amber-200/50">+ ₹{getGstAmount(2999).toLocaleString('en-IN')} GST = <strong className="text-amber-200/80">₹{getPriceWithGst(2999).toLocaleString('en-IN')} total</strong></p>
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-extrabold" style={{background: 'rgba(16,185,129,0.15)', color: '#34D399', border: '1px solid rgba(16,185,129,0.2)'}}>⚡ 10 Leads*</span>
-                  <span className="text-[10px]" style={{color: 'rgba(251,191,36,0.5)'}}>• 1 Month</span>
+                <div className="text-white">
+                  <div className="text-3xl font-black" style={{fontFamily:"'Poppins',sans-serif"}}>₹2,999</div>
+                  <div className="text-amber-200 text-xs line-through">₹6,000</div>
+                  <div className="text-amber-100 text-[10px] mt-0.5">+ ₹{getGstAmount(2999).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(2999).toLocaleString('en-IN')} total</div>
                 </div>
               </div>
-              {/* Features */}
-              <ul className="space-y-2">
-                {['10 Verified Leads* included','Shared with up to 5 tutors','Any class or subject','Full Parent Contact','Distance Matching 10km','24/7 Support Desk'].map(f => (
-                  <li key={f} className="flex items-start gap-2 text-[11px]" style={{color: 'rgba(253,230,138,0.75)'}}>
-                    <span className="mt-0.5 shrink-0 text-amber-400">✓</span><span>{f}</span>
-                  </li>
-                ))}
-              </ul>
+              {/* Body */}
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <div className="font-black text-slate-800 text-sm">Bronze Plan</div>
+                  <div className="text-slate-400 text-xs">Essential entry tier for all subjects</div>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100 text-amber-800 text-xs font-bold">
+                  <Users size={13} className="shrink-0 text-amber-600" />
+                  <span>Shared — up to 5 tutors per lead</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">⚡ 10 Leads*</span>
+                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-50 text-slate-500 border border-slate-100">📅 1 Month</span>
+                </div>
+                <ul className="space-y-1.5 pt-1">
+                  {['10 Verified Leads* included','Shared with up to 5 tutors','Any class or subject','Full Parent Contact','Distance Matching 10km','24/7 Support Desk'].map(f => (
+                    <li key={f} className="flex items-start gap-2 text-xs text-slate-600">
+                      <span className="text-amber-500 shrink-0 mt-0.5 font-bold">✓</span><span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            {/* CTA */}
-            <div className="p-5 pt-0 relative z-10">
+            <div className="px-5 pb-5">
               <button type="button" disabled={isLoading || currentPlan === 'BRONZE'} onClick={() => handleOpenCheckout('BRONZE')}
-                className="w-full py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
-                style={currentPlan === 'BRONZE' ? {background: 'rgba(255,255,255,0.05)', color: '#92400E', border: '1px solid rgba(217,119,6,0.3)'} : {background: 'linear-gradient(135deg, #D97706, #FBBF24)', color: '#1C0F00', boxShadow: '0 4px 20px rgba(217,119,6,0.35)'}}>
+                className="w-full py-3 rounded-xl text-sm font-black transition-all cursor-pointer hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={currentPlan === 'BRONZE' ? {background:'#F1F5F9', color:'#64748B'} : {background:'linear-gradient(135deg,#92400E,#D97706)', color:'#fff', boxShadow:'0 4px 16px rgba(217,119,6,0.3)'}}>
                 {currentPlan === 'BRONZE' ? '✅ Active Plan' : 'Select Bronze Plan'}
               </button>
             </div>
           </div>
 
           {/* ── SILVER ── */}
-          <div className="rounded-2xl flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl" style={{background: 'linear-gradient(160deg, #0D1520 0%, #162030 50%, #0A1218 100%)', border: '1.5px solid rgba(99,102,241,0.45)'}}>
-            <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-[60px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)', transform: 'translate(30%, -30%)'}} />
-            <div className="p-5 space-y-4 relative z-10">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black" style={{background: 'rgba(99,102,241,0.2)', color: '#A5B4FC', border: '1px solid rgba(99,102,241,0.4)'}}>🥈 Silver Tier</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black" style={{background: 'linear-gradient(90deg, #16A34A, #15803D)', color: '#fff'}}>25% OFF</span>
+          <div className="rounded-2xl bg-white flex flex-col justify-between shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200 overflow-hidden border border-slate-100">
+            <div>
+              <div className="px-5 pt-5 pb-4" style={{background: 'linear-gradient(135deg, #1E3A5F, #2563EB, #3B82F6)'}}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-blue-100 uppercase tracking-wider">🥈 Silver</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">25% OFF</span>
                 </div>
-                <h3 className="text-xl font-black text-white" style={{fontFamily: "'Poppins', sans-serif"}}>Silver Plan</h3>
-                <p className="text-[11px]" style={{color: 'rgba(165,180,252,0.6)'}}>Low competition for steady leads</p>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold" style={{background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', color: '#A5B4FC'}}>
-                <UserCheck size={13} className="shrink-0" />
-                <span>👥 Low Competition — max 3 tutors</span>
-              </div>
-              <div className="py-3 space-y-1" style={{borderTop: '1px solid rgba(255,255,255,0.07)', borderBottom: '1px solid rgba(255,255,255,0.07)'}}>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-white" style={{fontFamily: "'Poppins', sans-serif"}}>₹6,750</span>
-                  <span className="text-sm font-bold line-through" style={{color: 'rgba(165,180,252,0.4)'}}>₹9,000</span>
-                </div>
-                <p className="text-[10px]" style={{color: 'rgba(165,180,252,0.5)'}}>+ ₹{getGstAmount(6750).toLocaleString('en-IN')} GST = <strong style={{color: 'rgba(165,180,252,0.8)'}}>₹{getPriceWithGst(6750).toLocaleString('en-IN')} total</strong></p>
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-extrabold" style={{background: 'rgba(16,185,129,0.15)', color: '#34D399', border: '1px solid rgba(16,185,129,0.2)'}}>⚡ 15 Leads*</span>
-                  <span className="text-[10px]" style={{color: 'rgba(165,180,252,0.5)'}}>• 2 Months</span>
+                <div className="text-white">
+                  <div className="text-3xl font-black" style={{fontFamily:"'Poppins',sans-serif"}}>₹6,750</div>
+                  <div className="text-blue-200 text-xs line-through">₹9,000</div>
+                  <div className="text-blue-100 text-[10px] mt-0.5">+ ₹{getGstAmount(6750).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(6750).toLocaleString('en-IN')} total</div>
                 </div>
               </div>
-              <ul className="space-y-2">
-                {['15 Verified Leads* included','Max 3 Tutors per Lead','Any class or subject','Direct Parent Call & Chat','Expanded Radius 15km','Priority Feed +1,500 Boost'].map(f => (
-                  <li key={f} className="flex items-start gap-2 text-[11px]" style={{color: 'rgba(199,210,254,0.75)'}}>
-                    <span className="mt-0.5 shrink-0" style={{color: '#818CF8'}}>✓</span><span>{f}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <div className="font-black text-slate-800 text-sm">Silver Plan</div>
+                  <div className="text-slate-400 text-xs">Low competition for steady leads</div>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 border border-blue-100 text-blue-800 text-xs font-bold">
+                  <UserCheck size={13} className="shrink-0 text-blue-600" />
+                  <span>Low Competition — max 3 tutors</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">⚡ 15 Leads*</span>
+                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-50 text-slate-500 border border-slate-100">📅 2 Months</span>
+                </div>
+                <ul className="space-y-1.5 pt-1">
+                  {['15 Verified Leads* included','Max 3 Tutors per Lead','Any class or subject','Direct Parent Call & Chat','Expanded Radius 15km','Priority Feed +1,500 Boost'].map(f => (
+                    <li key={f} className="flex items-start gap-2 text-xs text-slate-600">
+                      <span className="text-blue-500 shrink-0 mt-0.5 font-bold">✓</span><span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            <div className="p-5 pt-0 relative z-10">
+            <div className="px-5 pb-5">
               <button type="button" disabled={isLoading || currentPlan === 'SILVER'} onClick={() => handleOpenCheckout('SILVER')}
-                className="w-full py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
-                style={currentPlan === 'SILVER' ? {background: 'rgba(255,255,255,0.05)', color: '#4F46E5', border: '1px solid rgba(99,102,241,0.3)'} : {background: 'linear-gradient(135deg, #4F46E5, #818CF8)', color: '#fff', boxShadow: '0 4px 20px rgba(99,102,241,0.4)'}}>
+                className="w-full py-3 rounded-xl text-sm font-black transition-all cursor-pointer hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={currentPlan === 'SILVER' ? {background:'#F1F5F9', color:'#64748B'} : {background:'linear-gradient(135deg,#1E3A5F,#2563EB)', color:'#fff', boxShadow:'0 4px 16px rgba(37,99,235,0.3)'}}>
                 {currentPlan === 'SILVER' ? '✅ Active Plan' : 'Select Silver Plan'}
               </button>
             </div>
           </div>
 
           {/* ── GOLD — Most Popular ── */}
-          <div className="rounded-2xl flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:-translate-y-1" style={{background: 'linear-gradient(160deg, #1A1400 0%, #2A2000 50%, #150F00 100%)', border: '2px solid rgba(251,191,36,0.7)', boxShadow: '0 0 40px rgba(251,191,36,0.12)'}}>
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black tracking-wider uppercase whitespace-nowrap z-20" style={{background: 'linear-gradient(90deg, #F59E0B, #FBBF24, #F59E0B)', color: '#1A0F00', boxShadow: '0 4px 12px rgba(251,191,36,0.5)'}}>🔥 Most Popular</div>
-
-            <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-[70px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(251,191,36,0.25) 0%, transparent 70%)', transform: 'translate(30%, -30%)'}} />
-            <div className="p-5 pt-7 space-y-4 relative z-10">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black" style={{background: 'rgba(251,191,36,0.2)', color: '#FBBF24', border: '1px solid rgba(251,191,36,0.4)'}}>🥇 Gold Tier</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black" style={{background: 'linear-gradient(90deg, #16A34A, #15803D)', color: '#fff'}}>25% OFF</span>
+          <div className="rounded-2xl bg-white flex flex-col justify-between shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden relative" style={{border:'2px solid #F59E0B'}}>
+            <div className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1 rounded-b-xl text-[10px] font-black text-white z-10 whitespace-nowrap" style={{background:'linear-gradient(90deg,#D97706,#F59E0B)'}}>🔥 MOST POPULAR</div>
+            <div>
+              <div className="px-5 pt-8 pb-4" style={{background: 'linear-gradient(135deg, #78350F, #D97706, #FBBF24)'}}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-yellow-100 uppercase tracking-wider">🥇 Gold</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">25% OFF</span>
                 </div>
-                <h3 className="text-xl font-black text-white" style={{fontFamily: "'Poppins', sans-serif"}}>Gold Plan</h3>
-                <p className="text-[11px]" style={{color: 'rgba(253,230,138,0.6)'}}>Semi-exclusive for busy tutors</p>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold" style={{background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', color: '#FCD34D'}}>
-                <Lock size={13} className="shrink-0" />
-                <span>🔒 Semi-Exclusive — max 2 tutors</span>
-              </div>
-              <div className="py-3 space-y-1" style={{borderTop: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.08)'}}>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-white" style={{fontFamily: "'Poppins', sans-serif"}}>₹9,000</span>
-                  <span className="text-sm font-bold line-through" style={{color: 'rgba(251,191,36,0.4)'}}>₹12,000</span>
-                </div>
-                <p className="text-[10px]" style={{color: 'rgba(253,230,138,0.5)'}}>+ ₹{getGstAmount(9000).toLocaleString('en-IN')} GST = <strong style={{color: 'rgba(253,230,138,0.8)'}}>₹{getPriceWithGst(9000).toLocaleString('en-IN')} total</strong></p>
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-extrabold" style={{background: 'rgba(16,185,129,0.15)', color: '#34D399', border: '1px solid rgba(16,185,129,0.2)'}}>⚡ 20 Leads*</span>
-                  <span className="text-[10px]" style={{color: 'rgba(253,230,138,0.5)'}}>• 2 Months</span>
+                <div className="text-white">
+                  <div className="text-3xl font-black" style={{fontFamily:"'Poppins',sans-serif"}}>₹9,000</div>
+                  <div className="text-yellow-200 text-xs line-through">₹12,000</div>
+                  <div className="text-yellow-100 text-[10px] mt-0.5">+ ₹{getGstAmount(9000).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(9000).toLocaleString('en-IN')} total</div>
                 </div>
               </div>
-              <ul className="space-y-2">
-                {['20 Verified Leads* included','Semi-Exclusive: Max 2 Tutors (2× conversion)','Any class or subject','High Priority Feed +3,000 Boost','Instant WhatsApp Alerts','🪙 +50 Bonus Wallet Coins'].map(f => (
-                  <li key={f} className="flex items-start gap-2 text-[11px]" style={{color: 'rgba(253,230,138,0.75)'}}>
-                    <span className="mt-0.5 shrink-0 text-yellow-400">✓</span><span>{f}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="px-5 py-4 space-y-3">
+                <div>
+                  <div className="font-black text-slate-800 text-sm">Gold Plan</div>
+                  <div className="text-slate-400 text-xs">Semi-exclusive leads for busy tutors</div>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold">
+                  <Lock size={13} className="shrink-0 text-amber-600" />
+                  <span>🔒 Semi-Exclusive — max 2 tutors</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">⚡ 20 Leads*</span>
+                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-50 text-slate-500 border border-slate-100">📅 2 Months</span>
+                </div>
+                <ul className="space-y-1.5 pt-1">
+                  {['20 Verified Leads* included','Semi-Exclusive: Max 2 Tutors (2× conversion)','Any class or subject','High Priority Feed +3,000 Boost','Instant WhatsApp Alerts','🪙 +50 Bonus Wallet Coins'].map(f => (
+                    <li key={f} className="flex items-start gap-2 text-xs text-slate-600">
+                      <span className="text-amber-500 shrink-0 mt-0.5 font-bold">✓</span><span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            <div className="p-5 pt-0 relative z-10">
+            <div className="px-5 pb-5">
               <button type="button" disabled={isLoading || currentPlan === 'GOLD'} onClick={() => handleOpenCheckout('GOLD')}
-                className="w-full py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
-                style={currentPlan === 'GOLD' ? {background: 'rgba(255,255,255,0.05)', color: '#92400E', border: '1px solid rgba(251,191,36,0.3)'} : {background: 'linear-gradient(135deg, #F59E0B, #FBBF24, #F59E0B)', color: '#1A0F00', boxShadow: '0 4px 24px rgba(251,191,36,0.45)'}}>
+                className="w-full py-3 rounded-xl text-sm font-black transition-all cursor-pointer hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={currentPlan === 'GOLD' ? {background:'#FEF9C3', color:'#92400E'} : {background:'linear-gradient(135deg,#D97706,#FBBF24)', color:'#fff', boxShadow:'0 4px 20px rgba(217,119,6,0.4)'}}>
                 {currentPlan === 'GOLD' ? '✅ Active Plan' : 'Select Gold Plan'}
               </button>
             </div>
           </div>
 
           {/* ── PLATINUM VIP ── */}
-          <div className="rounded-2xl flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:-translate-y-1" style={{background: 'linear-gradient(160deg, #0D0800 0%, #1A1000 40%, #120B00 100%)', border: '2px solid rgba(245,166,35,0.6)', boxShadow: '0 0 50px rgba(245,166,35,0.1)'}}>
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black tracking-wider uppercase whitespace-nowrap z-20 flex items-center gap-1.5" style={{background: 'linear-gradient(90deg, #F5A623, #FBBF24, #F5A623)', color: '#0D0800', boxShadow: '0 4px 16px rgba(245,166,35,0.6)'}}>
-              <Sparkles size={10} />
-              <span>VIP 100% Solo Lock 👑</span>
+          <div className="rounded-2xl flex flex-col justify-between shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden relative" style={{background:'#0C0A1A', border:'2px solid #7C3AED'}}>
+            <div className="absolute -top-px left-1/2 -translate-x-1/2 px-4 py-1 rounded-b-xl text-[10px] font-black text-white z-10 whitespace-nowrap flex items-center gap-1" style={{background:'linear-gradient(90deg,#6D28D9,#7C3AED)'}}>
+              <Sparkles size={9} />VIP SOLO LOCK 👑
             </div>
-            <div className="absolute top-0 right-0 w-52 h-52 rounded-full blur-[80px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(245,166,35,0.3) 0%, transparent 70%)', transform: 'translate(25%, -25%)'}} />
-            <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full blur-[60px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(245,166,35,0.15) 0%, transparent 70%)', transform: 'translate(-25%, 25%)'}} />
-
-            <div className="p-5 pt-7 space-y-4 relative z-10">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black" style={{background: 'rgba(245,166,35,0.2)', color: '#F5A623', border: '1px solid rgba(245,166,35,0.5)'}}>👑 Platinum VIP</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black" style={{background: 'linear-gradient(90deg, #16A34A, #15803D)', color: '#fff'}}>25% OFF</span>
+            <div>
+              <div className="px-5 pt-8 pb-4" style={{background: 'linear-gradient(135deg, #2E1065, #5B21B6, #7C3AED)'}}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-purple-200 uppercase tracking-wider">👑 Platinum VIP</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-white">25% OFF</span>
                 </div>
-                <h3 className="text-xl font-black text-white" style={{fontFamily: "'Poppins', sans-serif"}}>Platinum VIP Plan</h3>
-                <p className="text-[11px]" style={{color: 'rgba(245,166,35,0.65)'}}>100% Solo Exclusivity — all classes</p>
+                <div className="text-white">
+                  <div className="text-3xl font-black" style={{fontFamily:"'Poppins',sans-serif"}}>₹18,000</div>
+                  <div className="text-purple-300 text-xs line-through">₹24,000</div>
+                  <div className="text-purple-200 text-[10px] mt-0.5">+ ₹{getGstAmount(18000).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(18000).toLocaleString('en-IN')} total</div>
+                </div>
               </div>
-
-              {/* Solo lock callout */}
-              <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl" style={{background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.3)'}}>
-                <Crown size={16} className="shrink-0 mt-0.5" style={{color: '#F5A623'}} />
+              <div className="px-5 py-4 space-y-3">
                 <div>
-                  <div className="text-[11px] font-black" style={{color: '#FBBF24'}}>👑 100% Exclusive Solo Lead</div>
-                  <div className="text-[10px] mt-0.5" style={{color: 'rgba(245,166,35,0.65)'}}>Lead locks instantly — zero tutor competition!</div>
+                  <div className="font-black text-purple-200 text-sm">Platinum VIP Plan</div>
+                  <div className="text-purple-400 text-xs">100% Solo Exclusivity — all classes</div>
                 </div>
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl border" style={{background:'rgba(124,58,237,0.15)', borderColor:'rgba(124,58,237,0.35)'}}>
+                  <Crown size={14} className="shrink-0 mt-0.5 text-purple-400" />
+                  <div>
+                    <div className="text-[11px] font-black text-purple-200">👑 100% Exclusive Solo Lead</div>
+                    <div className="text-[10px] text-purple-400 mt-0.5">Lead locks instantly — zero competition!</div>
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold" style={{background:'rgba(16,185,129,0.15)', color:'#34D399', border:'1px solid rgba(16,185,129,0.2)'}}>⚡ 30 Leads*</span>
+                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold" style={{background:'rgba(255,255,255,0.07)', color:'#C4B5FD', border:'1px solid rgba(196,181,253,0.2)'}}>📅 3 Months</span>
+                </div>
+                <ul className="space-y-1.5 pt-1">
+                  {['30 High-Value Leads* included','👑 100% Exclusive Solo Lead (Zero competition)','Any class, board, or entrance exam','🥇 #1 Priority Access +10,000 Boost','🪙 +100 Bonus Wallet Coins','📞 24/7 VIP Phone & WhatsApp Helpline'].map(f => (
+                    <li key={f} className="flex items-start gap-2 text-xs text-purple-300">
+                      <span className="text-purple-400 shrink-0 mt-0.5 font-bold">✓</span><span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-
-              <div className="py-3 space-y-1" style={{borderTop: '1px solid rgba(245,166,35,0.15)', borderBottom: '1px solid rgba(245,166,35,0.15)'}}>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-white" style={{fontFamily: "'Poppins', sans-serif"}}>₹18,000</span>
-                  <span className="text-sm font-bold line-through" style={{color: 'rgba(245,166,35,0.4)'}}>₹24,000</span>
-                </div>
-                <p className="text-[10px]" style={{color: 'rgba(245,166,35,0.5)'}}>+ ₹{getGstAmount(18000).toLocaleString('en-IN')} GST = <strong style={{color: 'rgba(245,166,35,0.85)'}}>₹{getPriceWithGst(18000).toLocaleString('en-IN')} total</strong></p>
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded-lg text-[11px] font-extrabold" style={{background: 'rgba(16,185,129,0.15)', color: '#34D399', border: '1px solid rgba(16,185,129,0.2)'}}>⚡ 30 Leads*</span>
-                  <span className="text-[10px]" style={{color: 'rgba(245,166,35,0.5)'}}>• 3 Months</span>
-                </div>
-              </div>
-
-              <ul className="space-y-2">
-                {['30 High-Value Leads* included','👑 100% Exclusive Solo Lead (Zero competition)','Any class, board, or entrance exam','🥇 #1 Priority Access +10,000 Boost','🪙 +100 Bonus Wallet Coins','📞 24/7 VIP Phone & WhatsApp Helpline'].map(f => (
-                  <li key={f} className="flex items-start gap-2 text-[11px]" style={{color: 'rgba(245,166,35,0.8)'}}>
-                    <span className="mt-0.5 shrink-0" style={{color: '#F5A623'}}>✓</span><span>{f}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
-
-            <div className="p-5 pt-0 relative z-10">
+            <div className="px-5 pb-5">
               <button type="button" disabled={isLoading || currentPlan === 'PLATINUM'} onClick={() => handleOpenCheckout('PLATINUM')}
-                className="w-full py-3 px-4 rounded-xl text-xs font-black transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
-                style={currentPlan === 'PLATINUM' ? {background: 'rgba(245,166,35,0.1)', color: '#F5A623', border: '1px solid rgba(245,166,35,0.3)'} : {background: 'linear-gradient(135deg, #F5A623, #FBBF24, #F5A623)', color: '#0D0800', boxShadow: '0 4px 28px rgba(245,166,35,0.55)'}}>
+                className="w-full py-3 rounded-xl text-sm font-black transition-all cursor-pointer hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={currentPlan === 'PLATINUM' ? {background:'rgba(124,58,237,0.2)', color:'#C4B5FD', border:'1px solid rgba(124,58,237,0.4)'} : {background:'linear-gradient(135deg,#5B21B6,#7C3AED)', color:'#fff', boxShadow:'0 4px 24px rgba(124,58,237,0.45)'}}>
                 {currentPlan === 'PLATINUM' ? '✅ Active VIP' : '👑 Upgrade to Platinum VIP'}
               </button>
             </div>
           </div>
         </div>
 
+
+          {/* ── BRONZE ── */}
+          <div className="rounded-2xl flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl" style={{background: 'linear-gradient(160deg, #1C1408 0%, #2A1E08 50%, #1A1206 100%)', border: '1.5px solid rgba(217,119,6,0.4)'}}>
+            <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-[60px] pointer-events-none" style={{background: 'radial-gradient(circle, rgba(217,119,6,0.2) 0%, transparent 70%)', transform: 'translate(30%, -30%)'}} />
+            <div className="p-5 space-y-4 relative z-10">
+              {/* Header */}
+
         {/* Asterisk Footnote */}
+
         <div className="text-center pt-4 text-xs font-semibold text-slate-500 max-w-3xl mx-auto">
           *Lead count scales with each plan: <strong>Bronze (10 Leads)</strong>, <strong>Silver (15 Leads)</strong>, <strong>Gold (20 Leads)</strong>, and <strong>Platinum VIP (30 Leads)</strong>. Lead quota dynamically adapts when unlocking higher secondary / entrance preparation classes or mixed combinations.
         </div>

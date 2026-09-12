@@ -32,6 +32,7 @@ enum KycStatus {
 
 enum SubscriptionPlan {
   NONE
+  STARTER
   BRONZE
   SILVER
   GOLD
@@ -1134,4 +1135,23 @@ model StaffActivityEvent {
   @@index([type, createdAt])
   @@index([leadId])
   @@map("staff_activity_events")
+}
+
+// ────────────────────────────────────────────────
+// WhatsApp Chatbot Sessions
+// ────────────────────────────────────────────────
+
+model WhatsappSession {
+  id            String   @id @default(cuid())
+  phone         String   @unique          // E.164 without +, e.g. "919876543210"
+  userType      String?                   // "TUTOR" | "PARENT" | null
+  step          String   @default("WELCOME")
+  data          Json     @default("{}")   // Collected field values
+  retries       Int      @default(0)      // Consecutive invalid replies
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([lastMessageAt])
+  @@map("whatsapp_sessions")
 }

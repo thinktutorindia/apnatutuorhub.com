@@ -122,24 +122,36 @@ export function WalletPageClient({
   return (
     <>
       <div className="space-y-6 pb-8">
-        {/* Top-up restriction banner if disabled */}
+        {/* Festival Season Promotional Banner — shown when top-up is hidden */}
         {!canTopup && (
-          <div className="p-4 rounded-3xl bg-amber-50 border border-amber-300 text-amber-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-base">⚠️</span>
-              <div>
-                <p className="font-black text-amber-950">Coin Top-Up Restricted for New Accounts</p>
-                <p className="text-amber-800 font-bold">
-                  Direct coin top-up is available for existing tutors &amp; active annual plan members. Upgrade to a plan for monthly lead quotas!
-                </p>
+          <div className="relative overflow-hidden rounded-3xl border-2 border-orange-400/60 bg-gradient-to-br from-orange-500/10 via-amber-400/10 to-yellow-300/10 p-5 shadow-lg">
+            <div className="absolute -top-8 -right-8 w-36 h-36 bg-orange-400/20 rounded-full blur-2xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <span className="text-3xl shrink-0 mt-0.5">🎉</span>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-orange-700 mb-0.5">🌟 Festival Season Special Offer — Limited Time</p>
+                  <p className="text-base font-black text-[#0F2540] leading-tight">
+                    Start Teaching for just <span className="text-orange-600">₹99</span>{" "}
+                    <span className="text-xs font-bold text-slate-500 line-through">₹999</span>{" "}
+                    <span className="text-[11px] font-black text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">90% OFF</span>
+                  </p>
+                  <p className="text-xs text-slate-600 font-semibold mt-1">
+                    Get <strong>1 Verified Lead</strong> (ANY class, ANY location) + <strong>30% commission</strong> from 1st month fee
+                  </p>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                    Next plans: Bronze ₹2,999 (50% OFF) • Silver ₹6,750 • Gold ₹9,000 • Platinum ₹18,000 (25% OFF)
+                  </p>
+                </div>
               </div>
+              <Link
+                href="/tutor/plans"
+                className="shrink-0 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 !text-white text-xs font-black shadow-lg transition-all hover:scale-105 inline-flex items-center gap-1.5"
+              >
+                <Sparkles size={14} />
+                <span>Grab ₹99 Offer →</span>
+              </Link>
             </div>
-            <Link
-              href="/tutor/plans"
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 !text-white font-extrabold shrink-0 shadow-sm transition-all"
-            >
-              View Membership Plans →
-            </Link>
           </div>
         )}
 
@@ -271,21 +283,20 @@ export function WalletPageClient({
 
           {paginated.length === 0 ? (
             <div className="py-12 text-center space-y-3 bg-gray-50/60 rounded-2xl border border-dashed border-gray-200">
-              <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-2xl mx-auto">
-                🪙
+              <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-2xl mx-auto">
+                🎉
               </div>
               <p className="text-sm font-700 text-gray-800">No transactions recorded yet</p>
               <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                Top up your coin wallet to start unlocking parent contacts and receiving tuition leads.
+                Get your first lead with the Festival Season Pass for just ₹99 — or choose any membership plan.
               </p>
-              <button
-                type="button"
-                onClick={() => setTopUpOpen(true)}
-                className="px-5 py-2.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 inline-flex items-center gap-1.5 cursor-pointer mt-2"
+              <Link
+                href="/tutor/plans"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 !text-white text-xs font-800 inline-flex items-center gap-1.5 mt-2"
               >
-                <Plus size={14} />
-                <span className="!text-white font-800">Buy Your First Coins</span>
-              </button>
+                <Sparkles size={14} />
+                <span className="!text-white font-800">🎉 Get 1st Lead for ₹99 →</span>
+              </Link>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">

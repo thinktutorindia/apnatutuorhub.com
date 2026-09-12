@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { getSubscriptionPlan } from "@/lib/subscription-plans";
+import { getSubscriptionPlan, getPriceWithGst } from "@/lib/subscription-plans";
 import {
   fetchRazorpayOrder,
   isRazorpayConfigured,
@@ -83,7 +83,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Order not found" }, { status: 400 });
     }
 
-    const expectedPaise = plan.priceInr * 100;
+    const expectedPaise = plan.noGst
+      ? plan.priceInr * 100                   // STARTER: no GST
+      : getPriceWithGst(plan.priceInr) * 100; // Others: base + 18% GST
     if (order.amount !== expectedPaise) {
       return NextResponse.json(
         { error: "Payment amount does not match the selected plan." },
@@ -127,6 +129,8 @@ export async function POST(request: Request) {
 
   // Activate Subscription in DB with Bonus Coins (Gold: +50 coins, Platinum: +100 coins)
   const bonusCoins = plan.id === "PLATINUM" ? 100 : plan.id === "GOLD" ? 50 : 0;
+  // For STARTER festival pass, plan.totalPoints = 30 (enough for 1 lead of any class)
+  const isStarterPass = plan.id === "STARTER";
 
   await prisma.$transaction(async (tx) => {
     await tx.tutorProfile.update({
@@ -136,6 +140,8 @@ export async function POST(request: Request) {
         subscriptionExpiresAt: expiresAt,
         leadsUsedThisMonth: 0,
         leadsResetAt: now,
+        // For starter pass, mark canTopup=false (no top-up allowed on festival starter)
+        ...(isStarterPass && { canTopup: false }),
       },
     });
 

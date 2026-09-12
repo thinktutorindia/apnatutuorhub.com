@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { getSubscriptionPlan } from "@/lib/subscription-plans";
+import { getSubscriptionPlan, getPriceWithGst, getGstAmount } from "@/lib/subscription-plans";
 import { createRazorpayOrder, isRazorpayConfigured } from "@/lib/razorpay";
 import { prisma } from "@/lib/prisma";
 
@@ -34,7 +34,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tutor profile not found" }, { status: 404 });
   }
 
-  const priceInPaise = plan.priceInr * 100;
+  // STARTER (₹99 festival pass) is GST-exempt; all other plans attract 18% GST
+  const basePrice = plan.priceInr;
+  const gstAmount = plan.noGst ? 0 : getGstAmount(basePrice);
+  const totalPrice = basePrice + gstAmount;
+  const priceInPaise = totalPrice * 100;
 
   if (isRazorpayConfigured()) {
     try {
@@ -48,6 +52,9 @@ export async function POST(request: Request) {
         amount: order.amount,
         currency: order.currency,
         keyId: order.keyId,
+        baseAmount: basePrice,
+        gstAmount,
+        totalAmount: totalPrice,
       });
     } catch (err: any) {
       console.error("[subscribe] Razorpay order creation failed", err);
@@ -69,5 +76,8 @@ export async function POST(request: Request) {
     amount: priceInPaise,
     currency: "INR",
     keyId: process.env.RAZORPAY_KEY_ID || "rzp_test_mock",
+    baseAmount: basePrice,
+    gstAmount,
+    totalAmount: totalPrice,
   });
 }

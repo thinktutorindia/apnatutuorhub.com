@@ -59,7 +59,7 @@ export default async function TutorWalletPage() {
       }
       userEmail={session.user.email ?? ""}
       userName={session.user.name ?? "Tutor"}
-      canTopup={tutorProfile?.canTopup ?? true}
+      canTopup={false /* Festival Season: top-up hidden; re-enable by removing this override */}
       isOldUser={tutorProfile?.isOldUser ?? false}
       coinCosts={{
         class18: coinCosts.COIN_COST_CLASS_1_8,

@@ -12,7 +12,9 @@ import {
   SUBSCRIPTION_PLANS,
   CLASS_LEAD_DISTRIBUTION,
   type SubscriptionPlanId,
-  type SubscriptionPlanConfig
+  type SubscriptionPlanConfig,
+  getPriceWithGst,
+  getGstAmount,
 } from "@/lib/subscription-plans";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { validateCouponAction, type ValidateCouponResult } from "@/app/actions/coupon.actions";
@@ -266,15 +268,92 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </div>
         )}
 
+
+        {/* 🎉 Festival Season ₹99 First-Time Pass Hero Card */}
+        {currentPlan === "NONE" && (
+          <div className="relative overflow-hidden rounded-3xl border-2 border-orange-400 bg-gradient-to-br from-[#0F2540] via-[#1A3C5E] to-[#0F2540] p-6 sm:p-8 shadow-2xl mb-2">
+            {/* Background decorations */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/20 rounded-full blur-3xl pointer-events-none -translate-y-16 translate-x-16" />
+            <div className="absolute bottom-0 left-0 w-60 h-60 bg-amber-400/15 rounded-full blur-3xl pointer-events-none translate-y-12 -translate-x-12" />
+            <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="flex-1 space-y-3">
+                {/* Badges */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-orange-500 text-white text-[11px] font-black animate-pulse">
+                    🔥 LIMITED FESTIVAL OFFER
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-yellow-300 text-[11px] font-black">
+                    🌟 First-Time Tutor Welcome Pass
+                  </span>
+                </div>
+                {/* Heading */}
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    Get Your First Lead for{" "}
+                    <span className="text-orange-400">₹99</span>{" "}
+                    <span className="text-sm font-bold text-slate-400 line-through">₹999</span>
+                  </h2>
+                  <p className="text-sm font-semibold text-slate-300 mt-1">
+                    One verified lead of ANY class, ANY location — pay just ₹99 this festival season!
+                  </p>
+                </div>
+                {/* Feature pills */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { icon: "✅", text: "1 Verified Lead" },
+                    { icon: "📚", text: "Any Class (1–12, Entrance)" },
+                    { icon: "📍", text: "Any Location / Online" },
+                    { icon: "💰", text: "30% Commission (1st Month)" },
+                  ].map(item => (
+                    <span key={item.text} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/10 border border-white/20 text-white text-[11px] font-bold">
+                      {item.icon} {item.text}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-400 font-semibold">
+                  *30% commission from first month's tuition fee applies once tuition is confirmed with the parent. Subsequent plans available at festival discounts.
+                </p>
+              </div>
+              {/* CTA */}
+              <div className="flex flex-col items-center gap-3 shrink-0">
+                <div className="text-center">
+                  <div className="text-5xl font-black text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    ₹<span className="text-orange-400">99</span>
+                  </div>
+                  <div className="text-xs font-black text-orange-300 uppercase tracking-wider">90% OFF • Festival Price</div>
+                  <div className="text-[11px] text-slate-400 line-through">Regular ₹999</div>
+                  <div className="text-[11px] text-emerald-400 font-bold mt-0.5">✅ No GST applicable</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenCheckout("STARTER")}
+                  disabled={isLoading || ["STARTER","BRONZE","SILVER","GOLD","PLATINUM"].includes(currentPlan.toUpperCase())}
+                  className="w-full px-8 py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 disabled:cursor-not-allowed !text-white font-black text-sm shadow-xl hover:shadow-orange-500/30 hover:scale-105 transition-all duration-200 cursor-pointer"
+                >
+                  {["STARTER","BRONZE","SILVER","GOLD","PLATINUM"].includes(currentPlan.toUpperCase())
+                    ? "✅ Plan Already Active"
+                    : "🎉 Grab This Offer — ₹99"}
+                </button>
+                <p className="text-[10px] text-slate-500 text-center">No hidden charges • Instant activation</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 4 Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch pt-4">
           {/* BRONZE PLAN */}
           <div className="rounded-3xl bg-white p-6 border-2 border-slate-200 shadow-md hover:shadow-xl transition-all flex flex-col justify-between relative group">
             <div className="space-y-4">
               <div className="space-y-1">
-                <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-amber-100 border border-amber-300 text-amber-950">
-                  Bronze Tier
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-amber-100 border border-amber-300 text-amber-950">
+                    Bronze Tier
+                  </span>
+                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black bg-green-500 text-white">
+                    🎉 50% OFF
+                  </span>
+                </div>
                 <h3 className="text-2xl font-black text-[#0F2540]">Bronze Plan</h3>
                 <p className="text-xs font-bold text-slate-500">Essential entry tier for all subjects</p>
               </div>
@@ -286,10 +365,12 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               </div>
 
               <div className="border-y border-slate-100 py-3.5 space-y-1.5">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl sm:text-4xl font-black text-slate-900">₹6,000</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl sm:text-4xl font-black text-slate-900">₹2,999</span>
+                  <span className="text-sm font-bold text-slate-400 line-through">₹6,000</span>
                   <span className="text-xs font-extrabold text-slate-500">package</span>
                 </div>
+                <p className="text-[11px] font-bold text-slate-500">+ ₹{getGstAmount(2999).toLocaleString("en-IN")} GST (18%) = <span className="font-black text-slate-700">₹{getPriceWithGst(2999).toLocaleString("en-IN")} total</span></p>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-extrabold border border-emerald-200">
                   <Zap size={13} className="text-[#2D9E6B]" />
                   <span>10 Verified Leads*</span>
@@ -360,9 +441,14 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           <div className="rounded-3xl bg-white p-6 border-2 border-slate-300 shadow-md hover:shadow-xl transition-all flex flex-col justify-between relative group">
             <div className="space-y-4">
               <div className="space-y-1">
-                <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-slate-200 border border-slate-400 text-slate-900">
-                  Silver Tier
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-slate-200 border border-slate-400 text-slate-900">
+                    Silver Tier
+                  </span>
+                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black bg-green-500 text-white">
+                    🎉 25% OFF
+                  </span>
+                </div>
                 <h3 className="text-2xl font-black text-[#0F2540]">Silver Plan</h3>
                 <p className="text-xs font-bold text-slate-500">Low competition tier for steady leads</p>
               </div>
@@ -374,10 +460,12 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               </div>
 
               <div className="border-y border-slate-100 py-3.5 space-y-1.5">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl sm:text-4xl font-black text-slate-900">₹9,000</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl sm:text-4xl font-black text-slate-900">₹6,750</span>
+                  <span className="text-sm font-bold text-slate-400 line-through">₹9,000</span>
                   <span className="text-xs font-extrabold text-slate-500">package</span>
                 </div>
+                <p className="text-[11px] font-bold text-slate-500">+ ₹{getGstAmount(6750).toLocaleString("en-IN")} GST (18%) = <span className="font-black text-slate-700">₹{getPriceWithGst(6750).toLocaleString("en-IN")} total</span></p>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 text-blue-900 text-xs font-extrabold border border-blue-200">
                   <Zap size={13} className="text-blue-600" />
                   <span>15 Verified Leads*</span>
@@ -453,9 +541,14 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
             <div className="space-y-4">
               <div className="space-y-1 pt-1">
-                <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-yellow-100 border border-yellow-300 text-yellow-950">
-                  Gold Tier
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-yellow-100 border border-yellow-300 text-yellow-950">
+                    Gold Tier
+                  </span>
+                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black bg-green-500 text-white">
+                    🎉 25% OFF
+                  </span>
+                </div>
                 <h3 className="text-2xl font-black text-[#0F2540]">Gold Plan</h3>
                 <p className="text-xs font-bold text-slate-500">Semi-exclusive leads for busy tutors</p>
               </div>
@@ -467,10 +560,12 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               </div>
 
               <div className="border-y border-slate-100 py-3.5 space-y-1.5">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl sm:text-4xl font-black text-slate-900">₹12,000</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl sm:text-4xl font-black text-slate-900">₹9,000</span>
+                  <span className="text-sm font-bold text-slate-400 line-through">₹12,000</span>
                   <span className="text-xs font-extrabold text-slate-500">package</span>
                 </div>
+                <p className="text-[11px] font-bold text-slate-500">+ ₹{getGstAmount(9000).toLocaleString("en-IN")} GST (18%) = <span className="font-black text-slate-700">₹{getPriceWithGst(9000).toLocaleString("en-IN")} total</span></p>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-100 text-amber-950 text-xs font-extrabold border border-amber-300">
                   <Zap size={13} className="text-amber-600" />
                   <span>20 Verified Leads*</span>
@@ -547,9 +642,14 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
             <div className="space-y-4">
               <div className="space-y-1 pt-1">
-                <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/20 border border-amber-400/40 text-amber-300">
-                  Platinum VIP Tier
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/20 border border-amber-400/40 text-amber-300">
+                    Platinum VIP Tier
+                  </span>
+                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black bg-green-500 text-white">
+                    🎉 25% OFF
+                  </span>
+                </div>
                 <h3 className="text-2xl font-black text-white">Platinum VIP Plan</h3>
                 <p className="text-xs font-bold text-amber-200">100% Solo Exclusivity across all classes</p>
               </div>
@@ -566,10 +666,12 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               </div>
 
               <div className="border-y border-amber-800/50 py-3.5 space-y-1.5">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl sm:text-4xl font-black text-white">₹24,000</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl sm:text-4xl font-black text-white">₹18,000</span>
+                  <span className="text-sm font-bold text-amber-500 line-through">₹24,000</span>
                   <span className="text-xs font-extrabold text-amber-300">package</span>
                 </div>
+                <p className="text-[11px] font-bold text-amber-300/80">+ ₹{getGstAmount(18000).toLocaleString("en-IN")} GST (18%) = <span className="font-black text-amber-200">₹{getPriceWithGst(18000).toLocaleString("en-IN")} total</span></p>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/30 text-amber-200 text-xs font-extrabold border border-amber-400/30">
                   <Zap size={13} className="text-yellow-400" />
                   <span>30 High-Value Leads*</span>
@@ -739,10 +841,10 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-[#0F2540] font-black">
                   <th className="py-3.5 px-4">Feature / Benefit</th>
-                  <th className="py-3.5 px-4 text-center">Bronze (₹6k)</th>
-                  <th className="py-3.5 px-4 text-center">Silver (₹9k)</th>
-                  <th className="py-3.5 px-4 text-center bg-yellow-50/50 text-amber-950">Gold (₹12k)</th>
-                  <th className="py-3.5 px-4 text-center bg-amber-50/50 text-amber-950">Platinum VIP (₹24k)</th>
+                  <th className="py-3.5 px-4 text-center">Bronze <span className="text-green-600">₹2,999</span> <span className="text-slate-400 line-through text-[10px]">₹6k</span></th>
+                  <th className="py-3.5 px-4 text-center">Silver <span className="text-green-600">₹6,750</span> <span className="text-slate-400 line-through text-[10px]">₹9k</span></th>
+                  <th className="py-3.5 px-4 text-center bg-yellow-50/50 text-amber-950">Gold <span className="text-green-600">₹9,000</span> <span className="text-slate-400 line-through text-[10px]">₹12k</span></th>
+                  <th className="py-3.5 px-4 text-center bg-amber-50/50 text-amber-950">Platinum VIP <span className="text-green-600">₹18,000</span> <span className="text-slate-400 line-through text-[10px]">₹24k</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
@@ -913,14 +1015,25 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
             {/* Price & Features summary */}
             <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-700 text-gray-600">Base Plan Price</span>
-                <span className="text-sm font-900 text-gray-900">
-                  ₹{SUBSCRIPTION_PLANS[checkoutPlanId].priceInr.toLocaleString("en-IN")}
+                <span className="text-xs font-700 text-gray-600">
+                  {SUBSCRIPTION_PLANS[checkoutPlanId].festivalBadge
+                    ? `Festival Price (${SUBSCRIPTION_PLANS[checkoutPlanId].festivalBadge})`
+                    : "Base Plan Price"}
                 </span>
+                <div className="flex items-center gap-1.5">
+                  {SUBSCRIPTION_PLANS[checkoutPlanId].originalPriceInr && (
+                    <span className="text-xs font-bold text-slate-400 line-through">
+                      ₹{SUBSCRIPTION_PLANS[checkoutPlanId].originalPriceInr!.toLocaleString("en-IN")}
+                    </span>
+                  )}
+                  <span className="text-sm font-900 text-gray-900">
+                    ₹{SUBSCRIPTION_PLANS[checkoutPlanId].priceInr.toLocaleString("en-IN")}
+                  </span>
+                </div>
               </div>
               <div className="flex items-center justify-between text-xs font-bold text-amber-700">
                 <span>Leads Included</span>
-                <span>{SUBSCRIPTION_PLANS[checkoutPlanId].totalLeads} Verified Leads*</span>
+                <span>{SUBSCRIPTION_PLANS[checkoutPlanId].totalLeads} Verified Lead{SUBSCRIPTION_PLANS[checkoutPlanId].totalLeads > 1 ? "s" : ""}*</span>
               </div>
               <div className="flex items-center justify-between text-xs font-bold text-slate-600">
                 <span>Validity</span>
@@ -930,17 +1043,45 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 <span>Competition Model</span>
                 <span>{SUBSCRIPTION_PLANS[checkoutPlanId].competitionLabel}</span>
               </div>
-              {appliedCoupon && (
-                <div className="flex items-center justify-between text-xs font-800 text-emerald-700">
-                  <span>Discount ({appliedCoupon.code})</span>
-                  <span>-₹{appliedCoupon.discountAmountInr.toLocaleString("en-IN")}</span>
+              {SUBSCRIPTION_PLANS[checkoutPlanId].commissionNote && (
+                <div className="p-2.5 rounded-xl bg-orange-50 border border-orange-200 text-[11px] font-bold text-orange-900">
+                  💰 {SUBSCRIPTION_PLANS[checkoutPlanId].commissionNote}
                 </div>
               )}
-              <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-sm font-900 text-[#0F2540]">
-                <span>Total Payable</span>
-                <span className="text-lg font-900 text-[#2D9E6B]">
-                  ₹{(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr).toLocaleString("en-IN")}
-                </span>
+
+              {/* GST Breakdown — skipped for GST-exempt plans (e.g. STARTER ₹99) */}
+              <div className="pt-2 border-t border-gray-200 space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                  <span>Base Amount</span>
+                  <span>₹{(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr).toLocaleString("en-IN")}</span>
+                </div>
+                {appliedCoupon && (
+                  <div className="flex items-center justify-between text-xs font-800 text-emerald-700">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>-₹{appliedCoupon.discountAmountInr.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                {SUBSCRIPTION_PLANS[checkoutPlanId].noGst ? (
+                  <div className="flex items-center justify-between text-xs font-bold text-emerald-700">
+                    <span>GST</span>
+                    <span>✅ Not applicable (Festival Offer)</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+                    <span>GST @ 18%</span>
+                    <span>₹{getGstAmount(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr).toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm font-900 text-[#0F2540] pt-1 border-t border-gray-200">
+                  <span>Total Payable {!SUBSCRIPTION_PLANS[checkoutPlanId].noGst && <span className="text-[10px] font-bold text-slate-400">(incl. GST)</span>}</span>
+                  <span className="text-lg font-900 text-[#2D9E6B]">
+                    ₹{(
+                      SUBSCRIPTION_PLANS[checkoutPlanId].noGst
+                        ? (appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr)
+                        : getPriceWithGst(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr)
+                    ).toLocaleString("en-IN")}
+                  </span>
+                </div>
               </div>
             </div>
 

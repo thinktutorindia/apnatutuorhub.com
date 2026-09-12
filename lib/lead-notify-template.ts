@@ -145,7 +145,16 @@ export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
     }
   }
 
-  const rawNotes = (data.notes || "").replace(/\[(?:MONTHLY RATE|HOURLY|DAILY|SYSTEM)\]/gi, "").trim();
+  let rawNotes = (data.notes || "")
+    .replace(/\[(?:MONTHLY RATE|HOURLY|DAILY|SYSTEM)\]/gi, "")
+    .replace(/\[Batch:[^\]]*\]/gi, "")
+    .replace(/\[Source:[^\]]*\]/gi, "")
+    .replace(/\[RefId:[^\]]*\]/gi, "")
+    .replace(/\|\s*Contact:\s*[^|]+\|/gi, "")
+    .replace(/Contact:\s*\+?\d[\d\s-]{8,}\d/gi, "")
+    .replace(/\s*\|\s*$/, "")
+    .replace(/^\s*\|\s*/, "")
+    .trim();
   const notes = rawNotes && !genderStr.toLowerCase().includes(rawNotes.toLowerCase()) ? rawNotes : null;
 
   let scheduleStr = data.schedule || data.timingPreference || "Evening (4 PM - 7 PM)";

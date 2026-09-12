@@ -1,4 +1,4 @@
-export type SubscriptionPlanId = "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
+export type SubscriptionPlanId = "STARTER" | "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
 
 export interface ClassLeadQuota {
   classLevel: string;
@@ -14,10 +14,23 @@ export const TOTAL_PLAN_LEAD_POINTS = 120; // Default fallback for Bronze
 export function getPlanTotalPoints(planId?: string | null): number {
   if (!planId) return 120;
   const key = planId.toUpperCase();
+  if (key === "STARTER") return 30;   // 1 lead of any class (max 30 pts for Class 11-12/Entrance)
   if (key === "PLATINUM") return 360; // 30 Class 1-5 leads, 24 Class 6-8, 18 Class 9-10, 12 Class 11-12
   if (key === "GOLD") return 240;     // 20 Class 1-5 leads, 16 Class 6-8, 12 Class 9-10, 8 Class 11-12
   if (key === "SILVER") return 180;   // 15 Class 1-5 leads, 12 Class 6-8, 9 Class 9-10, 6 Class 11-12
   return 120;                         // 10 Class 1-5 leads, 8 Class 6-8, 6 Class 9-10, 4 Class 11-12 (Bronze)
+}
+
+export const GST_RATE = 0.18; // 18% GST applicable on digital / software services in India
+
+/** Returns the GST amount (rounded to nearest rupee) for a given base price */
+export function getGstAmount(basePrice: number): number {
+  return Math.round(basePrice * GST_RATE);
+}
+
+/** Returns the GST-inclusive total (base + 18% GST) */
+export function getPriceWithGst(basePrice: number): number {
+  return basePrice + getGstAmount(basePrice);
 }
 
 export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
@@ -95,7 +108,14 @@ export function getLeadPointCost(classGrade?: string | null): number {
 export interface SubscriptionPlanConfig {
   id: SubscriptionPlanId;
   name: string;
+  /** Discounted / festival price tutors will be charged */
   priceInr: number;
+  /** Original (pre-discount) price for display strikethrough */
+  originalPriceInr?: number;
+  /** Festival discount percentage e.g. 90, 50, 25 */
+  festivalDiscountPct?: number;
+  /** Festival badge label e.g. "90% OFF" */
+  festivalBadge?: string;
   totalLeads: number;
   totalPoints: number;
   monthlyLeads: number; // Kept for backwards compatibility
@@ -103,7 +123,7 @@ export interface SubscriptionPlanConfig {
   validityText: string;
   maxTutorsPerLead: number;
   competitionLabel: string;
-  exclusivityType: "SHARED_5" | "SHARED_3" | "SEMI_EXCLUSIVE_2" | "EXCLUSIVE_1";
+  exclusivityType: "SHARED_5" | "SHARED_3" | "SEMI_EXCLUSIVE_2" | "EXCLUSIVE_1" | "SOLO_1";
   exclusivityBadge: string;
   priorityLabel: string;
   badge: string;
@@ -114,13 +134,58 @@ export interface SubscriptionPlanConfig {
   features: string[];
   classBreakdown: ClassLeadQuota[];
   termsNote: string;
+  /** Whether this is the festival starter pass (₹99) */
+  isStarterPass?: boolean;
+  /** Commission terms note for starter pass */
+  commissionNote?: string;
+  /** If true, GST is not applicable on this plan (e.g. the ₹99 festival pass) */
+  noGst?: boolean;
 }
 
 export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConfig> = {
+  STARTER: {
+    id: "STARTER",
+    name: "Festival Season Pass 🎉",
+    priceInr: 99,
+    originalPriceInr: 999,
+    festivalDiscountPct: 90,
+    festivalBadge: "90% OFF",
+    totalLeads: 1,
+    totalPoints: 30,
+    monthlyLeads: 1,
+    validityDays: 30,
+    validityText: "Valid for 30 Days",
+    maxTutorsPerLead: 5,
+    competitionLabel: "Shared Lead (max 5 tutors)",
+    exclusivityType: "SHARED_5",
+    exclusivityBadge: "👥 Shared (Max 5 Tutors)",
+    priorityLabel: "Standard",
+    badge: "🌟 First-Time Welcome",
+    badgeBg: "bg-orange-100 border-orange-300",
+    badgeText: "text-orange-950",
+    cardBorder: "border-orange-400 shadow-xl ring-2 ring-orange-400/30",
+    isStarterPass: true,
+    noGst: true,
+    commissionNote: "30% commission from 1st month tuition fee (collected after tuition is confirmed)",
+    features: [
+      "✅ 1 Verified Lead of Your Choice",
+      "📚 ANY class: 1–12, Boards, Entrance",
+      "📍 ANY location or Online",
+      "Full Parent Contact Info (Phone & Address)",
+      "30% commission from 1st month tuition fee*",
+      "Valid for 30 Days",
+      "24/7 Support Desk",
+    ],
+    classBreakdown: CLASS_LEAD_DISTRIBUTION,
+    termsNote: "1 Verified Lead for ANY class (Class 1–12, JEE, NEET, Entrance). Valid for 30 days. 30% commission from first month's tuition fee is applicable once tuition is confirmed with the parent.",
+  },
   BRONZE: {
     id: "BRONZE",
     name: "Bronze Plan",
-    priceInr: 6000,
+    priceInr: 2999,
+    originalPriceInr: 6000,
+    festivalDiscountPct: 50,
+    festivalBadge: "50% OFF",
     totalLeads: 10,
     totalPoints: 120,
     monthlyLeads: 10,
@@ -151,7 +216,10 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
   SILVER: {
     id: "SILVER",
     name: "Silver Plan",
-    priceInr: 9000,
+    priceInr: 6750,
+    originalPriceInr: 9000,
+    festivalDiscountPct: 25,
+    festivalBadge: "25% OFF",
     totalLeads: 15,
     totalPoints: 180,
     monthlyLeads: 15,
@@ -183,7 +251,10 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
   GOLD: {
     id: "GOLD",
     name: "Gold Plan",
-    priceInr: 12000,
+    priceInr: 9000,
+    originalPriceInr: 12000,
+    festivalDiscountPct: 25,
+    festivalBadge: "25% OFF",
     totalLeads: 20,
     totalPoints: 240,
     monthlyLeads: 20,
@@ -217,7 +288,10 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
   PLATINUM: {
     id: "PLATINUM",
     name: "Platinum VIP Plan",
-    priceInr: 24000,
+    priceInr: 18000,
+    originalPriceInr: 24000,
+    festivalDiscountPct: 25,
+    festivalBadge: "25% OFF",
     totalLeads: 30,
     totalPoints: 360,
     monthlyLeads: 30,

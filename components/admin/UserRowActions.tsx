@@ -16,6 +16,7 @@ import {
   MessageCircle,
   ShieldAlert,
   Loader2,
+  AlertTriangle,
   Check,
 } from "lucide-react";
 import {
@@ -24,6 +25,7 @@ import {
   adminResetUserPasswordAction,
   adminDeleteUserAction,
   adminToggleUserTopupAction,
+  adminToggleIncompleteUserAction,
 } from "@/app/actions/admin.actions";
 import { toggleTutorMarketingNotifsAction } from "@/app/actions/tutor.actions";
 
@@ -34,6 +36,7 @@ interface UserRowActionsProps {
     email: string;
     phone?: string | null;
     isActive: boolean;
+    customPermissions?: string[] | null;
     tutorProfile?: {
       kycStatus: string;
       averageRating: number;
@@ -143,6 +146,42 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
             <Edit3 size={14} className="text-slate-500" />
             <span>Edit Full Profile</span>
           </Link>
+
+          {/* Toggle Incomplete User Status */}
+          {user.customPermissions?.includes("tag:incomplete") ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                setConfirmDialog({
+                  title: "Mark as Complete User",
+                  message: `Remove the Incomplete User tag for ${user.name || user.email}? This will mark their profile as complete in the user directory.`,
+                  action: () => adminToggleIncompleteUserAction(user.id, false),
+                });
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-emerald-50 text-emerald-800 font-semibold text-left cursor-pointer transition-colors"
+            >
+              <Check size={14} className="text-emerald-600" />
+              <span>Mark as Complete (Untag)</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                setConfirmDialog({
+                  title: "Tag as Incomplete User",
+                  message: `Tag ${user.name || user.email} as Incomplete User? They will be highlighted in amber and selectable via the Incomplete Users filter.`,
+                  action: () => adminToggleIncompleteUserAction(user.id, true, "Marked incomplete via quick action"),
+                  danger: true,
+                });
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-amber-50 text-amber-800 font-semibold text-left cursor-pointer transition-colors"
+            >
+              <AlertTriangle size={14} className="text-amber-600" />
+              <span>Tag as Incomplete User</span>
+            </button>
+          )}
 
           {/* Suspend / Reactivate */}
           {user.isActive ? (

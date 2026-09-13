@@ -42,6 +42,7 @@ import { RequestLeadRefundButton } from "@/components/tutor/RequestLeadRefundBut
 import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 import type { DummyClaimedLeadInfo } from "@/lib/dummy-campaign-types";
 import { hasSubjectOverlap, isLeadMatchedToTutor } from "@/lib/feed-matching";
+import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
 
 export type ParentDetails = {
   name: string;
@@ -270,10 +271,10 @@ function LeadCard({
   const isFull = spotsLeft === 0;
   const progressPercent = Math.min(100, Math.round((currentPurchases / maxTutorsAllowed) * 100));
 
-  const planPointCost = getLeadPointCost(lead.classLevel);
+  const planPointCost = getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
   const remainingPoints =
     subscriptionInfo?.remainingPoints ??
-    (subscriptionInfo?.quotaRemaining ?? 0) * 12;
+    (subscriptionInfo?.quotaRemaining ?? 0) * 10;
   const isFreeWithPlan = Boolean(
     subscriptionInfo?.hasActivePlan && remainingPoints >= planPointCost
   );
@@ -546,14 +547,18 @@ function LeadCard({
                   </p>
                 </div>
 
-                {lead.parentDetails.notes && (
-                  <div className="sm:col-span-2 rounded-xl bg-white p-2.5 border border-emerald-200">
-                    <span className="text-[10px] font-bold text-slate-500 block">Notes from Parent</span>
-                    <p className="text-[11px] italic text-slate-700 pt-0.5">
-                      &quot;{lead.parentDetails.notes}&quot;
-                    </p>
-                  </div>
-                )}
+                {(() => {
+                  const cleanParentNotes = sanitizeLeadNotes(lead.parentDetails.notes, true);
+                  if (!cleanParentNotes) return null;
+                  return (
+                    <div className="sm:col-span-2 rounded-xl bg-white p-2.5 border border-emerald-200">
+                      <span className="text-[10px] font-bold text-slate-500 block">Notes from Parent</span>
+                      <p className="text-[11px] italic text-slate-700 pt-0.5">
+                        &quot;{cleanParentNotes}&quot;
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ) : (
@@ -600,11 +605,15 @@ function LeadCard({
                 )}
               </div>
 
-              {lead.notes && (
-                <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 text-[11px] text-slate-700 italic">
-                  &quot;{lead.notes}&quot;
-                </div>
-              )}
+              {(() => {
+                const cleanNotes = sanitizeLeadNotes(lead.notes, lead.isPurchased);
+                if (!cleanNotes) return null;
+                return (
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 text-[11px] text-slate-700 italic">
+                    &quot;{cleanNotes}&quot;
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

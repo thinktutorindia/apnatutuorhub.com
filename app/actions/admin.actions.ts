@@ -157,6 +157,9 @@ export type CreateUserInput = {
   classLevel?: string;
   board?: string;
   notes?: string;
+  // Incomplete User Tagging
+  isIncompleteUser?: boolean;
+  incompleteReason?: string;
   // Lead & Source Tagging
   leadSourceTag?: string;
   createLead?: boolean;
@@ -261,6 +264,7 @@ export async function adminCreateUserAction(
         subAdminRole: input.role === "SUB_ADMIN" ? (input.subAdminRole ?? "SUPPORT") : null,
         isActive: true,
         emailVerified: new Date(),
+        customPermissions: input.isIncompleteUser ? ["tag:incomplete"] : [],
       },
     });
 
@@ -381,15 +385,29 @@ export async function adminCreateUserAction(
       });
     }
 
+    if (input.isIncompleteUser) {
+      await tx.adminNote.create({
+        data: {
+          targetUserId: user.id,
+          authorUserId: session!.user.id,
+          authorName: session!.user.name || "Admin Staff",
+          content: input.incompleteReason?.trim()
+            ? `⚠️ Marked as Incomplete User upon creation. Reason: ${input.incompleteReason.trim()}`
+            : `⚠️ Marked as Incomplete User upon account creation. Pending complete profile details.`,
+        },
+      });
+    }
+
     const sourceTag = input.leadSourceTag?.trim() ? ` [Source: ${input.leadSourceTag.trim()}]` : "";
     const leadInfo = createdLead ? ` with Lead #${createdLead.inquiryNumber}` : "";
+    const incompleteTagInfo = input.isIncompleteUser ? " [Tagged: Incomplete User]" : "";
     await tx.auditLog.create({
       data: {
         adminId: session!.user.id,
         action: "CREATE_USER",
         entityType: "User",
         entityId: user.id,
-        details: `Created ${input.role} account for ${user.email} (${finalName})${sourceTag}${leadInfo}`,
+        details: `Created ${input.role} account for ${user.email} (${finalName})${sourceTag}${leadInfo}${incompleteTagInfo}`,
       },
     });
 
@@ -407,6 +425,69 @@ export async function adminCreateUserAction(
     leadId: newUser.createdLeadId,
     inquiryNumber: newUser.createdInquiryNumber,
   });
+}
+
+export async function adminToggleIncompleteUserAction(
+  userId: string,
+  isIncomplete: boolean,
+  reason?: string
+): Promise<ActionResult<{ userId: string; isIncomplete: boolean }>> {
+  const { error, session } = await requirePermission("users:manage");
+  if (error) return actionError(error);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, customPermissions: true, email: true, name: true },
+  });
+
+  if (!user) return actionError("User not found.");
+
+  const currentPerms = user.customPermissions || [];
+  let updatedPerms: string[];
+
+  if (isIncomplete) {
+    if (!currentPerms.includes("tag:incomplete")) {
+      updatedPerms = [...currentPerms, "tag:incomplete"];
+    } else {
+      updatedPerms = currentPerms;
+    }
+  } else {
+    updatedPerms = currentPerms.filter((p) => p !== "tag:incomplete");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: { customPermissions: updatedPerms },
+    });
+
+    await tx.adminNote.create({
+      data: {
+        targetUserId: userId,
+        authorUserId: session!.user.id,
+        authorName: session!.user.name || "Admin Staff",
+        content: isIncomplete
+          ? `⚠️ Tagged as Incomplete User. ${reason?.trim() ? `Reason: ${reason.trim()}` : "Pending complete profile details."}`
+          : `✅ Incomplete tag removed. Account verified/completed.`,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session!.user.id,
+        action: isIncomplete ? "TAG_INCOMPLETE_USER" : "UNTAG_INCOMPLETE_USER",
+        entityType: "User",
+        entityId: userId,
+        details: `${isIncomplete ? "Tagged as Incomplete User" : "Removed Incomplete User tag"} for ${user.email}`,
+      },
+    });
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  revalidatePath(`/admin/users/${userId}/edit`);
+
+  return actionSuccess({ userId, isIncomplete });
 }
 
 export async function adminGetNextAutoEmailAction(

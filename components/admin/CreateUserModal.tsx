@@ -7,6 +7,7 @@ import {
   UserPlus,
   X,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Copy,
   Key,
@@ -283,6 +284,10 @@ export function CreateUserModal({
   const [parentBudgetMax, setParentBudgetMax] = useState("");
   const [parentGenderPref, setParentGenderPref] = useState("ANY");
 
+  // Incomplete User Tagging State
+  const [isIncompleteUser, setIsIncompleteUser] = useState(false);
+  const [incompleteReason, setIncompleteReason] = useState("");
+
   // Result state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [existingUserMatch, setExistingUserMatch] = useState<{
@@ -311,6 +316,8 @@ export function CreateUserModal({
     leadId?: string;
     inquiryNumber?: number;
     leadSourceTag?: string;
+    isIncompleteUser?: boolean;
+    incompleteReason?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -546,6 +553,9 @@ export function CreateUserModal({
     setParentBudgetMax("");
     setParentGenderPref("ANY");
 
+    setIsIncompleteUser(false);
+    setIncompleteReason("");
+
     setErrorMsg(null);
     setCreatedResult(null);
   };
@@ -696,6 +706,8 @@ export function CreateUserModal({
       latitude: selectedLocation?.lat,
       longitude: selectedLocation?.lon,
       leadSourceTag: finalSourceTag,
+      isIncompleteUser,
+      incompleteReason: incompleteReason.trim() || undefined,
     };
 
     if (role === "TUTOR") {
@@ -768,6 +780,8 @@ export function CreateUserModal({
           leadId: res.data?.leadId,
           inquiryNumber: res.data?.inquiryNumber,
           leadSourceTag: finalSourceTag,
+          isIncompleteUser,
+          incompleteReason: incompleteReason.trim() || undefined,
         });
       }
     });
@@ -823,6 +837,13 @@ export function CreateUserModal({
 
     if (createdResult.locationSummary) {
       text += `\n📍 Location: ${createdResult.locationSummary}`;
+    }
+
+    if (createdResult.isIncompleteUser) {
+      text += `\n⚠️ Account Tag: Incomplete User (Marked for Follow-up)`;
+      if (createdResult.incompleteReason) {
+        text += `\n📝 Follow-up Note: ${createdResult.incompleteReason}`;
+      }
     }
 
     text += `\n\n🌐 Login URL: https://apnatutorhub.com/login\n\nPlease log in to access your dashboard.`;
@@ -1084,6 +1105,26 @@ export function CreateUserModal({
                               <strong className="font-bold">₹{createdResult.feeMin.toLocaleString("en-IN")}/mo</strong>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Incomplete User Alert Card */}
+                      {createdResult.isIncompleteUser && (
+                        <div className="sm:col-span-2 text-xs bg-amber-50 border border-amber-300 p-3 rounded-2xl text-amber-950 space-y-1.5 shadow-xs">
+                          <div className="flex items-center gap-2 font-extrabold text-amber-900">
+                            <span className="p-1 rounded-lg bg-amber-200 text-amber-900">
+                              <AlertTriangle size={14} />
+                            </span>
+                            <span>Tagged as Incomplete User (Marked for Follow-up)</span>
+                          </div>
+                          {createdResult.incompleteReason && (
+                            <p className="text-amber-800 font-semibold text-[11px] pl-6">
+                              Note / Missing Info: <span className="font-bold text-amber-950">{createdResult.incompleteReason}</span>
+                            </p>
+                          )}
+                          <p className="text-[10px] text-amber-700 pl-6">
+                            💡 You can selectively find this user anytime using the <strong>&quot;⚠️ Incomplete Users&quot;</strong> filter in the User Directory.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -1877,6 +1918,108 @@ export function CreateUserModal({
                       </div>
                     </div>
                   )}
+
+                  {/* Incomplete User Tagging Section */}
+                  <div
+                    className={`rounded-2xl p-4 transition-all border ${
+                      isIncompleteUser
+                        ? "bg-amber-50/95 border-amber-300 shadow-sm"
+                        : "bg-slate-50/80 border-slate-200"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`mt-0.5 p-2 rounded-xl transition-colors ${
+                            isIncompleteUser
+                              ? "bg-amber-500 text-white shadow-xs"
+                              : "bg-slate-200 text-slate-500"
+                          }`}
+                        >
+                          <AlertTriangle size={17} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <label
+                              htmlFor="incomplete-toggle"
+                              className={`text-xs font-800 cursor-pointer ${
+                                isIncompleteUser ? "text-amber-950" : "text-slate-800"
+                              }`}
+                            >
+                              Tag as Incomplete User
+                            </label>
+                            {isIncompleteUser && (
+                              <span className="rounded-md px-1.5 py-0.5 text-[9px] font-extrabold bg-amber-200 text-amber-900 border border-amber-400">
+                                TAG ACTIVE
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5 font-medium leading-relaxed">
+                            Flag this account as partial/incomplete (e.g. missing documents, partial phone, pending callback) to filter selectively in the directory.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Toggle Switch */}
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                        <input
+                          id="incomplete-toggle"
+                          type="checkbox"
+                          checked={isIncompleteUser}
+                          onChange={(e) => setIsIncompleteUser(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500 shadow-inner"></div>
+                      </label>
+                    </div>
+
+                    {/* Expanded Reason / Notes when toggled ON */}
+                    {isIncompleteUser && (
+                      <div className="mt-3.5 pt-3 border-t border-amber-200/90 space-y-2.5 animate-in fade-in duration-150">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-bold text-amber-950">
+                            Missing Details / Reason (for Staff Notes &amp; Selective Follow-up):
+                          </label>
+                          <span className="text-[10px] text-amber-700 font-semibold">Optional</span>
+                        </div>
+
+                        {/* Quick preset chips */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            "Missing Phone / Contact",
+                            "Address / Area Pending",
+                            "Subjects / Classes Unconfirmed",
+                            "KYC / Documents Pending",
+                            "Callback Requested / Partial Inquiry",
+                          ].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => {
+                                setIncompleteReason((prev) => {
+                                  if (!prev.trim()) return preset;
+                                  if (prev.includes(preset)) return prev;
+                                  return `${prev}, ${preset}`;
+                                });
+                              }}
+                              className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 cursor-pointer transition-colors shadow-2xs"
+                            >
+                              + {preset}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Reason text input */}
+                        <input
+                          type="text"
+                          value={incompleteReason}
+                          onChange={(e) => setIncompleteReason(e.target.value)}
+                          placeholder="e.g. Call parent back tomorrow for subjects, phone unverified..."
+                          className="w-full rounded-xl px-3 py-2 bg-white border border-amber-300 text-slate-900 text-xs font-semibold outline-none focus:border-amber-500 shadow-2xs placeholder:text-slate-400"
+                        />
+                      </div>
+                    )}
+                  </div>
 
                   {/* Submit Footer */}
                   <div className="flex items-center gap-3 pt-3 border-t border-slate-100">

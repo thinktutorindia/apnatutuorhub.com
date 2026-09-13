@@ -2,18 +2,22 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition, useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, Filter, Loader2, Sparkles, Mail, CheckCircle2, Bot } from "lucide-react";
+import { Search, X, Filter, Loader2, Sparkles, Mail, CheckCircle2, Bot, AlertTriangle } from "lucide-react";
 
 export function UserFilterBar({
   initialQ,
   initialRole,
   initialStatus,
   initialEmailType = "",
+  initialTag = "",
+  incompleteCount = 0,
 }: {
   initialQ: string;
   initialRole: string;
   initialStatus: string;
   initialEmailType?: string;
+  initialTag?: string;
+  incompleteCount?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -24,6 +28,7 @@ export function UserFilterBar({
   const [role, setRole] = useState(initialRole);
   const [status, setStatus] = useState(initialStatus);
   const [emailType, setEmailType] = useState(initialEmailType);
+  const [tag, setTag] = useState(initialTag);
 
   const isFocusedRef = useRef(false);
   const latestQRef = useRef(initialQ);
@@ -32,7 +37,7 @@ export function UserFilterBar({
 
   // Push URL updates with transition
   const applyFiltersToUrl = useCallback(
-    (newQ: string, newRole: string, newStatus: string, newEmailType: string) => {
+    (newQ: string, newRole: string, newStatus: string, newEmailType: string, newTag: string) => {
       const params = new URLSearchParams();
 
       if (newQ.trim()) {
@@ -46,6 +51,9 @@ export function UserFilterBar({
       }
       if (newEmailType) {
         params.set("emailType", newEmailType);
+      }
+      if (newTag) {
+        params.set("tag", newTag);
       }
 
       const queryStr = params.toString();
@@ -66,12 +74,14 @@ export function UserFilterBar({
       const urlRole = sp.get("role") ?? "";
       const urlStatus = sp.get("status") ?? "";
       const urlEmailType = sp.get("emailType") ?? "";
+      const urlTag = sp.get("tag") ?? "";
 
       setQ(urlQ);
       latestQRef.current = urlQ;
       setRole(urlRole);
       setStatus(urlStatus);
       setEmailType(urlEmailType);
+      setTag(urlTag);
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -83,10 +93,12 @@ export function UserFilterBar({
     const urlRole = searchParams.get("role") ?? "";
     const urlStatus = searchParams.get("status") ?? "";
     const urlEmailType = searchParams.get("emailType") ?? "";
+    const urlTag = searchParams.get("tag") ?? "";
 
     setRole((prev) => (prev !== urlRole ? urlRole : prev));
     setStatus((prev) => (prev !== urlStatus ? urlStatus : prev));
     setEmailType((prev) => (prev !== urlEmailType ? urlEmailType : prev));
+    setTag((prev) => (prev !== urlTag ? urlTag : prev));
 
     if (!isFocusedRef.current) {
       const urlQ = searchParams.get("q") ?? "";
@@ -105,31 +117,42 @@ export function UserFilterBar({
     }
 
     const timer = setTimeout(() => {
-      applyFiltersToUrl(q, role, status, emailType);
+      applyFiltersToUrl(q, role, status, emailType, tag);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [q, applyFiltersToUrl, role, status, emailType]);
+  }, [q, applyFiltersToUrl, role, status, emailType, tag]);
 
   const handleRoleChange = (newRole: string) => {
     setRole(newRole);
-    applyFiltersToUrl(q, newRole, status, emailType);
+    applyFiltersToUrl(q, newRole, status, emailType, tag);
   };
 
   const handleStatusChange = (newStatus: string) => {
     setStatus(newStatus);
-    applyFiltersToUrl(q, role, newStatus, emailType);
+    applyFiltersToUrl(q, role, newStatus, emailType, tag);
   };
 
   const handleEmailTypeChange = (newEmailType: string) => {
     setEmailType(newEmailType);
-    applyFiltersToUrl(q, role, status, newEmailType);
+    applyFiltersToUrl(q, role, status, newEmailType, tag);
+  };
+
+  const handleTagChange = (newTag: string) => {
+    setTag(newTag);
+    applyFiltersToUrl(q, role, status, emailType, newTag);
   };
 
   const handleQuickPreset = (newRole: string, newEmailType: string) => {
     setRole(newRole);
     setEmailType(newEmailType);
-    applyFiltersToUrl(q, newRole, status, newEmailType);
+    setTag("");
+    applyFiltersToUrl(q, newRole, status, newEmailType, "");
+  };
+
+  const handleQuickTag = (newTag: string) => {
+    setTag(newTag);
+    applyFiltersToUrl(q, role, status, emailType, newTag);
   };
 
   const handleClear = () => {
@@ -137,23 +160,16 @@ export function UserFilterBar({
     setRole("");
     setStatus("");
     setEmailType("");
-    applyFiltersToUrl("", "", "", "");
+    setTag("");
+    applyFiltersToUrl("", "", "", "", "");
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    applyFiltersToUrl(q, role, status, emailType);
+    applyFiltersToUrl(q, role, status, emailType, tag);
   };
 
-  const hasActiveFilters = Boolean(q || role || status || emailType);
-
-  const ROLE_TABS = [
-    { label: "All Users", value: "" },
-    { label: "Parents", value: "PARENT" },
-    { label: "Tutors", value: "TUTOR" },
-    { label: "Sub Admins", value: "SUB_ADMIN" },
-    { label: "Super Admins", value: "SUPER_ADMIN" },
-  ];
+  const hasActiveFilters = Boolean(q || role || status || emailType || tag);
 
   return (
     <div className="ath-panel space-y-3.5 p-4 sm:p-5">
@@ -183,7 +199,7 @@ export function UserFilterBar({
               type="button"
               onClick={() => {
                 setQ("");
-                applyFiltersToUrl("", role, status, emailType);
+                applyFiltersToUrl("", role, status, emailType, tag);
               }}
               className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5 rounded-lg hover:bg-slate-100"
               title="Clear search"
@@ -222,6 +238,21 @@ export function UserFilterBar({
           <option value="VERIFIED">🛡️ Verified Email Accounts Only</option>
         </select>
 
+        {/* User Tag / Incomplete User Selector */}
+        <select
+          value={tag}
+          onChange={(e) => handleTagChange(e.target.value)}
+          className={`w-full sm:w-auto rounded-2xl px-4 py-2.5 text-xs font-bold bg-white border shadow-xs outline-none cursor-pointer focus:border-[#2D9E6B] ${
+            tag === "INCOMPLETE"
+              ? "border-amber-500 text-amber-950 bg-amber-50/80 font-extrabold"
+              : "border-slate-300 text-slate-900"
+          }`}
+        >
+          <option value="">All Account Status Tags</option>
+          <option value="INCOMPLETE">⚠️ Incomplete Users ({incompleteCount})</option>
+          <option value="COMPLETE">✅ Complete Accounts Only</option>
+        </select>
+
         {/* Status Selector */}
         <select
           value={status}
@@ -258,7 +289,7 @@ export function UserFilterBar({
           type="button"
           onClick={() => handleQuickPreset("", "")}
           className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all border cursor-pointer ${
-            role === "" && emailType === ""
+            role === "" && emailType === "" && tag === ""
               ? "bg-[#0F2540] !text-white border-[#0F2540] shadow-xs"
               : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
           }`}
@@ -266,12 +297,35 @@ export function UserFilterBar({
           All Users
         </button>
 
+        {/* ⚠️ Incomplete Users Quick Filter */}
+        <button
+          type="button"
+          onClick={() => handleQuickTag(tag === "INCOMPLETE" ? "" : "INCOMPLETE")}
+          className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer shadow-xs ${
+            tag === "INCOMPLETE"
+              ? "bg-amber-600 !text-white border-amber-600 ring-2 ring-amber-400/40"
+              : "bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100"
+          }`}
+        >
+          <AlertTriangle size={13} className={tag === "INCOMPLETE" ? "text-white" : "text-amber-600"} />
+          <span>⚠️ Incomplete Users</span>
+          {incompleteCount > 0 && (
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                tag === "INCOMPLETE" ? "bg-amber-800 text-amber-100" : "bg-amber-200 text-amber-900"
+              }`}
+            >
+              {incompleteCount}
+            </span>
+          )}
+        </button>
+
         {/* ✨ Genuine Parents */}
         <button
           type="button"
           onClick={() => handleQuickPreset("PARENT", "GENUINE")}
           className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer ${
-            role === "PARENT" && emailType === "GENUINE"
+            role === "PARENT" && emailType === "GENUINE" && tag === ""
               ? "bg-blue-600 !text-white border-blue-600 shadow-xs"
               : "bg-blue-50/80 text-blue-900 border-blue-200 hover:bg-blue-100"
           }`}
@@ -285,7 +339,7 @@ export function UserFilterBar({
           type="button"
           onClick={() => handleQuickPreset("TUTOR", "GENUINE")}
           className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer ${
-            role === "TUTOR" && emailType === "GENUINE"
+            role === "TUTOR" && emailType === "GENUINE" && tag === ""
               ? "bg-[#0F2540] !text-white border-[#0F2540]"
               : "bg-[#EEF3F8] text-[#0F2540] border-[#CBD5E1] hover:bg-[#E2E8F0]"
           }`}
@@ -299,12 +353,12 @@ export function UserFilterBar({
           type="button"
           onClick={() => handleQuickPreset("", "GENUINE")}
           className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition-all border flex items-center gap-1.5 cursor-pointer ${
-            role === "" && emailType === "GENUINE"
+            role === "" && emailType === "GENUINE" && tag === ""
               ? "bg-[#2D9E6B] !text-white border-[#2D9E6B] shadow-xs"
               : "bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100"
           }`}
         >
-          <Sparkles size={12} className={role === "" && emailType === "GENUINE" ? "text-white" : "text-[#2D9E6B]"} />
+          <Sparkles size={12} className={role === "" && emailType === "GENUINE" && tag === "" ? "text-white" : "text-[#2D9E6B]"} />
           <span>All Genuine Emails</span>
         </button>
 
@@ -313,7 +367,7 @@ export function UserFilterBar({
           type="button"
           onClick={() => handleQuickPreset("", "AUTO_GENERATED")}
           className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
-            emailType === "AUTO_GENERATED"
+            emailType === "AUTO_GENERATED" && tag === ""
               ? "bg-slate-700 !text-white border-slate-700 shadow-xs"
               : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
           }`}

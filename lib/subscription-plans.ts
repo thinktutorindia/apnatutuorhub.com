@@ -9,16 +9,27 @@ export interface ClassLeadQuota {
   pointCost: number;
 }
 
-export const TOTAL_PLAN_LEAD_POINTS = 120; // Default fallback for Bronze
+export interface FeeStructureQuota {
+  feeBand: string;
+  monthlyRange: string;
+  leadsCount: number;
+  pointCost: number;
+  description: string;
+  popularClasses: string[];
+  badge: string;
+}
+
+export const TOTAL_PLAN_LEAD_POINTS = 60; // Default fallback for Growth Plan
 
 export function getPlanTotalPoints(planId?: string | null): number {
-  if (!planId) return 120;
+  if (!planId) return 60;
   const key = planId.toUpperCase();
   if (key === "STARTER") return 30;   // 1 lead of any class (max 30 pts for Class 11-12/Entrance)
-  if (key === "PLATINUM") return 360; // 30 Class 1-5 leads, 24 Class 6-8, 18 Class 9-10, 12 Class 11-12
-  if (key === "GOLD") return 240;     // 20 Class 1-5 leads, 16 Class 6-8, 12 Class 9-10, 8 Class 11-12
-  if (key === "SILVER") return 180;   // 15 Class 1-5 leads, 12 Class 6-8, 9 Class 9-10, 6 Class 11-12
-  return 120;                         // 10 Class 1-5 leads, 8 Class 6-8, 6 Class 9-10, 4 Class 11-12 (Bronze)
+  if (key === "BRONZE") return 60;    // Up to 6 leads (<₹3k: 6 leads, ₹3k-5k: 3 leads, >₹5k: 2 leads)
+  if (key === "PLATINUM") return 360; // Legacy 30 Class 1-5 leads
+  if (key === "GOLD") return 240;     // Legacy 20 Class 1-5 leads
+  if (key === "SILVER") return 180;   // Legacy 15 Class 1-5 leads
+  return 60;
 }
 
 export const GST_RATE = 0.18; // 18% GST applicable on digital / software services in India
@@ -38,7 +49,7 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
     classLevel: "Class 1–5",
     gradeRange: "Primary & Foundation",
     leadsCount: 10,
-    pointCost: 12,
+    pointCost: 10,
     description: "Unlock foundation leads for all primary subjects & phonics (10–30 leads by plan)",
     popularSubjects: ["All Subjects", "Maths", "English", "Science", "EVS"],
   },
@@ -68,7 +79,61 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
   },
 ];
 
-export function getLeadPointCost(classGrade?: string | null): number {
+/**
+ * Dynamic Lead Quota Breakdown by Tuition Fee Structure for ₹999 Growth Plan (60 pts total)
+ */
+export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
+  {
+    feeBand: "Lower Fee Leads",
+    monthlyRange: "Under ₹3,000 / month",
+    leadsCount: 6,
+    pointCost: 10,
+    description: "Unlock up to 6 foundation & primary tuition leads (Nursery, KG, Class 1–5, Single Subjects, or basic tuition)",
+    popularClasses: ["Class 1–5", "Nursery / KG", "Spoken English", "Basic Maths"],
+    badge: "⚡ Up to 6 Leads",
+  },
+  {
+    feeBand: "Standard Fee Leads",
+    monthlyRange: "₹3,000 – ₹5,000 / month",
+    leadsCount: 3,
+    pointCost: 20,
+    description: "Unlock up to 3 standard middle & secondary tuition leads (Class 6–10 core academic subjects)",
+    popularClasses: ["Class 6–8", "Class 9–10", "Board Preparation", "Science & Maths"],
+    badge: "⚡ Up to 3 Leads",
+  },
+  {
+    feeBand: "Higher / High-Ticket Leads",
+    monthlyRange: "Above ₹5,000 / month",
+    leadsCount: 2,
+    pointCost: 30,
+    description: "Unlock up to 2 high-ticket senior secondary & competitive exam leads (Class 11–12, JEE, NEET, CUET)",
+    popularClasses: ["Class 11–12", "IIT-JEE / NEET", "Commerce / Accounts", "CUET Prep"],
+    badge: "⚡ Up to 2 Leads",
+  },
+];
+
+/**
+ * Calculates lead point deduction based on student fee structure (budget) or class level fallback.
+ */
+export function getLeadPointCost(
+  classGrade?: string | null,
+  budgetMin?: number | null,
+  budgetMax?: number | null
+): number {
+  // 1. If explicit monthly fee/budget is known, use fee-based pricing
+  const effectiveBudget = (budgetMax && budgetMax > 0)
+    ? budgetMax
+    : (budgetMin && budgetMin > 0)
+      ? budgetMin
+      : null;
+
+  if (effectiveBudget !== null) {
+    if (effectiveBudget > 5000) return 30; // High ticket (> ₹5,000/mo)
+    if (effectiveBudget >= 3000) return 20; // Medium / Standard (₹3,000 – ₹5,000/mo)
+    return 10; // Low fee (< ₹3,000/mo)
+  }
+
+  // 2. Fallback to classGrade heuristic when fee is unspecified
   if (!classGrade) return 15;
   const lower = classGrade.toLowerCase();
   if (
@@ -102,7 +167,7 @@ export function getLeadPointCost(classGrade?: string | null): number {
     return 15;
   }
   // Class 1-5 / Primary / Nursery / Kindergarten
-  return 12;
+  return 10;
 }
 
 export interface SubscriptionPlanConfig {
@@ -133,6 +198,7 @@ export interface SubscriptionPlanConfig {
   popular?: boolean;
   features: string[];
   classBreakdown: ClassLeadQuota[];
+  feeBreakdown?: FeeStructureQuota[];
   termsNote: string;
   /** Whether this is the festival starter pass (₹99) */
   isStarterPass?: boolean;
@@ -140,16 +206,20 @@ export interface SubscriptionPlanConfig {
   commissionNote?: string;
   /** If true, GST is not applicable on this plan (e.g. the ₹99 festival pass) */
   noGst?: boolean;
+  /** If true, this tier is hidden from tutor-facing pricing displays */
+  isHidden?: boolean;
+  /** Whether this plan is an exclusive retargeting / follow-up offer */
+  isSpecialRetargetingOffer?: boolean;
 }
 
 export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConfig> = {
   STARTER: {
     id: "STARTER",
-    name: "Festival Season Pass 🎉",
+    name: "Limited-Time Trial Pass",
     priceInr: 99,
     originalPriceInr: 999,
     festivalDiscountPct: 90,
-    festivalBadge: "90% OFF",
+    festivalBadge: "SPECIAL DEAL",
     totalLeads: 1,
     totalPoints: 30,
     monthlyLeads: 1,
@@ -160,58 +230,64 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     exclusivityType: "SHARED_5",
     exclusivityBadge: "👥 Shared (Max 5 Tutors)",
     priorityLabel: "Standard",
-    badge: "🌟 First-Time Welcome",
+    badge: "⏰ Limited-Time Retargeting Deal",
     badgeBg: "bg-orange-100 border-orange-300",
     badgeText: "text-orange-950",
     cardBorder: "border-orange-400 shadow-xl ring-2 ring-orange-400/30",
     isStarterPass: true,
     noGst: true,
-    commissionNote: "30% commission from 1st month tuition fee (collected after tuition is confirmed)",
+    isHidden: true,
+    isSpecialRetargetingOffer: true,
+    commissionNote: "50% Commission from 1st Month Tuition Fee",
     features: [
       "✅ 1 Verified Lead of Your Choice",
       "📚 ANY class: 1–12, Boards, Entrance",
       "📍 ANY location or Online",
       "Full Parent Contact Info (Phone & Address)",
-      "30% commission from 1st month tuition fee*",
+      "🤝 50% Commission on 1st Month Fee",
       "Valid for 30 Days",
       "24/7 Support Desk",
     ],
     classBreakdown: CLASS_LEAD_DISTRIBUTION,
-    termsNote: "1 Verified Lead for ANY class (Class 1–12, JEE, NEET, Entrance). Valid for 30 days. 30% commission from first month's tuition fee is applicable once tuition is confirmed with the parent.",
+    feeBreakdown: FEE_STRUCTURE_DISTRIBUTION,
+    termsNote: "1 Verified Lead for ANY class. 50% platform commission on 1st month tuition fee. Valid for 30 days.",
   },
   BRONZE: {
     id: "BRONZE",
-    name: "Bronze Plan",
-    priceInr: 2999,
-    originalPriceInr: 6000,
-    festivalDiscountPct: 50,
-    festivalBadge: "50% OFF",
-    totalLeads: 10,
-    totalPoints: 120,
-    monthlyLeads: 10,
+    name: "Growth Plan",
+    priceInr: 999,
+    originalPriceInr: 2999,
+    festivalDiscountPct: 67,
+    festivalBadge: "67% OFF",
+    totalLeads: 6,
+    totalPoints: 60,
+    monthlyLeads: 6,
     validityDays: 30,
-    validityText: "Valid for 1 Month",
-    maxTutorsPerLead: 5,
-    competitionLabel: "Shared Leads (Sent to max 5 tutors)",
-    exclusivityType: "SHARED_5",
-    exclusivityBadge: "👥 Shared (Max 5 Tutors)",
+    validityText: "Valid for 30 Days",
+    maxTutorsPerLead: 3,
+    competitionLabel: "Low Competition (Shared with max 3 tutors)",
+    exclusivityType: "SHARED_3",
+    exclusivityBadge: "👥 Low Competition (Max 3 Tutors)",
     priorityLabel: "Standard Priority",
-    badge: "Bronze Tier",
-    badgeBg: "bg-amber-100 border-amber-300",
-    badgeText: "text-amber-950",
-    cardBorder: "border-slate-200",
-    termsNote: "10 Verified Leads* (Class 1–5: 10, 6–8: 8, 9–10: 6, 11–12: 4, or mix). Valid for 1 month. Leads shared with max 5 tutors.",
+    badge: "Best Value Growth 🚀",
+    badgeBg: "bg-blue-100 border-blue-300",
+    badgeText: "text-blue-950 font-bold",
+    cardBorder: "border-blue-400 shadow-xl ring-2 ring-blue-400/25",
+    popular: true,
+    termsNote: "Up to 6 Verified Leads allocated according to student fee structure (Fees < ₹3k: 6 leads, Fees ₹3k–₹5k: 3 leads, Fees > ₹5k: 2 leads, or mixed). Valid for 30 days. Shared with max 3 tutors.",
     features: [
-      "10 Verified Leads*",
-      "Valid for 1 Month",
-      "👥 Shared with up to 5 tutors",
-      "Unlock across all classes & subjects",
+      "✅ Up to 6 Verified Leads by fee structure",
+      "💰 Fees < ₹3,000/mo: Up to 6 Leads",
+      "📈 Fees ₹3,000–₹5,000/mo: Up to 3 Leads",
+      "⭐ Fees > ₹5,000/mo: Up to 2 Leads",
+      "🎉 0% Platform Commission (Keep 100%)",
+      "👥 Low Competition: Max 3 tutors per lead",
       "Full Parent Contact Info (Direct Phone & Address)",
-      "Distance Radius Matching (up to 10 km)",
-      "Standard Client Feed Access",
-      "24/7 Support Desk",
+      "Expanded Matching Radius (up to 15 km)",
+      "24/7 Dedicated Support Desk",
     ],
     classBreakdown: CLASS_LEAD_DISTRIBUTION,
+    feeBreakdown: FEE_STRUCTURE_DISTRIBUTION,
   },
   SILVER: {
     id: "SILVER",
@@ -234,6 +310,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     badgeBg: "bg-slate-200 border-slate-400",
     badgeText: "text-slate-900",
     cardBorder: "border-slate-300",
+    isHidden: true,
     termsNote: "15 Verified Leads* (Class 1–5: 15, 6–8: 12, 9–10: 9, 11–12: 6, or mix). Valid for 2 months. Shared with max 3 tutors.",
     features: [
       "15 Verified Leads*",
@@ -269,7 +346,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     badgeBg: "bg-yellow-100 border-yellow-400",
     badgeText: "text-yellow-950 font-black",
     cardBorder: "border-yellow-400 shadow-lg ring-2 ring-yellow-400/20",
-    popular: true,
+    isHidden: true,
     termsNote: "20 Verified Leads* (Class 1–5: 20, 6–8: 16, 9–10: 12, 11–12: 8, or mix). Valid for 2 months. Semi-exclusive: Max 2 tutors.",
     features: [
       "20 Verified Leads*",
@@ -306,6 +383,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     badgeBg: "bg-purple-100 border-purple-400",
     badgeText: "text-purple-950 font-black",
     cardBorder: "border-purple-500 shadow-xl ring-2 ring-purple-500/30",
+    isHidden: true,
     termsNote: "30 High-Value Leads* (Class 1–5: 30, 6–8: 24, 9–10: 18, 11–12: 12, or mix). Valid for 3 months. 100% Exclusive Solo Lead Lock: Once unlocked by a Platinum VIP tutor, the lead is immediately closed and locked. No other tutor can contact the parent.",
     features: [
       "30 High-Value Leads*",

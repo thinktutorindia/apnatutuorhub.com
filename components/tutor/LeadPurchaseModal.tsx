@@ -41,6 +41,8 @@ type LeadSummary = {
   city: string | null;
   area: string | null;
   coinCost: number;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
 };
 
 export type SubscriptionInfo = {
@@ -94,10 +96,10 @@ export function LeadPurchaseModal({
   const [contact, setContact] = useState<ParentContact | null>(null);
   const [purchaseId, setPurchaseId] = useState<string>("");
 
-  const planPointCost = getLeadPointCost(lead.classLevel);
+  const planPointCost = getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
   const remainingPoints =
     subscriptionInfo?.remainingPoints ??
-    (subscriptionInfo?.quotaRemaining ?? 0) * 12;
+    (subscriptionInfo?.quotaRemaining ?? 0) * 10;
   const isFreeWithPlan = Boolean(
     subscriptionInfo?.hasActivePlan && remainingPoints >= planPointCost
   );

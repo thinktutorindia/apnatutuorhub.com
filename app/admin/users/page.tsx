@@ -58,7 +58,7 @@ const ROLE_COLOR: Record<string, { bg: string; text: string; border: string; ava
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; status?: string; emailType?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; role?: string; status?: string; emailType?: string; tag?: string; page?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -69,6 +69,7 @@ export default async function AdminUsersPage({
   const roleFilter = params.role ?? "";
   const statusFilter = params.status ?? "";
   const emailTypeFilter = params.emailType ?? "";
+  const tagFilter = params.tag ?? "";
   const page = Math.max(1, Number(params.page ?? 1));
   const take = 20;
   const skip = (page - 1) * take;
@@ -92,6 +93,19 @@ export default async function AdminUsersPage({
     andConditions.push({ isActive: true });
   } else if (statusFilter === "SUSPENDED") {
     andConditions.push({ isActive: false });
+  }
+
+  // ── Account Tag / Incomplete User Filter ──
+  if (tagFilter === "INCOMPLETE") {
+    andConditions.push({
+      customPermissions: { has: "tag:incomplete" },
+    });
+  } else if (tagFilter === "COMPLETE") {
+    andConditions.push({
+      NOT: {
+        customPermissions: { has: "tag:incomplete" },
+      },
+    });
   }
 
   // ── Genuine / Auto-assigned Email Filter ──
@@ -119,7 +133,7 @@ export default async function AdminUsersPage({
     where.AND = andConditions;
   }
 
-  const [users, total, genuineTotal, genuineParentsTotal, genuineTutorsTotal] = await Promise.all([
+  const [users, total, genuineTotal, genuineParentsTotal, genuineTutorsTotal, incompleteTotal] = await Promise.all([
     prisma.user.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -134,6 +148,7 @@ export default async function AdminUsersPage({
         isActive: true,
         createdAt: true,
         image: true,
+        customPermissions: true,
         tutorProfile: {
           select: {
             id: true,
@@ -188,6 +203,11 @@ export default async function AdminUsersPage({
           { email: { not: { endsWith: "@apnatutorhub.com" } } },
           { email: { not: { contains: "apnatutorhub.com" } } },
         ],
+      },
+    }),
+    prisma.user.count({
+      where: {
+        customPermissions: { has: "tag:incomplete" },
       },
     }),
   ]);
@@ -297,6 +317,19 @@ export default async function AdminUsersPage({
             <span className="text-[11px] font-700 text-emerald-800 bg-[#E8F7F0] px-2.5 py-0.5 rounded-full">
               {genuineTotal} genuine emails · {genuineParentsTotal} parents · {genuineTutorsTotal} tutors
             </span>
+            {incompleteTotal > 0 && (
+              <Link
+                href={tagFilter === "INCOMPLETE" ? "/admin/users" : "/admin/users?tag=INCOMPLETE"}
+                className={`inline-flex items-center gap-1.5 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full transition-all border ${
+                  tagFilter === "INCOMPLETE"
+                    ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                    : "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
+                }`}
+                title="Click to view incomplete user accounts"
+              >
+                <span>⚠️ {incompleteTotal} Incomplete User{incompleteTotal > 1 ? "s" : ""}</span>
+              </Link>
+            )}
           </div>
           <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             User Directory
@@ -324,6 +357,8 @@ export default async function AdminUsersPage({
         initialRole={roleFilter}
         initialStatus={statusFilter}
         initialEmailType={emailTypeFilter}
+        initialTag={tagFilter}
+        incompleteCount={incompleteTotal}
       />
 
       {/* Main User Directory Table */}
@@ -416,7 +451,17 @@ export default async function AdminUsersPage({
                             avatarGrad={roleStyle.avatarGrad}
                           />
                           <div className="min-w-0">
-                            <p className="truncate font-800 text-[#0F2540] text-sm">{u.name || "—"}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="truncate font-800 text-[#0F2540] text-sm">{u.name || "—"}</p>
+                              {u.customPermissions?.includes("tag:incomplete") && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.2 text-[9px] font-black bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs shrink-0"
+                                  title="Incomplete User Account — flagged for staff follow-up"
+                                >
+                                  ⚠️ Incomplete
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1.5 min-w-0">
                               <p className="truncate text-xs font-600 text-slate-600">{u.email}</p>
                               {isGenuineEmail ? (
@@ -538,7 +583,7 @@ export default async function AdminUsersPage({
             <div className="flex gap-2">
               {page > 1 && (
                 <Link
-                  href={`/admin/users?q=${encodeURIComponent(q)}&role=${roleFilter}&status=${statusFilter}&page=${page - 1}`}
+                  href={`/admin/users?q=${encodeURIComponent(q)}&role=${roleFilter}&status=${statusFilter}&emailType=${emailTypeFilter}&tag=${tagFilter}&page=${page - 1}`}
                   className="rounded-xl px-4 py-2 bg-white border border-slate-300 text-slate-900 font-800 hover:bg-slate-100"
                 >
                   ← Prev
@@ -546,7 +591,7 @@ export default async function AdminUsersPage({
               )}
               {page < totalPages && (
                 <Link
-                  href={`/admin/users?q=${encodeURIComponent(q)}&role=${roleFilter}&status=${statusFilter}&page=${page + 1}`}
+                  href={`/admin/users?q=${encodeURIComponent(q)}&role=${roleFilter}&status=${statusFilter}&emailType=${emailTypeFilter}&tag=${tagFilter}&page=${page + 1}`}
                   className="rounded-xl px-4 py-2 bg-[#2D9E6B] text-white font-800 hover:bg-[#238357]"
                 >
                   Next →

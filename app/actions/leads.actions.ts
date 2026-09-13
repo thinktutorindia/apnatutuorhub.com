@@ -469,6 +469,8 @@ export async function purchaseLeadAction(
         status: true,
         classLevel: true,
         subjects: true,
+        budgetMin: true,
+        budgetMax: true,
         coinCost: true,
         maxTutors: true,
         purchaseCount: true,
@@ -518,17 +520,20 @@ export async function purchaseLeadAction(
   );
   const planConfig = hasActivePlan && tutorProfile?.subscriptionPlan ? getSubscriptionPlan(tutorProfile.subscriptionPlan) : null;
 
-  // Calculate plan lead points & quota for this tutor (supports flexible class unlocks & mixed classes)
+  // Calculate plan lead points & quota for this tutor (supports fee structure & flexible class unlocks)
   let quotaRemainingPoints = 0;
-  const leadPointCost = getLeadPointCost(lead.classLevel);
+  const leadPointCost = getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
 
   if (hasActivePlan && planConfig) {
     const resetDate = tutorProfile?.leadsResetAt ?? new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
     const purchases = await prisma.leadPurchase.findMany({
       where: { tutorProfileId, createdAt: { gte: resetDate } },
-      include: { lead: { select: { classLevel: true } } },
+      include: { lead: { select: { classLevel: true, budgetMin: true, budgetMax: true } } },
     });
-    const usedPoints = purchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classLevel), 0);
+    const usedPoints = purchases.reduce(
+      (acc, p) => acc + getLeadPointCost(p.lead?.classLevel, p.lead?.budgetMin, p.lead?.budgetMax),
+      0
+    );
     const planTotalPoints = getPlanTotalPoints(tutorProfile?.subscriptionPlan);
     quotaRemainingPoints = Math.max(0, planTotalPoints - usedPoints);
   }
@@ -607,8 +612,8 @@ export async function purchaseLeadAction(
       } else if (targetStatus === "ACTIVE") {
         targetStatus = "MATCHING";
       }
-    } else if (tutorPlan === "SILVER") {
-      // 👥 Silver Tier Low-Competition Lock: Lead capacity capped at max 3 tutors
+    } else if (tutorPlan === "SILVER" || tutorPlan === "BRONZE") {
+      // 👥 Low-Competition Lock (Growth & Silver): Lead capacity capped at max 3 tutors
       targetMaxTutors = Math.min(updatedLead.maxTutors, Math.max(updatedLead.purchaseCount, 3));
       if (updatedLead.purchaseCount >= targetMaxTutors) {
         targetStatus = "APPLICATIONS_RECEIVED";
@@ -616,7 +621,7 @@ export async function purchaseLeadAction(
         targetStatus = "MATCHING";
       }
     } else {
-      // Bronze / Pay-as-you-go: Standard cap
+      // Starter / Pay-as-you-go: Standard cap
       if (updatedLead.purchaseCount >= updatedLead.maxTutors && targetStatus !== "APPLICATIONS_RECEIVED") {
         targetStatus = "APPLICATIONS_RECEIVED";
       } else if (targetStatus === "ACTIVE") {

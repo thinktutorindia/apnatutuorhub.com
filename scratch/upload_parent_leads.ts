@@ -127,7 +127,7 @@ async function runUpload(dryRun: boolean = true) {
       city: isOnline ? 'Pan-India' : (raw.location.includes('Gurugram') ? 'Gurugram' : raw.location.includes('Noida') ? 'Noida' : 'Delhi'),
       area: raw.location,
       tutorGenderPref: genderPref,
-      notes: `[Batch: TODAY_PARENTS_SEP_2026] [Source: Uploaded Batch Sep 2026] [RefId: ${raw.leadId}] | Contact: ${raw.phone} | ${raw.notes || ''}`.trim(),
+      notes: raw.notes?.trim() || null,
       status: 'ACTIVE' as const,
       coinCost: 10,
       maxTutors: 5,

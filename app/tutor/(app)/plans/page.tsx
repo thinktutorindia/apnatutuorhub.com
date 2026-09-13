@@ -5,7 +5,7 @@ import { TutorPlansPageClient } from "@/components/tutor/TutorPlansPageClient";
 
 export const metadata = {
   title: "Tutor Membership Plans | ApnaTutorHub",
-  description: "Select from Bronze, Silver, Gold, or Platinum VIP membership plans for verified home and online tuition leads.",
+  description: "Unlock verified home and online tuition leads with our ₹999 Growth Membership (60 Points · 0% Platform Commission · Fee Structure Lead Delivery).",
 };
 
 export default async function TutorPlansPage() {

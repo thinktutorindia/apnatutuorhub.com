@@ -5,6 +5,7 @@ import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints } from "@/lib
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { parseDummyClaimedQuery } from "@/lib/dummy-campaign-types";
+import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
 
@@ -167,7 +168,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       timingPreference: lead.timingPreference,
       tutorGenderPref: lead.tutorGenderPref,
       languagePref: lead.languagePref,
-      notes: lead.notes,
+      notes: sanitizeLeadNotes(lead.notes, isPurchased),
       isPurchased,
       isShortlisted: purchaseInfo?.isShortlisted ?? false,
       isRejected: purchaseInfo?.isRejected ?? false,
@@ -187,7 +188,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
             board: lead.board || null,
             tutorGenderPref: lead.tutorGenderPref || null,
             languagePref: lead.languagePref || null,
-            notes: lead.notes || null,
+            notes: sanitizeLeadNotes(lead.notes, true),
           }
         : null,
     });
@@ -211,13 +212,16 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
         tutorProfileId: tutorProfile.id,
         createdAt: { gte: resetDate },
       },
-      include: { lead: { select: { classLevel: true } } },
+      include: { lead: { select: { classLevel: true, budgetMin: true, budgetMax: true } } },
     });
     purchasesCount = planPurchases.length;
-    const usedPoints = planPurchases.reduce((acc, p) => acc + getLeadPointCost(p.lead?.classLevel), 0);
+    const usedPoints = planPurchases.reduce(
+      (acc, p) => acc + getLeadPointCost(p.lead?.classLevel, p.lead?.budgetMin, p.lead?.budgetMax),
+      0
+    );
     const planTotalPoints = getPlanTotalPoints(tutorProfile.subscriptionPlan);
     remainingPoints = Math.max(0, planTotalPoints - usedPoints);
-    quotaRemaining = Math.max(0, Math.floor(remainingPoints / 12));
+    quotaRemaining = Math.max(0, Math.floor(remainingPoints / 10));
   }
 
   const walletBalance = tutorProfile.wallet?.balance ?? 0;

@@ -124,32 +124,32 @@ export function WalletPageClient({
       <div className="space-y-6 pb-8">
         {/* Festival Season Promotional Banner — shown when top-up is hidden */}
         {!canTopup && (
-          <div className="relative overflow-hidden rounded-3xl border-2 border-orange-400/60 bg-gradient-to-br from-orange-500/10 via-amber-400/10 to-yellow-300/10 p-5 shadow-lg">
-            <div className="absolute -top-8 -right-8 w-36 h-36 bg-orange-400/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-400/60 bg-gradient-to-br from-emerald-500/10 via-blue-400/10 to-teal-300/10 p-5 shadow-lg">
+            <div className="absolute -top-8 -right-8 w-36 h-36 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
             <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
-                <span className="text-3xl shrink-0 mt-0.5">🎉</span>
+                <span className="text-3xl shrink-0 mt-0.5">🚀</span>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-orange-700 mb-0.5">🌟 Festival Season Special Offer — Limited Time</p>
+                  <p className="text-xs font-black uppercase tracking-wider text-emerald-800 mb-0.5">🌟 Flagship Membership — Limited Time 67% OFF</p>
                   <p className="text-base font-black text-[#0F2540] leading-tight">
-                    Start Teaching for just <span className="text-orange-600">₹99</span>{" "}
-                    <span className="text-xs font-bold text-slate-500 line-through">₹999</span>{" "}
-                    <span className="text-[11px] font-black text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">90% OFF</span>
+                    Upgrade to <span className="text-emerald-700">₹999 Growth Plan</span>{" "}
+                    <span className="text-xs font-bold text-slate-500 line-through">₹2,999</span>{" "}
+                    <span className="text-[11px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">67% OFF</span>
                   </p>
                   <p className="text-xs text-slate-600 font-semibold mt-1">
-                    Get <strong>1 Verified Lead</strong> (ANY class, ANY location) + <strong>30% commission</strong> from 1st month fee
+                    <strong>60 Quota Points</strong> • <strong className="text-emerald-700">0% Platform Commission</strong> (Keep 100% of student fees!)
                   </p>
                   <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
-                    Next plans: Bronze ₹2,999 (50% OFF) • Silver ₹6,750 • Gold ₹9,000 • Platinum ₹18,000 (25% OFF)
+                    Leads delivered by student fee structure (Up to 6 verified leads • Low competition: max 3 tutors)
                   </p>
                 </div>
               </div>
               <Link
                 href="/tutor/plans"
-                className="shrink-0 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 !text-white text-xs font-black shadow-lg transition-all hover:scale-105 inline-flex items-center gap-1.5"
+                className="shrink-0 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 !text-white text-xs font-black shadow-lg transition-all hover:scale-105 inline-flex items-center gap-1.5"
               >
                 <Sparkles size={14} />
-                <span>Grab ₹99 Offer →</span>
+                <span>View ₹999 Plan →</span>
               </Link>
             </div>
           </div>

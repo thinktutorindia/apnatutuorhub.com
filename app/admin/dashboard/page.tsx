@@ -21,6 +21,7 @@ import { getMediaUrl } from "@/lib/s3";
 import { CreateLeadModal } from "@/components/admin/CreateLeadModal";
 import { KycRowActions } from "@/components/admin/KycRowActions";
 import { AdminBannerSearch } from "@/components/admin/AdminCommandPalette";
+import { getAllowedSubAdminModules } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Overview — ApnaTutorHub" };
@@ -91,6 +92,27 @@ function KpiCard({
 export default async function AdminDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  if (session.user.role === "SUB_ADMIN") {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subAdminRole: true, customPermissions: true },
+    });
+    const allowed = getAllowedSubAdminModules({
+      role: "SUB_ADMIN",
+      subAdminRole: dbUser?.subAdminRole ?? session.user.subAdminRole,
+      customPermissions: dbUser?.customPermissions ?? session.user.customPermissions,
+    });
+    if (!allowed.includes("/admin/dashboard")) {
+      if (allowed.includes("/admin/staff-leads/my-leads")) {
+        redirect("/admin/staff-leads/my-leads");
+      } else if (allowed.includes("/admin/users")) {
+        redirect("/admin/users");
+      } else if (allowed.length > 0) {
+        redirect(allowed[0]);
+      }
+    }
+  }
 
   const stats = await getAdminDashboardStats();
   if (!stats) redirect("/login");

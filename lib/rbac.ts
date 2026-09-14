@@ -253,7 +253,10 @@ export function getAllowedSubAdminModules(subject: RbacSubject): string[] {
 
   // If sub-admin has custom permissions explicitly saved
   if (subject.customPermissions && subject.customPermissions.length > 0) {
-    const routes = new Set<string>(["/admin/dashboard", "/admin/staff-leads/my-leads", "/admin/staff-leads/my-dashboard"]);
+    const routes = new Set<string>();
+    if (subject.customPermissions.includes("dashboard")) {
+      routes.add("/admin/dashboard");
+    }
     for (const key of subject.customPermissions) {
       const feat = ALL_ADMIN_FEATURES.find((f) => f.key === key);
       if (key === "staff-leads") {

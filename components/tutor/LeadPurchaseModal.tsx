@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -95,6 +96,7 @@ export function LeadPurchaseModal({
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [contact, setContact] = useState<ParentContact | null>(null);
   const [purchaseId, setPurchaseId] = useState<string>("");
+  const router = useRouter();
 
   const planPointCost = getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
   const remainingPoints =
@@ -139,6 +141,8 @@ export function LeadPurchaseModal({
     setContact(result.data.parentContact);
     setPurchaseId(result.data.purchaseId);
     setStage("success");
+    // Immediately refresh server data so this tutor sees the updated slot count
+    router.refresh();
   };
 
   const canAfford = isFreeWithPlan || walletBalance >= lead.coinCost;

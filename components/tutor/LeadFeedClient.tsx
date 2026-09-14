@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   BookOpen,
@@ -377,9 +378,9 @@ function LeadCard({
                 </span>
               )}
               {isFreeWithPlan && !lead.isPurchased && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF3DC] text-[#92400E] border border-[#F5A623]/40 px-2.5 py-0.5 text-[11px] font-800">
-                  <Crown size={11} className="text-[#F5A623]" />
-                  <span>VIP Plan: Free Unlock</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-bold">
+                  <Zap size={11} className="text-emerald-600" />
+                  <span>₹999 Plan: Free Unlock</span>
                 </span>
               )}
               {lead.isShortlisted && (
@@ -622,14 +623,14 @@ function LeadCard({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3.5 border-t border-slate-100 mt-2 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {isFreeWithPlan ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#FFF3DC] text-[#92400E] border border-[#F5A623]/40 font-800 text-xs">
-                <Crown size={14} className="text-[#F5A623]" />
-                <span>0 Coins (VIP)</span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-xs">
+                <Zap size={13} className="text-emerald-600" />
+                <span>Included in ₹999 Plan</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-amber-50 text-amber-950 border border-amber-200 font-extrabold text-xs shadow-2xs">
-                <Coins size={14} className="text-amber-500" />
-                <span>{lead.coinCost} Coins</span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-2xs">
+                <Coins size={13} className="text-slate-500" />
+                <span>{lead.coinCost} Coins to Unlock</span>
               </span>
             )}
 
@@ -661,17 +662,17 @@ function LeadCard({
               onClick={() => setModalOpen(true)}
               className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer text-center whitespace-normal ${
                 isFreeWithPlan
-                  ? "bg-[#0F2540] hover:bg-[#0A192F] text-white"
+                  ? "bg-emerald-700 hover:bg-emerald-800 text-white shadow-emerald-700/20"
                   : "bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] hover:from-[#238357] hover:to-[#186843] text-white shadow-emerald-500/20"
               }`}
             >
               <Unlock size={13} className="shrink-0" />
               {isFreeWithPlan ? (
-                <span>Unlock with plan</span>
+                <span>Unlock via ₹999 Plan (Free)</span>
               ) : (
                 <>
                   <span className="sm:hidden">Unlock ({lead.coinCost} Coins)</span>
-                  <span className="hidden sm:inline">Unlock Student Phone &amp; Address ({lead.coinCost} Coins)</span>
+                  <span className="hidden sm:inline">Unlock Parent Contact ({lead.coinCost} Coins)</span>
                 </>
               )}
             </button>
@@ -728,6 +729,20 @@ export function LeadFeedClient({
   const hasTutorLocation = Boolean(tutorLocation?.lat && tutorLocation?.lon);
   const hasTutorSubjects = Boolean(tutorSubjects && tutorSubjects.length > 0);
   const hasFilterConfig = hasTutorLocation || hasTutorSubjects;
+
+  const router = useRouter();
+
+  // Refresh server data when user returns to this tab — zero cost while active.
+  // This keeps slot counts current without any polling overhead.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [router]);
 
   const [viewTab, setViewTab] = useState<"matched" | "nearby" | "all" | "shortlisted" | "unlocked">(
     hasFilterConfig ? "matched" : "all"
@@ -861,36 +876,37 @@ export function LeadFeedClient({
       {/* Push Notification Setup Banner */}
       <LeadNotifReminderBanner />
 
-      {/* Quick Start / Get Coins or Plan Banner */}
-      {walletBalance < 25 && !subscriptionInfo?.hasActivePlan && (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0F2540] via-[#16365C] to-[#0A192F] p-5 sm:p-6 text-white shadow-lg border border-white/10">
+      {/* ₹999 Growth Plan Upsell Banner — shown when tutor has no active plan */}
+      {!subscriptionInfo?.hasActivePlan && (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-[#0f5c30] p-5 sm:p-6 text-white shadow-lg border border-emerald-600/40">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1.5 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
-                <Sparkles size={13} />
-                <span>KYC is optional • Unlock student contacts immediately</span>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/15 text-white border border-white/20 text-xs font-bold">
+                <Zap size={13} />
+                <span>₹999 / month &nbsp;•&nbsp; 0% Commission &nbsp;•&nbsp; Max 3 tutors per lead</span>
               </div>
               <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                Start Connecting with Students Today
+                Get the ₹999 Growth Plan — Unlock Verified Student Leads
               </h2>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                No need to wait for KYC verification. Top up coins or choose a membership plan to unlock parent phone numbers, addresses, and chat directly.
+              <p className="text-xs sm:text-sm text-emerald-100 leading-relaxed">
+                Get 2–6 verified student inquiries near your area. You keep 100% of the tuition fee — zero commission, ever.
+                Low competition: each lead shared with max 3 tutors only.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-              <Link
-                href="/tutor/wallet"
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F5A623] hover:bg-[#e69512] text-[#0F2540] font-extrabold text-xs shadow-md transition-all active:scale-95"
-              >
-                <Coins size={15} />
-                <span>Buy Coins</span>
-              </Link>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 shrink-0">
               <Link
                 href="/tutor/plans"
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs border border-white/20 shadow-md transition-all active:scale-95"
+                className="inline-flex items-center justify-center gap-1.5 px-5 py-3 rounded-xl bg-white text-emerald-800 font-extrabold text-sm shadow-md transition-all active:scale-95 hover:bg-emerald-50"
               >
-                <Crown size={15} />
-                <span>View Plans (Free Unlocks)</span>
+                <Zap size={15} />
+                <span>Activate ₹999 Plan</span>
+              </Link>
+              <Link
+                href="/tutor/wallet"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition-all active:scale-95"
+              >
+                <Coins size={14} />
+                <span>Or Buy Coins</span>
               </Link>
             </div>
           </div>
@@ -914,7 +930,7 @@ export function LeadFeedClient({
             Find Student Requirements
           </h1>
           <p className="text-xs text-slate-600 font-medium">
-            Matched with your subjects, teaching mode, and locality radius. Max 5 tutors per lead.
+            Matched with your subjects, teaching mode, and locality radius. ₹999 Growth Plan: Max 3 tutors per lead &amp; 0% commission.
           </p>
         </div>
 
@@ -922,37 +938,37 @@ export function LeadFeedClient({
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           {/* Subscription Status Card */}
           {subscriptionInfo?.hasActivePlan ? (
-            <div className="flex items-center gap-3 bg-[#FFF3DC] border border-[#F5A623]/40 rounded-2xl px-4 py-2.5">
-              <div className="h-9 w-9 rounded-xl bg-[#F5A623] text-[#0F2540] flex items-center justify-center font-800">
-                <Crown size={18} />
+            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-300 rounded-2xl px-4 py-2.5">
+              <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                <Zap size={18} />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-800 text-[#0F2540]">
-                    {subscriptionInfo.planName}
+                  <span className="text-xs font-bold text-emerald-900">
+                    ₹999 Growth Plan Active
                   </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-800 bg-[#0F2540] text-white">
-                    VIP
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-700 text-white">
+                    0% Commission
                   </span>
                 </div>
-                <span className="text-[11px] font-600 text-[#92400E] block">
-                  <strong>{subscriptionInfo.quotaRemaining}</strong> Plan Leads Remaining
+                <span className="text-[11px] font-semibold text-emerald-800 block">
+                  <strong>{subscriptionInfo.quotaRemaining}</strong> leads remaining this month
                 </span>
               </div>
               <Link
                 href="/tutor/plans"
-                className="ml-1 text-[11px] font-800 text-[#238357] hover:text-[#0F2540] underline"
+                className="ml-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 underline"
               >
-                Plans →
+                Details →
               </Link>
             </div>
           ) : (
             <Link
               href="/tutor/plans"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-[#0F2540] hover:bg-[#0A192F] text-white font-800 text-xs"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md"
             >
-              <Crown size={14} />
-              <span>Get VIP Membership</span>
+              <Zap size={14} />
+              <span>Get ₹999 Growth Plan</span>
             </Link>
           )}
 

@@ -4,13 +4,13 @@ import { prisma } from "@/lib/prisma";
 // Values live in the `platform_settings` table; these are the fallbacks used
 // until an admin overrides them in Phase 9.
 export const PLATFORM_SETTING_DEFAULTS = {
-  MAX_TUTORS_PER_LEAD: 5,
+  MAX_TUTORS_PER_LEAD: 3,          // Growth Plan standard: Low Competition (max 3 tutors per lead)
   LEAD_EXPIRY_HOURS: 48,
   RADIUS_EXPANSION_STEP_KM: 5,
   RADIUS_EXPANSION_INTERVAL_HOURS: 6,
-  COIN_COST_CLASS_1_8: 20,
-  COIN_COST_CLASS_9_12: 30,
-  COIN_COST_COMPETITIVE_CODING: 50,
+  COIN_COST_CLASS_1_8: 10,         // < ₹3,000/mo budget bucket (up to 6 leads per ₹999 plan)
+  COIN_COST_CLASS_9_12: 20,        // ₹3,000–₹5,000/mo budget bucket (up to 3 leads per ₹999 plan)
+  COIN_COST_COMPETITIVE_CODING: 30, // > ₹5,000/mo budget bucket (up to 2 leads per ₹999 plan)
   WEIGHT_KYC_VERIFIED: 500,
   WEIGHT_MAX_DISTANCE: 300,
   WEIGHT_BAYESIAN_RATING: 200,

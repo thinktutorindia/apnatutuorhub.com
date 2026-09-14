@@ -505,11 +505,11 @@ export async function purchaseLeadAction(
     return actionError("This lead is no longer accepting applications.");
   }
 
-  if (lead.purchaseCount >= lead.maxTutors) {
-    return actionError(
-      "This lead has reached its maximum number of tutors."
-    );
-  }
+  // NOTE: We intentionally do NOT pre-check purchaseCount >= maxTutors here.
+  // That check is a race condition — two concurrent requests can both read
+  // the same stale count and both pass. The atomic DB guard inside the
+  // transaction (updateMany with purchaseCount: { lt: maxTutors }) is the
+  // ONLY safe enforcement point. It will throw LEAD_CAPACITY_REACHED if full.
 
 
   const now = new Date();

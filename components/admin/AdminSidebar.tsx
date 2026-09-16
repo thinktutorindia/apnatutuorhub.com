@@ -37,6 +37,7 @@ import {
   Timer,
   Layers,
   TrendingUp,
+  Bot,
 } from "lucide-react";
 
 interface NavItem {
@@ -91,6 +92,7 @@ export function AdminSidebar({
   const marketplaceOps: NavItem[] = [
     { href: "/admin/leads", label: "Student Leads Feed", icon: FileText },
     { href: "/admin/bookings", label: "Bookings", icon: Calendar },
+    { href: "/admin/chatbot", label: "WhatsApp Bot Simulator", icon: Bot },
     { href: "/admin/chat", label: "Chat Monitor", icon: MessageSquare },
     { href: "/admin/reviews", label: "Review Queue", icon: Star },
   ];

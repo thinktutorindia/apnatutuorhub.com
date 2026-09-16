@@ -6,6 +6,7 @@ import { ComposeBroadcastForm } from "@/components/admin/ComposeBroadcastForm";
 import { SendTestEmailForm } from "@/components/admin/SendTestEmailForm";
 import { SendDirectVapidPushForm } from "@/components/admin/SendDirectVapidPushForm";
 import { SendTestWhatsAppForm } from "@/components/admin/SendTestWhatsAppForm";
+import { WhatsAppUsageTracker } from "@/components/admin/WhatsAppUsageTracker";
 import { getAquaWhatsAppStatus } from "@/lib/aqua-whatsapp";
 import { Bell, Radio } from "lucide-react";
 
@@ -19,14 +20,35 @@ export default async function AdminBroadcastPage() {
     redirect("/admin/dashboard");
   }
 
-  const [recentBroadcasts, aquaStatus] = await Promise.all([
+  const [recentBroadcasts, aquaStatus, whatsAppAuditLogs] = await Promise.all([
     prisma.auditLog.findMany({
       where: { action: { in: ["BROADCAST_NOTIFICATION", "SEND_DIRECT_VAPID_PUSH", "SEND_TEST_WHATSAPP"] } },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
     getAquaWhatsAppStatus(),
+    prisma.auditLog.findMany({
+      where: { action: { in: ["SEND_TEST_WHATSAPP", "SEND_WHATSAPP"] } },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+    }),
   ]);
+
+  const whatsAppLogs = whatsAppAuditLogs.map((log) => {
+    const detailsStr = log.details ?? "";
+    const match = detailsStr.match(/to\s+(\+?\d+)/i);
+    const recipient = match ? match[1] : "Tutor / Parent";
+    const idMatch = detailsStr.match(/\(id\s+([^)]+)\)/i);
+    return {
+      id: log.id,
+      recipient,
+      details: detailsStr || "WhatsApp notification dispatch",
+      status: "Delivered",
+      cost: aquaStatus.estimatedUtilityInr,
+      messageId: idMatch ? idMatch[1] : undefined,
+      createdAt: log.createdAt,
+    };
+  });
 
   return (
     <div className="space-y-6 text-slate-900">
@@ -35,13 +57,16 @@ export default async function AdminBroadcastPage() {
         <div className="space-y-1">
           <span className="text-[11px] font-800 uppercase tracking-widest text-[#2D9E6B]">Operations</span>
           <h1 className="text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            Broadcast Dispatch
+            Broadcast &amp; WhatsApp Dispatch
           </h1>
           <p className="text-xs text-slate-600 font-600">
-            Platform-wide announcements, VAPID web push, Resend mailer tests, and Aqua WhatsApp demo sends
+            Platform-wide announcements, per-message WhatsApp costs, recipient logs, and VAPID push
           </p>
         </div>
       </div>
+
+      {/* WhatsApp Usage & Cost Tracker */}
+      <WhatsAppUsageTracker status={aquaStatus} logs={whatsAppLogs} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left Column: Compose Broadcast & Direct VAPID Push */}

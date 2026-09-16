@@ -39,6 +39,8 @@ const PUBLIC_ROUTES = [
   "/api/auth",
   "/api/webhooks",
   "/api/health",
+  "/api/chatbot",
+  "/test-chatbot",
   "/home-tutors",
   "/tutors",
   "/terms",

@@ -24,6 +24,7 @@ export type AquaWhatsAppConfig = {
   username: string;
   password: string;
   fromNumber: string;
+  phoneNumberId: string;
   defaultTemplateId: string;
   dailyTestCap: number;
 };
@@ -67,12 +68,13 @@ export function getAquaWhatsAppConfig(): AquaWhatsAppConfig {
   return {
     enabled: envFlag("AQUA_WHATSAPP_ENABLED", false),
     autoDispatch: envFlag("AQUA_WHATSAPP_AUTO_DISPATCH", false),
-    apiBase: (process.env.AQUA_WHATSAPP_API_BASE ?? "https://api.pinbot.ai").replace(/\/$/, ""),
+    apiBase: (process.env.AQUA_WHATSAPP_API_BASE ?? "https://partnersv1.pinbot.ai").replace(/\/$/, ""),
     systemToken: process.env.AQUA_WHATSAPP_SYSTEM_TOKEN?.trim() ?? "",
     username: process.env.AQUA_WHATSAPP_USERNAME?.trim() ?? "",
     password: process.env.AQUA_WHATSAPP_PASSWORD?.trim() ?? "",
     fromNumber: normalizeIndiaWhatsApp(process.env.AQUA_WHATSAPP_FROM ?? "") ?? "",
-    defaultTemplateId: process.env.AQUA_WHATSAPP_TEMPLATE_ID?.trim() ?? "",
+    phoneNumberId: process.env.AQUA_WHATSAPP_PHONE_NUMBER_ID?.trim() ?? "1417510641438661",
+    defaultTemplateId: process.env.AQUA_WHATSAPP_TEMPLATE_ID?.trim() ?? "information2",
     dailyTestCap:
       Number.isFinite(cap) && cap > 0 ? Math.floor(cap) : AQUA_DEFAULT_DAILY_TEST_CAP,
   };
@@ -265,7 +267,6 @@ export async function sendAquaWhatsAppMessage(input: {
   const cfg = getAquaWhatsAppConfig();
   if (!cfg.enabled) return { ok: false, error: "Aqua WhatsApp is disabled." };
   if (!cfg.systemToken) return { ok: false, error: "System token missing. No message was sent." };
-  if (!cfg.fromNumber) return { ok: false, error: "WABA sender number missing. No message was sent." };
 
   const to = normalizeIndiaWhatsApp(input.to);
   if (!to) return { ok: false, error: "Enter a valid Indian mobile number." };
@@ -274,55 +275,88 @@ export async function sendAquaWhatsAppMessage(input: {
   if (capError) return { ok: false, error: capError };
 
   const billedEstimateInr = input.estimatedInr ?? AQUA_INDIA_UTILITY_INR;
+  const templateName = (input.templateId || cfg.defaultTemplateId || "information2").trim();
+
+  // Pinbot / Meta Cloud API v3 payload format
   const body: Record<string, unknown> =
     input.mode === "template"
       ? {
-          from: cfg.fromNumber,
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
           to,
           type: "template",
-          message: {
-            templateid: (input.templateId || cfg.defaultTemplateId).trim(),
-            placeholders: input.placeholders?.filter(Boolean) ?? [],
+          template: {
+            name: templateName,
+            language: { code: "en" },
+            components: [
+              {
+                type: "body",
+                parameters: (input.placeholders && input.placeholders.length > 0
+                  ? input.placeholders
+                  : ["000000", "Student", "Tuition", "Home", "Delhi", "5000", "Any", "Immediate"]
+                ).map((p) => ({
+                  type: "text",
+                  text: String(p),
+                })),
+              },
+            ],
           },
         }
       : {
-          from: cfg.fromNumber,
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
           to,
           type: "text",
-          message: { text: (input.text ?? "").trim() },
+          text: { body: (input.text ?? "").trim() },
         };
 
-  if (input.mode === "template" && !String((body.message as { templateid?: string }).templateid ?? "")) {
-    return { ok: false, error: "Template id is required for a template send." };
-  }
-  if (input.mode === "text" && !input.text?.trim()) {
-    return { ok: false, error: "Message text is required for a session send." };
-  }
-
   try {
-    const { httpStatus, payload } = await aquaRequest("/v1/wamessage/send", body);
-    const failed =
-      httpStatus >= 400 || String(payload.status ?? "").toUpperCase() === "FAILED";
+    const endpoint = `${cfg.apiBase}/v3/${cfg.phoneNumberId}/messages`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: cfg.systemToken,
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
 
-    if (failed) {
+    const raw = await res.text();
+    let json: Record<string, any> = {};
+    try {
+      json = raw ? (JSON.parse(raw) as Record<string, any>) : {};
+    } catch {
+      json = {};
+    }
+
+    if (!res.ok) {
+      const errMsg =
+        json?.error?.message ||
+        json?.message ||
+        raw.slice(0, 300) ||
+        `HTTP ${res.status}`;
       return {
         ok: false,
-        rawStatus: payload.status,
-        error: payload.message || `Aqua SMS rejected the send (HTTP ${httpStatus}).`,
+        rawStatus: `HTTP_${res.status}`,
+        error: errMsg,
         billedEstimateInr,
       };
     }
 
+    const providerMessageId = json?.messages?.[0]?.id;
+    const rawStatus = json?.messages?.[0]?.message_status || "accepted";
+
     return {
       ok: true,
-      providerMessageId: extractProviderId(payload.data) ?? extractProviderId(payload),
-      rawStatus: payload.status ?? "SENT",
+      providerMessageId,
+      rawStatus,
       billedEstimateInr,
     };
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Aqua SMS request failed",
+      error: err instanceof Error ? err.message : "WhatsApp API request failed",
     };
   }
 }

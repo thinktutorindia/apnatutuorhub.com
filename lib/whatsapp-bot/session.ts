@@ -54,9 +54,10 @@ export async function updateSession(
 
 /** Reset the session back to WELCOME (used for MENU command or after completion). */
 export async function resetSession(phone: string): Promise<void> {
-  await prisma.whatsappSession.update({
+  await prisma.whatsappSession.upsert({
     where: { phone },
-    data: { step: "WELCOME", data: {}, userType: null, retries: 0, lastMessageAt: new Date() },
+    create: { phone, step: "WELCOME", data: {}, userType: null, retries: 0 },
+    update: { step: "WELCOME", data: {}, userType: null, retries: 0, lastMessageAt: new Date() },
   });
 }
 

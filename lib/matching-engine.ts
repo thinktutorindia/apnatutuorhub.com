@@ -245,8 +245,9 @@ export function coversClassLevel(tutorClassLevels: string[], leadClassLevel: str
     }
 
     if (
-      tc.toLowerCase().includes(leadClassLevel.toLowerCase()) ||
-      leadClassLevel.toLowerCase().includes(tc.toLowerCase())
+      (leadGrade === null || tutorGrade === null) &&
+      (tc.toLowerCase().includes(leadClassLevel.toLowerCase()) ||
+      leadClassLevel.toLowerCase().includes(tc.toLowerCase()))
     ) {
       return true;
     }

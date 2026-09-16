@@ -1,37 +1,32 @@
-async function run() {
-  const username = 'ApnatutorHubApnatutorHub_tech1429Wapp';
-  const password = 'ApnatutorHubApnatutorHubtech@1429Wapp';
+import * as dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+dotenv.config({ path: ".env" });
 
-  // Try with different systemtokens:
-  // 1. Current systemtoken in env
-  // 2. _usersecretkey from portal
-  // 3. decoded _usersecretkey
-  const envToken = 'fef226d4-8d9e-4e4b-b0dc-df6524ca42bd'; // from env
-  const portalSecret = 'gCjpLsv6zI14j%2B5OzbH%2BGdJLLqSr9lScW94pgPIrPTMctqVhDKfso4AF5OAoGbpw';
-  const portalDecoded = decodeURIComponent(portalSecret);
+import { probeAquaWhatsAppLogin, getAquaWhatsAppConfig } from "../lib/aqua-whatsapp";
 
-  const tokens = [envToken, portalSecret, portalDecoded];
-  const usernames = [username, 'ApnatutorHub_tech1429Wapp', 'ApnatutorHub_tech', 'ApnatutorHub'];
+async function testLogin() {
+  console.log("Testing Pinbot login...");
+  const res = await probeAquaWhatsAppLogin();
+  console.log("Login Result:", res);
 
-  for (const token of tokens) {
-    for (const u of usernames) {
-      const res = await fetch('https://api.pinbot.ai/v1/wamessage/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          systemtoken: token,
-        },
-        body: JSON.stringify({
-          username: u,
-          password: password,
-        }),
-      });
-      const text = await res.text();
-      console.log(`token: ${token.slice(0, 8)}... | user: ${u} => ${text}`);
-      if (!text.includes('User does not exist') && !text.includes('Authentication failed')) {
-        console.log('INTERESTING RESULT:', text);
-      }
-    }
-  }
+  const cfg = getAquaWhatsAppConfig();
+  // Let's call /v1/wamessage/login directly to see the full response payload
+  const rawLoginRes = await fetch(`${cfg.apiBase}/v1/wamessage/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: cfg.systemToken,
+      systemtoken: cfg.systemToken
+    },
+    body: JSON.stringify({
+      username: cfg.username,
+      password: cfg.password
+    })
+  });
+
+  console.log("Login HTTP Status:", rawLoginRes.status);
+  const loginData = await rawLoginRes.json();
+  console.log("Login Full Data:\n", JSON.stringify(loginData, null, 2));
 }
-run().catch(console.error);
+
+testLogin().catch(console.error);

@@ -27,32 +27,31 @@ async function run() {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Cookie': cookieHeader,
       'Referer': 'https://verified.aquasms.com/login',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     },
     body: params.toString(),
     redirect: 'manual',
   });
 
-  const authCookies = authRes.headers.getSetCookie ? authRes.headers.getSetCookie() : [authRes.headers.get('set-cookie') || ''];
-  cookieHeader = authCookies.map(c => c.split(';')[0]).join('; ');
+  const endpoints = [
+    'https://verified.aquasms.com/automaticCreativeSpec/get-waba-list',
+    'https://verified.aquasms.com/whatsappTemplate/get-waba-list',
+    'https://verified.aquasms.com/whatsapp-templates/get-waba-list',
+    'https://verified.aquasms.com/automatic-creative-spec/get-waba-list',
+  ];
 
-  const url = `https://verified.aquasms.com/get-waba-setting-details-by-username?ref=${username}`;
-  const res = await fetch(url, {
-    headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' }
-  });
-  console.log('get-waba-setting-details status:', res.status);
-  const body = await res.text();
-  console.log('body:', body);
+  for (const ep of endpoints) {
+    // Try GET
+    const rGet = await fetch(ep, { headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' } });
+    console.log('GET', ep, '->', rGet.status, (await rGet.text()).slice(0, 300));
 
-  // Also check showAddEditForm for template
-  const tplForm = await fetch('https://verified.aquasms.com/whatsapp-templates/create?recordid=Z%2FbvsLyVeQY4essa43e3RQ%3D%3D', {
-    headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' }
-  });
-  console.log('tplForm status:', tplForm.status);
-  const tplFormText = await tplForm.text();
-  const idMatches = tplFormText.match(/\b\d{14,18}\b/g) || [];
-  console.log('14-18 digit IDs in tplForm:', Array.from(new Set(idMatches)));
-  console.log('Inputs in tplForm:', tplFormText.match(/<input[^>]*waba[^>]*>/gi));
+    // Try POST
+    const rPost = await fetch(ep, {
+      method: 'POST',
+      headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `_token=${csrfToken}`,
+    });
+    console.log('POST', ep, '->', rPost.status, (await rPost.text()).slice(0, 300));
+  }
 }
 
 run().catch(console.error);

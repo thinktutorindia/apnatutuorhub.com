@@ -40,7 +40,7 @@ import {
 } from "@/app/actions/admin.actions";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
-import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
+import { TRUEMYTUTOR_TREE, searchTaxonomySubjects } from "@/lib/subject-taxonomy";
 import { SubjectPicker } from "@/components/ui/SubjectPicker";
 import { expandToIndividualClasses } from "@/lib/dummy-campaign-types";
 import type { SubAdminRole, TeachingMode } from "@prisma/client";
@@ -358,23 +358,25 @@ export function CreateUserModal({
 
   // Filter subjects for Tutor search
   const tutorFilteredSubjects = useMemo(() => {
-    const q = tutorSubjectSearch.trim().toLowerCase();
+    const q = tutorSubjectSearch.trim();
     if (!q) return [];
-    return allFlattenedSubjects.filter(
-      (item) =>
-        item.subject.toLowerCase().includes(q) || item.group.toLowerCase().includes(q)
-    );
-  }, [allFlattenedSubjects, tutorSubjectSearch]);
+    return searchTaxonomySubjects(q).map((item) => ({
+      subject: item.subject,
+      group: item.breadcrumb,
+      parentCategory: item.category,
+    }));
+  }, [tutorSubjectSearch]);
 
   // Filter subjects for Parent search
   const parentFilteredSubjects = useMemo(() => {
-    const q = parentSubjectSearch.trim().toLowerCase();
+    const q = parentSubjectSearch.trim();
     if (!q) return [];
-    return allFlattenedSubjects.filter(
-      (item) =>
-        item.subject.toLowerCase().includes(q) || item.group.toLowerCase().includes(q)
-    );
-  }, [allFlattenedSubjects, parentSubjectSearch]);
+    return searchTaxonomySubjects(q, parentClassLevel).map((item) => ({
+      subject: item.subject,
+      group: item.breadcrumb,
+      parentCategory: item.category,
+    }));
+  }, [parentSubjectSearch, parentClassLevel]);
 
   // Dynamically compute recommended subjects for selected Parent Class
   const dynamicParentClassSubjects = useMemo(() => {

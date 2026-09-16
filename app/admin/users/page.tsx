@@ -149,6 +149,7 @@ export default async function AdminUsersPage({
         createdAt: true,
         image: true,
         customPermissions: true,
+        signupSource: true,
         tutorProfile: {
           select: {
             id: true,
@@ -498,6 +499,7 @@ export default async function AdminUsersPage({
                           isGenuineEmail={isGenuineEmail}
                           createdBy={createdBy}
                           lastEditedBy={lastEditedBy}
+                          signupSource={u.signupSource}
                         />
                       </td>
                       <td className="px-4 py-4">

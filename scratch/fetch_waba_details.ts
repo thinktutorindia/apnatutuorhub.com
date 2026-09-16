@@ -41,23 +41,49 @@ async function run() {
   const authCookies = authRes.headers.getSetCookie ? authRes.headers.getSetCookie() : [authRes.headers.get('set-cookie') || ''];
   cookieHeader = authCookies.map(c => c.split(';')[0]).join('; ');
 
-  // Look for show / list in whatsapp-templates
-  const res = await fetch('https://verified.aquasms.com/whatsapp-templates/show?PageNo=1&PerPageRecord=20', {
+  const context = Buffer.from('wabaid=').toString('base64');
+  const u = `https://verified.aquasms.com/whatsapp-account-detail-master/show?context=${context}&PageNo=1&PerPageRecord=20`;
+  const res = await fetch(u, {
     headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' },
   });
-  console.log('/whatsapp-templates/show status:', res.status);
-  const tplText = await res.text();
-  console.log('Templates Show Snippet:');
-  console.log(tplText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 1500));
+  console.log('Status:', res.status);
+  const showText = await res.text();
+  console.log('Full Text:');
+  console.log(showText);
 
-  // Let's also check /whatsapp-account-detail-master/create?recordid=0
+  // Also check /get-user-list
+  const userListRes = await fetch('https://verified.aquasms.com/get-user-list', {
+    headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' },
+  });
+  console.log('userListRes status:', userListRes.status);
+  console.log((await userListRes.text()).slice(0, 1000));
+
+  // Let's get the full HTML of whatsapp-account-detail-master/create?recordid=0
   const wabaFormRes = await fetch('https://verified.aquasms.com/whatsapp-account-detail-master/create?recordid=0', {
     headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' },
   });
-  console.log('\nWABA Form Create Status:', wabaFormRes.status);
-  const wabaFormText = await wabaFormRes.text();
-  console.log('WABA Form Snippet:');
-  console.log(wabaFormText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 1500));
+  const formHtml = await wabaFormRes.text();
+  console.log('\nwabaFormRes length:', formHtml.length);
+  
+  // Extract all script tags
+  const scripts = formHtml.match(/<script[\s\S]*?<\/script>/gi) || [];
+  for (const s of scripts) {
+    console.log('--- SCRIPT ---');
+    console.log(s);
+  }
+
+  // Extract all input and select names/values
+  const inputs = formHtml.match(/<input[^>]*>/gi) || [];
+  console.log('\n--- INPUTS ---');
+  for (const inp of inputs) {
+    console.log(inp);
+  }
+
+  const selects = formHtml.match(/<select[^>]*>[\s\S]*?<\/select>/gi) || [];
+  console.log('\n--- SELECTS ---');
+  for (const sel of selects) {
+    console.log(sel);
+  }
 }
 
 run().catch(console.error);

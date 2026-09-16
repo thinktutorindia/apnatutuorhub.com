@@ -7,23 +7,26 @@ import { getAquaWhatsAppConfig } from '../lib/aqua-whatsapp';
 async function main() {
   const cfg = getAquaWhatsAppConfig();
   
-  const urls = [
-    `${cfg.apiBase}/v3/me/assigned_whatsapp_business_accounts`,
-    `${cfg.apiBase}/v3/122109329985463121/assigned_whatsapp_business_accounts`,
-    `${cfg.apiBase}/v3/122109329985463121/businesses`,
-    `${cfg.apiBase}/v3/me?fields=id,name,businesses,whatsapp_business_accounts`,
-    `${cfg.apiBase}/v3/1417510641438661?fields=id,verified_name,display_phone_number,whatsapp_business_account`,
+  const endpoints = [
+    '/v3/debug_token?input_token=' + cfg.systemToken,
+    '/v3/app',
+    '/v3/me/accounts',
+    '/v3/me/businesses',
+    '/v3/122109329985463121/businesses',
+    '/v3/122109329985463121/assigned_whatsapp_business_accounts',
+    '/v3/1417510641438661?fields=business_account',
+    '/v3/1417510641438661?fields=account_id',
+    '/v3/1417510641438661?fields=owner_business_info',
   ];
 
-  for (const u of urls) {
+  for (const ep of endpoints) {
     try {
-      const res = await fetch(u, {
-        headers: { apikey: cfg.systemToken, systemtoken: cfg.systemToken },
+      const res = await fetch(`${cfg.apiBase}${ep}`, {
+        headers: { apikey: cfg.systemToken },
       });
-      console.log(u.slice(0, 75), '->', res.status);
-      console.log('  ', await res.text());
+      console.log(ep.slice(0, 50), '->', res.status, (await res.text()).slice(0, 150));
     } catch (e: any) {
-      console.log('Error:', e.message);
+      console.log(ep, 'error:', e.message);
     }
   }
 }

@@ -27,7 +27,6 @@ async function run() {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Cookie': cookieHeader,
       'Referer': 'https://verified.aquasms.com/login',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     },
     body: params.toString(),
     redirect: 'manual',
@@ -36,23 +35,27 @@ async function run() {
   const authCookies = authRes.headers.getSetCookie ? authRes.headers.getSetCookie() : [authRes.headers.get('set-cookie') || ''];
   cookieHeader = authCookies.map(c => c.split(';')[0]).join('; ');
 
-  const url = `https://verified.aquasms.com/get-waba-setting-details-by-username?ref=${username}`;
-  const res = await fetch(url, {
-    headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' }
+  const res = await fetch('https://verified.aquasms.com/account', {
+    headers: { 'Cookie': cookieHeader }
   });
-  console.log('get-waba-setting-details status:', res.status);
-  const body = await res.text();
-  console.log('body:', body);
+  const html = await res.text();
 
-  // Also check showAddEditForm for template
-  const tplForm = await fetch('https://verified.aquasms.com/whatsapp-templates/create?recordid=Z%2FbvsLyVeQY4essa43e3RQ%3D%3D', {
-    headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' }
-  });
-  console.log('tplForm status:', tplForm.status);
-  const tplFormText = await tplForm.text();
-  const idMatches = tplFormText.match(/\b\d{14,18}\b/g) || [];
-  console.log('14-18 digit IDs in tplForm:', Array.from(new Set(idMatches)));
-  console.log('Inputs in tplForm:', tplFormText.match(/<input[^>]*waba[^>]*>/gi));
+  const scripts = Array.from(html.matchAll(/<script[^>]+src="([^"]+)"/gi)).map(m => m[1]);
+  console.log('Scripts on /account:', scripts);
+
+  for (const s of scripts) {
+    if (s.includes('campaign') || s.includes('app') || s.includes('custom') || s.includes('whatsapp')) {
+      const scriptUrl = s.startsWith('http') ? s : `https://verified.aquasms.com${s.startsWith('/') ? '' : '/'}${s}`;
+      const sRes = await fetch(scriptUrl, { headers: { 'Cookie': cookieHeader } });
+      const js = await sRes.text();
+      console.log('\n--- Script:', scriptUrl);
+      const fnIdx = js.indexOf('findWabausername');
+      if (fnIdx !== -1) {
+        console.log('findWabausername implementation:');
+        console.log(js.slice(fnIdx, fnIdx + 600));
+      }
+    }
+  }
 }
 
 run().catch(console.error);

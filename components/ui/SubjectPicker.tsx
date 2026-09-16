@@ -5,6 +5,7 @@ import { Search, X, Check, Layers, ChevronDown, ChevronRight } from "lucide-reac
 import {
   TRUEMYTUTOR_TREE,
   FLATTENED_TAXONOMY_SUBJECTS,
+  searchTaxonomySubjects,
   type CategoryNode,
 } from "@/lib/subject-taxonomy";
 
@@ -103,16 +104,11 @@ export function SubjectPicker({
     onChange(activeSubjects.filter((s) => s !== subj));
   };
 
-  // Instant search filtering across the pre-indexed canonical subjects
+  // Instant search filtering across canonical taxonomy with numeric class support
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
-    const q = search.toLowerCase().trim();
-    return FLATTENED_TAXONOMY_SUBJECTS.filter(
-      (item) =>
-        item.subject.toLowerCase().includes(q) ||
-        item.breadcrumb.toLowerCase().includes(q)
-    );
-  }, [search]);
+    return searchTaxonomySubjects(search, classLevel);
+  }, [search, classLevel]);
 
   return (
     <div className={`space-y-3 text-slate-900 ${compact ? "text-xs" : ""}`}>

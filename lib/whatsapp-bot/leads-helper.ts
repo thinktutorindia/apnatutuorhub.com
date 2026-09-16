@@ -8,6 +8,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { COIN_PACKAGES } from "@/lib/razorpay";
+import { coversClassLevel, hasSubjectOverlap } from "@/lib/matching-engine";
+import { expandTutorSubjectsAndClasses } from "./auto-register";
 
 export type MatchingLeadCard = {
   inquiryNumber: number | null;
@@ -34,7 +36,7 @@ export async function getChatbotMatchingLeads(
         status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
       },
       orderBy: { createdAt: "desc" },
-      take: 80,
+      take: 100,
       select: {
         inquiryNumber: true,
         classLevel: true,
@@ -47,13 +49,38 @@ export async function getChatbotMatchingLeads(
       },
     });
 
+    const expanded = expandTutorSubjectsAndClasses({
+      rawSubjects: subjects,
+      rawClassLevel: classLevel,
+    });
+    const tutorClasses = expanded.classLevels;
+    const tutorSubs = expanded.subjects;
+
+    const hasSpecificClass = Boolean(classLevel && !/all|any|general/i.test(classLevel));
+    const hasSpecificSubs = Boolean(
+      subjects && subjects.length > 0 && !subjects.some((s) => /all|any|combo/i.test(s))
+    );
+
+    // Filter candidate leads strictly by class & subject if specified
+    const filteredLeads = rawLeads.filter((lead) => {
+      if (hasSpecificClass && !coversClassLevel(tutorClasses, lead.classLevel)) {
+        return false;
+      }
+      if (hasSpecificSubs && !hasSubjectOverlap(tutorSubs, lead.subjects)) {
+        return false;
+      }
+      return true;
+    });
+
+    const candidatePool = filteredLeads.length > 0 ? filteredLeads : rawLeads;
+
     const searchArea = (area || "").toLowerCase().trim();
     const isSouthDelhi = /sangam|saket|kalkaji|malviya|hauz|mehrauli|khanpur|nehru|lajpat|south|okhla/i.test(searchArea);
     const isWestDelhi = /dwarka|janakpuri|uttam|vikaspuri|tilak|punjabi|paschim|rajouri|west/i.test(searchArea);
     const isNorthDelhi = /rohini|pitampura|model town|shalimar|north|mustafabad/i.test(searchArea);
     const isEastDelhi = /laxmi|mayur|geeta|preet|anand vihar|east/i.test(searchArea);
 
-    const scored = rawLeads.map((lead) => {
+    const scored = candidatePool.map((lead) => {
       let score = 0;
       const leadArea = (lead.area || "").toLowerCase();
       const leadCity = (lead.city || "").toLowerCase();
@@ -62,7 +89,7 @@ export async function getChatbotMatchingLeads(
       // 1. Direct locality match
       if (searchArea && combo.includes(searchArea)) {
         score += 60;
-      } else if (isSouthDelhi && /saket|kalkaji|malviya|anand|lodhi|south|hauz|mehrauli/i.test(combo)) {
+      } else if (isSouthDelhi && /saket|kalkaji|malviya|anand|lodhi|south|hauz|mehrauli|nehru/i.test(combo)) {
         score += 35;
       } else if (isWestDelhi && /dwarka|janakpuri|uttam|vikaspuri|punjabi|west/i.test(combo)) {
         score += 35;
@@ -75,18 +102,13 @@ export async function getChatbotMatchingLeads(
       }
 
       // 2. Class match
-      if (classLevel && lead.classLevel.toLowerCase().includes(classLevel.toLowerCase())) {
-        score += 25;
+      if (coversClassLevel(tutorClasses, lead.classLevel)) {
+        score += 30;
       }
 
       // 3. Subject match
-      if (subjects && subjects.length > 0) {
-        for (const s of subjects) {
-          if (lead.subjects.some((ls) => ls.toLowerCase().includes(s.toLowerCase()))) {
-            score += 20;
-            break;
-          }
-        }
+      if (hasSubjectOverlap(tutorSubs, lead.subjects)) {
+        score += 30;
       }
 
       return { lead, score };

@@ -1373,20 +1373,58 @@ export interface FlattenedTaxonomySubject {
   category: string;
   subcategory?: string;
   breadcrumb: string;
+  searchKey: string;
+  grades: number[];
 }
 
 /**
- * Pre-indexed taxonomy subjects with breadcrumbs for instant search
+ * Pre-indexed taxonomy subjects with breadcrumbs and numeric class aliases for instant search
  */
 export const FLATTENED_TAXONOMY_SUBJECTS: FlattenedTaxonomySubject[] = (() => {
   const result: FlattenedTaxonomySubject[] = [];
   TRUEMYTUTOR_TREE.forEach((node) => {
     if (node.subjects) {
       node.subjects.forEach((subj) => {
+        const grades = parseGradeNumbers(subj);
+        const aliases: string[] = [];
+        for (const g of grades) {
+          aliases.push(`class ${g}`, `class${g}`, `grade ${g}`, `${g}th`, `std ${g}`, `${g}`);
+          const lowerSub = subj.toLowerCase();
+          if (lowerSub.includes("math")) {
+            aliases.push(`math ${g}`, `maths ${g}`, `mathematics ${g}`, `maths class ${g}`, `math class ${g}`, `class ${g} math`, `class ${g} maths`);
+          }
+          if (lowerSub.includes("science")) {
+            aliases.push(`science ${g}`, `science class ${g}`, `class ${g} science`, `sci ${g}`);
+          }
+          if (lowerSub.includes("physics")) {
+            aliases.push(`physics ${g}`, `physics class ${g}`, `class ${g} physics`, `phy ${g}`);
+          }
+          if (lowerSub.includes("chemistry")) {
+            aliases.push(`chemistry ${g}`, `chemistry class ${g}`, `class ${g} chemistry`, `chem ${g}`);
+          }
+          if (lowerSub.includes("biology")) {
+            aliases.push(`biology ${g}`, `biology class ${g}`, `class ${g} biology`, `bio ${g}`);
+          }
+          if (lowerSub.includes("social") || lowerSub.includes("history") || lowerSub.includes("geography")) {
+            aliases.push(`sst ${g}`, `social studies ${g}`, `social science ${g}`, `class ${g} sst`);
+          }
+          if (lowerSub.includes("english")) {
+            aliases.push(`english ${g}`, `english class ${g}`, `class ${g} english`, `eng ${g}`);
+          }
+          if (lowerSub.includes("hindi")) {
+            aliases.push(`hindi ${g}`, `hindi class ${g}`, `class ${g} hindi`);
+          }
+          if (lowerSub.includes("all subjects") || lowerSub.includes("combo")) {
+            aliases.push(`all subjects ${g}`, `class ${g} all subjects`, `combo ${g}`, `class ${g} combo`);
+          }
+        }
+        const searchKey = `${subj} ${node.name} ${aliases.join(" ")}`.toLowerCase();
         result.push({
           subject: subj,
           category: node.name,
           breadcrumb: node.name,
+          searchKey,
+          grades,
         });
       });
     }
@@ -1394,11 +1432,48 @@ export const FLATTENED_TAXONOMY_SUBJECTS: FlattenedTaxonomySubject[] = (() => {
       node.subcategories.forEach((sub) => {
         if (sub.subjects) {
           sub.subjects.forEach((subj) => {
+            const grades = parseGradeNumbers(subj);
+            const aliases: string[] = [];
+            for (const g of grades) {
+              aliases.push(`class ${g}`, `class${g}`, `grade ${g}`, `${g}th`, `std ${g}`, `${g}`);
+              const lowerSub = subj.toLowerCase();
+              if (lowerSub.includes("math")) {
+                aliases.push(`math ${g}`, `maths ${g}`, `mathematics ${g}`, `maths class ${g}`, `math class ${g}`, `class ${g} math`, `class ${g} maths`);
+              }
+              if (lowerSub.includes("science")) {
+                aliases.push(`science ${g}`, `science class ${g}`, `class ${g} science`, `sci ${g}`);
+              }
+              if (lowerSub.includes("physics")) {
+                aliases.push(`physics ${g}`, `physics class ${g}`, `class ${g} physics`, `phy ${g}`);
+              }
+              if (lowerSub.includes("chemistry")) {
+                aliases.push(`chemistry ${g}`, `chemistry class ${g}`, `class ${g} chemistry`, `chem ${g}`);
+              }
+              if (lowerSub.includes("biology")) {
+                aliases.push(`biology ${g}`, `biology class ${g}`, `class ${g} biology`, `bio ${g}`);
+              }
+              if (lowerSub.includes("social") || lowerSub.includes("history") || lowerSub.includes("geography")) {
+                aliases.push(`sst ${g}`, `social studies ${g}`, `social science ${g}`, `class ${g} sst`);
+              }
+              if (lowerSub.includes("english")) {
+                aliases.push(`english ${g}`, `english class ${g}`, `class ${g} english`, `eng ${g}`);
+              }
+              if (lowerSub.includes("hindi")) {
+                aliases.push(`hindi ${g}`, `hindi class ${g}`, `class ${g} hindi`);
+              }
+              if (lowerSub.includes("all subjects") || lowerSub.includes("combo")) {
+                aliases.push(`all subjects ${g}`, `class ${g} all subjects`, `combo ${g}`, `class ${g} combo`);
+              }
+            }
+            const breadcrumb = `${node.name} > ${sub.name}`;
+            const searchKey = `${subj} ${breadcrumb} ${aliases.join(" ")}`.toLowerCase();
             result.push({
               subject: subj,
               category: node.name,
               subcategory: sub.name,
-              breadcrumb: `${node.name} > ${sub.name}`,
+              breadcrumb,
+              searchKey,
+              grades,
             });
           });
         }
@@ -1407,6 +1482,54 @@ export const FLATTENED_TAXONOMY_SUBJECTS: FlattenedTaxonomySubject[] = (() => {
   });
   return result;
 })();
+
+/**
+ * Intelligent multi-token search for taxonomy subjects.
+ * Supports queries like 'math 6', 'math 7', 'science 8', 'physics 11', 'class 6'.
+ */
+export function searchTaxonomySubjects(
+  query: string,
+  classLevel?: string
+): FlattenedTaxonomySubject[] {
+  const q = query.trim().toLowerCase();
+  const targetGrades = getGradesForClassLevel(classLevel);
+
+  if (!q && targetGrades.length === 0) return [];
+
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+
+  const matches = FLATTENED_TAXONOMY_SUBJECTS.filter((item) => {
+    if (tokens.length > 0) {
+      const allTokensMatch = tokens.every((t) => item.searchKey.includes(t));
+      if (!allTokensMatch) return false;
+    }
+    if (targetGrades.length > 0 && !q) {
+      if (!item.grades.some((g) => targetGrades.includes(g))) return false;
+    }
+    return true;
+  });
+
+  return matches.sort((a, b) => {
+    const aLower = a.subject.toLowerCase();
+    const bLower = b.subject.toLowerCase();
+
+    if (q) {
+      if (aLower === q) return -1;
+      if (bLower === q) return 1;
+      if (aLower.startsWith(q) && !bLower.startsWith(q)) return -1;
+      if (bLower.startsWith(q) && !aLower.startsWith(q)) return 1;
+    }
+
+    if (targetGrades.length > 0) {
+      const aHasGrade = a.grades.some((g) => targetGrades.includes(g));
+      const bHasGrade = b.grades.some((g) => targetGrades.includes(g));
+      if (aHasGrade && !bHasGrade) return -1;
+      if (!aHasGrade && bHasGrade) return 1;
+    }
+
+    return a.subject.localeCompare(b.subject);
+  });
+}
 
 /**
  * High-frequency popular subjects for instant quick-add chips
@@ -2134,7 +2257,7 @@ export function parseGradeNumbers(text: string): number[] {
   if (/preparatory|kg|kindergarten|nursery|lkg|ukg/i.test(lower)) {
     grades.add(0);
   }
-  if (/upto\s+class\s+v\b|nursery\s+to\s+fifth/i.test(lower)) {
+  if (/upto\s+(?:class\s+)?v\b|nursery\s+to\s+fifth/i.test(lower)) {
     [0, 1, 2, 3, 4, 5].forEach((g) => grades.add(g));
   }
   if (/vi\s+to\s+viii\b|6\s*[-–to\s]+\s*8/i.test(lower)) {

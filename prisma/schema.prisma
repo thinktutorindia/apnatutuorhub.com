@@ -217,6 +217,7 @@ model User {
   role          UserRole  @default(PARENT)
   referralCode  String?   @unique
   isActive      Boolean   @default(true)
+  signupSource  String?   @default("WEBSITE")  /// How this account was created: WEBSITE | WHATSAPP | STAFF | ADMIN_CRM
   /// Web Push VAPID subscription object (endpoint + keys). Stored as JSON.
   pushSubscription Json?
   createdAt     DateTime  @default(now())

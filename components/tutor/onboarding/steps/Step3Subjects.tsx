@@ -15,6 +15,7 @@ import {
   TRUEMYTUTOR_TREE,
   type CategoryNode,
 } from "@/lib/subject-taxonomy";
+import { expandToIndividualClasses } from "@/lib/dummy-campaign-types";
 
 export { TRUEMYTUTOR_TREE, type CategoryNode };
 
@@ -53,9 +54,10 @@ export function Step3Subjects({ formData, onNext, onBack, isLoading, isAdminMode
       setErrors({ subjects: "Please select at least one subject." });
       return;
     }
+    const derived = expandToIndividualClasses(subjects);
     onNext({
       subjects,
-      classLevels: ["General"],
+      classLevels: derived.length > 0 ? derived : ["General"],
       teachingMode: formData.teachingMode || "EITHER",
       teachingRadius: formData.teachingRadius || 10,
     });

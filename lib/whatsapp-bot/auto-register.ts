@@ -105,6 +105,16 @@ const COMBO_SUBJECTS_BY_GRADE: Record<number, string> = {
   10: "All Subjects For Class X",
 };
 
+const ROMAN_MAP: Record<number, string> = {
+  1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI",
+  7: "VII", 8: "VIII", 9: "IX", 10: "X", 11: "XI", 12: "XII",
+};
+
+const REVERSE_ROMAN: Record<string, number> = {
+  i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6,
+  vii: 7, viii: 8, ix: 9, x: 10, xi: 11, xii: 12,
+};
+
 export function expandTutorSubjectsAndClasses(input: {
   rawSubjects?: string[];
   rawClassLevels?: string[];
@@ -140,32 +150,67 @@ export function expandTutorSubjectsAndClasses(input: {
   } else {
     for (const c of classInput) {
       classSet.add(c);
-      // Check for ranges e.g. "Class 1 to 8", "1-8", "6 to 8", "9-10", "1 to 10"
-      const rangeMatch = c.match(/(\d{1,2})\s*(?:to|-|–)\s*(\d{1,2})/i);
-      if (rangeMatch) {
-        const start = parseInt(rangeMatch[1], 10);
-        const end = parseInt(rangeMatch[2], 10);
-        if (start <= end && start >= 1 && end <= 12) {
-          for (let i = start; i <= end; i++) {
+
+      // Check for ranges e.g. "Class 1 to 8", "1-8", "6 to 8", "9-10", "11th and 12th", "11 & 12"
+      const rangeMatches = c.matchAll(
+        /(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:to|-|–|—|and|&)\s*(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?/gi
+      );
+      let matchedRange = false;
+      for (const match of rangeMatches) {
+        matchedRange = true;
+        const start = parseInt(match[1], 10);
+        const end = parseInt(match[2], 10);
+        if (start >= 1 && end <= 12) {
+          const min = Math.min(start, end);
+          const max = Math.max(start, end);
+          for (let i = min; i <= max; i++) {
             classSet.add(`Class ${i}`);
             grades.add(i);
           }
         }
-      } else {
-        const singleMatch = c.match(/\b(\d{1,2})\b/);
-        if (singleMatch) {
-          const g = parseInt(singleMatch[1], 10);
-          if (g >= 1 && g <= 12) {
-            classSet.add(`Class ${g}`);
-            grades.add(g);
-            // If primary or middle school tutor specifies e.g. "Class 8" or "upto Class 8", also expand preceding grades
-            if (/upto|till|below|to/i.test(c)) {
-              for (let i = 1; i <= g; i++) {
-                classSet.add(`Class ${i}`);
-                grades.add(i);
-              }
+      }
+
+      // Check for Roman ranges e.g. "XI - XII", "VI to VIII"
+      const romanRangeMatches = c.matchAll(
+        /(?:class\s*)?([ivx]+)\s*(?:to|-|–|—|and|&)\s*(?:class\s*)?([ivx]+)/gi
+      );
+      for (const match of romanRangeMatches) {
+        const start = REVERSE_ROMAN[match[1].toLowerCase()];
+        const end = REVERSE_ROMAN[match[2].toLowerCase()];
+        if (start && end && start >= 1 && end <= 12) {
+          matchedRange = true;
+          const min = Math.min(start, end);
+          const max = Math.max(start, end);
+          for (let i = min; i <= max; i++) {
+            classSet.add(`Class ${i}`);
+            grades.add(i);
+          }
+        }
+      }
+
+      // Extract all individual numbers
+      const allNumbers = [...c.matchAll(/\b(\d{1,2})\b/g)];
+      for (const m of allNumbers) {
+        const g = parseInt(m[1], 10);
+        if (g >= 1 && g <= 12) {
+          classSet.add(`Class ${g}`);
+          grades.add(g);
+          if (/upto|till|below/i.test(c)) {
+            for (let i = 1; i <= g; i++) {
+              classSet.add(`Class ${i}`);
+              grades.add(i);
             }
           }
+        }
+      }
+
+      // Extract individual Roman numerals e.g. "XI", "XII", "X", "IX", "VIII"
+      const romanMatches = [...c.matchAll(/\b(xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)\b/gi)];
+      for (const rm of romanMatches) {
+        const g = REVERSE_ROMAN[rm[1].toLowerCase()];
+        if (g && g >= 1 && g <= 12) {
+          classSet.add(`Class ${g}`);
+          grades.add(g);
         }
       }
     }
@@ -177,7 +222,7 @@ export function expandTutorSubjectsAndClasses(input: {
     if ([...grades].some((g) => g >= 11 && g <= 12)) classSet.add("Class 11-12");
   }
 
-  // 2. Expand Subjects
+  // 2. Expand Subjects strictly based on what tutor teaches across their grades
   const subjectSet = new Set<string>();
   const rawSubs = input.rawSubjects || [];
 
@@ -186,53 +231,170 @@ export function expandTutorSubjectsAndClasses(input: {
     rawSubs.some((s) => /all\s*subject|all|combo|any|every|general/i.test(s));
 
   if (isAllSubjects) {
-    // Add all core subjects
-    CORE_SUBJECTS.forEach((s) => subjectSet.add(s));
-    subjectSet.add("All Subjects");
-    subjectSet.add("Science & Maths");
-
-    // Add taxonomy combo subjects for every grade the tutor teaches
+    // Add combo subjects for each covered grade
     grades.forEach((g) => {
       if (COMBO_SUBJECTS_BY_GRADE[g]) {
         subjectSet.add(COMBO_SUBJECTS_BY_GRADE[g]);
       }
+      const rom = ROMAN_MAP[g];
+      if (rom) {
+        // Grade-appropriate core subjects
+        if (g >= 3 && g <= 12) subjectSet.add(`Maths for Class ${rom}`);
+        if (g <= 5) subjectSet.add("Science upto Class V");
+        else if (g <= 10) subjectSet.add(`Science for Class ${rom}`);
+        if (g >= 6 && g <= 10) subjectSet.add(`Social Studies for Class ${rom}`);
+        if (g <= 5) {
+          subjectSet.add("English upto V");
+          subjectSet.add("Hindi for Class upto V");
+        } else if (g <= 8) {
+          subjectSet.add("English for VI to VIII");
+          subjectSet.add("Hindi for Class VI to VIII");
+        } else if (g <= 10) {
+          subjectSet.add("English for IX - X");
+          subjectSet.add("Hindi for Class IX or X");
+        }
+      }
     });
 
+    subjectSet.add("All Subjects");
+    if ([...grades].some((g) => g >= 6 && g <= 8)) subjectSet.add("Science & Maths");
     if ([...grades].some((g) => g <= 5)) {
       subjectSet.add("All Subjects for Preparatory");
       subjectSet.add("All Subjects For KG (Kindergarten)");
+      subjectSet.add("EVS");
     }
   } else {
-    for (const s of rawSubs) {
-      const trimmed = s.trim();
-      if (!trimmed) continue;
-      subjectSet.add(trimmed);
+    // Detect specific teaching domains from raw subjects
+    const teachesMath = rawSubs.some((s) => /math|algebra|calculus|geometry/i.test(s));
+    const teachesScience = rawSubs.some((s) => /(?<!computer\s)(?<!comp\s)\bscience\b|general\s*science/i.test(s) && !/social/i.test(s));
+    const teachesPhysics = rawSubs.some((s) => /physic/i.test(s));
+    const teachesChemistry = rawSubs.some((s) => /chem/i.test(s));
+    const teachesBiology = rawSubs.some((s) => /bio/i.test(s));
+    const teachesEnglish = rawSubs.some((s) => /english/i.test(s));
+    const teachesHindi = rawSubs.some((s) => /hindi/i.test(s));
+    const teachesSST = rawSubs.some((s) => /social|sst|history|geography|civics/i.test(s));
+    const teachesEVS = rawSubs.some((s) => /evs|environmental/i.test(s));
+    const teachesCommerce = rawSubs.some((s) => /commerce|account|business|economic/i.test(s));
+    const teachesCS = rawSubs.some((s) => /computer|coding|python|java|information\s*tech|\bIT\b/i.test(s));
 
-      const lower = trimmed.toLowerCase();
-      if (lower.includes("math")) subjectSet.add("Mathematics");
-      if (lower.includes("sci") && !lower.includes("social")) {
-        subjectSet.add("Science");
-        if (grades.has(11) || grades.has(12)) {
-          subjectSet.add("Physics");
-          subjectSet.add("Chemistry");
+    // For every grade the tutor teaches, add the exact canonical class-specific subjects
+    const targetGrades = grades.size > 0 ? Array.from(grades) : [6, 7, 8, 9, 10];
+
+    for (const g of targetGrades) {
+      const rom = ROMAN_MAP[g];
+      if (!rom) continue;
+
+      if (teachesMath) {
+        if (g >= 3 && g <= 12) subjectSet.add(`Maths for Class ${rom}`);
+        if (g >= 11) subjectSet.add("Maths for IITJEE");
+      }
+
+      if (teachesScience) {
+        if (g <= 5) subjectSet.add("Science upto Class V");
+        else if (g <= 10) subjectSet.add(`Science for Class ${rom}`);
+        if (g === 8) {
+          subjectSet.add("Physics upto Class VIII");
+          subjectSet.add("Chemistry For Class VIII");
+          subjectSet.add("Biology for Class VIII");
+        } else if (g >= 9 && g <= 10) {
+          subjectSet.add(`Physics For Class ${rom}`);
+          subjectSet.add(`Chemistry For Class ${rom}`);
+          subjectSet.add(`Biology for Class ${rom}`);
+        } else if (g >= 11) {
+          subjectSet.add(`Physics For Class ${rom}`);
+          subjectSet.add(`Chemistry For Class ${rom}`);
         }
       }
-      if (lower.includes("physic")) subjectSet.add("Physics");
-      if (lower.includes("chem")) subjectSet.add("Chemistry");
-      if (lower.includes("bio")) subjectSet.add("Biology");
-      if (lower.includes("eng")) subjectSet.add("English");
-      if (lower.includes("hindi")) subjectSet.add("Hindi");
-      if (lower.includes("social") || lower.includes("sst")) subjectSet.add("Social Studies");
-      if (lower.includes("evs")) subjectSet.add("EVS");
-      if (lower.includes("commerce") || lower.includes("account")) {
+
+      if (teachesPhysics) {
+        if (g <= 8) subjectSet.add("Physics upto Class VIII");
+        else if (g <= 12) subjectSet.add(`Physics For Class ${rom}`);
+        if (g >= 11) {
+          subjectSet.add("Physics for IITJEE");
+          subjectSet.add("Physics for NEET");
+        }
+      }
+
+      if (teachesChemistry) {
+        if (g <= 8) subjectSet.add("Chemistry For Class VIII");
+        else if (g <= 12) subjectSet.add(`Chemistry For Class ${rom}`);
+        if (g >= 11) {
+          subjectSet.add("Chemistry for IITJEE");
+          subjectSet.add("Chemistry for NEET");
+        }
+      }
+
+      if (teachesBiology) {
+        if (g <= 8) subjectSet.add("Biology for Class VIII");
+        else if (g <= 12) subjectSet.add(`Biology for Class ${rom}`);
+        if (g >= 11) {
+          subjectSet.add("Biology for NEET");
+          subjectSet.add("Biology for Medical Entrance");
+        }
+      }
+
+      if (teachesEnglish) {
+        if (g <= 5) subjectSet.add("English upto V");
+        else if (g <= 8) subjectSet.add("English for VI to VIII");
+        else if (g <= 10) subjectSet.add("English for IX - X");
+        else if (g <= 12) subjectSet.add("English for XI - XII");
+      }
+
+      if (teachesHindi) {
+        if (g <= 5) subjectSet.add("Hindi for Class upto V");
+        else if (g <= 8) subjectSet.add("Hindi for Class VI to VIII");
+        else if (g <= 10) subjectSet.add("Hindi for Class IX or X");
+        else if (g <= 12) subjectSet.add("Hindi for Class XI or XII");
+      }
+
+      if (teachesSST) {
+        if (g >= 6 && g <= 10) subjectSet.add(`Social Studies for Class ${rom}`);
+        else if (g >= 11) {
+          subjectSet.add("History for Class XI - XII");
+          subjectSet.add("Geography for Class XI - XII");
+        }
+      }
+
+      if (teachesEVS && g <= 5) {
+        subjectSet.add("Environmental Studies(EVS)");
+        subjectSet.add("EVS");
+      }
+
+      if (teachesCommerce && g >= 11) {
         subjectSet.add("Accountancy");
         subjectSet.add("Business Studies");
         subjectSet.add("Economics");
       }
-      if (lower.includes("computer") || lower.includes("coding")) {
-        subjectSet.add("Computer Science");
+
+      if (teachesCS) {
+        // Class-specific Computer Science / IT subjects
+        if (g <= 5) {
+          subjectSet.add("Computer Science");
+        } else if (g <= 8) {
+          subjectSet.add(`Computer Science for Class ${rom}`);
+          subjectSet.add("Information Technology");
+        } else if (g <= 10) {
+          subjectSet.add(`Computer Science for Class ${rom}`);
+          subjectSet.add(`Information Technology for Class ${rom}`);
+        } else if (g >= 11) {
+          subjectSet.add(`Computer Science for Class ${rom}`);
+          subjectSet.add("Computer Science for Class XI - XII");
+          subjectSet.add("Information Technology");
+        }
       }
     }
+
+    // Add standard platform category search roots for filters
+    if (teachesMath) subjectSet.add("Mathematics");
+    if (teachesScience) subjectSet.add("Science");
+    if (teachesPhysics) subjectSet.add("Physics");
+    if (teachesChemistry) subjectSet.add("Chemistry");
+    if (teachesBiology) subjectSet.add("Biology");
+    if (teachesEnglish) subjectSet.add("English");
+    if (teachesHindi) subjectSet.add("Hindi");
+    if (teachesSST) subjectSet.add("Social Studies");
+    if (teachesMath && teachesScience) subjectSet.add("Science & Maths");
+    if (teachesCS) subjectSet.add("Computer Science");
   }
 
   return {
@@ -290,6 +452,8 @@ export async function registerTutorFromWhatsapp(
           role: user.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "TUTOR",
           ...(!user.phone && normalizedPhone ? { phone: normalizedPhone } : {}),
           ...((!user.email || user.email.startsWith("wa_")) && email && !email.startsWith("wa_") ? { email } : {}),
+          // Mark as WHATSAPP if it was previously auto-created without source
+          ...(!(user as any).signupSource || (user as any).signupSource === "WEBSITE" ? { signupSource: "WHATSAPP" } : {}),
         },
       });
     } else {
@@ -300,6 +464,7 @@ export async function registerTutorFromWhatsapp(
           phone: normalizedPhone,
           role: "TUTOR",
           isActive: true,
+          signupSource: "WHATSAPP",
         },
       });
     }
@@ -399,6 +564,7 @@ export async function registerParentFromWhatsapp(
           name: parentName || user.name,
           ...(!user.phone && normalizedPhone ? { phone: normalizedPhone } : {}),
           ...((!user.email || user.email.startsWith("wa_")) && email && !email.startsWith("wa_") ? { email } : {}),
+          ...(!(user as any).signupSource || (user as any).signupSource === "WEBSITE" ? { signupSource: "WHATSAPP" } : {}),
         },
       });
     } else {
@@ -409,6 +575,7 @@ export async function registerParentFromWhatsapp(
           phone: normalizedPhone,
           role: "PARENT",
           isActive: true,
+          signupSource: "WHATSAPP",
         },
       });
     }

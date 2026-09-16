@@ -27,6 +27,14 @@ import {
 
 const MAX_RETRIES = 3;
 
+function isValidName(v: string): boolean {
+  const clean = v.trim();
+  if (clean.length < 2 || clean.length > 50) return false;
+  if (/^(hi|hello|hey|namaste|yes|no|ok|done|skip)$/i.test(clean)) return false;
+  if (/\d/.test(clean)) return false;
+  return /^[a-zA-Z\s.'-]+$/.test(clean);
+}
+
 export type EngineResult = {
   reply: string;
   nextStep: string;

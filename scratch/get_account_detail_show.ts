@@ -1,12 +1,7 @@
 import crypto from 'crypto';
 
-function md5(str: string): string {
-  return crypto.createHash('md5').update(str).digest('hex');
-}
-
-function sha1(str: string): string {
-  return crypto.createHash('sha1').update(str).digest('hex');
-}
+function md5(str: string): string { return crypto.createHash('md5').update(str).digest('hex'); }
+function sha1(str: string): string { return crypto.createHash('sha1').update(str).digest('hex'); }
 
 async function run() {
   const getRes = await fetch('https://verified.aquasms.com/login');
@@ -32,7 +27,6 @@ async function run() {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Cookie': cookieHeader,
       'Referer': 'https://verified.aquasms.com/login',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     },
     body: params.toString(),
     redirect: 'manual',
@@ -41,30 +35,27 @@ async function run() {
   const authCookies = authRes.headers.getSetCookie ? authRes.headers.getSetCookie() : [authRes.headers.get('set-cookie') || ''];
   cookieHeader = authCookies.map(c => c.split(';')[0]).join('; ');
 
-  const tplPage = await fetch('https://verified.aquasms.com/whatsapp-templates', {
-    headers: { 'Cookie': cookieHeader },
-  });
-  const tplHtml = await tplPage.text();
-  const formHtml = tplHtml.match(/<form[^>]*id="WhatsappTemplateSearchForm"[^>]*>[\s\S]*?<\/form>/i)?.[0] || '';
+  const getUrls = [
+    'https://verified.aquasms.com/whatsapp-account-detail-master/show?PageNo=1&PerPageRecord=50',
+    'https://verified.aquasms.com/whatsapp-account-detail-master/edit?recordid=1',
+    'https://verified.aquasms.com/account',
+    'https://verified.aquasms.com/user-master',
+    'https://verified.aquasms.com/whatsapp-templates',
+  ];
 
-  const fieldMatches = Array.from(formHtml.matchAll(/name="([^"]+)"/gi)).map(m => m[1]);
-  console.log('Form Field Names:', fieldMatches);
-
-  const searchParams = new URLSearchParams();
-  for (const f of fieldMatches) {
-    searchParams.append(f, '');
+  for (const u of getUrls) {
+    const res = await fetch(u, {
+      headers: {
+        'Cookie': cookieHeader,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+    console.log('\n=== GET', u, '->', res.status);
+    const txt = await res.text();
+    console.log(txt.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 400));
+    const ids = txt.match(/\b\d{14,18}\b/g);
+    if (ids) console.log('IDs found:', Array.from(new Set(ids)));
   }
-  const context = Buffer.from(searchParams.toString()).toString('base64');
-
-  const tplRes = await fetch(`https://verified.aquasms.com/whatsapp-templates/show?context=${encodeURIComponent(context)}&PageNo=1&PerPageRecord=50`, {
-    headers: { 'Cookie': cookieHeader, 'X-Requested-With': 'XMLHttpRequest' },
-  });
-  const tplData = await tplRes.text();
-  for (const m of tplData.matchAll(/onclick="([^"]+)"/gi)) {
-    console.log('OnClick:', m[1]);
-  }
-  const idMatches = tplData.match(/\b\d{14,18}\b/g) || [];
-  console.log('14-18 digit IDs:', Array.from(new Set(idMatches)));
 }
 
 run().catch(console.error);

@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { COIN_PACKAGES } from "@/lib/razorpay";
 
 export type MatchingLeadCard = {
-  inquiryNumber: number;
+  inquiryNumber: number | null;
   classLevel: string;
   subjects: string[];
   area: string;

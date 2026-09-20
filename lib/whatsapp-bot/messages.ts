@@ -5,48 +5,43 @@
  */
 
 export const MSG = {
-  // ── Common ────────────────────────────────────────────────────────────────
-  WELCOME: `🙏 Welcome to *ApnaTutorHub*!
+  // ── Common ────────────────────────────────────────────────────────────────────
+  WELCOME: `Namaste! 👋 *ApnaTutorHub* mein aapka swagat hai!
 
-We connect parents with home tutors across India.
+Aap tutor hain ya parent?
 
-Please tell us who you are:
+1 — *Tutor* (teaching work chahiye)
+2 — *Parent* (bachche ke liye tutor chahiye)
 
-1️⃣  *TUTOR* — I want to teach / find tuition work
-2️⃣  *PARENT* — I need a tutor for my child
+Reply karo *1* ya *2*`,
 
-Reply with *1* or *2*`,
+  RE_WELCOME: `👋 Wapas aaye! *ApnaTutorHub* pe swagat hai.
 
-  RE_WELCOME: `👋 Welcome back to *ApnaTutorHub*!
+1 — *Tutor* (tuition work dhundh raha hoon)
+2 — *Parent* (tutor dhundh raha hoon)
 
-1️⃣  *TUTOR* — looking for tuition work
-2️⃣  *PARENT* — looking for a tutor
+Reply karo *1* ya *2*`,
 
-Reply *1* or *2*`,
+  UNKNOWN: `Samajh nahi aaya. 🙏
 
-  UNKNOWN: `❓ Sorry, I didn't understand that.
-
-Please reply with the *number* shown in the menu.
-
-Type *MENU* to go back to the start, or *HELP* for support.`,
+Type karo *MENU* ya reply karo number se jo message mein tha.`,
 
   HELP: `📞 *ApnaTutorHub Support*
 
-🌐 Website: https://apnatutorhub.com
-📧 Email: youhubteam@gmail.com
-⏰ Support hours: 9am – 7pm (Mon–Sat)
+WhatsApp: +91 87997 07960
+Time: 9am – 7pm (Mon–Sat)
 
-Type *MENU* to restart the chatbot.`,
+Type karo *MENU* restart karne ke liye.`,
 
-  CANCEL: `✅ No problem! Your session has been cleared.
+  CANCEL: `✅ Done! Session clear ho gaya.
 
-Type *MENU* anytime to start again.
+Kisi bhi waqt *MENU* type karo.
 
 *ApnaTutorHub.com — We Provide Home Tutors* 🙏`,
 
-  TOO_MANY_RETRIES: `⚠️ We couldn't understand your replies. Let's start fresh.
+  TOO_MANY_RETRIES: `Kuch gadbad ho gayi. Naye sire se shuru karte hain.
 
-Type *MENU* to try again or *HELP* for support.`,
+Type karo *MENU* phir se try karne ke liye.`,
 
   // ── Tutor Flow ────────────────────────────────────────────────────────────
   T_NAME: `Great! 🎉 Let's set up your *tutor profile*.

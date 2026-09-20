@@ -66,22 +66,88 @@ export async function processMessage(
       updatedData: {},
       userType: null,
       retries: 0,
-      quickReplies: ["MENU", "1️⃣ TUTOR", "2️⃣ PARENT"],
+      quickReplies: ["MENU", "1 - Tutor", "2 - Parent"],
     };
   }
 
-  if (HELP_COMMANDS.includes(msg)) {
+  if (HELP_COMMANDS.includes(msg) || /^call$/i.test(msg.trim()) || /support/i.test(msg)) {
     return {
-      reply: MSG.HELP,
+      reply: `📞 Hamare coordinator se seedha baat karein:\n\nWhatsApp: +91 87997 07960\nTime: 9am – 7pm (Mon–Sat)\n\nUnhe batayein aapka naam aur issue.`,
       nextStep: step,
       updatedData: data,
       retries: 0,
-      quickReplies: ["MENU", "1️⃣ TUTOR", "2️⃣ PARENT"],
+      quickReplies: ["MENU", "View Leads", "Buy Coins"],
     };
   }
 
+  // ── Staff Escalation: complaint / issue / problem ─────────────────────────
+  if (/\b(problem|issue|complaint|cheated|fraud|refund|not working|call me)\b/i.test(rawMessage)) {
+    return {
+      reply: `Samajh gaya. Seedha humse baat karo:\n\n📞 WhatsApp: +91 87997 07960\nTime: 9am–7pm (Mon–Sat)\n\nUnhe aapka naam aur issue batao.`,
+      nextStep: step,
+      updatedData: data,
+      retries: 0,
+      quickReplies: ["MENU", "View Leads", "Buy Coins"],
+    };
+  }
+
+  // ── Profile View ──────────────────────────────────────────────────────────
+  if (/^(my profile|profile|mera profile|meri profile)$/i.test(rawMessage.trim())) {
+    const name = (data.name as string) || "Not set";
+    const email = (data.email as string) || "Not set";
+    const area = (data.area as string) || "Not set";
+    const city = (data.city as string) || "";
+    const subjects = Array.isArray(data.subjects) && data.subjects.length > 0 ? (data.subjects as string[]).join(", ") : "Not set";
+    const location = city ? `${area}, ${city}` : area;
+    const profileText = `👤 *Aapka Profile:*\n\nNaam: ${name}\nEmail: ${email}\nLocation: ${location}\nSubjects: ${subjects}\nPhone: +91-${session.phone}\n\nKuch update karna hai? Type karo: UPDATE NAME / UPDATE EMAIL / UPDATE SUBJECTS`;
+    return {
+      reply: profileText,
+      nextStep: step,
+      updatedData: data,
+      retries: 0,
+      quickReplies: ["Update Name", "Update Email", "Update Subjects"],
+    };
+  }
+
+  // ── Profile Update Commands ───────────────────────────────────────────────
+  if (/^update name$/i.test(rawMessage.trim())) {
+    return { reply: "Apna naya naam type karo:", nextStep: "UPDATE_NAME", updatedData: data, retries: 0 };
+  }
+  if (/^update email$/i.test(rawMessage.trim())) {
+    return { reply: "Apna naya email ID type karo:", nextStep: "UPDATE_EMAIL", updatedData: data, retries: 0 };
+  }
+  if (/^update subjects$/i.test(rawMessage.trim())) {
+    return { reply: "Kaunse subjects padhate ho? (comma separated):", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0 };
+  }
+  if (/^update area$/i.test(rawMessage.trim())) {
+    return { reply: "Apna naya area / locality type karo:", nextStep: "UPDATE_AREA", updatedData: data, retries: 0 };
+  }
+  if (/^update phone$/i.test(rawMessage.trim())) {
+    return { reply: "Apna naya phone number type karo (10 digits):", nextStep: "UPDATE_PHONE", updatedData: data, retries: 0 };
+  }
+
+  // Handle update step responses
+  if (step === "UPDATE_NAME") {
+    return { reply: `Naam update ho gaya: *${rawMessage.trim()}*`, nextStep: "DONE", updatedData: { ...data, name: rawMessage.trim() }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+  }
+  if (step === "UPDATE_EMAIL") {
+    return { reply: `Email update ho gaya: *${rawMessage.trim()}*`, nextStep: "DONE", updatedData: { ...data, email: rawMessage.trim().toLowerCase() }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+  }
+  if (step === "UPDATE_SUBJECTS") {
+    const subs = rawMessage.split(/,|and/i).map((s) => s.trim()).filter(Boolean);
+    return { reply: `Subjects update ho gaye: *${subs.join(", ")}*`, nextStep: "DONE", updatedData: { ...data, subjects: subs }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+  }
+  if (step === "UPDATE_AREA") {
+    return { reply: `Area update ho gaya: *${rawMessage.trim()}*`, nextStep: "DONE", updatedData: { ...data, area: rawMessage.trim() }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+  }
+  if (step === "UPDATE_PHONE") {
+    const phoneMatch = rawMessage.match(/([6-9]\d{9})/);
+    const newPhone = phoneMatch ? phoneMatch[1] : rawMessage.trim();
+    return { reply: `Phone update ho gaya: *${newPhone}*`, nextStep: "DONE", updatedData: { ...data, phone: newPhone }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+  }
+
   // ── Global Leads & Plans shortcuts ──────────────────────────────────────────
-  if (/plan|coin|pack|pricing|membership/i.test(msg) || rawMessage.toLowerCase().includes("membership")) {
+  if (/plan|coin|pack|pricing|membership|buy coins|recharge|wallet/i.test(msg)) {
     return {
       reply: formatCoinPlansMessage(),
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
@@ -121,7 +187,7 @@ export async function processMessage(
       updatedData: {},
       userType: null,
       retries: 0,
-      quickReplies: ["1️⃣ TUTOR — I want to teach", "2️⃣ PARENT — I need a tutor"],
+      quickReplies: ["1 - Tutor (I want to teach)", "2 - Parent (I need a tutor)"],
     };
   }
 
@@ -157,7 +223,11 @@ export async function processMessage(
           mergedData.password = pwdMatch[1].trim();
         } else if (session.step === "T_PASSWORD" && !mergedData.password) {
           const candidate = rawMessage.trim();
-          if (!/^(menu|help|cancel)$/i.test(candidate)) {
+          if (/^skip$/i.test(candidate)) {
+            // User skipped password — use default 12345678
+            mergedData.password = "12345678";
+            mergedData._usedDefaultPassword = true;
+          } else if (!/^(menu|help|cancel)$/i.test(candidate)) {
             mergedData.password = candidate;
           }
         }
@@ -190,8 +260,8 @@ export async function processMessage(
           const isTutor = role === "TUTOR" || rawMessage.trim() === "1";
           return {
             reply: isTutor
-              ? `Namaste! 🙏 Welcome to *ApnaTutorHub* — India's trusted platform for Home & Online Tuitions 📚✨\n\nTo create your verified tutor profile and send you local student leads nearby (<10 km), please share:\n• 👤 *Full Name*\n• 📱 *Phone Number*\n• 📧 *Email ID* (for lead alerts & magic login)\n• 📍 *City & Area/Locality* (e.g., Sangam Vihar, Delhi)\n• 📚 *Subjects & Classes* you teach (e.g., Maths for Class 6-10)\n\n_(You can reply with all details in one message, or select below)_`
-              : `Namaste! 🙏 Welcome to *ApnaTutorHub*! 🎓\n\nLet's find the best verified home/online tutor for your child.\nPlease share:\n• 👤 *Your Name*\n• 📱 *Contact Phone Number* (to arrange 1-on-1 free demo)\n• 📧 *Email ID* (optional)\n• 📍 *Area / Locality* (e.g., Sangam Vihar, Delhi)\n• 📚 *Class & Subjects* needed (e.g., Class 10 Maths & Science)\n\n_(You can reply with all details in one message)_`,
+              ? `Acha! Kaunsa subject padhate hain aur kahan se hain? 📚\n\nJaise: "Maths & Science, Dwarka Delhi"`
+              : `Acha! Aapke bachche ke liye kaunsa subject chahiye aur class kya hai? 🎓\n\nJaise: "Class 10, Maths & Science, Rohini Delhi"`,
             nextStep: isTutor ? "T_CONVO" : "P_CONVO",
             updatedData: {},
             userType: isTutor ? "TUTOR" : "PARENT",
@@ -252,9 +322,9 @@ export async function processMessage(
             }
 
             // 3. Validate Password Length
-            if (pwdStr.length < 6) {
+            if (pwdStr.length < 6 && pwdStr !== "12345678") {
               return {
-                reply: `⚠️ Password must be at least 6 characters long.\n\n🔐 Please reply with a password of 6 or more characters:`,
+                reply: `Password 6 characters se kam hai.\n\n🔐 Phir se try karo (min 6 chars):`,
                 nextStep: "T_PASSWORD",
                 updatedData: { ...mergedData, password: undefined },
                 userType: "TUTOR",
@@ -291,11 +361,12 @@ export async function processMessage(
               console.error("[engine] auto-register tutor failed:", regErr);
             }
 
+            const usedDefault = mergedData._usedDefaultPassword === true;
             const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
               email: emailToUse,
               phone: phoneToUse,
               hasPassword: true,
-            });
+            }) + (usedDefault ? `\n\n⚠️ *Note:* Aapka default password *12345678* set kiya gaya hai. Login karke please change kar lena: https://apnatutorhub.com/login` : "");
 
             return {
               reply: richReply,
@@ -389,22 +460,22 @@ export async function processMessage(
     const normalized = rawMessage.trim();
     if (normalized === "1" || /tutor|teach|instructor/i.test(normalized)) {
       return {
-        reply: `Namaste! 🙏 Welcome to *ApnaTutorHub* — India's trusted platform for Home & Online Tuitions 📚✨\n\nTo create your verified tutor profile and send you local student leads nearby (<10 km), please share:\n• 👤 *Full Name*\n• 📱 *Phone Number*\n• 📧 *Email ID* (for lead alerts & magic login)\n• 📍 *City & Area/Locality* (e.g., Sangam Vihar, Delhi)\n• 📚 *Subjects & Classes* you teach (e.g., Maths for Class 6-10)\n\n_(You can reply with all details in one message, or select below)_`,
+        reply: `Acha! Kaunsa subject padhate hain aur kahan se hain? 📚\n\nJaise: "Maths & Science, Dwarka Delhi"`,
         nextStep: "T_CONVO",
         updatedData: {},
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["Sangam Vihar, Delhi", "Dwarka, Delhi", "Skip Email", "Noida / Gurgaon"],
+        quickReplies: ["Sangam Vihar, Delhi", "Dwarka, Delhi", "Noida"],
       };
     }
     if (normalized === "2" || /parent|student|child|hire/i.test(normalized)) {
       return {
-        reply: `Namaste! 🙏 Welcome to *ApnaTutorHub*! 🎓\n\nLet's find the best verified home/online tutor for your child.\nPlease share:\n• 👤 *Your Name*\n• 📱 *Contact Phone Number* (to arrange 1-on-1 free demo)\n• 📧 *Email ID* (optional)\n• 📍 *Area / Locality* (e.g., Sangam Vihar, Delhi)\n• 📚 *Class & Subjects* needed (e.g., Class 10 Maths & Science)\n\n_(You can reply with all details in one message)_`,
+        reply: `Acha! Aapke bachche ke liye kaunsi class aur subject chahiye? 🎓\n\nJaise: "Class 10, Maths & Science, Rohini Delhi"`,
         nextStep: "P_CONVO",
         updatedData: {},
         userType: "PARENT",
         retries: 0,
-        quickReplies: ["Class 9-10 Maths & Sci", "Class 1-5 All Subjects", "Class 11-12"],
+        quickReplies: ["Class 9-10 Maths & Sci", "Class 1-5 All", "Class 11-12"],
       };
     }
 
@@ -412,7 +483,7 @@ export async function processMessage(
     const isLocality = /vihar|nagar|road|enclave|colony|delhi|noida|gurgaon|sector|pur|ext|bengaluru|mumbai|saket|kalkaji/i.test(normalized);
     if (isLocality || normalized.length >= 3) {
       return {
-        reply: `🙏 Welcome to *ApnaTutorHub*!\n\nWe provide verified home tutors across Delhi NCR and India.\n\nWe noted your locality: *${normalized}* 📍\nPlease tell us who you are so we can help you right away:\n\n1️⃣  *TUTOR* — I want to teach / find tuition work\n2️⃣  *PARENT* — I need a tutor for my child\n\nReply with *1* or *2*`,
+        reply: `Swagat hai! *ApnaTutorHub* pe. 🙏\n\nAap kaun hain — tutor ya parent?\n\n1 — *Tutor* (teaching chahiye)\n2 — *Parent* (tutor chahiye)`,
         nextStep: "WELCOME",
         updatedData: { area: normalized, city: "Delhi" },
         userType: null,

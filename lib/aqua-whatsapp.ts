@@ -64,7 +64,8 @@ function envFlag(name: string, fallback = false): boolean {
 }
 
 export function getAquaWhatsAppConfig(): AquaWhatsAppConfig {
-  const cap = Number(process.env.AQUA_WHATSAPP_DAILY_TEST_CAP);
+  const rawCap = process.env.AQUA_WHATSAPP_DAILY_TEST_CAP?.trim();
+  const cap = rawCap !== undefined && rawCap !== "" ? Number(rawCap) : 0;
   return {
     enabled: envFlag("AQUA_WHATSAPP_ENABLED", false),
     autoDispatch: envFlag("AQUA_WHATSAPP_AUTO_DISPATCH", false),
@@ -75,8 +76,7 @@ export function getAquaWhatsAppConfig(): AquaWhatsAppConfig {
     fromNumber: normalizeIndiaWhatsApp(process.env.AQUA_WHATSAPP_FROM ?? "") ?? "",
     phoneNumberId: process.env.AQUA_WHATSAPP_PHONE_NUMBER_ID?.trim() ?? "1417510641438661",
     defaultTemplateId: process.env.AQUA_WHATSAPP_TEMPLATE_ID?.trim() ?? "information2",
-    dailyTestCap:
-      Number.isFinite(cap) && cap > 0 ? Math.floor(cap) : AQUA_DEFAULT_DAILY_TEST_CAP,
+    dailyTestCap: Number.isFinite(cap) && cap > 0 ? Math.floor(cap) : 0,
   };
 }
 
@@ -137,7 +137,8 @@ export async function countAquaSendsToday(): Promise<number> {
 export async function getAquaWhatsAppStatus(): Promise<AquaWhatsAppStatus> {
   const cfg = getAquaWhatsAppConfig();
   const dailyUsed = await countAquaSendsToday();
-  const dailyRemaining = Math.max(0, cfg.dailyTestCap - dailyUsed);
+  const isUncapped = !cfg.dailyTestCap || cfg.dailyTestCap <= 0;
+  const dailyRemaining = isUncapped ? 999999 : Math.max(0, cfg.dailyTestCap - dailyUsed);
   const blockers: string[] = [];
 
   if (!cfg.enabled) blockers.push("Aqua WhatsApp is disabled (AQUA_WHATSAPP_ENABLED).");
@@ -167,8 +168,8 @@ export async function getAquaWhatsAppStatus(): Promise<AquaWhatsAppStatus> {
     dailyRemaining,
     estimatedUtilityInr: AQUA_INDIA_UTILITY_INR,
     estimatedMarketingInr: AQUA_INDIA_MARKETING_INR,
-    readyForTemplateTest: readyBase && Boolean(cfg.defaultTemplateId) && dailyRemaining > 0,
-    readyForSessionText: readyBase && dailyRemaining > 0,
+    readyForTemplateTest: readyBase && Boolean(cfg.defaultTemplateId) && (isUncapped || dailyRemaining > 0),
+    readyForSessionText: readyBase && (isUncapped || dailyRemaining > 0),
     blockers,
   };
 }
@@ -249,6 +250,7 @@ export async function probeAquaWhatsAppLogin(): Promise<AquaSendResult> {
 }
 
 async function assertDailyCap(cfg: AquaWhatsAppConfig): Promise<string | null> {
+  if (!cfg.dailyTestCap || cfg.dailyTestCap <= 0) return null; // Automatic / uncapped
   const used = await countAquaSendsToday();
   if (used >= cfg.dailyTestCap) {
     return `Daily WhatsApp test cap reached (${cfg.dailyTestCap}). Credits were not spent.`;
@@ -272,7 +274,8 @@ export async function sendAquaWhatsAppMessage(input: {
   const to = normalizeIndiaWhatsApp(input.to);
   if (!to) return { ok: false, error: "Enter a valid Indian mobile number." };
 
-  if (!input.bypassDailyCap) {
+  // Chatbot conversational text replies are ALWAYS uncapped and automatic
+  if (input.mode !== "text" && !input.bypassDailyCap) {
     const capError = await assertDailyCap(cfg);
     if (capError) return { ok: false, error: capError };
   }

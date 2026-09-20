@@ -151,6 +151,17 @@ export async function processMessage(
           mergedData.phone = phoneMatch[1];
         }
 
+        // Password extractor (explicit password: ... or input in T_PASSWORD step)
+        const pwdMatch = rawMessage.match(/(?:password|pass|pwd)[:\s=]+([^\s\n,]+)/i);
+        if (pwdMatch && !mergedData.password) {
+          mergedData.password = pwdMatch[1].trim();
+        } else if (session.step === "T_PASSWORD" && !mergedData.password) {
+          const candidate = rawMessage.trim();
+          if (!/^(menu|help|cancel)$/i.test(candidate)) {
+            mergedData.password = candidate;
+          }
+        }
+
         // Robust role detection
         let role: "TUTOR" | "PARENT" | null = null;
         const candidateRole = (ai.detectedRole || session.userType || "").toUpperCase();
@@ -191,52 +202,114 @@ export async function processMessage(
           };
         }
 
-        // Fast Onboarding: If tutor provided area or isComplete, IMMEDIATELY return matching leads & plans!
-        if (role === "TUTOR" && (ai.isComplete || mergedData.area)) {
-          const areaName = (mergedData.area as string) || (data.area as string) || "Delhi NCR";
-          const tutorName = (mergedData.name as string) || (data.name as string) || "";
-          const leads = await getChatbotMatchingLeads(
-            areaName,
-            (mergedData.city as string) || "Delhi",
-            mergedData.classLevel as string,
-            mergedData.subjects as string[]
+        // TUTOR Onboarding: Require teaching details, then ask for Email and Password before creating account
+        if (role === "TUTOR") {
+          const hasTutorDetails = Boolean(
+            mergedData.area ||
+            mergedData.classLevel ||
+            (Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0) ||
+            (Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0) ||
+            (mergedData.name && !isBareChoice)
           );
 
-          // Auto-register Tutor in database (User + TutorProfile + Wallet)
-          try {
-            await registerTutorFromWhatsapp(session.phone, {
-              name: tutorName || "Tutor",
-              email: (mergedData.email as string) || undefined,
-              phone: (mergedData.phone as string) || session.phone,
-              city: (mergedData.city as string) || "Delhi",
-              area: areaName,
-              subjects: Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0 ? (mergedData.subjects as string[]) : ["All Subjects"],
-              classLevels: Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0
-                ? (mergedData.classLevels as string[])
-                : mergedData.classLevel ? [String(mergedData.classLevel)] : ["Class 1 to 10"],
-              experience: typeof mergedData.experience === "number" ? mergedData.experience : 2,
+          if (hasTutorDetails) {
+            const tutorName = (mergedData.name as string) || (data.name as string) || "";
+            const areaName = (mergedData.area as string) || (data.area as string) || "Delhi NCR";
+            const cityName = (mergedData.city as string) || "Delhi";
+            const subsArray = Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0 ? (mergedData.subjects as string[]) : [];
+            const subsText = subsArray.length > 0 ? subsArray.join(", ") : "All Subjects";
+            const classText = (mergedData.classLevel as string) || (Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0 ? (mergedData.classLevels as string[]).join(", ") : "");
+            const greeting = tutorName ? `Namaste *${tutorName}* ji! 🙏` : `Namaste! 🙏`;
+
+            const emailStr = typeof mergedData.email === "string" ? mergedData.email.trim().toLowerCase() : "";
+            const hasValidEmail = Boolean(emailStr && emailStr.includes("@") && emailStr.includes("."));
+            const skippedEmail = /skip\s*email|^skip$/i.test(rawMessage.trim());
+
+            // 1. Check Email: If missing, ask tutor for Email ID
+            if (!hasValidEmail && !skippedEmail && session.step !== "T_PASSWORD") {
+              return {
+                reply: `${greeting}\nWe've noted your teaching details: 📚 *${subsText}*${classText ? ` (${classText})` : ""} at 📍 *${areaName}*.\n\n📧 To set up your verified tutor account and send instant student leads to your inbox, please reply with your *Email ID*:\n_(e.g. yourname@gmail.com)_`,
+                nextStep: "T_EMAIL",
+                updatedData: mergedData,
+                userType: "TUTOR",
+                retries: 0,
+                quickReplies: ["Skip Email", "Noida / Gurgaon", "Delhi NCR"],
+              };
+            }
+
+            // 2. Check Password: If missing, ask tutor to set a password
+            const pwdStr = typeof mergedData.password === "string" ? mergedData.password.trim() : "";
+            if (!pwdStr) {
+              const emailNotice = hasValidEmail ? `\n📧 *Email ID:* ${emailStr}` : "";
+              return {
+                reply: `Almost there! ✨${emailNotice}\n\n🔐 Please reply with the *Password* (minimum 6 characters) you want to create for your ApnaTutorHub account:\n_(You will use your email & this password to log in at https://apnatutorhub.com/login)_`,
+                nextStep: "T_PASSWORD",
+                updatedData: mergedData,
+                userType: "TUTOR",
+                retries: 0,
+                quickReplies: ["123456", "Pass@123", "Help & Info"],
+              };
+            }
+
+            // 3. Validate Password Length
+            if (pwdStr.length < 6) {
+              return {
+                reply: `⚠️ Password must be at least 6 characters long.\n\n🔐 Please reply with a password of 6 or more characters:`,
+                nextStep: "T_PASSWORD",
+                updatedData: { ...mergedData, password: undefined },
+                userType: "TUTOR",
+                retries: 0,
+              };
+            }
+
+            // 4. All details ready! Register Tutor in database (User with passwordHash + TutorProfile + Wallet)
+            const phoneToUse = (mergedData.phone as string) || session.phone;
+            const emailToUse = hasValidEmail ? emailStr : undefined;
+
+            const leads = await getChatbotMatchingLeads(
+              areaName,
+              cityName,
+              mergedData.classLevel as string,
+              subsArray
+            );
+
+            try {
+              await registerTutorFromWhatsapp(session.phone, {
+                name: tutorName || "Tutor",
+                email: emailToUse,
+                phone: phoneToUse,
+                password: pwdStr,
+                city: cityName,
+                area: areaName,
+                subjects: subsArray.length > 0 ? subsArray : ["All Subjects"],
+                classLevels: Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0
+                  ? (mergedData.classLevels as string[])
+                  : mergedData.classLevel ? [String(mergedData.classLevel)] : ["Class 1 to 10"],
+                experience: typeof mergedData.experience === "number" ? mergedData.experience : 2,
+              });
+            } catch (regErr) {
+              console.error("[engine] auto-register tutor failed:", regErr);
+            }
+
+            const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
+              email: emailToUse,
+              phone: phoneToUse,
+              hasPassword: true,
             });
-          } catch (regErr) {
-            console.error("[engine] auto-register tutor failed:", regErr);
+
+            return {
+              reply: richReply,
+              nextStep: "DONE",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: [
+                leads.length > 0 ? `🔥 Unlock Lead #${leads[0].inquiryNumber}` : "🔥 View All Leads",
+                "💰 View Coin Plans",
+                "🌐 Leads Dashboard",
+              ],
+            };
           }
-
-          const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
-            email: (mergedData.email as string) || undefined,
-            phone: (mergedData.phone as string) || undefined,
-          });
-
-          return {
-            reply: richReply,
-            nextStep: "DONE",
-            updatedData: mergedData,
-            userType: "TUTOR",
-            retries: 0,
-            quickReplies: [
-              leads.length > 0 ? `🔥 Unlock Lead #${leads[0].inquiryNumber}` : "🔥 View All Leads",
-              "💰 View Coin Plans",
-              "🌐 Leads Dashboard",
-            ],
-          };
         }
 
         // Fast Onboarding: If parent provided area or class/subject, IMMEDIATELY return verified tutors & demo!
@@ -351,8 +424,8 @@ export async function processMessage(
     return handleInvalid(session, MSG.WELCOME, ["1️⃣ TUTOR", "2️⃣ PARENT"]);
   }
 
-  // TUTOR conversational fallback: Instantly match leads & deliver coin plans!
-  if (step === "T_CONVO" || step === "DONE") {
+  // TUTOR conversational fallback: Require email and password before registering
+  if (step === "T_CONVO" || step === "T_EMAIL" || step === "T_PASSWORD" || step === "DONE") {
     const trimmed = rawMessage.trim();
     const updated = { ...data };
 
@@ -361,6 +434,13 @@ export async function processMessage(
 
     const phoneMatch = trimmed.match(/(?:\+?91[\s-]?)?([6-9]\d{9})\b/);
     if (phoneMatch && !updated.phone) updated.phone = phoneMatch[1];
+
+    const pwdMatch = trimmed.match(/(?:password|pass|pwd)[:\s=]+([^\s\n,]+)/i);
+    if (pwdMatch) {
+      updated.password = pwdMatch[1].trim();
+    } else if (step === "T_PASSWORD" && !updated.password && !/^(menu|help|cancel)$/i.test(trimmed)) {
+      updated.password = trimmed;
+    }
 
     if (!updated.area && /vihar|nagar|road|enclave|colony|delhi|noida|gurgaon|sector|pur|ext|saket|kalkaji/i.test(trimmed)) {
       updated.area = trimmed;
@@ -373,6 +453,50 @@ export async function processMessage(
 
     const areaName = (updated.area as string) || "Delhi NCR";
     const tutorName = (updated.name as string) || "";
+    const emailStr = typeof updated.email === "string" ? updated.email.trim().toLowerCase() : "";
+    const hasValidEmail = Boolean(emailStr && emailStr.includes("@") && emailStr.includes("."));
+    const skippedEmail = /skip\s*email|^skip$/i.test(trimmed);
+
+    // 1. Check Email
+    if (!hasValidEmail && !skippedEmail && step !== "T_PASSWORD") {
+      return {
+        reply: `Namaste${tutorName ? ` *${tutorName}* ji` : ""}! 🙏\n\n📧 Please reply with your *Email ID* (e.g. yourname@gmail.com) so we can create your tutor dashboard account and send you student lead alerts:`,
+        nextStep: "T_EMAIL",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Skip Email", "Dwarka, Delhi", "Noida / Gurgaon"],
+      };
+    }
+
+    // 2. Check Password
+    const pwdStr = typeof updated.password === "string" ? updated.password.trim() : "";
+    if (!pwdStr) {
+      const emailNotice = hasValidEmail ? `\n📧 *Email ID:* ${emailStr}` : "";
+      return {
+        reply: `Almost there! ✨${emailNotice}\n\n🔐 Please reply with the *Password* (minimum 6 characters) you want to set for your ApnaTutorHub login account:\n_(Login URL: https://apnatutorhub.com/login)_`,
+        nextStep: "T_PASSWORD",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["123456", "Pass@123", "Help & Info"],
+      };
+    }
+
+    if (pwdStr.length < 6) {
+      return {
+        reply: `⚠️ Password must be at least 6 characters long.\n\n🔐 Please reply with a password of 6 or more characters:`,
+        nextStep: "T_PASSWORD",
+        updatedData: { ...updated, password: undefined },
+        userType: "TUTOR",
+        retries: 0,
+      };
+    }
+
+    // 3. Register Tutor
+    const phoneToUse = (updated.phone as string) || session.phone;
+    const emailToUse = hasValidEmail ? emailStr : undefined;
+
     const leads = await getChatbotMatchingLeads(
       areaName,
       (updated.city as string) || "Delhi",
@@ -380,12 +504,12 @@ export async function processMessage(
       updated.subjects as string[]
     );
 
-    // Auto-register Tutor in database (User + TutorProfile + Wallet)
     try {
       await registerTutorFromWhatsapp(session.phone, {
         name: tutorName || "Tutor",
-        email: (updated.email as string) || undefined,
-        phone: (updated.phone as string) || session.phone,
+        email: emailToUse,
+        phone: phoneToUse,
+        password: pwdStr,
         city: (updated.city as string) || "Delhi",
         area: areaName,
         subjects: Array.isArray(updated.subjects) && updated.subjects.length > 0 ? (updated.subjects as string[]) : ["All Subjects"],
@@ -398,8 +522,9 @@ export async function processMessage(
     }
 
     const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
-      email: (updated.email as string) || undefined,
-      phone: (updated.phone as string) || undefined,
+      email: emailToUse,
+      phone: phoneToUse,
+      hasPassword: true,
     });
 
     return {

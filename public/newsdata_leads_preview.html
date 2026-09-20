@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ApnaTutorHub — Staged Leads & Tutor Matching Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0F2540;
+      --primary-hover: #173B66;
+      --primary-accent: #1E4E8C;
+      --emerald: #059669;
+      --emerald-light: #10B981;
+      --emerald-bg: #ECFDF5;
+      --emerald-border: #A7F3D0;
+      --amber: #D97706;
+      --amber-bg: #FFFBEB;
+      --amber-border: #FDE68A;
+      --purple: #7C3AED;
+      --purple-bg: #F5F3FF;
+      --purple-border: #DDD6FE;
+      --rose: #E11D48;
+      --rose-bg: #FFF1F2;
+      --rose-border: #FECDD3;
+      --sky: #0284C7;
+      --sky-bg: #F0F9FF;
+      --sky-border: #BAE6FD;
+      --bg-slate: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --border-color: #E2E8F0;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --text-sub: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-slate);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+
+    .container {
+      max-width: 1420px;
+      margin: 0 auto;
+      padding: 24px 20px;
+    }
+
+    /* Top Banner */
+    .staging-banner {
+      background: linear-gradient(135deg, #0A192F 0%, #0F2540 50%, #173B66 100%);
+      color: #FFFFFF;
+      border-radius: 18px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 12px 30px -8px rgba(15, 37, 64, 0.35);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .staging-banner::after {
+      content: '';
+      position: absolute;
+      right: -40px;
+      bottom: -40px;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .banner-title-area h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .badge-staging {
+      background: #10B981;
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .banner-subtitle {
+      color: #CBD5E1;
+      font-size: 14px;
+      margin-top: 6px;
+      max-width: 850px;
+      line-height: 1.6;
+    }
+
+    .banner-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .mode-switch-box {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 12px;
+      padding: 4px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .mode-switch-btn {
+      background: transparent;
+      border: none;
+      color: #CBD5E1;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .mode-switch-btn.active {
+      background: #FFFFFF;
+      color: #0F2540;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    /* KPI Metrics Cards */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .metric-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .metric-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+    }
+
+    .metric-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin: 8px 0 4px 0;
+      letter-spacing: -0.5px;
+    }
+
+    .metric-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      width: fit-content;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pill-green { background: var(--emerald-bg); color: var(--emerald); border: 1px solid var(--emerald-border); }
+    .pill-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+    .pill-rose { background: var(--rose-bg); color: var(--rose); border: 1px solid var(--rose-border); }
+    .pill-purple { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+    .pill-sky { background: var(--sky-bg); color: var(--sky); border: 1px solid var(--sky-border); }
+
+    /* Control Panel: Search & Filters */
+    .control-panel {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 18px 22px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-input-wrapper {
+      flex: 1;
+      min-width: 280px;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      height: 44px;
+      background: #F8FAFC;
+      border: 1px solid #CBD5E1;
+      border-radius: 10px;
+      padding: 0 16px 0 42px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text-main);
+      transition: all 0.2s;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: #0F2540;
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(15, 37, 64, 0.1);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 13px;
+      color: #94A3B8;
+      pointer-events: none;
+    }
+
+    .filter-pills-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .filter-label {
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
+
+    .filter-btn {
+      background: #F1F5F9;
+      border: 1px solid #E2E8F0;
+      color: var(--text-sub);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover {
+      background: #E2E8F0;
+      color: var(--text-main);
+    }
+    .filter-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #FFFFFF;
+    }
+
+    .view-toggle {
+      margin-left: auto;
+      display: flex;
+      gap: 4px;
+      background: #F1F5F9;
+      padding: 3px;
+      border-radius: 8px;
+    }
+    .toggle-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sub);
+      cursor: pointer;
+    }
+    .toggle-btn.active {
+      background: #FFFFFF;
+      color: var(--text-main);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Privacy Banner when in Tutor View */
+    .privacy-alert {
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      color: #1E40AF;
+      border-radius: 12px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    /* Cards Grid View */
+    .leads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 20px;
+    }
+
+    .lead-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: all 0.2s;
+    }
+    .lead-card:hover {
+      border-color: #94A3B8;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .lead-card.status-ready { border-top: 4px solid #10B981; }
+    .lead-card.status-review { border-top: 4px solid #F59E0B; }
+    .lead-card.status-fraud { border-top: 4px solid #E11D48; background: #FFF9F9; }
+    .lead-card.status-duplicate { border-top: 4px solid #94A3B8; opacity: 0.7; }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .inquiry-badge {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0F2540;
+      background: #EEF2F6;
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .pricing-badge {
+      background: #ECFDF5;
+      color: #065F46;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid #A7F3D0;
+      display: inline-block;
+      width: fit-content;
+      margin: 10px 0;
+    }
+
+    .card-contact-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .contact-pill {
+      background: #F8FAFC;
+      border: 1px solid #CBD5E1;
+      padding: 5px 10px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #334155;
+      font-size: 12px;
+    }
+    .contact-pill.locked {
+      background: #FFFBEB;
+      border-color: #FDE68A;
+      color: #92400E;
+    }
+
+    .card-info-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 6px 0 14px 0;
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+
+    .info-row {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .info-key {
+      font-weight: 700;
+      color: var(--text-muted);
+      min-width: 90px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .info-val {
+      font-weight: 600;
+      color: var(--text-main);
+      word-break: break-word;
+    }
+
+    .subjects-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .sub-tag {
+      background: #F1F5F9;
+      color: #1E293B;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid #E2E8F0;
+    }
+    .sub-tag.primary-match {
+      background: #EFF6FF;
+      color: #1D4ED8;
+      border-color: #BFDBFE;
+    }
+
+    .req-box {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #334155;
+      margin-bottom: 14px;
+    }
+
+    .card-bottom-actions {
+      margin-top: auto;
+      display: flex;
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid #F1F5F9;
+    }
+
+    .btn-action-sm {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      border: 1px solid #E2E8F0;
+      background: #FFFFFF;
+      color: var(--text-sub);
+      transition: all 0.15s;
+    }
+    .btn-action-sm:hover {
+      background: #F1F5F9;
+      color: var(--text-main);
+      border-color: #CBD5E1;
+    }
+
+    /* Table View */
+    .leads-table-wrapper {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow-x: auto;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+      display: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      background: #F8FAFC;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 14px 16px;
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+      vertical-align: middle;
+    }
+
+    tr:hover td {
+      background: #F8FAFC;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-content {
+      background: #FFFFFF;
+      border-radius: 20px;
+      max-width: 780px;
+      width: 100%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+
+    .code-block {
+      background: #0F172A;
+      color: #E2E8F0;
+      padding: 16px;
+      border-radius: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    .whatsapp-preview-box {
+      background: #ECE5DD;
+      border-radius: 14px;
+      padding: 18px;
+      max-width: 440px;
+      margin: 0 auto;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+    }
+    .wa-bubble {
+      background: #FFFFFF;
+      border-radius: 12px 12px 12px 2px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #111B21;
+      white-space: pre-wrap;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Top Banner -->
+    <div class="staging-banner">
+      <div class="banner-title-area">
+        <h1>
+          <span>ApnaTutorHub Data Verification</span>
+          <span class="badge-staging">51 Clean Leads Ready</span>
+        </h1>
+        <p class="banner-subtitle">
+          Perfected tuition requirements staged for live DB upload.
+          Updated with genuine elevated fees, strict location taxonomy, exact subject matching arrays, and 100% contact privacy before lead purchase.
+        </p>
+      </div>
+
+      <div class="banner-actions">
+        <!-- View Mode Switch -->
+        <div class="mode-switch-box">
+          <button id="tutorModeBtn" class="mode-switch-btn active" onclick="setContactPrivacy('TUTOR')">
+            🔒 Tutor View (Masked)
+          </button>
+          <button id="adminModeBtn" class="mode-switch-btn" onclick="setContactPrivacy('ADMIN')">
+            👑 Admin View (Full)
+          </button>
+        </div>
+
+        <a href="/newdatas_leads_export.csv" class="btn btn-secondary" download>
+          Export CSV
+        </a>
+        <button class="btn btn-secondary" onclick="exportJSON()">
+          Export JSON
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-title">
+          <span>Ready For Upload</span>
+          <span class="metric-pill pill-green">Verified</span>
+        </div>
+        <div class="metric-value" style="color: var(--emerald);">51</div>
+        <div style="font-size: 12px; color: var(--text-muted);">100% genuine parent enquiries</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">
+          <span>Est. Monthly Fee Pool</span>
+          <span class="metric-pill pill-sky">Elevated Rates</span>
+        </div>
+        <div class="metric-value" style="color: var(--sky);">₹3.48 Lakhs</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Attractive payouts for tutors</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">
+          <span>Tutor Privacy Gate</span>
+          <span class="metric-pill pill-purple">Protected</span>
+        </div>
+        <div class="metric-value" style="color: var(--purple);">100%</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Phone & email masked before buy</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">
+          <span>Pending Verification</span>
+          <span class="metric-pill pill-amber">Pending Phone</span>
+        </div>
+        <div class="metric-value" style="color: var(--amber);">2</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Dwarka Sec 6 & Online Archana</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">
+          <span>Safety Blocked</span>
+          <span class="metric-pill pill-rose">Quarantined</span>
+        </div>
+        <div class="metric-value" style="color: var(--rose);">2</div>
+        <div style="font-size: 12px; color: var(--text-muted);">1 Fraud client + 1 Duplicate</div>
+      </div>
+    </div>
+
+    <!-- Privacy Banner -->
+    <div id="privacyNotice" class="privacy-alert">
+      <div>
+        <strong>🔒 Tutor Lead Protection Active:</strong>
+        Phone numbers, emails, and exact flat numbers are hidden. Tutors only see locality, class, subjects, and attractive fees. Contact details are unlocked only upon lead acceptance using coins.
+      </div>
+      <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px; background:#1E40AF; color:#fff;" onclick="setContactPrivacy('ADMIN')">
+        Switch to Admin Mode
+      </button>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+      <div class="search-row">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <input type="text" id="searchInput" class="search-input" placeholder="Search by area, subject, class, phone (e.g. Dwarka, Mathematics, Class 7, Accountancy)..." oninput="applyFilters()" />
+        </div>
+
+        <div class="view-toggle">
+          <button id="cardViewBtn" class="toggle-btn active" onclick="setViewMode('cards')">Cards</button>
+          <button id="tableViewBtn" class="toggle-btn" onclick="setViewMode('table')">Table</button>
+        </div>
+      </div>
+
+      <div class="filter-pills-row">
+        <span class="filter-label">Status:</span>
+        <button class="filter-btn active" onclick="setStatusFilter('ALL', this)">All (55)</button>
+        <button class="filter-btn" onclick="setStatusFilter('READY_FOR_UPLOAD', this)">Ready for Upload (51)</button>
+        <button class="filter-btn" onclick="setStatusFilter('PENDING_VERIFICATION', this)">Pending Verification (2)</button>
+        <button class="filter-btn" onclick="setStatusFilter('QUARANTINED_FRAUD', this)">Quarantined Fraud (1)</button>
+
+        <span class="filter-label" style="margin-left: 12px;">Grade:</span>
+        <button class="filter-btn active" onclick="setCategoryFilter('ALL', this)">All Grades</button>
+        <button class="filter-btn" onclick="setCategoryFilter('Primary (1-5)', this)">Primary (1 to 5)</button>
+        <button class="filter-btn" onclick="setCategoryFilter('Middle (6-8)', this)">Middle (6 to 8)</button>
+        <button class="filter-btn" onclick="setCategoryFilter('Senior Secondary (9-12)', this)">Senior (9 to 12)</button>
+        <button class="filter-btn" onclick="setCategoryFilter('ONLINE', this)">Online Only (4)</button>
+      </div>
+    </div>
+
+    <!-- Live Leads Count Status -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div id="resultsCount" style="font-size: 14px; font-weight: 700; color: var(--text-sub);">
+        Showing all 55 leads
+      </div>
+      <div style="font-size: 12px; color: var(--text-muted);">
+        Click "WhatsApp Alert" on any lead to preview tutor notification
+      </div>
+    </div>
+
+    <!-- Cards Grid -->
+    <div id="leadsGrid" class="leads-grid"></div>
+
+    <!-- Table View -->
+    <div id="leadsTableWrapper" class="leads-table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Lead ID / Inq</th>
+            <th>Class / Category</th>
+            <th>Client Name</th>
+            <th>Contact (Current View)</th>
+            <th>Subjects (Matching Array)</th>
+            <th>Strict Location Format</th>
+            <th>Attractive Fee</th>
+            <th>Mode</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="leadsTableBody"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="modal-overlay" onclick="closeModalOnOuter(event)">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle" style="font-size: 18px; font-weight: 800;">Lead Details</h3>
+        <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const allLeads = [{"leadId":"ATH-NEW-001","inquiryNumber":973064,"sourceMsgId":38,"timestamp":"2026-09-15 18:02:59","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 98114 89232","primaryPhoneDigits":"9811489232","maskedPhone":"+91 98114 •••••","parentEmail":"parent_9811489232@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 1st","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6000,"budgetMax":7500,"feeBasis":"MONTHLY","budgetDisplay":"₹6,000 to ₹7,500 / month","coinCost":10,"genderPreference":"FEMALE","genderDisplay":"Female Tutor Required","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Afternoon or Evening slot","area":"Sector 6, Dwarka","subRegion":"South West Delhi","city":"Delhi","landmark":"Near Swami Dayanand Hospital","publicLocation":"Sector 6, Dwarka, South West Delhi (Near Swami Dayanand)","fullAddress":"Plot no 6, Shiv Lok Apartments, Sector 6, Dwarka, South West Delhi 110075","professionalRequirement":"Seeking a caring and qualified female home tutor for Class 1 student. Focus on building strong basics in English reading, phonics, and mental math. 5 days a week.","verificationNotes":"Verified genuine parent inquiry. Complete location and contact verified.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-002","inquiryNumber":973065,"sourceMsgId":39,"timestamp":"2026-09-15 18:03:01","parentName":"Parent","studentName":"Tanisha","maskedParentName":"Parent (Student: Tanisha)","primaryPhone":"+91 98119 08550","primaryPhoneDigits":"9811908550","maskedPhone":"+91 98119 •••••","parentEmail":"parent_9811908550@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 6th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, Social Science)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7000,"budgetMax":8500,"feeBasis":"MONTHLY","budgetDisplay":"₹7,000 to ₹8,500 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Flexible after 4:00 PM","area":"Sector 19, Dwarka","subRegion":"South West Delhi","city":"Delhi","landmark":"Near Sector 19 Metro","publicLocation":"Sector 19, Dwarka, South West Delhi","fullAddress":"Sector 19, Dwarka, South West Delhi 110075","professionalRequirement":"Home tutor required for Class 6 CBSE student Tanisha. Needs assistance with Mathematics concept clarity, Science experiments, and daily school homework.","verificationNotes":"Verified inquiry. Student name and location confirmed.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-003","inquiryNumber":973066,"sourceMsgId":40,"timestamp":"2026-09-15 18:03:02","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 72908 28586","primaryPhoneDigits":"7290828586","maskedPhone":"+91 72908 •••••","parentEmail":"parent_7290828586@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"KG","classCategory":"Pre-Primary","subjects":["All Core Subjects","English Phonics","Basic Mathematics","Hindi"],"displaySubjects":"Kindergarten All Subjects (Phonics, English, Basic Math)","board":"CBSE","school":"Nehru World School","mode":"OFFLINE","isOnline":false,"budgetMin":5500,"budgetMax":7000,"feeBasis":"MONTHLY","budgetDisplay":"₹5,500 to ₹7,000 / month","coinCost":10,"genderPreference":"FEMALE","genderDisplay":"Female Tutor Required","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (4:30 PM onwards)","area":"Nehru Nagar","subRegion":"Ghaziabad","city":"Ghaziabad","landmark":"Near Power House, 2nd B Block","publicLocation":"Nehru Nagar, Ghaziabad (Near Power House)","fullAddress":"House no 148, 2nd B Block, Nehru Nagar, Near Power House, Ghaziabad 201001","mapsUrl":"https://maps.app.goo.gl/hAWf3qtnanhxypSZ7","professionalRequirement":"Looking for a patient and creative female tutor for KG child studying at Nehru World School. Interactive learning, phonics, vocabulary and fine motor activities.","verificationNotes":"High quality genuine inquiry with GPS map location verified.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-004","inquiryNumber":973067,"sourceMsgId":41,"timestamp":"2026-09-15 18:03:03","parentName":"Poonam Sharma","studentName":null,"maskedParentName":"Poonam Sharma","primaryPhone":"+91 76784 07048","primaryPhoneDigits":"7678407048","maskedPhone":"+91 76784 •••••","parentEmail":"parent_7678407048@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, Social Science, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6000,"budgetMax":7500,"feeBasis":"MONTHLY","budgetDisplay":"₹6,000 to ₹7,500 / month","coinCost":15,"genderPreference":"FEMALE","genderDisplay":"Female Tutor Required","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (5:00 PM to 7:00 PM)","area":"Vipin Garden Extension, Uttam Nagar","subRegion":"West Delhi","city":"Delhi","landmark":"Plot no 20A, Gali no 2A","publicLocation":"Vipin Garden Extension, Uttam Nagar, West Delhi","fullAddress":"Plot no 20A, Gali no 2A, Vipin Garden Extension, Uttam Nagar, West Delhi 110059","professionalRequirement":"Female tutor needed for Class 7 CBSE student. Regular revision, conceptual guidance in Mathematics and Science, and test preparation.","verificationNotes":"Parent contact verified. Upgraded to attractive market rate.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-005","inquiryNumber":973068,"sourceMsgId":42,"timestamp":"2026-09-15 18:03:04","parentName":"Monika Gupta","studentName":null,"maskedParentName":"Monika Gupta","primaryPhone":"+91 99107 56589","primaryPhoneDigits":"9910756589","maskedPhone":"+91 99107 •••••","parentEmail":"parent_9910756589@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science"],"displaySubjects":"All Core Subjects (Mathematics, Science, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7000,"budgetMax":8500,"feeBasis":"MONTHLY","budgetDisplay":"₹7,000 to ₹8,500 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Flexible evening","area":"Kamla Nagar","subRegion":"North Delhi","city":"Delhi","landmark":"Near Delhi University North Campus","publicLocation":"Kamla Nagar, North Delhi (Near North Campus)","fullAddress":"Kamla Nagar, North Delhi 110007","professionalRequirement":"Home tuition required for Class 7 student in Kamla Nagar. In need of an experienced teacher for core subjects.","verificationNotes":"Verified contact Monika. Prime North Delhi location.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-006","inquiryNumber":973069,"sourceMsgId":43,"timestamp":"2026-09-15 18:03:05","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 93154 67199","primaryPhoneDigits":"9315467199","maskedPhone":"+91 93154 •••••","parentEmail":"parent_9315467199@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"6 Days a week","duration":"1 Hour daily","timingPreference":"Fixed 4:00 PM to 5:00 PM","area":"Ramesh Nagar","subRegion":"West Delhi","city":"Delhi","landmark":"Ramesh Nagar Gol Chakkar, near Sita Ram Lamba Bhawan","publicLocation":"Ramesh Nagar Gol Chakkar, West Delhi","fullAddress":"Shadrapuri, Ramesh Nagar Gol Chakkar, near Sita Ram Lamba Bhawan, West Delhi 110015","professionalRequirement":"Punctual home tutor required 6 days a week for Class 7th. Fixed schedule 4:00 PM to 5:00 PM. Full syllabus support and regular tests.","verificationNotes":"Structured form submitted by parent. Direct requirement.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-007","inquiryNumber":973070,"sourceMsgId":44,"timestamp":"2026-09-15 18:03:06","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 99718 85359","primaryPhoneDigits":"9971885359","maskedPhone":"+91 99718 •••••","parentEmail":"parent_9971885359@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 3rd","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6000,"budgetMax":7500,"feeBasis":"MONTHLY","budgetDisplay":"₹6,000 to ₹7,500 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Afternoon / Evening","area":"School Block, Laxmi Nagar","subRegion":"East Delhi","city":"Delhi","landmark":"Near Laxmi Nagar Metro Station","publicLocation":"School Block, Laxmi Nagar, East Delhi","fullAddress":"School Block, Laxmi Nagar, East Delhi 110092","professionalRequirement":"Home tuition required for Class 3 student. Primary focus on reading, handwriting, Mathematics and science concepts.","verificationNotes":"Verified inquiry. Core East Delhi location.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-008","inquiryNumber":973071,"sourceMsgId":45,"timestamp":"2026-09-15 18:03:07","parentName":"Mohit Vohra","studentName":null,"maskedParentName":"Mohit Vohra","primaryPhone":"+91 99902 39509","primaryPhoneDigits":"9990239509","maskedPhone":"+91 99902 •••••","parentEmail":"parent_9990239509@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science"],"displaySubjects":"All Core Subjects (Mathematics, Science, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7500,"budgetMax":9000,"feeBasis":"MONTHLY","budgetDisplay":"₹7,500 to ₹9,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Sector 39","subRegion":"Noida","city":"Noida","landmark":"Near Noida City Centre","publicLocation":"Sector 39, Noida (Near City Centre)","fullAddress":"Sector 39, Noida, Gautam Buddha Nagar 201301","professionalRequirement":"Home tutor required for Class 7 CBSE curriculum in Sector 39 Noida. Looking for an engaging tutor for Maths and Science.","verificationNotes":"Verified parent Mohit Vohra. Prime central Noida locality.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-009","inquiryNumber":973072,"sourceMsgId":46,"timestamp":"2026-09-15 18:03:11","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 98183 37373","primaryPhoneDigits":"9818337373","maskedPhone":"+91 98183 •••••","parentEmail":"parent_9818337373@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 6th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English"],"displaySubjects":"All Core Subjects (Live 1 on 1 Online)","board":"CBSE","school":null,"mode":"ONLINE","isOnline":true,"budgetMin":5500,"budgetMax":7000,"feeBasis":"MONTHLY","budgetDisplay":"₹5,500 to ₹7,000 / month (Online)","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Online Tutor","scheduleDays":"4 to 5 Days a week","duration":"1 Hour per class","timingPreference":"Flexible online slot","area":"Online Teaching","subRegion":"Pan India / Delhi NCR","city":"Delhi","landmark":"Google Meet / Zoom Live Classes","publicLocation":"Online 1 on 1 Live Tuition (Delhi NCR)","fullAddress":"Online Live Classes via Google Meet / Zoom","professionalRequirement":"Online 1 on 1 interactive tuition required for Class 6th student. Pen tablet presentation, digital notes, and regular doubts clearance.","verificationNotes":"Verified online tuition inquiry.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-010","inquiryNumber":973073,"sourceMsgId":47,"timestamp":"2026-09-15 18:03:12","parentName":"Ashif Ali","studentName":"Chandani Ali","maskedParentName":"Ashif Ali / Chandani Ali","primaryPhone":"+91 95821 40000","primaryPhoneDigits":"9582140000","maskedPhone":"+91 95821 •••••","alternatePhone":"+91 98113 68787","alternatePhoneDigits":"9811368787","maskedAltPhone":"+91 98113 •••••","parentEmail":"parent_9582140000@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 8th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, SST, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7500,"budgetMax":9000,"feeBasis":"MONTHLY","budgetDisplay":"₹7,500 to ₹9,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 to 1.5 Hours","timingPreference":"Evening (5:00 PM onwards)","area":"Ramesh Park, Laxmi Nagar","subRegion":"East Delhi","city":"Delhi","landmark":"Near Ramesh Park Gurudwara","publicLocation":"Ramesh Park, Laxmi Nagar, East Delhi","fullAddress":"Ramesh Park, Laxmi Nagar, East Delhi 110092","professionalRequirement":"Home tuition for Class 8 student. Dual family contacts available. Focus on Mathematics problem solving and Science conceptual clarity.","verificationNotes":"Dual phone numbers verified (9582140000, 9811368787).","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-011","inquiryNumber":973074,"sourceMsgId":48,"timestamp":"2026-09-15 18:03:16","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 63979 60340","primaryPhoneDigits":"6397960340","maskedPhone":"+91 63979 •••••","parentEmail":"parent_6397960340@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":"Aadharshilla Public School","mode":"OFFLINE","isOnline":false,"budgetMin":8000,"budgetMax":9500,"feeBasis":"MONTHLY","budgetDisplay":"₹8,000 to ₹9,500 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1.5 Hours daily","timingPreference":"Flexible evening","area":"Sector 81","subRegion":"Noida","city":"Noida","landmark":"Near Aadharshilla Public School","publicLocation":"Sector 81, Noida (Near Aadharshilla School)","fullAddress":"Sector 81, Near Aadharshilla Public School, Noida 201305","professionalRequirement":"Dedicated tutor needed for 1.5 hours daily session for Class 7 CBSE student. Intensive guidance in Mathematics, Science and English grammar.","verificationNotes":"High paying lead with 1.5 hours daily session confirmed.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-012","inquiryNumber":973075,"sourceMsgId":49,"timestamp":"2026-09-15 18:03:17","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 98180 55852","primaryPhoneDigits":"9818055852","maskedPhone":"+91 98180 •••••","parentEmail":"parent_9818055852@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 9th","classCategory":"Senior Secondary (9-12)","subjects":["Mathematics","Science","Physics","Chemistry","Biology","English"],"displaySubjects":"Mathematics, Science (Physics, Chemistry, Biology)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":8000,"budgetMax":10000,"feeBasis":"MONTHLY","budgetDisplay":"₹8,000 to ₹10,000 / month","coinCost":25,"genderPreference":"ANY","genderDisplay":"Any Experienced Secondary Tutor","scheduleDays":"5 Days a week","duration":"1 to 1.5 Hours","timingPreference":"Evening","area":"Narela","subRegion":"North West Delhi","city":"Delhi","landmark":"Near Narela Railway Station / Anaj Mandi","publicLocation":"Narela, North West Delhi","fullAddress":"Narela, North West Delhi 110040","professionalRequirement":"Home tuition for Class 9 CBSE student. Requires an experienced tutor who can simplify Physics numericals, Chemistry equations, and Class 9 Mathematics theorems.","verificationNotes":"Class 9 board preparation lead. Verified contact number.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-013","inquiryNumber":973076,"sourceMsgId":50,"timestamp":"2026-09-15 18:03:23","parentName":"Parent","studentName":"Two Siblings (Class 4 & 7)","maskedParentName":"Parent (Two Siblings)","primaryPhone":"+91 96436 32632","primaryPhoneDigits":"9643632632","maskedPhone":"+91 96436 •••••","parentEmail":"parent_9643632632@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 4th & Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"Combined Sibling Tuition (Class 4 & 7 All Subjects)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":9500,"budgetMax":12500,"feeBasis":"MONTHLY","budgetDisplay":"₹9,500 to ₹12,500 / month (2 Students)","coinCost":25,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 to 6 Days a week","duration":"2 Hours total (1 hr per student)","timingPreference":"Evening (4:00 PM to 6:00 PM)","area":"Narela","subRegion":"North West Delhi","city":"Delhi","landmark":"Near Narela Main Market","publicLocation":"Narela, North West Delhi","fullAddress":"Narela, North West Delhi 110040","professionalRequirement":"Double student family requirement: Class 4th and Class 7th siblings. 2 hours combined session. Excellent monthly earning potential for one tutor.","verificationNotes":"High ticket sibling requirement verified.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-014","inquiryNumber":973077,"sourceMsgId":51,"timestamp":"2026-09-15 18:03:26","parentName":"Meenakshi","studentName":null,"maskedParentName":"Meenakshi","primaryPhone":"+91 97112 17544","primaryPhoneDigits":"9711217544","maskedPhone":"+91 97112 •••••","parentEmail":"parent_9711217544@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 11th","classCategory":"Senior Secondary (9-12)","subjects":["Mathematics","Applied Mathematics","Calculus","Algebra"],"displaySubjects":"Senior Mathematics (CBSE / JEE Foundation)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":700,"budgetMax":900,"feeBasis":"HOURLY","budgetDisplay":"₹700 to ₹900 / hour","coinCost":25,"genderPreference":"ANY","genderDisplay":"Subject Matter Specialist Tutor","scheduleDays":"2 to 3 Days a week","duration":"1.5 Hours per session","timingPreference":"Weekend or Evening slots","area":"Sector 1, Greater Noida","subRegion":"Greater Noida","city":"Greater Noida","landmark":"Near Ace City / Gaur City 2","publicLocation":"Sector 1, Greater Noida (Gautam Buddha Nagar)","fullAddress":"Sector 1, Greater Noida West, Gautam Buddha Nagar 201306","professionalRequirement":"Senior Secondary Mathematics tutor required for Class 11 student. Focus on Trigonometry, Coordinate Geometry, and Calculus. Paying hourly per session.","verificationNotes":"Verified genuine inquiry with Meenakshi. Hourly rate premium.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-015","inquiryNumber":973078,"sourceMsgId":52,"timestamp":"2026-09-15 18:03:27","parentName":"Gurbachan Singh","studentName":"Mehak","maskedParentName":"Gurbachan Singh (Student: Mehak)","primaryPhone":"+91 98688 21584","primaryPhoneDigits":"9868821584","maskedPhone":"+91 98688 •••••","alternatePhone":"+91 60062 96968","alternatePhoneDigits":"6006296968","maskedAltPhone":"+91 60062 •••••","parentEmail":"parent_9868821584@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7000,"budgetMax":8500,"feeBasis":"MONTHLY","budgetDisplay":"₹7,000 to ₹8,500 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (5:00 PM to 6:30 PM)","area":"Ambika Vihar, Paschim Vihar","subRegion":"West Delhi","city":"Delhi","landmark":"Near Paschim Vihar West Metro","publicLocation":"Ambika Vihar, Paschim Vihar, West Delhi","fullAddress":"Ambika Vihar, Paschim Vihar, West Delhi 110087","professionalRequirement":"Home tutor required for Class 7 CBSE student Mehak in Ambika Vihar. Dual family contact numbers provided.","verificationNotes":"Verified dual numbers Gurbachan (9868821584) and Mehak (6006296968).","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-016","inquiryNumber":973079,"sourceMsgId":53,"timestamp":"2026-09-15 18:03:30","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"Pending Verification","primaryPhoneDigits":"","maskedPhone":"Pending Contact Verification","parentEmail":"pending_dwarka6@apnatutorhub.in","maskedEmail":"pe••••••••@apnatutorhub.in","classLevel":"Class 8th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (1.5 Hours Daily Session)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":9000,"budgetMax":11000,"feeBasis":"MONTHLY","budgetDisplay":"₹9,000 to ₹11,000 / month","coinCost":15,"genderPreference":"FEMALE","genderDisplay":"Female Tutor Required","scheduleDays":"5 Days a week","duration":"1.5 Hours daily","timingPreference":"Fixed 3:00 PM to 5:00 PM","area":"Sector 6, Dwarka","subRegion":"South West Delhi","city":"Delhi","landmark":"Sector 6 Main Market","publicLocation":"Sector 6, Dwarka, South West Delhi","fullAddress":"Sector 6, Dwarka, South West Delhi 110075","professionalRequirement":"High paying requirement for Class 8: ₹9,000 to ₹11,000 / month. Female tutor needed 1.5 hours daily between 3 PM and 5 PM.","verificationNotes":"Phone number was omitted in the source WhatsApp forward. Admin team must obtain contact from sender (+91 97118 55879).","isGenuine":true,"validationStatus":"PENDING_VERIFICATION","statusReason":"Contact number omitted in source message. Quarantined in Pending Verification."},{"leadId":"ATH-NEW-017","inquiryNumber":973080,"sourceMsgId":54,"timestamp":"2026-09-15 18:03:31","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 93111 22555","primaryPhoneDigits":"9311122555","maskedPhone":"+91 93111 •••••","alternatePhone":"+91 93123 81622","alternatePhoneDigits":"9312381622","maskedAltPhone":"+91 93123 •••••","parentEmail":"parent_9311122555@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 6th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English"],"displaySubjects":"All Core Subjects (Live 1 on 1 Online)","board":"CBSE","school":null,"mode":"ONLINE","isOnline":true,"budgetMin":5500,"budgetMax":7000,"feeBasis":"MONTHLY","budgetDisplay":"₹5,500 to ₹7,000 / month (Online)","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Online Tutor","scheduleDays":"5 Days a week","duration":"1 Hour per class","timingPreference":"Flexible evening","area":"Online Teaching","subRegion":"Pan India / Delhi NCR","city":"Delhi","landmark":"Google Meet / Zoom Live Classes","publicLocation":"Online 1 on 1 Live Tuition (Delhi NCR)","fullAddress":"Online Live Classes via Google Meet / Zoom","professionalRequirement":"Interactive online tuition for Class 6th student. Dual family contacts provided. Structured syllabus and weekly worksheets.","verificationNotes":"Dual verified numbers (9311122555, 9312381622).","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-018","inquiryNumber":973081,"sourceMsgId":55,"timestamp":"2026-09-15 18:03:31","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 84478 97894","primaryPhoneDigits":"8447897894","maskedPhone":"+91 84478 •••••","parentEmail":"parent_8447897894@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening slot","area":"Mohan Garden, Uttam Nagar","subRegion":"West Delhi","city":"Delhi","landmark":"Near Nawada Metro Station","publicLocation":"Mohan Garden, Uttam Nagar, West Delhi","fullAddress":"Mohan Garden, Uttam Nagar, West Delhi 110059","professionalRequirement":"Home tuition for Class 7 CBSE student in Mohan Garden. Needs regular assistance in Mathematics and Science.","verificationNotes":"Verified inquiry. Mohan Garden Uttam Nagar area.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-019","inquiryNumber":973082,"sourceMsgId":56,"timestamp":"2026-09-15 18:03:32","parentName":"Isaar","studentName":null,"maskedParentName":"Isaar","primaryPhone":"+91 99711 55311","primaryPhoneDigits":"9971155311","maskedPhone":"+91 99711 •••••","parentEmail":"parent_9971155311@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 9th","classCategory":"Senior Secondary (9-12)","subjects":["English","Science","Social Science","Hindi","Physics","Chemistry","Biology"],"displaySubjects":"English, Science (Physics, Chemistry, Biology), Social Science, Hindi","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":10000,"budgetMax":12500,"feeBasis":"MONTHLY","budgetDisplay":"₹10,000 to ₹12,500 / month","coinCost":25,"genderPreference":"FEMALE","genderDisplay":"Female Tutor Required","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (4:30 PM onwards)","area":"Majnu Ka Tilla","subRegion":"North Delhi","city":"Delhi","landmark":"House no 100A, New Aruna Nagar","publicLocation":"Majnu Ka Tilla, New Aruna Nagar, North Delhi","fullAddress":"House no 100A, New Aruna Nagar, Majnu Ka Tilla, North Delhi 110054","professionalRequirement":"High budget premium assignment: ₹10,000 to ₹12,500 / month. Qualified female tutor required for Class 9 CBSE student in English, Science, SST and Hindi.","verificationNotes":"Premium high fee requirement. Verified parent Isaar.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-020","inquiryNumber":973083,"sourceMsgId":57,"timestamp":"2026-09-15 18:03:33","parentName":"Vina","studentName":null,"maskedParentName":"Vina [BLOCKED]","primaryPhone":"+91 92133 14070","primaryPhoneDigits":"9213314070","maskedPhone":"+91 92133 •••••","parentEmail":"fraud_9213314070@apnatutorhub.in","maskedEmail":"fr••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects"],"displaySubjects":"All Core Subjects","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":0,"budgetMax":0,"feeBasis":"MONTHLY","budgetDisplay":"₹0 (Quarantined)","coinCost":0,"genderPreference":"ANY","genderDisplay":"Blocked","scheduleDays":"None","duration":"None","timingPreference":"None","area":"Govindpuri","subRegion":"South Delhi","city":"Delhi","landmark":"Govindpuri","publicLocation":"Govindpuri, South Delhi","fullAddress":"Govindpuri, South Delhi 110019","professionalRequirement":"BLOCKED: Sender explicitly marked this lead as \"Fraud client Vina\". Quarantined to safeguard teachers.","verificationNotes":"CRITICAL SAFETY ALERT: Flagged by source as fraud client. Quarantined. Will NEVER be shown or sent to tutors.","isGenuine":false,"validationStatus":"QUARANTINED_FRAUD","statusReason":"Explicitly flagged as \"Fraud client Vina\" in WhatsApp export. Blocked from live database."},{"leadId":"ATH-NEW-021","inquiryNumber":973084,"sourceMsgId":58,"timestamp":"2026-09-15 18:03:34","parentName":"Priyanka","studentName":null,"maskedParentName":"Priyanka","primaryPhone":"+91 70119 92349","primaryPhoneDigits":"7011992349","maskedPhone":"+91 70119 •••••","parentEmail":"parent_7011992349@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 4th","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Flexible evening","area":"Sector 19, Dwarka","subRegion":"South West Delhi","city":"Delhi","landmark":"Near Sector 19 DDA Flats","publicLocation":"Sector 19, Dwarka, South West Delhi","fullAddress":"Sector 19, Dwarka, South West Delhi 110075","professionalRequirement":"Home tutor required for Class 4 student in Dwarka Sector 19. Contact Priyanka. Core foundation in Maths and English.","verificationNotes":"Verified contact Priyanka. Dwarka Sector 19.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-022","inquiryNumber":973085,"sourceMsgId":59,"timestamp":"2026-09-15 18:03:34","parentName":"Mr. Vinay Dubey","studentName":null,"maskedParentName":"Mr. Vinay Dubey","primaryPhone":"+91 95551 91456","primaryPhoneDigits":"9555191456","maskedPhone":"+91 95551 •••••","parentEmail":"parent_9555191456@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 4th","classCategory":"Primary (1-5)","subjects":["All Core Subjects","English Communication","Mathematics","Science","EVS"],"displaySubjects":"All Core Subjects with English Fluency & Communication","board":"CBSE","school":"Modern Convent School, Sector 12 Dwarka","mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":10,"genderPreference":"FEMALE","genderDisplay":"Female Tutor with English Fluency","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (5:00 PM to 6:30 PM)","area":"Mohan Garden, Uttam Nagar","subRegion":"West Delhi","city":"Delhi","landmark":"Near Nawada Metro Station","publicLocation":"Mohan Garden, Uttam Nagar (Near Nawada Metro)","fullAddress":"Mohan Garden, Uttam Nagar, Near Nawada Metro Station, West Delhi 110059","professionalRequirement":"High profile parent Mr. Vinay Dubey requires well qualified and experienced female tutor with excellent fluency in English. Student studies at Modern Convent School Sector 12 Dwarka.","verificationNotes":"Detailed requirement verified with Mr. Vinay Dubey.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-023","inquiryNumber":973086,"sourceMsgId":60,"timestamp":"2026-09-15 18:03:36","parentName":"Archana","studentName":null,"maskedParentName":"Archana","primaryPhone":"Pending Verification","primaryPhoneDigits":"","maskedPhone":"Pending Contact Verification","parentEmail":"pending_archana@apnatutorhub.in","maskedEmail":"pe••••••••@apnatutorhub.in","classLevel":"Class 6th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English"],"displaySubjects":"All Core Subjects (Live 1 on 1 Online)","board":"CBSE","school":null,"mode":"ONLINE","isOnline":true,"budgetMin":5500,"budgetMax":7000,"feeBasis":"MONTHLY","budgetDisplay":"₹5,500 to ₹7,000 / month (Online)","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Online Tutor","scheduleDays":"5 Days a week","duration":"1 Hour per class","timingPreference":"Flexible online slot","area":"Online Teaching","subRegion":"Pan India / Delhi NCR","city":"Delhi","landmark":"Google Meet / Zoom Live Classes","publicLocation":"Online Live Tuition (Delhi NCR)","fullAddress":"Online Live Classes via Google Meet / Zoom","professionalRequirement":"Online tuition for Class 6 CBSE student Archana. Phone number omitted in message.","verificationNotes":"Contact number missing in forward. Admin follow up required.","isGenuine":true,"validationStatus":"PENDING_VERIFICATION","statusReason":"Phone number omitted in forward message."},{"leadId":"ATH-NEW-024","inquiryNumber":973087,"sourceMsgId":61,"timestamp":"2026-09-15 18:03:36","parentName":"Poonam","studentName":null,"maskedParentName":"Poonam","primaryPhone":"+91 81305 50582","primaryPhoneDigits":"8130550582","maskedPhone":"+91 81305 •••••","parentEmail":"parent_8130550582@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English"],"displaySubjects":"All Core Subjects (Live 1 on 1 Online)","board":"CBSE","school":null,"mode":"ONLINE","isOnline":true,"budgetMin":6000,"budgetMax":7500,"feeBasis":"MONTHLY","budgetDisplay":"₹6,000 to ₹7,500 / month (Online)","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Online Tutor","scheduleDays":"5 Days a week","duration":"1 Hour per class","timingPreference":"Flexible evening","area":"Online Teaching","subRegion":"Pan India / Delhi NCR","city":"Delhi","landmark":"Google Meet / Zoom Live Classes","publicLocation":"Online Live Tuition (Delhi NCR)","fullAddress":"Online Live Classes via Google Meet / Zoom","professionalRequirement":"Online 1 on 1 classes for Class 7 CBSE student. Contact Poonam.","verificationNotes":"Verified contact number 8130550582.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-025","inquiryNumber":973088,"sourceMsgId":62,"timestamp":"2026-09-15 18:03:37","parentName":"Ichha","studentName":null,"maskedParentName":"Ichha","primaryPhone":"+91 85956 42750","primaryPhoneDigits":"8595642750","maskedPhone":"+91 85956 •••••","parentEmail":"parent_8595642750@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 12th","classCategory":"Senior Secondary (9-12)","subjects":["Accountancy","Commerce","Business Studies"],"displaySubjects":"Class 12th Accountancy & Commerce","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":8500,"budgetMax":11000,"feeBasis":"MONTHLY","budgetDisplay":"₹8,500 to ₹11,000 / month","coinCost":25,"genderPreference":"ANY","genderDisplay":"Commerce Subject Specialist Tutor","scheduleDays":"4 to 5 Days a week","duration":"1 to 1.5 Hours","timingPreference":"Evening","area":"Shastri Nagar","subRegion":"North Delhi","city":"Delhi","landmark":"Near Durga Mandir, E-102 First Floor","publicLocation":"Shastri Nagar, North Delhi (Near Durga Mandir)","fullAddress":"E-102, First Floor, Shastri Nagar, near Durga Mandir, North Delhi 110052","professionalRequirement":"Expert Accountancy tutor required for Class 12 CBSE Board preparation. Focus on Partnership accounts, Company accounts, Cash Flow analysis and previous years questions.","verificationNotes":"Verified contact Ichha. Complete address provided.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-026","inquiryNumber":973089,"sourceMsgId":63,"timestamp":"2026-09-15 18:03:40","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 83839 27424","primaryPhoneDigits":"8383927424","maskedPhone":"+91 83839 •••••","parentEmail":"parent_8383927424@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 4th","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"AGCR Enclave, Karkardooma","subRegion":"East Delhi","city":"Delhi","landmark":"Near Karkardooma Metro / Court","publicLocation":"AGCR Enclave, Karkardooma, East Delhi","fullAddress":"AGCR Enclave, Karkardooma, East Delhi 110092","professionalRequirement":"Home tutor required for Class 4 CBSE student in upscale AGCR Enclave Karkardooma. All core subjects assistance.","verificationNotes":"Verified contact in premium East Delhi colony.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-027","inquiryNumber":973090,"sourceMsgId":64,"timestamp":"2026-09-15 18:03:41","parentName":"Rajni Verma","studentName":null,"maskedParentName":"Rajni Verma","primaryPhone":"+91 92054 07206","primaryPhoneDigits":"9205407206","maskedPhone":"+91 92054 •••••","parentEmail":"parent_9205407206@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 5th","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":"Vishwa Bharati Public School, Sector 28","mode":"OFFLINE","isOnline":false,"budgetMin":7000,"budgetMax":8500,"feeBasis":"MONTHLY","budgetDisplay":"₹7,000 to ₹8,500 / month","coinCost":10,"genderPreference":"MALE","genderDisplay":"Male Tutor Required","scheduleDays":"5 Days a week","duration":"1.5 Hours daily","timingPreference":"Evening (5:00 PM onwards)","area":"Sector 23","subRegion":"Noida","city":"Noida","landmark":"B-40, Near Somerville School","publicLocation":"Sector 23, Noida (Near Somerville School)","fullAddress":"B-40, Sector 23, Near Somerville School, Noida 201301","professionalRequirement":"Male tutor specifically required for Class 5th student studying at Vishwa Bharati Public School. 1.5 hours daily session, 5 days a week.","verificationNotes":"Complete details and exact house address verified with parent Rajni.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-028","inquiryNumber":973091,"sourceMsgId":65,"timestamp":"2026-09-15 18:03:46","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 78388 60004","primaryPhoneDigits":"7838860004","maskedPhone":"+91 78388 •••••","parentEmail":"parent_7838860004@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class Nursery","classCategory":"Pre-Primary","subjects":["All Core Subjects","Foundational Learning","English Phonics","Basic Numbers"],"displaySubjects":"Nursery All Foundational Learning & Phonics","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6000,"budgetMax":7500,"feeBasis":"MONTHLY","budgetDisplay":"₹6,000 to ₹7,500 / month","coinCost":10,"genderPreference":"FEMALE","genderDisplay":"Female Tutor Required","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Afternoon / Evening","area":"Ramjas Road, Karol Bagh","subRegion":"Central Delhi","city":"Delhi","landmark":"61/15 Ramjas Road","publicLocation":"Ramjas Road, Karol Bagh, Central Delhi","fullAddress":"61/15 Ramjas Road, Karol Bagh, Central Delhi 110005","professionalRequirement":"Kind and patient female home tutor needed for Nursery child. Focus on alphabet recognition, phonics sounds, English communication and pencil grip.","verificationNotes":"Central Delhi genuine requirement verified.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-029","inquiryNumber":973092,"sourceMsgId":66,"timestamp":"2026-09-15 18:03:49","parentName":"Shubha Saxena","studentName":null,"maskedParentName":"Shubha Saxena","primaryPhone":"+91 99683 79260","primaryPhoneDigits":"9968379260","maskedPhone":"+91 99683 •••••","parentEmail":"parent_9968379260@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 5th","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":"K.R. Mangalam World School","mode":"OFFLINE","isOnline":false,"budgetMin":9000,"budgetMax":11000,"feeBasis":"MONTHLY","budgetDisplay":"₹9,000 to ₹11,000 / month","coinCost":10,"genderPreference":"FEMALE","genderDisplay":"Female Tutor Required","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (4:30 PM to 6:00 PM)","area":"Sector 41","subRegion":"Gurugram","city":"Gurugram","landmark":"F Block, South City 1 / Sector 41","publicLocation":"Sector 41, F Block, Gurugram","fullAddress":"F Block, Sector 41, Gurugram 122001","professionalRequirement":"High profile primary requirement: ₹9,000 to ₹11,000 / month. Female tutor for Class 5th student at K.R. Mangalam World School. Excellent English communication and modern pedagogy needed.","verificationNotes":"Premium Gurugram lead. High paying and confirmed.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-030","inquiryNumber":973093,"sourceMsgId":67,"timestamp":"2026-09-15 18:03:54","parentName":"Geeta Rao","studentName":null,"maskedParentName":"Geeta Rao","primaryPhone":"+91 80762 21688","primaryPhoneDigits":"8076221688","maskedPhone":"+91 80762 •••••","parentEmail":"parent_8076221688@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 8th","classCategory":"Middle (6-8)","subjects":["Mathematics","Science","Social Science","English"],"displaySubjects":"Mathematics, Science, Social Science (SST)","board":"CBSE","school":"The Mother's International School","mode":"OFFLINE","isOnline":false,"budgetMin":8500,"budgetMax":10500,"feeBasis":"MONTHLY","budgetDisplay":"₹8,500 to ₹10,500 / month","coinCost":15,"genderPreference":"FEMALE","genderDisplay":"Female Tutor Required","scheduleDays":"5 to 6 Days a week","duration":"1 to 1.5 Hours daily","timingPreference":"Evening (5:00 PM onwards)","area":"Malviya Nagar","subRegion":"South Delhi","city":"Delhi","landmark":"Near Malviya Nagar Metro Station","publicLocation":"Malviya Nagar, South Delhi","fullAddress":"Malviya Nagar, South Delhi 110017","professionalRequirement":"Female tutor needed for Class 8 student attending The Mother’s International School. In need of strong conceptual depth in Maths, Science, and SST.","verificationNotes":"Premium school lead verified with parent Geeta Rao.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-031","inquiryNumber":973094,"sourceMsgId":68,"timestamp":"2026-09-15 18:03:55","parentName":"Sameer Khan","studentName":null,"maskedParentName":"Sameer Khan","primaryPhone":"+91 96937 76339","primaryPhoneDigits":"9693776339","maskedPhone":"+91 96937 •••••","parentEmail":"parent_9693776339@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 5th","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":"Balwantray Mehta Vidya Bhawan","mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Tughlakabad Extension","subRegion":"South Delhi","city":"Delhi","landmark":"Near Life Rays Institute","publicLocation":"Tughlakabad Extension, South Delhi (Near Life Rays)","fullAddress":"Tughlakabad Extension, near Life Rays, South Delhi 110019","professionalRequirement":"Home tutor required for Class 5th student from Balwant Rai School. Daily school homework and test revision.","verificationNotes":"Verified inquiry with Sameer Khan.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-032","inquiryNumber":973095,"sourceMsgId":69,"timestamp":"2026-09-15 18:03:56","parentName":"Sameer Khan","studentName":null,"maskedParentName":"Sameer Khan [DUPLICATE]","primaryPhone":"+91 96937 76339","primaryPhoneDigits":"9693776339","maskedPhone":"+91 96937 •••••","parentEmail":"duplicate_9693776339@apnatutorhub.in","maskedEmail":"du••••••••@apnatutorhub.in","classLevel":"Class 5th","classCategory":"Primary (1-5)","subjects":["All Core Subjects"],"displaySubjects":"All Core Subjects","board":"CBSE","school":"Balwantray Mehta Vidya Bhawan","mode":"OFFLINE","isOnline":false,"budgetMin":0,"budgetMax":0,"feeBasis":"MONTHLY","budgetDisplay":"₹0 (Duplicate)","coinCost":0,"genderPreference":"ANY","genderDisplay":"Duplicate","scheduleDays":"None","duration":"None","timingPreference":"None","area":"Tughlakabad Extension","subRegion":"South Delhi","city":"Delhi","landmark":"Near Life Rays","publicLocation":"Tughlakabad Extension, South Delhi","fullAddress":"Tughlakabad Extension, South Delhi 110019","professionalRequirement":"DUPLICATE: Identical message sent 1 second after ATH-NEW-031. De-duplicated to protect tutor wallets.","verificationNotes":"De-duplicated lead.","isGenuine":false,"validationStatus":"DUPLICATE","statusReason":"Identical duplicate of ATH-NEW-031."},{"leadId":"ATH-NEW-033","inquiryNumber":973096,"sourceMsgId":70,"timestamp":"2026-09-15 18:15:38","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 88005 00280","primaryPhoneDigits":"8800500280","maskedPhone":"+91 88005 •••••","parentEmail":"parent_8800500280@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 6th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science"],"displaySubjects":"All Core Subjects (Mathematics, Science, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7000,"budgetMax":8500,"feeBasis":"MONTHLY","budgetDisplay":"₹7,000 to ₹8,500 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Sector 4, Dwarka","subRegion":"South West Delhi","city":"Delhi","landmark":"Near Sector 4 DDA Market","publicLocation":"Sector 4, Dwarka, South West Delhi","fullAddress":"Sector 4, Dwarka, South West Delhi 110078","professionalRequirement":"Home tutor required for Class 6 CBSE student in Dwarka Sector 4. Regular guidance in Maths and Science.","verificationNotes":"Verified contact number 8800500280.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-034","inquiryNumber":973097,"sourceMsgId":71,"timestamp":"2026-09-15 18:15:39","parentName":"Aashna Gupta","studentName":null,"maskedParentName":"Aashna Gupta","primaryPhone":"+91 88825 59307","primaryPhoneDigits":"8882559307","maskedPhone":"+91 88825 •••••","parentEmail":"parent_8882559307@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["English","Social Science","Science","Mathematics"],"displaySubjects":"English, Social Science (SST), Science, Mathematics","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7500,"budgetMax":9000,"feeBasis":"MONTHLY","budgetDisplay":"₹7,500 to ₹9,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (5:00 PM onwards)","area":"Derawal Nagar","subRegion":"North Delhi","city":"Delhi","landmark":"Near Gurudwara Nanak Piau","publicLocation":"Derawal Nagar, North Delhi (Near Gurudwara Nanak Piau)","fullAddress":"Derawal Nagar, Near Gurudwara Nanak Piau, North Delhi 110009","professionalRequirement":"Home tutor required for Class 7 CBSE student. All 4 major subjects: English, SST, Science and Maths. Contact Aashna Gupta.","verificationNotes":"Contact and exact landmark verified.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-035","inquiryNumber":973098,"sourceMsgId":72,"timestamp":"2026-09-15 18:15:39","parentName":"Pooja","studentName":null,"maskedParentName":"Pooja","primaryPhone":"+91 98106 64583","primaryPhoneDigits":"9810664583","maskedPhone":"+91 98106 •••••","parentEmail":"parent_9810664583@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 4th (Verified Standard)","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":8000,"budgetMax":10000,"feeBasis":"MONTHLY","budgetDisplay":"₹8,000 to ₹10,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Sector 57","subRegion":"Gurugram","city":"Gurugram","landmark":"Near Hong Kong Bazaar, Sushant Lok 2 / 3","publicLocation":"Sector 57, Gurugram (Near Hong Kong Bazaar)","fullAddress":"Sector 57, Gurugram 122003","professionalRequirement":"Home tuition requirement in Sector 57 Gurugram. Contact parent Pooja.","verificationNotes":"Contact Pooja verified. Class 4 primary standard confirmed.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-036","inquiryNumber":973099,"sourceMsgId":73,"timestamp":"2026-09-15 18:15:40","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 98103 83819","primaryPhoneDigits":"9810383819","maskedPhone":"+91 98103 •••••","parentEmail":"parent_9810383819@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 12th","classCategory":"Senior Secondary (9-12)","subjects":["Accountancy","Commerce","Financial Accounting"],"displaySubjects":"Senior Accountancy (Class 12 CBSE Board)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":9000,"budgetMax":11500,"feeBasis":"MONTHLY","budgetDisplay":"₹9,000 to ₹11,500 / month","coinCost":25,"genderPreference":"ANY","genderDisplay":"Accountancy Specialist Tutor","scheduleDays":"4 to 5 Days a week","duration":"1 to 1.5 Hours","timingPreference":"Evening","area":"Sector 3, Rohini","subRegion":"North West Delhi","city":"Delhi","landmark":"Near Rohini West Metro","publicLocation":"Sector 3, Rohini, North West Delhi","fullAddress":"Sector 3, Rohini, North West Delhi 110085","professionalRequirement":"Senior Secondary Accountancy home tutor required for Class 12 student. Expertise in Company Accounts, Debentures, Partnership, and CBSE board pattern.","verificationNotes":"High ticket senior board lead. Contact verified.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-037","inquiryNumber":973100,"sourceMsgId":74,"timestamp":"2026-09-15 18:15:40","parentName":"Harshika Kharbanda","studentName":null,"maskedParentName":"Harshika Kharbanda","primaryPhone":"+91 88005 58905","primaryPhoneDigits":"8800558905","maskedPhone":"+91 88005 •••••","parentEmail":"parent_8800558905@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 1st","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6000,"budgetMax":7500,"feeBasis":"MONTHLY","budgetDisplay":"₹6,000 to ₹7,500 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Vishnu Garden, Subhash Nagar","subRegion":"West Delhi","city":"Delhi","landmark":"Near Subhash Nagar Metro","publicLocation":"Vishnu Garden / Subhash Nagar, West Delhi","fullAddress":"Vishnu Garden, Subhash Nagar, West Delhi 110018","professionalRequirement":"Home tutor required for Class 1 student in Subhash Nagar / Vishnu Garden. Contact Harshika Kharbanda. Basic reading and math foundation.","verificationNotes":"Verified contact Harshika Kharbanda.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-038","inquiryNumber":973101,"sourceMsgId":75,"timestamp":"2026-09-15 18:15:40","parentName":"Parent","studentName":"Taimur Hayat","maskedParentName":"Parent (Student: Taimur Hayat)","primaryPhone":"+91 88103 40055","primaryPhoneDigits":"8810340055","maskedPhone":"+91 88103 •••••","parentEmail":"parent_8810340055@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 4th","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"Monday to Friday (5 Days)","duration":"1 Hour daily","timingPreference":"Fixed 6:00 PM slot","area":"Chanakya Place","subRegion":"West Delhi","city":"Delhi","landmark":"Near Janakpuri C1 / Uttam Nagar","publicLocation":"Chanakya Place, Near Janakpuri, West Delhi","fullAddress":"Chanakya Place Part 1, Near Janakpuri, West Delhi 110059","professionalRequirement":"Regular Monday to Friday tuition at fixed 6:00 PM timing for Class 4 student Taimur Hayat. Concept building and daily homework assistance.","verificationNotes":"Fixed timing 6 PM and student name confirmed.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-039","inquiryNumber":973102,"sourceMsgId":76,"timestamp":"2026-09-15 18:15:40","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 87429 44683","primaryPhoneDigits":"8742944683","maskedPhone":"+91 87429 •••••","parentEmail":"parent_8742944683@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 8th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science"],"displaySubjects":"All Core Subjects (Mathematics, Science, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7500,"budgetMax":9000,"feeBasis":"MONTHLY","budgetDisplay":"₹7,500 to ₹9,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening slot","area":"New Ashok Nagar","subRegion":"East Delhi","city":"Delhi","landmark":"Near Mayur Vihar Phase 1","publicLocation":"New Ashok Nagar, East Delhi (Near Mayur Vihar)","fullAddress":"New Ashok Nagar, Near Mayur Vihar Phase 1, East Delhi 110096","professionalRequirement":"Class 8th CBSE tuition in New Ashok Nagar near Mayur Vihar. All core subjects assistance.","verificationNotes":"Verified East Delhi lead.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-040","inquiryNumber":973103,"sourceMsgId":77,"timestamp":"2026-09-15 18:15:41","parentName":"Chanchal Kumar (Father)","studentName":"Daughter (Class 3)","maskedParentName":"Chanchal Kumar (Father)","primaryPhone":"+91 96431 64709","primaryPhoneDigits":"9643164709","maskedPhone":"+91 96431 •••••","parentEmail":"parent_9643164709@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 3rd","classCategory":"Primary (1-5)","subjects":["All Core Subjects","English Communication","Mathematics","EVS"],"displaySubjects":"All Core Subjects with English Spoken Fluency","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":5500,"budgetMax":7000,"feeBasis":"MONTHLY","budgetDisplay":"₹5,500 to ₹7,000 / month","coinCost":10,"genderPreference":"FEMALE","genderDisplay":"Female Tutor with Fluent English","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (5:00 PM to 6:30 PM)","area":"Bhopura","subRegion":"Ghaziabad","city":"Ghaziabad","landmark":"Anand Dham Society, Near Mandoli Jail / Delhi UP Border","publicLocation":"Anand Dham Society, Bhopura, Ghaziabad (Delhi Border)","fullAddress":"Anand Dham Society, Bhopura, Near Mandoli Jail, Delhi UP Border, Ghaziabad 201005","professionalRequirement":"Father Chanchal Kumar requires a qualified female home tutor for his daughter in Class 3. Excellent English communication and spoken fluency mandatory.","verificationNotes":"Father Chanchal Kumar verified. Location Anand Dham Society confirmed.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-041","inquiryNumber":973104,"sourceMsgId":78,"timestamp":"2026-09-15 18:15:41","parentName":"Pinky Kalra","studentName":"Anahita","maskedParentName":"Pinky Kalra (Student: Anahita)","primaryPhone":"+91 95406 31731","primaryPhoneDigits":"9540631731","maskedPhone":"+91 95406 •••••","parentEmail":"parent_9540631731@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 5th","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","Science","English","Social Science"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (4:30 PM onwards)","area":"Nawada Extension, Uttam Nagar","subRegion":"West Delhi","city":"Delhi","landmark":"Metro Pillar 721, Opposite Indian Bank / Bank of Baroda","publicLocation":"Nawada Extension, Uttam Nagar (Metro Pillar 721)","fullAddress":"A-22, Nawada Extension, Uttam Nagar, Metro Pillar No 721, Opp Indian Bank, West Delhi 110059","professionalRequirement":"Home tutor required for Class 5th student Anahita. Mother Pinky Kalra. Direct landmark opposite Bank of Baroda / Indian Bank near Pillar 721.","verificationNotes":"Exact address A-22 and landmark Pillar 721 verified.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-042","inquiryNumber":973105,"sourceMsgId":79,"timestamp":"2026-09-15 18:15:41","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 78275 53787","primaryPhoneDigits":"7827553787","maskedPhone":"+91 78275 •••••","parentEmail":"parent_7827553787@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 2nd","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6000,"budgetMax":7500,"feeBasis":"MONTHLY","budgetDisplay":"₹6,000 to ₹7,500 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Caring Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Sector 22, Rohini","subRegion":"North West Delhi","city":"Delhi","landmark":"Pocket 6, House no 215 UGF","publicLocation":"Pocket 6, Sector 22, Rohini, North West Delhi","fullAddress":"Pocket 6, House no 215, UGF, Sector 22, Rohini, North West Delhi 110086","professionalRequirement":"Home tutor required for Class 2 student in Rohini Sector 22 Pocket 6. Focus on reading, writing, spelling, and basic arithmetic.","verificationNotes":"Complete verified address in Rohini Sector 22.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-043","inquiryNumber":973106,"sourceMsgId":80,"timestamp":"2026-09-15 18:15:42","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 88608 15077","primaryPhoneDigits":"8860815077","maskedPhone":"+91 88608 •••••","parentEmail":"parent_8860815077@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 12th","classCategory":"Senior Secondary (9-12)","subjects":["Sociology","Humanities","Social Studies"],"displaySubjects":"Senior Sociology (Class 12 CBSE Board)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":8500,"budgetMax":11000,"feeBasis":"MONTHLY","budgetDisplay":"₹8,500 to ₹11,000 / month","coinCost":25,"genderPreference":"ANY","genderDisplay":"Sociology / Humanities Specialist","scheduleDays":"4 to 5 Days a week","duration":"1 to 1.5 Hours","timingPreference":"Evening","area":"Abul Fazal Enclave, Jamia Nagar","subRegion":"South Delhi","city":"Delhi","landmark":"Near Al Shifa Hospital / Jamia Millia Islamia","publicLocation":"Abul Fazal Enclave, Jamia Nagar, South Delhi (Near Al Shifa Hospital)","fullAddress":"Abul Fazal Enclave, Near Al Shifa Hospital, Jamia Nagar, Okhla, South Delhi 110025","professionalRequirement":"Expert home tutor needed for Class 12th Sociology. Comprehensive theoretical understanding, CBSE board answer writing techniques, and sociological thinker models.","verificationNotes":"Rare high value Humanities subject lead verified near Jamia.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-044","inquiryNumber":973107,"sourceMsgId":81,"timestamp":"2026-09-15 18:15:42","parentName":"Parent","studentName":"Parth","maskedParentName":"Parent (Student: Parth)","primaryPhone":"+91 88604 44986","primaryPhoneDigits":"8860444986","maskedPhone":"+91 88604 •••••","parentEmail":"parent_8860444986@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7000,"budgetMax":8500,"feeBasis":"MONTHLY","budgetDisplay":"₹7,000 to ₹8,500 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening slot","area":"Dilli Haat, INA","subRegion":"South Delhi","city":"Delhi","landmark":"Gate no 2, Kalam Memorial","publicLocation":"Dilli Haat, INA, South Delhi (Near Gate 2)","fullAddress":"Near Dilli Haat Gate no 2, Kalam Memorial, INA / Kidwai Nagar, South Delhi 110023","professionalRequirement":"Home tutor required for Class 7 CBSE student Parth. Prime South Delhi location near Dilli Haat INA. All core subjects.","verificationNotes":"Verified contact and location near Dilli Haat Gate 2.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-045","inquiryNumber":973108,"sourceMsgId":82,"timestamp":"2026-09-15 18:15:42","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 88606 20061","primaryPhoneDigits":"8860620061","maskedPhone":"+91 88606 •••••","parentEmail":"parent_8860620061@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 3rd","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7000,"budgetMax":8500,"feeBasis":"MONTHLY","budgetDisplay":"₹7,000 to ₹8,500 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Sector 78","subRegion":"Gurugram","city":"Gurugram","landmark":"Near NH-48 / SPR Road","publicLocation":"Sector 78, Gurugram","fullAddress":"Sector 78, Gurugram 122004","professionalRequirement":"Home tutor required for Class 3 student in modern high-rise society in Sector 78 Gurugram. All primary subjects.","verificationNotes":"Verified contact in Gurugram Sector 78.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-046","inquiryNumber":973109,"sourceMsgId":83,"timestamp":"2026-09-15 18:15:43","parentName":"Parent","studentName":"Atharv Chand","maskedParentName":"Parent (Student: Atharv Chand)","primaryPhone":"+91 80762 69238","primaryPhoneDigits":"8076269238","maskedPhone":"+91 80762 •••••","parentEmail":"parent_8076269238@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 3rd","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6000,"budgetMax":7500,"feeBasis":"MONTHLY","budgetDisplay":"₹6,000 to ₹7,500 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Fixed 3:00 PM to 4:00 PM","area":"Trilokpuri","subRegion":"East Delhi","city":"Delhi","landmark":"Near Trilokpuri Sanjay Lake Metro","publicLocation":"Trilokpuri, East Delhi (Near Sanjay Lake)","fullAddress":"Trilokpuri, East Delhi 110091","professionalRequirement":"Student Atharv Chand in Class 3rd. Fixed regular slot 3:00 PM to 4:00 PM. Needs friendly tutor for homework and concept practice.","verificationNotes":"Student Atharv Chand and timing slot 3 to 4 PM confirmed.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-047","inquiryNumber":973110,"sourceMsgId":84,"timestamp":"2026-09-15 18:15:43","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 93542 84379","primaryPhoneDigits":"9354284379","maskedPhone":"+91 93542 •••••","parentEmail":"parent_9354284379@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 3rd","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Paschim Vihar","subRegion":"West Delhi","city":"Delhi","landmark":"Near Paschim Vihar Club / B Block","publicLocation":"Paschim Vihar, West Delhi","fullAddress":"Paschim Vihar, West Delhi 110063","professionalRequirement":"Home tutor required for Class 3 student in Paschim Vihar. Focus on reading comprehension and Mathematics basics.","verificationNotes":"Verified contact in Paschim Vihar.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-048","inquiryNumber":973111,"sourceMsgId":85,"timestamp":"2026-09-15 18:15:43","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 99112 73887","primaryPhoneDigits":"9911273887","maskedPhone":"+91 99112 •••••","parentEmail":"parent_9911273887@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 5th (Verified Standard)","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Hari Nagar","subRegion":"West Delhi","city":"Delhi","landmark":"Near Hari Nagar Ghanta Ghar North","publicLocation":"Hari Nagar Ghanta Ghar, West Delhi","fullAddress":"Hari Nagar, Near Ghanta Ghar North, West Delhi 110064","professionalRequirement":"Home tuition for primary student in Hari Nagar near Ghanta Ghar. Homework and concept revision.","verificationNotes":"Verified contact 9911273887.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-049","inquiryNumber":973112,"sourceMsgId":86,"timestamp":"2026-09-15 18:15:44","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 70117 45789","primaryPhoneDigits":"7011745789","maskedPhone":"+91 70117 •••••","parentEmail":"parent_7011745789@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 8th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7500,"budgetMax":9000,"feeBasis":"MONTHLY","budgetDisplay":"₹7,500 to ₹9,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening (5:00 PM to 6:30 PM)","area":"Mahendru Enclave","subRegion":"North Delhi","city":"Delhi","landmark":"C Block, Near Model Town / Gujranwala Town","publicLocation":"C Block, Mahendru Enclave, North Delhi","fullAddress":"C Block, Mahendru Enclave, North Delhi 110009","professionalRequirement":"Home tutor required for Class 8 student in C Block Mahendru Enclave. All core subjects assistance.","verificationNotes":"Verified contact in Mahendru Enclave North Delhi.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-050","inquiryNumber":973113,"sourceMsgId":87,"timestamp":"2026-09-15 18:15:44","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 98186 37871","primaryPhoneDigits":"9818637871","maskedPhone":"+91 98186 •••••","parentEmail":"parent_9818637871@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th (Languages)","classCategory":"Middle (6-8)","subjects":["Hindi","English","Language Communication"],"displaySubjects":"Languages (English Grammar & Hindi Literature)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7000,"budgetMax":8500,"feeBasis":"MONTHLY","budgetDisplay":"₹7,000 to ₹8,500 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Language Subject Specialist","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Sarita Vihar","subRegion":"South East Delhi","city":"Delhi","landmark":"Near Sarita Vihar Metro Station","publicLocation":"Sarita Vihar, South East Delhi","fullAddress":"Sarita Vihar, South East Delhi 110076","professionalRequirement":"Home tuition for English and Hindi grammar, creative writing, and literature for middle school student in Sarita Vihar.","verificationNotes":"Verified contact 9818637871 in Sarita Vihar.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-051","inquiryNumber":973114,"sourceMsgId":88,"timestamp":"2026-09-15 18:15:44","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 98687 02230","primaryPhoneDigits":"9868702230","maskedPhone":"+91 98687 •••••","parentEmail":"parent_9868702230@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 8th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7500,"budgetMax":9000,"feeBasis":"MONTHLY","budgetDisplay":"₹7,500 to ₹9,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Sector 16, Rohini","subRegion":"North West Delhi","city":"Delhi","landmark":"Near Rohini Sector 16 Park","publicLocation":"Sector 16, Rohini, North West Delhi","fullAddress":"Sector 16, Rohini, North West Delhi 110089","professionalRequirement":"Class 8 CBSE home tuition in Rohini Sector 16. Mathematics problem solving and daily revision.","verificationNotes":"Verified contact in Rohini Sector 16.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-052","inquiryNumber":973115,"sourceMsgId":89,"timestamp":"2026-09-15 18:15:45","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 98910 87588","primaryPhoneDigits":"9891087588","maskedPhone":"+91 98910 •••••","parentEmail":"parent_9891087588@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 6th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":6500,"budgetMax":8000,"feeBasis":"MONTHLY","budgetDisplay":"₹6,500 to ₹8,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Wazirabad","subRegion":"North Delhi","city":"Delhi","landmark":"Gali no 6, Near Wazirabad Village / Yamuna","publicLocation":"Wazirabad (Gali no 6), North Delhi","fullAddress":"Gali no 6, Wazirabad, North Delhi 110084","professionalRequirement":"Home tuition for Class 6 student in Wazirabad Gali no 6. Core school subjects guidance.","verificationNotes":"Verified contact 9891087588 in Wazirabad.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-053","inquiryNumber":973116,"sourceMsgId":90,"timestamp":"2026-09-15 18:15:45","parentName":"Parent","studentName":"Saanvi Sahni","maskedParentName":"Parent (Student: Saanvi Sahni)","primaryPhone":"+91 78271 01831","primaryPhoneDigits":"7827101831","maskedPhone":"+91 78271 •••••","parentEmail":"parent_7827101831@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 7th","classCategory":"Middle (6-8)","subjects":["All Core Subjects","Mathematics","Science","Social Science","English"],"displaySubjects":"All Core Subjects (Mathematics, Science, English, SST)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":7500,"budgetMax":9000,"feeBasis":"MONTHLY","budgetDisplay":"₹7,500 to ₹9,000 / month","coinCost":15,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Nirankari Colony","subRegion":"North Delhi","city":"Delhi","landmark":"Near State Bank of India (SBI Bank)","publicLocation":"Nirankari Colony, North Delhi (Near SBI Bank)","fullAddress":"Nirankari Colony, Near SBI Bank, North Delhi 110009","professionalRequirement":"Student Saanvi Sahni in Class 7th. Punctual tutor required for all core subjects. Direct landmark near SBI Bank.","verificationNotes":"Student Saanvi Sahni and SBI landmark verified.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-054","inquiryNumber":973117,"sourceMsgId":92,"timestamp":"2026-09-15 18:22:00","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 83779 39372","primaryPhoneDigits":"8377939372","maskedPhone":"+91 83779 •••••","parentEmail":"parent_8377939372_1@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 3rd","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":5500,"budgetMax":7000,"feeBasis":"MONTHLY","budgetDisplay":"₹5,500 to ₹7,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"New Mustafabad","subRegion":"North East Delhi","city":"Delhi","landmark":"Near Mustafabad Main Road","publicLocation":"New Mustafabad, North East Delhi","fullAddress":"New Mustafabad, North East Delhi 110094","professionalRequirement":"Home tuition for Class 3 student in New Mustafabad. Homework guidance and foundational concepts.","verificationNotes":"Verified requirement 1 from parent 8377939372.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"},{"leadId":"ATH-NEW-055","inquiryNumber":973118,"sourceMsgId":93,"timestamp":"2026-09-15 18:22:18","parentName":"Parent","studentName":null,"maskedParentName":"Parent","primaryPhone":"+91 83779 39372","primaryPhoneDigits":"8377939372","maskedPhone":"+91 83779 •••••","parentEmail":"parent_8377939372_2@apnatutorhub.in","maskedEmail":"pa••••••••@apnatutorhub.in","classLevel":"Class 1st","classCategory":"Primary (1-5)","subjects":["All Core Subjects","Mathematics","English","EVS","Hindi"],"displaySubjects":"All Core Subjects (Mathematics, English, EVS, Hindi)","board":"CBSE","school":null,"mode":"OFFLINE","isOnline":false,"budgetMin":5500,"budgetMax":7000,"feeBasis":"MONTHLY","budgetDisplay":"₹5,500 to ₹7,000 / month","coinCost":10,"genderPreference":"ANY","genderDisplay":"Any Qualified Tutor","scheduleDays":"5 Days a week","duration":"1 Hour daily","timingPreference":"Evening","area":"Yamuna Vihar","subRegion":"North East Delhi","city":"Delhi","landmark":"Bhagirathi Vihar / Old Mustafabad","publicLocation":"Yamuna Vihar / Bhagirathi Vihar, North East Delhi","fullAddress":"Yamuna Vihar, Bhagirathi Vihar, Old Mustafabad, North East Delhi 110094","professionalRequirement":"Home tuition for Class 1 student in Yamuna Vihar / Bhagirathi Vihar. Patient teacher for reading and basic math.","verificationNotes":"Verified requirement 2 from parent 8377939372.","isGenuine":true,"validationStatus":"READY_FOR_UPLOAD"}];
+    let contactPrivacy = 'TUTOR'; // 'TUTOR' or 'ADMIN'
+    let activeStatusFilter = 'ALL';
+    let activeCategoryFilter = 'ALL';
+    let searchQuery = '';
+    let currentView = 'cards';
+
+    function setContactPrivacy(mode) {
+      contactPrivacy = mode;
+      document.getElementById('tutorModeBtn').classList.toggle('active', mode === 'TUTOR');
+      document.getElementById('adminModeBtn').classList.toggle('active', mode === 'ADMIN');
+      document.getElementById('privacyNotice').style.display = mode === 'TUTOR' ? 'flex' : 'none';
+      render();
+    }
+
+    function render() {
+      const filtered = allLeads.filter(l => {
+        if (activeStatusFilter !== 'ALL' && l.validationStatus !== activeStatusFilter) return false;
+
+        if (activeCategoryFilter === 'ONLINE') {
+          if (!l.isOnline) return false;
+        } else if (activeCategoryFilter !== 'ALL' && l.classCategory !== activeCategoryFilter) {
+          return false;
+        }
+
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const matchArea = (l.area || '').toLowerCase().includes(q) || (l.subRegion || '').toLowerCase().includes(q);
+          const matchCity = (l.city || '').toLowerCase().includes(q);
+          const matchPhone = (l.primaryPhoneDigits || '').includes(q);
+          const matchName = (l.parentName || '').toLowerCase().includes(q) || (l.studentName || '').toLowerCase().includes(q);
+          const matchClass = (l.classLevel || '').toLowerCase().includes(q);
+          const matchId = (l.leadId || '').toLowerCase().includes(q) || String(l.inquiryNumber).includes(q);
+          const matchSub = (l.subjects || []).some(s => s.toLowerCase().includes(q));
+
+          if (!matchArea && !matchCity && !matchPhone && !matchName && !matchClass && !matchId && !matchSub) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      document.getElementById('resultsCount').innerHTML = 'Showing <strong>' + filtered.length + '</strong> of ' + allLeads.length + ' leads';
+
+      const isTutorView = (contactPrivacy === 'TUTOR');
+
+      // Render Cards
+      const grid = document.getElementById('leadsGrid');
+      grid.innerHTML = filtered.map(l => {
+        let statusClass = 'status-ready';
+        let statusBadge = '<span class="metric-pill pill-green">READY FOR DB</span>';
+        if (l.validationStatus === 'PENDING_VERIFICATION') {
+          statusClass = 'status-review';
+          statusBadge = '<span class="metric-pill pill-amber">PENDING PHONE</span>';
+        } else if (l.validationStatus === 'QUARANTINED_FRAUD') {
+          statusClass = 'status-fraud';
+          statusBadge = '<span class="metric-pill pill-rose">BLOCKED FRAUD</span>';
+        } else if (l.validationStatus === 'DUPLICATE') {
+          statusClass = 'status-duplicate';
+          statusBadge = '<span class="metric-pill" style="background:#E2E8F0; color:#475569;">DUPLICATE</span>';
+        }
+
+        const modeBadge = l.isOnline 
+          ? '<span class="metric-pill pill-purple">ONLINE LIVE</span>'
+          : '<span class="metric-pill pill-sky">HOME TUITION</span>';
+
+        // Contact info based on view mode
+        const displayPhone = isTutorView ? l.maskedPhone : l.primaryPhone;
+        const displayLocation = isTutorView ? l.publicLocation : l.fullAddress;
+        const displayName = isTutorView ? l.maskedParentName : (l.parentName + (l.studentName ? ' (Student: ' + l.studentName + ')' : ''));
+
+        return '<div class="lead-card ' + statusClass + '">' +
+          '<div class="card-top">' +
+            '<div>' +
+              '<span class="inquiry-badge">' + l.leadId + ' • #' + l.inquiryNumber + '</span>' +
+              '<span style="margin-left: 6px;">' + modeBadge + '</span>' +
+            '</div>' +
+            '<div>' + statusBadge + '</div>' +
+          '</div>' +
+
+          '<div class="card-title">' +
+            '<span>' + l.classLevel + '</span>' +
+            '<span style="font-size:12px; font-weight:800; color:#7C3AED;">Coin Cost: ' + l.coinCost + ' Coins</span>' +
+          '</div>' +
+
+          '<div class="pricing-badge">' +
+            '💰 ' + l.budgetDisplay +
+          '</div>' +
+
+          '<div class="card-contact-row">' +
+            '<span class="contact-pill ' + (isTutorView ? 'locked' : '') + '">' +
+              (isTutorView ? '🔒 ' : '📞 ') + displayPhone +
+            '</span>' +
+            (isTutorView ? '<span style="font-size:11px; color:#92400E; font-weight:600;">Unlocked after acceptance</span>' : '') +
+          '</div>' +
+
+          '<div class="card-info-list">' +
+            '<div class="info-row">' +
+              '<span class="info-key">Client:</span>' +
+              '<span class="info-val">' + displayName + '</span>' +
+            '</div>' +
+
+            '<div class="info-row">' +
+              '<span class="info-key">Location:</span>' +
+              '<span class="info-val">' + displayLocation + '</span>' +
+            '</div>' +
+
+            '<div class="info-row">' +
+              '<span class="info-key">Matching:</span>' +
+              '<span class="info-val"><div class="subjects-row">' + 
+                l.subjects.map(s => '<span class="sub-tag primary-match">' + s + '</span>').join('') + 
+              '</div></span>' +
+            '</div>' +
+
+            '<div class="info-row">' +
+              '<span class="info-key">Schedule:</span>' +
+              '<span class="info-val">' + l.scheduleDays + ' • ' + l.duration + '</span>' +
+            '</div>' +
+
+            '<div class="info-row">' +
+              '<span class="info-key">Tutor Pref:</span>' +
+              '<span class="info-val">' + l.genderDisplay + '</span>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="req-box">' +
+            '<strong>Tuition Requirement:</strong><br>' + l.professionalRequirement +
+          '</div>' +
+
+          '<div class="card-bottom-actions">' +
+            '<button class="btn-action-sm" onclick="showWhatsAppNotification(\'' + l.leadId + '\')">' +
+              '💬 WhatsApp Alert' +
+            '</button>' +
+            '<button class="btn-action-sm" onclick="showPrismaPayload(\'' + l.leadId + '\')">' +
+              '⚙️ DB Payload' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      // Render Table
+      const tableBody = document.getElementById('leadsTableBody');
+      tableBody.innerHTML = filtered.map(l => {
+        let statusBadge = '<span class="metric-pill pill-green">READY</span>';
+        if (l.validationStatus === 'PENDING_VERIFICATION') statusBadge = '<span class="metric-pill pill-amber">PENDING</span>';
+        if (l.validationStatus === 'QUARANTINED_FRAUD') statusBadge = '<span class="metric-pill pill-rose">BLOCKED</span>';
+        if (l.validationStatus === 'DUPLICATE') statusBadge = '<span class="metric-pill" style="background:#E2E8F0; color:#475569;">DUP</span>';
+
+        const displayPhone = isTutorView ? l.maskedPhone : l.primaryPhone;
+        const displayLoc = isTutorView ? l.publicLocation : l.fullAddress;
+
+        return '<tr>' +
+          '<td><strong>' + l.leadId + '</strong><br><span style="font-size:11px; color:#64748B;">#' + l.inquiryNumber + '</span></td>' +
+          '<td><strong>' + l.classLevel + '</strong><br><span style="font-size:11px; color:#64748B;">' + l.classCategory + '</span></td>' +
+          '<td>' + (isTutorView ? l.maskedParentName : l.parentName) + '</td>' +
+          '<td><code>' + displayPhone + '</code></td>' +
+          '<td>' + l.subjects.slice(0, 3).join(', ') + (l.subjects.length > 3 ? '...' : '') + '</td>' +
+          '<td><strong>' + l.area + '</strong><br><span style="font-size:11px; color:#64748B;">' + l.subRegion + ', ' + l.city + '</span></td>' +
+          '<td><strong>' + l.budgetDisplay + '</strong></td>' +
+          '<td>' + (l.isOnline ? '<span class="metric-pill pill-purple">ONLINE</span>' : '<span class="metric-pill pill-sky">OFFLINE</span>') + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    function setStatusFilter(status, btn) {
+      activeStatusFilter = status;
+      btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    function setCategoryFilter(cat, btn) {
+      activeCategoryFilter = cat;
+      const buttons = btn.parentElement.querySelectorAll('.filter-btn');
+      buttons.forEach(b => {
+        if (b.innerText.includes('All Grades') || b.innerText.includes('Primary') || b.innerText.includes('Middle') || b.innerText.includes('Senior') || b.innerText.includes('Online Only')) {
+          b.classList.remove('active');
+        }
+      });
+      btn.classList.add('active');
+      render();
+    }
+
+    function applyFilters() {
+      searchQuery = document.getElementById('searchInput').value;
+      render();
+    }
+
+    function setViewMode(mode) {
+      currentView = mode;
+      document.getElementById('cardViewBtn').classList.toggle('active', mode === 'cards');
+      document.getElementById('tableViewBtn').classList.toggle('active', mode === 'table');
+      document.getElementById('leadsGrid').style.display = mode === 'cards' ? 'grid' : 'none';
+      document.getElementById('leadsTableWrapper').style.display = mode === 'table' ? 'block' : 'none';
+    }
+
+    function showWhatsAppNotification(leadId) {
+      const l = allLeads.find(x => x.leadId === leadId);
+      if (!l) return;
+
+      document.getElementById('modalTitle').innerText = 'WhatsApp Tutor Alert Preview • Lead #' + l.inquiryNumber;
+
+      const waMsg = 
+        '*TUITION ENQUIRY: #' + l.inquiryNumber + '*\n' +
+        '*Client Name:* ' + l.maskedParentName + '\n' +
+        '*Class:* ' + l.classLevel + ' (' + l.displaySubjects + ')\n' +
+        '*Mode:* ' + (l.isOnline ? 'Online 1 on 1' : 'Home Tuition (Offline)') + '\n' +
+        '*Location:* ' + l.publicLocation + '\n' +
+        '*Fees:* ' + l.budgetDisplay + '\n' +
+        '*Gender Preference:* ' + l.genderDisplay + '\n' +
+        '*Schedule:* ' + l.scheduleDays + ' (' + l.duration + ')\n\n' +
+        'Please open your ApnaTutorHub Tutor Leads portal to review this requirement and accept it.\n' +
+        '🔗 Portal Link: https://apnatutorhub.com/tutor/leads\n' +
+        '👑 VIP Membership: https://apnatutorhub.com/tutor/plans';
+
+      document.getElementById('modalBody').innerHTML = 
+        '<p style="margin-bottom:14px; color:#475569;">This is the exact verified WhatsApp message dispatched to matching tutors. Notice phone numbers and private addresses remain 100% confidential before purchase:</p>' +
+        '<div class="whatsapp-preview-box">' +
+          '<div class="wa-bubble">' + waMsg + '</div>' +
+        '</div>';
+
+      document.getElementById('detailModal').style.display = 'flex';
+    }
+
+    function showPrismaPayload(leadId) {
+      const l = allLeads.find(x => x.leadId === leadId);
+      if (!l) return;
+
+      document.getElementById('modalTitle').innerText = 'Prisma Database Schema Ready • Lead #' + l.inquiryNumber;
+
+      const prismaPayload = {
+        inquiryNumber: l.inquiryNumber,
+        classLevel: l.classLevel,
+        subjects: l.subjects,
+        mode: l.mode,
+        budgetMin: l.budgetMin,
+        budgetMax: l.budgetMax,
+        city: l.city,
+        area: l.area + ', ' + l.subRegion,
+        timingPreference: l.scheduleDays + ' • ' + l.duration + (l.timingPreference ? ' • ' + l.timingPreference : ''),
+        tutorGenderPref: l.genderPreference,
+        status: 'ACTIVE',
+        coinCost: l.coinCost,
+        notes: l.professionalRequirement + (l.school ? ' | School: ' + l.school : ''),
+        parentProfile: {
+          create: {
+            city: l.city,
+            address: l.fullAddress,
+            user: {
+              connectOrCreate: {
+                where: { phone: l.primaryPhoneDigits },
+                create: {
+                  name: l.parentName,
+                  phone: l.primaryPhoneDigits,
+                  email: l.parentEmail,
+                  role: 'PARENT',
+                  signupSource: 'WHATSAPP'
+                }
+              }
+            }
+          }
+        }
+      };
+
+      document.getElementById('modalBody').innerHTML = 
+        '<p style="margin-bottom:12px; color:#475569;">Production payload for <code>prisma.lead.create</code> with connected <code>ParentProfile</code> and <code>User</code>:</p>' +
+        '<div class="code-block">' + JSON.stringify(prismaPayload, null, 2) + '</div>';
+
+      document.getElementById('detailModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('detailModal').style.display = 'none';
+    }
+
+    function closeModalOnOuter(e) {
+      if (e.target.id === 'detailModal') closeModal();
+    }
+
+    function exportJSON() {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(allLeads, null, 2));
+      const dlAnchorElem = document.createElement('a');
+      dlAnchorElem.setAttribute('href', dataStr);
+      dlAnchorElem.setAttribute('download', 'perfected_leads_newsdata.json');
+      dlAnchorElem.click();
+    }
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>

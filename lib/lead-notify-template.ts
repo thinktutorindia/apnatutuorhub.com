@@ -118,18 +118,18 @@ export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
   const locationBase = locationParts.join(", ") || data.city || "Delhi NCR";
   const locationStr = data.pincode ? `${locationBase} (Pin: ${data.pincode})` : locationBase;
 
-  let feesStr = "5000/month";
+  let feesStr = "₹5,000 / month";
   if (data.feeMonthly) {
-    feesStr = `${data.feeMonthly}/month`;
+    feesStr = `₹${data.feeMonthly} / month`;
   } else if (data.budgetMin && data.budgetMax) {
     feesStr =
       data.budgetMin === data.budgetMax
-        ? `${data.budgetMin}/month`
-        : `${data.budgetMin} - ${data.budgetMax}/month`;
+        ? `₹${data.budgetMin} / month`
+        : `₹${data.budgetMin} to ₹${data.budgetMax} ${data.budgetMin < 2000 ? '/hr' : '/month'}`;
   } else if (data.budgetMin) {
-    feesStr = `${data.budgetMin}/month`;
+    feesStr = `₹${data.budgetMin} ${data.budgetMin < 2000 ? '/hr' : '/month'}`;
   } else if (data.budgetMax) {
-    feesStr = `${data.budgetMax}/month`;
+    feesStr = `₹${data.budgetMax} ${data.budgetMax < 2000 ? '/hr' : '/month'}`;
   }
 
   let genderStr = "Any (Male or Female Tutor)";
@@ -157,9 +157,9 @@ export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
     .trim();
   const notes = rawNotes && !genderStr.toLowerCase().includes(rawNotes.toLowerCase()) ? rawNotes : null;
 
-  let scheduleStr = data.schedule || data.timingPreference || "Evening (4 PM - 7 PM)";
+  let scheduleStr = data.schedule || data.timingPreference || "Evening (4:00 PM to 7:00 PM)";
   if (/12\s*(?:pm)?\s*[-–]\s*(?:3|4)\s*pm/i.test(scheduleStr)) {
-    scheduleStr = "Evening (4 PM - 7 PM)";
+    scheduleStr = "Evening (4:00 PM to 7:00 PM)";
   }
 
   return {
@@ -172,7 +172,7 @@ export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
     genderStr,
     scheduleStr,
     notes,
-    whatsappNum: data.contactWhatsApp || "87997 07960",
+    whatsappNum: data.contactWhatsApp || "08062180653",
   };
 }
 
@@ -191,55 +191,35 @@ export function buildAquaTuitionEnquiryPlaceholders(data: LeadTemplateData): str
   ];
 }
 
-export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
-  const {
-    inquiryNumber,
-    clientName,
-    classStr,
-    modeStr,
-    locationStr,
-    feesStr,
-    genderStr,
-    scheduleStr,
-    notes,
-    whatsappNum,
-  } = getLeadNotifyFields(data);
-
-  if (data.useStandardMarkdown) {
-    return [
-      `*TUITION ENQUIRY: #${inquiryNumber}*`,
-      `*Client Name:* ${clientName}`,
-      `*Class:* ${classStr}`,
-      `*Mode:* ${modeStr}`,
-      `*Location:* ${locationStr}`,
-      `*Fees:* ${feesStr}`,
-      `*Gender Preference:* ${genderStr}`,
-      notes ? `*Special Notes:* ${notes}` : null,
-      `*Schedule:* ${scheduleStr}`,
-      "",
-      `Dm on WhatsApp  ${whatsappNum}`,
-      `👑 VIP Membership Plan: https://apnatutorhub.com/tutor/plans`,
-      `🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
-
+/**
+ * Modern Emoji Template matching GharPeShiksha high-conversion layout
+ */
+export function formatEmojiLeadTemplate(data: LeadTemplateData): string {
+  const fields = getLeadNotifyFields(data);
   return [
-    `𝐓𝐔𝐈𝐓𝐈𝐎𝐍 𝐄𝐍𝐐𝐔𝐈𝐑𝐘: #${inquiryNumber}`,
-    `𝐂𝐥𝐢𝐞𝐧𝐭 𝐍𝐚𝐦𝐞: ${clientName}`,
-    `𝐂𝐥𝐚𝐬𝐬: ${classStr}`,
-    `𝐌𝐨𝐝𝐞: ${modeStr}`,
-    `𝐋𝐨𝐜𝐚𝐭𝐢𝐨𝐧: ${locationStr}`,
-    `𝐅𝐞𝐞𝐬: ${feesStr}`,
-    `𝐆𝐞𝐧𝐝𝐞𝐫 𝐏𝐫𝐞𝐟𝐞𝐫𝐞𝐧𝐜𝐞: ${genderStr}`,
-    notes ? `𝐒𝐩𝐞𝐜𝐢𝐚𝐥 𝐍𝐨𝐭𝐞𝐬: ${notes}` : null,
-    `𝐒𝐜𝐡𝐞𝐝𝐮𝐥𝐞: ${scheduleStr}`,
+    "We recently received an Enquiry for you with following details:",
     "",
-    `Dm on WhatsApp  ${whatsappNum}`,
-    `👑 VIP Membership Plan: https://apnatutorhub.com/tutor/plans`,
-    `🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads`,
+    `🆕 *Enquiry ID :* #${fields.inquiryNumber}`,
+    `💬 *Name :* ${fields.clientName}`,
+    `📝 *Class :* ${fields.classStr}`,
+    `📍 *Area :* ${fields.locationStr}`,
+    `💵 *Budget :* ${fields.feesStr}`,
+    `📌 *Mode :* ${fields.modeStr}`,
+    fields.genderStr && fields.genderStr !== "Any (Male or Female Tutor)" ? `👤 *Preference :* ${fields.genderStr}` : null,
+    fields.notes ? `📋 *Notes :* ${fields.notes}` : null,
+    "",
+    "Please check this and Respond",
+    "",
+    "Contact 08062180653",
+    "ApnaTutorHub",
+    "(Reply STOP to Unsubscribe)",
+    "",
+    "🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads"
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+export function formatLeadNotifyTemplate(data: LeadTemplateData): string {
+  return formatEmojiLeadTemplate(data);
 }

@@ -1,6 +1,8 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ============================================
+# ApnaTutorHub — Enterprise Git Ignore Rules
+# ============================================
 
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.*
@@ -10,34 +12,80 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Next.js Build & Production Outputs
 /.next/
 /out/
-
-# production
 /build
+*.tsbuildinfo
+next-env.d.ts
 
-# misc
-.DS_Store
+# Testing & Coverage
+/coverage
+
+# ============================================
+# CRITICAL SECURITY & SENSITIVE CREDENTIALS
+# ============================================
+# Environment files (NEVER commit real credentials)
+.env
+.env.*
+!.env.example
+
+# Master credentials workbooks, keys, and certificates
 *.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*credentials*
+*secret*
+*.id_rsa*
 
-# debug
+# Excel & Spreadsheet files (contains credentials or customer data)
+*.xlsx
+*.xls
+*.xlsm
+
+# CSV and Tabular Data Dumps (Calling sheets, customer PII)
+*.csv
+mitali_*
+staff_performance_*
+
+# Local Database & Raw Data Repositories
+/data/
+/datauploadrawdata/
+
+# Development Sandboxes & Scratchpad (Contains hardcoded test tokens)
+/scratch/
+!/scratch/README.md
+
+# Python Virtual Environments & Caches
+/.venv/
+/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating System & IDE Clutter
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Debug & Error Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
-# env files (can opt-in for committing if needed)
-.env*
-!.env.example
-
-
-# vercel
+# Vercel Deployment Metadata
 .vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts

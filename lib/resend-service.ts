@@ -6,8 +6,13 @@
 
 import { Resend } from "resend";
 
-const resendApiKey = process.env.RESEND_API_KEY;
-export const resend = resendApiKey ? new Resend(resendApiKey) : null;
+export function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  return new Resend(key);
+}
+
+export const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export const DEFAULT_FROM_EMAIL =
   process.env.RESEND_FROM_EMAIL ?? "ApnaTutorHub <noreply@mail.apnatutorhub.com>";
@@ -39,14 +44,15 @@ export type BatchEmailItem = {
 };
 
 // ── 1. Send Single Email ───────────────────────────────────────────────────────
-
+ 
 export async function sendEmail(opts: SendEmailOptions): Promise<{ success: boolean; id?: string; error?: string }> {
-  if (!resend) {
+  const client = getResend();
+  if (!client) {
     return { success: false, error: "RESEND_API_KEY is not configured in .env" };
   }
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await client.emails.send({
       from: opts.from ?? DEFAULT_FROM_EMAIL,
       to: Array.isArray(opts.to) ? opts.to : [opts.to],
       subject: opts.subject,
@@ -76,7 +82,8 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ success: bool
 export async function sendBatchEmails(
   items: BatchEmailItem[]
 ): Promise<{ success: boolean; sentCount: number; errors?: string[] }> {
-  if (!resend) {
+  const client = getResend();
+  if (!client) {
     return { success: false, sentCount: 0, errors: ["RESEND_API_KEY not configured"] };
   }
 
@@ -100,7 +107,7 @@ export async function sendBatchEmails(
         ...(item.scheduledAt ? { scheduledAt: item.scheduledAt } : {}),
       }));
 
-      const { data, error } = await resend.batch.send(chunk);
+      const { data, error } = await client.batch.send(chunk);
 
       if (error) {
         console.error(`[Resend] Batch error for chunk ${i / CHUNK_SIZE + 1}:`, error);

@@ -5,6 +5,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 import {
   TUTOR_CLASS_MAP,
@@ -16,9 +17,10 @@ import {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type TutorBotData = {
-  name: string;
+  name?: string;
   email?: string;
   phone?: string;
+  password?: string;
   city?: string;
   area?: string;
   subjects?: string[];        // ["Mathematics", "Physics"]
@@ -432,6 +434,12 @@ export async function registerTutorFromWhatsapp(
   const area = data.area || "Delhi NCR";
 
   try {
+    // Hash password if provided
+    let passwordHash: string | undefined;
+    if (data.password && data.password.trim().length >= 6) {
+      passwordHash = await bcrypt.hash(data.password.trim(), 10);
+    }
+
     // Check if user already exists by phone OR email to prevent unique constraint errors
     let user = await prisma.user.findFirst({
       where: {
@@ -452,8 +460,9 @@ export async function registerTutorFromWhatsapp(
           role: user.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "TUTOR",
           ...(!user.phone && normalizedPhone ? { phone: normalizedPhone } : {}),
           ...((!user.email || user.email.startsWith("wa_")) && email && !email.startsWith("wa_") ? { email } : {}),
-          // Mark as WHATSAPP if it was previously auto-created without source
-          ...(!(user as any).signupSource || (user as any).signupSource === "WEBSITE" ? { signupSource: "WHATSAPP" } : {}),
+          ...(passwordHash ? { passwordHash } : {}),
+          // Mark as WHATSAPP
+          signupSource: "WHATSAPP",
         },
       });
     } else {
@@ -462,6 +471,7 @@ export async function registerTutorFromWhatsapp(
           name: data.name || "Tutor",
           email,
           phone: normalizedPhone,
+          passwordHash: passwordHash || null,
           role: "TUTOR",
           isActive: true,
           signupSource: "WHATSAPP",

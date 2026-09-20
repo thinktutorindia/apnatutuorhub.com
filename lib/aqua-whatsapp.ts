@@ -263,6 +263,7 @@ export async function sendAquaWhatsAppMessage(input: {
   templateId?: string;
   placeholders?: string[];
   estimatedInr?: number;
+  bypassDailyCap?: boolean;
 }): Promise<AquaSendResult> {
   const cfg = getAquaWhatsAppConfig();
   if (!cfg.enabled) return { ok: false, error: "Aqua WhatsApp is disabled." };
@@ -271,8 +272,10 @@ export async function sendAquaWhatsAppMessage(input: {
   const to = normalizeIndiaWhatsApp(input.to);
   if (!to) return { ok: false, error: "Enter a valid Indian mobile number." };
 
-  const capError = await assertDailyCap(cfg);
-  if (capError) return { ok: false, error: capError };
+  if (!input.bypassDailyCap) {
+    const capError = await assertDailyCap(cfg);
+    if (capError) return { ok: false, error: capError };
+  }
 
   const billedEstimateInr = input.estimatedInr ?? AQUA_INDIA_UTILITY_INR;
   const templateName = (input.templateId || cfg.defaultTemplateId || "information2").trim();

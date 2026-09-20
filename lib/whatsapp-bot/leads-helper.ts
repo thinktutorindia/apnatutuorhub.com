@@ -151,7 +151,7 @@ export function formatTutorLeadsAndPlansMessage(
   name: string,
   area: string,
   leads: MatchingLeadCard[],
-  contactInfo?: { email?: string; phone?: string }
+  contactInfo?: { email?: string; phone?: string; hasPassword?: boolean }
 ): string {
   const greeting = name ? `Namaste *${name}* ji! 🎉` : `Namaste! 🎉`;
   const locationLabel = area ? `in & around *${area}*` : "near your area";
@@ -159,9 +159,10 @@ export function formatTutorLeadsAndPlansMessage(
   let contactStatus = "";
   if (contactInfo?.email || contactInfo?.phone) {
     const parts: string[] = [];
-    if (contactInfo.phone) parts.push(`📱 +91 ${contactInfo.phone}`);
-    if (contactInfo.email) parts.push(`📧 ${contactInfo.email}`);
-    contactStatus = `\n✅ *Registered Contact:* ${parts.join(" | ")}\n`;
+    if (contactInfo.email) parts.push(`• 📧 *Email:* ${contactInfo.email}`);
+    if (contactInfo.phone) parts.push(`• 📱 *Phone:* +91 ${contactInfo.phone}`);
+    if (contactInfo.hasPassword) parts.push(`• 🔑 *Password:* [Set as requested]`);
+    contactStatus = `\n\n📋 *Your Account Login Credentials:*\n${parts.join("\n")}\n🌐 *Login Dashboard:* https://apnatutorhub.com/login\n`;
   }
 
   let leadsSection = "";

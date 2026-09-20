@@ -87,8 +87,8 @@ export function extractGradeNumber(s: string): number | null {
     if (ROMAN_NUMERALS[r]) return ROMAN_NUMERALS[r];
   }
 
-  // Check digits: "6th", "Class 6", "6 Std", "Grade 6", "6th Std"
-  const digitMatch = trimmed.match(/\b([1-9]|1[0-2])\b/);
+  // Check digits: "6th", "Class 6", "6 Std", "Grade 6", "6th Std", "11th"
+  const digitMatch = trimmed.match(/(\b1[0-2]|\b[1-9])(?:\s*(?:st|nd|rd|th))?(?!\d)/i);
   if (digitMatch) {
     return parseInt(digitMatch[1], 10);
   }

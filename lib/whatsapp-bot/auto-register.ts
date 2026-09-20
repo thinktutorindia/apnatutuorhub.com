@@ -220,6 +220,7 @@ export function expandTutorSubjectsAndClasses(input: {
     // Add standard bucket tags based on covered grades
     if ([...grades].some((g) => g <= 5)) classSet.add("Class 1-5");
     if ([...grades].some((g) => g >= 6 && g <= 8)) classSet.add("Class 6-8");
+    if ([...grades].some((g) => g <= 8)) classSet.add("Class 1-8");
     if ([...grades].some((g) => g >= 9 && g <= 10)) classSet.add("Class 9-10");
     if ([...grades].some((g) => g >= 11 && g <= 12)) classSet.add("Class 11-12");
   }
@@ -231,6 +232,18 @@ export function expandTutorSubjectsAndClasses(input: {
   const isAllSubjects =
     rawSubs.length === 0 ||
     rawSubs.some((s) => /all\s*subject|all|combo|any|every|general/i.test(s));
+
+  // Tutors teaching till 8th class must always have "All Subjects" and "All Subjects (Class 1-8)" in taxonomy
+  const coversTill8th =
+    [...grades].some((g) => g <= 8) ||
+    classInput.some((c) => /1\s*[-–to]\s*8|class\s*1-8|primary|middle|till\s*8/i.test(c));
+
+  if (coversTill8th) {
+    subjectSet.add("All Subjects");
+    subjectSet.add("All Subjects (Class 1-8)");
+    if ([...grades].some((g) => g <= 5)) subjectSet.add("All Subjects (Class 1-5)");
+    if ([...grades].some((g) => g >= 6 && g <= 8)) subjectSet.add("All Subjects (Class 6-8)");
+  }
 
   if (isAllSubjects) {
     // Add combo subjects for each covered grade
@@ -259,6 +272,7 @@ export function expandTutorSubjectsAndClasses(input: {
     });
 
     subjectSet.add("All Subjects");
+    subjectSet.add("All Subjects (Class 1-8)");
     if ([...grades].some((g) => g >= 6 && g <= 8)) subjectSet.add("Science & Maths");
     if ([...grades].some((g) => g <= 5)) {
       subjectSet.add("All Subjects for Preparatory");

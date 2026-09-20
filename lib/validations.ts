@@ -56,6 +56,24 @@ export function classesFromTaxonomySubjects(subjects: string[]): string[] {
     if (/\b(kg|kindergarten|nursery|preparatory)\b/.test(s)) found.add("Nursery / KG");
     if (/\bcollege\b/.test(s)) found.add("College / Degree");
 
+    if (/all subjects.*(?:class\s*)?1\s*[-–to]\s*8|class\s*1\s*[-–to]\s*8.*all subjects/i.test(s)) {
+      for (let i = 1; i <= 8; i++) found.add(`Class ${i}`);
+      found.add("Class 1-5");
+      found.add("Class 6-8");
+      found.add("Class 1-8");
+    } else if (/all subjects.*(?:class\s*)?1\s*[-–to]\s*5|class\s*1\s*[-–to]\s*5.*all subjects/i.test(s)) {
+      for (let i = 1; i <= 5; i++) found.add(`Class ${i}`);
+      found.add("Class 1-5");
+    } else if (/all subjects.*(?:class\s*)?6\s*[-–to]\s*8|class\s*6\s*[-–to]\s*8.*all subjects/i.test(s)) {
+      for (let i = 6; i <= 8; i++) found.add(`Class ${i}`);
+      found.add("Class 6-8");
+    } else if (/^all subjects$/i.test(s.trim())) {
+      for (let i = 1; i <= 8; i++) found.add(`Class ${i}`);
+      found.add("Class 1-5");
+      found.add("Class 6-8");
+      found.add("Class 1-8");
+    }
+
     for (const m of raw.matchAll(/Class\s+(\d{1,2})\b/gi)) {
       const n = Number(m[1]);
       if (n >= 1 && n <= 12) found.add(`Class ${n}`);
@@ -84,6 +102,10 @@ export const SUBJECT_TAXONOMY = [
   {
     group: "School Core",
     subjects: [
+      "All Subjects (Class 1-8)",
+      "All Subjects (Class 1-5)",
+      "All Subjects (Class 6-8)",
+      "All Subjects",
       "Mathematics",
       "Science",
       "EVS",

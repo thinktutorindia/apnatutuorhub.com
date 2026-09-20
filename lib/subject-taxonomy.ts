@@ -15,6 +15,10 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
   {
     name: "Combo Subjects KG to 10th",
     subjects: [
+      "All Subjects",
+      "All Subjects (Class 1-8)",
+      "All Subjects (Class 1-5)",
+      "All Subjects (Class 6-8)",
       "All Subjects for Preparatory",
       "All Subjects For KG (Kindergarten)",
       "All Subjects For Class I",
@@ -1535,6 +1539,8 @@ export function searchTaxonomySubjects(
  * High-frequency popular subjects for instant quick-add chips
  */
 export const POPULAR_TAXONOMY_SUBJECTS: string[] = [
+  "All Subjects (Class 1-8)",
+  "All Subjects",
   "Mathematics",
   "Science",
   "English",
@@ -1604,7 +1610,17 @@ const SYNONYM_MAP: Record<string, string> = {
   "computer science": "Computer Science",
   python: "Python",
   "spoken english": "Spoken English",
-  "all subjects": "All Subjects For Class X",
+  "all subjects": "All Subjects",
+  "all subject": "All Subjects",
+  "all subjects class 1-8": "All Subjects (Class 1-8)",
+  "all subjects (class 1-8)": "All Subjects (Class 1-8)",
+  "all subject class 1-8": "All Subjects (Class 1-8)",
+  "all subjects till 8th": "All Subjects (Class 1-8)",
+  "all subjects till 8th class": "All Subjects (Class 1-8)",
+  "all subject till 8th": "All Subjects (Class 1-8)",
+  "all subjects 1-8": "All Subjects (Class 1-8)",
+  "all subjects class 1-5": "All Subjects (Class 1-5)",
+  "all subjects class 6-8": "All Subjects (Class 6-8)",
 };
 
 /**

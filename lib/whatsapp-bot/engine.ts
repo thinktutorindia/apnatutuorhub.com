@@ -24,6 +24,14 @@ import {
   registerTutorFromWhatsapp,
   registerParentFromWhatsapp,
 } from "./auto-register";
+import { prisma } from "@/lib/prisma";
+import {
+  getSubjectClassSuggestions,
+  validateSubjectClassCompatibility,
+} from "./subject-rules";
+
+// Admin WhatsApp numbers — these get lead forwarding + full control
+const ADMIN_PHONES = ["919311459543", "917559563565"];
 
 const MAX_RETRIES = 3;
 
@@ -33,6 +41,74 @@ function isValidName(v: string): boolean {
   if (/^(hi|hello|hey|namaste|yes|no|ok|done|skip)$/i.test(clean)) return false;
   if (/\d/.test(clean)) return false;
   return /^[a-zA-Z\s.'-]+$/.test(clean);
+}
+
+function formatHumanTeachingContext(
+  subs: string[],
+  cls: string | undefined,
+  area: string | undefined
+): {
+  cleanSubs: string[];
+  cleanClass: string;
+  humanSubjectLabel: string;
+  humanAreaPrompt: string;
+  humanEmailSummary: string;
+} {
+  const cleanClass = (cls || "").trim();
+  let cleanSubs = [...subs];
+
+  const gradeMatch = cleanClass.match(/\b([1-9]|1[0-2])\b/);
+  const grade = gradeMatch ? parseInt(gradeMatch[1], 10) : null;
+  const isPrimary = (grade !== null && grade <= 5) || /primary|kg|nursery|1\s*[-–to]\s*5/i.test(cleanClass);
+
+  const hasPhysics = cleanSubs.some((s) => /physic/i.test(s));
+  const hasChemistry = cleanSubs.some((s) => /chem/i.test(s));
+  const hasBiology = cleanSubs.some((s) => /bio/i.test(s));
+
+  if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
+    // In Class 1-5, physics/chem/bio do NOT exist as standalone subjects in school curricula.
+    // They are taught as Science / EVS / All Subjects.
+    cleanSubs = cleanSubs.filter((s) => !/physic|chem|bio/i.test(s));
+    if (!cleanSubs.some((s) => /science/i.test(s))) cleanSubs.push("Science");
+    if (!cleanSubs.some((s) => /all\s*subject/i.test(s))) {
+      cleanSubs.push("All Subjects", "All Subjects (Class 1-8)");
+    }
+  }
+
+  let humanSubjectLabel = "";
+  if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
+    humanSubjectLabel = `${cleanClass || "Class 1-5"} (Science & All Subjects)`;
+  } else if (cleanClass && cleanSubs.length > 0) {
+    const sStr = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s)).join(", ");
+    humanSubjectLabel = `${cleanClass} (${sStr})`;
+  } else if (cleanSubs.length > 0) {
+    humanSubjectLabel = cleanSubs.join(", ");
+  } else {
+    humanSubjectLabel = cleanClass || "All Classes";
+  }
+
+  let humanAreaPrompt = "";
+  if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
+    humanAreaPrompt = `Badhiya! ${cleanClass || "Class 1-5"} Science ke liye Delhi mein aapka teaching area kaunsa hai? 📍`;
+  } else if (cleanClass && cleanSubs.length > 0) {
+    const mainSub = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s))[0] || cleanSubs[0];
+    humanAreaPrompt = `Badhiya! ${cleanClass} ${mainSub} ke liye Delhi mein aapka teaching area kaunsa hai? 📍`;
+  } else if (cleanClass) {
+    humanAreaPrompt = `Badhiya! ${cleanClass} ke liye Delhi mein aapka teaching area kaunsa hai? 📍`;
+  } else {
+    humanAreaPrompt = `Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
+  }
+
+  const cleanArea = area || "Delhi";
+  const humanEmailSummary = `Details note ho gayi! 📚 ${cleanArea} — ${humanSubjectLabel}`;
+
+  return {
+    cleanSubs,
+    cleanClass,
+    humanSubjectLabel,
+    humanAreaPrompt,
+    humanEmailSummary,
+  };
 }
 
 export type EngineResult = {
@@ -158,7 +234,7 @@ export async function processMessage(
     };
   }
 
-  if (/show lead|view lead|matching lead|my lead|unlock lead|explore lead/i.test(msg)) {
+  if (/^(?:show\s+leads?|view\s+leads?|leads?|my\s+leads?|matching\s+leads?|unlock\s+leads?|explore\s+leads?)$/i.test(msg.trim()) || /show lead|view lead|matching lead|my lead|unlock lead|explore lead/i.test(msg)) {
     const leads = await getChatbotMatchingLeads(
       (data.area as string) || "Delhi",
       (data.city as string) || "Delhi",
@@ -192,6 +268,40 @@ export async function processMessage(
   }
 
   // ── 2. AI Mode Active: Let Gemini AI intelligently manage conversation ────
+
+  // CRITICAL: If step is DONE or _registered is true, user is already registered.
+  // Let AI handle their query naturally — do NOT re-trigger registration.
+  if (step === "DONE" || data._registered === true) {
+    if (useAi) {
+      try {
+        const ai = await askGeminiChatbot(rawMessage, session);
+        if (ai && ai.reply) {
+          return {
+            reply: ai.reply,
+            nextStep: "DONE",
+            updatedData: data,
+            userType: session.userType,
+            retries: 0,
+            quickReplies: ai.quickReplies && ai.quickReplies.length > 0
+              ? ai.quickReplies
+              : ["View Leads", "Plans", "My Profile"],
+          };
+        }
+      } catch (err) {
+        console.warn("[engine] AI call failed in DONE state:", err);
+      }
+    }
+    // Fallback if AI fails in DONE state
+    return {
+      reply: `Kuch aur jaanna hai? Type karo:\n\n*LEADS* — leads dekhein\n*PLANS* — plan ki info\n*PROFILE* — apni profile dekhein\n*HELP* — support se baat karein`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["View Leads", "Plans", "My Profile", "Help"],
+    };
+  }
+
   if (useAi) {
     try {
       const ai = await askGeminiChatbot(rawMessage, session);
@@ -221,14 +331,63 @@ export async function processMessage(
         const pwdMatch = rawMessage.match(/(?:password|pass|pwd)[:\s=]+([^\s\n,]+)/i);
         if (pwdMatch && !mergedData.password) {
           mergedData.password = pwdMatch[1].trim();
-        } else if (session.step === "T_PASSWORD" && !mergedData.password) {
-          const candidate = rawMessage.trim();
-          if (/^skip$/i.test(candidate)) {
-            // User skipped password — use default 12345678
-            mergedData.password = "12345678";
-            mergedData._usedDefaultPassword = true;
-          } else if (!/^(menu|help|cancel)$/i.test(candidate)) {
-            mergedData.password = candidate;
+        }
+
+        // Additional entity extractors from message text
+        const areaMatch = rawMessage.match(/\b(dwarka|rohini|janakpuri|uttam nagar|vikaspuri|paschim vihar|pitampura|shalimar bagh|model town|ashok vihar|civil lines|connaught place|cp|south ex|south extension|saket|hauz khas|malviya nagar|green park|greater kailash|gk|cr park|kalkaji|nehru place|lajpat nagar|defence colony|vasant kunj|vasant vihar|munirka|rk puram|mayur vihar|laxmi nagar|preet vihar|nirman vihar|shahdara|dilshad garden|karol bagh|patel nagar|rajouri garden|tagore garden|subhash nagar|tilak nagar|najafgarh|narela|bawana|burari|sant nagar|sangam vihar|badarpur|sarita vihar|okhla|jasola|noida|greater noida|gurgaon|gurugram|ghaziabad|faridabad|indirapuram|vaishali|kaushambi)\b/i);
+        if (areaMatch && (!mergedData.area || String(mergedData.area).toLowerCase() === "delhi ncr")) {
+          mergedData.area = areaMatch[0].charAt(0).toUpperCase() + areaMatch[0].slice(1).toLowerCase();
+        }
+
+        const subMatches = rawMessage.match(/\b(maths?|mathematics|science|physics|chemistry|biology|english|hindi|social studies|sst|history|geography|civics|economics|commerce|accounts|accountancy|business studies|computer science|cs|coding|python|all subjects)\b/gi);
+        if (subMatches && (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0))) {
+          mergedData.subjects = Array.from(new Set(subMatches.map((s) => s.trim())));
+        }
+
+        const isInitialWelcomeChoice = session.step === "WELCOME" && /^[12]$/.test(rawMessage.trim());
+
+        const classMatch =
+          rawMessage.match(/(?:class|grade)\s*(\d{1,2}(?:\s*(?:to|-|and)\s*\d{1,2})?|\b[1-9]\b|\b1[0-2]\b|primary|middle|senior|nursery|kg|jee|neet|all)/i) ||
+          rawMessage.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s*(?:to|-|and)\s*\d{1,2}(?:st|nd|rd|th)?)\b/i) ||
+          rawMessage.match(/\b(primary|middle school|senior secondary|11th and 12th|9th and 10th|1st to 5th|6th to 8th|9th to 12th|all classes)\b/i) ||
+          (!isInitialWelcomeChoice ? rawMessage.match(/^([1-9]|1[0-2])(?:st|nd|rd|th)?$/i) : null);
+        if (classMatch && !mergedData.classLevel && !isInitialWelcomeChoice) {
+          const rawCl = classMatch[0].trim();
+          const cl = /^\d+$/.test(rawCl) ? `Class ${rawCl}` : rawCl;
+          mergedData.classLevel = cl;
+          mergedData.classLevels = [cl];
+        }
+
+        // State-specific step input helpers
+        if (session.step === "T_AREA" && !mergedData.area && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
+          mergedData.area = rawMessage.trim();
+        }
+        if ((session.step === "T_CLASS" || session.step === "P_CLASS" || session.step === "P_CONVO") && !mergedData.classLevel && rawMessage.trim().length >= 1 && !/^(menu|help|cancel)$/i.test(rawMessage.trim()) && !isInitialWelcomeChoice) {
+          const rawCl = rawMessage.trim();
+          const cl = /^\d+$/.test(rawCl) ? `Class ${rawCl}` : rawCl;
+          mergedData.classLevel = cl;
+          mergedData.classLevels = [cl];
+        }
+        if (session.step === "T_SUBJECTS" && (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
+          const splitSubs = rawMessage.split(/,|and|&/i).map((s) => s.trim()).filter(Boolean);
+          mergedData.subjects = splitSubs.length > 0 ? splitSubs : [rawMessage.trim()];
+        }
+
+        // Taxonomy & Till 8th grade handling
+        if (/all\s*subjects?|combo/i.test(rawMessage)) {
+          if (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) {
+            mergedData.subjects = ["All Subjects", "All Subjects (Class 1-8)"];
+          } else if (!mergedData.subjects.some((s: string) => /all\s*subjects?/i.test(s))) {
+            mergedData.subjects.push("All Subjects", "All Subjects (Class 1-8)");
+          }
+        }
+        if (/1\s*[-–to]\s*8|class\s*1-8|primary|middle|till\s*8/i.test(rawMessage)) {
+          if (!mergedData.classLevel) {
+            mergedData.classLevel = "Class 1-8";
+            mergedData.classLevels = ["Class 1-8"];
+          }
+          if (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) {
+            mergedData.subjects = ["All Subjects", "All Subjects (Class 1-8)"];
           }
         }
 
@@ -254,140 +413,460 @@ export async function processMessage(
           rawMessage.trim() === "1" ||
           rawMessage.trim() === "2" ||
           /^(1|2|tutor|parent|i am a tutor|i need a tutor)$/i.test(rawMessage.trim());
-        const hasDetails = Boolean(mergedData.area || mergedData.phone || mergedData.classLevel || (Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0));
-        const isFirstChoice = session.step === "WELCOME" && isBareChoice && !hasDetails;
+
+        const subsArray = Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0
+          ? (mergedData.subjects as string[])
+          : [];
+        const hasSubjects = subsArray.length > 0;
+
+        // Ensure classLevel is not mistakenly holding a subject name
+        if (mergedData.classLevel && subsArray.some((s) => s.toLowerCase() === String(mergedData.classLevel).toLowerCase())) {
+          mergedData.classLevel = undefined;
+          mergedData.classLevels = undefined;
+        }
+
+        const classLevelsArray = Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0
+          ? (mergedData.classLevels as string[])
+          : mergedData.classLevel
+          ? [String(mergedData.classLevel)]
+          : [];
+        const hasClass = classLevelsArray.length > 0;
+
+        const rawArea = typeof mergedData.area === "string" ? mergedData.area.trim() : (typeof data.area === "string" ? (data.area as string).trim() : "");
+        const hasArea = Boolean(
+          rawArea &&
+          rawArea.toLowerCase() !== "delhi ncr" &&
+          rawArea.length >= 2
+        );
+
+        const isFirstChoice = session.step === "WELCOME" && isBareChoice && !hasSubjects && !hasClass && !hasArea;
         if (isFirstChoice) {
           const isTutor = role === "TUTOR" || rawMessage.trim() === "1";
           return {
             reply: isTutor
-              ? `Acha! Kaunsa subject padhate hain aur kahan se hain? 📚\n\nJaise: "Maths & Science, Dwarka Delhi"`
-              : `Acha! Aapke bachche ke liye kaunsa subject chahiye aur class kya hai? 🎓\n\nJaise: "Class 10, Maths & Science, Rohini Delhi"`,
+              ? `Badhiya! Kaunse subject, kaunsi class aur kahan se ho? 📚`
+              : `Acha! Bachche ke liye kaunsi class, subject aur area mein tutor chahiye? 🎓📍`,
             nextStep: isTutor ? "T_CONVO" : "P_CONVO",
             updatedData: {},
             userType: isTutor ? "TUTOR" : "PARENT",
             retries: 0,
             quickReplies: isTutor
-              ? ["Sangam Vihar, Delhi", "Dwarka, Delhi", "Skip Email", "Noida / Gurgaon"]
+              ? ["All Subjects, Class 1-8", "Maths, Class 9-10, Dwarka", "Physics, Class 11-12, Rohini"]
               : ["Class 9-10 Maths & Sci", "Class 1-5 All Subjects", "Class 11-12"],
           };
         }
 
-        // TUTOR Onboarding: Require teaching details, then ask for Email and Password before creating account
+        // ── TUTOR Onboarding ──────────────────────────────────────────────────
         if (role === "TUTOR") {
-          const hasTutorDetails = Boolean(
-            mergedData.area ||
-            mergedData.classLevel ||
-            (Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0) ||
-            (Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0) ||
-            (mergedData.name && !isBareChoice)
-          );
+          // SECURITY: Block registration with admin phone numbers
+          if (ADMIN_PHONES.includes(session.phone)) {
+            return {
+              reply: ai.reply,
+              nextStep: "T_CONVO",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ai.quickReplies && ai.quickReplies.length > 0 ? ai.quickReplies : ["View Leads", "Plans"],
+            };
+          }
 
-          if (hasTutorDetails) {
-            const tutorName = (mergedData.name as string) || (data.name as string) || "";
-            const areaName = (mergedData.area as string) || (data.area as string) || "Delhi NCR";
-            const cityName = (mergedData.city as string) || "Delhi";
-            const subsArray = Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0 ? (mergedData.subjects as string[]) : [];
-            const subsText = subsArray.length > 0 ? subsArray.join(", ") : "All Subjects";
-            const classText = (mergedData.classLevel as string) || (Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0 ? (mergedData.classLevels as string[]).join(", ") : "");
-            const greeting = tutorName ? `Namaste *${tutorName}* ji! 🙏` : `Namaste! 🙏`;
+          // Case A: Missing all teaching details
+          if (!hasSubjects && !hasClass && !hasArea) {
+            return {
+              reply: `Badhiya! Kaunse subject aur kaunsi class ko padhate ho? 📚`,
+              nextStep: "T_CONVO",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
+            };
+          }
 
-            const emailStr = typeof mergedData.email === "string" ? mergedData.email.trim().toLowerCase() : "";
-            const hasValidEmail = Boolean(emailStr && emailStr.includes("@") && emailStr.includes("."));
-            const skippedEmail = /skip\s*email|^skip$/i.test(rawMessage.trim());
+          // Case B: Has subjects, but missing class and area (e.g. user only typed "physics" or "maths")
+          if (hasSubjects && !hasClass && !hasArea) {
+            const sFirst = subsArray[0] || "Subjects";
+            const suggestions = getSubjectClassSuggestions(sFirst);
+            return {
+              reply: suggestions.prompt,
+              nextStep: "T_CLASS",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: suggestions.quickReplies,
+            };
+          }
 
-            // 1. Check Email: If missing, ask tutor for Email ID
-            if (!hasValidEmail && !skippedEmail && session.step !== "T_PASSWORD") {
+          // Case C: Has subjects and area, but missing class (e.g. "Sangam Vihar" then "Maths & Science")
+          if (hasSubjects && hasArea && !hasClass) {
+            const subsText = subsArray.filter((s) => !/all subjects \(class 1-8\)/i.test(s)).join(", ");
+            const suggestions = getSubjectClassSuggestions(subsArray[0] || "Subjects");
+            return {
+              reply: `${rawArea} mein *${subsText}* kaunsi classes ko padhate ho? 🎓`,
+              nextStep: "T_CLASS",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: suggestions.quickReplies,
+            };
+          }
+
+          // Common-Sense Subject-Grade Compatibility Validation:
+          if (hasSubjects && hasClass) {
+            const rawCls = classLevelsArray[0] || (mergedData.classLevel as string) || "";
+            const validation = validateSubjectClassCompatibility(subsArray, rawCls, "TUTOR");
+
+            if (!validation.isValid) {
+              // Illogical combination (e.g. Physics for Class 5)
+              mergedData.classLevel = undefined;
+              mergedData.classLevels = undefined;
               return {
-                reply: `${greeting}\nWe've noted your teaching details: 📚 *${subsText}*${classText ? ` (${classText})` : ""} at 📍 *${areaName}*.\n\n📧 To set up your verified tutor account and send instant student leads to your inbox, please reply with your *Email ID*:\n_(e.g. yourname@gmail.com)_`,
+                reply: validation.reason!,
+                nextStep: "T_CLASS",
+                updatedData: mergedData,
+                userType: "TUTOR",
+                retries: 0,
+                quickReplies: validation.suggestedReplies || ["Class 11-12", "Class 9-10 (Science)"],
+              };
+            }
+
+            if (validation.switchedSubject) {
+              mergedData.subjects = validation.switchedSubject;
+              subsArray.length = 0;
+              subsArray.push(...validation.switchedSubject);
+            }
+            if (validation.switchedClass) {
+              mergedData.classLevel = validation.switchedClass;
+              mergedData.classLevels = [validation.switchedClass];
+              classLevelsArray.length = 0;
+              classLevelsArray.push(validation.switchedClass);
+            }
+          }
+
+          // Case D: Has subjects and class, but missing area (e.g. "Physics" then "Class 5")
+          if (hasSubjects && hasClass && !hasArea) {
+            const ctx = formatHumanTeachingContext(subsArray, classLevelsArray[0] || (mergedData.classLevel as string), rawArea);
+            mergedData.subjects = ctx.cleanSubs;
+            return {
+              reply: ctx.humanAreaPrompt,
+              nextStep: "T_AREA",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+            };
+          }
+
+          // Case E1: Has area only, but missing subjects and class (e.g. user typed "sangam vihar")
+          if (hasArea && !hasSubjects && !hasClass) {
+            return {
+              reply: `*${rawArea}* mein kaunse subjects aur classes padhate ho? 📚`,
+              nextStep: "T_CONVO",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
+            };
+          }
+
+          // Case E2: Has class only, but missing subjects and area
+          if (hasClass && !hasSubjects && !hasArea) {
+            const clsText = classLevelsArray[0] || (mergedData.classLevel as string) || "Classes";
+            return {
+              reply: `*${clsText}* ke liye kaunse subjects padhate ho? 📚`,
+              nextStep: "T_SUBJECTS",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["All Subjects", "Maths", "Science", "Maths & Science"],
+            };
+          }
+
+          // Case E3: Has class and area, but missing subjects
+          if (hasClass && hasArea && !hasSubjects) {
+            const clsText = classLevelsArray[0] || (mergedData.classLevel as string) || "Classes";
+            return {
+              reply: `${rawArea} mein *${clsText}* ke kaunse subjects padhate hain? 📚`,
+              nextStep: "T_SUBJECTS",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["All Subjects", "Maths", "Science", "Maths & Science"],
+            };
+          }
+
+          // Case E4: Missing subjects
+          if (!hasSubjects) {
+            return {
+              reply: `Kaunse subjects padhate hain? 📚`,
+              nextStep: "T_SUBJECTS",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["All Subjects (Class 1-8)", "Maths", "Science", "Maths & Science"],
+            };
+          }
+
+          // Case E5: Missing class
+          if (!hasClass) {
+            return {
+              reply: `Kaunsi class tak padhate ho? 🎓`,
+              nextStep: "T_CLASS",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["Class 1-8 (All Subjects)", "Class 9-10", "Class 11-12", "All Classes (1 to 12)"],
+            };
+          }
+
+          // Case E6: Missing area
+          if (!hasArea) {
+            return {
+              reply: `Aapka teaching area / location kya hai? 📍`,
+              nextStep: "T_AREA",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+            };
+          }
+
+          // Case F: ALL 3 TEACHING CRITERIA ARE PRESENT! Proceed to mandatory Email
+          const ctx = formatHumanTeachingContext(subsArray, classLevelsArray[0] || (mergedData.classLevel as string), rawArea);
+          mergedData.subjects = ctx.cleanSubs;
+          const areaName = rawArea;
+          const cityName = (mergedData.city as string) || "Delhi";
+          const tutorName = (mergedData.name as string) || "";
+
+          // Validate email candidate
+          const emailRegexMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+          const emailCandidate = emailRegexMatch ? emailRegexMatch[0].toLowerCase() : (typeof mergedData.email === "string" ? mergedData.email.trim().toLowerCase() : "");
+          const hasValidEmail = Boolean(emailCandidate && emailCandidate.includes("@") && emailCandidate.includes("."));
+
+          // 1. Email is STRICTLY MANDATORY — NO SKIP ALLOWED
+          if (!hasValidEmail && session.step !== "T_PASSWORD") {
+            if (session.step === "T_EMAIL") {
+              return {
+                reply: `⚠️ Email ID zaroori hai! Student lead alerts aur profile account ke liye valid email chahiye.\n\n📧 Kripya apna Email ID bhejiye (jaise: yourname@gmail.com):`,
                 nextStep: "T_EMAIL",
                 updatedData: mergedData,
                 userType: "TUTOR",
                 retries: 0,
-                quickReplies: ["Skip Email", "Noida / Gurgaon", "Delhi NCR"],
+                quickReplies: [],
               };
             }
 
-            // 2. Check Password: If missing, ask tutor to set a password
-            const pwdStr = typeof mergedData.password === "string" ? mergedData.password.trim() : "";
-            if (!pwdStr) {
-              const emailNotice = hasValidEmail ? `\n📧 *Email ID:* ${emailStr}` : "";
+            return {
+              reply: `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\nStudent lead alerts aur login ke liye apna Email ID share karein: 📧`,
+              nextStep: "T_EMAIL",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: [],
+            };
+          }
+
+          // Save valid email
+          mergedData.email = emailCandidate;
+
+          // 2. Password Setup
+          const pwdCandidate = (typeof mergedData.password === "string" ? mergedData.password.trim() : "");
+          if (!pwdCandidate && session.step !== "T_PASSWORD") {
+            // Check if email already registered in DB
+            let isExisting = false;
+            try {
+              const existingUser = await prisma.user.findFirst({
+                where: { email: emailCandidate },
+                select: { id: true, name: true, role: true },
+              });
+              if (existingUser) {
+                isExisting = true;
+                mergedData._existingAccount = true;
+              }
+            } catch {}
+
+            if (isExisting) {
               return {
-                reply: `Almost there! ✨${emailNotice}\n\n🔐 Please reply with the *Password* (minimum 6 characters) you want to create for your ApnaTutorHub account:\n_(You will use your email & this password to log in at https://apnatutorhub.com/login)_`,
+                reply: `Email note ho gaya: *${emailCandidate}* ✅\n_(Yeh email pehle se registered hai)_\n\n🔐 Account login karne ke liye password enter karein (ya type karein *default*):`,
                 nextStep: "T_PASSWORD",
                 updatedData: mergedData,
                 userType: "TUTOR",
                 retries: 0,
-                quickReplies: ["123456", "Pass@123", "Help & Info"],
+                quickReplies: ["Default Password", "12345678"],
               };
             }
 
-            // 3. Validate Password Length
-            if (pwdStr.length < 6 && pwdStr !== "12345678") {
+            return {
+              reply: `Email note ho gaya: *${emailCandidate}* ✅\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
+              nextStep: "T_PASSWORD",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["Default Password", "12345678"],
+            };
+          }
+
+          // If in T_PASSWORD step, handle user input
+          if (session.step === "T_PASSWORD") {
+            const rawTrim = rawMessage.trim();
+            const isDefaultChoice = /default|skip|12345678|nahi|no|set 12345678/i.test(rawTrim);
+            if (isDefaultChoice) {
+              mergedData.password = "12345678";
+              mergedData._usedDefaultPassword = true;
+            } else if (rawTrim.length >= 6) {
+              mergedData.password = rawTrim;
+            } else {
               return {
-                reply: `Password 6 characters se kam hai.\n\n🔐 Phir se try karo (min 6 chars):`,
+                reply: `⚠️ Password minimum 6 characters ka hona chahiye.\n\n🔐 Phir se enter karein ya type karein *default*:`,
                 nextStep: "T_PASSWORD",
                 updatedData: { ...mergedData, password: undefined },
                 userType: "TUTOR",
                 retries: 0,
+                quickReplies: ["Default Password", "12345678"],
+              };
+            }
+          }
+
+          const pwdStr = (mergedData.password as string) || "12345678";
+
+          // 3. Register Tutor in database!
+          const phoneToUse = (mergedData.phone as string) || session.phone;
+          const emailToUse = emailCandidate;
+
+          const leads = await getChatbotMatchingLeads(
+            areaName,
+            cityName,
+            mergedData.classLevel as string,
+            subsArray
+          );
+
+          try {
+            await registerTutorFromWhatsapp(session.phone, {
+              name: tutorName || "Tutor",
+              email: emailToUse,
+              phone: phoneToUse,
+              password: pwdStr,
+              city: cityName,
+              area: areaName,
+              subjects: subsArray.length > 0 ? subsArray : ["All Subjects"],
+              classLevels: classLevelsArray.length > 0 ? classLevelsArray : ["Class 1 to 10"],
+              experience: typeof mergedData.experience === "number" ? mergedData.experience : 2,
+            });
+          } catch (regErr) {
+            console.error("[engine] auto-register tutor failed:", regErr);
+          }
+
+          const usedDefault = mergedData._usedDefaultPassword === true;
+          mergedData._registered = true;
+          const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
+            email: emailToUse,
+            phone: phoneToUse,
+            hasPassword: true,
+          }) + (usedDefault ? `\n\n🔑 Default password *12345678* set kiya hai. Website par login karke change kar sakte hain: https://apnatutorhub.com/login` : "");
+
+          return {
+            reply: richReply,
+            nextStep: "DONE",
+            updatedData: mergedData,
+            userType: "TUTOR",
+            retries: 0,
+            quickReplies: [
+              "View Leads",
+              "₹999 Plan",
+              "My Profile",
+            ],
+          };
+        }
+
+        // ── PARENT Onboarding ─────────────────────────────────────────────────
+        if (role === "PARENT") {
+          const parentSubs = Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0
+            ? (mergedData.subjects as string[])
+            : [];
+          const parentHasSubs = parentSubs.length > 0;
+
+          const parentClass = (mergedData.classLevel as string) || (Array.isArray(mergedData.classLevels) && (mergedData.classLevels as string[])[0]) || "";
+          const parentHasClass = Boolean(parentClass && parentClass.toString().trim() !== "");
+
+          const parentArea = typeof mergedData.area === "string" ? mergedData.area.trim() : (typeof data.area === "string" ? (data.area as string).trim() : "");
+          const parentHasArea = Boolean(parentArea && parentArea.toLowerCase() !== "delhi ncr" && parentArea.length >= 2);
+
+          if (!parentHasSubs && !parentHasClass && !parentHasArea) {
+            return {
+              reply: `Bachche ke liye kaunsi class, subject aur area mein tutor chahiye? 🎓📍`,
+              nextStep: "P_CONVO",
+              updatedData: mergedData,
+              userType: "PARENT",
+              retries: 0,
+              quickReplies: ["Class 9-10 Maths & Sci", "Class 1-5 All Subjects", "Class 11-12"],
+            };
+          }
+
+          if (parentHasSubs && !parentHasClass && !parentHasArea) {
+            const sFirst = parentSubs[0] || "Subjects";
+            const suggestions = getSubjectClassSuggestions(sFirst);
+            return {
+              reply: `Bachcha kaunsi class mein hai? 🎓`,
+              nextStep: "P_CONVO",
+              updatedData: mergedData,
+              userType: "PARENT",
+              retries: 0,
+              quickReplies: suggestions.quickReplies,
+            };
+          }
+
+          // Common-Sense Subject-Grade Compatibility Validation for Parents:
+          if (parentHasSubs && parentHasClass) {
+            const parentValidation = validateSubjectClassCompatibility(parentSubs, String(parentClass), "PARENT");
+            if (!parentValidation.isValid) {
+              mergedData.classLevel = undefined;
+              mergedData.classLevels = undefined;
+              return {
+                reply: parentValidation.reason!,
+                nextStep: "P_CONVO",
+                updatedData: mergedData,
+                userType: "PARENT",
+                retries: 0,
+                quickReplies: parentValidation.suggestedReplies || ["Class 1-5 All Subjects", "Class 9-10"],
               };
             }
 
-            // 4. All details ready! Register Tutor in database (User with passwordHash + TutorProfile + Wallet)
-            const phoneToUse = (mergedData.phone as string) || session.phone;
-            const emailToUse = hasValidEmail ? emailStr : undefined;
-
-            const leads = await getChatbotMatchingLeads(
-              areaName,
-              cityName,
-              mergedData.classLevel as string,
-              subsArray
-            );
-
-            try {
-              await registerTutorFromWhatsapp(session.phone, {
-                name: tutorName || "Tutor",
-                email: emailToUse,
-                phone: phoneToUse,
-                password: pwdStr,
-                city: cityName,
-                area: areaName,
-                subjects: subsArray.length > 0 ? subsArray : ["All Subjects"],
-                classLevels: Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0
-                  ? (mergedData.classLevels as string[])
-                  : mergedData.classLevel ? [String(mergedData.classLevel)] : ["Class 1 to 10"],
-                experience: typeof mergedData.experience === "number" ? mergedData.experience : 2,
-              });
-            } catch (regErr) {
-              console.error("[engine] auto-register tutor failed:", regErr);
+            if (parentValidation.switchedSubject) {
+              mergedData.subjects = parentValidation.switchedSubject;
+              parentSubs.length = 0;
+              parentSubs.push(...parentValidation.switchedSubject);
             }
+            if (parentValidation.switchedClass) {
+              mergedData.classLevel = parentValidation.switchedClass;
+              mergedData.classLevels = [parentValidation.switchedClass];
+            }
+          }
 
-            const usedDefault = mergedData._usedDefaultPassword === true;
-            const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
-              email: emailToUse,
-              phone: phoneToUse,
-              hasPassword: true,
-            }) + (usedDefault ? `\n\n⚠️ *Note:* Aapka default password *12345678* set kiya gaya hai. Login karke please change kar lena: https://apnatutorhub.com/login` : "");
-
+          if (parentHasSubs && parentHasClass && !parentHasArea) {
             return {
-              reply: richReply,
-              nextStep: "DONE",
+              reply: `*${parentSubs.join(", ")} (${parentClass})* ke liye Delhi mein aapka area kaunsa hai? 📍`,
+              nextStep: "P_AREA",
               updatedData: mergedData,
-              userType: "TUTOR",
+              userType: "PARENT",
               retries: 0,
-              quickReplies: [
-                leads.length > 0 ? `🔥 Unlock Lead #${leads[0].inquiryNumber}` : "🔥 View All Leads",
-                "💰 View Coin Plans",
-                "🌐 Leads Dashboard",
-              ],
+              quickReplies: ["Dwarka", "Rohini", "South Delhi", "Noida / Gurgaon"],
             };
           }
-        }
 
-        // Fast Onboarding: If parent provided area or class/subject, IMMEDIATELY return verified tutors & demo!
-        if (role === "PARENT" && (ai.isComplete || mergedData.area || mergedData.classLevel)) {
-          const areaName = (mergedData.area as string) || (data.area as string) || "Delhi NCR";
+          if (!parentHasSubs && (parentHasClass || parentHasArea)) {
+            return {
+              reply: `Kaunse subjects ke liye tutor chahiye? 📚`,
+              nextStep: "P_CONVO",
+              updatedData: mergedData,
+              userType: "PARENT",
+              retries: 0,
+              quickReplies: ["Maths & Science", "All Subjects", "English", "Physics / Chemistry"],
+            };
+          }
 
-          // Auto-register Parent in database (User + ParentProfile + StudentProfile + Lead)
+          // All 3 criteria present!
+          const areaName = parentArea;
+          const classLevelName = String(parentClass);
+
           try {
             await registerParentFromWhatsapp(session.phone, {
               studentName: (mergedData.studentName as string) || (mergedData.name as string) || "Student",
@@ -396,8 +875,8 @@ export async function processMessage(
               phone: (mergedData.phone as string) || session.phone,
               city: (mergedData.city as string) || "Delhi",
               area: areaName,
-              classLevel: (mergedData.classLevel as string) || "Class 10",
-              subjects: Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0 ? (mergedData.subjects as string[]) : ["All Subjects"],
+              classLevel: classLevelName,
+              subjects: parentSubs,
               timing: (mergedData.timing as string) || undefined,
             });
           } catch (regErr) {
@@ -406,8 +885,8 @@ export async function processMessage(
 
           const richReply = formatParentDemoMessage(
             areaName,
-            mergedData.classLevel as string,
-            mergedData.subjects as string[],
+            classLevelName,
+            parentSubs,
             {
               email: (mergedData.email as string) || undefined,
               phone: (mergedData.phone as string) || undefined,
@@ -415,13 +894,15 @@ export async function processMessage(
             }
           );
 
+          mergedData._registered = true;
+
           return {
             reply: richReply,
             nextStep: "DONE",
             updatedData: mergedData,
             userType: "PARENT",
             retries: 0,
-            quickReplies: ["✨ Book Free Demo", "💰 Fee Structure", "📞 Call Coordinator"],
+            quickReplies: ["Book Free Demo", "Fee Structure", "Call Coordinator"],
           };
         }
 
@@ -460,22 +941,22 @@ export async function processMessage(
     const normalized = rawMessage.trim();
     if (normalized === "1" || /tutor|teach|instructor/i.test(normalized)) {
       return {
-        reply: `Acha! Kaunsa subject padhate hain aur kahan se hain? 📚\n\nJaise: "Maths & Science, Dwarka Delhi"`,
+        reply: `Badhiya! Kaunse subject, kaunsi class aur kahan se ho? 📚`,
         nextStep: "T_CONVO",
         updatedData: {},
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["Sangam Vihar, Delhi", "Dwarka, Delhi", "Noida"],
+        quickReplies: ["All Subjects, Class 1-8", "Maths, Class 9-10, Dwarka", "Physics, Class 11-12, Rohini"],
       };
     }
     if (normalized === "2" || /parent|student|child|hire/i.test(normalized)) {
       return {
-        reply: `Acha! Aapke bachche ke liye kaunsi class aur subject chahiye? 🎓\n\nJaise: "Class 10, Maths & Science, Rohini Delhi"`,
+        reply: `Acha! Bachche ke liye kaunsi class, subject aur area mein tutor chahiye? 🎓📍`,
         nextStep: "P_CONVO",
         updatedData: {},
         userType: "PARENT",
         retries: 0,
-        quickReplies: ["Class 9-10 Maths & Sci", "Class 1-5 All", "Class 11-12"],
+        quickReplies: ["Class 9-10 Maths & Sci", "Class 1-5 All Subjects", "Class 11-12"],
       };
     }
 
@@ -495,8 +976,8 @@ export async function processMessage(
     return handleInvalid(session, MSG.WELCOME, ["1️⃣ TUTOR", "2️⃣ PARENT"]);
   }
 
-  // TUTOR conversational fallback: Require email and password before registering
-  if (step === "T_CONVO" || step === "T_EMAIL" || step === "T_PASSWORD" || step === "DONE") {
+  // TUTOR conversational fallback: Require subject, class, area, email, and password before registering
+  if (step === "T_CONVO" || step === "T_SUBJECTS" || step === "T_CLASS" || step === "T_AREA" || step === "T_EMAIL" || step === "T_PASSWORD" || step === "DONE") {
     const trimmed = rawMessage.trim();
     const updated = { ...data };
 
@@ -513,55 +994,232 @@ export async function processMessage(
       updated.password = trimmed;
     }
 
-    if (!updated.area && /vihar|nagar|road|enclave|colony|delhi|noida|gurgaon|sector|pur|ext|saket|kalkaji/i.test(trimmed)) {
+    const classMatch =
+      trimmed.match(/(?:class|grade)\s*(\d{1,2}(?:\s*(?:to|-|and)\s*\d{1,2})?|\b[1-9]\b|\b1[0-2]\b|primary|middle|senior|nursery|kg|jee|neet|all)/i) ||
+      trimmed.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s*(?:to|-|and)\s*\d{1,2}(?:st|nd|rd|th)?)\b/i) ||
+      trimmed.match(/\b(primary|middle school|senior secondary|11th and 12th|9th and 10th|1st to 5th|6th to 8th|9th to 12th|all classes|class 1-8|till 8th)\b/i);
+    if (classMatch && !/^[12]$/.test(trimmed)) {
+      const cl = classMatch[0].trim();
+      updated.classLevel = cl;
+      updated.classLevels = [cl];
+    } else if (step === "T_CLASS" && !/^(menu|help|cancel)$/i.test(trimmed)) {
+      updated.classLevel = trimmed;
+      updated.classLevels = [trimmed];
+    }
+
+    const isAreaKeyword = /vihar|nagar|road|enclave|colony|delhi|noida|gurgaon|sector|pur|ext|saket|kalkaji|dwarka|rohini|janakpuri|uttam|vikaspuri|paschim|pitampura|shalimar|model town|ashok|south ex|malviya|green park|greater kailash|gk|cr park|nehru|lajpat|defence|vasant|mayur|laxmi|preet|nirman|shahdara|dilshad|karol bagh|patel|rajouri|najafgarh|narela|bawana|burari|sant nagar|sangam vihar|badarpur|sarita|okhla/i.test(trimmed);
+    if (isAreaKeyword) {
       updated.area = trimmed;
       updated.city = (updated.city as string) || "Delhi";
-    } else if (!updated.name && isValidName(trimmed) && !trimmed.includes(",") && !trimmed.includes("@")) {
-      updated.name = trimmed;
-    } else if (!updated.subjects) {
+    } else if (step === "T_AREA" && !/^(menu|help|cancel)$/i.test(trimmed)) {
+      updated.area = trimmed;
+      updated.city = (updated.city as string) || "Delhi";
+    }
+
+    const subMatches = trimmed.match(/\b(maths?|mathematics|science|physics|chemistry|biology|english|hindi|social studies|sst|history|geography|civics|economics|commerce|accounts|accountancy|business studies|computer science|cs|coding|python|all subjects)\b/gi);
+    if (subMatches) {
+      updated.subjects = Array.from(new Set(subMatches.map((s) => s.trim())));
+    } else if (step === "T_SUBJECTS" && !/^(menu|help|cancel)$/i.test(trimmed)) {
+      const splitSubs = trimmed.split(/,|and|&/i).map((s) => s.trim()).filter(Boolean);
+      updated.subjects = splitSubs.length > 0 ? splitSubs : [trimmed];
+    } else if (!updated.subjects && !isAreaKeyword && !classMatch && !emailMatch && !phoneMatch && !pwdMatch) {
       updated.subjects = [trimmed];
     }
 
-    const areaName = (updated.area as string) || "Delhi NCR";
-    const tutorName = (updated.name as string) || "";
+    if (/all\s*subjects?|combo/i.test(trimmed)) {
+      if (!updated.subjects || (Array.isArray(updated.subjects) && updated.subjects.length === 0)) {
+        updated.subjects = ["All Subjects", "All Subjects (Class 1-8)"];
+      } else if (!updated.subjects.some((s: string) => /all\s*subjects?/i.test(s))) {
+        updated.subjects.push("All Subjects", "All Subjects (Class 1-8)");
+      }
+    }
+    if (/1\s*[-–to]\s*8|class\s*1-8|till\s*8/i.test(trimmed)) {
+      if (!updated.classLevel) {
+        updated.classLevel = "Class 1-8";
+        updated.classLevels = ["Class 1-8"];
+      }
+      if (!updated.subjects || (Array.isArray(updated.subjects) && updated.subjects.length === 0)) {
+        updated.subjects = ["All Subjects", "All Subjects (Class 1-8)"];
+      }
+    }
+
+    const subsArr = Array.isArray(updated.subjects) && updated.subjects.length > 0 ? (updated.subjects as string[]) : [];
+    const hasSubs = subsArr.length > 0;
+    const classArr = Array.isArray(updated.classLevels) && updated.classLevels.length > 0
+      ? (updated.classLevels as string[])
+      : updated.classLevel ? [String(updated.classLevel)] : [];
+    const hasCls = classArr.length > 0;
+    const areaStr = typeof updated.area === "string" ? updated.area.trim() : "";
+    const hasAr = Boolean(areaStr && areaStr.toLowerCase() !== "delhi ncr" && areaStr.length >= 2);
+
+    // Enforce 3 Teaching Criteria FIRST!
+    if (!hasSubs && !hasCls && !hasAr) {
+      return {
+        reply: `Badhiya! Kaunse subject, kaunsi class aur kahan se ho? 📚`,
+        nextStep: "T_CONVO",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["All Subjects, Class 1-8", "Maths, Class 9-10, Dwarka", "Physics, Class 11-12, Rohini"],
+      };
+    }
+
+    if (hasSubs && !hasCls && !hasAr) {
+      const sFirst = subsArr[0] || "Subjects";
+      const suggestions = getSubjectClassSuggestions(sFirst);
+      return {
+        reply: suggestions.prompt,
+        nextStep: "T_CLASS",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: suggestions.quickReplies,
+      };
+    }
+
+    if (hasAr && hasSubs && !hasCls) {
+      const subsStr = subsArr.filter((s) => !/all subjects \(class 1-8\)/i.test(s)).join(", ");
+      const suggestions = getSubjectClassSuggestions(subsArr[0] || "Subjects");
+      return {
+        reply: `${areaStr} mein *${subsStr}* kaunsi classes ko padhate ho? 🎓`,
+        nextStep: "T_CLASS",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: suggestions.quickReplies,
+      };
+    }
+
+    // Common-Sense Subject-Grade Compatibility Validation:
+    if (hasSubs && hasCls) {
+      const validation = validateSubjectClassCompatibility(subsArr, classArr[0] || "", "TUTOR");
+      if (!validation.isValid) {
+        updated.classLevel = undefined;
+        updated.classLevels = undefined;
+        return {
+          reply: validation.reason!,
+          nextStep: "T_CLASS",
+          updatedData: updated,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: validation.suggestedReplies || ["Class 11-12", "Class 9-10 (Science)"],
+        };
+      }
+      if (validation.switchedSubject) {
+        updated.subjects = validation.switchedSubject;
+        subsArr.length = 0;
+        subsArr.push(...validation.switchedSubject);
+      }
+      if (validation.switchedClass) {
+        updated.classLevel = validation.switchedClass;
+        updated.classLevels = [validation.switchedClass];
+        classArr.length = 0;
+        classArr.push(validation.switchedClass);
+      }
+    }
+
+    if (hasSubs && hasCls && !hasAr) {
+      const ctx = formatHumanTeachingContext(subsArr, classArr[0] || "", areaStr);
+      updated.subjects = ctx.cleanSubs;
+      return {
+        reply: ctx.humanAreaPrompt,
+        nextStep: "T_AREA",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+      };
+    }
+
+    if (hasAr && !hasSubs && !hasCls) {
+      return {
+        reply: `*${areaStr}* mein kaunse subjects aur classes padhate ho? 📚`,
+        nextStep: "T_CONVO",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
+      };
+    }
+
+    if (!hasSubs) {
+      return {
+        reply: `Kaunse subjects padhate hain? 📚`,
+        nextStep: "T_SUBJECTS",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["All Subjects (Class 1-8)", "Maths", "Science", "Maths & Science"],
+      };
+    }
+
+    if (!hasCls) {
+      return {
+        reply: `Kaunsi class tak padhate ho? 🎓`,
+        nextStep: "T_CLASS",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Class 1-8 (All Subjects)", "Class 9-10", "Class 11-12", "All Classes (1 to 12)"],
+      };
+    }
+
+    if (!hasAr) {
+      return {
+        reply: `Aapka teaching area / location kya hai? 📍`,
+        nextStep: "T_AREA",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+      };
+    }
+
+    const ctx = formatHumanTeachingContext(subsArr, classArr[0] || "", areaStr);
+    updated.subjects = ctx.cleanSubs;
+    const areaName = areaStr || "Delhi";
     const emailStr = typeof updated.email === "string" ? updated.email.trim().toLowerCase() : "";
     const hasValidEmail = Boolean(emailStr && emailStr.includes("@") && emailStr.includes("."));
-    const skippedEmail = /skip\s*email|^skip$/i.test(trimmed);
 
-    // 1. Check Email
-    if (!hasValidEmail && !skippedEmail && step !== "T_PASSWORD") {
+    // 1. Check Email (MANDATORY — NO SKIP)
+    if (!hasValidEmail && step !== "T_PASSWORD") {
       return {
-        reply: `Namaste${tutorName ? ` *${tutorName}* ji` : ""}! 🙏\n\n📧 Please reply with your *Email ID* (e.g. yourname@gmail.com) so we can create your tutor dashboard account and send you student lead alerts:`,
+        reply: `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\nStudent lead alerts aur login ke liye apna Email ID share karein: 📧`,
         nextStep: "T_EMAIL",
         updatedData: updated,
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["Skip Email", "Dwarka, Delhi", "Noida / Gurgaon"],
+        quickReplies: [],
       };
     }
 
     // 2. Check Password
     const pwdStr = typeof updated.password === "string" ? updated.password.trim() : "";
-    if (!pwdStr) {
-      const emailNotice = hasValidEmail ? `\n📧 *Email ID:* ${emailStr}` : "";
+    if (!pwdStr && step !== "T_PASSWORD") {
       return {
-        reply: `Almost there! ✨${emailNotice}\n\n🔐 Please reply with the *Password* (minimum 6 characters) you want to set for your ApnaTutorHub login account:\n_(Login URL: https://apnatutorhub.com/login)_`,
+        reply: `Email note ho gaya: *${emailStr}* ✅\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
         nextStep: "T_PASSWORD",
         updatedData: updated,
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["123456", "Pass@123", "Help & Info"],
+        quickReplies: ["Default Password", "12345678"],
       };
     }
 
-    if (pwdStr.length < 6) {
-      return {
-        reply: `⚠️ Password must be at least 6 characters long.\n\n🔐 Please reply with a password of 6 or more characters:`,
-        nextStep: "T_PASSWORD",
-        updatedData: { ...updated, password: undefined },
-        userType: "TUTOR",
-        retries: 0,
-      };
+    if (step === "T_PASSWORD") {
+      if (/default|skip|12345678|nahi|no/i.test(pwdStr)) {
+        updated.password = "12345678";
+        updated._usedDefaultPassword = true;
+      } else if (pwdStr.length < 6) {
+        return {
+          reply: `⚠️ Password minimum 6 characters ka hona chahiye.\n\n🔐 Phir se enter karein ya type karein *default*:`,
+          nextStep: "T_PASSWORD",
+          updatedData: { ...updated, password: undefined },
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["Default Password", "12345678"],
+        };
+      }
     }
 
     // 3. Register Tutor
@@ -592,11 +1250,13 @@ export async function processMessage(
       console.error("[engine] fallback auto-register tutor failed:", regErr);
     }
 
+    const usedDefault = updated._usedDefaultPassword === true;
+    updated._registered = true;
     const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
       email: emailToUse,
       phone: phoneToUse,
       hasPassword: true,
-    });
+    }) + (usedDefault ? `\n\n🔑 Default password *12345678* set kiya hai. Website par login karke change kar sakte hain: https://apnatutorhub.com/login` : "");
 
     return {
       reply: richReply,

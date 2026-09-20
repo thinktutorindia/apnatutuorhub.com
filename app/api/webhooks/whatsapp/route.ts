@@ -112,6 +112,27 @@ function parseInboundPayload(body: Record<string, unknown>): NormalisedInbound {
   return null;
 }
 
+// ── Message Deduplication ────────────────────────────────────────────────────
+// Pinbot/Aqua may retry webhooks causing duplicate bot replies.
+// Cache phone+text hash for 30 seconds to silently ignore retries.
+const recentMessages = new Map<string, number>(); // key → timestamp
+const DEDUP_TTL_MS = 30_000; // 30 seconds
+
+function isDuplicateMessage(phone: string, text: string): boolean {
+  // Cleanup old entries
+  const now = Date.now();
+  for (const [key, ts] of recentMessages) {
+    if (now - ts > DEDUP_TTL_MS) recentMessages.delete(key);
+  }
+  const dedupKey = `${phone}:${text.trim().toLowerCase().slice(0, 100)}`;
+  if (recentMessages.has(dedupKey)) {
+    console.log(`[whatsapp-webhook] Duplicate message ignored from ${phone}`);
+    return true;
+  }
+  recentMessages.set(dedupKey, now);
+  return false;
+}
+
 // ── Webhook handler ──────────────────────────────────────────────────────────
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -152,6 +173,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const { phone, text } = inbound;
 
+  // ── Deduplication check ─────────────────────────────────────────────────
+  if (isDuplicateMessage(phone, text)) {
+    return smartPingSuccess(); // Silently ack, don't re-process
+  }
+
   console.log(`[whatsapp-bot] Inbound from ${phone}: "${text.slice(0, 80)}"`);
 
   try {
@@ -180,7 +206,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     try {
       await sendBotMessage(
         phone,
-        "⚠️ We encountered an issue. Please type *MENU* to restart or *HELP* for support."
+        "Kuch gadbad ho gayi. *MENU* type karo phir se try karne ke liye."
       );
     } catch {
       // Best-effort

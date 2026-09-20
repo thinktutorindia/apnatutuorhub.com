@@ -10,10 +10,16 @@ import { sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
  * Send a plain-text WhatsApp message to a user.
  * `to` should be E.164 digits without +, e.g. "919876543210".
  */
-export async function sendBotMessage(to: string, text: string): Promise<void> {
-  const result = await sendAquaWhatsAppMessage({ to, mode: "text", text });
+export async function sendBotMessage(to: string, text: string): Promise<boolean> {
+  const result = await sendAquaWhatsAppMessage({
+    to,
+    mode: "text",
+    text,
+    bypassDailyCap: true,
+  });
   if (!result.ok) {
-    // Log but don't throw — a failed send shouldn't crash the webhook handler
     console.error(`[whatsapp-bot] send failed to ${to}: ${result.error}`);
+    return false;
   }
+  return true;
 }

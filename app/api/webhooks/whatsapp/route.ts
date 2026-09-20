@@ -1,9 +1,8 @@
 /**
  * app/api/webhooks/whatsapp/route.ts
  *
- * Receives inbound WhatsApp messages from Aqua SMS / Pinbot.
  * Configure this URL in the Aqua SMS portal as the webhook endpoint:
- *   https://apnatutorhub.com/api/webhooks/whatsapp
+ *   https://www.apnatutorhub.com/api/webhooks/whatsapp
  *
  * Pinbot sends a POST with JSON body. The shape varies slightly by version;
  * we normalise all known variants into { phone, text }.

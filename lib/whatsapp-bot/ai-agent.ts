@@ -126,7 +126,7 @@ Respond with the JSON object only:
 
   for (const model of models) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7000);
+    const timeout = setTimeout(() => controller.abort(), 3500);
 
     try {
       const isLite = model.includes("lite");

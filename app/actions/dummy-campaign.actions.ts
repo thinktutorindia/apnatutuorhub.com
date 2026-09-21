@@ -4,7 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
-import { runCampaignPass, resolveCampaignTargets, generateDummyLead, getNearestLocalities, type DummyLead } from "@/lib/dummy-lead-engine";
+import {
+  runCampaignPass,
+  resolveCampaignTargets,
+  generateDummyLead,
+  getNearestLocalities,
+  deliverDummyLeadToTutor,
+  type DummyLead,
+} from "@/lib/dummy-lead-engine";
 import { parseCampaignCfg, serializeCampaignCfg, type DummyCampaignCfg } from "@/lib/dummy-campaign-types";
 import { isGenuineEmail } from "@/lib/lead-utils";
 import type { DummyCampaignStatus, DummyTargetGroup } from "@prisma/client";
@@ -37,6 +44,7 @@ export async function createDummyCampaignAction(
     autoAdapt?: boolean;
     emailFilter?: DummyCampaignCfg["emailFilter"];
     autoEnrollNewTutors?: boolean;
+    radiusKm?: number;
     totalLimit?: number | null;
     startDate?: string | null;
     endDate?: string | null;
@@ -65,6 +73,7 @@ export async function createDummyCampaignAction(
         autoAdapt: data.autoAdapt !== false,
         emailFilter: data.emailFilter ?? "GENUINE_ONLY",
         autoEnrollNewTutors: data.autoEnrollNewTutors !== false,
+        radiusKm: data.radiusKm ?? 10,
       }),
       createdById: session!.user.id,
     },
@@ -436,7 +445,12 @@ export async function getTutorsForCampaignTargetAction(opts: {
     name: string | null;
     email: string;
     phone: string | null;
+    hasPhone: boolean;
     city: string | null;
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    teachingRadius: number;
     subjects: string[];
     classLevels: string[];
     isVerified: boolean;
@@ -502,8 +516,12 @@ export async function getTutorsForCampaignTargetAction(opts: {
         tutorProfile: {
           select: {
             city: true,
+            address: true,
             subjects: true,
             classLevels: true,
+            latitude: true,
+            longitude: true,
+            teachingRadius: true,
             isVerified: true,
           },
         },
@@ -524,7 +542,12 @@ export async function getTutorsForCampaignTargetAction(opts: {
       name: u.name,
       email: u.email,
       phone: u.phone,
+      hasPhone: Boolean(u.phone),
       city: u.tutorProfile?.city ?? null,
+      address: u.tutorProfile?.address ?? null,
+      latitude: u.tutorProfile?.latitude ?? null,
+      longitude: u.tutorProfile?.longitude ?? null,
+      teachingRadius: u.tutorProfile?.teachingRadius ?? 10,
       subjects: u.tutorProfile?.subjects ?? [],
       classLevels: u.tutorProfile?.classLevels ?? [],
       isVerified: u.tutorProfile?.isVerified ?? false,
@@ -594,6 +617,7 @@ export async function quickActivateDailyAllTutorsCampaignAction(): Promise<
           rateType: "HOURLY",
           autoAdapt: true,
           emailFilter: "GENUINE_ONLY",
+          radiusKm: 10,
         }
       ),
       createdById: session!.user.id,
@@ -602,6 +626,199 @@ export async function quickActivateDailyAllTutorsCampaignAction(): Promise<
 
   revalidatePath("/admin/dummy-campaigns");
   return actionSuccess({ campaignId: newCampaign.id, created: true, status: "ACTIVE" });
+}
+
+/**
+ * 1-Click AI Smart Campaign Dispatcher:
+ * Intelligently targets tutors strictly within 5km radius of their location,
+ * matches the exact subjects and classes they teach, calculates AI credits & WhatsApp INR consumption,
+ * and sends WhatsApp (+ any selected channels) in just one click.
+ */
+export async function dispatchOneClickAiCampaignAction(opts: {
+  tutorIds: string[];
+  channels: string[]; // ["WHATSAPP", "PUSH", "IN_APP", "EMAIL"]
+  radiusKm?: number;  // default 5 (strict 5km)
+  budgetMin?: number;
+  budgetMax?: number;
+  rateType?: "HOURLY" | "MONTHLY";
+  overrideSubjects?: string[];
+}): Promise<
+  ActionResult<{
+    sentCount: number;
+    failedCount: number;
+    tutorCount: number;
+    consumedCredits: number;
+    consumedInr: number;
+    details: string;
+  }>
+> {
+  const { error, session } = await requireSuperAdmin();
+  if (error) return actionError(error);
+
+  const {
+    tutorIds,
+    channels,
+    radiusKm = 5,
+    budgetMin = 350,
+    budgetMax = 900,
+    rateType = "HOURLY",
+    overrideSubjects = [],
+  } = opts;
+
+  if (!tutorIds || tutorIds.length === 0) {
+    return actionError("Please select at least one tutor to dispatch notifications");
+  }
+  if (!channels || channels.length === 0) {
+    return actionError("Please select at least one channel (e.g. WhatsApp, Push, In-App)");
+  }
+
+  // 1. Fetch targeted tutors
+  const tutors = await prisma.user.findMany({
+    where: {
+      id: { in: tutorIds },
+      role: "TUTOR",
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      tutorProfile: {
+        select: {
+          id: true,
+          city: true,
+          address: true,
+          subjects: true,
+          classLevels: true,
+          latitude: true,
+          longitude: true,
+          teachingRadius: true,
+          teachingMode: true,
+          feeMin: true,
+          feeMax: true,
+          marketingNotifsEnabled: true,
+        },
+      },
+    },
+  });
+
+  if (tutors.length === 0) {
+    return actionError("No active tutors found for the selected IDs");
+  }
+
+  // 2. Ensure or fetch the system campaign container for 1-click AI campaigns
+  let systemCampaign = await prisma.dummyCampaign.findFirst({
+    where: { name: "⚡ 1-Click AI Smart WhatsApp & Lead Dispatch" },
+  });
+  if (!systemCampaign) {
+    systemCampaign = await prisma.dummyCampaign.create({
+      data: {
+        name: "⚡ 1-Click AI Smart WhatsApp & Lead Dispatch",
+        targetGroup: "CUSTOM",
+        channels,
+        status: "ACTIVE",
+        leadsPerDay: 1,
+        randomizeDaily: true,
+        budgetMin,
+        budgetMax,
+        createdById: session!.user.id,
+        description: serializeCampaignCfg(
+          "On-demand 1-Click AI Smart Campaign Dispatcher. Automatically targets tutors within strict 5km radius matching their taught subjects.",
+          {
+            rateType,
+            autoAdapt: true,
+            emailFilter: "ALL",
+            radiusKm,
+          }
+        ),
+      },
+    });
+  }
+
+  let totalSent = 0;
+  let totalFailed = 0;
+
+  // 3. Process each tutor with hyper-targeted AI locality (strict 5km radius) and matched subjects/classes
+  for (let i = 0; i < tutors.length; i++) {
+    const tutor = tutors[i];
+    const userSeed = tutor.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) + i * 89;
+
+    try {
+      const lead = await generateDummyLead({
+        tutorLat: tutor.tutorProfile?.latitude,
+        tutorLng: tutor.tutorProfile?.longitude,
+        tutorCity: tutor.tutorProfile?.city,
+        tutorAddress: tutor.tutorProfile?.address ?? "",
+        tutorSubjects: tutor.tutorProfile?.subjects ?? [],
+        tutorClassLevels: tutor.tutorProfile?.classLevels ?? [],
+        teachingRadius: radiusKm, // Strict 5km radius!
+        teachingMode: tutor.tutorProfile?.teachingMode,
+        tutorFeeMin: tutor.tutorProfile?.feeMin,
+        tutorFeeMax: tutor.tutorProfile?.feeMax,
+        rateType,
+        autoAdapt: true,
+        budgetMin,
+        budgetMax,
+        overrideSubjects,
+        userSeed,
+        stable: false,
+      });
+
+      const res = await deliverDummyLeadToTutor({
+        campaignId: systemCampaign.id,
+        userId: tutor.id,
+        userName: tutor.name,
+        userEmail: tutor.email,
+        userPhone: tutor.phone,
+        lead,
+        channels,
+      });
+
+      totalSent += res.sent;
+      totalFailed += res.failed;
+    } catch (err) {
+      console.error(`[dispatchOneClickAiCampaignAction] Failed for ${tutor.email}:`, err);
+      totalFailed++;
+    }
+  }
+
+  // 4. Calculate consumed resources
+  const hasWhatsApp = channels.includes("WHATSAPP");
+  const consumedCredits = tutors.length;
+  const consumedInr = hasWhatsApp ? Math.round(tutors.length * 0.147 * 100) / 100 : 0;
+
+  // 5. Update campaign stats & audit log
+  await Promise.all([
+    prisma.dummyCampaign.update({
+      where: { id: systemCampaign.id },
+      data: {
+        totalSent: { increment: totalSent },
+        totalFailed: { increment: totalFailed },
+        lastRunAt: new Date(),
+      },
+    }),
+    prisma.auditLog.create({
+      data: {
+        adminId: session!.user.id,
+        action: "ONE_CLICK_AI_DUMMY_CAMPAIGN",
+        entityType: "DummyCampaign",
+        details: `1-Click AI Campaign dispatched to ${tutors.length} tutors (${channels.join(", ")}) within strict ${radiusKm}km radius. Consumed ${consumedCredits} AI credits (${consumedInr > 0 ? `₹${consumedInr.toFixed(2)} WhatsApp cost` : "Free channels"}). Sent: ${totalSent}, Failed: ${totalFailed}.`,
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin/dummy-campaigns");
+  revalidatePath("/admin/notifications");
+
+  return actionSuccess({
+    sentCount: totalSent,
+    failedCount: totalFailed,
+    tutorCount: tutors.length,
+    consumedCredits,
+    consumedInr,
+    details: `Successfully dispatched to ${tutors.length} tutors (${totalSent} deliveries sent, ${totalFailed} failed). Consumed ${consumedCredits} AI credits${consumedInr > 0 ? ` · ~₹${consumedInr.toFixed(2)} WhatsApp cost` : ""}.`,
+  });
 }
 
 

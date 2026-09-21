@@ -268,7 +268,39 @@ export type DummyCampaignCfg = {
   autoAdapt: boolean;
   emailFilter: "GENUINE_ONLY" | "DUMMY_ONLY" | "ALL";
   autoEnrollNewTutors?: boolean;
+  radiusKm?: number; // e.g. 5 for strict 5km radius, 10, 15, 25
 };
+
+export const DUMMY_CAMPAIGN_CHANNELS = ["IN_APP", "PUSH", "EMAIL", "WHATSAPP"] as const;
+export type DummyCampaignChannel = (typeof DUMMY_CAMPAIGN_CHANNELS)[number];
+
+export const WHATSAPP_COST_PER_MSG_INR = 0.147;
+export const AI_CREDITS_PER_DISPATCH = 1;
+
+export function calculateCampaignResourceUsage(tutorCount: number, channels: string[]): {
+  tutorCount: number;
+  aiCredits: number;
+  whatsAppMsgCount: number;
+  whatsAppEstimatedInr: number;
+  summaryText: string;
+} {
+  const hasWhatsApp = channels.includes("WHATSAPP");
+  const whatsAppMsgCount = hasWhatsApp ? tutorCount : 0;
+  const whatsAppEstimatedInr = Math.round(whatsAppMsgCount * WHATSAPP_COST_PER_MSG_INR * 100) / 100;
+  const aiCredits = tutorCount * AI_CREDITS_PER_DISPATCH;
+
+  let summaryText = `${aiCredits} AI Credits`;
+  if (hasWhatsApp) {
+    summaryText += ` · ₹${whatsAppEstimatedInr.toFixed(2)} WhatsApp (~₹${WHATSAPP_COST_PER_MSG_INR}/msg)`;
+  }
+  return {
+    tutorCount,
+    aiCredits,
+    whatsAppMsgCount,
+    whatsAppEstimatedInr,
+    summaryText,
+  };
+}
 
 const CFG_RE = /<!--ATH_CFG:([\s\S]*?)-->/;
 
@@ -284,6 +316,7 @@ export function parseCampaignCfg(description?: string | null): DummyCampaignCfg 
     autoAdapt: true,
     emailFilter: "GENUINE_ONLY",
     autoEnrollNewTutors: true,
+    radiusKm: 10,
   };
   if (!description) return fallback;
   const m = description.match(CFG_RE);
@@ -300,6 +333,7 @@ export function parseCampaignCfg(description?: string | null): DummyCampaignCfg 
           ? parsed.emailFilter
           : "GENUINE_ONLY",
       autoEnrollNewTutors: parsed.autoEnrollNewTutors !== false,
+      radiusKm: typeof parsed.radiusKm === "number" && parsed.radiusKm > 0 ? parsed.radiusKm : 10,
     };
   } catch {
     return fallback;

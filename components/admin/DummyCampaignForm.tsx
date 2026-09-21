@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useTransition, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import {
   Loader2, Users, AlertCircle, Check, CheckCircle2, Mail, Bell, Smartphone, MapPin,
   Sparkles, Search, CheckSquare, Square, Filter, Clock, IndianRupee,
-  Calendar, ShieldCheck, Layers, GraduationCap, Info, ChevronRight, X
+  Calendar, ShieldCheck, Layers, GraduationCap, Info, ChevronRight, X,
+  MessageCircle, Coins,
 } from "lucide-react";
 import {
   createDummyCampaignAction,
@@ -12,7 +13,7 @@ import {
   getTutorsForCampaignTargetAction,
   toggleCampaignStatusAction,
 } from "@/app/actions/dummy-campaign.actions";
-import { CLASS_FEE_RATES } from "@/lib/dummy-campaign-types";
+import { CLASS_FEE_RATES, calculateCampaignResourceUsage } from "@/lib/dummy-campaign-types";
 import { isGenuineEmail } from "@/lib/lead-utils";
 import type { DummyTargetGroup } from "@prisma/client";
 
@@ -43,6 +44,7 @@ const CHANNELS = [
   { key: "IN_APP", label: "In-App Bell", icon: <Bell size={14} />, color: "text-amber-600 bg-amber-50 border-amber-200", activeColor: "bg-amber-500 text-white border-amber-500" },
   { key: "PUSH",   label: "Web Push",    icon: <Smartphone size={14} />, color: "text-purple-600 bg-purple-50 border-purple-200", activeColor: "bg-purple-500 text-white border-purple-500" },
   { key: "EMAIL",  label: "Email Alert", icon: <Mail size={14} />, color: "text-blue-600 bg-blue-50 border-blue-200", activeColor: "bg-blue-500 text-white border-blue-500" },
+  { key: "WHATSAPP", label: "WhatsApp (Aqua)", icon: <MessageCircle size={14} />, color: "text-emerald-700 bg-emerald-50 border-emerald-300", activeColor: "bg-emerald-600 text-white border-emerald-600" },
 ];
 
 type RateType = "HOURLY" | "MONTHLY";
@@ -58,8 +60,9 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
   const [targetGroup, setTargetGroup] = useState<DummyTargetGroup>("ALL_TUTORS");
   const [emailFilter, setEmailFilter] = useState<"GENUINE_ONLY" | "ALL" | "DUMMY_ONLY">("GENUINE_ONLY");
   const [autoEnrollNewTutors, setAutoEnrollNewTutors] = useState(true);
-  const [channels, setChannels] = useState<string[]>(["IN_APP", "PUSH", "EMAIL"]);
+  const [channels, setChannels] = useState<string[]>(["IN_APP", "PUSH", "EMAIL", "WHATSAPP"]);
   const [autoActivate, setAutoActivate] = useState(true);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
 
   // Interactive Tutor Picker State (for Custom / Search)
   const [tutorSearch, setTutorSearch] = useState("");
@@ -277,6 +280,7 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
         autoAdapt: feePreset === "AUTO_ADAPT",
         emailFilter,
         autoEnrollNewTutors,
+        radiusKm,
         totalLimit: totalLimit ? parseInt(totalLimit) : null,
         startDate: startDate || null,
         endDate: endDate || null,
@@ -701,13 +705,13 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
             {/* Channels */}
             <div>
               <label className={labelCls}>Delivery Channels *</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {CHANNELS.map((ch) => (
                   <button
                     key={ch.key}
                     type="button"
                     onClick={() => toggleChannel(ch.key)}
-                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black border transition-all ${
+                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black border transition-all cursor-pointer ${
                       channels.includes(ch.key) ? ch.activeColor : ch.color
                     }`}
                   >
@@ -719,6 +723,74 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
                 <p className="text-[11px] text-rose-500 font-bold mt-1">Please select at least one delivery channel</p>
               )}
             </div>
+
+            {/* Strict 5km Radius Filter */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className={labelCls}>Strict Location Radius Filter *</label>
+                <span className="text-[11px] font-extrabold text-[#2D9E6B] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  {radiusKm === 5 ? "📍 5km Strict Radius Active" : `${radiusKm}km Radius`}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { km: 5, label: "📍 5 km (Strict Nearby)", sub: "Strictly within 5km radius of tutor location" },
+                  { km: 10, label: "🚗 10 km (Standard)", sub: "Standard neighborhood tutoring radius" },
+                  { km: 25, label: "🌐 25 km (Metropolitan)", sub: "Broad city-wide coverage" },
+                ].map((r) => (
+                  <button
+                    key={r.km}
+                    type="button"
+                    onClick={() => setRadiusKm(r.km)}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      radiusKm === r.km
+                        ? "bg-white border-emerald-500 ring-2 ring-emerald-500/20 font-black text-slate-900 shadow-xs"
+                        : "bg-slate-50 border-slate-200 hover:bg-white text-slate-600 font-bold"
+                    }`}
+                  >
+                    <p className="text-xs">{r.label}</p>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{r.sub}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Real-time Amount & AI Credits Consumption Forecast */}
+            {(() => {
+              const count = targetGroup === "CUSTOM" ? selectedUserIds.length : (preview?.count ?? 0);
+              const usage = calculateCampaignResourceUsage(count, channels);
+              return (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 border border-emerald-200 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Coins size={16} className="text-emerald-600" />
+                      <p className="text-xs font-black text-slate-900">Campaign Resource &amp; Amount Forecast</p>
+                    </div>
+                    <span className="text-[11px] font-black text-emerald-950 bg-white px-2.5 py-0.5 rounded-full border border-emerald-300 shadow-2xs">
+                      {usage.summaryText}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
+                    <div className="bg-white/90 p-2 rounded-xl border border-emerald-100">
+                      <p className="text-[10px] text-slate-500 font-bold">Targeted Tutors</p>
+                      <p className="text-sm font-black text-slate-900">{usage.tutorCount}</p>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-emerald-100">
+                      <p className="text-[10px] text-slate-500 font-bold">AI Credits Consumed</p>
+                      <p className="text-sm font-black text-purple-700">{usage.aiCredits}</p>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-emerald-100">
+                      <p className="text-[10px] text-slate-500 font-bold">WhatsApp Messages</p>
+                      <p className="text-sm font-black text-emerald-700">{usage.whatsAppMsgCount}</p>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-emerald-100">
+                      <p className="text-[10px] text-slate-500 font-bold">Est. WhatsApp Amount</p>
+                      <p className="text-sm font-black text-slate-900">₹{usage.whatsAppEstimatedInr.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Auto-activate toggle */}
             <label className="flex items-center gap-3 cursor-pointer p-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50 transition-all">

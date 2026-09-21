@@ -307,7 +307,7 @@ export async function processMessage(
       const ai = await askGeminiChatbot(rawMessage, session);
       if (ai && ai.reply) {
         // Clean and merge extracted data
-        const mergedData = { ...data };
+        const mergedData: Record<string, any> = { ...data };
         if (ai.extractedData) {
           for (const [k, v] of Object.entries(ai.extractedData)) {
             if (v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)) {
@@ -979,7 +979,7 @@ export async function processMessage(
   // TUTOR conversational fallback: Require subject, class, area, email, and password before registering
   if (step === "T_CONVO" || step === "T_SUBJECTS" || step === "T_CLASS" || step === "T_AREA" || step === "T_EMAIL" || step === "T_PASSWORD" || step === "DONE") {
     const trimmed = rawMessage.trim();
-    const updated = { ...data };
+    const updated: Record<string, any> = { ...data };
 
     const emailMatch = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
     if (emailMatch && !updated.email) updated.email = emailMatch[0].toLowerCase();
@@ -1225,6 +1225,7 @@ export async function processMessage(
     // 3. Register Tutor
     const phoneToUse = (updated.phone as string) || session.phone;
     const emailToUse = hasValidEmail ? emailStr : undefined;
+    const tutorName = (updated.name as string) || "";
 
     const leads = await getChatbotMatchingLeads(
       areaName,

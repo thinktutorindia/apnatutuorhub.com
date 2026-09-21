@@ -3,13 +3,16 @@ import { redirect } from "next/navigation";
 import {
   ArrowRight, Search, Wallet, ShieldCheck, ShieldAlert, Star, UserCog,
   BookOpen, CheckCircle2, MapPin, MessageSquare, ChevronRight, UserCheck,
+  Navigation, Globe, Sparkles,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calcProfileScore } from "@/lib/profile-score";
-import { formatLeadBudget } from "@/lib/lead-utils";
+import { formatLeadBudget, getInquiryDisplayCode } from "@/lib/lead-utils";
 import { TutorAnalyticsWidget } from "@/components/tutor/TutorAnalyticsWidget";
 import { EnablePushBanner } from "@/components/EnablePushBanner";
+import { haversineDistanceKm } from "@/lib/haversine";
+import { hasSubjectOverlap } from "@/lib/feed-matching";
 
 export default async function TutorDashboardPage() {
   const session = await auth();
@@ -80,27 +83,118 @@ export default async function TutorDashboardPage() {
   ];
   const profileScore = scoreBreakdown?.total ?? 0;
 
-  // Fetch recent active student leads for preview
-  const recentLeads = await prisma.lead.findMany({
+  const tutorSubjects = tutorProfile?.subjects ?? [];
+  const tutorLat = tutorProfile?.latitude;
+  const tutorLng = tutorProfile?.longitude;
+  const tutorCity = tutorProfile?.city?.trim().toLowerCase();
+
+  // Fetch active student requirements for matching
+  const candidateLeads = await prisma.lead.findMany({
     where: {
-      status: { in: ["ACTIVE", "MATCHING"] },
+      status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
     },
     orderBy: { createdAt: "desc" },
-    take: 3,
+    take: 120,
     select: {
       id: true,
+      inquiryNumber: true,
       classLevel: true,
       subjects: true,
       mode: true,
       city: true,
       area: true,
+      latitude: true,
+      longitude: true,
       budgetMin: true,
       budgetMax: true,
       notes: true,
       timingPreference: true,
       createdAt: true,
+      purchaseCount: true,
+      maxTutors: true,
     },
   });
+
+  type DashboardLead = (typeof candidateLeads)[number] & {
+    distanceKm: number | null;
+    isStrictNearby: boolean;
+    isOnline: boolean;
+    subjectMatched: boolean;
+  };
+
+  const processedLeads: DashboardLead[] = [];
+
+  for (const lead of candidateLeads) {
+    let distanceKm: number | null = null;
+    if (
+      tutorLat !== null &&
+      tutorLat !== undefined &&
+      tutorLng !== null &&
+      tutorLng !== undefined &&
+      lead.latitude !== null &&
+      lead.latitude !== undefined &&
+      lead.longitude !== null &&
+      lead.longitude !== undefined
+    ) {
+      distanceKm = Math.round(haversineDistanceKm(tutorLat, tutorLng, lead.latitude, lead.longitude) * 10) / 10;
+    }
+
+    const isOnline = lead.mode === "ONLINE";
+    // Strict nearby location: within 10km radius
+    const isStrictNearby = distanceKm !== null && distanceKm <= 10;
+
+    // Strict subject matching: lead must match subjects the teacher teaches
+    const subjectMatched =
+      tutorSubjects.length > 0 ? hasSubjectOverlap(tutorSubjects, lead.subjects) : true;
+
+    processedLeads.push({
+      ...lead,
+      distanceKm,
+      isStrictNearby,
+      isOnline,
+      subjectMatched,
+    });
+  }
+
+  // 1. Strict Subject Filter: only leads matching what the teacher teaches
+  const subjectMatchedLeads = processedLeads.filter((l) => l.subjectMatched);
+
+  // 2. Strict Nearby (<10km) and Online Classes within 10km or available
+  const strictNearbyLeads = subjectMatchedLeads
+    .filter((l) => {
+      if (l.isOnline) {
+        // Shows online classes: if within 10km or general online requirement for their subject
+        return l.distanceKm === null || l.distanceKm <= 10 || l.isOnline;
+      }
+      return l.isStrictNearby;
+    })
+    .sort((a, b) => {
+      // Prioritize strict physical distance <= 10km first, then online
+      const distA = a.distanceKm ?? 999;
+      const distB = b.distanceKm ?? 999;
+      if (distA !== distB) return distA - distB;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+  // 3. Fallback: If no leads around their location, show uploaded leads matching the subjects they teach
+  let isFallback = false;
+  let recentLeads: DashboardLead[] = [];
+
+  if (strictNearbyLeads.length > 0) {
+    recentLeads = strictNearbyLeads.slice(0, 3);
+  } else {
+    isFallback = true;
+    recentLeads = subjectMatchedLeads
+      .sort((a, b) => {
+        // Prioritize city match, then online mode, then newest
+        const cityA = tutorCity && a.city?.toLowerCase().includes(tutorCity) ? 1 : 0;
+        const cityB = tutorCity && b.city?.toLowerCase().includes(tutorCity) ? 1 : 0;
+        if (cityA !== cityB) return cityB - cityA;
+        if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(0, 3);
+  }
 
   const purchasedLeadIds = new Set(
     tutorProfile
@@ -329,53 +423,108 @@ export default async function TutorDashboardPage() {
       <div className="ath-panel p-6 space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-              New tuition enquiries near you
-            </h2>
-            <p className="text-sm text-[#64748B]">Parents who just posted a requirement in your area</p>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
+                {isFallback ? "Tuition enquiries for your subjects" : "Strict nearby tuition enquiries (≤10km)"}
+              </h2>
+              {isFallback ? (
+                <span className="text-[11px] font-800 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
+                  <Sparkles size={11} className="text-blue-600" /> Uploaded Leads Section
+                </span>
+              ) : (
+                <span className="text-[11px] font-800 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                  <Navigation size={11} className="text-[#2D9E6B]" /> Within 10km &amp; Online
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-[#64748B]">
+              {isFallback
+                ? "No student postings within 10km right now. Showing active leads uploaded in the system strictly matching what you teach!"
+                : "Student requirements strictly matching the subjects you teach within a 10km radius and available online classes."}
+            </p>
           </div>
-          <Link href="/tutor/leads" className="text-sm font-800 text-[#2D9E6B] inline-flex items-center gap-1 shrink-0">
-            View all <ArrowRight size={14} />
+          <Link href="/tutor/leads" className="text-sm font-800 text-[#2D9E6B] hover:text-[#238357] inline-flex items-center gap-1 shrink-0">
+            View all leads <ArrowRight size={14} />
           </Link>
         </div>
 
         {recentLeads.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {recentLeads.map((lead) => (
-              <div key={lead.id} className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3 flex flex-col justify-between min-w-0">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-800 px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#238357]">
-                      {lead.classLevel || "Tuition"}
-                    </span>
-                    <span className="text-[11px] font-700 text-[#64748B]">
-                      {lead.mode === "ONLINE" ? "Online" : "Home tuition"}
-                    </span>
+            {recentLeads.map((lead) => {
+              const inquiryCode = getInquiryDisplayCode(lead);
+              const spotsLeft = Math.max(0, lead.maxTutors - lead.purchaseCount);
+              return (
+                <div key={lead.id} className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#2D9E6B]/50 transition-all space-y-3 flex flex-col justify-between min-w-0 shadow-2xs">
+                  <div className="space-y-2">
+                    {/* Inquiry Number & Mode / Distance */}
+                    <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                      <span className="font-mono font-extrabold text-[11px] text-[#0F2540] bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                        #{inquiryCode}
+                      </span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {lead.distanceKm !== null && lead.distanceKm <= 10 ? (
+                          <span className="text-[11px] font-800 px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">
+                            <Navigation size={10} className="text-[#238357]" /> {lead.distanceKm.toFixed(1)} km
+                          </span>
+                        ) : lead.isOnline ? (
+                          <span className="text-[11px] font-800 px-2 py-0.5 rounded-lg bg-sky-100 text-sky-800 border border-sky-200 inline-flex items-center gap-1">
+                            <Globe size={10} className="text-sky-600" /> Online
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-700 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                            {lead.city || "Uploaded"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-800 px-2.5 py-0.5 rounded-full bg-[#0F2540] text-white">
+                        {lead.classLevel || "Tuition"}
+                      </span>
+                      <span className="text-[11px] font-700 text-[#64748B] bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                        {lead.mode === "ONLINE" ? "Online Class" : "Home Tuition"}
+                      </span>
+                      {spotsLeft > 0 && (
+                        <span className="text-[10px] font-800 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                          {spotsLeft} slot{spotsLeft > 1 ? "s" : ""} left
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="text-sm font-800 text-[#0F2540] leading-snug">
+                      {(lead.subjects && lead.subjects.slice(0, 3).join(", ")) || "Multiple subjects"}
+                    </h3>
+
+                    <p className="text-xs text-[#64748B] flex items-center gap-1 min-w-0">
+                      <MapPin size={13} className="text-[#2D9E6B] shrink-0" />
+                      <span className="truncate">{lead.area ? `${lead.area}, ${lead.city}` : lead.city || "Student Area"}</span>
+                    </p>
                   </div>
-                  <h3 className="text-sm font-800 text-[#0F2540] leading-snug">
-                    {(lead.subjects && lead.subjects.slice(0, 2).join(", ")) || "Multiple subjects"}
-                  </h3>
-                  <p className="text-xs text-[#64748B] flex items-center gap-1 min-w-0">
-                    <MapPin size={13} className="text-[#2D9E6B] shrink-0" />
-                    <span className="truncate">{lead.area ? `${lead.area}, ${lead.city}` : lead.city}</span>
-                  </p>
+
+                  <div className="pt-2.5 border-t border-[#E2E8F0] flex items-center justify-between gap-2">
+                    <span className="text-xs font-800 text-[#0F2540]">{formatLeadBudget(lead)}</span>
+                    <Link
+                      href={purchasedLeadIds.has(lead.id) ? "/tutor/leads?tab=unlocked" : "/tutor/leads"}
+                      className="px-3 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 transition-colors inline-flex items-center gap-1 shadow-2xs"
+                    >
+                      {purchasedLeadIds.has(lead.id) ? "Open Unlocked" : "Unlock Lead"}
+                    </Link>
+                  </div>
                 </div>
-                <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between gap-2">
-                  <span className="text-xs font-800 text-[#0F2540]">{formatLeadBudget(lead)}</span>
-                  <Link
-                    href={purchasedLeadIds.has(lead.id) ? "/tutor/leads?tab=unlocked" : "/tutor/leads"}
-                    className="text-xs font-800 text-[#2D9E6B]"
-                  >
-                    {purchasedLeadIds.has(lead.id) ? "Open unlocked" : "View lead"}
-                  </Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="p-8 rounded-2xl bg-[#F8FAFC] border border-dashed border-[#E2E8F0] text-center space-y-2">
-            <p className="text-sm font-700 text-[#0F2540]">No new enquiries right now.</p>
-            <p className="text-sm text-[#64748B]">Add more subjects and your area in your profile so parents can find you faster.</p>
+            <p className="text-sm font-700 text-[#0F2540]">No tuition requirements matching your subjects right now.</p>
+            <p className="text-sm text-[#64748B]">Add more subjects and class levels in your profile so parents looking for tutors can match with you instantly.</p>
+            <Link
+              href="/tutor/profile"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0F2540] text-white text-xs font-800 mt-2"
+            >
+              Update Teaching Subjects
+            </Link>
           </div>
         )}
       </div>

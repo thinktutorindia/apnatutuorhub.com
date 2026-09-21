@@ -14,6 +14,7 @@ import { dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush } from "@/lib/web-push";
 import { renderDummyLeadEmail } from "@/emails/DummyLeadEmail";
 import { isTill5thClass, isGenuineEmail } from "@/lib/lead-utils";
+import { sendAquaWhatsAppMessage, normalizeIndiaWhatsApp, getAquaWhatsAppConfig } from "@/lib/aqua-whatsapp";
 
 // ─── Geo-tagged Locality Database ─────────────────────────────────────────────
 // Format: { name, city, lat, lng }
@@ -552,10 +553,11 @@ export async function deliverDummyLeadToTutor(opts: {
   userId: string;
   userName: string | null;
   userEmail: string;
+  userPhone?: string | null;
   lead: DummyLead;
   channels: string[];
 }): Promise<{ sent: number; failed: number }> {
-  const { campaignId, userId, userName, userEmail, lead, channels } = opts;
+  const { campaignId, userId, userName, userEmail, userPhone, lead, channels } = opts;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
   let sent = 0;
   let failed = 0;
@@ -654,6 +656,70 @@ export async function deliverDummyLeadToTutor(opts: {
             failed++;
           }
         }
+      } else if (channel === "WHATSAPP") {
+        let rawPhone = userPhone;
+        if (!rawPhone) {
+          const userObj = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { phone: true },
+          }).catch(() => null);
+          rawPhone = userObj?.phone;
+        }
+
+        const normalizedPhone = rawPhone ? normalizeIndiaWhatsApp(rawPhone) : null;
+        const isPlaceholderEmail = !isGenuineEmail(userEmail);
+
+        if (isPlaceholderEmail || !normalizedPhone) {
+          if (!normalizedPhone && !isPlaceholderEmail) {
+            errorMessage = "No valid phone number on tutor profile";
+            failed++;
+          } else {
+            // Simulated delivery for test / placeholder accounts so test runs succeed without external cost
+            status = "SENT";
+            errorMessage = "Simulated WhatsApp (Test account or placeholder mailbox)";
+            sent++;
+          }
+        } else {
+          // Live Aqua WhatsApp message dispatch
+          const aquaConfig = getAquaWhatsAppConfig();
+          const whatsappText =
+            `🎯 *New Student Requirement Alert — ApnaTutorHub*\n\n` +
+            `Hello ${userName || "Teacher"}, a new student requirement matching your profile was just posted!\n\n` +
+            `📍 *Locality:* ${lead.locality}, ${lead.city}${km}\n` +
+            `📚 *Subjects:* ${subjectsDisplay}\n` +
+            `🎓 *Class:* ${classLine} (${lead.board || "CBSE"})\n` +
+            `💰 *Budget:* ${budgetFormatted}\n` +
+            `📅 *Schedule:* ${lead.days}, ${lead.timing}\n\n` +
+            `👉 *Tap to view & unlock requirement:*\n${absoluteLeadUrl}`;
+
+          const placeholders = [
+            `#ATH-${lead.distanceKm || "NEW"}`,
+            userName || "Teacher",
+            classLine,
+            modeLabel[lead.mode] || lead.mode,
+            `${lead.locality}, ${lead.city}`,
+            budgetFormatted,
+            "Any",
+            "Immediate",
+          ];
+
+          const waResult = await sendAquaWhatsAppMessage({
+            to: normalizedPhone,
+            mode: aquaConfig.defaultTemplateId ? "template" : "text",
+            templateId: aquaConfig.defaultTemplateId,
+            placeholders,
+            text: whatsappText,
+            bypassDailyCap: true,
+          });
+
+          if (waResult.ok) {
+            status = "SENT";
+            sent++;
+          } else {
+            errorMessage = waResult.error || "Aqua SMS send failed";
+            failed++;
+          }
+        }
       }
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : String(err);
@@ -731,6 +797,7 @@ export async function resolveCampaignTargets(campaign: {
       id: true,
       name: true,
       email: true,
+      phone: true,
       tutorProfile: {
         select: {
           id: true,
@@ -843,7 +910,7 @@ export async function runCampaignPass(
               tutorAddress: user.tutorProfile?.address ?? "",
               tutorSubjects: user.tutorProfile?.subjects ?? [],
               tutorClassLevels: user.tutorProfile?.classLevels ?? [],
-              teachingRadius: user.tutorProfile?.teachingRadius ?? 10,
+              teachingRadius: cfg.radiusKm || user.tutorProfile?.teachingRadius || 10,
               teachingMode: user.tutorProfile?.teachingMode,
               tutorFeeMin: user.tutorProfile?.feeMin,
               tutorFeeMax: user.tutorProfile?.feeMax,
@@ -861,6 +928,7 @@ export async function runCampaignPass(
               userId: user.id,
               userName: user.name,
               userEmail: user.email,
+              userPhone: user.phone,
               lead,
               channels: campaign.channels,
             });

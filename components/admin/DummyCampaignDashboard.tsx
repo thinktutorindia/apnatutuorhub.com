@@ -12,7 +12,8 @@ import {
   Download, Loader2, X, MapPin, GraduationCap,
   Clock, IndianRupee, Sparkles, BarChart2, Users,
   Target, Settings2, BookOpen, Layers, ShieldCheck,
-  Calendar, Check, AlertCircle, Info, Flame, ArrowRight, CalendarCheck, CheckCheck
+  Calendar, Check, AlertCircle, Info, Flame, ArrowRight, CalendarCheck, CheckCheck,
+  MessageCircle, Coins,
 } from "lucide-react";
 import {
   toggleCampaignStatusAction,
@@ -23,6 +24,7 @@ import {
 } from "@/app/actions/dummy-campaign.actions";
 import { DummyCampaignForm } from "./DummyCampaignForm";
 import { DummyCampaignLogs } from "./DummyCampaignLogs";
+import { OneClickAiCampaignModal } from "./OneClickAiCampaignModal";
 import type { DummyLead } from "@/lib/dummy-campaign-types";
 import { stripCampaignCfg, parseCampaignCfg } from "@/lib/dummy-campaign-types";
 
@@ -83,9 +85,10 @@ const TARGET_LABELS: Record<string, string> = {
 };
 
 const CHANNEL_META: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
-  EMAIL:  { icon: <Mail size={11} />,       color: "#2563EB", bg: "#DBEAFE", label: "Email" },
-  PUSH:   { icon: <Smartphone size={11} />, color: "#7C3AED", bg: "#EDE9FE", label: "Push" },
-  IN_APP: { icon: <Bell size={11} />,       color: "#D97706", bg: "#FEF3C7", label: "Bell" },
+  EMAIL:    { icon: <Mail size={11} />,          color: "#2563EB", bg: "#DBEAFE", label: "Email" },
+  PUSH:     { icon: <Smartphone size={11} />,    color: "#7C3AED", bg: "#EDE9FE", label: "Push" },
+  IN_APP:   { icon: <Bell size={11} />,          color: "#D97706", bg: "#FEF3C7", label: "Bell" },
+  WHATSAPP: { icon: <MessageCircle size={11} />, color: "#16A34A", bg: "#DCFCE7", label: "WhatsApp" },
 };
 
 const MODE_LABELS: Record<string, string> = {
@@ -626,6 +629,7 @@ interface DispatchState {
 
 export function DummyCampaignDashboard(props: Props) {
   const [showForm, setShowForm] = useState(false);
+  const [showAiDispatcher, setShowAiDispatcher] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -765,12 +769,20 @@ export function DummyCampaignDashboard(props: Props) {
             Geo-matched daily dummy leads · localities and fee benchmarks rotate every 24h
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#2D9E6B] hover:bg-[#238357] text-white rounded-full font-800 text-xs cursor-pointer"
-        >
-          <Plus size={16} /> Create Campaign
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => setShowAiDispatcher(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-[#2D9E6B] hover:opacity-95 text-white rounded-full font-800 text-xs cursor-pointer shadow-xs transition-all"
+          >
+            <Sparkles size={15} /> ⚡ 1-Click AI WhatsApp Campaign (5km)
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0F2540] hover:bg-[#1A3C5E] text-white rounded-full font-800 text-xs cursor-pointer transition-all"
+          >
+            <Plus size={16} /> Create Campaign
+          </button>
+        </div>
       </div>
 
       {/* ── Top Educational Engine Feature Strip ── */}
@@ -1161,6 +1173,13 @@ export function DummyCampaignDashboard(props: Props) {
           </div>
         </div>
       )}
+
+      {/* ── 1-Click AI WhatsApp & Nearby Lead Campaign Modal ── */}
+      <OneClickAiCampaignModal
+        isOpen={showAiDispatcher}
+        onClose={() => setShowAiDispatcher(false)}
+        onDispatched={onRefresh}
+      />
     </div>
   );
 }

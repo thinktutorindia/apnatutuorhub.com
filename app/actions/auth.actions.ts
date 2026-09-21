@@ -178,7 +178,7 @@ export async function loginAction(
   if (!parsed.success) {
     return {
       success: false,
-      error: "Please enter a valid email and password.",
+      error: "Please enter a valid email/mobile number and password.",
     };
   }
 
@@ -190,10 +190,58 @@ export async function loginAction(
     });
 
     // Look up the user's role to redirect them to the correct dashboard
-    const user = await prisma.user.findUnique({
-      where: { email: parsed.data.email },
-      select: { role: true },
-    });
+    const rawId = parsed.data.email.trim();
+    const isEmail = rawId.includes("@");
+    let user = null;
+    if (isEmail) {
+      user = await prisma.user.findUnique({
+        where: { email: rawId.toLowerCase() },
+        select: { role: true },
+      });
+      if (!user) {
+        try {
+          const ws = await prisma.whatsappSession.findFirst({
+            where: {
+              data: {
+                path: ["email"],
+                equals: rawId.toLowerCase(),
+              },
+            },
+          });
+          if (ws) {
+            const digits = ws.phone.replace(/\D/g, "");
+            const phone10 = digits.slice(-10);
+            user = await prisma.user.findFirst({
+              where: {
+                OR: [
+                  { phone: ws.phone },
+                  { phone: digits },
+                  { phone: phone10 },
+                  { phone: `91${phone10}` },
+                ],
+              },
+              select: { role: true },
+            });
+          }
+        } catch {
+          // Ignore json path query errors
+        }
+      }
+    } else {
+      const digits = rawId.replace(/\D/g, "");
+      const phone10 = digits.slice(-10);
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { phone: rawId },
+            { phone: digits },
+            { phone: phone10 },
+            { phone: `91${phone10}` },
+          ],
+        },
+        select: { role: true },
+      });
+    }
 
     const redirectMap: Record<string, string> = {
       TUTOR: "/tutor/dashboard",
@@ -209,7 +257,7 @@ export async function loginAction(
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
-          return { success: false, error: "Invalid email or password. Please try again." };
+          return { success: false, error: "Invalid email/mobile number or password. Please try again." };
         default:
           return { success: false, error: "Something went wrong. Please try again." };
       }

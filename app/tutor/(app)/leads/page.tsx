@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints } from "@/lib/subscription-plans";
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
 import { haversineDistanceKm } from "@/lib/haversine";
+import { resolveLocationCoordinates } from "@/lib/geocoding";
 import { parseDummyClaimedQuery } from "@/lib/dummy-campaign-types";
 import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
 
@@ -21,6 +22,7 @@ interface Props {
     mode?: string;
     days?: string;
     timing?: string;
+    inquiry?: string;
   }>;
 }
 
@@ -79,7 +81,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
     },
     orderBy: { createdAt: "desc" },
-    take: 200,
+    take: 500,
     select: {
       id: true,
       inquiryNumber: true,
@@ -123,26 +125,100 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
     },
   });
 
+  const targetedInquiryNum = params.inquiry ? parseInt(params.inquiry, 10) : undefined;
+  if (targetedInquiryNum && !rawLeads.some((l) => l.inquiryNumber === targetedInquiryNum)) {
+    const singleLead = await prisma.lead.findFirst({
+      where: { inquiryNumber: targetedInquiryNum },
+      select: {
+        id: true,
+        inquiryNumber: true,
+        parentProfileId: true,
+        subjects: true,
+        classLevel: true,
+        mode: true,
+        budgetMin: true,
+        budgetMax: true,
+        area: true,
+        city: true,
+        pincode: true,
+        board: true,
+        coinCost: true,
+        purchaseCount: true,
+        maxTutors: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        timingPreference: true,
+        tutorGenderPref: true,
+        languagePref: true,
+        notes: true,
+        status: true,
+        parentProfile: {
+          select: {
+            id: true,
+            address: true,
+            city: true,
+            state: true,
+            pincode: true,
+            user: {
+              select: {
+                name: true,
+                phone: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (singleLead) {
+      rawLeads.unshift(singleLead);
+    }
+  }
 
   // In-memory format for feed
   const feedLeads: FeedLead[] = [];
 
+  let tutorLat = tutorProfile.latitude;
+  let tutorLng = tutorProfile.longitude;
+  if ((tutorLat == null || tutorLng == null) && (tutorProfile.address || tutorProfile.city)) {
+    const resolvedTutor = resolveLocationCoordinates(`${tutorProfile.address || ""} ${tutorProfile.city || ""}`);
+    if (resolvedTutor) {
+      tutorLat = resolvedTutor.lat;
+      tutorLng = resolvedTutor.lng;
+    }
+  }
+
   for (const lead of rawLeads) {
     if (lead.purchaseCount >= lead.maxTutors && !purchasedMap.has(lead.id)) continue;
 
+    let leadLat = lead.latitude;
+    let leadLng = lead.longitude;
+    if ((leadLat == null || leadLng == null) && (lead.area || lead.city)) {
+      const resolvedLead = resolveLocationCoordinates(`${lead.area || ""} ${lead.city || ""}`);
+      if (resolvedLead) {
+        leadLat = resolvedLead.lat;
+        leadLng = resolvedLead.lng;
+      }
+    }
+
     let distanceKm: number | null = null;
     if (
-      tutorProfile.latitude !== null &&
-      tutorProfile.longitude !== null &&
-      lead.latitude !== null &&
-      lead.longitude !== null
+      tutorLat !== null &&
+      tutorLat !== undefined &&
+      tutorLng !== null &&
+      tutorLng !== undefined &&
+      leadLat !== null &&
+      leadLat !== undefined &&
+      leadLng !== null &&
+      leadLng !== undefined
     ) {
-      distanceKm = haversineDistanceKm(
-        tutorProfile.latitude,
-        tutorProfile.longitude,
-        lead.latitude,
-        lead.longitude
-      );
+      distanceKm = Math.round(haversineDistanceKm(
+        tutorLat,
+        tutorLng,
+        leadLat,
+        leadLng
+      ) * 10) / 10;
     }
 
     const purchaseInfo = purchasedMap.get(lead.id);
@@ -252,6 +328,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
         }}
         claimedBannerInfo={claimedBannerInfo}
         kycStatus={tutorProfile.kycStatus}
+        initialInquiryNumber={targetedInquiryNum}
       />
     </div>
   );

@@ -41,6 +41,7 @@ export function PublicSiteHeader({
   const navLinks = [
     { href: "/find-tutor", label: "Find Tutors" },
     { href: "/#how-it-works", label: "How It Works" },
+    { href: "/about", label: "About Us" },
     { href: parentCtaUrl, label: "Post Requirement" },
   ];
 
@@ -56,6 +57,9 @@ export function PublicSiteHeader({
             <a href="/#how-it-works" className={linkClass}>
               How It Works
             </a>
+            <Link href="/about" className={linkClass}>
+              About Us
+            </Link>
           </nav>
         </div>
 

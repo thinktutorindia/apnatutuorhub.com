@@ -8,7 +8,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { COIN_PACKAGES } from "@/lib/razorpay";
-import { coversClassLevel, hasSubjectOverlap, extractGradeNumber } from "@/lib/matching-engine";
+import { coversClassLevel, hasSubjectOverlap, extractGradeNumber, isGenderCompatible } from "@/lib/matching-engine";
 import { expandTutorSubjectsAndClasses } from "./auto-register";
 
 export type MatchingLeadCard = {
@@ -106,7 +106,8 @@ export async function getChatbotMatchingLeads(
   area?: string,
   city?: string,
   classLevel?: string,
-  subjects?: string[]
+  subjects?: string[],
+  tutorGender?: string | null
 ): Promise<MatchingLeadCard[]> {
   try {
     const rawLeads = await prisma.lead.findMany({
@@ -123,6 +124,7 @@ export async function getChatbotMatchingLeads(
         budgetMin: true,
         budgetMax: true,
         mode: true,
+        tutorGenderPref: true,
       },
     });
 
@@ -131,7 +133,7 @@ export async function getChatbotMatchingLeads(
       subjects && subjects.length > 0 && !subjects.some((s) => /all|any|combo/i.test(s))
     );
 
-    // Filter candidate leads strictly by class & subject if specified
+    // Filter candidate leads strictly by class, subject, and gender compatibility if specified
     let candidatePool = rawLeads.filter((lead) => {
       if (hasSpecificClass && !isClassCompatible(classLevel, lead.classLevel)) {
         return false;
@@ -139,15 +141,25 @@ export async function getChatbotMatchingLeads(
       if (hasSpecificSubs && !isSubjectCompatible(subjects, lead.subjects)) {
         return false;
       }
+      if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) {
+        return false;
+      }
       return true;
     });
 
     // If no candidate matches both strictly, fallback to subject match
     if (candidatePool.length === 0 && hasSpecificSubs) {
-      candidatePool = rawLeads.filter((lead) => isSubjectCompatible(subjects, lead.subjects));
+      candidatePool = rawLeads.filter((lead) => {
+        if (!isSubjectCompatible(subjects, lead.subjects)) return false;
+        if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) return false;
+        return true;
+      });
     }
     if (candidatePool.length === 0) {
-      candidatePool = rawLeads;
+      candidatePool = rawLeads.filter((lead) => {
+        if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) return false;
+        return true;
+      });
     }
 
     const searchArea = (area || "").toLowerCase().trim();
@@ -192,7 +204,22 @@ export async function getChatbotMatchingLeads(
 
     scored.sort((a, b) => b.score - a.score);
 
-    return scored.slice(0, 3).map(({ lead }) => {
+    // Deduplicate leads: ensure we don't display duplicate inquiries from the same student/area
+    const seenSignatures = new Set<string>();
+    const deduplicated: Array<{ lead: (typeof rawLeads)[number]; score: number }> = [];
+
+    for (const item of scored) {
+      const cleanArea = (item.lead.area || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const cleanClass = (item.lead.classLevel || "").toLowerCase();
+      const cleanSubs = item.lead.subjects.slice().sort().join("_").toLowerCase();
+      const sig = `${cleanArea}_${cleanClass}_${cleanSubs}_${item.lead.budgetMin ?? 0}`;
+      if (seenSignatures.has(sig)) continue;
+      seenSignatures.add(sig);
+      deduplicated.push(item);
+      if (deduplicated.length >= 3) break;
+    }
+
+    return deduplicated.map(({ lead }) => {
       let budgetStr = "₹5,000 – ₹8,000 / mo";
       if (lead.budgetMin && lead.budgetMax) {
         if (lead.budgetMax <= 1500) {
@@ -345,3 +372,110 @@ https://apnatutorhub.com/book-demo
 
 Or reply here with your preferred timing (e.g. *Evening 5 PM*) to confirm! 📞`;
 }
+
+/**
+ * Format a single lead requirement card when a tutor searches/asks about an inquiry number
+ * like #32042, ATH-32042, or clicks "Unlock Lead #32042".
+ */
+export async function formatSingleLeadInquiry(
+  inquiryNumber: number,
+  tutorPhone?: string
+): Promise<{ reply: string; quickReplies: string[] }> {
+  const lead = await prisma.lead.findFirst({
+    where: { inquiryNumber },
+    include: {
+      parentProfile: {
+        include: {
+          user: {
+            select: { name: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!lead) {
+    return {
+      reply: `❌ Requirement *#${inquiryNumber}* nahi mili ya expire ho chuki hai.\n\nDelhi NCR ki active tuition requirements dekhne ke liye reply karein *LEADS* ya dashboard check karein:\n👉 https://apnatutorhub.com/tutor/leads`,
+      quickReplies: ["View All Leads 📋", "💎 Membership Plans", "Help / Support 📞"],
+    };
+  }
+
+  // Check tutor profile & gender compatibility
+  let tutorGender: string | null = null;
+  if (tutorPhone) {
+    const raw = tutorPhone.replace(/\D/g, "");
+    const phone10 = raw.slice(-10);
+    const tutorUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ phone: raw }, { phone: phone10 }, { phone: `91${phone10}` }],
+        tutorProfile: { isNot: null },
+      },
+      include: { tutorProfile: true },
+    });
+    if (tutorUser?.tutorProfile?.gender) {
+      tutorGender = tutorUser.tutorProfile.gender.toUpperCase();
+    }
+  }
+
+  const subjStr = Array.isArray(lead.subjects) && lead.subjects.length > 0 ? lead.subjects.join(", ") : "All Core Subjects";
+  const modeStr = lead.mode === "OFFLINE" ? "Home Visit 🏡" : lead.mode === "ONLINE" ? "Online Class 💻" : "Home Visit / Online";
+  const budgetStr =
+    lead.budgetMin && lead.budgetMax
+      ? `₹${lead.budgetMin.toLocaleString("en-IN")} – ₹${lead.budgetMax.toLocaleString("en-IN")} / mo`
+      : lead.budgetMin
+      ? `₹${lead.budgetMin.toLocaleString("en-IN")}+ / mo`
+      : "Negotiable / Standard";
+
+  const locStr = [lead.area, lead.city].filter(Boolean).join(", ") || "Delhi NCR";
+
+  let genderNote = "";
+  if (lead.tutorGenderPref && lead.tutorGenderPref !== "ANY") {
+    const pref = lead.tutorGenderPref.toUpperCase();
+    if (pref === "FEMALE") {
+      genderNote = `\n⚠️ *Tutor Preference:* Female Tutor Only 👩`;
+      if (tutorGender === "MALE") {
+        genderNote += `\n*(Note: Parent ne female teacher prefer ki hai. Agar aap male tutor hain to similar requirement #32043 check karein.)*`;
+      }
+    } else if (pref === "MALE") {
+      genderNote = `\n⚠️ *Tutor Preference:* Male Tutor Only 👨`;
+    }
+  }
+
+  const isClosed = lead.status !== "ACTIVE" && lead.status !== "MATCHING" && lead.status !== "APPLICATIONS_RECEIVED";
+  const isFull = lead.purchaseCount >= lead.maxTutors;
+
+  let statusWarning = "";
+  if (isClosed) {
+    statusWarning = `\n\n⚠️ *Status:* Yeh lead close ho chuki hai (${lead.status}).`;
+  } else if (isFull) {
+    statusWarning = `\n\n⚠️ *Note:* Is lead par maximum applications poori ho chuki hain (${lead.purchaseCount}/${lead.maxTutors}).`;
+  }
+
+  const message =
+    `📋 *Student Requirement #${lead.inquiryNumber}*\n\n` +
+    `📚 *Class:* ${lead.classLevel || "Standard"}\n` +
+    `📖 *Subjects:* ${subjStr}\n` +
+    `📍 *Location:* ${locStr}\n` +
+    `🏠 *Teaching Mode:* ${modeStr}\n` +
+    `💰 *Budget / Fees:* ${budgetStr}` +
+    `${genderNote}` +
+    `${statusWarning}\n\n` +
+    `──────────────────────────\n` +
+    `🔓 *Direct Unlock Link:*\n` +
+    `👉 https://apnatutorhub.com/tutor/leads?inquiry=${lead.inquiryNumber}\n\n` +
+    `💎 *Unlock Karne Ke Tarike:*\n` +
+    `1. Website par link open karein aur Unlock par click karein.\n` +
+    `2. ₹999 Growth Membership se 0% commission par direct parent contact & address milta hai.\n\n` +
+    `👉 *Membership Plans Dekhein:*\nhttps://apnatutorhub.com/tutor/plans`;
+
+  return {
+    reply: message,
+    quickReplies: [
+      `🔥 Unlock Lead #${lead.inquiryNumber}`,
+      "View All Leads 📋",
+      "💎 Membership Plans",
+    ],
+  };
+}
+

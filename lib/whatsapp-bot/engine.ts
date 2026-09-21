@@ -19,6 +19,7 @@ import {
   formatTutorLeadsAndPlansMessage,
   formatCoinPlansMessage,
   formatParentDemoMessage,
+  formatSingleLeadInquiry,
 } from "./leads-helper";
 import {
   registerTutorFromWhatsapp,
@@ -222,6 +223,24 @@ export async function processMessage(
     return { reply: `Phone update ho gaya: *${newPhone}*`, nextStep: "DONE", updatedData: { ...data, phone: newPhone }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
   }
 
+  // ── Single Inquiry / Lead Unlock Shortcut (e.g. "#32042", "Unlock Lead #32042", "32042") ──
+  const inquiryMatch =
+    rawMessage.trim().match(/^(?:(?:unlock|view|show|check|open|lead)\s*(?:lead\s*)?)?(?:#|ath[- ]?)?(\d{4,7})$/i) ||
+    rawMessage.trim().match(/(?:(?:unlock|view|show|check|open)\s*(?:lead)?\s*)#?(\d{4,7})\b/i);
+
+  if (inquiryMatch) {
+    const inqNum = parseInt(inquiryMatch[1], 10);
+    const result = await formatSingleLeadInquiry(inqNum, session.phone);
+    return {
+      reply: result.reply,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: result.quickReplies,
+    };
+  }
+
   // ── Global Leads & Plans shortcuts ──────────────────────────────────────────
   if (/plan|coin|pack|pricing|membership|buy coins|recharge|wallet/i.test(msg)) {
     return {
@@ -234,7 +253,10 @@ export async function processMessage(
     };
   }
 
-  if (/^(?:show\s+leads?|view\s+leads?|leads?|my\s+leads?|matching\s+leads?|unlock\s+leads?|explore\s+leads?)$/i.test(msg.trim()) || /show lead|view lead|matching lead|my lead|unlock lead|explore lead/i.test(msg)) {
+  if (
+    /^(?:show\s+leads?|view\s+leads?|leads?|my\s+leads?|matching\s+leads?|unlock\s+leads?|explore\s+leads?)$/i.test(msg.trim()) ||
+    (/\b(?:show|view|matching|my|explore)\s+lead/i.test(msg) && !/\d{4,7}/.test(msg))
+  ) {
     const leads = await getChatbotMatchingLeads(
       (data.area as string) || "Delhi",
       (data.city as string) || "Delhi",
@@ -732,11 +754,21 @@ export async function processMessage(
           const phoneToUse = (mergedData.phone as string) || session.phone;
           const emailToUse = emailCandidate;
 
+          let tutorGender: string | null = (mergedData.gender as string) || null;
+          if (!tutorGender && tutorName) {
+            if (/rohit|rahul|amit|aman|deepak|suresh|ramesh|vikas|pankaj|mohit|sachin|abhishek|ajay|vijay|sanjay|raj|varun|arun|tushar|gaurav|manish/i.test(tutorName)) {
+              tutorGender = "MALE";
+            } else if (/priya|pooja|neha|anjali|sneha|arti|aarti|divya|shweta|ritika|simran|megha|swati|pallavi|tanu|mansi|aleena/i.test(tutorName)) {
+              tutorGender = "FEMALE";
+            }
+          }
+
           const leads = await getChatbotMatchingLeads(
             areaName,
             cityName,
             mergedData.classLevel as string,
-            subsArray
+            subsArray,
+            tutorGender
           );
 
           try {
@@ -1227,11 +1259,21 @@ export async function processMessage(
     const emailToUse = hasValidEmail ? emailStr : undefined;
     const tutorName = (updated.name as string) || "";
 
+    let tutorGender: string | null = (updated.gender as string) || null;
+    if (!tutorGender && tutorName) {
+      if (/rohit|rahul|amit|aman|deepak|suresh|ramesh|vikas|pankaj|mohit|sachin|abhishek|ajay|vijay|sanjay|raj|varun|arun|tushar|gaurav|manish/i.test(tutorName)) {
+        tutorGender = "MALE";
+      } else if (/priya|pooja|neha|anjali|sneha|arti|aarti|divya|shweta|ritika|simran|megha|swati|pallavi|tanu|mansi|aleena/i.test(tutorName)) {
+        tutorGender = "FEMALE";
+      }
+    }
+
     const leads = await getChatbotMatchingLeads(
       areaName,
       (updated.city as string) || "Delhi",
       updated.classLevel as string,
-      updated.subjects as string[]
+      updated.subjects as string[],
+      tutorGender
     );
 
     try {

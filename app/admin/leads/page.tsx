@@ -58,6 +58,8 @@ export default async function AdminLeadsPage({
   const params = await searchParams;
   const statusFilter = params.status ?? "";
   const q = params.q?.trim() ?? "";
+  const cleanDigits = q.replace(/[^0-9]/g, "");
+  const inqNum = cleanDigits.length > 0 ? parseInt(cleanDigits, 10) : null;
   const page = Math.max(1, Number(params.page ?? 1));
   const take = 15;
   const skip = (page - 1) * take;
@@ -79,6 +81,7 @@ export default async function AdminLeadsPage({
       q
         ? {
             OR: [
+              ...(inqNum ? [{ inquiryNumber: inqNum }] : []),
               { city: { contains: q, mode: "insensitive" as const } },
               { area: { contains: q, mode: "insensitive" as const } },
               { classLevel: { contains: q, mode: "insensitive" as const } },
@@ -275,7 +278,7 @@ export default async function AdminLeadsPage({
           <input
             name="q"
             defaultValue={q}
-            placeholder="Search by city, area, class, subjects..."
+            placeholder="Search by enquiry # (e.g. 32042), city, area, class, subjects..."
             className="flex-1 bg-transparent text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400"
           />
         </div>

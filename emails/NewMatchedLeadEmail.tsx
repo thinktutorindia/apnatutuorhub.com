@@ -202,7 +202,7 @@ export function renderNewMatchedLeadEmail(props: NewMatchedLeadEmailProps): stri
     <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 32px;text-align:center;">
       <p style="font-size:12px;color:#94A3B8;line-height:1.6;margin:0;">
         ApnaTutorHub • Connecting Verified Tutors &amp; Students Across India<br />
-        New Delhi, India • <a href="https://apnatutorhub.com/tutor/profile" style="color:#16A34A;text-decoration:none;">Notification Settings</a>
+        Bengaluru, Karnataka, India • <a href="https://apnatutorhub.com/tutor/profile" style="color:#16A34A;text-decoration:none;">Notification Settings</a>
       </p>
     </div>
 

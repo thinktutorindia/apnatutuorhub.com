@@ -8,8 +8,8 @@ import { z } from "zod";
 import { checkRateLimit } from "@/lib/security-audit";
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6).max(128),
+  email: z.string().min(3).max(128),
+  password: z.string().min(1).max(128),
 });
 
 const IS_PROD = process.env.NODE_ENV === "production";
@@ -112,31 +112,113 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        // Rate-limit login attempts per email: max 5 per minute
-        const email = parsed.data.email.toLowerCase();
-        const { allowed } = await checkRateLimit(`login:${email}`, 5);
+        const rawIdentifier = parsed.data.email.trim();
+        const identifier = rawIdentifier.toLowerCase();
+        const isEmail = identifier.includes("@");
+
+        // Rate-limit login attempts per identifier: max 5 per minute
+        const { allowed } = await checkRateLimit(`login:${identifier}`, 5);
         if (!allowed) {
           // Silently return null — attacker gets no indication of rate-limiting
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-            passwordHash: true,
-            isActive: true,
-            role: true,
-          },
-        });
+        let user = null;
+        if (isEmail) {
+          user = await prisma.user.findUnique({
+            where: { email: identifier },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              passwordHash: true,
+              isActive: true,
+              role: true,
+            },
+          });
+
+          // Fallback: If user entered an email collected during WhatsApp bot session
+          if (!user) {
+            try {
+              const ws = await prisma.whatsappSession.findFirst({
+                where: {
+                  data: {
+                    path: ["email"],
+                    equals: identifier,
+                  },
+                },
+              });
+              if (ws) {
+                const digits = ws.phone.replace(/\D/g, "");
+                const phone10 = digits.slice(-10);
+                user = await prisma.user.findFirst({
+                  where: {
+                    OR: [
+                      { phone: ws.phone },
+                      { phone: digits },
+                      { phone: phone10 },
+                      { phone: `91${phone10}` },
+                    ],
+                  },
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                    passwordHash: true,
+                    isActive: true,
+                    role: true,
+                  },
+                });
+              }
+            } catch {
+              // Ignore json path query errors if not supported
+            }
+          }
+        } else {
+          // Mobile login: match phone formats (+91, 91, 10 digits)
+          const digits = rawIdentifier.replace(/\D/g, "");
+          const phone10 = digits.slice(-10);
+          const phoneE164 = `91${phone10}`;
+
+          const candidateUsers = await prisma.user.findMany({
+            where: {
+              OR: [
+                { phone: rawIdentifier },
+                { phone: digits },
+                { phone: phone10 },
+                { phone: phoneE164 },
+                { phone: `+91 ${phone10}` },
+                { phone: `+91${phone10}` },
+              ],
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              passwordHash: true,
+              isActive: true,
+              role: true,
+            },
+          });
+
+          for (const cand of candidateUsers) {
+            if (cand.passwordHash && (await bcrypt.compare(parsed.data.password, cand.passwordHash))) {
+              user = cand;
+              break;
+            }
+          }
+        }
 
         if (!user || !user.passwordHash) return null;
 
-        const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash);
-        if (!isValid) return null;
+        // If email lookup, verify password here
+        if (isEmail) {
+          const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash);
+          if (!isValid) return null;
+        }
 
         if (!user.isActive) return null;
 

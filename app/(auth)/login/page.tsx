@@ -123,16 +123,16 @@ function LoginFormContent() {
 
         <div className="flex items-center gap-3">
           <div className="h-px flex-1 bg-[#E2E8F0]" />
-          <span className="text-sm font-600 text-slate-400">or email</span>
+          <span className="text-sm font-600 text-slate-400">or sign in with email / phone</span>
           <div className="h-px flex-1 bg-[#E2E8F0]" />
         </div>
 
         <form action={formAction} className="space-y-4">
           <div>
-            <label htmlFor="login-email" className={AUTH_LABEL}>Email</label>
+            <label htmlFor="login-email" className={AUTH_LABEL}>Email or Mobile Number</label>
             <div className="relative">
               <Mail size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input id="login-email" name="email" type="email" placeholder="you@email.com" required autoComplete="email" className={`${AUTH_INPUT} pl-11`} />
+              <input id="login-email" name="email" type="text" placeholder="you@email.com or 10-digit mobile" required autoComplete="username" className={`${AUTH_INPUT} pl-11`} />
             </div>
           </div>
 

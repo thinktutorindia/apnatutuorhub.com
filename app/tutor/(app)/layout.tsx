@@ -25,9 +25,12 @@ export default async function TutorAppLayout({
     prisma.tutorProfile.findUnique({
       where: { userId: session.user.id },
       select: {
+        id: true,
         kycStatus: true,
         kycRejectionNote: true,
         onboardingStep: true,
+        city: true,
+        subjects: true,
         wallet: { select: { balance: true } },
       },
     }),
@@ -43,9 +46,16 @@ export default async function TutorAppLayout({
     }),
   ]);
 
-  // If tutor hasn't completed onboarding, redirect to /tutor/onboarding
+  // If tutor hasn't completed onboarding, redirect unless they already have core profile configured
   if (tutorProfile && tutorProfile.onboardingStep < 7) {
-    redirect("/tutor/onboarding");
+    if (tutorProfile.city && tutorProfile.subjects && tutorProfile.subjects.length > 0) {
+      prisma.tutorProfile.update({
+        where: { id: tutorProfile.id },
+        data: { onboardingStep: 7 },
+      }).catch(() => {});
+    } else {
+      redirect("/tutor/onboarding");
+    }
   }
 
   const kycStatus = tutorProfile?.kycStatus ?? "NOT_SUBMITTED";

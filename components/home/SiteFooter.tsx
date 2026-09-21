@@ -82,6 +82,8 @@ export function SiteFooter({
               Company
             </h4>
             <ul className="space-y-2 text-xs font-600 text-slate-300">
+              <li><Link href="/about" className="hover:text-[#2D9E6B]">About Us</Link></li>
+              <li><Link href="/about#campuses" className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1">HQ · Bengaluru, KA</Link></li>
               <li><Link href="/privacy" className="hover:text-[#2D9E6B]">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-[#2D9E6B]">Terms of Service</Link></li>
               <li>
@@ -122,7 +124,7 @@ export function SiteFooter({
             ))}
           </nav>
           <p className="lg:text-right">
-            Copyright © {year} ApnaTutorHub.com · New Delhi, India · All rights reserved.
+            Copyright © {year} ApnaTutorHub.com (ApnaTutorHub Technologies Pvt. Ltd.) · Bengaluru, Karnataka, India · All rights reserved.
           </p>
         </div>
 

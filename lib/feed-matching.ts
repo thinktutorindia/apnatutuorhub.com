@@ -80,14 +80,14 @@ export function hasSubjectOverlap(tutorSubjects: string[], leadSubjects: string[
 
     if (leadSet.has(ts)) return true;
 
-    // "All Subjects" tutor matches any core school subjects
-    if (ts.includes("all subject")) return true;
+    // "All Subjects" or "All Core Subjects" tutor matches any core school subjects
+    if (ts.includes("all subject") || ts.includes("all core") || ts.includes("all primary") || ts.includes("combo")) return true;
 
     for (const rawLs of leadSubjects) {
       const ls = cleanSubjectName(rawLs).toLowerCase();
       if (!ls) continue;
 
-      if (ls.includes("all subject")) return true;
+      if (ls.includes("all subject") || ls.includes("all core") || ls.includes("all primary") || ls.includes("combo")) return true;
       if (ts.includes(ls) || ls.includes(ts)) return true;
 
       // Maths stem

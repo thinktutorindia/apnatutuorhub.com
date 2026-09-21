@@ -116,14 +116,22 @@ export function resolveLocationCoordinates(query?: string | null): { lat: number
     return INDIAN_CITY_COORDINATES[clean];
   }
 
-  // 2. Substring match across all known locality keys
-  for (const [key, coords] of Object.entries(INDIAN_CITY_COORDINATES)) {
-    if (clean.includes(key) || key.includes(clean)) {
-      return coords;
+  // 2. Substring match across all known locality keys (sorted by length descending so specific localities match before generic city names)
+  const sortedKeys = Object.keys(INDIAN_CITY_COORDINATES).sort((a, b) => b.length - a.length);
+  for (const key of sortedKeys) {
+    if (clean.includes(key)) {
+      return INDIAN_CITY_COORDINATES[key];
     }
   }
 
-  // 3. Check individual tokens
+  // 3. Reverse substring match: if any key starts with or includes clean
+  for (const key of sortedKeys) {
+    if (key.includes(clean)) {
+      return INDIAN_CITY_COORDINATES[key];
+    }
+  }
+
+  // 4. Check individual tokens
   const tokens = clean.split(/\s+/).filter((t) => t.length >= 4);
   for (const t of tokens) {
     if (INDIAN_CITY_COORDINATES[t]) {

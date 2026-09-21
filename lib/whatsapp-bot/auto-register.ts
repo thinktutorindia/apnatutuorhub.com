@@ -7,6 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
+import { resolveLocationCoordinates } from "@/lib/geocoding";
 import {
   TUTOR_CLASS_MAP,
   TEACHING_MODE_MAP,
@@ -467,13 +468,21 @@ export async function registerTutorFromWhatsapp(
     });
 
     if (user) {
+      let emailToUpdate: string | undefined = undefined;
+      if (email && !email.startsWith("wa_") && email !== user.email) {
+        const existingEmailUser = await prisma.user.findUnique({ where: { email } });
+        if (!existingEmailUser || existingEmailUser.id === user.id) {
+          emailToUpdate = email;
+        }
+      }
+
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
           name: data.name || user.name,
           role: user.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "TUTOR",
           ...(!user.phone && normalizedPhone ? { phone: normalizedPhone } : {}),
-          ...((!user.email || user.email.startsWith("wa_")) && email && !email.startsWith("wa_") ? { email } : {}),
+          ...(emailToUpdate ? { email: emailToUpdate } : {}),
           ...(passwordHash ? { passwordHash } : {}),
           // Mark as WHATSAPP
           signupSource: "WHATSAPP",
@@ -497,6 +506,8 @@ export async function registerTutorFromWhatsapp(
     const existing = await prisma.tutorProfile.findUnique({ where: { userId: user.id } });
     let profileId: string;
 
+    const coords = resolveLocationCoordinates(`${area || ""} ${city || ""}`);
+
     if (existing) {
       profileId = existing.id;
       await prisma.tutorProfile.update({
@@ -504,10 +515,12 @@ export async function registerTutorFromWhatsapp(
         data: {
           city,
           address: area,
+          ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
           subjects,
           classLevels,
           teachingMode,
           experience: data.experience || existing.experience || 2,
+          onboardingStep: Math.max(existing.onboardingStep, 7),
         },
       });
     } else {
@@ -516,11 +529,13 @@ export async function registerTutorFromWhatsapp(
           userId: user.id,
           city,
           address: area,
+          latitude: coords?.lat ?? null,
+          longitude: coords?.lng ?? null,
           subjects,
           classLevels,
           teachingMode,
           experience: data.experience || 2,
-          onboardingStep: 3, // Mark partial onboarding so the website can continue
+          onboardingStep: 7, // WhatsApp-registered tutors have provided all essential info
         },
       });
       profileId = profile.id;

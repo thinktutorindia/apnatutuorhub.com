@@ -288,7 +288,15 @@ export const LEAD_STATUS_FILTERS = Object.keys(LEAD_STATUS_META) as LeadStatusKe
 // ────────────────────────────────────────────────
 
 export const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
+  email: z
+    .string()
+    .min(3, "Please enter your email or 10-digit mobile number")
+    .refine((val) => {
+      const clean = val.trim();
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
+      const isPhone = /^(?:\+?91)?[6-9]\d{9}$/.test(clean.replace(/[\s-]/g, ""));
+      return isEmail || isPhone;
+    }, "Please enter a valid email or 10-digit Indian mobile number"),
   password: z.string().min(1, "Password is required"),
 });
 

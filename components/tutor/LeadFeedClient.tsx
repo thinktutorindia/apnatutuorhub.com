@@ -258,12 +258,14 @@ function LeadCard({
   lead,
   walletBalance,
   subscriptionInfo,
+  autoOpenModal = false,
 }: {
   lead: FeedLead;
   walletBalance: number;
   subscriptionInfo?: SubscriptionInfo | null;
+  autoOpenModal?: boolean;
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(autoOpenModal);
 
   const maxTutorsAllowed = lead.maxTutors || 5;
   const currentPurchases = lead.purchaseCount || 0;
@@ -710,6 +712,7 @@ export function LeadFeedClient({
   teachingRadius = 10,
   tutorClassLevels = [],
   tutorLocation,
+  initialInquiryNumber,
 }: {
   leads: FeedLead[];
   walletBalance: number;
@@ -725,6 +728,7 @@ export function LeadFeedClient({
     lat?: number | null;
     lon?: number | null;
   };
+  initialInquiryNumber?: number;
 }) {
   const hasTutorLocation = Boolean(tutorLocation?.lat && tutorLocation?.lon);
   const hasTutorSubjects = Boolean(tutorSubjects && tutorSubjects.length > 0);
@@ -745,7 +749,7 @@ export function LeadFeedClient({
   }, [router]);
 
   const [viewTab, setViewTab] = useState<"matched" | "nearby" | "all" | "shortlisted" | "unlocked">(
-    hasFilterConfig ? "matched" : "all"
+    initialInquiryNumber ? "all" : hasFilterConfig ? "matched" : "all"
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [subjectFilter, setSubjectFilter] = useState<string>("ALL");
@@ -830,15 +834,26 @@ export function LeadFeedClient({
         // Mode filter
         if (modeFilter !== "ALL" && l.mode !== modeFilter) return false;
 
-        // Search Query
+        // Search Query (Supports Subject, Class, Locality, and Enquiry Number e.g. #32042 / 32042 / ATH-32042)
         if (searchQuery.trim()) {
-          const q = searchQuery.trim().toLowerCase();
+          const rawQ = searchQuery.trim();
+          const q = rawQ.toLowerCase();
+          const cleanDigits = rawQ.replace(/[^0-9]/g, "");
+
+          const matchInquiry =
+            l.inquiryNumber != null &&
+            ((cleanDigits.length > 0 && String(l.inquiryNumber).includes(cleanDigits)) ||
+              `#${l.inquiryNumber}`.toLowerCase().includes(q) ||
+              `ath-${l.inquiryNumber}`.toLowerCase().includes(q) ||
+              getInquiryDisplayCode(l).toLowerCase().includes(q));
+
           const matchSubj = l.subjects.some((s) => s.toLowerCase().includes(q));
           const matchClass = l.classLevel.toLowerCase().includes(q);
           const matchLoc =
             (l.city && l.city.toLowerCase().includes(q)) ||
             (l.area && l.area.toLowerCase().includes(q));
-          if (!matchSubj && !matchClass && !matchLoc) return false;
+
+          if (!matchInquiry && !matchSubj && !matchClass && !matchLoc) return false;
         }
 
         return true;
@@ -1152,7 +1167,7 @@ export function LeadFeedClient({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by subject, class, or locality..."
+              placeholder="Search by enquiry # (e.g. 32042), subject, class, locality..."
               className="w-full rounded-2xl pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-semibold text-xs"
             />
           </div>
@@ -1250,6 +1265,7 @@ export function LeadFeedClient({
               lead={lead}
               walletBalance={walletBalance}
               subscriptionInfo={subscriptionInfo}
+              autoOpenModal={Boolean(initialInquiryNumber && lead.inquiryNumber === initialInquiryNumber)}
             />
           ))}
         </div>

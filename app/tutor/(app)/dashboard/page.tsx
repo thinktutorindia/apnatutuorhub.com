@@ -13,6 +13,8 @@ import { TutorAnalyticsWidget } from "@/components/tutor/TutorAnalyticsWidget";
 import { EnablePushBanner } from "@/components/EnablePushBanner";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { hasSubjectOverlap } from "@/lib/feed-matching";
+import { resolveLocationCoordinates } from "@/lib/geocoding";
+import { isGenderCompatible } from "@/lib/matching-engine";
 
 export default async function TutorDashboardPage() {
   const session = await auth();
@@ -59,7 +61,14 @@ export default async function TutorDashboardPage() {
   }
 
   if (tutorProfile && tutorProfile.onboardingStep < 7) {
-    redirect("/tutor/onboarding");
+    if (tutorProfile.city && tutorProfile.subjects && tutorProfile.subjects.length > 0) {
+      prisma.tutorProfile.update({
+        where: { id: tutorProfile.id },
+        data: { onboardingStep: 7 },
+      }).catch(() => {});
+    } else {
+      redirect("/tutor/onboarding");
+    }
   }
 
   const walletBalance = tutorProfile?.wallet?.balance ?? 0;
@@ -84,17 +93,47 @@ export default async function TutorDashboardPage() {
   const profileScore = scoreBreakdown?.total ?? 0;
 
   const tutorSubjects = tutorProfile?.subjects ?? [];
-  const tutorLat = tutorProfile?.latitude;
-  const tutorLng = tutorProfile?.longitude;
+  let tutorLat = tutorProfile?.latitude;
+  let tutorLng = tutorProfile?.longitude;
   const tutorCity = tutorProfile?.city?.trim().toLowerCase();
+  const tutorGender = tutorProfile?.gender || null;
 
-  // Fetch active student requirements for matching
+  // If tutor latitude/longitude is missing, automatically resolve from locality/city
+  if ((tutorLat == null || tutorLng == null) && (tutorProfile?.address || tutorProfile?.city)) {
+    const resolvedTutor = resolveLocationCoordinates(`${tutorProfile.address || ""} ${tutorProfile.city || ""}`);
+    if (resolvedTutor) {
+      tutorLat = resolvedTutor.lat;
+      tutorLng = resolvedTutor.lng;
+      prisma.tutorProfile.update({
+        where: { id: tutorProfile.id },
+        data: { latitude: resolvedTutor.lat, longitude: resolvedTutor.lng },
+      }).catch(() => {});
+    }
+  }
+
+  // Fetch active student requirements prioritizing tutor city and online classes
+  const isDelhiRegion = tutorCity ? /delhi|noida|gurgaon|gurugram|ghaziabad|faridabad/i.test(tutorCity) : false;
+
   const candidateLeads = await prisma.lead.findMany({
     where: {
       status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
+      ...(tutorCity
+        ? {
+            OR: [
+              { mode: "ONLINE" },
+              { city: { contains: tutorCity, mode: "insensitive" as const } },
+              ...(isDelhiRegion
+                ? [
+                    { city: { in: ["Delhi", "New Delhi", "Noida", "Gurugram", "Gurgaon", "Ghaziabad", "Faridabad"] } },
+                    { area: { contains: "Delhi", mode: "insensitive" as const } },
+                  ]
+                : []),
+            ],
+          }
+        : {}),
     },
     orderBy: { createdAt: "desc" },
-    take: 120,
+    take: 500,
     select: {
       id: true,
       inquiryNumber: true,
@@ -109,6 +148,7 @@ export default async function TutorDashboardPage() {
       budgetMax: true,
       notes: true,
       timingPreference: true,
+      tutorGenderPref: true,
       createdAt: true,
       purchaseCount: true,
       maxTutors: true,
@@ -125,18 +165,33 @@ export default async function TutorDashboardPage() {
   const processedLeads: DashboardLead[] = [];
 
   for (const lead of candidateLeads) {
+    // Gender compatibility filter (e.g. female-only leads don't match male tutors)
+    if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) {
+      continue;
+    }
+
+    let leadLat = lead.latitude;
+    let leadLng = lead.longitude;
+    if ((leadLat == null || leadLng == null) && (lead.area || lead.city)) {
+      const resolvedLead = resolveLocationCoordinates(`${lead.area || ""} ${lead.city || ""}`);
+      if (resolvedLead) {
+        leadLat = resolvedLead.lat;
+        leadLng = resolvedLead.lng;
+      }
+    }
+
     let distanceKm: number | null = null;
     if (
       tutorLat !== null &&
       tutorLat !== undefined &&
       tutorLng !== null &&
       tutorLng !== undefined &&
-      lead.latitude !== null &&
-      lead.latitude !== undefined &&
-      lead.longitude !== null &&
-      lead.longitude !== undefined
+      leadLat !== null &&
+      leadLat !== undefined &&
+      leadLng !== null &&
+      leadLng !== undefined
     ) {
-      distanceKm = Math.round(haversineDistanceKm(tutorLat, tutorLng, lead.latitude, lead.longitude) * 10) / 10;
+      distanceKm = Math.round(haversineDistanceKm(tutorLat, tutorLng, leadLat, leadLng) * 10) / 10;
     }
 
     const isOnline = lead.mode === "ONLINE";
@@ -156,20 +211,31 @@ export default async function TutorDashboardPage() {
     });
   }
 
+  // Deduplicate identical inquiries from feed
+  const seenSignatures = new Set<string>();
+  const deduplicatedProcessed: DashboardLead[] = [];
+  for (const pl of processedLeads) {
+    const cleanArea = (pl.area || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanClass = (pl.classLevel || "").toLowerCase();
+    const cleanSubs = pl.subjects.slice().sort().join("_").toLowerCase();
+    const sig = `${cleanArea}_${cleanClass}_${cleanSubs}_${pl.budgetMin ?? 0}`;
+    if (seenSignatures.has(sig)) continue;
+    seenSignatures.add(sig);
+    deduplicatedProcessed.push(pl);
+  }
+
   // 1. Strict Subject Filter: only leads matching what the teacher teaches
-  const subjectMatchedLeads = processedLeads.filter((l) => l.subjectMatched);
+  const subjectMatchedLeads = deduplicatedProcessed.filter((l) => l.subjectMatched);
 
   // 2. Strict Nearby (<10km) and Online Classes within 10km or available
   const strictNearbyLeads = subjectMatchedLeads
     .filter((l) => {
       if (l.isOnline) {
-        // Shows online classes: if within 10km or general online requirement for their subject
         return l.distanceKm === null || l.distanceKm <= 10 || l.isOnline;
       }
       return l.isStrictNearby;
     })
     .sort((a, b) => {
-      // Prioritize strict physical distance <= 10km first, then online
       const distA = a.distanceKm ?? 999;
       const distB = b.distanceKm ?? 999;
       if (distA !== distB) return distA - distB;

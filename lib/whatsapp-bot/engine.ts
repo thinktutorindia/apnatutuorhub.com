@@ -29,6 +29,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getSubjectClassSuggestions,
   validateSubjectClassCompatibility,
+  parseGrade,
 } from "./subject-rules";
 
 // Admin WhatsApp numbers — these get lead forwarding + full control
@@ -58,8 +59,7 @@ function formatHumanTeachingContext(
   const cleanClass = (cls || "").trim();
   let cleanSubs = [...subs];
 
-  const gradeMatch = cleanClass.match(/\b([1-9]|1[0-2])\b/);
-  const grade = gradeMatch ? parseInt(gradeMatch[1], 10) : null;
+  const grade = parseGrade(cleanClass);
   const isPrimary = (grade !== null && grade <= 5) || /primary|kg|nursery|1\s*[-–to]\s*5/i.test(cleanClass);
 
   const hasPhysics = cleanSubs.some((s) => /physic/i.test(s));
@@ -652,8 +652,24 @@ export async function processMessage(
             };
           }
 
-          // Case F: ALL 3 TEACHING CRITERIA ARE PRESENT! Proceed to mandatory Email
-          const ctx = formatHumanTeachingContext(subsArray, classLevelsArray[0] || (mergedData.classLevel as string), rawArea);
+          // Case F: ALL 3 TEACHING CRITERIA ARE PRESENT!
+          // Safety verification: Re-validate subject-grade compatibility before proceeding to email
+          const rawCls = classLevelsArray[0] || (mergedData.classLevel as string) || "";
+          const compatibilityCheck = validateSubjectClassCompatibility(subsArray, rawCls, "TUTOR");
+          if (!compatibilityCheck.isValid) {
+            mergedData.classLevel = undefined;
+            mergedData.classLevels = undefined;
+            return {
+              reply: compatibilityCheck.reason!,
+              nextStep: "T_CLASS",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: compatibilityCheck.suggestedReplies || ["Class 11-12", "Class 9-10 (Science)"],
+            };
+          }
+
+          const ctx = formatHumanTeachingContext(subsArray, rawCls, rawArea);
           mergedData.subjects = ctx.cleanSubs;
           const areaName = rawArea;
           const cityName = (mergedData.city as string) || "Delhi";
@@ -687,26 +703,41 @@ export async function processMessage(
             };
           }
 
-          // Save valid email
-          mergedData.email = emailCandidate;
-
-          // 2. Password Setup
+          // 2. Password Setup & Identity Cross-Account Conflict Guard
           const pwdCandidate = (typeof mergedData.password === "string" ? mergedData.password.trim() : "");
           if (!pwdCandidate && session.step !== "T_PASSWORD") {
-            // Check if email already registered in DB
             let isExisting = false;
+            let existingUserPhone: string | null = null;
             try {
               const existingUser = await prisma.user.findFirst({
                 where: { email: emailCandidate },
-                select: { id: true, name: true, role: true },
+                select: { id: true, name: true, role: true, phone: true },
               });
               if (existingUser) {
                 isExisting = true;
+                existingUserPhone = existingUser.phone;
                 mergedData._existingAccount = true;
               }
             } catch {}
 
             if (isExisting) {
+              const existingPhone10 = (existingUserPhone || "").replace(/\D/g, "").slice(-10);
+              const sessionPhone10 = session.phone.replace(/\D/g, "").slice(-10);
+
+              // Cross-account conflict: Email is registered to a DIFFERENT phone number
+              if (existingPhone10 && sessionPhone10 && existingPhone10 !== sessionPhone10) {
+                mergedData.email = undefined;
+                return {
+                  reply: `⚠️ Yeh email (*${emailCandidate}*) already kisi doosre mobile number se linked hai.\n\nKripya apna alag personal email ID enter karein jo is WhatsApp number ke saath connect ho sake: 📧`,
+                  nextStep: "T_EMAIL",
+                  updatedData: mergedData,
+                  userType: "TUTOR",
+                  retries: 0,
+                  quickReplies: [],
+                };
+              }
+
+              mergedData.email = emailCandidate;
               return {
                 reply: `Email note ho gaya: *${emailCandidate}* ✅\n_(Yeh email pehle se registered hai)_\n\n🔐 Account login karne ke liye password enter karein (ya type karein *default*):`,
                 nextStep: "T_PASSWORD",
@@ -717,6 +748,7 @@ export async function processMessage(
               };
             }
 
+            mergedData.email = emailCandidate;
             return {
               reply: `Email note ho gaya: *${emailCandidate}* ✅\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
               nextStep: "T_PASSWORD",
@@ -726,6 +758,9 @@ export async function processMessage(
               quickReplies: ["Default Password", "12345678"],
             };
           }
+
+          // Save valid email if at or past password step
+          mergedData.email = emailCandidate;
 
           // If in T_PASSWORD step, handle user input
           if (session.step === "T_PASSWORD") {
@@ -1225,9 +1260,41 @@ export async function processMessage(
       };
     }
 
-    // 2. Check Password
+    // 2. Check Password & Cross-Account Email Conflict
     const pwdStr = typeof updated.password === "string" ? updated.password.trim() : "";
     if (!pwdStr && step !== "T_PASSWORD") {
+      let isExisting = false;
+      let existingUserPhone: string | null = null;
+      try {
+        const existingUser = await prisma.user.findFirst({
+          where: { email: emailStr },
+          select: { id: true, name: true, role: true, phone: true },
+        });
+        if (existingUser) {
+          isExisting = true;
+          existingUserPhone = existingUser.phone;
+          updated._existingAccount = true;
+        }
+      } catch {}
+
+      if (isExisting) {
+        const existingPhone10 = (existingUserPhone || "").replace(/\D/g, "").slice(-10);
+        const sessionPhone10 = session.phone.replace(/\D/g, "").slice(-10);
+
+        // Cross-account conflict: Email is registered to a DIFFERENT phone number
+        if (existingPhone10 && sessionPhone10 && existingPhone10 !== sessionPhone10) {
+          updated.email = undefined;
+          return {
+            reply: `⚠️ Yeh email (*${emailStr}*) already kisi doosre mobile number se linked hai.\n\nKripya apna alag personal email ID enter karein jo is WhatsApp number ke saath connect ho sake: 📧`,
+            nextStep: "T_EMAIL",
+            updatedData: updated,
+            userType: "TUTOR",
+            retries: 0,
+            quickReplies: [],
+          };
+        }
+      }
+
       return {
         reply: `Email note ho gaya: *${emailStr}* ✅\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
         nextStep: "T_PASSWORD",

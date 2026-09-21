@@ -31,6 +31,7 @@ const PUBLIC_ROUTES = [
   "/find-tutor",
   "/login",
   "/register",
+  "/verify-email",
   "/forgot-password",
   "/reset-password",
   "/select-role",

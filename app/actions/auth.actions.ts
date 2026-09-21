@@ -6,6 +6,7 @@ import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
 import { registerSchema, loginSchema } from "@/lib/validations";
 import { checkRateLimit } from "@/lib/security-audit";
+import { sendEmailOtp, verifyEmailOtp } from "@/lib/email-otp";
 
 // ────────────────────────────────────────────────
 // Types
@@ -139,6 +140,15 @@ export async function registerAction(
     });
   }
 
+  // For tutors, dispatch an Email OTP verification code
+  if (role === "TUTOR") {
+    try {
+      await sendEmailOtp(email, name);
+    } catch (err) {
+      console.error("[Auth Action] Failed to send registration email OTP:", err);
+    }
+  }
+
   try {
     await signIn("credentials", {
       email,
@@ -149,14 +159,18 @@ export async function registerAction(
     return {
       success: true,
       role,
-      redirectTo: role === "TUTOR" ? "/login?registered=true&role=tutor" : "/login?registered=true",
+      redirectTo: role === "TUTOR"
+        ? `/verify-email?email=${encodeURIComponent(email)}&role=tutor`
+        : "/login?registered=true",
     };
   }
 
   return {
     success: true,
     role,
-    redirectTo: role === "TUTOR" ? "/tutor/onboarding" : "/parent/post-requirement",
+    redirectTo: role === "TUTOR"
+      ? `/verify-email?email=${encodeURIComponent(email)}&role=tutor`
+      : "/parent/post-requirement",
   };
 }
 
@@ -192,11 +206,11 @@ export async function loginAction(
     // Look up the user's role to redirect them to the correct dashboard
     const rawId = parsed.data.email.trim();
     const isEmail = rawId.includes("@");
-    let user = null;
+    let user: { role: string; email?: string | null; emailVerified?: Date | null } | null = null;
     if (isEmail) {
       user = await prisma.user.findUnique({
         where: { email: rawId.toLowerCase() },
-        select: { role: true },
+        select: { role: true, email: true, emailVerified: true },
       });
       if (!user) {
         try {
@@ -220,7 +234,7 @@ export async function loginAction(
                   { phone: `91${phone10}` },
                 ],
               },
-              select: { role: true },
+              select: { role: true, email: true, emailVerified: true },
             });
           }
         } catch {
@@ -239,8 +253,17 @@ export async function loginAction(
             { phone: `91${phone10}` },
           ],
         },
-        select: { role: true },
+        select: { role: true, email: true, emailVerified: true },
       });
+    }
+
+    // If tutor is logging in but email is not verified yet, send OTP & redirect to verify
+    if (user?.role === "TUTOR" && !user.emailVerified && user.email) {
+      sendEmailOtp(user.email).catch(() => {});
+      return {
+        success: true,
+        redirectTo: `/verify-email?email=${encodeURIComponent(user.email)}&role=tutor`,
+      };
     }
 
     const redirectMap: Record<string, string> = {
@@ -501,3 +524,47 @@ export async function switchUserRoleAction(
 ): Promise<{ success: boolean; redirectTo?: string; error?: string }> {
   return selectUserRoleAction(targetRole);
 }
+
+// ────────────────────────────────────────────────
+// Email OTP Verification Actions
+// ────────────────────────────────────────────────
+
+export async function verifyEmailOtpAction(
+  email: string,
+  otp: string
+): Promise<{ success: boolean; error?: string; redirectTo?: string }> {
+  const result = await verifyEmailOtp(email, otp);
+  if (!result.success) {
+    return result;
+  }
+
+  // Find user to check onboarding status
+  const user = await prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: {
+      role: true,
+      tutorProfile: { select: { onboardingStep: true } },
+    },
+  });
+
+  const dest = user?.tutorProfile && (user.tutorProfile.onboardingStep ?? 1) >= 7
+    ? "/tutor/dashboard"
+    : "/tutor/onboarding";
+
+  return {
+    success: true,
+    redirectTo: dest,
+  };
+}
+
+export async function resendEmailOtpAction(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  const user = await prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: { name: true },
+  });
+
+  return await sendEmailOtp(email, user?.name);
+}
+

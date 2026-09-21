@@ -101,6 +101,49 @@ export function getSubjectClassSuggestions(subject: string): { prompt: string; q
   };
 }
 
+const WORD_GRADES: Record<string, number> = {
+  first: 1,
+  second: 2,
+  third: 3,
+  fourth: 4,
+  fifth: 5,
+  sixth: 6,
+  seventh: 7,
+  eighth: 8,
+  ninth: 9,
+  tenth: 10,
+  eleventh: 11,
+  twelfth: 12,
+};
+
+export function parseGrade(s?: string | null): number | null {
+  if (!s) return null;
+  const lower = s.trim().toLowerCase();
+
+  // 1. Check word numbers (e.g. "third class", "fifth")
+  for (const [w, g] of Object.entries(WORD_GRADES)) {
+    if (new RegExp(`\\b${w}\\b`, "i").test(lower)) return g;
+  }
+
+  // 2. Check Roman numerals (e.g. "Class III", "VI")
+  const romanMatch = lower.match(/\b(xii|xi|viii|vii|vi|iv|ix|iii|ii|x|v|i)\b/i);
+  if (romanMatch) {
+    const ROMANS: Record<string, number> = {
+      i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10, xi: 11, xii: 12,
+    };
+    const val = ROMANS[romanMatch[1].toLowerCase()];
+    if (val) return val;
+  }
+
+  // 3. Check digits with optional ordinals: "3rd", "3", "3rd class", "class 3", "10th"
+  const digitMatch = lower.match(/(\b1[0-2]|\b[1-9])(?:\s*(?:st|nd|rd|th))?(?!\d)/i);
+  if (digitMatch) {
+    return parseInt(digitMatch[1], 10);
+  }
+
+  return null;
+}
+
 /**
  * Validates if the selected class makes educational common sense for the given subjects.
  * If invalid, explains why and provides smart alternative buttons to resolve the ambiguity.
@@ -131,9 +174,8 @@ export function validateSubjectClassCompatibility(
     };
   }
 
-  // Extract grade numbers from input (e.g. "5", "class 5", "5th", "grade 5")
-  const gradeMatch = lowerCls.match(/\b([1-9]|1[0-2])\b/);
-  const grade = gradeMatch ? parseInt(gradeMatch[1], 10) : null;
+  // Robust grade extraction supporting 3rd, 3rd class, third, Class 3, etc.
+  const grade = parseGrade(lowerCls);
   const isPrimary = (grade !== null && grade <= 5) || /primary|kg|nursery|pre|1\s*[-–to]\s*5/i.test(lowerCls);
   const isMiddle = (grade !== null && grade >= 6 && grade <= 8) || /middle|6\s*[-–to]\s*8/i.test(lowerCls);
   const isBelow9 = (grade !== null && grade < 9) || isPrimary || isMiddle || /1\s*[-–to]\s*8|upto\s*8th|till\s*8th/i.test(lowerCls);
@@ -147,22 +189,24 @@ export function validateSubjectClassCompatibility(
 
   if (isSeniorScience && isBelow9) {
     const sciName = isChemistry ? "Chemistry" : isBiology ? "Biology" : "Physics";
+    const gradeLabel = grade ? `Class ${grade}` : "Class 1-8";
+
     if (userType === "PARENT") {
       return {
         isValid: false,
-        reason: `School mein Class ${grade || "1-8"} ke liye ${sciName} alag se nahi hoti, wahan 'General Science' aur 'All Subjects' hota hai! 📚\n\nBachche ke liye kya chahiye?`,
-        suggestedReplies: [`Class ${grade || 5} All Subjects`, `Class ${grade || 5} Science`, "Class 9-10 (Science)"],
+        reason: `School curriculum mein ${gradeLabel} ke liye ${sciName} alag se nahi hoti, wahan 'General Science' aur 'All Subjects' hota hai! 📚\n\nBachche ke liye kya chahiye?`,
+        suggestedReplies: [`${gradeLabel} All Subjects`, `${gradeLabel} Science`, "Class 9-10 (Science)"],
       };
     }
 
     return {
       isValid: false,
-      reason: `School curriculum mein ${sciName} Class 9-12 (aur JEE/NEET) mein hoti hai! 📚 Class 1-8 ke liye 'All Subjects' ya 'General Science' hota hai.\n\nAap kaunsi class ke liye padhate hain?`,
+      reason: `School curriculum mein ${sciName} Class 9 se 12th (aur JEE/NEET) mein hoti hai! 📚 Class 1–5 mein 'All Subjects', 'Maths' ya 'General Science' hota hai.\n\nKya aap Class 9 ya usse upar padhana chahte hain, ya ${gradeLabel} ke liye subjects select karna chahte hain?`,
       suggestedReplies: [
+        "Class 9-10 (Science)",
         `Class 11-12 (${sciName})`,
-        `Class 9-10 (Science)`,
-        `Class 1-5 (All Subjects)`,
-        `JEE / NEET`,
+        `${gradeLabel} (All Subjects)`,
+        `${gradeLabel} (Maths & Science)`,
       ],
     };
   }

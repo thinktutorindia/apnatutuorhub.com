@@ -24,24 +24,28 @@ export type MatchingLeadCard = {
 /**
  * Extract all grade numbers from a class string (e.g. "Class 11", "Class 9-10", "11th")
  */
-function extractAllGrades(s?: string | null): Set<number> {
+export function extractAllGrades(s?: string | null): Set<number> {
   const grades = new Set<number>();
   if (!s) return grades;
-  const rangeMatch = s.match(/(?:class\s*)?(\d{1,2})\s*(?:to|-|and)\s*(\d{1,2})/i);
-  if (rangeMatch) {
-    const min = Math.min(parseInt(rangeMatch[1], 10), parseInt(rangeMatch[2], 10));
-    const max = Math.max(parseInt(rangeMatch[1], 10), parseInt(rangeMatch[2], 10));
+  // Match ranges like "1 to 5", "9-10", "class 1-5"
+  const rangeMatches = [...s.matchAll(/(?:class\s*)?(\d{1,2})\s*(?:to|-)\s*(\d{1,2})/gi)];
+  for (const rm of rangeMatches) {
+    const min = Math.min(parseInt(rm[1], 10), parseInt(rm[2], 10));
+    const max = Math.max(parseInt(rm[1], 10), parseInt(rm[2], 10));
     for (let i = min; i <= max; i++) {
       if (i >= 1 && i <= 12) grades.add(i);
     }
-  } else {
-    const g = extractGradeNumber(s);
-    if (g && g >= 1 && g <= 12) grades.add(g);
+  }
+  // Also match all discrete grade numbers e.g. "Class 5th, Class 9th"
+  const discreteMatches = [...s.matchAll(/\b([1-9]|1[0-2])(?:st|nd|rd|th)?\b/gi)];
+  for (const dm of discreteMatches) {
+    const num = parseInt(dm[1], 10);
+    if (num >= 1 && num <= 12) grades.add(num);
   }
   return grades;
 }
 
-function isClassCompatible(tutorClassStr: string | undefined, leadClassStr: string): boolean {
+export function isClassCompatible(tutorClassStr: string | undefined, leadClassStr: string): boolean {
   if (!tutorClassStr || !leadClassStr) return true;
   if (/all|any|general/i.test(tutorClassStr)) return true;
 
@@ -49,18 +53,37 @@ function isClassCompatible(tutorClassStr: string | undefined, leadClassStr: stri
   const leadGrades = extractAllGrades(leadClassStr);
 
   if (tutorGrades.size > 0 && leadGrades.size > 0) {
+    const isTutorPurePrimary = [...tutorGrades].every((tg) => tg <= 5);
+    const leadHasSeniorOrSecondary = [...leadGrades].some((lg) => lg >= 6);
+
+    // CRITICAL: A primary-only tutor (e.g. Class 3) must NEVER match leads that require middle/secondary/senior classes (Class 6+)
+    if (isTutorPurePrimary && leadHasSeniorOrSecondary) {
+      return false;
+    }
+
+    const isTutorPureSenior = [...tutorGrades].every((tg) => tg >= 11);
+    const isLeadPureBelowSenior = [...leadGrades].every((lg) => lg <= 10);
+    if (isTutorPureSenior && isLeadPureBelowSenior) {
+      return false;
+    }
+
     for (const tg of tutorGrades) {
+      // Exact grade match
       if (leadGrades.has(tg)) return true;
-      // Senior Secondary (Class 11 & 12)
+
+      // Senior Secondary (Class 11 & 12 only match 11 & 12)
       if (tg === 11 && leadGrades.has(12)) return true;
       if (tg === 12 && leadGrades.has(11)) return true;
-      // Secondary (Class 9 & 10)
+
+      // Secondary (Class 9 & 10 only match 9 & 10)
       if (tg === 9 && leadGrades.has(10)) return true;
       if (tg === 10 && leadGrades.has(9)) return true;
-      // Middle School (Class 6, 7, 8)
+
+      // Middle School (Class 6, 7, 8 only match 6, 7, 8)
       if (tg >= 6 && tg <= 8 && [...leadGrades].some((lg) => lg >= 6 && lg <= 8)) return true;
-      // Primary (Class 1-5)
-      if (tg <= 5 && [...leadGrades].some((lg) => lg <= 5)) return true;
+
+      // Primary range (only if tutor specifically teaches a range like Class 1-5)
+      if (tutorGrades.size > 1 && tg <= 5 && [...leadGrades].some((lg) => lg <= 5)) return true;
     }
     return false;
   }
@@ -73,27 +96,35 @@ function isClassCompatible(tutorClassStr: string | undefined, leadClassStr: stri
   return coversClassLevel([tutorClassStr], leadClassStr);
 }
 
-function isSubjectCompatible(tutorSubs: string[] | undefined, leadSubs: string[]): boolean {
+export function isSubjectCompatible(tutorSubs: string[] | undefined, leadSubs: string[]): boolean {
   if (!tutorSubs || tutorSubs.length === 0) return true;
   if (tutorSubs.some((s) => /all\s*subject|all|any|general/i.test(s))) return true;
 
   const tNorm = tutorSubs.map((s) => s.toLowerCase());
   const lNorm = leadSubs.map((s) => s.toLowerCase());
 
+  // Check if tutor is a specialist in a specific senior subject (Physics, Chemistry, Biology, Accounts)
+  const isSpecialist = tNorm.every((t) =>
+    /physic|chem|bio\b|biolog|account|economic|business|computer|coding|python|french|german|sanskrit/i.test(t)
+  );
+
   for (const t of tNorm) {
     for (const l of lNorm) {
-      if (l.includes("all subject") || l.includes("all core")) return true;
+      // Specialist senior tutors (e.g. Physics only) should NOT be matched to generic primary "all core subjects"
+      if ((l.includes("all subject") || l.includes("all core")) && !isSpecialist) {
+        return true;
+      }
       if (/math|algebra|calculus|geometry/i.test(t) && /math|algebra|calculus|geometry/i.test(l)) return true;
-      if (/science|physics|chemistry|biology/i.test(t) && /science|physics|chemistry|biology/i.test(l)) return true;
-      if (/physic/i.test(t) && /physic/i.test(l)) return true;
-      if (/chem/i.test(t) && /chem/i.test(l)) return true;
-      if (/bio/i.test(t) && /bio/i.test(l)) return true;
+      if (/physic/i.test(t) && (/physic/i.test(l) || (!isSpecialist && /science/i.test(l)))) return true;
+      if (/chem/i.test(t) && (/chem/i.test(l) || (!isSpecialist && /science/i.test(l)))) return true;
+      if (/bio\b|biolog/i.test(t) && (/bio\b|biolog/i.test(l) || (!isSpecialist && /science/i.test(l)))) return true;
+      if (/science/i.test(t) && /science|physics|chemistry|biology/i.test(l)) return true;
       if (/english/i.test(t) && /english/i.test(l)) return true;
       if (/hindi/i.test(t) && /hindi/i.test(l)) return true;
-      if (/social|sst|history|geography|civics/i.test(t) && /social|sst|history|geography|civics/i.test(l)) return true;
+      if (/social|sst\b|history|geography|civics/i.test(t) && /social|sst\b|history|geography|civics/i.test(l)) return true;
       if (/commerce|account|business|economic/i.test(t) && /commerce|account|business|economic/i.test(l)) return true;
-      if (/computer|coding|python|cs/i.test(t) && /computer|coding|python|cs/i.test(l)) return true;
-      if (t.includes(l) || l.includes(t)) return true;
+      if (/computer|coding|python|\bcs\b|informatics/i.test(t) && /computer|coding|python|\bcs\b|informatics/i.test(l)) return true;
+      if (t === l) return true;
     }
   }
   return false;
@@ -133,8 +164,8 @@ export async function getChatbotMatchingLeads(
       subjects && subjects.length > 0 && !subjects.some((s) => /all|any|combo/i.test(s))
     );
 
-    // Filter candidate leads strictly by class, subject, and gender compatibility if specified
-    let candidatePool = rawLeads.filter((lead) => {
+    // Hard Constraint Filtering: class compatibility + subject compatibility + gender compatibility
+    const candidatePool = rawLeads.filter((lead) => {
       if (hasSpecificClass && !isClassCompatible(classLevel, lead.classLevel)) {
         return false;
       }
@@ -147,19 +178,10 @@ export async function getChatbotMatchingLeads(
       return true;
     });
 
-    // If no candidate matches both strictly, fallback to subject match
-    if (candidatePool.length === 0 && hasSpecificSubs) {
-      candidatePool = rawLeads.filter((lead) => {
-        if (!isSubjectCompatible(subjects, lead.subjects)) return false;
-        if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) return false;
-        return true;
-      });
-    }
+    // Zero-match deterministic integrity: If no leads match the tutor's hard constraints,
+    // NEVER fall back to stripping the class filter. Return empty array so the bot can inform the tutor honestly.
     if (candidatePool.length === 0) {
-      candidatePool = rawLeads.filter((lead) => {
-        if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) return false;
-        return true;
-      });
+      return [];
     }
 
     const searchArea = (area || "").toLowerCase().trim();
@@ -292,7 +314,7 @@ export function formatTutorLeadsAndPlansMessage(
         )
         .join("\n\n");
   } else {
-    leadsSection = `\n\n600+ active leads hain Delhi NCR mein!`;
+    leadsSection = `\n\n📋 *Matching Leads Alert:*\nAbhi ${locationLabel} mein aapki selected class aur subjects ke liye koi open requirement pending nahi hai.\nJaise hi parent nayi requirement post karenge, aapko sabse pehle instant WhatsApp alert aayega! 🔔\n\nDelhi NCR aur Online ke sabhi 600+ leads explore karne ke liye website login karein: https://apnatutorhub.com/tutor/leads`;
   }
 
   const plansSection = `\n\n──────────────────────────\n` +

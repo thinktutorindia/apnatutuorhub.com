@@ -455,11 +455,10 @@ export async function registerTutorFromWhatsapp(
       passwordHash = await bcrypt.hash(data.password.trim(), 10);
     }
 
-    // Check if user already exists by phone OR email to prevent unique constraint errors
+    // First find user by phone (primary identity on WhatsApp)
     let user = await prisma.user.findFirst({
       where: {
         OR: [
-          ...(email ? [{ email }] : []),
           ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
           ...(data.phone ? [{ phone: data.phone }] : []),
           ...(rawTargetPhone ? [{ phone: rawTargetPhone }] : []),
@@ -467,12 +466,21 @@ export async function registerTutorFromWhatsapp(
       },
     });
 
+    // If not found by phone, check if a user exists with this email
+    if (!user && email) {
+      user = await prisma.user.findUnique({
+        where: { email },
+      });
+    }
+
     if (user) {
       let emailToUpdate: string | undefined = undefined;
       if (email && !email.startsWith("wa_") && email !== user.email) {
         const existingEmailUser = await prisma.user.findUnique({ where: { email } });
         if (!existingEmailUser || existingEmailUser.id === user.id) {
           emailToUpdate = email;
+        } else {
+          console.warn(`[auto-register] Cannot update email to ${email} for user ${user.id} — email owned by ${existingEmailUser.id}`);
         }
       }
 

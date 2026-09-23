@@ -5,43 +5,71 @@
  */
 
 export const MSG = {
-  // ── Common ────────────────────────────────────────────────────────────────────
-  WELCOME: `Namaste! 👋 *ApnaTutorHub* mein aapka swagat hai!
+  // ── Language Selection ────────────────────────────────────────────────────────
+  LANG_PROMPT: `Welcome to *ApnaTutorHub*! / *ApnaTutorHub* में आपका स्वागत है! 🙏
+India's Leading Home Tutoring Network.
 
-Aap tutor hain ya parent?
+Please choose your language / अपनी भाषा चुनें:
+1 — English
+2 — हिंदी (Hindi)
 
-1 — *Tutor* (teaching work chahiye)
-2 — *Parent* (bachche ke liye tutor chahiye)
+Reply with *1* or *2*`,
 
-Reply karo *1* ya *2*`,
+  // ── Common (Bilingual) ────────────────────────────────────────────────────────
+  WELCOME_EN: `Welcome to *ApnaTutorHub*! 🎓
+India's Leading Home Tutoring Network.
 
-  RE_WELCOME: `👋 Wapas aaye! *ApnaTutorHub* pe swagat hai.
+Please tell us who you are:
+1 — *Tutor* (Looking for home tuition / teaching work)
+2 — *Parent* (Looking for a qualified home tutor)
 
-1 — *Tutor* (tuition work dhundh raha hoon)
-2 — *Parent* (tutor dhundh raha hoon)
+Reply with *1* or *2*`,
 
-Reply karo *1* ya *2*`,
+  WELCOME_HI: `*ApnaTutorHub* में आपका स्वागत है! 🎓
+भारत का प्रमुख होम ट्यूशन नेटवर्क।
 
-  UNKNOWN: `Samajh nahi aaya. 🙏
+कृपया बताएं आप कौन हैं:
+1 — *ट्यूटर* (होम ट्यूशन / टीचिंग वर्क चाहिए)
+2 — *पेरेंट* (बच्चे के लिए होम ट्यूटर चाहिए)
 
-Type karo *MENU* ya reply karo number se jo message mein tha.`,
+Reply करें *1* या *2*`,
+
+  WELCOME: `Welcome to *ApnaTutorHub*! / *ApnaTutorHub* में आपका स्वागत है! 🙏
+
+Please choose your language / अपनी भाषा चुनें:
+1 — English
+2 — हिंदी (Hindi)
+
+Reply with *1* or *2*`,
+
+  RE_WELCOME: `👋 Welcome back to *ApnaTutorHub*!
+
+Are you a Tutor or a Parent?
+1 — *Tutor* (Looking for tuition opportunities)
+2 — *Parent* (Looking for a home tutor)
+
+Reply with *1* or *2*`,
+
+  UNKNOWN: `Sorry, I didn't quite catch that. 🙏
+Type *MENU* to restart or reply with the requested option.`,
+
+  UNKNOWN_HI: `समझ नहीं आया। 🙏
+Restart करने के लिए *MENU* type करें।`,
 
   HELP: `📞 *ApnaTutorHub Support*
 
-WhatsApp: +91 87997 07960
-Time: 9am – 7pm (Mon–Sat)
+WhatsApp: +91 93191 93109
+Timings: 9:00 AM – 7:00 PM (Mon–Sat)
 
-Type karo *MENU* restart karne ke liye.`,
+Type *MENU* anytime to return to the main menu.`,
 
-  CANCEL: `✅ Done! Session clear ho gaya.
-
-Kisi bhi waqt *MENU* type karo.
+  CANCEL: `✅ Session cleared.
+Type *MENU* anytime to start afresh.
 
 *ApnaTutorHub.com — We Provide Home Tutors* 🙏`,
 
-  TOO_MANY_RETRIES: `Kuch gadbad ho gayi. Naye sire se shuru karte hain.
-
-Type karo *MENU* phir se try karne ke liye.`,
+  TOO_MANY_RETRIES: `Something went wrong. Let's start fresh.
+Type *MENU* to try again.`,
 
   // ── Tutor Flow ────────────────────────────────────────────────────────────
   T_NAME: `Great! 🎉 Let's set up your *tutor profile*.
@@ -264,6 +292,6 @@ export const BUDGET_MAP: Record<string, { label: string; min: number; max: numbe
   "4": { label: "Above ₹10,000/month", min: 10000, max: 50000 },
 };
 
-export const SPECIAL_COMMANDS = ["MENU", "START", "HI", "HELLO", "HALO"];
+export const SPECIAL_COMMANDS = ["MENU", "START", "HI", "HELLO", "HALO", "LANG", "LANGUAGE", "BHASHA"];
 export const HELP_COMMANDS = ["HELP", "SUPPORT"];
 export const CANCEL_COMMANDS = ["STOP", "CANCEL", "QUIT", "EXIT"];

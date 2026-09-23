@@ -30,12 +30,48 @@ import {
   getSubjectClassSuggestions,
   validateSubjectClassCompatibility,
   parseGrade,
+  validateAndCleanLocality,
+  validateAndAlignSubjects,
+  KNOWN_INDIAN_CITIES,
 } from "./subject-rules";
 
 // Admin WhatsApp numbers — these get lead forwarding + full control
 const ADMIN_PHONES = ["919311459543", "917559563565"];
 
 const MAX_RETRIES = 3;
+
+export const DELHI_NCR_LOCALITIES = [
+  "dwarka", "rohini", "janakpuri", "uttam nagar", "vikaspuri", "paschim vihar",
+  "pitampura", "shalimar bagh", "model town", "ashok vihar", "civil lines",
+  "connaught place", "cp", "south ex", "south extension", "saket", "hauz khas",
+  "malviya nagar", "green park", "greater kailash", "gk", "cr park", "kalkaji",
+  "nehru place", "lajpat nagar", "defence colony", "vasant kunj", "vasant vihar",
+  "munirka", "rk puram", "mayur vihar", "laxmi nagar", "preet vihar", "nirman vihar",
+  "shahdara", "dilshad garden", "karol bagh", "patel nagar", "rajouri garden",
+  "tagore garden", "subhash nagar", "tilak nagar", "najafgarh", "narela", "bawana",
+  "burari", "sant nagar", "sangam vihar", "badarpur", "sarita vihar", "okhla",
+  "jasola", "noida", "greater noida", "gurgaon", "gurugram", "ghaziabad",
+  "faridabad", "indirapuram", "vaishali", "kaushambi", "mukundpur", "mukherjee nagar",
+  "azadpur", "neb sarai", "sainik farm", "devli", "khanpur", "tigri", "madangir",
+  "alaknanda", "govindpuri", "pul prahladpur", "chhatarpur", "mehrauli", "safdarjung",
+  "kalyan vihar", "panchsheel park", "shastri nagar", "seelampur", "yamuna vihar",
+  "bhajanpura", "karawal nagar", "mustafabad", "geeta colony", "anand vihar", "ip extension",
+  "patparganj", "keshav puram", "gtb nagar", "kingsway camp", "timarpur", "punjabi bagh"
+];
+
+export function cleanExtractedArea(raw: unknown, defaultCity = "Delhi"): string {
+  const res = validateAndCleanLocality(raw, defaultCity);
+  return res.isValid ? res.area : "";
+}
+
+export function isValidEmailDomain(email: string): boolean {
+  if (!email || !email.includes("@")) return false;
+  const parts = email.split("@");
+  if (parts.length !== 2) return false;
+  const domain = parts[1].toLowerCase().trim();
+  if (/\.(gom|con|cpm|coom|gmai|yaho)$/i.test(domain)) return false;
+  return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(domain);
+}
 
 function isValidName(v: string): boolean {
   const clean = v.trim();
@@ -149,7 +185,7 @@ export async function processMessage(
 
   if (HELP_COMMANDS.includes(msg) || /^call$/i.test(msg.trim()) || /support/i.test(msg)) {
     return {
-      reply: `📞 Hamare coordinator se seedha baat karein:\n\nWhatsApp: +91 87997 07960\nTime: 9am – 7pm (Mon–Sat)\n\nUnhe batayein aapka naam aur issue.`,
+      reply: `📞 Hamare coordinator se seedha baat karein:\n\nWhatsApp: +91 93191 93109\nTime: 9am – 7pm (Mon–Sat)\n\nUnhe batayein aapka naam aur issue.`,
       nextStep: step,
       updatedData: data,
       retries: 0,
@@ -160,7 +196,7 @@ export async function processMessage(
   // ── Staff Escalation: complaint / issue / problem ─────────────────────────
   if (/\b(problem|issue|complaint|cheated|fraud|refund|not working|call me)\b/i.test(rawMessage)) {
     return {
-      reply: `Samajh gaya. Seedha humse baat karo:\n\n📞 WhatsApp: +91 87997 07960\nTime: 9am–7pm (Mon–Sat)\n\nUnhe aapka naam aur issue batao.`,
+      reply: `Samajh gaya. Seedha humse baat karo:\n\n📞 WhatsApp: +91 93191 93109\nTime: 9am–7pm (Mon–Sat)\n\nUnhe aapka naam aur issue batao.`,
       nextStep: step,
       updatedData: data,
       retries: 0,
@@ -277,23 +313,196 @@ export async function processMessage(
     };
   }
 
+  // ── Admin Direct Lead Fast-Track (WhatsApp Admin entry) ───────────────────
+  const cleanSessionPhone = (session.phone || "").replace(/\D/g, "");
+  const isAdmin = ADMIN_PHONES.some((p) => {
+    const pDigits = p.replace(/\D/g, "");
+    return cleanSessionPhone.endsWith(pDigits.slice(-10));
+  });
+
+  if (isAdmin) {
+    const adminPhoneMatch = rawMessage.match(/(?:\+?91[\s-]?)?([6-9]\d{9})\b/);
+    const hasLeadIndicators = /\b(tutor|class|math|science|subject|student|need|chahiye|budget|offline|online)\b/i.test(rawMessage);
+    if (adminPhoneMatch && (rawMessage.includes("\n") || hasLeadIndicators)) {
+      const pNum = adminPhoneMatch[1];
+      const lines = rawMessage.split("\n").map((l) => l.trim()).filter((l) => l && !l.includes(pNum));
+      let sName = lines[0] || "Student Lead";
+      let sClass = "All Classes";
+      let sArea = "Delhi NCR";
+
+      const classMatch = rawMessage.match(/\b(class\s*\d{1,2}|nursery|kg|jee|neet|\d{1,2}(?:th|st|nd|rd)?(?:\s*class)?)\b/i);
+      if (classMatch) sClass = classMatch[0].trim();
+
+      const localityPattern = new RegExp(`\\b(${DELHI_NCR_LOCALITIES.join("|")})\\b`, "i");
+      const areaMatch = rawMessage.match(localityPattern);
+      if (areaMatch) {
+        sArea = areaMatch[0].charAt(0).toUpperCase() + areaMatch[0].slice(1).toLowerCase();
+      } else if (lines.length >= 2) {
+        sArea = lines[lines.length - 1];
+      }
+
+      try {
+        const nextInq = ((await prisma.lead.count().catch(() => 500)) as number) + 32150;
+        let adminParent = await prisma.user.findFirst({
+          where: { role: { in: ["SUPER_ADMIN", "SUB_ADMIN"] } },
+          include: { parentProfile: true },
+        }).catch(() => null);
+
+        let parentProfileId = adminParent?.parentProfile?.id;
+        if (!parentProfileId && adminParent) {
+          const createdPp = await prisma.parentProfile.create({
+            data: { userId: adminParent.id, city: "Delhi" },
+          }).catch(() => null);
+          parentProfileId = createdPp?.id;
+        }
+
+        const newLead = parentProfileId
+          ? await prisma.lead.create({
+              data: {
+                inquiryNumber: nextInq,
+                parentProfileId,
+                subjects: ["All Subjects"],
+                classLevel: sClass,
+                mode: "OFFLINE",
+                area: sArea,
+                city: "Delhi",
+                status: "ACTIVE",
+                notes: `Direct Admin Entry: ${sName}, Phone: +91-${pNum}`,
+              },
+            }).catch(() => ({ inquiryNumber: nextInq }))
+          : { inquiryNumber: nextInq };
+
+        return {
+          reply: `✅ *Lead Successfully Created via WhatsApp!*\n\n📋 Ref: *#ATH-${newLead.inquiryNumber}*\n👤 Student: *${sName}*\n📱 Phone: *+91 ${pNum}*\n🎓 Class: *${sClass}*\n📍 Area: *${sArea}*\n\nMatching tutors will now receive instant alerts.`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: "ADMIN",
+          retries: 0,
+          quickReplies: ["View Leads", "Dashboard"],
+        };
+      } catch (adminErr) {
+        console.error("[engine] Admin fast-track lead creation error:", adminErr);
+      }
+    }
+  }
+
+  // ── Language Selection & Switch Commands ────────────────────────────────────
+  if (/^(lang|language|bhasha)$/i.test(msg)) {
+    return {
+      reply: MSG.LANG_PROMPT,
+      nextStep: "LANG_SELECT",
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["1 - English", "2 - हिंदी"],
+    };
+  }
+
+  if (step === "LANG_SELECT") {
+    if (/^(1|en|english)$/i.test(rawMessage.trim())) {
+      const nextData = { ...data, lang: "en" };
+      return {
+        reply: MSG.WELCOME_EN,
+        nextStep: "WELCOME",
+        updatedData: nextData,
+        userType: null,
+        retries: 0,
+        quickReplies: ["1 - Tutor", "2 - Parent"],
+      };
+    }
+    if (/^(2|hi|hindi|हिंदी)$/i.test(rawMessage.trim())) {
+      const nextData = { ...data, lang: "hi" };
+      return {
+        reply: MSG.WELCOME_HI,
+        nextStep: "WELCOME",
+        updatedData: nextData,
+        userType: null,
+        retries: 0,
+        quickReplies: ["1 - ट्यूटर", "2 - पेरेंट"],
+      };
+    }
+  }
+
   if (SPECIAL_COMMANDS.includes(msg)) {
-    const reply = step === "WELCOME" ? MSG.WELCOME : MSG.RE_WELCOME;
+    if (!data.lang) {
+      return {
+        reply: MSG.LANG_PROMPT,
+        nextStep: "LANG_SELECT",
+        updatedData: {},
+        userType: null,
+        retries: 0,
+        quickReplies: ["1 - English", "2 - हिंदी"],
+      };
+    }
+    const isHi = data.lang === "hi";
+    const reply = isHi ? MSG.WELCOME_HI : MSG.WELCOME_EN;
     return {
       reply,
       nextStep: "WELCOME",
-      updatedData: {},
+      updatedData: data,
       userType: null,
       retries: 0,
-      quickReplies: ["1 - Tutor (I want to teach)", "2 - Parent (I need a tutor)"],
+      quickReplies: isHi ? ["1 - ट्यूटर", "2 - पेरेंट"] : ["1 - Tutor", "2 - Parent"],
     };
   }
 
   // ── 2. AI Mode Active: Let Gemini AI intelligently manage conversation ────
 
   // CRITICAL: If step is DONE or _registered is true, user is already registered.
-  // Let AI handle their query naturally — do NOT re-trigger registration.
   if (step === "DONE" || data._registered === true) {
+    const isParent = session.userType === "PARENT" || data.userType === "PARENT" || Boolean(data.studentName || data.parentProfileId);
+
+    // Parent in DONE state — Never show LEADS/PLANS/PROFILE admin menus
+    if (isParent) {
+      if (useAi) {
+        try {
+          const ai = await askGeminiChatbot(rawMessage, session);
+          if (ai && ai.reply) {
+            return {
+              reply: ai.reply,
+              nextStep: "DONE",
+              updatedData: data,
+              userType: "PARENT",
+              retries: 0,
+              quickReplies: ["Fee Info", "Trial Demo Status", "Talk to Coordinator 📞"],
+            };
+          }
+        } catch (err) {}
+      }
+      return {
+        reply: `Namaste! Aapki tuition enquiry hamare coordinators ke paas note hai. 🙏\n\nKoi bhi update, fee details ya demo schedule ke liye aap seedha hamare team se connect kar sakte hain:\n\n📞 WhatsApp Coordinator: +91 93191 93109\nTiming: 9:00 AM – 7:00 PM (Mon–Sat)`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "PARENT",
+        retries: 0,
+        quickReplies: ["Fee Info", "Demo Status", "Talk to Coordinator 📞"],
+      };
+    }
+
+    // Tutor in DONE state:
+    // Conversational fallbacks for tutors asking about free leads, bargaining, or delayed payment:
+    if (/bina\s*reg|free\s*lead|paise\s*nahi|payment\s*baad|ek\s*enquiry|enquiry\s*dedo|pehle\s*demo|yaar\b/i.test(rawMessage)) {
+      return {
+        reply: `Sir hum samajhte hain, par parents ke direct contact details aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹99 starter offer ya ₹999 plan se shuru kar sakte hain jisme 100% fees aapki rehti hai (0% commission)!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Plans 💰", "View Leads 📋", "Talk to Support 📞"],
+      };
+    }
+
+    if (/^(hi|hello|hey|namaste|ha|haan|theek|thik|ok|okay|yes|done)$/i.test(rawMessage.trim())) {
+      return {
+        reply: `Ji batayein, hum aapki kya madad kar sakte hain? Aap matching student leads dekhna chahte hain ya plans ki jankari chahiye? 😊`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
+      };
+    }
+
     if (useAi) {
       try {
         const ai = await askGeminiChatbot(rawMessage, session);
@@ -313,14 +522,15 @@ export async function processMessage(
         console.warn("[engine] AI call failed in DONE state:", err);
       }
     }
-    // Fallback if AI fails in DONE state
+
+    // Friendly fallback if AI fails in DONE state
     return {
-      reply: `Kuch aur jaanna hai? Type karo:\n\n*LEADS* — leads dekhein\n*PLANS* — plan ki info\n*PROFILE* — apni profile dekhein\n*HELP* — support se baat karein`,
+      reply: `Ji batayein, hum aapki kya madad kar sakte hain? Aap matching leads dekhna chahte hain ya plans ki info chahiye? 📚\n\nDirect support ke liye WhatsApp karein: +91 93191 93109`,
       nextStep: "DONE",
       updatedData: data,
-      userType: session.userType,
+      userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["View Leads", "Plans", "My Profile", "Help"],
+      quickReplies: ["View Leads 📋", "View Plans 💰", "My Profile 👤", "Help 📞"],
     };
   }
 
@@ -355,34 +565,47 @@ export async function processMessage(
           mergedData.password = pwdMatch[1].trim();
         }
 
-        // Additional entity extractors from message text
-        const areaMatch = rawMessage.match(/\b(dwarka|rohini|janakpuri|uttam nagar|vikaspuri|paschim vihar|pitampura|shalimar bagh|model town|ashok vihar|civil lines|connaught place|cp|south ex|south extension|saket|hauz khas|malviya nagar|green park|greater kailash|gk|cr park|kalkaji|nehru place|lajpat nagar|defence colony|vasant kunj|vasant vihar|munirka|rk puram|mayur vihar|laxmi nagar|preet vihar|nirman vihar|shahdara|dilshad garden|karol bagh|patel nagar|rajouri garden|tagore garden|subhash nagar|tilak nagar|najafgarh|narela|bawana|burari|sant nagar|sangam vihar|badarpur|sarita vihar|okhla|jasola|noida|greater noida|gurgaon|gurugram|ghaziabad|faridabad|indirapuram|vaishali|kaushambi)\b/i);
-        if (areaMatch && (!mergedData.area || String(mergedData.area).toLowerCase() === "delhi ncr")) {
-          mergedData.area = areaMatch[0].charAt(0).toUpperCase() + areaMatch[0].slice(1).toLowerCase();
+        // Additional entity extractors from message text — Universal Indian Locality Validation
+        const rawAreaCandidate = mergedData.area || rawMessage;
+        const locRes = validateAndCleanLocality(rawAreaCandidate, (mergedData.city || data.city || "Delhi") as string);
+        if (locRes.isValid) {
+          mergedData.area = locRes.area;
+          mergedData.city = locRes.city;
+        } else if (mergedData.area) {
+          delete mergedData.area;
         }
 
-        const subMatches = rawMessage.match(/\b(maths?|mathematics|science|physics|chemistry|biology|english|hindi|social studies|sst|history|geography|civics|economics|commerce|accounts|accountancy|business studies|computer science|cs|coding|python|all subjects)\b/gi);
-        if (subMatches && (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0))) {
-          mergedData.subjects = Array.from(new Set(subMatches.map((s) => s.trim())));
-        }
-
-        const isInitialWelcomeChoice = session.step === "WELCOME" && /^[12]$/.test(rawMessage.trim());
+        const isInitialWelcomeChoice = (session.step === "WELCOME" || session.step === "LANG_SELECT") && /^[12]$/.test(rawMessage.trim());
 
         const classMatch =
           rawMessage.match(/(?:class|grade)\s*(\d{1,2}(?:\s*(?:to|-|and)\s*\d{1,2})?|\b[1-9]\b|\b1[0-2]\b|primary|middle|senior|nursery|kg|jee|neet|all)/i) ||
           rawMessage.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s*(?:to|-|and)\s*\d{1,2}(?:st|nd|rd|th)?)\b/i) ||
           rawMessage.match(/\b(primary|middle school|senior secondary|11th and 12th|9th and 10th|1st to 5th|6th to 8th|9th to 12th|all classes)\b/i) ||
-          (!isInitialWelcomeChoice ? rawMessage.match(/^([1-9]|1[0-2])(?:st|nd|rd|th)?$/i) : null);
-        if (classMatch && !mergedData.classLevel && !isInitialWelcomeChoice) {
+          (!isInitialWelcomeChoice && !/^[12]$/.test(rawMessage.trim()) ? rawMessage.match(/^([1-9]|1[0-2])(?:st|nd|rd|th)?$/i) : null);
+        if (classMatch && !mergedData.classLevel && !isInitialWelcomeChoice && !/^[12]$/.test(rawMessage.trim())) {
           const rawCl = classMatch[0].trim();
           const cl = /^\d+$/.test(rawCl) ? `Class ${rawCl}` : rawCl;
           mergedData.classLevel = cl;
           mergedData.classLevels = [cl];
         }
 
+        // Align subjects to canonical taxonomy, strictly filtering out unsupported subjects & Class 1-8 senior science
+        const rawSubsCandidate = mergedData.subjects || rawMessage;
+        const targetCls = (mergedData.classLevel as string) || (data.classLevel as string) || undefined;
+        const subAlign = validateAndAlignSubjects(rawSubsCandidate, targetCls);
+        if (subAlign.isValid && subAlign.subjects.length > 0) {
+          mergedData.subjects = subAlign.subjects;
+        } else if (mergedData.subjects && Array.isArray(mergedData.subjects)) {
+          delete mergedData.subjects;
+        }
+
         // State-specific step input helpers
         if (session.step === "T_AREA" && !mergedData.area && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
-          mergedData.area = rawMessage.trim();
+          const stepLoc = validateAndCleanLocality(rawMessage.trim(), (mergedData.city || data.city || "Delhi") as string);
+          if (stepLoc.isValid) {
+            mergedData.area = stepLoc.area;
+            mergedData.city = stepLoc.city;
+          }
         }
         if ((session.step === "T_CLASS" || session.step === "P_CLASS" || session.step === "P_CONVO") && !mergedData.classLevel && rawMessage.trim().length >= 1 && !/^(menu|help|cancel)$/i.test(rawMessage.trim()) && !isInitialWelcomeChoice) {
           const rawCl = rawMessage.trim();
@@ -391,8 +614,10 @@ export async function processMessage(
           mergedData.classLevels = [cl];
         }
         if (session.step === "T_SUBJECTS" && (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
-          const splitSubs = rawMessage.split(/,|and|&/i).map((s) => s.trim()).filter(Boolean);
-          mergedData.subjects = splitSubs.length > 0 ? splitSubs : [rawMessage.trim()];
+          const stepSub = validateAndAlignSubjects(rawMessage.trim(), targetCls);
+          if (stepSub.isValid) {
+            mergedData.subjects = stepSub.subjects;
+          }
         }
 
         // Taxonomy & Till 8th grade handling
@@ -454,7 +679,14 @@ export async function processMessage(
           : [];
         const hasClass = classLevelsArray.length > 0;
 
-        const rawArea = typeof mergedData.area === "string" ? mergedData.area.trim() : (typeof data.area === "string" ? (data.area as string).trim() : "");
+        const locResult = validateAndCleanLocality(mergedData.area || data.area, (mergedData.city || data.city || "Delhi") as string);
+        const rawArea = locResult.isValid ? locResult.area : "";
+        if (locResult.isValid) {
+          mergedData.area = locResult.area;
+          mergedData.city = locResult.city;
+        } else if (mergedData.area) {
+          delete mergedData.area;
+        }
         const hasArea = Boolean(
           rawArea &&
           rawArea.toLowerCase() !== "delhi ncr" &&
@@ -464,12 +696,13 @@ export async function processMessage(
         const isFirstChoice = session.step === "WELCOME" && isBareChoice && !hasSubjects && !hasClass && !hasArea;
         if (isFirstChoice) {
           const isTutor = role === "TUTOR" || rawMessage.trim() === "1";
+          const isHi = data.lang === "hi";
           return {
             reply: isTutor
-              ? `Badhiya! Kaunse subject, kaunsi class aur kahan se ho? 📚`
-              : `Acha! Bachche ke liye kaunsi class, subject aur area mein tutor chahiye? 🎓📍`,
+              ? (isHi ? `बढ़िया! कौन से subject, कौन सी class और दिल्ली NCR में कहाँ से हो? 📚` : `Great! Which subjects, which class, and which area in Delhi NCR do you teach? 📚`)
+              : (isHi ? `नमस्ते! बच्चे के लिए कौन सी class, subject और किस area में ट्यूटर चाहिए? 🎓📍` : `Welcome! For which class, subjects, and locality do you need a tutor? 🎓📍`),
             nextStep: isTutor ? "T_CONVO" : "P_CONVO",
-            updatedData: {},
+            updatedData: { ...data, ...(isTutor ? { userType: "TUTOR" } : { userType: "PARENT" }) },
             userType: isTutor ? "TUTOR" : "PARENT",
             retries: 0,
             quickReplies: isTutor
@@ -564,8 +797,21 @@ export async function processMessage(
             }
           }
 
-          // Case D: Has subjects and class, but missing area (e.g. "Physics" then "Class 5")
+          // Case D: Has subjects and class, but missing area (e.g. "Physics" then "Class 11")
           if (hasSubjects && hasClass && !hasArea) {
+            if (session.step === "T_AREA" && rawMessage.trim().length >= 2) {
+              const locCheck = validateAndCleanLocality(rawMessage.trim(), (mergedData.city || data.city || "Delhi") as string);
+              if (!locCheck.isValid) {
+                return {
+                  reply: locCheck.errorPrompt || "Kripya apna area / locality batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍",
+                  nextStep: "T_AREA",
+                  updatedData: mergedData,
+                  userType: "TUTOR",
+                  retries: 0,
+                  quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+                };
+              }
+            }
             const ctx = formatHumanTeachingContext(subsArray, classLevelsArray[0] || (mergedData.classLevel as string), rawArea);
             mergedData.subjects = ctx.cleanSubs;
             return {
@@ -678,7 +924,19 @@ export async function processMessage(
           // Validate email candidate
           const emailRegexMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
           const emailCandidate = emailRegexMatch ? emailRegexMatch[0].toLowerCase() : (typeof mergedData.email === "string" ? mergedData.email.trim().toLowerCase() : "");
-          const hasValidEmail = Boolean(emailCandidate && emailCandidate.includes("@") && emailCandidate.includes("."));
+          const hasValidEmail = Boolean(emailCandidate && isValidEmailDomain(emailCandidate));
+
+          // Catch email domain typos (.gom, .con, etc.) per client voice note feedback
+          if (emailCandidate && !isValidEmailDomain(emailCandidate)) {
+            return {
+              reply: `⚠️ Email address invalid lag raha hai (".gom" ya typo nahi, valid domain jaise ".com" hona chahiye).\n\nKripya sahi email ID enter karein (jaise: yourname@gmail.com): 📧`,
+              nextStep: "T_EMAIL",
+              updatedData: { ...mergedData, email: undefined },
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: [],
+            };
+          }
 
           // 1. Email is STRICTLY MANDATORY — NO SKIP ALLOWED
           if (!hasValidEmail && session.step !== "T_PASSWORD") {
@@ -828,7 +1086,8 @@ export async function processMessage(
             email: emailToUse,
             phone: phoneToUse,
             hasPassword: true,
-          }) + (usedDefault ? `\n\n🔑 Default password *12345678* set kiya hai. Website par login karke change kar sakte hain: https://apnatutorhub.com/login` : "");
+          }) + (usedDefault ? `\n\n🔑 Default password *12345678* set kiya hai. Website par login karke change kar sakte hain: https://apnatutorhub.com/login` : "") +
+          `\n\n📲 *Download Mobile App for Instant Alerts:*\nApne area ke student lead alerts seedha phone par paane ke liye app install karein:\n👉 https://apnatutorhub.com/app`;
 
           return {
             reply: richReply,
@@ -838,6 +1097,7 @@ export async function processMessage(
             retries: 0,
             quickReplies: [
               "View Leads",
+              "Install App 📲",
               "₹999 Plan",
               "My Profile",
             ],
@@ -909,8 +1169,21 @@ export async function processMessage(
           }
 
           if (parentHasSubs && parentHasClass && !parentHasArea) {
+            if (session.step === "P_AREA" && rawMessage.trim().length >= 2) {
+              const locCheck = validateAndCleanLocality(rawMessage.trim(), (mergedData.city || data.city || "Delhi") as string);
+              if (!locCheck.isValid) {
+                return {
+                  reply: locCheck.errorPrompt || "Kripya apna area / locality batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍",
+                  nextStep: "P_AREA",
+                  updatedData: mergedData,
+                  userType: "PARENT",
+                  retries: 0,
+                  quickReplies: ["Dwarka", "Rohini", "South Delhi", "Noida / Gurgaon"],
+                };
+              }
+            }
             return {
-              reply: `*${parentSubs.join(", ")} (${parentClass})* ke liye Delhi mein aapka area kaunsa hai? 📍`,
+              reply: `*${parentSubs.join(", ")} (${parentClass})* ke liye aapka area / city kaunsa hai? 📍`,
               nextStep: "P_AREA",
               updatedData: mergedData,
               userType: "PARENT",
@@ -1049,7 +1322,7 @@ export async function processMessage(
     const updated: Record<string, any> = { ...data };
 
     const emailMatch = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    if (emailMatch && !updated.email) updated.email = emailMatch[0].toLowerCase();
+    if (emailMatch && isValidEmailDomain(emailMatch[0]) && !updated.email) updated.email = emailMatch[0].toLowerCase();
 
     const phoneMatch = trimmed.match(/(?:\+?91[\s-]?)?([6-9]\d{9})\b/);
     if (phoneMatch && !updated.phone) updated.phone = phoneMatch[1];
@@ -1074,23 +1347,21 @@ export async function processMessage(
       updated.classLevels = [trimmed];
     }
 
-    const isAreaKeyword = /vihar|nagar|road|enclave|colony|delhi|noida|gurgaon|sector|pur|ext|saket|kalkaji|dwarka|rohini|janakpuri|uttam|vikaspuri|paschim|pitampura|shalimar|model town|ashok|south ex|malviya|green park|greater kailash|gk|cr park|nehru|lajpat|defence|vasant|mayur|laxmi|preet|nirman|shahdara|dilshad|karol bagh|patel|rajouri|najafgarh|narela|bawana|burari|sant nagar|sangam vihar|badarpur|sarita|okhla/i.test(trimmed);
-    if (isAreaKeyword) {
-      updated.area = trimmed;
-      updated.city = (updated.city as string) || "Delhi";
-    } else if (step === "T_AREA" && !/^(menu|help|cancel)$/i.test(trimmed)) {
-      updated.area = trimmed;
-      updated.city = (updated.city as string) || "Delhi";
+    const locResFallback = validateAndCleanLocality(trimmed, (updated.city as string) || "Delhi");
+    if (locResFallback.isValid) {
+      updated.area = locResFallback.area;
+      updated.city = locResFallback.city;
     }
 
-    const subMatches = trimmed.match(/\b(maths?|mathematics|science|physics|chemistry|biology|english|hindi|social studies|sst|history|geography|civics|economics|commerce|accounts|accountancy|business studies|computer science|cs|coding|python|all subjects)\b/gi);
-    if (subMatches) {
-      updated.subjects = Array.from(new Set(subMatches.map((s) => s.trim())));
+    const subAlignFallback = validateAndAlignSubjects(trimmed, updated.classLevel as string);
+    if (subAlignFallback.isValid && subAlignFallback.subjects.length > 0) {
+      updated.subjects = subAlignFallback.subjects;
     } else if (step === "T_SUBJECTS" && !/^(menu|help|cancel)$/i.test(trimmed)) {
       const splitSubs = trimmed.split(/,|and|&/i).map((s) => s.trim()).filter(Boolean);
-      updated.subjects = splitSubs.length > 0 ? splitSubs : [trimmed];
-    } else if (!updated.subjects && !isAreaKeyword && !classMatch && !emailMatch && !phoneMatch && !pwdMatch) {
-      updated.subjects = [trimmed];
+      const subResStep = validateAndAlignSubjects(splitSubs, updated.classLevel as string);
+      if (subResStep.isValid) {
+        updated.subjects = subResStep.subjects;
+      }
     }
 
     if (/all\s*subjects?|combo/i.test(trimmed)) {
@@ -1186,6 +1457,19 @@ export async function processMessage(
     }
 
     if (hasSubs && hasCls && !hasAr) {
+      if (step === "T_AREA" && trimmed.length >= 2) {
+        const locCheck = validateAndCleanLocality(trimmed, (updated.city as string) || "Delhi");
+        if (!locCheck.isValid) {
+          return {
+            reply: locCheck.errorPrompt || "Kripya apna area / locality batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍",
+            nextStep: "T_AREA",
+            updatedData: updated,
+            userType: "TUTOR",
+            retries: 0,
+            quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+          };
+        }
+      }
       const ctx = formatHumanTeachingContext(subsArr, classArr[0] || "", areaStr);
       updated.subjects = ctx.cleanSubs;
       return {

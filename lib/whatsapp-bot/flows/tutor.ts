@@ -11,6 +11,7 @@ import {
   TEACHING_MODE_MAP,
 } from "../messages";
 import { registerTutorFromWhatsapp, type TutorBotData } from "../auto-register";
+import { validateAndCleanLocality, validateAndAlignSubjects } from "../subject-rules";
 
 type StepResult = {
   reply: string;
@@ -25,10 +26,6 @@ function isValidName(v: string) {
 }
 function isValidCity(v: string) {
   return v.trim().length >= 2 && v.trim().length <= 80;
-}
-function isValidSubjects(v: string) {
-  const parts = v.split(",").map((s) => s.trim()).filter(Boolean);
-  return parts.length >= 1;
 }
 function isValidClasses(v: string) {
   const keys = v.split(",").map((s) => s.trim());
@@ -63,30 +60,33 @@ export async function handleTutorStep(
     }
 
     case "T_CITY": {
-      if (!isValidCity(r)) return null;
+      const loc = validateAndCleanLocality(r);
+      const cityName = loc.isValid ? loc.city : r;
+      if (!isValidCity(cityName)) return null;
       return {
-        reply: MSG.T_AREA(r),
+        reply: MSG.T_AREA(cityName),
         nextStep: "T_AREA",
-        updatedData: { ...data, city: r },
+        updatedData: { ...data, city: cityName },
       };
     }
 
     case "T_AREA": {
-      if (!isValidCity(r)) return null;
+      const loc = validateAndCleanLocality(r, (data.city as string) || "Delhi");
+      if (!loc.isValid) return null;
       return {
         reply: MSG.T_SUBJECTS,
         nextStep: "T_SUBJECTS",
-        updatedData: { ...data, area: r },
+        updatedData: { ...data, area: loc.area, city: loc.city },
       };
     }
 
     case "T_SUBJECTS": {
-      if (!isValidSubjects(r)) return null;
-      const subjects = r.split(",").map((s) => s.trim()).filter(Boolean);
+      const subRes = validateAndAlignSubjects(r, data.classLevel as string);
+      if (!subRes.isValid || subRes.subjects.length === 0) return null;
       return {
         reply: MSG.T_CLASSES,
         nextStep: "T_CLASSES",
-        updatedData: { ...data, subjects },
+        updatedData: { ...data, subjects: subRes.subjects },
       };
     }
 

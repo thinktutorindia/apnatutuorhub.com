@@ -6,6 +6,7 @@ import { PushNotificationProvider } from "@/components/PushNotificationProvider"
 import { NotificationOnboardingModal } from "@/components/NotificationOnboardingModal";
 import { auth } from "@/auth";
 import { NavigationProgress } from "@/components/NavigationProgress";
+import { FloatingWhatsAppButton } from "@/components/home/FloatingWhatsAppButton";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -128,6 +129,7 @@ export default async function RootLayout({
         </PostHogProvider>
         <PushNotificationProvider userId={session?.user?.id} />
         <NotificationOnboardingModal userId={session?.user?.id} />
+        <FloatingWhatsAppButton />
       </body>
     </html>
   );

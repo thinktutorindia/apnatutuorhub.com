@@ -14,6 +14,8 @@ import {
   CLASS_MAP,
   BUDGET_MAP,
 } from "./messages";
+import { validateAndCleanLocality, validateAndAlignSubjects } from "./subject-rules";
+import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -309,11 +311,8 @@ export function expandTutorSubjectsAndClasses(input: {
       if (teachesScience) {
         if (g <= 5) subjectSet.add("Science upto Class V");
         else if (g <= 10) subjectSet.add(`Science for Class ${rom}`);
-        if (g === 8) {
-          subjectSet.add("Physics upto Class VIII");
-          subjectSet.add("Chemistry For Class VIII");
-          subjectSet.add("Biology for Class VIII");
-        } else if (g >= 9 && g <= 10) {
+        // CRITICAL: CBSE / ICSE do not have standalone Physics/Chem/Bio for Class 8 or below.
+        if (g >= 9 && g <= 10) {
           subjectSet.add(`Physics For Class ${rom}`);
           subjectSet.add(`Chemistry For Class ${rom}`);
           subjectSet.add(`Biology for Class ${rom}`);
@@ -324,8 +323,8 @@ export function expandTutorSubjectsAndClasses(input: {
       }
 
       if (teachesPhysics) {
-        if (g <= 8) subjectSet.add("Physics upto Class VIII");
-        else if (g <= 12) subjectSet.add(`Physics For Class ${rom}`);
+        // Senior science only for Class 9 and above
+        if (g >= 9 && g <= 12) subjectSet.add(`Physics For Class ${rom}`);
         if (g >= 11) {
           subjectSet.add("Physics for IITJEE");
           subjectSet.add("Physics for NEET");
@@ -333,8 +332,7 @@ export function expandTutorSubjectsAndClasses(input: {
       }
 
       if (teachesChemistry) {
-        if (g <= 8) subjectSet.add("Chemistry For Class VIII");
-        else if (g <= 12) subjectSet.add(`Chemistry For Class ${rom}`);
+        if (g >= 9 && g <= 12) subjectSet.add(`Chemistry For Class ${rom}`);
         if (g >= 11) {
           subjectSet.add("Chemistry for IITJEE");
           subjectSet.add("Chemistry for NEET");
@@ -342,8 +340,7 @@ export function expandTutorSubjectsAndClasses(input: {
       }
 
       if (teachesBiology) {
-        if (g <= 8) subjectSet.add("Biology for Class VIII");
-        else if (g <= 12) subjectSet.add(`Biology for Class ${rom}`);
+        if (g >= 9 && g <= 12) subjectSet.add(`Biology for Class ${rom}`);
         if (g >= 11) {
           subjectSet.add("Biology for NEET");
           subjectSet.add("Biology for Medical Entrance");
@@ -402,16 +399,26 @@ export function expandTutorSubjectsAndClasses(input: {
     }
 
     // Add standard platform category search roots for filters
+    const hasSeniorClasses = targetGrades.some((g) => g >= 9);
     if (teachesMath) subjectSet.add("Mathematics");
     if (teachesScience) subjectSet.add("Science");
-    if (teachesPhysics) subjectSet.add("Physics");
-    if (teachesChemistry) subjectSet.add("Chemistry");
-    if (teachesBiology) subjectSet.add("Biology");
     if (teachesEnglish) subjectSet.add("English");
     if (teachesHindi) subjectSet.add("Hindi");
     if (teachesSST) subjectSet.add("Social Studies");
     if (teachesMath && teachesScience) subjectSet.add("Science & Maths");
     if (teachesCS) subjectSet.add("Computer Science");
+
+    // Only add senior science root filters if tutor actually teaches Class 9 or above!
+    if (hasSeniorClasses) {
+      if (teachesPhysics) subjectSet.add("Physics");
+      if (teachesChemistry) subjectSet.add("Chemistry");
+      if (teachesBiology) subjectSet.add("Biology");
+    } else {
+      // For Class 1 to 8 tutors, ensure foundational Science & All Subjects are present
+      subjectSet.add("Science");
+      subjectSet.add("All Subjects");
+      subjectSet.add("All Subjects (Class 1-8)");
+    }
   }
 
   return {
@@ -434,9 +441,18 @@ export async function registerTutorFromWhatsapp(
   const normalizedPhone = normalizeIndiaWhatsApp(data.phone || phone) ?? rawTargetPhone;
   const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(normalizedPhone);
 
+  // Universally clean and validate area & city
+  const locRes = validateAndCleanLocality(data.area, data.city);
+  const city = locRes.isValid ? locRes.city : (data.city || "Delhi");
+  const area = locRes.isValid ? locRes.area : (data.area || "Delhi NCR");
+
+  // Validate and align subjects to canonical taxonomy (enforces Class 1-8 rules)
+  const subRes = validateAndAlignSubjects(data.subjects, data.classLevel || (data.classLevels ? data.classLevels[0] : undefined));
+  const rawSubjects = subRes.isValid ? subRes.subjects : data.subjects;
+
   // Fully expand subjects and class levels so matching algorithms and notifications match all relevant leads
   const expanded = expandTutorSubjectsAndClasses({
-    rawSubjects: data.subjects,
+    rawSubjects,
     rawClassLevels: data.classLevels,
     rawClassLevel: data.classLevel,
     rawClassKeys: data.classKeys,
@@ -445,8 +461,6 @@ export async function registerTutorFromWhatsapp(
   const classLevels = expanded.classLevels;
   const subjects = expanded.subjects;
   const teachingMode = data.modeKey ? modeToTeachingMode(data.modeKey) : "EITHER";
-  const city = data.city || "Delhi";
-  const area = data.area || "Delhi NCR";
 
   try {
     // Hash password if provided
@@ -583,11 +597,23 @@ export async function registerParentFromWhatsapp(
   const budget = (data.budgetKey && BUDGET_MAP[data.budgetKey]) ? BUDGET_MAP[data.budgetKey] : { min: 4000, max: 8000 };
   const classLevel = data.classLevel || (data.classKey && CLASS_MAP[data.classKey]) || "Class 10";
   const mode = data.modeKey ? modeToLeadMode(data.modeKey) : "OFFLINE";
-  const subjects = data.subjects && data.subjects.length > 0 ? data.subjects : ["All Subjects"];
-  const city = data.city || "Delhi";
-  const area = data.area || "Delhi NCR";
+
+  // Validate and align subjects to platform taxonomy (strictly enforcing Class 1-8 rules)
+  const subRes = validateAndAlignSubjects(data.subjects, classLevel);
+  const subjects = subRes.isValid && subRes.subjects.length > 0
+    ? subRes.subjects
+    : (data.subjects && data.subjects.length > 0 ? data.subjects : ["All Subjects"]);
+
+  // Universally validate and clean area & city
+  const locRes = validateAndCleanLocality(data.area, data.city);
+  const city = locRes.isValid ? locRes.city : (data.city || "Delhi");
+  const area = locRes.isValid ? locRes.area : (data.area || "Delhi NCR");
+
   const parentName = data.parentName || data.name || "Parent";
   const studentName = data.studentName || parentName;
+
+  // Resolve coordinates for accurate geographical matching and radius calculations
+  const coords = resolveLocationCoordinates(`${area || ""} ${city || ""}`);
 
   // Generate inquiry number
   const inquiryNumber = Math.floor(100000 + Math.random() * 900000);
@@ -629,8 +655,18 @@ export async function registerParentFromWhatsapp(
 
     const parentProfile = await prisma.parentProfile.upsert({
       where: { userId: user.id },
-      create: { userId: user.id, city },
-      update: { city },
+      create: {
+        userId: user.id,
+        city,
+        address: area,
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
+      },
+      update: {
+        city,
+        address: area,
+        ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+      },
     });
 
     // Create student profile
@@ -643,7 +679,7 @@ export async function registerParentFromWhatsapp(
       },
     });
 
-    // Create lead
+    // Create lead with coordinates and canonical taxonomy
     const lead = await prisma.lead.create({
       data: {
         inquiryNumber,
@@ -654,6 +690,8 @@ export async function registerParentFromWhatsapp(
         mode,
         city,
         area,
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
         timingPreference: data.timing,
         budgetMin: budget.min,
         budgetMax: budget.max,
@@ -663,6 +701,13 @@ export async function registerParentFromWhatsapp(
         radiusKm: 15,
       },
     });
+
+    // Dispatch lead matching so nearby matching tutors receive instant notifications
+    try {
+      await dispatchLeadMatching(lead.id);
+    } catch (dispErr) {
+      console.warn("[auto-register] dispatchLeadMatching notification warning:", dispErr);
+    }
 
     return { ok: true, inquiryNumber, leadId: lead.id };
   } catch (err) {

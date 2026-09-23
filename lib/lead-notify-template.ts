@@ -11,7 +11,7 @@
  * 𝐆𝐞𝐧𝐝𝐞𝐫 𝐏𝐫𝐞𝐟𝐞𝐫𝐞𝐧𝐜𝐞: 𝐀𝐧𝐲 (𝐂𝐚𝐥𝐦 𝐚𝐧𝐝 𝐏𝐨𝐥𝐢𝐭𝐞 𝐓𝐮𝐭𝐨𝐫)
  * 𝐒𝐜𝐡𝐞𝐝𝐮𝐥𝐞: 𝟓 𝐃𝐚𝐲𝐬 𝐚 𝐖𝐞𝐞𝐤
  *
- * Dm on WhatsApp  87997 07960
+ * Dm on WhatsApp 93191 93109
  * 👑 VIP Membership Plan: https://apnatutorhub.com/tutor/plans
  * 🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads
  */

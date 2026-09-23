@@ -5,6 +5,7 @@
 
 import { MSG, CLASS_MAP, TEACHING_MODE_MAP, BUDGET_MAP } from "../messages";
 import { registerParentFromWhatsapp, type ParentBotData } from "../auto-register";
+import { validateAndCleanLocality, validateAndAlignSubjects } from "../subject-rules";
 
 type StepResult = {
   reply: string;
@@ -16,9 +17,6 @@ type StepResult = {
 
 function isValidName(v: string) {
   return v.trim().length >= 2 && v.trim().length <= 100;
-}
-function isValidSubjects(v: string) {
-  return v.split(",").map((s) => s.trim()).filter(Boolean).length >= 1;
 }
 function isValidClass(v: string) {
   return ["1", "2", "3", "4", "5", "6"].includes(v.trim());
@@ -60,30 +58,34 @@ export async function handleParentStep(
     }
 
     case "P_SUBJECTS": {
-      if (!isValidSubjects(r)) return null;
-      const subjects = r.split(",").map((s) => s.trim()).filter(Boolean);
+      const cls = (data.classLevel as string) || (data.classKey && CLASS_MAP[data.classKey as string]) || undefined;
+      const subRes = validateAndAlignSubjects(r, cls);
+      if (!subRes.isValid || subRes.subjects.length === 0) return null;
       return {
         reply: MSG.P_CITY,
         nextStep: "P_CITY",
-        updatedData: { ...data, subjects },
+        updatedData: { ...data, subjects: subRes.subjects },
       };
     }
 
     case "P_CITY": {
-      if (r.length < 2) return null;
+      const loc = validateAndCleanLocality(r);
+      const cityName = loc.isValid ? loc.city : r;
+      if (cityName.length < 2) return null;
       return {
-        reply: MSG.P_AREA(r),
+        reply: MSG.P_AREA(cityName),
         nextStep: "P_AREA",
-        updatedData: { ...data, city: r },
+        updatedData: { ...data, city: cityName },
       };
     }
 
     case "P_AREA": {
-      if (r.length < 2) return null;
+      const loc = validateAndCleanLocality(r, (data.city as string) || "Delhi");
+      if (!loc.isValid) return null;
       return {
         reply: MSG.P_TIMING,
         nextStep: "P_TIMING",
-        updatedData: { ...data, area: r },
+        updatedData: { ...data, area: loc.area, city: loc.city },
       };
     }
 

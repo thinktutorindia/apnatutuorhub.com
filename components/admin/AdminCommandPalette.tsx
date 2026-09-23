@@ -107,7 +107,7 @@ export const ADMIN_FEATURES_REGISTRY: AdminFeatureItem[] = [
   {
     id: "platform-settings",
     title: "Platform Global Settings & Commission Rates",
-    description: "Update coin lead pricing, support WhatsApp (+91 87997 07960), and system rules",
+    description: "Update coin lead pricing, support WhatsApp (+91 93191 93109), and system rules",
     category: "Platform Settings",
     keywords: ["settings", "whatsapp", "lead cost", "pricing", "commission", "phone number", "support number"],
     href: "/admin/settings",

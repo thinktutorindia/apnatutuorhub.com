@@ -54,6 +54,9 @@ staff_performance_*
 # Local Database & Raw Data Repositories
 /data/
 /datauploadrawdata/
+/whattodo/
+whattodo.zip
+*.zip
 
 # Development Sandboxes & Scratchpad (Contains hardcoded test tokens)
 /scratch/

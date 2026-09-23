@@ -7,12 +7,441 @@
  * both in quick-reply suggestions and user input validation.
  */
 
+import { INDIAN_CITY_COORDINATES } from "@/lib/geocoding";
+import { GEO_LOCALITIES } from "@/lib/dummy-lead-engine";
+
 export interface ValidationResult {
   isValid: boolean;
   reason?: string;
   suggestedReplies?: string[];
   switchedSubject?: string[];
   switchedClass?: string;
+}
+
+// ── Universal Indian Locality & City Database ──────────────────────────────────
+export const KNOWN_INDIAN_CITIES: Record<string, string> = {
+  delhi: "Delhi",
+  "new delhi": "Delhi",
+  noida: "Noida",
+  "greater noida": "Greater Noida",
+  gurgaon: "Gurgaon",
+  gurugram: "Gurgaon",
+  ghaziabad: "Ghaziabad",
+  faridabad: "Faridabad",
+  mumbai: "Mumbai",
+  "navi mumbai": "Navi Mumbai",
+  thane: "Thane",
+  kalyan: "Mumbai",
+  bangalore: "Bangalore",
+  bengaluru: "Bangalore",
+  pune: "Pune",
+  hyderabad: "Hyderabad",
+  secunderabad: "Hyderabad",
+  chennai: "Chennai",
+  kolkata: "Kolkata",
+  howrah: "Kolkata",
+  jaipur: "Jaipur",
+  jodhpur: "Jaipur",
+  kota: "Kota",
+  lucknow: "Lucknow",
+  kanpur: "Kanpur",
+  varanasi: "Varanasi",
+  agra: "Agra",
+  prayagraj: "Prayagraj",
+  meerut: "Meerut",
+  chandigarh: "Chandigarh",
+  mohali: "Chandigarh",
+  panchkula: "Chandigarh",
+  ludhiana: "Ludhiana",
+  amritsar: "Amritsar",
+  ahmedabad: "Ahmedabad",
+  surat: "Surat",
+  vadodara: "Vadodara",
+  rajkot: "Rajkot",
+  indore: "Indore",
+  bhopal: "Bhopal",
+  patna: "Patna",
+  ranchi: "Ranchi",
+  dehradun: "Dehradun",
+  nagpur: "Nagpur",
+  nashik: "Nashik",
+  bhubaneswar: "Bhubaneswar",
+  cuttack: "Bhubaneswar",
+  raipur: "Raipur",
+  guwahati: "Guwahati",
+  kochi: "Kochi",
+  coimbatore: "Coimbatore",
+  visakhapatnam: "Visakhapatnam",
+  vijayawada: "Vijayawada",
+};
+
+const NON_LOCALITY_WORDS = new Set([
+  "hi", "hello", "hey", "namaste", "halo", "salaam", "pranam",
+  "ok", "okay", "ha", "haan", "theek", "thik", "yes", "no", "nahi", "done", "skip",
+  "hai", "hain", "ho", "hoon", "tha", "thi", "the", "ka", "ki", "ke", "ko", "se", "me", "mein", "par", "pe", "aur", "ya", "to", "bhi", "kuch", "ji",
+  "kya", "kyun", "kaise", "kab", "kahan", "kitna", "kitne", "fees", "rate", "charge",
+  "price", "cost", "payment", "free", "demo", "lead", "leads", "rules", "rule",
+  "bhai", "yaar", "sir", "madam", "acha", "achha", "batayein", "bolo", "bol",
+  "call", "help", "support", "please", "tutor", "teacher", "student", "parent",
+  "bachcha", "child", "sirji", "mam", "padhana", "chahiye", "padhna", "sikhna",
+  "contact", "number", "phone", "pass", "password", "email", "registration",
+  "koi", "batao", "bhejo", "karo", "dekh", "update", "cancel", "stop", "menu", "start"
+]);
+
+const PLACE_INDICATORS = /\b(nagar|vihar|colony|enclave|sector|sec\b|phase|block|road|street|marg|bazaar|bazar|market|park|heights|apartments|extension|ext\b|pur\b|pura\b|ganj\b|gaon\b|halli\b|pet\b|peth\b|wadi\b|layout|kunj|chowk|cantt|tola|basti|para|palli|guda|hills|estate|town|society|complex|cross|main|line|lines|gali|mohalla|mandir|metro)\b/i;
+
+const PROMINENT_LOCALITIES: Array<{ name: string; city: string }> = [
+  { name: "mukundpur", city: "Delhi" },
+  { name: "mukherjee nagar", city: "Delhi" },
+  { name: "karol bagh", city: "Delhi" },
+  { name: "rohini", city: "Delhi" },
+  { name: "dwarka", city: "Delhi" },
+  { name: "janakpuri", city: "Delhi" },
+  { name: "uttam nagar", city: "Delhi" },
+  { name: "vikaspuri", city: "Delhi" },
+  { name: "paschim vihar", city: "Delhi" },
+  { name: "pitampura", city: "Delhi" },
+  { name: "shalimar bagh", city: "Delhi" },
+  { name: "model town", city: "Delhi" },
+  { name: "ashok vihar", city: "Delhi" },
+  { name: "sangam vihar", city: "Delhi" },
+  { name: "saket", city: "Delhi" },
+  { name: "hauz khas", city: "Delhi" },
+  { name: "malviya nagar", city: "Delhi" },
+  { name: "greater kailash", city: "Delhi" },
+  { name: "kalkaji", city: "Delhi" },
+  { name: "nehru place", city: "Delhi" },
+  { name: "lajpat nagar", city: "Delhi" },
+  { name: "vasant kunj", city: "Delhi" },
+  { name: "vasant vihar", city: "Delhi" },
+  { name: "laxmi nagar", city: "Delhi" },
+  { name: "mayur vihar", city: "Delhi" },
+  { name: "shahdara", city: "Delhi" },
+  { name: "burari", city: "Delhi" },
+  { name: "sant nagar", city: "Delhi" },
+  { name: "patel nagar", city: "Delhi" },
+  { name: "rajouri garden", city: "Delhi" },
+  { name: "tilak nagar", city: "Delhi" },
+  { name: "najafgarh", city: "Delhi" },
+  { name: "narela", city: "Delhi" },
+  { name: "bawana", city: "Delhi" },
+  { name: "badarpur", city: "Delhi" },
+  { name: "sarita vihar", city: "Delhi" },
+  { name: "okhla", city: "Delhi" },
+  { name: "jasola", city: "Delhi" },
+  { name: "indirapuram", city: "Ghaziabad" },
+  { name: "vaishali", city: "Ghaziabad" },
+  { name: "kaushambi", city: "Ghaziabad" },
+  { name: "bandra west", city: "Mumbai" },
+  { name: "bandra", city: "Mumbai" },
+  { name: "andheri west", city: "Mumbai" },
+  { name: "andheri east", city: "Mumbai" },
+  { name: "andheri", city: "Mumbai" },
+  { name: "borivali", city: "Mumbai" },
+  { name: "dadar", city: "Mumbai" },
+  { name: "powai", city: "Mumbai" },
+  { name: "juhu", city: "Mumbai" },
+  { name: "whitefield", city: "Bangalore" },
+  { name: "koramangala", city: "Bangalore" },
+  { name: "indiranagar", city: "Bangalore" },
+  { name: "hsr layout", city: "Bangalore" },
+  { name: "jayanagar", city: "Bangalore" },
+  { name: "kothrud", city: "Pune" },
+  { name: "wakad", city: "Pune" },
+  { name: "hinjewadi", city: "Pune" },
+  { name: "baner", city: "Pune" },
+  { name: "viman nagar", city: "Pune" },
+  { name: "jubilee hills", city: "Hyderabad" },
+  { name: "banjara hills", city: "Hyderabad" },
+  { name: "gachibowli", city: "Hyderabad" },
+  { name: "madhapur", city: "Hyderabad" },
+  { name: "gomti nagar", city: "Lucknow" },
+  { name: "aliganj", city: "Lucknow" },
+  { name: "hazratganj", city: "Lucknow" },
+  { name: "indira nagar", city: "Lucknow" },
+  { name: "mansarovar", city: "Jaipur" },
+  { name: "vaishali nagar", city: "Jaipur" },
+  { name: "salt lake", city: "Kolkata" },
+  { name: "new town", city: "Kolkata" }
+];
+
+/**
+ * Universally validates and sanitizes any user-entered locality or area across India.
+ * Distinguishes genuine locations from conversational noise, questions, or fees queries.
+ */
+export function validateAndCleanLocality(
+  raw: unknown,
+  defaultCity = "Delhi"
+): { isValid: boolean; area: string; city: string; errorPrompt?: string } {
+  if (!raw || typeof raw !== "string") {
+    return { isValid: false, area: "", city: defaultCity, errorPrompt: "Kripya apna area / locality batayein 📍" };
+  }
+
+  let clean = raw.trim();
+
+  // Strip conversational wrappers (Hinglish + English)
+  clean = clean.replace(/^(mai|main|hum|me|i\s*am\s*from|i\s*live\s*in|living\s*in|my\s*area\s*is|near|nearby|opposite|opp|area|location|locality)[:\s-]+/i, "");
+  clean = clean.replace(/\s+(se\s+hu|se\s+hoon|se|mein|me|rehta\s+hu|rehta\s+hoon|area|locality)\b.*$/i, "");
+  clean = clean.replace(/^[,.-]+|[,.-]+$/g, "").trim();
+
+  // 1. Check known GEO_LOCALITIES database FIRST (e.g. Whitefield -> Bangalore, Kothrud -> Pune, Rohini -> Delhi)
+  for (const loc of GEO_LOCALITIES) {
+    const pureName = loc.name.split(" (")[0];
+    const rx = new RegExp(`\\b${pureName}\\b`, "i");
+    if (rx.test(clean)) {
+      return {
+        isValid: true,
+        area: pureName,
+        city: loc.city || defaultCity,
+      };
+    }
+  }
+
+  // 2. Check if a known city is explicitly mentioned (e.g. "Bandra West, Mumbai", "Sector 62 Noida", "Salt Lake Sector 5, Kolkata")
+  const sortedCities = Object.keys(KNOWN_INDIAN_CITIES).sort((a, b) => b.length - a.length);
+  for (const cKey of sortedCities) {
+    const rx = new RegExp(`\\b${cKey}\\b`, "i");
+    if (rx.test(clean)) {
+      const detectedCity = KNOWN_INDIAN_CITIES[cKey];
+      const remainingArea = clean.replace(rx, "").replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
+      if (remainingArea.length >= 2) {
+        const capArea = remainingArea
+          .split(/\s+/)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(" ");
+        return {
+          isValid: true,
+          area: capArea,
+          city: detectedCity,
+        };
+      }
+      return {
+        isValid: true,
+        area: detectedCity,
+        city: detectedCity,
+      };
+    }
+  }
+
+  // 3. Check PROMINENT_LOCALITIES (when city wasn't explicitly named e.g. "Mukundpur", "Kothrud", "Bandra")
+  for (const loc of PROMINENT_LOCALITIES) {
+    const rx = new RegExp(`\\b${loc.name}\\b`, "i");
+    if (rx.test(clean)) {
+      const cap = loc.name.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      return {
+        isValid: true,
+        area: cap,
+        city: loc.city || defaultCity,
+      };
+    }
+  }
+
+  // 4. Check against INDIAN_CITY_COORDINATES
+  for (const [key] of Object.entries(INDIAN_CITY_COORDINATES)) {
+    const rx = new RegExp(`\\b${key}\\b`, "i");
+    if (rx.test(clean)) {
+      const capArea = key.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      return {
+        isValid: true,
+        area: capArea,
+        city: defaultCity,
+      };
+    }
+  }
+
+  // Negative checks: questions, queries, numbers, gibberish (when no known locality was identified)
+  if (clean.length < 2 || /^\d+$/.test(clean) || /\?|^(kya|kyun|kaise|kitna|kitne|fees|free)\b/i.test(clean)) {
+    return { isValid: false, area: "", city: defaultCity, errorPrompt: "Kripya apna sahi area aur city batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍" };
+  }
+
+  // Check if string contains purely non-locality filler words
+  const words = clean.toLowerCase().split(/[\s,.-]+/).filter(Boolean);
+  if (words.length === 0 || words.every((w) => NON_LOCALITY_WORDS.has(w))) {
+    return { isValid: false, area: "", city: defaultCity, errorPrompt: "Kripya apna sahi area aur city batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍" };
+  }
+
+  // 4. General place validation across India (any locality keyword or clean proper name)
+  const hasPlaceKeyword = PLACE_INDICATORS.test(clean);
+  const isValidProperName = clean.length >= 3 && clean.length <= 40 && !NON_LOCALITY_WORDS.has(clean.toLowerCase());
+
+  if (hasPlaceKeyword || isValidProperName) {
+    const formatted = clean
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+    return {
+      isValid: true,
+      area: formatted,
+      city: defaultCity,
+    };
+  }
+
+  return { isValid: false, area: "", city: defaultCity, errorPrompt: "Kripya apna sahi area aur city batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍" };
+}
+
+/**
+ * Validates and aligns raw subject input to canonical platform taxonomy.
+ * Enforces critical educational rules:
+ * - Class 1 to 8: strictly NO Physics, Chemistry, Biology! Normalizes to "Science" and "All Subjects (Class 1-8)".
+ * - Rejects non-academic or unsupported subjects (cooking, driving, dance, etc.).
+ * - Ensures 100% overlap with platform matching engine so lead notifications are dispatched.
+ */
+export function validateAndAlignSubjects(
+  rawInput: unknown,
+  classLevel?: string
+): { isValid: boolean; subjects: string[]; humanLabel: string; errorPrompt?: string } {
+  if (!rawInput) {
+    return { isValid: false, subjects: [], humanLabel: "", errorPrompt: "Kaunse subjects padhate hain? (jaise: Maths, Science, All Subjects) 📚" };
+  }
+
+  const rawList: string[] = Array.isArray(rawInput)
+    ? rawInput.flatMap((s) => String(s).split(/[,&+/\n]|(?:\band\b)|(?:\baur\b)/i))
+    : String(rawInput).split(/[,&+/\n]|(?:\band\b)|(?:\baur\b)/i);
+
+  const cleanTokens = rawList.map((t) => t.trim()).filter((t) => t.length > 0);
+  if (cleanTokens.length === 0) {
+    return { isValid: false, subjects: [], humanLabel: "", errorPrompt: "Kaunse subjects padhate hain? (jaise: Maths, Science, All Subjects) 📚" };
+  }
+
+  const grade = parseGrade(classLevel);
+  const isPrimary = (grade !== null && grade <= 5) || /primary|kg|nursery|1\s*[-–to]\s*5/i.test(classLevel || "");
+  const isMiddle = (grade !== null && grade >= 6 && grade <= 8) || /middle|6\s*[-–to]\s*8/i.test(classLevel || "");
+  const isBelow9 = (grade !== null && grade <= 8) || isPrimary || isMiddle || /1\s*[-–to]\s*8|upto\s*8|till\s*8/i.test(classLevel || "");
+  const isBelow11 = (grade !== null && grade <= 10) || isBelow9 || /9\s*[-–to]\s*10|secondary/i.test(classLevel || "");
+
+  const matchedSubjects = new Set<string>();
+
+  for (const token of cleanTokens) {
+    const t = token.toLowerCase();
+
+    // All Subjects / Combo
+    if (/all\s*subjects?|combo|sabhi|har\s*subject|general/i.test(t)) {
+      matchedSubjects.add("All Subjects");
+      if (isBelow9) matchedSubjects.add("All Subjects (Class 1-8)");
+      continue;
+    }
+
+    // Mathematics
+    if (/\b(maths?|mathematics|algebra|calculus|geometry|trig|quant|arithmetic)\b/i.test(t)) {
+      matchedSubjects.add("Mathematics");
+      continue;
+    }
+
+    // Science / EVS
+    if (/\b(science|general\s*science|sci|evs|environmental)\b/i.test(t)) {
+      matchedSubjects.add("Science");
+      continue;
+    }
+
+    // English
+    if (/\b(english|grammar|literature|comprehension)\b/i.test(t)) {
+      matchedSubjects.add("English");
+      continue;
+    }
+
+    // Hindi
+    if (/\b(hindi|vyakaran)\b/i.test(t)) {
+      matchedSubjects.add("Hindi");
+      continue;
+    }
+
+    // Social Studies / SST
+    if (/\b(social\s*studies|sst|social\s*science|history|geography|civics)\b/i.test(t)) {
+      matchedSubjects.add("Social Studies");
+      continue;
+    }
+
+    // Sanskrit
+    if (/\b(sanskrit)\b/i.test(t)) {
+      matchedSubjects.add("Sanskrit");
+      continue;
+    }
+
+    // Computer Science / Coding
+    if (/\b(computer\s*science|computer|cs|coding|python|java|c\+\+|programming|it\b|ai\b)\b/i.test(t)) {
+      matchedSubjects.add("Computer Science");
+      continue;
+    }
+
+    // Senior Sciences: Physics, Chemistry, Biology
+    // CRITICAL USER DIRECTIVE: For Class 1 to 8, strictly NO Physics/Chem/Bio!
+    if (/\b(physics)\b/i.test(t)) {
+      if (isBelow9) {
+        matchedSubjects.add("Science");
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (isBelow11) {
+        matchedSubjects.add("Science");
+      } else {
+        matchedSubjects.add("Physics");
+      }
+      continue;
+    }
+
+    if (/\b(chemistry)\b/i.test(t)) {
+      if (isBelow9) {
+        matchedSubjects.add("Science");
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (isBelow11) {
+        matchedSubjects.add("Science");
+      } else {
+        matchedSubjects.add("Chemistry");
+      }
+      continue;
+    }
+
+    if (/\b(biology|botany|zoology)\b/i.test(t)) {
+      if (isBelow9) {
+        matchedSubjects.add("Science");
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (isBelow11) {
+        matchedSubjects.add("Science");
+      } else {
+        matchedSubjects.add("Biology");
+      }
+      continue;
+    }
+
+    // Commerce & Management (Class 11+)
+    if (/\b(accounts?|accountancy)\b/i.test(t)) {
+      if (!isBelow11) matchedSubjects.add("Accountancy");
+      continue;
+    }
+    if (/\b(business\s*studies|bst)\b/i.test(t)) {
+      if (!isBelow11) matchedSubjects.add("Business Studies");
+      continue;
+    }
+    if (/\b(economics?|micro|macro)\b/i.test(t)) {
+      if (!isBelow9) matchedSubjects.add("Economics");
+      continue;
+    }
+  }
+
+  // Tutors teaching till 8th grade must always have All Subjects & All Subjects (Class 1-8) in taxonomy
+  if (isBelow9 && matchedSubjects.size > 0) {
+    matchedSubjects.add("All Subjects");
+    matchedSubjects.add("All Subjects (Class 1-8)");
+  }
+
+  if (matchedSubjects.size === 0) {
+    return {
+      isValid: false,
+      subjects: [],
+      humanLabel: "",
+      errorPrompt: "Kripya valid school subjects batayein (jaise: Maths, Science, English, Hindi, All Subjects) 📚",
+    };
+  }
+
+  const subjects = Array.from(matchedSubjects);
+  const humanLabel = subjects
+    .filter((s) => !/all subjects \(class 1-8\)/i.test(s))
+    .slice(0, 3)
+    .join(", ");
+
+  return {
+    isValid: true,
+    subjects,
+    humanLabel: humanLabel || subjects[0],
+  };
 }
 
 /**
@@ -155,6 +584,16 @@ export function validateSubjectClassCompatibility(
 ): ValidationResult {
   const cleanCls = classInput.trim();
   const lowerCls = cleanCls.toLowerCase();
+
+  // Guard: Reject non-academic / unsupported subjects
+  const nonAcademic = subjects.filter((s) => /cooking|driving|dance|cricket|makeup|gym|crypto/i.test(s));
+  if (nonAcademic.length > 0 && subjects.length === nonAcademic.length) {
+    return {
+      isValid: false,
+      reason: "Hum sirf academic & school subjects ke liye home tuition provide karte hain (Maths, Science, English, Commerce, etc.)! 📚",
+      suggestedReplies: ["All Subjects (Class 1-8)", "Maths & Science", "Physics / Chem (11-12)", "Commerce (11-12)"],
+    };
+  }
 
   // If user clicked a disambiguation button like "Class 1-5 (All Subjects)"
   if (/all\s*subjects?/i.test(lowerCls)) {

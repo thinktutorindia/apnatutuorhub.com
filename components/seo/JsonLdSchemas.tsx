@@ -34,7 +34,7 @@ export function HomepageJsonLd() {
     },
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: "+91-8799707960",
+      telephone: "+91-9319193109",
       contactType: "customer service",
       areaServed: "IN",
       availableLanguage: ["English", "Hindi"],

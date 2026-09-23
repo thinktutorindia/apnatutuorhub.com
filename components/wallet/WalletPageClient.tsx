@@ -155,6 +155,35 @@ export function WalletPageClient({
           </div>
         )}
 
+        {/* Creator / Barter Video Review Promo Banner */}
+        <div className="relative overflow-hidden rounded-3xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl shrink-0 mt-0.5">📹</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-800">Free Coins Program</span>
+                  <span className="text-[10px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Earn 50 Coins</span>
+                </div>
+                <p className="text-sm font-black text-slate-900 mt-0.5">
+                  Record a 30-sec Video Review & Get 50 Free Coins!
+                </p>
+                <p className="text-xs text-slate-600 font-medium mt-1">
+                  Share your experience on Instagram or WhatsApp video to our coordinator. Coins credited instantly!
+                </p>
+              </div>
+            </div>
+            <a
+              href="https://wa.me/919319193109?text=Hi%20ApnaTutorHub%2C%20I%20want%20to%20submit%20my%2030-sec%20video%20review%20for%2050%20free%20coins!"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md transition-all inline-flex items-center gap-1.5"
+            >
+              <span>Submit Video on WhatsApp →</span>
+            </a>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl border border-gray-200/90 shadow-xs">
           <div>

@@ -116,7 +116,7 @@ export function SendLeadToTutorModal({
           notes: res.data.lead.notes,
           timingPreference: res.data.lead.timingPreference,
           schedule: res.data.lead.timingPreference || "5 Days a Week",
-          contactWhatsApp: "87997 07960",
+          contactWhatsApp: "93191 93109",
         });
         setCustomNotificationMsg((prev) => prev || initialTemplate);
       } else {
@@ -270,7 +270,7 @@ export function SendLeadToTutorModal({
       notes: lead.notes,
       timingPreference: lead.timingPreference,
       schedule: lead.timingPreference || "5 Days a Week",
-      contactWhatsApp: "87997 07960",
+      contactWhatsApp: "93191 93109",
     });
     return `${greeting}${formatted}`;
   };
@@ -1174,7 +1174,7 @@ export function SendLeadToTutorModal({
                           const classStr = `${lead?.classLevel || "Standard"}${lead?.subjects?.length ? ` (${lead.subjects.slice(0, 2).join(", ")})` : ""}`;
                           const locStr = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
                           setCustomNotificationMsg(
-                            `🚨 URGENT REQUIREMENT: Lead #${leadNum} for ${classStr} in ${locStr}! Dm on WhatsApp 87997 07960 or unlock on portal.`
+                            `🚨 URGENT REQUIREMENT: Lead #${leadNum} for ${classStr} in ${locStr}! Dm on WhatsApp 93191 93109 or unlock on portal.`
                           );
                         }}
                         className="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-bold cursor-pointer transition-colors shadow-2xs"
@@ -1188,7 +1188,7 @@ export function SendLeadToTutorModal({
                           const feesStr = lead?.budgetMin && lead?.budgetMax ? `₹${lead.budgetMin} - ₹${lead.budgetMax}/mo` : "₹5000/mo";
                           const locStr = [lead?.area, lead?.city].filter(Boolean).join(", ") || "Delhi NCR";
                           setCustomNotificationMsg(
-                            `💎 HIGH BUDGET TUITION: Lead #${leadNum} offering ${feesStr} in ${locStr}. Dm on WhatsApp 87997 07960 to claim.`
+                            `💎 HIGH BUDGET TUITION: Lead #${leadNum} offering ${feesStr} in ${locStr}. Dm on WhatsApp 93191 93109 to claim.`
                           );
                         }}
                         className="px-3 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-950 border border-blue-200 text-xs font-bold cursor-pointer transition-colors shadow-2xs"
@@ -1269,11 +1269,11 @@ export function SendLeadToTutorModal({
                       <button
                         type="button"
                         onClick={() => {
-                          setCustomNotificationMsg((prev) => (prev ? `${prev} Dm on WhatsApp 87997 07960` : "Dm on WhatsApp 87997 07960"));
+                          setCustomNotificationMsg((prev) => (prev ? `${prev} Dm on WhatsApp 93191 93109` : "Dm on WhatsApp 93191 93109"));
                         }}
                         className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-950 text-[11px] font-extrabold border border-emerald-200 cursor-pointer"
                       >
-                        + WhatsApp (87997 07960)
+                        + WhatsApp (93191 93109)
                       </button>
                       <button
                         type="button"

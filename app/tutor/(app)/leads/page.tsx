@@ -7,6 +7,8 @@ import { haversineDistanceKm } from "@/lib/haversine";
 import { resolveLocationCoordinates } from "@/lib/geocoding";
 import { parseDummyClaimedQuery } from "@/lib/dummy-campaign-types";
 import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
+import { generateDummyLeadForTutor } from "@/lib/dummy-lead-engine";
+import { isLeadMatchedToTutor } from "@/lib/feed-matching";
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
 
@@ -268,6 +270,73 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
           }
         : null,
     });
+  }
+
+  // ── Locality-Aware Dynamic Fallback Leads (Voice Note Directive) ───────────
+  // If fewer than 5 active leads match this tutor's locality or subjects,
+  // dynamically generate realistic, neighborhood-matched leads so the tutor
+  // always sees active teaching opportunities in their area!
+  const matchedRealCount = feedLeads.filter((l) =>
+    isLeadMatchedToTutor({
+      lead: {
+        distanceKm: l.distanceKm,
+        mode: l.mode,
+        subjects: l.subjects,
+        classLevel: l.classLevel,
+        tutorGenderPref: l.tutorGenderPref,
+      },
+      tutorSubjects: tutorProfile.subjects,
+      tutorClassLevels: tutorProfile.classLevels,
+      teachingRadius: tutorProfile.teachingRadius || 10,
+      hasTutorLocation: Boolean(tutorLat && tutorLng),
+    })
+  ).length;
+
+  if (matchedRealCount < 5) {
+    const needed = 5 - matchedRealCount;
+    for (let i = 0; i < needed; i++) {
+      try {
+        const dLead = await generateDummyLeadForTutor({
+          tutorLat,
+          tutorLng,
+          tutorCity: tutorProfile.city || "Delhi",
+          tutorAddress: tutorProfile.address || tutorProfile.city || "Delhi NCR",
+          tutorSubjects: tutorProfile.subjects,
+          tutorClassLevels: tutorProfile.classLevels,
+          teachingRadius: Math.min(10, tutorProfile.teachingRadius || 10),
+          userSeed: i * 37 + (tutorProfile.id.charCodeAt(0) || 1),
+          stable: true,
+        });
+
+        const fakeInquiry = 32400 + Math.abs((tutorProfile.id.charCodeAt(0) * 113 + i * 47) % 600);
+        feedLeads.push({
+          id: `lead_ath_${tutorProfile.id.slice(-6)}_${i + 1}`,
+          inquiryNumber: fakeInquiry,
+          parentProfileId: undefined,
+          subjects: dLead.subjects && dLead.subjects.length > 0 ? dLead.subjects : (tutorProfile.subjects?.slice(0, 2) || ["Mathematics"]),
+          classLevel: dLead.classLevel || tutorProfile.classLevels?.[0] || "Class 9-10",
+          mode: dLead.mode || "OFFLINE",
+          board: dLead.board || "CBSE",
+          budgetMin: dLead.budgetMin,
+          budgetMax: dLead.budgetMax,
+          area: dLead.locality || tutorProfile.address || "Delhi NCR",
+          city: dLead.city || tutorProfile.city || "Delhi",
+          coinCost: 50,
+          purchaseCount: 1,
+          maxTutors: 5,
+          distanceKm: dLead.distanceKm,
+          createdAt: new Date(Date.now() - (i * 3 + 2) * 3600 * 1000).toISOString(),
+          timingPreference: dLead.timing || "Evening (4 PM - 7 PM)",
+          tutorGenderPref: "ANY",
+          languagePref: "English & Hindi",
+          notes: `Looking for experienced tutor for ${dLead.classLevel} near ${dLead.locality || tutorProfile.address || "our area"}. Regular tests and homework support needed.`,
+          isPurchased: false,
+          status: "ACTIVE",
+        });
+      } catch (err) {
+        console.warn("[leads-page] Error generating dynamic fallback lead:", err);
+      }
+    }
   }
 
   const now = new Date();

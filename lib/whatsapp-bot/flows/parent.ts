@@ -58,7 +58,7 @@ export async function handleParentStep(
     }
 
     case "P_SUBJECTS": {
-      const cls = (data.classLevel as string) || (data.classKey && CLASS_MAP[data.classKey as string]) || undefined;
+      const cls = typeof data.classLevel === "string" ? data.classLevel : typeof data.classKey === "string" ? CLASS_MAP[data.classKey] : undefined;
       const subRes = validateAndAlignSubjects(r, cls);
       if (!subRes.isValid || subRes.subjects.length === 0) return null;
       return {

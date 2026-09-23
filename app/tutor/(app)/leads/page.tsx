@@ -7,7 +7,7 @@ import { haversineDistanceKm } from "@/lib/haversine";
 import { resolveLocationCoordinates } from "@/lib/geocoding";
 import { parseDummyClaimedQuery } from "@/lib/dummy-campaign-types";
 import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
-import { generateDummyLeadForTutor } from "@/lib/dummy-lead-engine";
+import { generateDummyLead } from "@/lib/dummy-lead-engine";
 import { isLeadMatchedToTutor } from "@/lib/feed-matching";
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
@@ -296,7 +296,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
     const needed = 5 - matchedRealCount;
     for (let i = 0; i < needed; i++) {
       try {
-        const dLead = await generateDummyLeadForTutor({
+        const dLead = await generateDummyLead({
           tutorLat,
           tutorLng,
           tutorCity: tutorProfile.city || "Delhi",
@@ -324,7 +324,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
           coinCost: 50,
           purchaseCount: 1,
           maxTutors: 5,
-          distanceKm: dLead.distanceKm,
+          distanceKm: dLead.distanceKm ?? null,
           createdAt: new Date(Date.now() - (i * 3 + 2) * 3600 * 1000).toISOString(),
           timingPreference: dLead.timing || "Evening (4 PM - 7 PM)",
           tutorGenderPref: "ANY",

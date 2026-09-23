@@ -544,7 +544,7 @@ export async function generateDummyLead(opts: {
   };
 }
 
-
+export const generateDummyLeadForTutor = generateDummyLead;
 
 // ─── Deliver dummy lead to a single tutor ────────────────────────────────────
 

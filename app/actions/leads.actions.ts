@@ -461,7 +461,7 @@ export async function purchaseLeadAction(
 
   const tutorProfileId = authCtx.context.tutorProfileId;
 
-  const [lead, wallet, tutorProfile] = await Promise.all([
+  let [lead, wallet, tutorProfile]: [any, any, any] = await Promise.all([
     prisma.lead.findUnique({
       where: { id: leadId },
       select: {

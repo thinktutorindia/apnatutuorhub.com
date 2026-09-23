@@ -72,10 +72,11 @@ _ApnaTutorHub.com — Verified Home Tutoring Network_`;
         const normPhone = normalizeIndiaWhatsApp(tutor.user.phone);
         if (normPhone) {
           const res = await sendAquaWhatsAppMessage({
-            phone: normPhone,
-            message: waMsg,
+            to: normPhone,
+            mode: "text",
+            text: waMsg,
           });
-          if (res.success) sentWhatsApp++;
+          if (res.ok) sentWhatsApp++;
         }
       }
 
@@ -94,13 +95,14 @@ _ApnaTutorHub.com — Verified Home Tutoring Network_`;
           </div>
         `;
 
-        await dispatchEmail({
-          to: tutor.user.email,
-          subject: `Special ₹99 Student Lead Offer for ${tutorName} (Expires in 24h)`,
-          html: emailHtml,
-        }).then((sent) => {
-          if (sent) sentEmail++;
-        }).catch(() => {});
+        try {
+          const emailRes = await dispatchEmail(
+            tutor.user.email,
+            `Special ₹99 Student Lead Offer for ${tutorName} (Expires in 24h)`,
+            emailHtml
+          );
+          if (emailRes.success) sentEmail++;
+        } catch {}
       }
 
       // 3. In-App Notification

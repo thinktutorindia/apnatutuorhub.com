@@ -19,6 +19,7 @@ export type AquaSendMode = "template" | "text";
 export type AquaWhatsAppConfig = {
   enabled: boolean;
   autoDispatch: boolean;
+  autoReply: boolean;
   apiBase: string;
   systemToken: string;
   username: string;
@@ -32,6 +33,7 @@ export type AquaWhatsAppConfig = {
 export type AquaWhatsAppStatus = {
   enabled: boolean;
   autoDispatch: boolean;
+  autoReply?: boolean;
   hasSystemToken: boolean;
   hasUsername: boolean;
   hasFromNumber: boolean;
@@ -69,6 +71,7 @@ export function getAquaWhatsAppConfig(): AquaWhatsAppConfig {
   return {
     enabled: envFlag("AQUA_WHATSAPP_ENABLED", false),
     autoDispatch: envFlag("AQUA_WHATSAPP_AUTO_DISPATCH", false),
+    autoReply: envFlag("AQUA_WHATSAPP_AUTO_REPLY", false),
     apiBase: (process.env.AQUA_WHATSAPP_API_BASE ?? "https://partnersv1.pinbot.ai").replace(/\/$/, ""),
     systemToken: process.env.AQUA_WHATSAPP_SYSTEM_TOKEN?.trim() ?? "",
     username: process.env.AQUA_WHATSAPP_USERNAME?.trim() ?? "",
@@ -156,6 +159,7 @@ export async function getAquaWhatsAppStatus(): Promise<AquaWhatsAppStatus> {
   return {
     enabled: cfg.enabled,
     autoDispatch: cfg.autoDispatch,
+    autoReply: cfg.autoReply,
     hasSystemToken: Boolean(cfg.systemToken),
     hasUsername: Boolean(cfg.username),
     hasFromNumber: Boolean(cfg.fromNumber),

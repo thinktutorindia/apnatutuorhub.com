@@ -17,6 +17,11 @@ import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 
 export const runtime = "nodejs";
 
+// ── Automatic WhatsApp Reply Toggle ──────────────────────────────────────────
+// TEMPORARILY DISABLED per user instruction.
+// To re-enable: Set AUTO_REPLY_ENABLED = true and AQUA_WHATSAPP_AUTO_REPLY="true".
+export const AUTO_REPLY_ENABLED = false;
+
 // ── Payload normalisation ────────────────────────────────────────────────────
 
 type NormalisedInbound = { phone: string; text: string } | null;
@@ -176,6 +181,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   // ── Deduplication check ─────────────────────────────────────────────────
   if (isDuplicateMessage(phone, text)) {
     return smartPingSuccess(); // Silently ack, don't re-process
+  }
+
+  // ── Automatic WhatsApp Reply Pause / Toggle ──────────────────────────────
+  const isAutoReplyOn =
+    AUTO_REPLY_ENABLED && process.env.AQUA_WHATSAPP_AUTO_REPLY === "true";
+
+  if (!isAutoReplyOn) {
+    console.log(
+      `[whatsapp-bot] Auto-reply is TEMPORARILY OFF. Inbound from ${phone}: "${text.slice(0, 80)}" acknowledged without sending automated reply.`
+    );
+    return smartPingSuccess();
   }
 
   console.log(`[whatsapp-bot] Inbound from ${phone}: "${text.slice(0, 80)}"`);

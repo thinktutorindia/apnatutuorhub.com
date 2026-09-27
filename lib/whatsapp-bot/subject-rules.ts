@@ -1104,8 +1104,17 @@ export function validateSubjectClassCompatibility(
   }
 
   // ── 6. "All Subjects" for Senior Secondary ──────────────────────────────────
-  const isAllSubjects = subjects.every((s) => /all\s*subjects?|combo/i.test(s));
-  if (isAllSubjects && (grade === 11 || grade === 12 || /11\s*[-–to]\s*12|senior\s*secondary/i.test(lowerCls))) {
+  const hasAllSubjects = subjects.some((s) => /all\s*subjects?|combo/i.test(s));
+  const isSeniorSecondary = grade === 11 || grade === 12 || /11|12|senior/i.test(lowerCls);
+  if (hasAllSubjects && isSeniorSecondary) {
+    const specificSubjects = subjects.filter((s) => !/all\s*subjects?|combo/i.test(s));
+    if (specificSubjects.length > 0) {
+      // Auto-strip "All Subjects" because they teach specific subject(s) in Class 11/12
+      return {
+        isValid: true,
+        switchedSubject: specificSubjects,
+      };
+    }
     return {
       isValid: false,
       reason: `Class 11-12 mein 'All Subjects' nahi hota (Science, Commerce, Arts streams hoti hain)! 📚 Kaunsi stream ya specific subject padhate hain?`,

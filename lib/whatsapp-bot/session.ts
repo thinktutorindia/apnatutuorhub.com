@@ -12,10 +12,17 @@ export type BotSession = {
   step: string;
   data: Record<string, unknown>;
   retries: number;
+  lastMessageAt?: Date;
+  isIdle?: boolean;
 };
 
 /** Load existing session or create a fresh language-select one. */
 export async function getOrCreateSession(phone: string): Promise<BotSession> {
+  const existing = await prisma.whatsappSession.findUnique({ where: { phone } });
+  const isIdle = existing?.lastMessageAt
+    ? Date.now() - new Date(existing.lastMessageAt).getTime() > 15 * 60 * 1000 // 15 minutes idle
+    : false;
+
   const raw = await prisma.whatsappSession.upsert({
     where: { phone },
     create: { phone, step: "LANG_SELECT", data: {}, retries: 0 },
@@ -29,6 +36,8 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
     step: raw.step,
     data: (raw.data as Record<string, unknown>) ?? {},
     retries: raw.retries,
+    lastMessageAt: existing?.lastMessageAt || raw.lastMessageAt,
+    isIdle,
   };
 }
 

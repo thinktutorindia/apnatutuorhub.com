@@ -123,6 +123,13 @@ function formatHumanTeachingContext(
     }
   }
 
+  const isSenior = (grade !== null && grade >= 11) || /11|12|senior/i.test(cleanClass);
+  if (isSenior) {
+    // In Class 11-12, 'All Subjects' does not exist in school curricula.
+    cleanSubs = cleanSubs.filter((s) => !/all\s*subjects?|combo/i.test(s));
+    if (cleanSubs.length === 0) cleanSubs.push("Mathematics");
+  }
+
   let humanSubjectLabel = "";
   if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
     humanSubjectLabel = `${cleanClass || "Class 1-5"} (Science & All Subjects)`;
@@ -309,21 +316,39 @@ export async function processMessage(
   }
 
   // ── Single Inquiry / Lead Unlock Shortcut (e.g. "#32042", "Unlock Lead #32042", "32042") ──
-  const inquiryMatch =
-    rawMessage.trim().match(/^(?:(?:unlock|view|show|check|open|lead)\s*(?:lead\s*)?)?(?:#|ath[- ]?)?(\d{4,7})$/i) ||
-    rawMessage.trim().match(/(?:(?:unlock|view|show|check|open)\s*(?:lead)?\s*)#?(\d{4,7})\b/i);
+  // STRICT GUARD: Never intercept numbers during active registration steps (e.g. password "123456", budget "5000", pincode "110062")
+  const isRegistrationStep =
+    step.startsWith("T_") ||
+    step.startsWith("P_") ||
+    step === "LANG_SELECT" ||
+    step === "WELCOME";
 
-  if (inquiryMatch) {
-    const inqNum = parseInt(inquiryMatch[1], 10);
-    const result = await formatSingleLeadInquiry(inqNum, session.phone);
-    return {
-      reply: result.reply,
-      nextStep: "DONE",
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: result.quickReplies,
-    };
+  const hasExplicitLeadPrefix =
+    /^(?:(?:unlock|view|show|check|open|lead)\s*(?:lead\s*)?)(?:#|ath[- ]?)?(\d{4,7})$/i.test(rawMessage.trim()) ||
+    /^#(?:ath[- ]?)?(\d{4,7})$/i.test(rawMessage.trim()) ||
+    /(?:(?:unlock|view|show|check|open)\s+lead\s+)#?(\d{4,7})\b/i.test(rawMessage.trim());
+
+  const isBareNumberInDone =
+    (step === "DONE" || data._registered === true) &&
+    /^\d{4,7}$/.test(rawMessage.trim());
+
+  if (!isRegistrationStep && (hasExplicitLeadPrefix || isBareNumberInDone)) {
+    const inquiryMatch =
+      rawMessage.trim().match(/^(?:(?:unlock|view|show|check|open|lead)\s*(?:lead\s*)?)?(?:#|ath[- ]?)?(\d{4,7})$/i) ||
+      rawMessage.trim().match(/(?:(?:unlock|view|show|check|open)\s*(?:lead)?\s*)#?(\d{4,7})\b/i);
+
+    if (inquiryMatch) {
+      const inqNum = parseInt(inquiryMatch[1], 10);
+      const result = await formatSingleLeadInquiry(inqNum, session.phone);
+      return {
+        reply: result.reply,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: result.quickReplies,
+      };
+    }
   }
 
   // ── High-Intent Real Chat Scenarios (Identified from Aqua SMS logs) ─────────
@@ -430,7 +455,7 @@ export async function processMessage(
   // 8. Tutors replying "Interested" to broadcast alerts without an inquiry ID
   if (
     /^(?:interested|yes\s*interested|i\s*am\s*interested|sir\s*i\s*am\s*interested|interested\s*sir|interested\s*for\s*home\s*tuition|interested\s*for\s*tuition|want\s*this\s*lead|i\s*want\s*this\s*lead|mujhe\s*chahiye|apply\s*karna\s*hai|apply\s*kaise\s*kare|kaise\s*apply\s*kare|i\s*want\s*to\s*teach|interested\s*in\s*this|intrested|im\s*interested)\b/i.test(rawMessage.trim()) &&
-    !inquiryMatch
+    !/#\d{4,7}/.test(rawMessage)
   ) {
     return {
       reply: `Bahut badhiya! 🎉 Hamare platform par 100% genuine verified tuitions available hain aur hum teachers se *0% Commission* lete hain (poori monthly fees aapki)!\n\n👉 *Leads dekhein aur unlock karein:*\nhttps://apnatutorhub.com/tutor/leads\n\n👉 *0% Commission Plans / Coins:*\nhttps://apnatutorhub.com/tutor/plans\n\nAgar aapne kisi specific tuition alert ka message dekha hai, toh uska *Lead ID* (jaise: *#32042*) yahan reply karein!`,
@@ -596,16 +621,18 @@ export async function processMessage(
     };
   }
 
-  // Skip SPECIAL_COMMANDS intercept for mid-flow steps where "hi"/"hello" is simply a wrong answer
+  // Skip SPECIAL_COMMANDS intercept for active mid-flow steps where "hi"/"hello" is a wrong input,
+  // UNLESS the session was idle (>15 mins), in which case "hi" is a returning greeting to start fresh.
   const MID_FLOW_STEPS = new Set([
     "T_NAME", "T_CITY", "T_AREA", "T_SUBJECTS", "T_CLASSES", "T_CLASS",
     "T_TIMING", "T_EXPERIENCE", "T_CONFIRM", "T_EMAIL", "T_PASSWORD",
     "P_STUDENT_NAME", "P_CLASS", "P_SUBJECTS", "P_CITY", "P_AREA",
     "P_MODE", "P_BUDGET", "P_PHONE", "P_EMAIL",
   ]);
-  if (SPECIAL_COMMANDS.includes(msg) && !MID_FLOW_STEPS.has(step)) {
+  const isMidFlow = !session.isIdle && MID_FLOW_STEPS.has(step);
+  if (SPECIAL_COMMANDS.includes(msg) && !isMidFlow) {
 
-    const cleanData = { ...data };
+    const cleanData = session.isIdle ? {} : { ...data };
     if (cleanData.unsubscribed) {
       delete cleanData.unsubscribed;
     }
@@ -904,18 +931,6 @@ export async function processMessage(
 
         // ── TUTOR Onboarding ──────────────────────────────────────────────────
         if (role === "TUTOR") {
-          // SECURITY: Block registration with admin phone numbers
-          if (ADMIN_PHONES.includes(session.phone)) {
-            return {
-              reply: ai.reply,
-              nextStep: "T_CONVO",
-              updatedData: mergedData,
-              userType: "TUTOR",
-              retries: 0,
-              quickReplies: ai.quickReplies && ai.quickReplies.length > 0 ? ai.quickReplies : ["View Leads", "Plans"],
-            };
-          }
-
           // Case A: Missing all teaching details
           if (!hasSubjects && !hasClass && !hasArea) {
             // Check if user typed something that failed subject validation (hobby/unknown word)

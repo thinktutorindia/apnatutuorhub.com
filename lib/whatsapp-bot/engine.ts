@@ -26,6 +26,8 @@ import {
   registerParentFromWhatsapp,
 } from "./auto-register";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 import {
   getSubjectClassSuggestions,
   validateSubjectClassCompatibility,
@@ -166,6 +168,151 @@ function formatHumanTeachingContext(
   };
 }
 
+/**
+ * Synchronize user credentials (password, email, name, subjects, area)
+ * directly in PostgreSQL across User and TutorProfile tables.
+ */
+export async function syncUserCredentialsInDb(params: {
+  phone: string;
+  email?: string;
+  password?: string;
+  name?: string;
+  subjects?: string[];
+  area?: string;
+  city?: string;
+}): Promise<{ ok: boolean; updatedFields: string[]; error?: string }> {
+  const updatedFields: string[] = [];
+  try {
+    const rawTargetPhone = params.phone.replace(/\D/g, "");
+    const normalizedPhone = normalizeIndiaWhatsApp(params.phone) ?? rawTargetPhone;
+    const last10Phone = rawTargetPhone.slice(-10);
+
+    const phoneFilters = [
+      ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+      ...(last10Phone ? [{ phone: { contains: last10Phone } }] : []),
+    ];
+
+    // 1. Password update
+    let passwordHash: string | undefined;
+    if (params.password && params.password.trim().length >= 6) {
+      passwordHash = await bcrypt.hash(params.password.trim(), 10);
+      const res = await prisma.user.updateMany({
+        where: { OR: phoneFilters },
+        data: { passwordHash },
+      });
+      if (res.count > 0) {
+        updatedFields.push("password");
+      }
+    }
+
+    // 2. Email update
+    if (params.email && isValidEmailDomain(params.email)) {
+      const cleanEmail = params.email.trim().toLowerCase();
+      // Find the user to update - prioritize tutor
+      const user = await prisma.user.findFirst({
+        where: { OR: phoneFilters },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (user) {
+        // Check if another distinct user owns this email
+        const existingEmailUser = await prisma.user.findUnique({
+          where: { email: cleanEmail },
+        });
+
+        if (!existingEmailUser || existingEmailUser.id === user.id) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              email: cleanEmail,
+              ...(params.name ? { name: params.name.trim() } : {}),
+              ...(passwordHash ? { passwordHash } : {}),
+            },
+          });
+          updatedFields.push("email");
+        } else if (existingEmailUser.phone?.includes(last10Phone)) {
+          // Already owned by another record of same user
+          if (passwordHash) {
+            await prisma.user.update({
+              where: { id: existingEmailUser.id },
+              data: { passwordHash },
+            });
+          }
+          updatedFields.push("email");
+        } else {
+          console.warn(`[syncUserCredentialsInDb] Email ${cleanEmail} is already taken by user ${existingEmailUser.id}`);
+        }
+      }
+    }
+
+    // 3. Name update
+    if (params.name && isValidName(params.name)) {
+      const cleanName = params.name.trim();
+      await prisma.user.updateMany({
+        where: { OR: phoneFilters },
+        data: { name: cleanName },
+      });
+      updatedFields.push("name");
+    }
+
+    // 4. Tutor profile update (subjects, area, city)
+    const tutorUser = await prisma.user.findFirst({
+      where: { OR: phoneFilters, tutorProfile: { isNot: null } },
+      include: { tutorProfile: true },
+    });
+
+    if (tutorUser && tutorUser.tutorProfile) {
+      const profileUpdates: any = {};
+      if (params.area) {
+        profileUpdates.address = params.area;
+      }
+      if (params.city) {
+        profileUpdates.city = params.city;
+      }
+      if (params.subjects && params.subjects.length > 0) {
+        profileUpdates.subjects = params.subjects;
+      }
+      if (Object.keys(profileUpdates).length > 0) {
+        await prisma.tutorProfile.update({
+          where: { id: tutorUser.tutorProfile.id },
+          data: profileUpdates,
+        });
+        if (params.area || params.city) updatedFields.push("area");
+        if (params.subjects) updatedFields.push("subjects");
+      }
+    }
+
+    // 5. Also update whatsappSession.data if session exists
+    try {
+      const existingSession = await prisma.whatsappSession.findFirst({
+        where: { OR: phoneFilters },
+      });
+      if (existingSession) {
+        const curData = (existingSession.data as Record<string, any>) || {};
+        const merged = { ...curData };
+        if (params.email) merged.email = params.email.trim().toLowerCase();
+        if (params.password) merged.password = params.password.trim();
+        if (params.name) merged.name = params.name.trim();
+        if (params.area) merged.area = params.area.trim();
+        if (params.city) merged.city = params.city.trim();
+        if (params.subjects) merged.subjects = params.subjects;
+
+        await prisma.whatsappSession.update({
+          where: { id: existingSession.id },
+          data: { data: merged },
+        });
+      }
+    } catch (sessionErr) {
+      console.warn("[syncUserCredentialsInDb] Session sync warning:", sessionErr);
+    }
+
+    return { ok: true, updatedFields };
+  } catch (err: any) {
+    console.error("[syncUserCredentialsInDb] Error syncing credentials:", err);
+    return { ok: false, updatedFields, error: err?.message || String(err) };
+  }
+}
+
 export type EngineResult = {
   reply: string;
   nextStep: string;
@@ -268,51 +415,324 @@ export async function processMessage(
     const city = (data.city as string) || "";
     const subjects = Array.isArray(data.subjects) && data.subjects.length > 0 ? (data.subjects as string[]).join(", ") : "Not set";
     const location = city ? `${area}, ${city}` : area;
-    const profileText = `👤 *Aapka Profile:*\n\nNaam: ${name}\nEmail: ${email}\nLocation: ${location}\nSubjects: ${subjects}\nPhone: +91-${session.phone}\n\nKuch update karna hai? Type karo: UPDATE NAME / UPDATE EMAIL / UPDATE SUBJECTS`;
+    const profileText = `👤 *Aapka Profile:*\n\nNaam: ${name}\nEmail: ${email}\nLocation: ${location}\nSubjects: ${subjects}\nPhone: +91-${session.phone}\nPassword: Set (encrypted 🔒)\n\nKuch update karna hai? Type karein:\n*UPDATE PASSWORD <naya password>*\n*UPDATE EMAIL <naya email>*\n*UPDATE NAME / UPDATE SUBJECTS*`;
     return {
       reply: profileText,
       nextStep: step,
       updatedData: data,
       retries: 0,
-      quickReplies: ["Update Name", "Update Email", "Update Subjects"],
+      quickReplies: ["Update Password", "Update Email", "Update Subjects", "View Leads 📋"],
     };
   }
 
-  // ── Profile Update Commands ───────────────────────────────────────────────
-  if (/^update name$/i.test(rawMessage.trim())) {
-    return { reply: "Apna naya naam type karo:", nextStep: "UPDATE_NAME", updatedData: data, retries: 0 };
-  }
-  if (/^update email$/i.test(rawMessage.trim())) {
-    return { reply: "Apna naya email ID type karo:", nextStep: "UPDATE_EMAIL", updatedData: data, retries: 0 };
-  }
-  if (/^update subjects$/i.test(rawMessage.trim())) {
-    return { reply: "Kaunse subjects padhate ho? (comma separated):", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0 };
-  }
-  if (/^update area$/i.test(rawMessage.trim())) {
-    return { reply: "Apna naya area / locality type karo:", nextStep: "UPDATE_AREA", updatedData: data, retries: 0 };
-  }
-  if (/^update phone$/i.test(rawMessage.trim())) {
-    return { reply: "Apna naya phone number type karo (10 digits):", nextStep: "UPDATE_PHONE", updatedData: data, retries: 0 };
+  // ── Password Query (e.g. "mera account ka password kya hai", "password kya hai", "forgot password") ──
+  if (
+    /(?:mera|apna|account|login)?\s*(?:ka\s*)?password\s*(?:kya\s*hai|batao|bhool\s*gaya|bataiye|dikhao|reset)|what\s*(?:is\s*)?(?:my\s*)?password|forgot\s*password|reset\s*password/i.test(
+      rawMessage.trim()
+    )
+  ) {
+    const email = (data.email as string) || "N/A";
+    return {
+      reply: `Aapka password security reasons ki wajah se hamare system mein encrypted rehta hai. 🔐\n\n👤 *Aapke Login Details:*\n📱 Mobile: +91-${session.phone}\n📧 Email: ${email}\n\nNaya password set karne ke liye type karein:\n*UPDATE PASSWORD <naya password>*\n(Jaise: UPDATE PASSWORD MyPass@123)`,
+      nextStep: step === "WELCOME" ? "DONE" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Update Password", "My Profile 👤", "View Leads 📋"],
+    };
   }
 
-  // Handle update step responses
+  // ── Combined Email & Password Update Command ──
+  // Examples:
+  // "update my gmail and password coderrohit2927@gmail.com"
+  // "update email and password test@gmail.com Rohit@2927"
+  // "update my email and password"
+  const emailAndPassMatch =
+    rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?(?:email|gmail)\s+and\s+password(?:\s+(.+))?$/i) ||
+    rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?password\s+and\s+(?:email|gmail)(?:\s+(.+))?$/i);
+
+  if (emailAndPassMatch) {
+    const rest = (emailAndPassMatch[1] || "").trim();
+    const emailMatch = rest.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+
+    if (emailMatch) {
+      const email = emailMatch[0].toLowerCase();
+      const remainingTokens = rest.replace(emailMatch[0], "").trim().split(/\s+/).filter(Boolean);
+      const possiblePass = remainingTokens.length > 0 ? remainingTokens[0] : null;
+
+      if (possiblePass && possiblePass.length >= 6) {
+        await syncUserCredentialsInDb({
+          phone: session.phone,
+          email,
+          password: possiblePass,
+        });
+        const updated = { ...data, email, password: possiblePass };
+        return {
+          reply: `Email (*${email}*) aur Password (*${possiblePass}*) dono successfully update ho gaye hain! 🔒\n\nAap login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+          nextStep: "DONE",
+          updatedData: updated,
+          retries: 0,
+          quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+        };
+      } else {
+        await syncUserCredentialsInDb({
+          phone: session.phone,
+          email,
+        });
+        const updated = { ...data, email };
+        return {
+          reply: `Email *${email}* update ho gaya hai! ✅\n\nAb account login ke liye apna naya password type karein (min 6 characters): 🔑`,
+          nextStep: "UPDATE_PASSWORD",
+          updatedData: updated,
+          retries: 0,
+          quickReplies: ["12345678", "Cancel"],
+        };
+      }
+    } else {
+      return {
+        reply: "Apna naya email ID type karein: 📧",
+        nextStep: "UPDATE_EMAIL",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["Cancel"],
+      };
+    }
+  }
+
+  // ── Single-shot Password Update ──
+  // Examples: "update my password Rohit@2927", "update password Rohit@2927", "change password Rohit@2927", "set password Rohit@2927"
+  const directPassMatch = rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?password\s+(.+)$/i);
+  if (directPassMatch) {
+    const newPass = directPassMatch[1].trim();
+    if (newPass.length < 6) {
+      return {
+        reply: "Password kam se kam 6 characters ka hona chahiye. Kripya naya password type karein: 🔑",
+        nextStep: "UPDATE_PASSWORD",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["Cancel"],
+      };
+    }
+    await syncUserCredentialsInDb({
+      phone: session.phone,
+      password: newPass,
+    });
+    const updated = { ...data, password: newPass };
+    const userEmail = (data.email as string) || "aapka email";
+    return {
+      reply: `Password successfully update ho gaya hai: *${newPass}* 🔒\n\nAap is password aur apne email (*${userEmail}*) ya mobile (+91-${session.phone}) se login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+      nextStep: "DONE",
+      updatedData: updated,
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
+  }
+
+  // Matches "update password", "change password", "set password", "update my password"
+  if (/^(?:update|change|set)\s*(?:my\s*)?password$/i.test(rawMessage.trim())) {
+    return {
+      reply: "Apna naya password type karein (min 6 characters): 🔑",
+      nextStep: "UPDATE_PASSWORD",
+      updatedData: data,
+      retries: 0,
+      quickReplies: ["Cancel"],
+    };
+  }
+
+  // ── Single-shot Email Update ──
+  // Examples: "update my email coderrohit2927@gmail.com", "update gmail coderrohit2927@gmail.com"
+  const directEmailMatch = rawMessage.trim().match(
+    /^(?:update|change|set)\s*(?:my\s*)?(?:email|gmail)\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/i
+  );
+  if (directEmailMatch) {
+    const newEmail = directEmailMatch[1].trim().toLowerCase();
+    if (!isValidEmailDomain(newEmail)) {
+      return {
+        reply: "Kripya sahi email address enter karein (jaise: yourname@gmail.com): 📧",
+        nextStep: "UPDATE_EMAIL",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["Cancel"],
+      };
+    }
+    await syncUserCredentialsInDb({
+      phone: session.phone,
+      email: newEmail,
+    });
+    const updated = { ...data, email: newEmail };
+    return {
+      reply: `Email successfully update ho gaya hai: *${newEmail}* ✅\n\nAap is email se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+      nextStep: "DONE",
+      updatedData: updated,
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
+  }
+
+  // Matches "update email", "change email", "update gmail", "update my email", "update my gmail"
+  if (/^(?:update|change|set)\s*(?:my\s*)?(?:email|gmail)$/i.test(rawMessage.trim())) {
+    return {
+      reply: "Apna naya email ID type karein: 📧",
+      nextStep: "UPDATE_EMAIL",
+      updatedData: data,
+      retries: 0,
+      quickReplies: ["Cancel"],
+    };
+  }
+
+  // ── Single-shot Name ──
+  const directNameMatch = rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?name\s+(.+)$/i);
+  if (directNameMatch) {
+    const newName = directNameMatch[1].trim();
+    if (isValidName(newName)) {
+      await syncUserCredentialsInDb({ phone: session.phone, name: newName });
+      return {
+        reply: `Naam successfully update ho gaya: *${newName}* ✅`,
+        nextStep: "DONE",
+        updatedData: { ...data, name: newName },
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+      };
+    }
+  }
+  if (/^(?:update|change|set)\s*(?:my\s*)?name$/i.test(rawMessage.trim())) {
+    return { reply: "Apna naya naam type karo:", nextStep: "UPDATE_NAME", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+  }
+
+  // ── Single-shot Area ──
+  const directAreaMatch = rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?area\s+(.+)$/i);
+  if (directAreaMatch) {
+    const newArea = directAreaMatch[1].trim();
+    const cleanArea = cleanExtractedArea(newArea) || newArea;
+    await syncUserCredentialsInDb({ phone: session.phone, area: cleanArea });
+    return {
+      reply: `Area successfully update ho gaya: *${cleanArea}* 📍`,
+      nextStep: "DONE",
+      updatedData: { ...data, area: cleanArea },
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
+  }
+  if (/^(?:update|change|set)\s*(?:my\s*)?area$/i.test(rawMessage.trim())) {
+    return { reply: "Apna naya area / locality type karo:", nextStep: "UPDATE_AREA", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+  }
+
+  if (/^(?:update|change|set)\s*(?:my\s*)?subjects?$/i.test(rawMessage.trim())) {
+    return { reply: "Kaunse subjects padhate ho? (comma separated):", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+  }
+
+  if (/^(?:update|change|set)\s*(?:my\s*)?phone$/i.test(rawMessage.trim())) {
+    return { reply: "Apna naya phone number type karo (10 digits):", nextStep: "UPDATE_PHONE", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+  }
+
+  // ── Handle active update steps ──
+  if (step.startsWith("UPDATE_") && /^(cancel|back|wapas|nahi)$/i.test(rawMessage.trim())) {
+    return {
+      reply: "Update cancel kar diya gaya. Aap login ya matching leads dekh sakte hain.",
+      nextStep: "DONE",
+      updatedData: data,
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
+  }
+
   if (step === "UPDATE_NAME") {
-    return { reply: `Naam update ho gaya: *${rawMessage.trim()}*`, nextStep: "DONE", updatedData: { ...data, name: rawMessage.trim() }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+    const newName = rawMessage.trim();
+    if (!isValidName(newName)) {
+      return {
+        reply: "Kripya sahi naam enter karein (sirf letters, min 2 characters):",
+        nextStep: "UPDATE_NAME",
+        updatedData: data,
+        retries: 0,
+      };
+    }
+    await syncUserCredentialsInDb({ phone: session.phone, name: newName });
+    return {
+      reply: `Naam update ho gaya: *${newName}* ✅`,
+      nextStep: "DONE",
+      updatedData: { ...data, name: newName },
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
   }
+
   if (step === "UPDATE_EMAIL") {
-    return { reply: `Email update ho gaya: *${rawMessage.trim()}*`, nextStep: "DONE", updatedData: { ...data, email: rawMessage.trim().toLowerCase() }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+    const rawEmail = rawMessage.trim().toLowerCase();
+    const emailMatch = rawEmail.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const newEmail = emailMatch ? emailMatch[0] : rawEmail;
+    if (!isValidEmailDomain(newEmail)) {
+      return {
+        reply: "Kripya sahi email ID enter karein (jaise: yourname@gmail.com):",
+        nextStep: "UPDATE_EMAIL",
+        updatedData: data,
+        retries: 0,
+      };
+    }
+    await syncUserCredentialsInDb({ phone: session.phone, email: newEmail });
+    return {
+      reply: `Email update ho gaya: *${newEmail}* ✅\n\nAap is email se login kar sakte hain: https://apnatutorhub.com/login`,
+      nextStep: "DONE",
+      updatedData: { ...data, email: newEmail },
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
   }
+
+  if (step === "UPDATE_PASSWORD") {
+    const newPass = rawMessage.trim();
+    if (newPass.length < 6) {
+      return {
+        reply: "Password kam se kam 6 characters ka hona chahiye. Kripya naya password type karein: 🔑",
+        nextStep: "UPDATE_PASSWORD",
+        updatedData: data,
+        retries: 0,
+      };
+    }
+    await syncUserCredentialsInDb({ phone: session.phone, password: newPass });
+    const userEmail = (data.email as string) || "aapka email";
+    return {
+      reply: `Password successfully update ho gaya hai: *${newPass}* 🔒\n\nAap is email (*${userEmail}*) aur naye password se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+      nextStep: "DONE",
+      updatedData: { ...data, password: newPass },
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
+  }
+
   if (step === "UPDATE_SUBJECTS") {
     const subs = rawMessage.split(/,|and/i).map((s) => s.trim()).filter(Boolean);
-    return { reply: `Subjects update ho gaye: *${subs.join(", ")}*`, nextStep: "DONE", updatedData: { ...data, subjects: subs }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+    await syncUserCredentialsInDb({ phone: session.phone, subjects: subs });
+    return {
+      reply: `Subjects update ho gaye: *${subs.join(", ")}* ✅`,
+      nextStep: "DONE",
+      updatedData: { ...data, subjects: subs },
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
   }
+
   if (step === "UPDATE_AREA") {
-    return { reply: `Area update ho gaya: *${rawMessage.trim()}*`, nextStep: "DONE", updatedData: { ...data, area: rawMessage.trim() }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+    const cleanArea = cleanExtractedArea(rawMessage.trim()) || rawMessage.trim();
+    await syncUserCredentialsInDb({ phone: session.phone, area: cleanArea });
+    return {
+      reply: `Area update ho gaya: *${cleanArea}* 📍`,
+      nextStep: "DONE",
+      updatedData: { ...data, area: cleanArea },
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
   }
+
   if (step === "UPDATE_PHONE") {
     const phoneMatch = rawMessage.match(/([6-9]\d{9})/);
     const newPhone = phoneMatch ? phoneMatch[1] : rawMessage.trim();
-    return { reply: `Phone update ho gaya: *${newPhone}*`, nextStep: "DONE", updatedData: { ...data, phone: newPhone }, retries: 0, quickReplies: ["My Profile", "View Leads", "MENU"] };
+    return {
+      reply: `Phone update request note ho gayi: *${newPhone}* 📱\n\nSecurity ke liye WhatsApp number verify karna hota hai. Agar aapka number change hua hai, toh kripya naye number se WhatsApp karein.`,
+      nextStep: "DONE",
+      updatedData: { ...data, phone: newPhone },
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
   }
 
   // ── Single Inquiry / Lead Unlock Shortcut (e.g. "#32042", "Unlock Lead #32042", "32042") ──
@@ -628,6 +1048,7 @@ export async function processMessage(
     "T_TIMING", "T_EXPERIENCE", "T_CONFIRM", "T_EMAIL", "T_PASSWORD",
     "P_STUDENT_NAME", "P_CLASS", "P_SUBJECTS", "P_CITY", "P_AREA",
     "P_MODE", "P_BUDGET", "P_PHONE", "P_EMAIL",
+    "UPDATE_NAME", "UPDATE_EMAIL", "UPDATE_PASSWORD", "UPDATE_SUBJECTS", "UPDATE_AREA", "UPDATE_PHONE",
   ]);
   const isMidFlow = !session.isIdle && MID_FLOW_STEPS.has(step);
   if (SPECIAL_COMMANDS.includes(msg) && !isMidFlow) {
@@ -704,7 +1125,37 @@ export async function processMessage(
       };
     }
 
-    if (/^(hi|hello|hey|namaste|ha|haan|theek|thik|ok|okay|yes|done)$/i.test(rawMessage.trim())) {
+    const rawTrimmed = rawMessage.trim();
+
+    // Direct single email in DONE state
+    if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i.test(rawTrimmed) && isValidEmailDomain(rawTrimmed)) {
+      const newEmail = rawTrimmed.toLowerCase();
+      await syncUserCredentialsInDb({ phone: session.phone, email: newEmail });
+      return {
+        reply: `Email successfully update ho gaya hai: *${newEmail}* ✅\n\nAap is email se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+        nextStep: "DONE",
+        updatedData: { ...data, email: newEmail },
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+      };
+    }
+
+    // Direct password pattern in DONE state (e.g. "Rohit@2927")
+    if (/^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9\s])\S{6,30}$/.test(rawTrimmed)) {
+      await syncUserCredentialsInDb({ phone: session.phone, password: rawTrimmed });
+      const userEmail = (data.email as string) || "aapka email";
+      return {
+        reply: `Password successfully update ho gaya hai: *${rawTrimmed}* 🔒\n\nAap is password aur apne email (*${userEmail}*) ya mobile (+91-${session.phone}) se login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+        nextStep: "DONE",
+        updatedData: { ...data, password: rawTrimmed },
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+      };
+    }
+
+    if (/^(hi|hello|hey|namaste|ha|haan|theek|thik|ok|okay|yes|done)$/i.test(rawTrimmed)) {
       return {
         reply: `Ji batayein, hum aapki kya madad kar sakte hain? Aap matching student leads dekhna chahte hain ya plans ki jankari chahiye? 😊`,
         nextStep: "DONE",
@@ -719,10 +1170,36 @@ export async function processMessage(
       try {
         const ai = await askGeminiChatbot(rawMessage, session);
         if (ai && ai.reply) {
+          const mergedData: Record<string, any> = { ...data };
+          let credentialsChanged = false;
+
+          // Check if AI or message extracted email
+          const rawEmailMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+          const extractedEmail = (ai.extractedData?.email as string) || (rawEmailMatch ? rawEmailMatch[0] : undefined);
+          const extractedPassword = (ai.extractedData?.password as string);
+
+          if (extractedEmail && isValidEmailDomain(extractedEmail) && extractedEmail.toLowerCase() !== data.email) {
+            mergedData.email = extractedEmail.toLowerCase();
+            credentialsChanged = true;
+          }
+
+          if (extractedPassword && extractedPassword.length >= 6) {
+            mergedData.password = extractedPassword;
+            credentialsChanged = true;
+          }
+
+          if (credentialsChanged) {
+            await syncUserCredentialsInDb({
+              phone: session.phone,
+              email: mergedData.email,
+              password: mergedData.password,
+            });
+          }
+
           return {
             reply: ai.reply,
             nextStep: "DONE",
-            updatedData: data,
+            updatedData: mergedData,
             userType: session.userType,
             retries: 0,
             quickReplies: ai.quickReplies && ai.quickReplies.length > 0

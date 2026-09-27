@@ -256,6 +256,24 @@ export function isSubjectAndClassMatched(
 
   const leadGrade = effectiveLeadClass ? extractGradeNumber(effectiveLeadClass) : null;
 
+  // Senior Stream Segregation (Class 11-12)
+  if (leadGrade !== null && leadGrade >= 11) {
+    const combinedLead = `${effectiveLeadClass || ""} ${leadSubjects.join(" ")}`.toLowerCase();
+    const isHumanitiesLead = /humanit|arts?\b|history|political\s*sci|pol\s*sci|geograph|psycholog|sociolog/i.test(combinedLead);
+    const isCommerceLead = /commerce|account|business|bst\b/i.test(combinedLead);
+    const isScienceLead = /jee|neet|medical|physic|chem|bio\b|biolog/i.test(combinedLead);
+
+    const combinedTutor = tutorSubjects.join(" ").toLowerCase();
+    const tutorHasHumanities = /humanit|arts?\b|history|political\s*sci|pol\s*sci|geograph|psycholog|sociolog/i.test(combinedTutor);
+    const tutorHasCommerce = /commerce|account|business|bst\b/i.test(combinedTutor);
+    const tutorHasScience = /jee|neet|medical|physic|chem|bio\b|biolog/i.test(combinedTutor);
+    const tutorHasMath = /math|calculus|algebra/i.test(combinedTutor);
+
+    if (isHumanitiesLead && !tutorHasHumanities) return false;
+    if (isCommerceLead && !tutorHasCommerce && !(tutorHasMath && combinedLead.includes("math"))) return false;
+    if (isScienceLead && (tutorHasHumanities || tutorHasCommerce) && !tutorHasScience && !tutorHasMath) return false;
+  }
+
   // Check each tutor subject: at least ONE must match a lead subject AND be valid for this class level
   for (const rawTs of tutorSubjects) {
     if (!hasSubjectOverlap([rawTs], leadSubjects)) continue;

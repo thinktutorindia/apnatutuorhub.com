@@ -24,11 +24,16 @@ export type MatchingLeadCard = {
 /**
  * Extract all grade numbers from a class string (e.g. "Class 11", "Class 9-10", "11th")
  */
+/**
+ * Extract all grade numbers from a class string (e.g. "Class 11", "Class 9-10", "11th", "till 8th", "upto 8th", "8 tak")
+ */
 export function extractAllGrades(s?: string | null): Set<number> {
   const grades = new Set<number>();
   if (!s) return grades;
-  // Match ranges like "1 to 5", "9-10", "class 1-5"
-  const rangeMatches = [...s.matchAll(/(?:class\s*)?(\d{1,2})\s*(?:to|-)\s*(\d{1,2})/gi)];
+  const str = s.toLowerCase();
+
+  // 1. Match ranges like "1 to 8", "1-8", "class 1-8", "class 1 to 8", "9-10", "11-12"
+  const rangeMatches = [...str.matchAll(/(?:class\s*)?(\d{1,2})\s*(?:to|-|–|—)\s*(\d{1,2})/gi)];
   for (const rm of rangeMatches) {
     const min = Math.min(parseInt(rm[1], 10), parseInt(rm[2], 10));
     const max = Math.max(parseInt(rm[1], 10), parseInt(rm[2], 10));
@@ -36,13 +41,112 @@ export function extractAllGrades(s?: string | null): Set<number> {
       if (i >= 1 && i <= 12) grades.add(i);
     }
   }
-  // Also match all discrete grade numbers e.g. "Class 5th, Class 9th"
-  const discreteMatches = [...s.matchAll(/\b([1-9]|1[0-2])(?:st|nd|rd|th)?\b/gi)];
+
+  // 2. Match "till 8th", "upto 8th", "below 8", "under 8", "8 tak", "8th tak", "class 8 tak"
+  const uptoMatches = [
+    ...str.matchAll(/(?:upto|till|below|under)\s*(?:class\s*)?(\d{1,2})(?:st|nd|rd|th)?/gi),
+    ...str.matchAll(/(?:class\s*)?(\d{1,2})(?:st|nd|rd|th)?\s*tak\b/gi),
+  ];
+  for (const um of uptoMatches) {
+    const max = parseInt(um[1], 10);
+    if (max >= 1 && max <= 12) {
+      for (let i = 1; i <= max; i++) {
+        grades.add(i);
+      }
+    }
+  }
+
+  // 3. Match bucket keywords
+  if (/primary|pre-primary|nursery|kg\b/i.test(str)) {
+    for (let i = 1; i <= 5; i++) grades.add(i);
+  }
+  if (/middle\s*(?:school|classes)?/i.test(str)) {
+    for (let i = 6; i <= 8; i++) grades.add(i);
+  }
+  if (/secondary\s*(?:school)?/i.test(str) && !/senior/i.test(str)) {
+    grades.add(9);
+    grades.add(10);
+  }
+  if (/senior\s*secondary/i.test(str)) {
+    grades.add(11);
+    grades.add(12);
+  }
+
+  // 4. Roman ranges e.g. "XI - XII", "VI to VIII", "I - V"
+  const romanRangeMatches = [
+    ...str.matchAll(/(?:class\s*)?([ivx]+)\s*(?:to|-|–|—|and|&)\s*(?:class\s*)?([ivx]+)/gi),
+  ];
+  const ROMAN_VALS: Record<string, number> = {
+    i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10, xi: 11, xii: 12,
+  };
+  for (const rm of romanRangeMatches) {
+    const start = ROMAN_VALS[rm[1]];
+    const end = ROMAN_VALS[rm[2]];
+    if (start && end) {
+      const min = Math.min(start, end);
+      const max = Math.max(start, end);
+      for (let i = min; i <= max; i++) {
+        if (i >= 1 && i <= 12) grades.add(i);
+      }
+    }
+  }
+
+  // 5. Discrete Roman numerals e.g. "XI", "XII", "X", "IX", "VIII"
+  const romanDiscrete = [...str.matchAll(/\b(xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)\b/gi)];
+  for (const rm of romanDiscrete) {
+    const val = ROMAN_VALS[rm[1]];
+    if (val) grades.add(val);
+  }
+
+  // 6. Discrete grade numbers e.g. "Class 5th, Class 9th", "11th", "10"
+  const discreteMatches = [...str.matchAll(/\b([1-9]|1[0-2])(?:st|nd|rd|th)?\b/gi)];
   for (const dm of discreteMatches) {
     const num = parseInt(dm[1], 10);
     if (num >= 1 && num <= 12) grades.add(num);
   }
+
   return grades;
+}
+
+export type AcademicStream = "HUMANITIES" | "COMMERCE" | "SCIENCE" | "NONE";
+
+/**
+ * Detects senior stream specialization from class labels and subjects.
+ */
+export function detectStream(
+  classStr?: string | null,
+  subs?: string[] | null
+): AcademicStream {
+  const combined = `${classStr || ""} ${(subs || []).join(" ")}`.toLowerCase();
+
+  // Humanities / Arts:
+  if (
+    /humanit|arts?\b|history|political\s*sci|pol\s*sci|geograph|psycholog|sociolog|philosophy|civics/i.test(
+      combined
+    )
+  ) {
+    return "HUMANITIES";
+  }
+
+  // Commerce:
+  if (
+    /commerce|account|accountancy|business\s*stud|bst\b|b\.com|ca\s*foundation/i.test(
+      combined
+    )
+  ) {
+    return "COMMERCE";
+  }
+
+  // Pure Science (Physics, Chemistry, Biology, Medical, Non-Medical):
+  if (
+    /jee|neet|medical|physic|chem|bio\b|biolog|botany|zoology|pcm\b|pcb\b/i.test(
+      combined
+    )
+  ) {
+    return "SCIENCE";
+  }
+
+  return "NONE";
 }
 
 export function isClassCompatible(tutorClassStr: string | undefined, leadClassStr: string): boolean {
@@ -53,17 +157,24 @@ export function isClassCompatible(tutorClassStr: string | undefined, leadClassSt
   const leadGrades = extractAllGrades(leadClassStr);
 
   if (tutorGrades.size > 0 && leadGrades.size > 0) {
+    // If tutor is ONLY primary (grades <= 5), cannot match leads that require secondary/senior (Class 6+)
     const isTutorPurePrimary = [...tutorGrades].every((tg) => tg <= 5);
     const leadHasSeniorOrSecondary = [...leadGrades].some((lg) => lg >= 6);
-
-    // CRITICAL: A primary-only tutor (e.g. Class 3) must NEVER match leads that require middle/secondary/senior classes (Class 6+)
     if (isTutorPurePrimary && leadHasSeniorOrSecondary) {
       return false;
     }
 
+    // If tutor is ONLY senior (grades >= 11), cannot match leads that are purely below senior (Class <= 10)
     const isTutorPureSenior = [...tutorGrades].every((tg) => tg >= 11);
     const isLeadPureBelowSenior = [...leadGrades].every((lg) => lg <= 10);
     if (isTutorPureSenior && isLeadPureBelowSenior) {
+      return false;
+    }
+
+    // If tutor is purely Class 1-8 (max grade <= 8), cannot match senior leads (Class 9-12)
+    const isTutorPureBelow9 = [...tutorGrades].every((tg) => tg <= 8);
+    const isLeadPureSenior = [...leadGrades].every((lg) => lg >= 9);
+    if (isTutorPureBelow9 && isLeadPureSenior) {
       return false;
     }
 
@@ -79,10 +190,10 @@ export function isClassCompatible(tutorClassStr: string | undefined, leadClassSt
       if (tg === 9 && leadGrades.has(10)) return true;
       if (tg === 10 && leadGrades.has(9)) return true;
 
-      // Middle School (Class 6, 7, 8 only match 6, 7, 8)
-      if (tg >= 6 && tg <= 8 && [...leadGrades].some((lg) => lg >= 6 && lg <= 8)) return true;
+      // Middle School (Class 6, 7, 8 only match 6, 7, 8 if tutor teaches a range e.g. Class 1-8 or 6-8)
+      if (tutorGrades.size > 1 && tg >= 6 && tg <= 8 && [...leadGrades].some((lg) => lg >= 6 && lg <= 8)) return true;
 
-      // Primary range (only if tutor specifically teaches a range like Class 1-5)
+      // Primary range (if tutor specifically teaches a range like Class 1-5 or Class 1-8)
       if (tutorGrades.size > 1 && tg <= 5 && [...leadGrades].some((lg) => lg <= 5)) return true;
     }
     return false;
@@ -96,37 +207,182 @@ export function isClassCompatible(tutorClassStr: string | undefined, leadClassSt
   return coversClassLevel([tutorClassStr], leadClassStr);
 }
 
-export function isSubjectCompatible(tutorSubs: string[] | undefined, leadSubs: string[]): boolean {
+export function isSubjectCompatible(
+  tutorSubs: string[] | undefined,
+  leadSubs: string[],
+  tutorClass?: string,
+  leadClass?: string
+): boolean {
   if (!tutorSubs || tutorSubs.length === 0) return true;
-  if (tutorSubs.some((s) => /all\s*subject|all|any|general/i.test(s))) return true;
+  const isTutorAllSubjects = tutorSubs.some((s) => /all\s*subject|all|any|general|combo/i.test(s));
 
-  const tNorm = tutorSubs.map((s) => s.toLowerCase());
-  const lNorm = leadSubs.map((s) => s.toLowerCase());
+  const tNorm = tutorSubs.map((s) => s.toLowerCase().trim());
+  const lNorm = leadSubs.map((s) => s.toLowerCase().trim());
 
-  // Check if tutor is a specialist in a specific senior subject (Physics, Chemistry, Biology, Accounts)
-  const isSpecialist = tNorm.every((t) =>
-    /physic|chem|bio\b|biolog|account|economic|business|computer|coding|python|french|german|sanskrit/i.test(t)
-  );
+  const tutorGrades = extractAllGrades(tutorClass);
+  const leadGrades = extractAllGrades(leadClass);
 
-  for (const t of tNorm) {
-    for (const l of lNorm) {
-      // Specialist senior tutors (e.g. Physics only) should NOT be matched to generic primary "all core subjects"
-      if ((l.includes("all subject") || l.includes("all core")) && !isSpecialist) {
+  const isSeniorLead =
+    leadGrades.has(11) || leadGrades.has(12) || /11|12|jee|neet|college|b\.com|ba\b|senior/i.test(leadClass || "");
+  const isSeniorTutor =
+    tutorGrades.has(11) || tutorGrades.has(12) || /11|12|jee|neet|college|b\.com|ba\b|senior/i.test(tutorClass || "");
+
+  const leadStream = detectStream(leadClass, leadSubs);
+  const tutorStream = detectStream(tutorClass, tutorSubs);
+  const leadIsAllCore = lNorm.some((l) => /all\s*core|all\s*subject/i.test(l));
+
+  // ── STRICT SENIOR STREAM SEGREGATION (Class 11-12) ──
+  // In senior secondary, streams are strictly segregated:
+  // Science, Commerce, and Humanities are completely separate academic disciplines.
+  if (isSeniorLead || isSeniorTutor) {
+    // 1. Humanities / Arts Leads:
+    if (leadStream === "HUMANITIES") {
+      // Only tutors with Humanities subjects can match!
+      // A pure Maths or Science or Commerce tutor MUST NEVER match Humanities leads.
+      if (tutorStream !== "HUMANITIES") {
+        return false;
+      }
+      if (leadIsAllCore) {
         return true;
       }
-      if (/math|algebra|calculus|geometry/i.test(t) && /math|algebra|calculus|geometry/i.test(l)) return true;
-      if (/physic/i.test(t) && (/physic/i.test(l) || (!isSpecialist && /science/i.test(l)))) return true;
-      if (/chem/i.test(t) && (/chem/i.test(l) || (!isSpecialist && /science/i.test(l)))) return true;
-      if (/bio\b|biolog/i.test(t) && (/bio\b|biolog/i.test(l) || (!isSpecialist && /science/i.test(l)))) return true;
-      if (/science/i.test(t) && /science|physics|chemistry|biology/i.test(l)) return true;
-      if (/english/i.test(t) && /english/i.test(l)) return true;
-      if (/hindi/i.test(t) && /hindi/i.test(l)) return true;
-      if (/social|sst\b|history|geography|civics/i.test(t) && /social|sst\b|history|geography|civics/i.test(l)) return true;
-      if (/commerce|account|business|economic/i.test(t) && /commerce|account|business|economic/i.test(l)) return true;
-      if (/computer|coding|python|\bcs\b|informatics/i.test(t) && /computer|coding|python|\bcs\b|informatics/i.test(l)) return true;
-      if (t === l) return true;
+    }
+
+    // 2. Commerce Leads:
+    if (leadStream === "COMMERCE") {
+      // Pure Science (Physics/Chem/Bio) or pure Humanities tutor must NEVER match Commerce leads.
+      if (tutorStream === "HUMANITIES" || tutorStream === "SCIENCE") {
+        return false;
+      }
+      // If tutor teaches Maths, only match if the Commerce lead specifically mentions Maths/Applied Maths.
+      const tutorHasMath = tNorm.some((t) => /math|algebra|calculus/i.test(t));
+      const leadWantsMath = lNorm.some((l) => /math|algebra|calculus/i.test(l));
+      const tutorHasCommerce = tNorm.some((t) => /commerce|account|business|bst|economic/i.test(t));
+      if (!tutorHasCommerce && tutorHasMath && !leadWantsMath) {
+        return false;
+      }
+      if (tutorHasCommerce && leadIsAllCore) {
+        return true;
+      }
+    }
+
+    // 3. Science Leads:
+    if (leadStream === "SCIENCE") {
+      // Pure Humanities or pure Commerce tutor must NEVER match Science leads.
+      if (tutorStream === "HUMANITIES" || tutorStream === "COMMERCE") {
+        return false;
+      }
+      // Medical / Biology only leads must not match pure Maths tutor without Biology
+      const leadIsPureBio = lNorm.some((l) => /bio|botany|zoology|neet/i.test(l)) && !lNorm.some((l) => /math/i.test(l));
+      const tutorIsPureMath = tNorm.every((t) => /math/i.test(t));
+      if (leadIsPureBio && tutorIsPureMath) {
+        return false;
+      }
+      if (tutorStream === "SCIENCE" && leadIsAllCore) {
+        return true;
+      }
+    }
+
+    // 4. In Class 11-12, "All Core Subjects" / "All Subjects" does NOT exist across streams.
+    // If a senior lead says "All Core Subjects" without explicit stream:
+    // A single-subject specialist (like Maths only or Physics only) does NOT match unless that specific subject is mentioned.
+    if (leadIsAllCore && !isTutorAllSubjects) {
+      const hasSpecificSubMatch = tNorm.some((t) =>
+        lNorm.some((l) => !/all\s*core|all\s*subject/i.test(l) && (l.includes(t) || t.includes(l)))
+      );
+      if (!hasSpecificSubMatch) {
+        return false;
+      }
     }
   }
+
+  // ── CLASS 1 TO 8 COMPATIBILITY (User Rule) ──
+  // "and for 1 to 8 any kind of subject choose them for all subjects for particluar class
+  //  if they told till 8 all subject then we will shows like all 8 tk classes ki leads etc"
+  const isPureBelow9Lead = leadGrades.size > 0 && [...leadGrades].every((g) => g <= 8);
+
+  if (isPureBelow9Lead) {
+    // If tutor teaches "All Subjects" or "till 8 all subjects", they match all Class 1-8 leads!
+    if (isTutorAllSubjects) {
+      return true;
+    }
+
+    // If the lead asks for "All Subjects" or "All Core Subjects":
+    // For Class 1-8, any academic school subject tutor (Maths, Science, English, Hindi, SST, EVS)
+    // for that class matches it!
+    const leadIsAllSubjects = lNorm.some((l) => /all\s*subject|all\s*core|combo|general/i.test(l));
+    if (leadIsAllSubjects) {
+      const tutorHasAcademicSub = tNorm.some((t) =>
+        /math|science|evs|english|hindi|social|sst|history|geography|physics|chem|bio/i.test(t)
+      );
+      if (tutorHasAcademicSub) {
+        return true;
+      }
+    }
+  }
+
+  // If tutor teaches "All Subjects", and it's not a senior stream clash, they match
+  if (isTutorAllSubjects) {
+    return true;
+  }
+
+  // ── GENERAL SUBJECT MATCHING ──
+  for (const t of tNorm) {
+    for (const l of lNorm) {
+      // Exact or substring match
+      if (t === l) return true;
+
+      // In non-senior classes (Class 1-10), lead asking for "All Subjects" matches core academic tutors
+      if ((l.includes("all subject") || l.includes("all core")) && !isSeniorLead) {
+        if (/math|science|english|hindi|social|sst|evs/i.test(t)) {
+          return true;
+        }
+      }
+
+      // Maths stem
+      if (/math|algebra|calculus|geometry/i.test(t) && /math|algebra|calculus|geometry/i.test(l)) return true;
+
+      // Science stem
+      if (/science/i.test(t) && /science|physics|chemistry|biology|evs/i.test(l)) return true;
+      if (/science/i.test(l) && /science|physics|chemistry|biology|evs/i.test(t)) return true;
+
+      // Physics / Chemistry / Biology
+      if (/physic/i.test(t) && /physic/i.test(l)) return true;
+      if (/chem/i.test(t) && /chem/i.test(l)) return true;
+      if (/bio\b|biolog/i.test(t) && /bio\b|biolog/i.test(l)) return true;
+
+      // English
+      if (/english/i.test(t) && /english/i.test(l)) return true;
+
+      // Hindi
+      if (/hindi/i.test(t) && /hindi/i.test(l)) return true;
+
+      // Social Studies / SST / History / Geography / Civics / Pol Science
+      if (
+        /social|sst\b|history|geography|civics|pol\s*sci/i.test(t) &&
+        /social|sst\b|history|geography|civics|pol\s*sci/i.test(l)
+      ) return true;
+
+      // Commerce / Accounts / Business Studies / Economics
+      if (
+        /commerce|account|business|bst\b/i.test(t) &&
+        /commerce|account|business|bst\b/i.test(l)
+      ) return true;
+      if (/economic/i.test(t) && /economic/i.test(l)) return true;
+
+      // Computer / Coding / Python / IP / CS
+      if (
+        /computer|coding|python|\bcs\b|\bip\b|informatics|programming/i.test(t) &&
+        /computer|coding|python|\bcs\b|\bip\b|informatics|programming/i.test(l)
+      ) return true;
+
+      // Languages
+      if (/french/i.test(t) && /french/i.test(l)) return true;
+      if (/german/i.test(t) && /german/i.test(l)) return true;
+      if (/spanish/i.test(t) && /spanish/i.test(l)) return true;
+      if (/sanskrit/i.test(t) && /sanskrit/i.test(l)) return true;
+    }
+  }
+
   return false;
 }
 
@@ -160,16 +416,13 @@ export async function getChatbotMatchingLeads(
     });
 
     const hasSpecificClass = Boolean(classLevel && !/all|any|general/i.test(classLevel));
-    const hasSpecificSubs = Boolean(
-      subjects && subjects.length > 0 && !subjects.some((s) => /all|any|combo/i.test(s))
-    );
 
     // Hard Constraint Filtering: class compatibility + subject compatibility + gender compatibility
     const candidatePool = rawLeads.filter((lead) => {
       if (hasSpecificClass && !isClassCompatible(classLevel, lead.classLevel)) {
         return false;
       }
-      if (hasSpecificSubs && !isSubjectCompatible(subjects, lead.subjects)) {
+      if (!isSubjectCompatible(subjects, lead.subjects, classLevel, lead.classLevel)) {
         return false;
       }
       if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) {
@@ -219,6 +472,15 @@ export async function getChatbotMatchingLeads(
       // Exact grade match bonus
       if (classLevel && extractGradeNumber(classLevel) === extractGradeNumber(lead.classLevel)) {
         score += 40;
+      }
+
+      // Exact subject match bonus
+      if (subjects && subjects.length > 0) {
+        const leadSubsLower = lead.subjects.map((s) => s.toLowerCase());
+        const hasExactSub = subjects.some((s) => leadSubsLower.includes(s.toLowerCase()));
+        if (hasExactSub) {
+          score += 40;
+        }
       }
 
       return { lead, score };

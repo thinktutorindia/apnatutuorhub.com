@@ -5,6 +5,9 @@
  * Zero database or server-only imports — safe for React client components.
  */
 
+import { parseGradeNumbers } from "@/lib/subject-taxonomy";
+import { expandToIndividualClasses } from "@/lib/dummy-campaign-types";
+
 export function cleanSubjectName(raw: string): string {
   if (!raw) return "";
   let clean = raw.trim();
@@ -169,14 +172,31 @@ export function coversClassLevel(tutorClassLevels: string[], leadClassLevel: str
 
     // Check if tutor class range covers lead grade
     if (leadGrade !== null) {
-      if (/1\s*-\s*5|1\s*to\s*5/i.test(tc) && leadGrade >= 1 && leadGrade <= 5) return true;
-      if (/6\s*-\s*8|6\s*to\s*8/i.test(tc) && leadGrade >= 6 && leadGrade <= 8) return true;
-      if (/9\s*-\s*10|9\s*to\s*10/i.test(tc) && leadGrade >= 9 && leadGrade <= 10) return true;
-      if (/11\s*-\s*12|11\s*to\s*12/i.test(tc) && leadGrade >= 11 && leadGrade <= 12) return true;
-      if (/1\s*-\s*8|1\s*to\s*8/i.test(tc) && leadGrade >= 1 && leadGrade <= 8) return true;
-      if (/6\s*-\s*10|6\s*to\s*10/i.test(tc) && leadGrade >= 6 && leadGrade <= 10) return true;
-      if (/1\s*-\s*10|1\s*to\s*10/i.test(tc) && leadGrade >= 1 && leadGrade <= 10) return true;
-      if (/1\s*-\s*12|1\s*to\s*12/i.test(tc) && leadGrade >= 1 && leadGrade <= 12) return true;
+      // 1. Numeric ranges: e.g. "Class 1-5", "Class 11-12", "1 to 8", "9-10", "11–12"
+      const rangeMatches = tc.matchAll(
+        /(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:to|-|–|—)\s*(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?/gi
+      );
+      for (const rm of rangeMatches) {
+        const start = parseInt(rm[1], 10);
+        const end = parseInt(rm[2], 10);
+        const min = Math.min(start, end);
+        const max = Math.max(start, end);
+        if (leadGrade >= min && leadGrade <= max) return true;
+      }
+
+      // 2. Roman ranges: e.g. "Class XI-XII", "Class IX-X", "Class I-V", "Class VI-VIII"
+      const romanRangeMatches = tc.matchAll(
+        /(?:class\s*)?([ivx]+)\s*(?:to|-|–|—)\s*(?:class\s*)?([ivx]+)/gi
+      );
+      for (const rrm of romanRangeMatches) {
+        const start = ROMAN_NUMERALS[rrm[1].toUpperCase()];
+        const end = ROMAN_NUMERALS[rrm[2].toUpperCase()];
+        if (start && end) {
+          const min = Math.min(start, end);
+          const max = Math.max(start, end);
+          if (leadGrade >= min && leadGrade <= max) return true;
+        }
+      }
     }
 
     if (
@@ -187,11 +207,70 @@ export function coversClassLevel(tutorClassLevels: string[], leadClassLevel: str
     }
 
     if (
-      tc.toLowerCase().includes(leadClassLevel.toLowerCase()) ||
-      leadClassLevel.toLowerCase().includes(tc.toLowerCase())
+      (leadGrade === null || tutorGrade === null) &&
+      (tc.toLowerCase().includes(leadClassLevel.toLowerCase()) ||
+      leadClassLevel.toLowerCase().includes(tc.toLowerCase()))
     ) {
       return true;
     }
+  }
+
+  return false;
+}
+
+/**
+ * Evaluates whether a tutor is qualified to teach the requested subjects at the requested class level.
+ * Prevents cross-subject class leaks: e.g. a tutor who teaches Physics for Class XII and Maths for Class X
+ * must NOT be matched for Class 10 Physics!
+ * Standalone subjects (e.g. "Maths", "Science") inherit the tutor's class levels.
+ * Class-bound subjects (e.g. "Maths for Class X") strictly require the lead grade to match the subject grade.
+ */
+export function isSubjectAndClassMatched(
+  tutorSubjects: string[],
+  tutorClassLevels: string[],
+  leadSubjects: string[],
+  leadClassLevel: string
+): boolean {
+  if (!tutorSubjects.length || !leadSubjects.length) return false;
+
+  // Resolve effective lead class level: if leadClassLevel is empty, infer from lead subjects
+  let effectiveLeadClass = leadClassLevel;
+  if (!effectiveLeadClass) {
+    for (const ls of leadSubjects) {
+      const g = parseGradeNumbers(ls);
+      if (g.length > 0) {
+        effectiveLeadClass = `Class ${g[0]}`;
+        break;
+      }
+    }
+  }
+
+  const effectiveTutorClasses =
+    tutorClassLevels && tutorClassLevels.length > 0
+      ? tutorClassLevels
+      : expandToIndividualClasses(tutorSubjects);
+
+  if (effectiveLeadClass && !coversClassLevel(effectiveTutorClasses, effectiveLeadClass)) {
+    return false;
+  }
+
+  const leadGrade = effectiveLeadClass ? extractGradeNumber(effectiveLeadClass) : null;
+
+  // Check each tutor subject: at least ONE must match a lead subject AND be valid for this class level
+  for (const rawTs of tutorSubjects) {
+    if (!hasSubjectOverlap([rawTs], leadSubjects)) continue;
+
+    // Check if the tutor subject is class-bound (e.g. "Maths for Class X" -> [10])
+    const subjectGrades = parseGradeNumbers(rawTs);
+    if (subjectGrades.length > 0 && leadGrade !== null) {
+      if (!subjectGrades.includes(leadGrade)) {
+        // This specific tutor subject is for a different grade!
+        continue;
+      }
+    }
+
+    // Found a valid subject for this class level
+    return true;
   }
 
   return false;
@@ -215,7 +294,7 @@ export interface MatchFilterParams {
 /**
  * Determines whether a given lead matches a tutor's profile constraints:
  * 1. Radius: offline leads must be within teachingRadius km (if tutor location exists)
- * 2. Subjects: must have keyword / taxonomy overlap, or class level overlap
+ * 2. Subjects & Class: must have qualified subject overlap at the lead's class level
  * 3. Gender: if parent has specific preference, must align
  */
 export function isLeadMatchedToTutor({
@@ -245,35 +324,7 @@ export function isLeadMatchedToTutor({
 
   // 3. Subject / Class match
   if (tutorSubjects && tutorSubjects.length > 0) {
-    const subOverlap = hasSubjectOverlap(tutorSubjects, lead.subjects);
-    
-    // Check if class level matches
-    const classOverlap = tutorClassLevels.length > 0 && !tutorClassLevels.every(c => c.toLowerCase() === "general")
-      ? coversClassLevel(tutorClassLevels, lead.classLevel)
-      : false;
-
-    // Check if tutor subject names contain class references e.g. "Maths for Class XI"
-    const tsStr = tutorSubjects.join(" ").toLowerCase();
-    const lc = (lead.classLevel || "").toLowerCase();
-    let classInSubjectMatch = false;
-    if ((tsStr.includes("11") || tsStr.includes("xi")) && (lc.includes("11") || lc.includes("xi"))) {
-      classInSubjectMatch = true;
-    }
-    if ((tsStr.includes("12") || tsStr.includes("xii")) && (lc.includes("12") || lc.includes("xii"))) {
-      classInSubjectMatch = true;
-    }
-
-    // Also if lead is "All Core Subjects" or "All Subjects", match if class aligns
-    const isLeadAllSubjects = lead.subjects.some(s => {
-      const sl = s.toLowerCase();
-      return sl.includes("all core") || sl.includes("all subject") || sl === "general";
-    });
-
-    if (isLeadAllSubjects) {
-      if (classOverlap || classInSubjectMatch) return true;
-    }
-
-    if (!subOverlap && !classOverlap && !classInSubjectMatch) {
+    if (!isSubjectAndClassMatched(tutorSubjects, tutorClassLevels, lead.subjects, lead.classLevel)) {
       return false;
     }
   }

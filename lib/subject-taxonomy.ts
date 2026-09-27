@@ -46,6 +46,8 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Science",
         subjects: [
+          "Science",
+          "General Science",
           "Science upto Class V",
           "Science for Class VI",
           "Science for Class VII",
@@ -90,6 +92,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Chemistry",
         subjects: [
+          "Chemistry",
           "Chemistry For Class VIII",
           "Chemistry For Class IX",
           "Chemistry For Class X",
@@ -116,6 +119,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Biology",
         subjects: [
+          "Biology",
           "Biology for Class VIII",
           "Biology for Class IX",
           "Biology for Class X",
@@ -193,6 +197,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
           "Maths for IITJEE",
           "Maths for Olympiad (IMO)",
           "Maths",
+          "Mathematics",
           "IGCSE Maths",
           "Vedic Maths",
           "Abacus",
@@ -280,6 +285,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Social Science",
         subjects: [
+          "Social Studies",
           "Social Studies for Class VI",
           "Social Studies for Class VII",
           "Social Studies for Class VIII",
@@ -297,6 +303,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "History",
         subjects: [
+          "History",
           "History for Class XI - XII",
           "World History",
           "Indian History",
@@ -311,6 +318,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Geography",
         subjects: [
+          "Geography",
           "Geography for Class XI - XII",
           "Geography for College",
           "Topography",
@@ -327,6 +335,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Political Science",
         subjects: [
+          "Political Science",
           "Political Science for Class XI",
           "Political Science for Class XII",
           "Political Science for Class XI - XII",
@@ -385,6 +394,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Other Subjects",
         subjects: [
+          "EVS",
           "Environmental Studies",
           "Environmental Studies(EVS)",
           "Mass Communication for Class XI or XII",
@@ -428,6 +438,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
           "Shakespeare English",
           "English for College",
           "English",
+          "Spoken English",
           "Cursive Writing",
           "IELTS(International English Language Testing System",
           "TOEFEL(Test Of English as a Foreign Language)",
@@ -532,15 +543,25 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Indian Regional",
         subjects: [
+          "Punjabi",
           "Punjabi Language",
+          "Bengali",
           "Bengali Language",
+          "Telugu",
           "Telugu Language",
+          "Tamil",
           "Tamil Langauge",
+          "Urdu",
           "Urdu Language",
+          "Malayalam",
           "Malayalam Language",
+          "Kannada",
           "Kannada Language",
+          "Gujarati",
           "Gujarati Language",
+          "Marathi",
           "Marathi Language",
+          "Odia",
           "Odia language",
         ],
       },
@@ -724,9 +745,12 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
           "Theory Of Computation",
           "Swift Programming Language",
           "C Programming Language",
+          "Python",
           "Python Programming",
+          "Coding",
           "QBasic",
           "Computer Science",
+          "Information Technology",
           "jQuery",
           "Design and Analysis of Algorithms",
           "CakePHP",
@@ -962,6 +986,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
           "Accounts for B.Com(H)",
           "Accounts for College",
           "Accountancy",
+          "Accounts",
           "Basic Accounting for Startups",
           "Basic Accounts for SME",
           "IB-Business Management HL",
@@ -1065,6 +1090,7 @@ export const TRUEMYTUTOR_TREE: CategoryNode[] = [
       {
         name: "Dance",
         subjects: [
+          "Dance",
           "Bharatanatyam",
           "Kathak",
           "Mohiniyattam",
@@ -2322,14 +2348,14 @@ function detectSubjectDomain(name: string, category: string): string {
   if (/physics/i.test(t)) return "physics";
   if (/chemistry/i.test(t)) return "chemistry";
   if (/biology|botany|zoology/i.test(t)) return "biology";
-  if (/science/i.test(t)) return "science";
+  if (/history|geography|civics|political|social studies|sst|social science|humanities/i.test(t)) return "social_studies";
+  if (/computer|python|java|coding|c\+\+|programming|informatics|information technology|data science/i.test(t)) return "coding";
+  if (/account|commerce|business studies|economics/i.test(t)) return "commerce";
+  if (/\bscience\b/i.test(t) && !/social\s*science/i.test(t)) return "science";
   if (/math|mathematics|algebra|calculus|geometry|trigonometry|vedic maths/i.test(t)) return "maths";
   if (/english|ielts|toefl|grammar/i.test(t)) return "english";
   if (/hindi/i.test(t)) return "hindi";
   if (/sanskrit/i.test(t)) return "sanskrit";
-  if (/account|commerce|business studies|economics/i.test(t)) return "commerce";
-  if (/history|geography|civics|political|social studies|sst/i.test(t)) return "social_studies";
-  if (/computer|python|java|coding|c\+\+|programming/i.test(t)) return "coding";
   if (/french|german|spanish|japanese|foreign/i.test(t)) return "foreign_language";
   return "general";
 }

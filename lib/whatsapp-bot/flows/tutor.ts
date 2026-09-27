@@ -21,11 +21,28 @@ type StepResult = {
 
 // ── Validators ────────────────────────────────────────────────────────────────
 
-function isValidName(v: string) {
-  return v.trim().length >= 2 && v.trim().length <= 100;
+function isValidName(v: string): boolean {
+  const clean = v.trim();
+  // Must be 2–50 chars, letters/spaces/dots/hyphens only
+  if (clean.length < 2 || clean.length > 50) return false;
+  // Reject common conversational filler words
+  if (/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(clean)) return false;
+  // Reject anything with digits
+  if (/\d/.test(clean)) return false;
+  // Must be letters (including accented), spaces, dots, hyphens, apostrophes only
+  return /^[a-zA-Z\s.'\-]+$/.test(clean);
 }
-function isValidCity(v: string) {
-  return v.trim().length >= 2 && v.trim().length <= 80;
+function isValidCity(v: string): boolean {
+  const clean = v.trim();
+  // Reject emails typed here
+  if (clean.includes("@")) return false;
+  // Reject pure numbers or password-like strings (have digits)
+  if (/\d/.test(clean)) return false;
+  // Reject very long strings (URL/email-like)
+  if (clean.length < 2 || clean.length > 40) return false;
+  // City names always have vowels
+  if (!/[aeiou]/i.test(clean)) return false;
+  return true;
 }
 function isValidClasses(v: string) {
   const keys = v.split(",").map((s) => s.trim());
@@ -60,9 +77,23 @@ export async function handleTutorStep(
     }
 
     case "T_CITY": {
+      // Catch email typed at city step
+      if (r.includes("@")) {
+        return {
+          reply: `⚠️ Yeh email ID lag raha hai — city step mein email nahi, city batayein.\n\n📍 Apna *city* likhein (jaise: *Delhi*, *Mumbai*, *Noida*, *Bangalore*):`,
+          nextStep: "T_CITY",
+          updatedData: data,
+        };
+      }
       const loc = validateAndCleanLocality(r);
-      const cityName = loc.isValid ? loc.city : r;
-      if (!isValidCity(cityName)) return null;
+      const cityName = loc.isValid ? loc.city : r.trim();
+      if (!isValidCity(cityName)) {
+        return {
+          reply: `📍 "*${r.slice(0, 20)}*" city nahi pehchani.\n\nKaunse city mein padhate hain? Jaise: *Delhi*, *Noida*, *Mumbai*, *Bangalore*:`,
+          nextStep: "T_CITY",
+          updatedData: data,
+        };
+      }
       return {
         reply: MSG.T_AREA(cityName),
         nextStep: "T_AREA",
@@ -71,8 +102,22 @@ export async function handleTutorStep(
     }
 
     case "T_AREA": {
+      // Catch email typed at area step
+      if (r.includes("@")) {
+        return {
+          reply: `⚠️ Yeh email ID lag raha hai — area step mein email nahi chahiye.\n\n🏠 Apna *mohalla / locality* likhein (jaise: *Rohini*, *Dwarka*, *Andheri West*):`,
+          nextStep: "T_AREA",
+          updatedData: data,
+        };
+      }
       const loc = validateAndCleanLocality(r, (data.city as string) || "Delhi");
-      if (!loc.isValid) return null;
+      if (!loc.isValid) {
+        return {
+          reply: loc.errorPrompt || `🏠 Apna *mohalla / locality* likhein (jaise: *Rohini Delhi*, *Bandra Mumbai*, *Sector 62 Noida*):`,
+          nextStep: "T_AREA",
+          updatedData: data,
+        };
+      }
       return {
         reply: MSG.T_SUBJECTS,
         nextStep: "T_SUBJECTS",
@@ -113,7 +158,8 @@ export async function handleTutorStep(
     }
 
     case "T_TIMING": {
-      if (r.length < 3) return null;
+      // Minimum 5 chars — rejects "ok", "1", single tokens that aren't real timings
+      if (r.length < 5) return null;
       return {
         reply: MSG.T_EXPERIENCE,
         nextStep: "T_EXPERIENCE",

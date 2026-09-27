@@ -33,6 +33,7 @@ import {
   validateAndCleanLocality,
   validateAndAlignSubjects,
   KNOWN_INDIAN_CITIES,
+  PLACE_INDICATORS,
 } from "./subject-rules";
 
 // Admin WhatsApp numbers — these get lead forwarding + full control
@@ -68,8 +69,18 @@ export function isValidEmailDomain(email: string): boolean {
   if (!email || !email.includes("@")) return false;
   const parts = email.split("@");
   if (parts.length !== 2) return false;
+  const user = parts[0].trim();
   const domain = parts[1].toLowerCase().trim();
-  if (/\.(gom|con|cpm|coom|gmai|yaho)$/i.test(domain)) return false;
+
+  // Local-part username must be non-empty and valid
+  if (!user || user.length === 0 || !/^[a-zA-Z0-9._%+-]+$/.test(user)) return false;
+
+  // Reject common domain typos
+  if (/^(gmai|gmal|gamil|gmaill|gmial)\./i.test(domain)) return false;
+  if (/^(yaho|yahooo|yhoo)\./i.test(domain)) return false;
+  if (/^(hotmial|hotmai)\./i.test(domain)) return false;
+  if (/\.(gom|con|cpm|coom|comm|cm)$/i.test(domain)) return false;
+
   return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(domain);
 }
 
@@ -126,12 +137,12 @@ function formatHumanTeachingContext(
 
   let humanAreaPrompt = "";
   if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
-    humanAreaPrompt = `Badhiya! ${cleanClass || "Class 1-5"} Science ke liye Delhi mein aapka teaching area kaunsa hai? 📍`;
+    humanAreaPrompt = `Ji bilkul! ${cleanClass || "Class 1-5"} Science ke liye Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
   } else if (cleanClass && cleanSubs.length > 0) {
     const mainSub = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s))[0] || cleanSubs[0];
-    humanAreaPrompt = `Badhiya! ${cleanClass} ${mainSub} ke liye Delhi mein aapka teaching area kaunsa hai? 📍`;
+    humanAreaPrompt = `Ji bilkul! ${cleanClass} ${mainSub} ke liye Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
   } else if (cleanClass) {
-    humanAreaPrompt = `Badhiya! ${cleanClass} ke liye Delhi mein aapka teaching area kaunsa hai? 📍`;
+    humanAreaPrompt = `Ji bilkul! ${cleanClass} ke liye Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
   } else {
     humanAreaPrompt = `Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
   }
@@ -170,6 +181,18 @@ export async function processMessage(
   const { step, data, retries } = session;
   const useAi = options?.useAi !== false;
 
+  // ── Unsubscribe / Stop Commands (AquaSMS chat log pattern) ─────────────────
+  if (/\b(?:unsubscribe|unsub|stop\s*messages?|stop\s*messaging|dont\s*message|don't\s*message|mat\s*bhejo|msg\s*mat\s*karo)\b|^stop$/i.test(rawMessage.trim())) {
+    return {
+      reply: `Aapko notifications se unsubscribe kar diya gaya hai. Hamari taraf se ab aapko automated alerts nahi aayenge. 🙏\n\nAgar future mein dobara tuition alerts chahiye hon, toh bas *START* likh kar bhej dein.\n\nApnaTutorHub.com`,
+      nextStep: "WELCOME",
+      updatedData: { ...data, unsubscribed: true },
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["START", "MENU"],
+    };
+  }
+
   // ── 1. Global commands — always honoured regardless of step ───────────────
 
   if (CANCEL_COMMANDS.includes(msg)) {
@@ -193,14 +216,40 @@ export async function processMessage(
     };
   }
 
-  // ── Staff Escalation: complaint / issue / problem ─────────────────────────
-  if (/\b(problem|issue|complaint|cheated|fraud|refund|not working|call me)\b/i.test(rawMessage)) {
+  // ── Staff Escalation: complaint / issue / problem / scam ─────────────────
+  if (/\b(problem|issue|complaint|cheated|fraud|refund|not working|call me|fake|chor|scam|dhokha|loot|police|court)\b/i.test(rawMessage)) {
     return {
       reply: `Samajh gaya. Seedha humse baat karo:\n\n📞 WhatsApp: +91 93191 93109\nTime: 9am–7pm (Mon–Sat)\n\nUnhe aapka naam aur issue batao.`,
       nextStep: step,
       updatedData: data,
       retries: 0,
       quickReplies: ["MENU", "View Leads", "Buy Coins"],
+    };
+  }
+
+  // ── Free Leads / Bargaining / Pehle Demo Baad Mein Payment ────────────────
+  if (
+    /(?:bina\s*(?:paise|reg|payment)|free\s*(?:lead|enquiry|tuition|demo)|pehle\s*demo\s*(?:fir|phir|baad)|payment\s*baad|ek\s*(?:lead|enquiry)\s*(?:free|dedo))/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Sir hum samajhte hain, par parents ke direct verified phone number aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹99 starter offer ya ₹999 plan se shuru kar sakte hain jisme 100% fees aapki rehti hai (0% commission)!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Plans 💰", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  // If user previously unsubscribed and hasn't sent a restart keyword, acknowledge gently
+  if (data.unsubscribed === true && !SPECIAL_COMMANDS.includes(msg)) {
+    return {
+      reply: `Aapne pehle tuition alerts unsubscribe kiye the. Dobara shuru karne ke liye *START* likhein. 🙏`,
+      nextStep: "WELCOME",
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["START", "MENU"],
     };
   }
 
@@ -274,6 +323,122 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: result.quickReplies,
+    };
+  }
+
+  // ── High-Intent Real Chat Scenarios (Identified from Aqua SMS logs) ─────────
+
+  // 1. Demanding Parent Contact Number directly in chat
+  if (
+    /(?:\b(?:parent|parents|student|party)\b.*\b(?:contact|number|phone|mobile|no)\b|\b(?:contact|number|phone|mobile|no)\b.*\b(?:parent|parents|student|party)\b)/i.test(rawMessage) ||
+    /contact\s*no\s*(?:do|bhejo|dedo|de\s*do)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Sir, student aur parent ka direct verified mobile number aur address dekhne ke liye lead ko website par unlock karna hota hai:\n\n1️⃣ Website open karein: https://apnatutorhub.com/tutor/leads\n2️⃣ Lead select karke *Unlock Lead* par click karein.\n3️⃣ Parent ka direct call number & WhatsApp turant display ho jayega!\n\n💡 *ApnaTutorHub Benefit:* Hum monthly tuition fees mein se 0% commission lete hain — parent jo bhi fees denge, 100% aapki hogi!\n\nDirect Support WhatsApp: +91 93191 93109`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Buy Coins / Plans 💰", "Help 📞"],
+    };
+  }
+
+  // 2. Online Class Preference (e.g. tutors outside Delhi or preferring remote)
+  if (
+    /(?:\bonline\b.*?\b(?:class|classes|tuition|tutor|available|teach|padhana|student|work)\b|\b(?:class|classes|tuition|tutor|teach|padhana)\b.*?\bonline\b|^online\s*(?:only)?$)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Ji bilkul! Hamare platform par All-India Online Home Tuitions bhi available hain. 💻\n\nAap pure India ke students ko ghar baithe online classes (Google Meet / Zoom) de sakte hain:\n\n👉 *Online Leads dekhein:*\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n👉 *0% Commission Plans:*\nhttps://apnatutorhub.com/tutor/plans\n\nAap kaunse subjects aur classes online padhana chahte hain? Humein reply karein taaki hum aapke liye matching online leads bhej sakein!`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, mode: "ONLINE" },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Online Leads 💻", "Buy Plans 💰", "Update Subjects 📚"],
+    };
+  }
+
+  // 3. Distance Too Far / Location Mismatch
+  if (
+    /\b(?:distance\s*(?:is\s*)?(?:too\s*|so\s*|very\s*)?far|too\s*far|so\s*far|very\s*far|bahut\s*door|kafi\s*door|dur\s*hai|door\s*hai|location\s*is\s*far|not\s*in\s*delhi|mere\s*ghar\s*se\s*door|travel\s*nahi\s*kar\s*sakta)\b/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Samajh gaya sir! Agar ye location aapse door hai toh koi pareshani nahi:\n\n1️⃣ *Apne Area Ke Leads Filter Karein:*\nWebsite par jaakar aap apne exact locality ya city ke according leads dekh sakte hain:\nhttps://apnatutorhub.com/tutor/leads\n\n2️⃣ *Online Classes:*\nAap Online tuitions bhi le sakte hain jisme koi travel distance nahi hota:\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\nApna exact locality aur city batayein (jaise: 'Bandra Mumbai' ya 'Rohini Delhi'), hum aapko aapke area ke tuitions dikhayenge! 📍`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Filter Leads 📍", "View Online Leads 💻", "Update Area 🏠"],
+    };
+  }
+
+  // 4. Mobile App Download / PWA Instructions
+  if (
+    /(?:mobile\s*app|application\s*kya\s*hai|name\s*of\s*your\s*mobile\s*app|app\s*download|play\s*store\s*app|download\s*app|app\s*ka\s*naam|konsa\s*app|kon\s*sa\s*app|kaha\s*se\s*download)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Apna Tutor Hub ek ultra-fast Web-App (PWA) hai jo bina kisi Play Store download ke aapke phone par 1-click me install ho jaati hai! 📱\n\n*Mobile App install karne ka aasan tarika:*\n1️⃣ Chrome browser mein open karein: https://apnatutorhub.com\n2️⃣ Browser ke top-right corner mein 3 dots (⋮) par click karein.\n3️⃣ *"Install App"* ya *"Add to Home Screen"* select karein.\n\nAapke phone screen par Apna Tutor Hub ka official app icon aa jayega aur aapko instant lead alerts milenge!`,
+      nextStep: step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Open Website 🌐", "View Leads 📋", "Help 📞"],
+    };
+  }
+
+  // 5. "Saari toh booked bta rha hai" / Max Capacity Query
+  if (
+    /(?:saari\s*toh\s*booked|sab\s*(?:hi\s*)?booked|all\s*leads?\s*(?:are\s*)?booked|booked\s*bata\s*raha|full\s*ho\s*gaya|lead\s*full\s*hai|koi\s*bhi\s*open\s*nahi|already\s*booked)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Sir hamara strict quality rule hai ki ek tuition lead par maximum 3 verified teachers hi unlock kar sakte hain. Isse parents ko spam calls nahi jaate aur aapke final selection ke chances 90%+ rehte hain! 🎯\n\nAgar koi lead "Booked" dikha rahi hai, iska matlab uske 3 slots book ho chuke hain.\n\n👉 *Fresh & Active Leads (jisme slots khali hain):*\nhttps://apnatutorhub.com/tutor/leads?status=ACTIVE\n\nHar 15-30 minute mein naye parents requirement post karte hain, isliye notification aate hi turant unlock karein!`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Fresh Leads ⚡", "Recharge Wallet 💳", "Coordinator Support 📞"],
+    };
+  }
+
+  // 6. Demo Class Rules & Expectations
+  if (
+    /(?:demo\s*class\s*kaise|demo\s*ka\s*rule|demo\s*ke\s*baad|trial\s*class|how\s*does\s*demo\s*work|first\s*class\s*free|pehle\s*demo)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `*Demo Class Rule & Process:* 🎓\n\n1️⃣ *Tutors ke liye:*\nLead unlock karne ke baad parent se call karke convenient time par 30-45 minutes ki trial/demo class schedule karein. Demo pasand aane par parent aapse monthly fees aur schedule final karenge.\n\n2️⃣ *Zero Commission:*\nApna Tutor Hub monthly tuition fees mein se 0% commission leta hai — parent ki poori fees seedha aapke paas rehti hai!\n\n3️⃣ *Parents ke liye:*\nAap verified home tutor se 1 free trial demo le sakte hain. Jab student aur aap fully satisfied hon, tabhi classes continue karein.`,
+      nextStep: step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Buy Coins 💰", "Help 📞"],
+    };
+  }
+
+  // 7. Hiring / Job banter / "Mere pass job kr lo"
+  if (
+    /(?:mere\s*pa?ss\s*job|kuch\s*kaam\s*hai|job\s*chahiye|teaching\s*job|salary\s*kitni\s*milegi|interview\s*kab\s*hoga)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Apna Tutor Hub par hazaron verified home tuitions aur teaching opportunities available hain! 📚\n\nAap student leads unlock karke direct parents se connect kar sakte hain aur apni manchahi fees le sakte hain (0% Commission).\n\n👉 Available Tuitions dekhein: https://apnatutorhub.com/tutor/leads\nAap kaunse subjects aur classes padhate hain? Humein batayein!`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "0% Commission Plans 💰", "Help 📞"],
+    };
+  }
+
+  // 8. Tutors replying "Interested" to broadcast alerts without an inquiry ID
+  if (
+    /^(?:interested|yes\s*interested|i\s*am\s*interested|sir\s*i\s*am\s*interested|interested\s*sir|interested\s*for\s*home\s*tuition|interested\s*for\s*tuition|want\s*this\s*lead|i\s*want\s*this\s*lead|mujhe\s*chahiye|apply\s*karna\s*hai|apply\s*kaise\s*kare|kaise\s*apply\s*kare|i\s*want\s*to\s*teach|interested\s*in\s*this|intrested|im\s*interested)\b/i.test(rawMessage.trim()) &&
+    !inquiryMatch
+  ) {
+    return {
+      reply: `Bahut badhiya! 🎉 Hamare platform par 100% genuine verified tuitions available hain aur hum teachers se *0% Commission* lete hain (poori monthly fees aapki)!\n\n👉 *Leads dekhein aur unlock karein:*\nhttps://apnatutorhub.com/tutor/leads\n\n👉 *0% Commission Plans / Coins:*\nhttps://apnatutorhub.com/tutor/plans\n\nAgar aapne kisi specific tuition alert ka message dekha hai, toh uska *Lead ID* (jaise: *#32042*) yahan reply karein!`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "View Coin Plans 💰", "Talk to Coordinator 📞"],
     };
   }
 
@@ -421,25 +586,45 @@ export async function processMessage(
         quickReplies: ["1 - ट्यूटर", "2 - पेरेंट"],
       };
     }
+    return {
+      reply: MSG.LANG_PROMPT,
+      nextStep: "LANG_SELECT",
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["1 - English", "2 - हिंदी"],
+    };
   }
 
-  if (SPECIAL_COMMANDS.includes(msg)) {
-    if (!data.lang) {
+  // Skip SPECIAL_COMMANDS intercept for mid-flow steps where "hi"/"hello" is simply a wrong answer
+  const MID_FLOW_STEPS = new Set([
+    "T_NAME", "T_CITY", "T_AREA", "T_SUBJECTS", "T_CLASSES", "T_CLASS",
+    "T_TIMING", "T_EXPERIENCE", "T_CONFIRM", "T_EMAIL", "T_PASSWORD",
+    "P_STUDENT_NAME", "P_CLASS", "P_SUBJECTS", "P_CITY", "P_AREA",
+    "P_MODE", "P_BUDGET", "P_PHONE", "P_EMAIL",
+  ]);
+  if (SPECIAL_COMMANDS.includes(msg) && !MID_FLOW_STEPS.has(step)) {
+
+    const cleanData = { ...data };
+    if (cleanData.unsubscribed) {
+      delete cleanData.unsubscribed;
+    }
+    if (!cleanData.lang) {
       return {
         reply: MSG.LANG_PROMPT,
         nextStep: "LANG_SELECT",
-        updatedData: {},
+        updatedData: cleanData,
         userType: null,
         retries: 0,
         quickReplies: ["1 - English", "2 - हिंदी"],
       };
     }
-    const isHi = data.lang === "hi";
+    const isHi = cleanData.lang === "hi";
     const reply = isHi ? MSG.WELCOME_HI : MSG.WELCOME_EN;
     return {
       reply,
       nextStep: "WELCOME",
-      updatedData: data,
+      updatedData: cleanData,
       userType: null,
       retries: 0,
       quickReplies: isHi ? ["1 - ट्यूटर", "2 - पेरेंट"] : ["1 - Tutor", "2 - Parent"],
@@ -566,13 +751,16 @@ export async function processMessage(
         }
 
         // Additional entity extractors from message text — Universal Indian Locality Validation
-        const rawAreaCandidate = mergedData.area || rawMessage;
-        const locRes = validateAndCleanLocality(rawAreaCandidate, (mergedData.city || data.city || "Delhi") as string);
-        if (locRes.isValid) {
-          mergedData.area = locRes.area;
-          mergedData.city = locRes.city;
-        } else if (mergedData.area) {
-          delete mergedData.area;
+        const shouldCheckRawForArea = Boolean(mergedData.area) || session.step === "T_AREA" || session.step === "P_AREA" || PLACE_INDICATORS.test(rawMessage);
+        if (shouldCheckRawForArea) {
+          const rawAreaCandidate = mergedData.area || rawMessage;
+          const locRes = validateAndCleanLocality(rawAreaCandidate, (mergedData.city || data.city || "Delhi") as string);
+          if (locRes.isValid) {
+            mergedData.area = locRes.area;
+            mergedData.city = locRes.city;
+          } else if (mergedData.area) {
+            delete mergedData.area;
+          }
         }
 
         const isInitialWelcomeChoice = (session.step === "WELCOME" || session.step === "LANG_SELECT") && /^[12]$/.test(rawMessage.trim());
@@ -590,13 +778,16 @@ export async function processMessage(
         }
 
         // Align subjects to canonical taxonomy, strictly filtering out unsupported subjects & Class 1-8 senior science
-        const rawSubsCandidate = mergedData.subjects || rawMessage;
         const targetCls = (mergedData.classLevel as string) || (data.classLevel as string) || undefined;
-        const subAlign = validateAndAlignSubjects(rawSubsCandidate, targetCls);
-        if (subAlign.isValid && subAlign.subjects.length > 0) {
-          mergedData.subjects = subAlign.subjects;
-        } else if (mergedData.subjects && Array.isArray(mergedData.subjects)) {
-          delete mergedData.subjects;
+        const shouldCheckRawForSubs = Boolean(mergedData.subjects) || session.step === "T_SUBJECTS" || session.step === "P_SUBJECTS";
+        if (shouldCheckRawForSubs) {
+          const rawSubsCandidate = mergedData.subjects || rawMessage;
+          const subAlign = validateAndAlignSubjects(rawSubsCandidate, targetCls);
+          if (subAlign.isValid && subAlign.subjects.length > 0) {
+            mergedData.subjects = subAlign.subjects;
+          } else if (mergedData.subjects && Array.isArray(mergedData.subjects)) {
+            delete mergedData.subjects;
+          }
         }
 
         // State-specific step input helpers
@@ -727,8 +918,20 @@ export async function processMessage(
 
           // Case A: Missing all teaching details
           if (!hasSubjects && !hasClass && !hasArea) {
+            // Check if user typed something that failed subject validation (hobby/unknown word)
+            const caseASubCheck = validateAndAlignSubjects(rawMessage.trim(), undefined);
+            if (!caseASubCheck.isValid && caseASubCheck.errorPrompt && rawMessage.trim().length > 2) {
+              return {
+                reply: caseASubCheck.errorPrompt,
+                nextStep: "T_CONVO",
+                updatedData: mergedData,
+                userType: "TUTOR",
+                retries: 0,
+                quickReplies: ["Maths, Science", "Physics, Chemistry", "English, Hindi", "All Subjects"],
+              };
+            }
             return {
-              reply: `Badhiya! Kaunse subject aur kaunsi class ko padhate ho? 📚`,
+              reply: `Ji zaroor! Kaunse subject aur kaunsi class ko padhate hain aap? 📚`,
               nextStep: "T_CONVO",
               updatedData: mergedData,
               userType: "TUTOR",
@@ -864,13 +1067,17 @@ export async function processMessage(
 
           // Case E4: Missing subjects
           if (!hasSubjects) {
+            const e4SubCheck = validateAndAlignSubjects(rawMessage.trim(), mergedData.classLevel as string | undefined);
+            const e4ErrorPrompt = !e4SubCheck.isValid && e4SubCheck.errorPrompt && rawMessage.trim().length > 2
+              ? e4SubCheck.errorPrompt
+              : `📚 Kaunse subjects padhate hain? Jaise: *Maths, Science*, *Physics*, *All Subjects*`;
             return {
-              reply: `Kaunse subjects padhate hain? 📚`,
+              reply: e4ErrorPrompt,
               nextStep: "T_SUBJECTS",
               updatedData: mergedData,
               userType: "TUTOR",
               retries: 0,
-              quickReplies: ["All Subjects (Class 1-8)", "Maths", "Science", "Maths & Science"],
+              quickReplies: ["Maths, Science", "Physics, Chemistry", "English, Hindi", "All Subjects"],
             };
           }
 
@@ -920,6 +1127,55 @@ export async function processMessage(
           const areaName = rawArea;
           const cityName = (mergedData.city as string) || "Delhi";
           const tutorName = (mergedData.name as string) || "";
+
+          // 0. Name is mandatory — Ask for it before email if missing
+          const hasValidName =
+            tutorName.trim().length >= 2 &&
+            tutorName.trim().length <= 50 &&
+            !/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(tutorName.trim()) &&
+            !/\d/.test(tutorName.trim()) &&
+            /^[a-zA-Z\s.'\-]+$/.test(tutorName.trim());
+
+          if (!hasValidName && session.step !== "T_NAME" && session.step !== "T_EMAIL" && session.step !== "T_PASSWORD") {
+            return {
+              reply: `${ctx.humanEmailSummary}\n\n👤 Apna poora naam batayein (jaise: Priya Sharma, Rahul Gupta):`,
+              nextStep: "T_NAME",
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: [],
+            };
+          }
+
+          // If we are at T_NAME step, accept the name from the current message
+          if (session.step === "T_NAME") {
+            const nameCandidate = rawMessage.trim();
+            const isNameOk =
+              nameCandidate.length >= 2 &&
+              nameCandidate.length <= 50 &&
+              !/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(nameCandidate) &&
+              !/\d/.test(nameCandidate) &&
+              /^[a-zA-Z\s.'\-]+$/.test(nameCandidate);
+            if (!isNameOk) {
+              const typed = nameCandidate.slice(0, 25);
+              const reason = /\d/.test(nameCandidate)
+                ? `"*${typed}*" mein digits hain — naam mein sirf letters hone chahiye.`
+                : nameCandidate.length < 2
+                ? `Bahut chhota naam lag raha hai.`
+                : `"*${typed}*" naam nahi lag raha.`;
+              return {
+                reply: `⚠️ ${reason}\n\n👤 Apna *poora naam* likhein — jaise *Priya Sharma* ya *Rahul Gupta*:`,
+                nextStep: "T_NAME",
+                updatedData: mergedData,
+                userType: "TUTOR",
+                retries: session.retries + 1,
+                quickReplies: [],
+              };
+            }
+            mergedData.name = nameCandidate;
+          }
+
+          const resolvedTutorName = (mergedData.name as string) || "";
 
           // Validate email candidate
           const emailRegexMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
@@ -1048,10 +1304,10 @@ export async function processMessage(
           const emailToUse = emailCandidate;
 
           let tutorGender: string | null = (mergedData.gender as string) || null;
-          if (!tutorGender && tutorName) {
-            if (/rohit|rahul|amit|aman|deepak|suresh|ramesh|vikas|pankaj|mohit|sachin|abhishek|ajay|vijay|sanjay|raj|varun|arun|tushar|gaurav|manish/i.test(tutorName)) {
+          if (!tutorGender && resolvedTutorName) {
+            if (/rohit|rahul|amit|aman|deepak|suresh|ramesh|vikas|pankaj|mohit|sachin|abhishek|ajay|vijay|sanjay|raj|varun|arun|tushar|gaurav|manish/i.test(resolvedTutorName)) {
               tutorGender = "MALE";
-            } else if (/priya|pooja|neha|anjali|sneha|arti|aarti|divya|shweta|ritika|simran|megha|swati|pallavi|tanu|mansi|aleena/i.test(tutorName)) {
+            } else if (/priya|pooja|neha|anjali|sneha|arti|aarti|divya|shweta|ritika|simran|megha|swati|pallavi|tanu|mansi|aleena/i.test(resolvedTutorName)) {
               tutorGender = "FEMALE";
             }
           }
@@ -1066,7 +1322,7 @@ export async function processMessage(
 
           try {
             await registerTutorFromWhatsapp(session.phone, {
-              name: tutorName || "Tutor",
+              name: resolvedTutorName || "Tutor",
               email: emailToUse,
               phone: phoneToUse,
               password: pwdStr,
@@ -1277,11 +1533,23 @@ export async function processMessage(
 
   // ── 3. Rule-Based Fallback (when AI is off or temporarily unavailable) ─────
 
+  // Always ask language first (South Indian tutors may not read Hindi)
+  if (step === "WELCOME" && !data.lang) {
+    return {
+      reply: MSG.LANG_PROMPT,
+      nextStep: "LANG_SELECT",
+      updatedData: data,
+      userType: null,
+      retries: 0,
+      quickReplies: ["1 - English", "2 - हिंदी"],
+    };
+  }
+
   if (step === "WELCOME") {
     const normalized = rawMessage.trim();
     if (normalized === "1" || /tutor|teach|instructor/i.test(normalized)) {
       return {
-        reply: `Badhiya! Kaunse subject, kaunsi class aur kahan se ho? 📚`,
+        reply: `Ji zaroor! Kaunse subject, kaunsi class aur kahan se hain aap? 📚`,
         nextStep: "T_CONVO",
         updatedData: {},
         userType: "TUTOR",
@@ -1313,7 +1581,12 @@ export async function processMessage(
       };
     }
 
-    return handleInvalid(session, MSG.WELCOME, ["1️⃣ TUTOR", "2️⃣ PARENT"]);
+    const isHi = data.lang === "hi";
+    return handleInvalid(
+      session,
+      isHi ? MSG.WELCOME_HI : MSG.WELCOME_EN,
+      isHi ? ["1 - ट्यूटर", "2 - पेरेंट"] : ["1 - Tutor", "2 - Parent"]
+    );
   }
 
   // TUTOR conversational fallback: Require subject, class, area, email, and password before registering
@@ -1393,7 +1666,7 @@ export async function processMessage(
     // Enforce 3 Teaching Criteria FIRST!
     if (!hasSubs && !hasCls && !hasAr) {
       return {
-        reply: `Badhiya! Kaunse subject, kaunsi class aur kahan se ho? 📚`,
+        reply: `Ji zaroor! Kaunse subject, kaunsi class aur kahan se hain aap? 📚`,
         nextStep: "T_CONVO",
         updatedData: updated,
         userType: "TUTOR",
@@ -1494,13 +1767,17 @@ export async function processMessage(
     }
 
     if (!hasSubs) {
+      const fallbackSubCheck = validateAndAlignSubjects(rawMessage.trim(), (updated.classLevel as string) || undefined);
+      const fallbackSubPrompt = !fallbackSubCheck.isValid && fallbackSubCheck.errorPrompt && rawMessage.trim().length > 2
+        ? fallbackSubCheck.errorPrompt
+        : `📚 Kaunse subjects padhate hain? Jaise: *Maths, Science*, *Physics*, *All Subjects*`;
       return {
-        reply: `Kaunse subjects padhate hain? 📚`,
+        reply: fallbackSubPrompt,
         nextStep: "T_SUBJECTS",
         updatedData: updated,
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["All Subjects (Class 1-8)", "Maths", "Science", "Maths & Science"],
+        quickReplies: ["Maths, Science", "Physics, Chemistry", "English, Hindi", "All Subjects"],
       };
     }
 
@@ -1529,6 +1806,55 @@ export async function processMessage(
     const ctx = formatHumanTeachingContext(subsArr, classArr[0] || "", areaStr);
     updated.subjects = ctx.cleanSubs;
     const areaName = areaStr || "Delhi";
+
+    // 0. Name is mandatory — Ask for it before email if missing
+    const fallbackTutorName = (updated.name as string) || "";
+    const fallbackNameValid =
+      fallbackTutorName.trim().length >= 2 &&
+      fallbackTutorName.trim().length <= 50 &&
+      !/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(fallbackTutorName.trim()) &&
+      !/\d/.test(fallbackTutorName.trim()) &&
+      /^[a-zA-Z\s.'\\-]+$/.test(fallbackTutorName.trim());
+
+    if (!fallbackNameValid && session.step !== "T_NAME" && step !== "T_EMAIL" && step !== "T_PASSWORD") {
+      return {
+        reply: `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\n👤 Apna poora naam batayein (jaise: Priya Sharma, Rahul Gupta):`,
+        nextStep: "T_NAME",
+        updatedData: updated,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: [],
+      };
+    }
+
+    // If currently at T_NAME step, validate and save the name
+    if (session.step === "T_NAME") {
+      const nameCandidate = rawMessage.trim();
+      const isNameOk =
+        nameCandidate.length >= 2 &&
+        nameCandidate.length <= 50 &&
+        !/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(nameCandidate) &&
+        !/\d/.test(nameCandidate) &&
+        /^[a-zA-Z\s.'\\-]+$/.test(nameCandidate);
+      if (!isNameOk) {
+        const typed = nameCandidate.slice(0, 25);
+        const reason = /\d/.test(nameCandidate)
+          ? `"*${typed}*" mein digits hain — naam mein sirf letters hone chahiye.`
+          : nameCandidate.length < 2
+          ? `Bahut chhota naam lag raha hai.`
+          : `"*${typed}*" naam nahi lag raha.`;
+        return {
+          reply: `⚠️ ${reason}\n\n👤 Apna *poora naam* likhein — jaise *Priya Sharma* ya *Rahul Gupta*:`,
+          nextStep: "T_NAME",
+          updatedData: updated,
+          userType: "TUTOR",
+          retries: session.retries + 1,
+          quickReplies: [],
+        };
+      }
+      updated.name = nameCandidate;
+    }
+
     const emailStr = typeof updated.email === "string" ? updated.email.trim().toLowerCase() : "";
     const hasValidEmail = Boolean(emailStr && emailStr.includes("@") && emailStr.includes("."));
 
@@ -1738,12 +2064,12 @@ export async function processMessage(
 
   // Fallback
   return {
-    reply: MSG.WELCOME,
-    nextStep: "WELCOME",
+    reply: MSG.LANG_PROMPT,
+    nextStep: "LANG_SELECT",
     updatedData: {},
     userType: null,
     retries: 0,
-    quickReplies: ["1️⃣ TUTOR", "2️⃣ PARENT"],
+    quickReplies: ["1 - English", "2 - हिंदी"],
   };
 }
 
@@ -1760,8 +2086,10 @@ function getStepQuickReplies(nextStep: string): string[] | undefined {
       return ["1 (Class 1-5)", "2 (Class 6-8)", "3 (Class 9-10)", "4 (Class 11-12)"];
     case "P_BUDGET":
       return ["1 (₹3k–₹5k/mo)", "2 (₹5k–₹8k/mo)", "3 (₹8k–₹12k/mo)", "4 (₹12k+/mo)"];
+    case "LANG_SELECT":
+      return ["1 - English", "2 - हिंदी"];
     case "WELCOME":
-      return ["1️⃣ TUTOR", "2️⃣ PARENT"];
+      return ["1 - Tutor", "2 - Parent"];
     default:
       return undefined;
   }
@@ -1778,7 +2106,7 @@ function handleInvalid(
 
   if (nextRetries >= MAX_RETRIES) {
     return {
-      reply: MSG.TOO_MANY_RETRIES,
+      reply: `Kuch zyada confusion ho gaya. 😅 Chaliye fresh start karte hain.\n\nType *MENU* to restart.`,
       nextStep: "WELCOME",
       updatedData: {},
       userType: null,
@@ -1787,12 +2115,74 @@ function handleInvalid(
     };
   }
 
-  const base = MSG.UNKNOWN;
+  // Step-specific contextual guidance
+  const step = session.step;
+  let stepHint = "";
+  let stepQuickReplies = quickReplies || ["MENU", "HELP"];
+
+  if (step === "T_NAME") {
+    stepHint = `👤 Apna poora naam likhein (jaise: *Priya Sharma*, *Rahul Gupta*).\nSirf letters, koi digits ya symbols nahi.`;
+  } else if (step === "T_CITY") {
+    stepHint = `📍 Apna city batayein — jaise *Delhi*, *Mumbai*, *Noida*, *Bangalore*, *Lucknow*.`;
+  } else if (step === "T_AREA") {
+    stepHint = `🏠 Apna specific *mohalla / locality* likhein.\nJaise: *Rohini*, *Dwarka*, *Sector 62 Noida*, *Andheri West*.`;
+    stepQuickReplies = ["Rohini, Delhi", "Dwarka, Delhi", "Noida / Gurgaon", "South Delhi"];
+  } else if (step === "T_SUBJECTS") {
+    stepHint = `📚 Kaunse subjects padhate hain? Comma se alag karke likhein:\nJaise: *Maths, Science* ya *Physics, Chemistry* ya *All Subjects*.`;
+    stepQuickReplies = ["Maths, Science", "Physics, Chemistry", "English, Hindi", "All Subjects"];
+  } else if (step === "T_CLASSES") {
+    stepHint = `🎓 Number reply karein (comma se multiple choose kar sakte hain):\n1 → Class 1–5\n2 → Class 6–8\n3 → Class 9–10\n4 → Class 11–12\n5 → JEE/NEET\n6 → All`;
+    stepQuickReplies = ["1,2,3", "3,4", "4", "6 (All)"];
+  } else if (step === "T_MODE") {
+    stepHint = `🏡 Sirf *1*, *2*, ya *3* reply karein:\n1 → Home Visit (student ke ghar jaana)\n2 → Online Only\n3 → Both (Home + Online)`;
+    stepQuickReplies = ["1", "2", "3"];
+  } else if (step === "T_TIMING") {
+    stepHint = `⏰ Apni available timing likhein, jaise:\n*Evenings 5–8pm*, ya *Weekdays 4–8pm*, ya *Mornings only*.`;
+    stepQuickReplies = ["Evenings 5-8pm", "Mornings 7-10am", "Weekends only", "Flexible"];
+  } else if (step === "T_EXPERIENCE") {
+    stepHint = `💼 Sirf ek *number* likhein (teaching experience years mein).\nJaise: *2*, *5*, *10* — ya *0* agar abhi start kar rahe hain.`;
+    stepQuickReplies = ["0", "1", "3", "5"];
+  } else if (step === "T_CONFIRM") {
+    stepHint = `Sirf *1*, *2*, ya *3* reply karein:\n1 → ✅ Confirm & Register\n2 → ✏️ Edit (start over)\n3 → ❌ Cancel`;
+    stepQuickReplies = ["1", "2", "3"];
+  } else if (step === "P_STUDENT_NAME") {
+    stepHint = `👶 Bachche ka naam likhein (jaise: *Aarav*, *Priya*).`;
+  } else if (step === "P_CLASS") {
+    stepHint = `🎓 Sirf *1 se 6* ke beech ek number reply karein:\n1 → Nursery/KG/Class 1–2\n2 → Class 3–5\n3 → Class 6–8\n4 → Class 9–10\n5 → Class 11–12\n6 → JEE/NEET`;
+    stepQuickReplies = ["1", "2", "3", "4", "5", "6"];
+  } else if (step === "P_SUBJECTS") {
+    stepHint = `📚 Kaunse subjects mein help chahiye? Jaise: *Maths, Science* ya *All Subjects*.`;
+    stepQuickReplies = ["Maths & Science", "All Subjects", "English", "Physics, Chemistry"];
+  } else if (step === "P_CITY") {
+    stepHint = `📍 Apna city batayein — jaise *Delhi*, *Noida*, *Mumbai*, *Gurgaon*.`;
+  } else if (step === "P_AREA") {
+    stepHint = `🏠 Bachche ka *area / locality* batayein.\nJaise: *Rohini Delhi*, *Bandra Mumbai*, *Sector 62 Noida*.`;
+    stepQuickReplies = ["Rohini Delhi", "Dwarka Delhi", "Noida / Gurgaon", "South Delhi"];
+  } else if (step === "P_MODE") {
+    stepHint = `🏡 Sirf *1*, *2*, ya *3* reply karein:\n1 → Home Tutor (tutor ghar aaye)\n2 → Online\n3 → Either is fine`;
+    stepQuickReplies = ["1", "2", "3"];
+  } else if (step === "P_BUDGET") {
+    stepHint = `💰 Sirf *1 se 4* reply karein:\n1 → Under ₹2,000/month\n2 → ₹2,000–5,000/month\n3 → ₹5,000–10,000/month\n4 → Above ₹10,000/month`;
+    stepQuickReplies = ["1", "2", "3", "4"];
+  } else if (step === "LANG_SELECT") {
+    stepHint = `Sirf *1* (English) ya *2* (Hindi) type karein.`;
+    stepQuickReplies = ["1 - English", "2 - हिंदी"];
+  } else if (step === "WELCOME") {
+    stepHint = `*1* likhein agar aap Tutor hain, *2* likhein agar aap Parent hain.`;
+    stepQuickReplies = ["1 - Tutor", "2 - Parent"];
+  }
+
+  const reply = contextHint
+    ? `${contextHint}`
+    : stepHint
+    ? `Samajh nahi aaya. 🙏\n\n${stepHint}`
+    : `Samajh nahi aaya. 🙏 Type *MENU* to restart.`;
+
   return {
-    reply: contextHint ? `${base}\n\n${contextHint}` : base,
+    reply,
     nextStep: session.step,
     updatedData: session.data,
     retries: nextRetries,
-    quickReplies: quickReplies || ["MENU", "HELP"],
+    quickReplies: stepQuickReplies,
   };
 }

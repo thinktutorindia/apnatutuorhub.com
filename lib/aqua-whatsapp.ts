@@ -68,10 +68,13 @@ function envFlag(name: string, fallback = false): boolean {
 export function getAquaWhatsAppConfig(): AquaWhatsAppConfig {
   const rawCap = process.env.AQUA_WHATSAPP_DAILY_TEST_CAP?.trim();
   const cap = rawCap !== undefined && rawCap !== "" ? Number(rawCap) : 0;
+  const hasToken = Boolean(process.env.AQUA_WHATSAPP_SYSTEM_TOKEN?.trim());
   return {
-    enabled: envFlag("AQUA_WHATSAPP_ENABLED", false),
+    enabled: process.env.AQUA_WHATSAPP_ENABLED !== undefined
+      ? envFlag("AQUA_WHATSAPP_ENABLED", hasToken)
+      : hasToken,
     autoDispatch: envFlag("AQUA_WHATSAPP_AUTO_DISPATCH", false),
-    autoReply: envFlag("AQUA_WHATSAPP_AUTO_REPLY", false),
+    autoReply: envFlag("AQUA_WHATSAPP_AUTO_REPLY", true),
     apiBase: (process.env.AQUA_WHATSAPP_API_BASE ?? "https://partnersv1.pinbot.ai").replace(/\/$/, ""),
     systemToken: process.env.AQUA_WHATSAPP_SYSTEM_TOKEN?.trim() ?? "",
     username: process.env.AQUA_WHATSAPP_USERNAME?.trim() ?? "",
@@ -109,6 +112,10 @@ export function normalizeIndiaWhatsApp(input: string): string | null {
   if (digits.length === 12 && /^91[6-9]\d{9}$/.test(digits)) return digits;
   if (digits.length === 11 && digits.startsWith("0") && /^[6-9]/.test(digits.slice(1))) {
     return `91${digits.slice(1)}`;
+  }
+  // Standard international / E.164 (10 to 15 digits)
+  if (digits.length >= 10 && digits.length <= 15) {
+    return digits;
   }
   return null;
 }
@@ -327,6 +334,7 @@ export async function sendAquaWhatsAppMessage(input: {
       headers: {
         "Content-Type": "application/json",
         apikey: cfg.systemToken,
+        systemtoken: cfg.systemToken,
       },
       body: JSON.stringify(body),
       cache: "no-store",

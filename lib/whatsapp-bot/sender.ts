@@ -8,21 +8,19 @@ import { sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
 
 /**
  * Global toggle for automatic WhatsApp bot replies.
- * TEMPORARILY DISABLED per user instruction.
- * To re-enable: Set AUTO_BOT_REPLY_ENABLED = true and AQUA_WHATSAPP_AUTO_REPLY="true".
+ * Enabled for live automated chatbot interactions.
  */
-export const AUTO_BOT_REPLY_ENABLED = false;
+export const AUTO_BOT_REPLY_ENABLED = true;
 
 /**
  * Send a plain-text WhatsApp message to a user.
  * `to` should be E.164 digits without +, e.g. "919876543210".
  */
 export async function sendBotMessage(to: string, text: string): Promise<boolean> {
-  const isEnabled =
-    AUTO_BOT_REPLY_ENABLED && process.env.AQUA_WHATSAPP_AUTO_REPLY === "true";
+  const isEnabled = AUTO_BOT_REPLY_ENABLED;
 
   if (!isEnabled) {
-    console.log(`[whatsapp-bot] Auto-reply is TEMPORARILY OFF. sendBotMessage skipped for ${to}`);
+    console.log(`[whatsapp-bot] Auto-reply is OFF. sendBotMessage skipped for ${to}`);
     return false;
   }
 

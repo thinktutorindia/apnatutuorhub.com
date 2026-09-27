@@ -182,6 +182,7 @@ export function MyStaffLeadsClient({
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "TUTOR" | "PARENT">("ALL");
   const [retryFilter, setRetryFilter] = useState<"ALL" | "NEVER_ANSWERED" | "ATTEMPT_1" | "ATTEMPT_2" | "ATTEMPT_3_PLUS">("ALL");
+  const [hideConverted, setHideConverted] = useState(true);
   const [selectedLeadId, setSelectedLeadId] = useState<string>(
     (leadIdParam && initialLeads.find((l) => l.id === leadIdParam)?.id) || initialLeads[0]?.id || ""
   );
@@ -352,10 +353,15 @@ export function MyStaffLeadsClient({
     const retryAttempt2 = retriesList.filter((l) => (l._count?.callLogs || 0) === 2).length;
     const retryAttempt3Plus = retriesList.filter((l) => (l._count?.callLogs || 0) >= 3).length;
 
+    const activeQueueCount = leads.filter(
+      (l) => !["CONVERTED", "NOT_INTERESTED", "REJECTED", "DUPLICATE"].includes(l.status)
+    ).length;
+
     return {
       total,
       workedToday,
       totalWorked,
+      activeQueueCount,
       followUps: followUps.length,
       dueNow,
       converted,
@@ -373,7 +379,11 @@ export function MyStaffLeadsClient({
   // Filtered leads
   const filteredLeads = useMemo(() => {
     let list = [...leads];
-    if (activeTab === "FRESH") {
+    if (activeTab === "ALL") {
+      if (hideConverted) {
+        list = list.filter((l) => !["CONVERTED", "NOT_INTERESTED", "REJECTED", "DUPLICATE"].includes(l.status));
+      }
+    } else if (activeTab === "FRESH") {
       list = list.filter((l) => (l.status === "NEW" || l.status === "ASSIGNED") && !l.lastContactedAt);
     } else if (activeTab === "FOLLOW_UP") {
       list = list.filter((l) => l.nextFollowUpAt !== null);
@@ -428,7 +438,7 @@ export function MyStaffLeadsClient({
     });
 
     return list;
-  }, [leads, activeTab, typeFilter, search]);
+  }, [leads, activeTab, typeFilter, search, retryFilter, hideConverted]);
 
   // Active lead (Strictly bound to active filtered queue so right console always matches left queue)
   const currentLead = useMemo(() => {
@@ -1017,7 +1027,7 @@ export function MyStaffLeadsClient({
         <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar flex-1 min-w-0">
           {(
             [
-              { key: "ALL" as QueueTab, label: `All (${leads.length})` },
+              { key: "ALL" as QueueTab, label: hideConverted ? `Active Queue (${stats.activeQueueCount})` : `All (${leads.length})` },
               { key: "FRESH" as QueueTab, label: `New (${stats.freshCount})` },
               {
                 key: "FOLLOW_UP" as QueueTab,
@@ -1051,6 +1061,20 @@ export function MyStaffLeadsClient({
               </button>
             );
           })}
+
+          <button
+            type="button"
+            onClick={() => setHideConverted((prev) => !prev)}
+            title="Toggle completed & closed leads in queue"
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 border ${
+              hideConverted
+                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+            }`}
+          >
+            <Check size={11} className={hideConverted ? "text-emerald-600" : "opacity-0"} />
+            <span>Hide Converted</span>
+          </button>
         </div>
 
         {/* Search & Actions Row (Guaranteed unsquashable min-width) */}

@@ -13,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush } from "@/lib/web-push";
 import { renderDummyLeadEmail } from "@/emails/DummyLeadEmail";
-import { isTill5thClass, isGenuineEmail } from "@/lib/lead-utils";
+import { isTill8thClass, isGenuineEmail } from "@/lib/lead-utils";
 import { sendAquaWhatsAppMessage, normalizeIndiaWhatsApp, getAquaWhatsAppConfig } from "@/lib/aqua-whatsapp";
 
 // ─── Geo-tagged Locality Database ─────────────────────────────────────────────
@@ -316,28 +316,31 @@ export async function resolveLocalityDynamic(opts: {
   teachingRadius?: number;
   userSeed?: number;
   stable?: boolean;
+  skipAi?: boolean;
 }): Promise<{ locality: string; city: string; distanceKm?: number }> {
-  const { tutorLat, tutorLng, tutorCity, tutorAddress, teachingRadius = 5, userSeed = 0, stable = false } = opts;
+  const { tutorLat, tutorLng, tutorCity, tutorAddress, teachingRadius = 5, userSeed = 0, stable = false, skipAi = false } = opts;
   const dayNum = stable ? 0 : Math.floor(Date.now() / (1000 * 60 * 60 * 24));
   const rng = seededRandom(dayNum * 1337 + userSeed);
 
   const city = (tutorCity && tutorCity.trim()) ? tutorCity.trim() : "Delhi";
   const maxRadius = Math.min(5, teachingRadius);
 
-  const aiPlaces = await suggestNearbyLocalitiesAI({
-    city,
-    address: tutorAddress,
-    lat: tutorLat,
-    lng: tutorLng,
-    radiusKm: maxRadius,
-  });
-  if (aiPlaces && aiPlaces.length > 0) {
-    const picked = aiPlaces[(dayNum + userSeed) % aiPlaces.length];
-    return {
-      locality: picked.name,
-      city: picked.city || city,
-      distanceKm: Math.min(5, Math.max(1, picked.distanceKm || Math.floor(rng() * 4) + 1)),
-    };
+  if (!skipAi) {
+    const aiPlaces = await suggestNearbyLocalitiesAI({
+      city,
+      address: tutorAddress,
+      lat: tutorLat,
+      lng: tutorLng,
+      radiusKm: maxRadius,
+    });
+    if (aiPlaces && aiPlaces.length > 0) {
+      const picked = aiPlaces[(dayNum + userSeed) % aiPlaces.length];
+      return {
+        locality: picked.name,
+        city: picked.city || city,
+        distanceKm: Math.min(5, Math.max(1, picked.distanceKm || Math.floor(rng() * 4) + 1)),
+      };
+    }
   }
 
   if (tutorLat && tutorLng) {
@@ -433,6 +436,7 @@ export async function generateDummyLead(opts: {
   overrideSubjects?: string[];
   userSeed?: number;
   stable?: boolean;
+  skipAi?: boolean;
 }): Promise<DummyLead> {
   const {
     tutorLat,
@@ -452,6 +456,7 @@ export async function generateDummyLead(opts: {
     overrideSubjects = [],
     userSeed = 0,
     stable = false,
+    skipAi = false,
   } = opts;
 
   const dayNum = stable ? 0 : Math.floor(Date.now() / 86400000);
@@ -465,6 +470,7 @@ export async function generateDummyLead(opts: {
     teachingRadius: Math.min(5, teachingRadius),
     userSeed,
     stable,
+    skipAi,
   });
 
   const distanceKm = Math.min(5, Math.max(1, rawDistance || Math.floor(rng() * 4) + 1));
@@ -514,9 +520,9 @@ export async function generateDummyLead(opts: {
   });
 
   let mode: DummyLead["mode"] = "OFFLINE";
-  const isTill5 = isTill5thClass(classLevel);
-  if (isTill5) {
-    // Early grades (Nursery to Class 5): Strictly Home Tuition (Offline)
+  const isTill8 = isTill8thClass(classLevel);
+  if (isTill8) {
+    // Class 1–8: strictly Home Tuition (Offline) — no online classes
     mode = "OFFLINE";
   } else {
     // Higher grades: Strictly "ONLINE" or "OFFLINE" (Home Tuition) - never ambiguous "EITHER" or "BOTH"
@@ -562,10 +568,10 @@ export async function deliverDummyLeadToTutor(opts: {
   let sent = 0;
   let failed = 0;
 
-  // Guard: Strictly do NOT send notifications for online classes for classes up to 5th grade
-  if (lead.mode === "ONLINE" && isTill5thClass(lead.classLevel)) {
+  // Guard: do NOT send online-class notifications for Class 1–8
+  if (lead.mode === "ONLINE" && isTill8thClass(lead.classLevel)) {
     console.info(
-      `[dummy-lead-engine] Skipped delivering online lead for ${lead.classLevel} to ${userEmail} (online disabled for early grades)`
+      `[dummy-lead-engine] Skipped delivering online lead for ${lead.classLevel} to ${userEmail} (online disabled for Class 1–8)`
     );
     return { sent: 0, failed: 0 };
   }

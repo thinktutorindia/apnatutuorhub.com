@@ -2296,7 +2296,7 @@ export async function getAdminDashboardStats() {
     prisma.booking.count(),
     prisma.wallet.aggregate({ _sum: { balance: true, totalPurchased: true } }),
     prisma.walletTransaction.count({
-      where: { type: "REFUND", description: "REFUND_REQUEST_PENDING" },
+      where: { type: "REFUND", description: { startsWith: "REFUND_REQUEST_PENDING" } },
     }),
   ]);
 
@@ -2345,7 +2345,7 @@ export async function approveRefundAction(
     },
   });
 
-  if (!txRecord || txRecord.type !== "REFUND" || txRecord.description !== "REFUND_REQUEST_PENDING") {
+  if (!txRecord || txRecord.type !== "REFUND" || !txRecord.description?.startsWith("REFUND_REQUEST_PENDING")) {
     return actionError("Refund request not found or already processed.");
   }
 
@@ -2419,7 +2419,7 @@ export async function rejectRefundAction(
     },
   });
 
-  if (!txRecord || txRecord.type !== "REFUND" || txRecord.description !== "REFUND_REQUEST_PENDING") {
+  if (!txRecord || txRecord.type !== "REFUND" || !txRecord.description?.startsWith("REFUND_REQUEST_PENDING")) {
     return actionError("Refund request not found or already processed.");
   }
 

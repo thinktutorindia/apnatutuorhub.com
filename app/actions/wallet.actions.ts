@@ -234,7 +234,9 @@ export async function creditCoinsToWallet(
 export type RefundRequestResult = ActionResult<{ submitted: true }>;
 
 export async function requestLeadRefundAction(
-  leadPurchaseId: string
+  leadPurchaseId: string,
+  reason?: string,
+  notes?: string
 ): Promise<RefundRequestResult> {
   const authCtx = await resolveTutorContext();
   if (!authCtx.ok) return authCtx.result;
@@ -287,15 +289,19 @@ export async function requestLeadRefundAction(
     return actionError("Wallet not found.");
   }
 
-  // Log a REFUND transaction with amount=0 (pending admin processing).
-  // Admin will credit the actual coins in Phase 9 admin panel.
+  const cleanReason = reason?.trim();
+  const cleanNotes = notes?.trim();
+  const feedbackParts = [cleanReason, cleanNotes].filter(Boolean);
+  const feedbackStr = feedbackParts.length > 0 ? `: ${feedbackParts.join(" — ")}` : "";
+
+  // Log a REFUND transaction with amount=purchase.coinsSpent (pending admin processing).
   await prisma.walletTransaction.create({
     data: {
       walletId: wallet.id,
       type: "REFUND",
       amount: purchase.coinsSpent,
       balanceAfter: wallet.balance,                  // unchanged until admin approves
-      description: "REFUND_REQUEST_PENDING",
+      description: `REFUND_REQUEST_PENDING${feedbackStr}`,
       referenceId: leadPurchaseId,
     },
   });

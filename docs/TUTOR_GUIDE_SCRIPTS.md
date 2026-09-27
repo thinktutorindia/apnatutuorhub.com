@@ -73,4 +73,4 @@
   - **A**: Tutor dashboard par **Request Refund / Replacement** button par click kar sakte hain. Coordinator verify karke replacement lead ya coins credit karta hai.
 
 - **Q: Kya online tuition bhi available hai?**
-  - **A**: Haan, Class 6 se 12 tak ke liye online tuition bhi available hoti hai. Class 1 se 5 ke liye platform offline home tuition hi provide karta hai.
+  - **A**: Class 9 se 12 aur competitive exams ke liye online tuition available hai. **Class 1 se 8 ke liye platform sirf home tuition (offline) deta hai — online nahi.**

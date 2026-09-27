@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/tutor/plans", label: "Plans", shortLabel: "Plans", icon: Crown },
   { href: "/chat", label: "Messages", shortLabel: "Messages", icon: MessageSquare },
   { href: "/tutor/profile", label: "My Profile", shortLabel: "Profile", icon: User },
+  { href: "/tutor/help", label: "How to unlock / help", shortLabel: "Help", icon: Search },
 ] as const;
 
 const BOTTOM_TABS = [

@@ -16,25 +16,23 @@ Please choose your language / अपनी भाषा चुनें:
 Reply with *1* or *2*`,
 
   // ── Common (Bilingual) ────────────────────────────────────────────────────────
-  WELCOME_EN: `Welcome to *ApnaTutorHub*! 🎓
-India's Leading Home Tutoring Network.
+  WELCOME_EN: `Namaste! I am Priya from *ApnaTutorHub* — India's Leading Home Tutoring Network. 🎓
 
 Please tell us who you are:
-1 — *Tutor* (Looking for home tuition / teaching work)
-2 — *Parent* (Looking for a qualified home tutor)
+1 — *Tutor* (Looking for home tuition / teaching opportunities)
+2 — *Parent* (Looking for a qualified home tutor for your child)
 
 Reply with *1* or *2*`,
 
-  WELCOME_HI: `*ApnaTutorHub* में आपका स्वागत है! 🎓
-भारत का प्रमुख होम ट्यूशन नेटवर्क।
+  WELCOME_HI: `नमस्ते! मैं *ApnaTutorHub* से प्रिया बोल रही हूँ — भारत का प्रमुख होम ट्यूशन नेटवर्क। 🎓
 
-कृपया बताएं आप कौन हैं:
+कृपया बताएं आप किस सहायता के लिए जुड़े हैं:
 1 — *ट्यूटर* (होम ट्यूशन / टीचिंग वर्क चाहिए)
 2 — *पेरेंट* (बच्चे के लिए होम ट्यूटर चाहिए)
 
 Reply करें *1* या *2*`,
 
-  WELCOME: `Welcome to *ApnaTutorHub*! / *ApnaTutorHub* में आपका स्वागत है! 🙏
+  WELCOME: `Namaste! I am Priya from *ApnaTutorHub*! / नमस्ते! मैं *ApnaTutorHub* से प्रिया बोल रही हूँ। 🙏
 
 Please choose your language / अपनी भाषा चुनें:
 1 — English
@@ -42,7 +40,7 @@ Please choose your language / अपनी भाषा चुनें:
 
 Reply with *1* or *2*`,
 
-  RE_WELCOME: `👋 Welcome back to *ApnaTutorHub*!
+  RE_WELCOME: `👋 Welcome back! Main *ApnaTutorHub* se Priya बोल रही हूँ।
 
 Are you a Tutor or a Parent?
 1 — *Tutor* (Looking for tuition opportunities)

@@ -15,6 +15,7 @@ import { haversineDistanceKm } from "@/lib/haversine";
 import { hasSubjectOverlap } from "@/lib/feed-matching";
 import { resolveLocationCoordinates } from "@/lib/geocoding";
 import { isGenderCompatible } from "@/lib/matching-engine";
+import { TutorLeadNotificationPopup } from "@/components/tutor/TutorLeadNotificationPopup";
 
 export default async function TutorDashboardPage() {
   const session = await auth();
@@ -615,6 +616,21 @@ export default async function TutorDashboardPage() {
       </div>
 
       {tutorProfile && <TutorAnalyticsWidget tutorProfileId={tutorProfile.id} />}
+
+      <TutorLeadNotificationPopup
+        leads={(strictNearbyLeads.length > 0 ? strictNearbyLeads : recentLeads).slice(0, 5).map((l) => ({
+          id: l.id,
+          inquiryNumber: l.inquiryNumber,
+          classLevel: l.classLevel,
+          subjects: l.subjects,
+          mode: l.mode,
+          city: l.city,
+          area: l.area,
+          budgetMin: l.budgetMin,
+          budgetMax: l.budgetMax,
+          distanceKm: l.distanceKm,
+        }))}
+      />
     </div>
   );
 }

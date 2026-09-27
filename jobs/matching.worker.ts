@@ -14,7 +14,7 @@ import { findMatchingTutors } from "@/lib/matching-engine";
 import { calculateRankingScore } from "@/lib/ranking-score";
 import { loadMatchingWeights } from "@/lib/matching-config";
 import { createNotification } from "@/lib/notification-engine";
-import { isTill5thClass } from "@/lib/lead-utils";
+import { isTill8thClass } from "@/lib/lead-utils";
 import type { MatchableLead } from "@/lib/matching-engine";
 import type { LeadMatchingJob } from "@/lib/queue";
 
@@ -57,7 +57,7 @@ export async function processLeadMatching(
   }
 
   // Online classes are strictly disabled for classes up to 5th grade (children cannot attend online classes).
-  if (lead.mode === "ONLINE" && isTill5thClass(lead.classLevel)) {
+  if (lead.mode === "ONLINE" && isTill8thClass(lead.classLevel)) {
     console.info(
       `[matching] Lead ${lead.id} (${lead.classLevel}): Online classes are not supported for classes up to 5th grade — skipping notifications & matching.`
     );

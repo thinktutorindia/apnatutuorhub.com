@@ -326,7 +326,7 @@ export function formatTutorLeadsAndPlansMessage(
     `• 0% Platform Commission (100% Fees Aapki!)\n` +
     `• Low Competition (Max 3 Tutors per Lead)\n` +
     `• Direct Parent Phone + Full Address\n` +
-    `• 30 Days Validity\n` +
+    `• 90 Days Validity (3 Months)\n` +
     `\n👉 *Abhi plan activate karein:* https://apnatutorhub.com/tutor/plans\n` +
     `👉 *Saari leads dekho:* https://apnatutorhub.com/tutor/leads\n` +
     `\nReply karo *PLANS* ya *LEADS* kabhi bhi!`;
@@ -348,7 +348,7 @@ export function formatCoinPlansMessage(): string {
 • *0% Commission* — Keep 100% tuition fees
 • *Low Competition* — Max 3 verified tutors per lead
 • *Direct Parent Contact* — Phone number + address
-• *Valid for 30 Days* across Delhi NCR & Online
+• *Valid for 90 Days (3 Months)* across Delhi NCR & Online
 
 👉 *Abhi Plan Activate Karein:*
 https://apnatutorhub.com/tutor/plans

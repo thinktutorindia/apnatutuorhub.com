@@ -535,3 +535,101 @@ export async function completeBookingAction(
   revalidateBookingPaths(booking.leadId);
   return actionSuccess({ updated: true as const });
 }
+
+export async function reportHireAction(bookingId: string): Promise<BookingUpdateState> {
+  const tutorAuth = await resolveTutorContext();
+  const parentAuth = await resolveParentContext();
+  const isFromTutor = tutorAuth.ok;
+  const isFromParent = !isFromTutor && parentAuth.ok;
+  if (!isFromTutor && !isFromParent) {
+    return actionError("You must be logged in as a tutor or parent.");
+  }
+
+  const booking = isFromTutor
+    ? await prisma.booking.findFirst({
+        where: { id: bookingId, tutorProfileId: tutorAuth.context.tutorProfileId },
+        select: {
+          id: true,
+          leadId: true,
+          subject: true,
+          classLevel: true,
+          tutorName: true,
+          parentName: true,
+          lead: { select: { parentProfile: { select: { userId: true } } } },
+          tutorProfile: { select: { userId: true } },
+        },
+      })
+    : await prisma.booking.findFirst({
+        where: {
+          id: bookingId,
+          lead: { parentProfileId: parentAuth.ok ? parentAuth.context.parentProfileId : undefined },
+        },
+        select: {
+          id: true,
+          leadId: true,
+          subject: true,
+          classLevel: true,
+          tutorName: true,
+          parentName: true,
+          lead: { select: { parentProfile: { select: { userId: true } } } },
+          tutorProfile: { select: { userId: true } },
+        },
+      });
+
+  if (!booking) return actionError("Booking not found or access denied.");
+
+  const reporterRole = isFromTutor ? "tutor" : "parent";
+  const otherUserId = isFromTutor
+    ? booking.lead.parentProfile.userId
+    : booking.tutorProfile.userId;
+  const reporterUserId = isFromTutor
+    ? tutorAuth.context.userId
+    : parentAuth.ok
+      ? parentAuth.context.userId
+      : "";
+
+  await prisma.lead.update({
+    where: { id: booking.leadId },
+    data: { status: "BOOKED" },
+  }).catch(() => {});
+
+  void createNotification({
+    userId: otherUserId,
+    type: "HIRE_REPORTED",
+    priority: "HIGH",
+    title: isFromTutor ? "Tutor confirmed they were hired" : "Parent confirmed they hired a tutor",
+    message: `${booking.subject} · ${booking.classLevel}. Please confirm classes have started.`,
+    actionUrl: isFromTutor ? "/parent/bookings" : "/tutor/bookings",
+    referenceId: bookingId,
+  });
+
+  const admins = await prisma.user.findMany({
+    where: { role: { in: ["SUPER_ADMIN", "SUB_ADMIN"] }, isActive: true },
+    select: { id: true },
+    take: 20,
+  });
+  for (const admin of admins) {
+    void createNotification({
+      userId: admin.id,
+      type: "HIRE_REPORTED",
+      priority: "HIGH",
+      title: `Hire reported by ${reporterRole}`,
+      message: `${booking.parentName || "Parent"} hired ${booking.tutorName || "tutor"} for ${booking.subject} (${booking.classLevel}).`,
+      actionUrl: "/admin/bookings",
+      referenceId: bookingId,
+    });
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      adminId: reporterUserId || "system",
+      action: "HIRE_REPORTED",
+      entityType: "Booking",
+      entityId: bookingId,
+      details: `${reporterRole} reported hire for ${booking.subject} / ${booking.classLevel}`,
+    },
+  }).catch(() => {});
+
+  revalidateBookingPaths(booking.leadId);
+  return actionSuccess({ updated: true as const });
+}

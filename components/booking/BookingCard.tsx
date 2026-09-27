@@ -17,6 +17,7 @@ import {
   cancelBookingAction,
   completeBookingAction,
   confirmBookingAction,
+  reportHireAction,
 } from "@/app/actions/booking.actions";
 import ClassLinkModal from "./ClassLinkModal";
 import RescheduleModal from "./RescheduleModal";
@@ -290,6 +291,23 @@ export default function BookingCard({ booking, viewerRole, hasReview = false, ex
               </button>
             )}
 
+            {(booking.status === "CONFIRMED" || booking.status === "COMPLETED" || booking.status === "RESCHEDULED") && (
+              <button
+                onClick={() => {
+                  setError(null);
+                  startTransition(async () => {
+                    const res = await reportHireAction(booking.id);
+                    if (!res.success) setError(res.error ?? "Could not report hire.");
+                  });
+                }}
+                disabled={isPending}
+                className="neu-btn bg-[#E8F7F0] px-4 py-2 text-xs text-[#166534]"
+              >
+                <CheckCircle size={13} />
+                {isPending ? "Sending…" : viewerRole === "PARENT" ? "We hired this tutor" : "Parent hired me"}
+              </button>
+            )}
+
             {/* Both: Cancel */}
             {canCancel && (
               <form
@@ -326,6 +344,20 @@ export default function BookingCard({ booking, viewerRole, hasReview = false, ex
             >
               <MessageSquarePlus size={13} />
               {hasReview ? "View / Edit Review" : "Leave a Review"}
+            </button>
+            <button
+              onClick={() => {
+                setError(null);
+                startTransition(async () => {
+                  const res = await reportHireAction(booking.id);
+                  if (!res.success) setError(res.error ?? "Could not report hire.");
+                });
+              }}
+              disabled={isPending}
+              className="neu-btn bg-[#E8F7F0] px-4 py-2 text-xs text-[#166534]"
+            >
+              <CheckCircle size={13} />
+              {viewerRole === "PARENT" ? "We hired this tutor" : "Parent hired me"}
             </button>
           </div>
         )}

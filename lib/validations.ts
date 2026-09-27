@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isTill5thClass } from "@/lib/lead-utils";
+import { isTill8thClass } from "@/lib/lead-utils";
 
 // ────────────────────────────────────────────────
 // Constants & Taxonomy
@@ -508,11 +508,11 @@ function checkBudgetAndLocation(
     });
   }
 
-  if (value.mode === "ONLINE" && value.classLevel && isTill5thClass(value.classLevel)) {
+  if (value.mode === "ONLINE" && value.classLevel && isTill8thClass(value.classLevel)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["mode"],
-      message: "Online classes are not available for classes up to 5th grade. Please select Home Tuition (Offline).",
+      message: "Online classes are not available for Class 1–8. Please select Home Tuition (Offline).",
     });
   }
 

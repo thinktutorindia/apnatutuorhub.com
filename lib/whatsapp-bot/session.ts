@@ -14,11 +14,11 @@ export type BotSession = {
   retries: number;
 };
 
-/** Load existing session or create a fresh WELCOME one. */
+/** Load existing session or create a fresh language-select one. */
 export async function getOrCreateSession(phone: string): Promise<BotSession> {
   const raw = await prisma.whatsappSession.upsert({
     where: { phone },
-    create: { phone, step: "WELCOME", data: {}, retries: 0 },
+    create: { phone, step: "LANG_SELECT", data: {}, retries: 0 },
     update: { lastMessageAt: new Date() },
   });
 
@@ -56,8 +56,8 @@ export async function updateSession(
 export async function resetSession(phone: string): Promise<void> {
   await prisma.whatsappSession.upsert({
     where: { phone },
-    create: { phone, step: "WELCOME", data: {}, userType: null, retries: 0 },
-    update: { step: "WELCOME", data: {}, userType: null, retries: 0, lastMessageAt: new Date() },
+    create: { phone, step: "LANG_SELECT", data: {}, userType: null, retries: 0 },
+    update: { step: "LANG_SELECT", data: {}, userType: null, retries: 0, lastMessageAt: new Date() },
   });
 }
 

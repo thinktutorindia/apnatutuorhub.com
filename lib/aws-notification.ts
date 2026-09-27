@@ -12,7 +12,7 @@ import { renderApplicationStatusEmail } from "@/emails/ApplicationStatusEmail";
 import { renderNewApplicantEmail } from "@/emails/NewApplicantEmail";
 import { renderBookingConfirmationEmail } from "@/emails/BookingConfirmationEmail";
 import { broadcastWebPush, sendWebPush } from "@/lib/web-push";
-import { isTill5thClass } from "@/lib/lead-utils";
+import { isTill8thClass } from "@/lib/lead-utils";
 
 // ── Email Client Setup (100% Resend) ──────────────────────────────────────────
 
@@ -207,7 +207,7 @@ export async function notifyTutorNewLead(opts: {
   coinCost: number;
 }) {
   // Guard: Strictly do NOT send notifications for online classes for classes up to 5th grade
-  if (opts.teachingMode === "ONLINE" && isTill5thClass(opts.classLevel)) {
+  if (opts.teachingMode === "ONLINE" && isTill8thClass(opts.classLevel)) {
     console.info(
       `[notifyTutorNewLead] Suppressed notification for tutor ${opts.tutorUserId}: Online classes disabled for ${opts.classLevel}.`
     );

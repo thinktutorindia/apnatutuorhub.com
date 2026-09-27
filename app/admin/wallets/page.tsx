@@ -83,7 +83,7 @@ export default async function AdminWalletsPage({
     prisma.wallet.count({ where: walletWhere }),
     prisma.wallet.aggregate({ _sum: { balance: true, totalPurchased: true, totalSpent: true } }),
     prisma.walletTransaction.findMany({
-      where: { type: "REFUND", description: "REFUND_REQUEST_PENDING" },
+      where: { type: "REFUND", description: { startsWith: "REFUND_REQUEST_PENDING" } },
       orderBy: { createdAt: "desc" },
       include: {
         wallet: {
@@ -183,6 +183,12 @@ export default async function AdminWalletsPage({
                 <div>
                   <p className="font-800 text-[#0F2540] text-sm">{tx.wallet.tutorProfile.user.name}</p>
                   <p className="text-xs font-600 text-slate-600">{tx.wallet.tutorProfile.user.email} · Requested refund for lead unlock</p>
+                  {tx.description && tx.description.includes(":") && (
+                    <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800">
+                      <span>Reason:</span>
+                      <span className="font-medium text-rose-900">{tx.description.replace(/^REFUND_REQUEST_PENDING:\s*/, "")}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {canRefundWallets ? (

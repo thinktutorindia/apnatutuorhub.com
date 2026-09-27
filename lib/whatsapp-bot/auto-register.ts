@@ -15,6 +15,7 @@ import {
   BUDGET_MAP,
 } from "./messages";
 import { validateAndCleanLocality, validateAndAlignSubjects } from "./subject-rules";
+import { ALL_CANONICAL_SUBJECTS } from "@/lib/subject-taxonomy";
 import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -381,20 +382,12 @@ export function expandTutorSubjectsAndClasses(input: {
       }
 
       if (teachesCS) {
-        // Class-specific Computer Science / IT subjects
-        if (g <= 5) {
-          subjectSet.add("Computer Science");
-        } else if (g <= 8) {
-          subjectSet.add(`Computer Science for Class ${rom}`);
-          subjectSet.add("Information Technology");
-        } else if (g <= 10) {
-          subjectSet.add(`Computer Science for Class ${rom}`);
-          subjectSet.add(`Information Technology for Class ${rom}`);
-        } else if (g >= 11) {
-          subjectSet.add(`Computer Science for Class ${rom}`);
-          subjectSet.add("Computer Science for Class XI - XII");
-          subjectSet.add("Information Technology");
-        }
+        // Platform taxonomy Computer Science / IT subjects
+        subjectSet.add("Computer Science");
+        subjectSet.add("Computer");
+        subjectSet.add("Information Technology");
+        subjectSet.add("Coding");
+        subjectSet.add("Python");
       }
     }
 
@@ -421,8 +414,9 @@ export function expandTutorSubjectsAndClasses(input: {
     }
   }
 
+  const canonicalSet = new Set(ALL_CANONICAL_SUBJECTS);
   return {
-    subjects: Array.from(subjectSet),
+    subjects: Array.from(subjectSet).filter((s) => canonicalSet.has(s)),
     classLevels: Array.from(classSet),
   };
 }
@@ -600,9 +594,12 @@ export async function registerParentFromWhatsapp(
 
   // Validate and align subjects to platform taxonomy (strictly enforcing Class 1-8 rules)
   const subRes = validateAndAlignSubjects(data.subjects, classLevel);
-  const subjects = subRes.isValid && subRes.subjects.length > 0
+  const canonicalSet = new Set(ALL_CANONICAL_SUBJECTS);
+  const rawSubs = subRes.isValid && subRes.subjects.length > 0
     ? subRes.subjects
     : (data.subjects && data.subjects.length > 0 ? data.subjects : ["All Subjects"]);
+  const validSubs = rawSubs.filter((s) => canonicalSet.has(s));
+  const subjects = validSubs.length > 0 ? validSubs : ["All Subjects"];
 
   // Universally validate and clean area & city
   const locRes = validateAndCleanLocality(data.area, data.city);

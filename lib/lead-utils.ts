@@ -239,22 +239,66 @@ export function isTill5thClass(classLevel?: string | null): boolean {
 }
 
 /**
- * Returns false if online classes are disabled for this grade (i.e. <= 5th class),
+ * Class 1–8 (and nursery/KG/primary/middle): no online classes.
+ * Used for tutor notifications and dummy leads.
+ */
+export function isTill8thClass(classLevel?: string | null): boolean {
+  if (!classLevel || typeof classLevel !== "string") return false;
+  const s = classLevel.trim().toLowerCase();
+  if (!s) return false;
+
+  if (isTill5thClass(classLevel)) return true;
+
+  if (
+    s.includes("middle") ||
+    /(?:class\s*)?(?:1|6)\s*(?:[-–—]|\bto\b)\s*8\b/i.test(s) ||
+    /class\s*(vi|6)\s*(?:[-–—]|\bto\b)\s*(viii|8)/i.test(s)
+  ) {
+    return true;
+  }
+
+  if (
+    /class\s*(9|10|11|12)\b/i.test(s) ||
+    /\b(9|10|11|12)(th)?\s*(grade|std|standard)?\b/i.test(s) ||
+    /class\s*9\s*[-–—to]\s*10/i.test(s) ||
+    /class\s*11\s*[-–—to]\s*12/i.test(s) ||
+    /class\s*(ix|x|xi|xii)\b/i.test(s) ||
+    /jee|neet|iit|medical|ca\b|commerce|coding|computer|programming/i.test(s)
+  ) {
+    return false;
+  }
+
+  if (
+    /^class\s*([6-8])$/i.test(s) ||
+    /^([6-8])(th)?\s*(grade|std|standard)?$/i.test(s) ||
+    /^class\s*(vi|vii|viii)$/i.test(s) ||
+    /\b([6-8])(th)\b/i.test(s) ||
+    /class\s*([6-8])\b/i.test(s) ||
+    /class\s*(vi|vii|viii)\b/i.test(s)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Returns false if online classes are disabled for this grade (i.e. <= 8th class),
  * true if online classes are permitted.
  */
 export function isOnlineClassEligible(classLevel?: string | null): boolean {
-  return !isTill5thClass(classLevel);
+  return !isTill8thClass(classLevel);
 }
 
 /**
  * Checks if lead notifications are permitted.
- * Blocks notifications for ONLINE mode if the class level is <= 5th grade.
+ * Blocks notifications for ONLINE mode if the class level is <= 8th grade.
  */
 export function canSendLeadNotification(lead: {
   mode?: string | null;
   classLevel?: string | null;
 }): boolean {
-  if (lead.mode === "ONLINE" && isTill5thClass(lead.classLevel)) {
+  if (lead.mode === "ONLINE" && isTill8thClass(lead.classLevel)) {
     return false;
   }
   return true;

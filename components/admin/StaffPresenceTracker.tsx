@@ -8,8 +8,8 @@ import {
   getMyPresenceAction,
 } from "@/app/actions/staff-presence.actions";
 
-// Desktop: No mouse/keyboard for 60 seconds → idle (timer pauses)
-const DESKTOP_IDLE_MS = 60_000;
+// Desktop: No mouse/keyboard for 3 minutes (180 seconds) → idle (timer pauses)
+const DESKTOP_IDLE_MS = 180_000;
 // Mobile: If tab hidden without a call for 2.5 minutes → idle
 const MOBILE_HIDDEN_IDLE_MS = 150_000;
 // Mobile telecalling: Max active call window when user leaves browser to dialer/WhatsApp (10 minutes)

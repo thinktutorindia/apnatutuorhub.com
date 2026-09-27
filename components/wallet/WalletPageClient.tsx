@@ -334,7 +334,13 @@ export function WalletPageClient({
                 const Icon = config.icon;
                 const isPending =
                   tx.type === "REFUND" &&
-                  tx.description === "REFUND_REQUEST_PENDING";
+                  (tx.description === "REFUND_REQUEST_PENDING" ||
+                    tx.description?.startsWith("REFUND_REQUEST_PENDING"));
+
+                const reasonText =
+                  isPending && tx.description?.includes(":")
+                    ? tx.description.replace(/^REFUND_REQUEST_PENDING:\s*/, "")
+                    : null;
 
                 return (
                   <div key={tx.id} className="flex items-center gap-4 py-4 hover:bg-gray-50/80 px-2 rounded-xl transition-colors">
@@ -348,7 +354,7 @@ export function WalletPageClient({
                     <div className="flex-1 min-w-0">
                       <p className="truncate text-sm font-800 text-[#0F2540]">
                         {isPending
-                          ? "Refund Request — Pending Review"
+                          ? `Refund Request — Pending Review${reasonText ? ` (${reasonText})` : ""}`
                           : (tx.description ?? config.label)}
                       </p>
                       <p className="text-xs font-600 text-gray-500 mt-0.5">

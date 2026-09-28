@@ -5,7 +5,7 @@
  */
 
 import { sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
-import { prisma } from "@/lib/prisma";
+import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 
 /**
  * Global toggle for automatic WhatsApp bot replies.
@@ -37,20 +37,18 @@ export async function sendBotMessage(
     bypassDailyCap: true,
   });
 
-  // Persist outbound message regardless of send success so staff/admin can track full chat history
-  prisma.whatsappChatMessage
-    .create({
-      data: {
-        phone: to,
-        direction: "OUTBOUND",
-        senderName: meta?.senderName ?? "Bot",
-        body: text,
-        step: meta?.step ?? null,
-        messageId: result.providerMessageId ?? meta?.messageId ?? null,
-        isRead: true,
-      },
-    })
-    .catch((e) => console.warn("[chat-log] Failed to save outbound message:", e));
+  // Persist outbound message immediately so the thread stays complete if Aqua drops its copy.
+  upsertWhatsAppChatMessage({
+    phone: to,
+    direction: "OUTBOUND",
+    senderName: meta?.senderName ?? "Bot",
+    body: text,
+    step: meta?.step ?? null,
+    messageId: result.providerMessageId ?? meta?.messageId ?? null,
+    messageType: "text",
+    status: result.ok ? result.rawStatus ?? "accepted" : "failed",
+    isRead: true,
+  }).catch((e) => console.warn("[chat-log] Failed to save outbound message:", e));
 
   if (!result.ok) {
     console.error(`[whatsapp-bot] send failed to ${to}: ${result.error}`);

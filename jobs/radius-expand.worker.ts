@@ -36,12 +36,7 @@ export async function processRadiusExpansion(leadId: string): Promise<void> {
     return;
   }
 
-  // Only expand active/matching leads that haven't reached their cap.
   if (!["ACTIVE", "MATCHING"].includes(lead.status)) {
-    return;
-  }
-
-  if (lead.purchaseCount >= lead.maxTutors) {
     return;
   }
 
@@ -85,8 +80,6 @@ export async function processRadiusExpansionBatch(): Promise<void> {
     where: {
       status: { in: ["ACTIVE", "MATCHING"] },
       createdAt: { lte: cutoff },
-      // Only leads that still need more tutors.
-      purchaseCount: { lt: config.maxTutorsPerLead },
     },
     select: { id: true },
   });

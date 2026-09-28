@@ -17,6 +17,8 @@ import {
 import { validateAndCleanLocality, validateAndAlignSubjects } from "./subject-rules";
 import { ALL_CANONICAL_SUBJECTS } from "@/lib/subject-taxonomy";
 import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
+import { isTill8thClass, realisticTightBudget } from "@/lib/lead-utils";
+import { getLeadPointCost } from "@/lib/subscription-plans";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -592,18 +594,25 @@ export async function registerParentFromWhatsapp(
   const rawTargetPhone = (data.phone || phone).replace(/\D/g, "");
   const normalizedPhone = normalizeIndiaWhatsApp(data.phone || phone) ?? rawTargetPhone;
   const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(normalizedPhone);
-  const budget = (data.budgetKey && BUDGET_MAP[data.budgetKey]) ? BUDGET_MAP[data.budgetKey] : { min: 4000, max: 8000 };
   const classLevel = data.classLevel || (data.classKey && CLASS_MAP[data.classKey]) || "Class 10";
-  const mode = data.modeKey ? modeToLeadMode(data.modeKey) : "OFFLINE";
+  const rawBudget = (data.budgetKey && BUDGET_MAP[data.budgetKey]) ? BUDGET_MAP[data.budgetKey] : { min: 4500, max: 4650 };
+  const budget = realisticTightBudget({
+    id: `${normalizedPhone || "parent"}-${classLevel}`,
+    classLevel,
+    budgetMin: rawBudget.min,
+    budgetMax: rawBudget.max,
+  }) ?? { min: 4500, max: 4650 };
+  const junior = isTill8thClass(classLevel);
+  const mode = junior ? "OFFLINE" : (data.modeKey ? modeToLeadMode(data.modeKey) : "OFFLINE");
 
-  // Validate and align subjects to platform taxonomy (strictly enforcing Class 1-8 rules)
+  // Class 1–8 is always All Subjects. Upper classes keep the subjects the parent asked for.
   const subRes = validateAndAlignSubjects(data.subjects, classLevel);
   const canonicalSet = new Set(ALL_CANONICAL_SUBJECTS);
   const rawSubs = subRes.isValid && subRes.subjects.length > 0
     ? subRes.subjects
     : (data.subjects && data.subjects.length > 0 ? data.subjects : ["All Subjects"]);
   const validSubs = rawSubs.filter((s) => canonicalSet.has(s));
-  const subjects = validSubs.length > 0 ? validSubs : ["All Subjects"];
+  const subjects = junior ? ["All Subjects"] : (validSubs.length > 0 ? validSubs : ["All Subjects"]);
 
   // Universally validate and clean area & city
   const locRes = validateAndCleanLocality(data.area, data.city);
@@ -697,8 +706,8 @@ export async function registerParentFromWhatsapp(
         budgetMin: budget.min,
         budgetMax: budget.max,
         status: "ACTIVE",
-        coinCost: 10,
-        maxTutors: 5,
+        coinCost: getLeadPointCost(classLevel, budget.min, budget.max),
+        maxTutors: 3,
         radiusKm: 15,
       },
     });

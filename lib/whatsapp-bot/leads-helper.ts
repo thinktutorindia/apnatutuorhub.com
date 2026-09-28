@@ -7,7 +7,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { COIN_PACKAGES } from "@/lib/razorpay";
+import { formatLeadBudget } from "@/lib/lead-utils";
+import { getLeadPointCost } from "@/lib/subscription-plans";
 import { coversClassLevel, hasSubjectOverlap, extractGradeNumber, isGenderCompatible } from "@/lib/matching-engine";
 import { expandTutorSubjectsAndClasses } from "./auto-register";
 
@@ -581,14 +582,14 @@ export function formatTutorLeadsAndPlansMessage(
 
   const plansSection = `\n\n──────────────────────────\n` +
     `🔓 *Lead unlock karne ke liye:*\n` +
-    `\n🔥 *₹999 Growth Membership* (Up to 6 Leads / 60 Points)\n` +
-    `• Fees < ₹3,000/mo: Up to 6 Leads\n` +
-    `• Fees ₹3,000–₹5,000/mo: Up to 3 Leads\n` +
-    `• Fees > ₹5,000/mo: Up to 2 High-Ticket Leads\n` +
+    `\n🔥 *₹999 Growth Membership* (60 Points · ~5% of one month's fee)\n` +
+    `• Class 1–8: 10 coins · up to 6 leads\n` +
+    `• Class 9–10: 20 coins · up to 3 leads\n` +
+    `• Class 11–12 / JEE / NEET: 30 coins · up to 2 leads\n` +
     `• 0% Platform Commission (100% Fees Aapki!)\n` +
     `• Low Competition (Max 3 Tutors per Lead)\n` +
     `• Direct Parent Phone + Full Address\n` +
-    `• 90 Days Validity (3 Months)\n` +
+    `• 30 Days Validity\n` +
     `\n👉 *Abhi plan activate karein:* https://apnatutorhub.com/tutor/plans\n` +
     `👉 *Saari leads dekho:* https://apnatutorhub.com/tutor/leads\n` +
     `\nReply karo *PLANS* ya *LEADS* kabhi bhi!`;
@@ -604,19 +605,57 @@ export function formatCoinPlansMessage(): string {
 
 🔥 *₹999 Plan* (67% OFF · Was ₹2,999)
 • *Up to 6 Verified Student Leads* (60 Points)
-  - Fees < ₹3,000/mo: Up to 6 Leads
-  - Fees ₹3,000–₹5,000/mo: Up to 3 Leads
-  - Fees > ₹5,000/mo: Up to 2 High-Ticket Leads
+• Coin cost is about *5% of one month's fee*
+  - Class 1–8: *10 coins* · up to 6 leads
+  - Class 9–10: *20 coins* · up to 3 leads
+  - Class 11–12 / JEE / NEET: *30 coins* · up to 2 leads
 • *0% Commission* — Keep 100% tuition fees
-• *Low Competition* — Max 3 verified tutors per lead
+• *Low Competition* — Max 3 tutors per lead
 • *Direct Parent Contact* — Phone number + address
-• *Valid for 90 Days (3 Months)* across Delhi NCR & Online
+• *Valid for 30 Days* across Delhi NCR & Online
 
 👉 *Abhi Plan Activate Karein:*
 https://apnatutorhub.com/tutor/plans
 
 👉 *All Available Leads:*
 https://apnatutorhub.com/tutor/leads`;
+}
+
+export function formatCoinBalanceMessage(balance: number): string {
+  if (balance > 0) {
+    return `Aapke wallet mein *${balance} coins* hain. 🪙\n\nInhi coins se student leads unlock ho jayengi. Naya coin pack lene ki zaroorat nahi hai.\n\n👉 *Leads unlock karein:* https://apnatutorhub.com/tutor/leads\n👉 *Wallet:* https://apnatutorhub.com/tutor/wallet`;
+  }
+  return `Aapke wallet mein abhi *0 coins* hain.\n\n${formatCoinPlansMessage()}`;
+}
+
+export async function getTutorCoinBalanceByPhone(phone?: string | null): Promise<{
+  found: boolean;
+  balance: number;
+}> {
+  if (!phone) return { found: false, balance: 0 };
+  const digits = phone.replace(/\D/g, "");
+  const phone10 = digits.slice(-10);
+  if (phone10.length < 10) return { found: false, balance: 0 };
+  const variants = Array.from(new Set([
+    phone10,
+    `91${phone10}`,
+    `+91${phone10}`,
+    digits,
+    `+${digits}`,
+  ]));
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: variants.map((p) => ({ phone: p })),
+      tutorProfile: { isNot: null },
+    },
+    select: {
+      tutorProfile: {
+        select: { wallet: { select: { balance: true } } },
+      },
+    },
+  });
+  if (!user?.tutorProfile) return { found: false, balance: 0 };
+  return { found: true, balance: user.tutorProfile.wallet?.balance ?? 0 };
 }
 
 /**
@@ -704,12 +743,7 @@ export async function formatSingleLeadInquiry(
 
   const subjStr = Array.isArray(lead.subjects) && lead.subjects.length > 0 ? lead.subjects.join(", ") : "All Core Subjects";
   const modeStr = lead.mode === "OFFLINE" ? "Home Visit 🏡" : lead.mode === "ONLINE" ? "Online Class 💻" : "Home Visit / Online";
-  const budgetStr =
-    lead.budgetMin && lead.budgetMax
-      ? `₹${lead.budgetMin.toLocaleString("en-IN")} – ₹${lead.budgetMax.toLocaleString("en-IN")} / mo`
-      : lead.budgetMin
-      ? `₹${lead.budgetMin.toLocaleString("en-IN")}+ / mo`
-      : "Negotiable / Standard";
+  const budgetStr = formatLeadBudget(lead, "full");
 
   const locStr = [lead.area, lead.city].filter(Boolean).join(", ") || "Delhi NCR";
 
@@ -727,14 +761,22 @@ export async function formatSingleLeadInquiry(
   }
 
   const isClosed = lead.status !== "ACTIVE" && lead.status !== "MATCHING" && lead.status !== "APPLICATIONS_RECEIVED";
-  const isFull = lead.purchaseCount >= lead.maxTutors;
+  const coinCost = getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
+  const tutorBalance = tutorPhone ? await getTutorCoinBalanceByPhone(tutorPhone) : { found: false, balance: 0 };
 
   let statusWarning = "";
   if (isClosed) {
     statusWarning = `\n\n⚠️ *Status:* Yeh lead close ho chuki hai (${lead.status}).`;
-  } else if (isFull) {
-    statusWarning = `\n\n⚠️ *Note:* Is lead par maximum applications poori ho chuki hain (${lead.purchaseCount}/${lead.maxTutors}).`;
   }
+
+  const unlockGuide = tutorBalance.found && tutorBalance.balance > 0
+    ? `Aapke wallet mein *${tutorBalance.balance} coins* hain. Is lead ke liye *${coinCost} coins* lagte hain — naya pack lene ki zaroorat nahi.\n` +
+      `👉 https://apnatutorhub.com/tutor/leads?inquiry=${lead.inquiryNumber}`
+    : `💎 *Unlock Karne Ke Tarike:*\n` +
+      `1. Website par link open karein aur Unlock par click karein.\n` +
+      `2. Is lead ki cost *${coinCost} coins* hai (~5% of one month's fee).\n` +
+      `3. ₹999 Growth Membership (30 days, 0% commission) se bhi unlock hota hai.\n\n` +
+      `👉 *Membership Plans:*\nhttps://apnatutorhub.com/tutor/plans`;
 
   const message =
     `📋 *Student Requirement #${lead.inquiryNumber}*\n\n` +
@@ -746,12 +788,7 @@ export async function formatSingleLeadInquiry(
     `${genderNote}` +
     `${statusWarning}\n\n` +
     `──────────────────────────\n` +
-    `🔓 *Direct Unlock Link:*\n` +
-    `👉 https://apnatutorhub.com/tutor/leads?inquiry=${lead.inquiryNumber}\n\n` +
-    `💎 *Unlock Karne Ke Tarike:*\n` +
-    `1. Website par link open karein aur Unlock par click karein.\n` +
-    `2. ₹999 Growth Membership se 0% commission par direct parent contact & address milta hai.\n\n` +
-    `👉 *Membership Plans Dekhein:*\nhttps://apnatutorhub.com/tutor/plans`;
+    `${unlockGuide}`;
 
   return {
     reply: message,

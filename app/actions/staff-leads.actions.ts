@@ -17,6 +17,8 @@ import { extractLeadData } from "@/lib/gemini-lead-extractor";
 import type { StaffLeadStatus, CallOutcome } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { applyStaffRecordType, getStaffRecordType, PARENT_TAG, staffNotesFromParsed } from "@/lib/staff-lead-type";
+import { isTill8thClass, realisticTightBudget } from "@/lib/lead-utils";
+import { getLeadPointCost } from "@/lib/subscription-plans";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -1582,16 +1584,22 @@ export async function promoteLeadToStudentRequirementAction(
     });
     const nextInquiryNumber = (lastInquiry?.inquiryNumber ?? 1000) + 1;
 
+    const publishedClass = lead.classes[0] || "Class 10";
+    const publishedJunior = isTill8thClass(publishedClass);
+    const publishedBudget = realisticTightBudget({
+      classLevel: publishedClass,
+      inquiryNumber: nextInquiryNumber,
+    }) ?? (publishedJunior ? { min: 4500, max: 4650 } : { min: 360, max: 380 });
     const publishedLead = await prisma.lead.create({
       data: {
         inquiryNumber: nextInquiryNumber,
         parentProfileId: user.parentProfile!.id,
-        subjects: lead.subjects.length > 0 ? lead.subjects : ["General Subjects"],
-        classLevel: lead.classes[0] || "Class 10",
+        subjects: publishedJunior ? ["All Subjects"] : (lead.subjects.length > 0 ? lead.subjects : ["Mathematics"]),
+        classLevel: publishedClass,
         board: lead.board || "CBSE",
         mode: "OFFLINE",
-        budgetMin: 3000,
-        budgetMax: 8000,
+        budgetMin: publishedBudget.min,
+        budgetMax: publishedBudget.max,
         city: lead.location?.split(",")[0]?.trim() || "Delhi",
         area: lead.location?.split(",")[1]?.trim() || lead.location || null,
         pincode: lead.pincode || null,
@@ -1599,7 +1607,7 @@ export async function promoteLeadToStudentRequirementAction(
         tutorGenderPref: "ANY",
         notes: lead.staffNotes || `Verified lead created from Staff Calling Desk for ${lead.name || "Student"}.`,
         status: "ACTIVE",
-        coinCost: 5,
+        coinCost: getLeadPointCost(publishedClass, publishedBudget.min, publishedBudget.max),
         radiusKm: 5,
       },
     });

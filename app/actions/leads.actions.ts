@@ -17,7 +17,7 @@ import { formFloat, formInt, formList, formString } from "@/lib/form-data";
 import { createLeadSchema, updateLockedLeadSchema, inferClassLevelFromSubjects } from "@/lib/validations";
 import { captureEvent, Events } from "@/lib/posthog";
 import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints, TOTAL_PLAN_LEAD_POINTS } from "@/lib/subscription-plans";
-import { getNextInquiryNumber } from "@/lib/lead-utils";
+import { getNextInquiryNumber, isTill8thClass, realisticTightBudget } from "@/lib/lead-utils";
 import { geocodeLocation } from "@/lib/geocoding";
 import { logActivity, ActivityEvent } from "@/lib/activity-logger";
 import { createNotification } from "@/lib/notification-engine";
@@ -142,6 +142,17 @@ export async function createRequirementAction(
   }
 
   const finalClassLevel = input.classLevel || inferClassLevelFromSubjects(input.subjects);
+  const junior = isTill8thClass(finalClassLevel);
+  const leadSubjects = junior ? ["All Subjects"] : input.subjects;
+  const leadMode = junior ? "OFFLINE" : input.mode;
+  const tightBudget = realisticTightBudget({
+    classLevel: finalClassLevel,
+    budgetMin: input.budgetMin,
+    budgetMax: input.budgetMax,
+    id: `${finalClassLevel}-${leadSubjects.join(",")}`,
+  });
+  const budgetMin = tightBudget?.min ?? input.budgetMin ?? null;
+  const budgetMax = tightBudget?.max ?? input.budgetMax ?? null;
   const commercials = await resolveLeadCommercials(finalClassLevel);
 
   const overlapping = await prisma.lead.findFirst({
@@ -155,7 +166,7 @@ export async function createRequirementAction(
   });
   if (
     overlapping &&
-    overlapping.subjects.some((subject) => input.subjects.includes(subject))
+    overlapping.subjects.some((subject) => leadSubjects.includes(subject))
   ) {
     return actionError(
       `You already have an open ${finalClassLevel} requirement in ${input.city} covering overlapping subjects (#${overlapping.inquiryNumber}). Edit or close that listing first.`
@@ -191,12 +202,12 @@ export async function createRequirementAction(
         inquiryNumber: nextInquiryNumber,
         parentProfileId: auth.context.parentProfileId,
         studentProfileId: input.studentProfileId ?? null,
-        subjects: input.subjects,
+        subjects: leadSubjects,
         classLevel: finalClassLevel,
         board: input.board ?? null,
-        mode: input.mode,
-        budgetMin: input.budgetMin ?? null,
-        budgetMax: input.budgetMax ?? null,
+        mode: leadMode,
+        budgetMin,
+        budgetMax,
         latitude: lat,
         longitude: lng,
         city: input.city ?? null,
@@ -368,6 +379,15 @@ export async function updateRequirementAction(
     }
 
     const finalClassLevel = input.classLevel || inferClassLevelFromSubjects(input.subjects);
+    const junior = isTill8thClass(finalClassLevel);
+    const leadSubjects = junior ? ["All Subjects"] : input.subjects;
+    const leadMode = junior ? "OFFLINE" : input.mode;
+    const tightBudget = realisticTightBudget({
+      classLevel: finalClassLevel,
+      budgetMin: input.budgetMin,
+      budgetMax: input.budgetMax,
+      id: lead.id,
+    });
 
     // Re-price only when the class tier changed; the 48h expiry window is not extended.
     const commercials =
@@ -379,12 +399,12 @@ export async function updateRequirementAction(
       where: { id: lead.id },
       data: {
         studentProfileId: input.studentProfileId ?? null,
-        subjects: input.subjects,
+        subjects: leadSubjects,
         classLevel: finalClassLevel,
         board: input.board ?? null,
-        mode: input.mode,
-        budgetMin: input.budgetMin ?? null,
-        budgetMax: input.budgetMax ?? null,
+        mode: leadMode,
+        budgetMin: tightBudget?.min ?? input.budgetMin ?? null,
+        budgetMax: tightBudget?.max ?? input.budgetMax ?? null,
         latitude: input.latitude ?? null,
         longitude: input.longitude ?? null,
         city: input.city ?? null,
@@ -521,17 +541,24 @@ export async function purchaseLeadAction(
           parentProfileId = newPp.id;
         }
         const inqNum = 32000 + Math.floor(Math.random() * 800);
+        const dummyClass = tutorProfile?.classLevels?.[0] || "Class 9-10";
+        const dummyJunior = isTill8thClass(dummyClass);
+        const dummyBudget = realisticTightBudget({
+          classLevel: dummyClass,
+          inquiryNumber: inqNum,
+        }) ?? (dummyJunior ? { min: 4500, max: 4650 } : { min: 360, max: 380 });
         lead = await prisma.lead.create({
           data: {
             id: leadId,
             inquiryNumber: inqNum,
             parentProfileId,
-            subjects: tutorProfile?.subjects?.slice(0, 2) || ["Mathematics"],
-            classLevel: tutorProfile?.classLevels?.[0] || "Class 9-10",
-            mode: "OFFLINE",
-            budgetMin: 5000,
-            budgetMax: 9000,
-            coinCost: 50,
+            subjects: dummyJunior ? ["All Subjects"] : (tutorProfile?.subjects?.slice(0, 2) || ["Mathematics"]),
+            classLevel: dummyClass,
+            mode: dummyJunior ? "OFFLINE" : (inqNum % 3 === 0 ? "ONLINE" : "OFFLINE"),
+            budgetMin: dummyBudget.min,
+            budgetMax: dummyBudget.max,
+            coinCost: getLeadPointCost(dummyClass, dummyBudget.min, dummyBudget.max),
+            maxTutors: 3,
             city: "Delhi",
             area: "Delhi NCR",
             status: "ACTIVE",
@@ -590,11 +617,8 @@ export async function purchaseLeadAction(
     return actionError("This lead is no longer accepting applications.");
   }
 
-  // NOTE: We intentionally do NOT pre-check purchaseCount >= maxTutors here.
-  // That check is a race condition — two concurrent requests can both read
-  // the same stale count and both pass. The atomic DB guard inside the
-  // transaction (updateMany with purchaseCount: { lt: maxTutors }) is the
-  // ONLY safe enforcement point. It will throw LEAD_CAPACITY_REACHED if full.
+  // Tutors are not blocked by a slot cap. purchaseCount still increments so
+  // every tutor feed shows the same updated spots (the card displays 3).
 
 
   const now = new Date();
@@ -624,7 +648,7 @@ export async function purchaseLeadAction(
   }
 
   const isFreePlanUnlock = hasActivePlan && quotaRemainingPoints >= leadPointCost;
-  const effectiveCoinCost = isFreePlanUnlock ? 0 : lead.coinCost;
+  const effectiveCoinCost = isFreePlanUnlock ? 0 : leadPointCost;
 
   const walletBalance = wallet?.balance ?? 0;
   if (!isFreePlanUnlock && walletBalance < effectiveCoinCost) {
@@ -659,11 +683,11 @@ export async function purchaseLeadAction(
       }
     }
 
-    // 2. Atomic Lead Capacity Guard: Increment purchaseCount ONLY if purchaseCount < maxTutors and active
+    // Unlock stays open for later tutors. purchaseCount is shared, so every tutor
+    // sees the same updated spots. The feed displays at most 3 slots.
     const leadUpdate = await tx.lead.updateMany({
       where: {
         id: leadId,
-        purchaseCount: { lt: lead.maxTutors },
         status: { notIn: ["CLOSED", "EXPIRED", "COMPLETED"] },
       },
       data: {
@@ -672,55 +696,13 @@ export async function purchaseLeadAction(
     });
 
     if (leadUpdate.count === 0) {
-      throw new Error(`LEAD_CAPACITY_REACHED: Lead max capacity reached.`);
+      throw new Error(`LEAD_CLOSED: This lead is no longer accepting applications.`);
     }
 
-    const updatedLead = await tx.lead.findUniqueOrThrow({
-      where: { id: leadId },
-      select: { id: true, purchaseCount: true, maxTutors: true, status: true },
-    });
-
-    // Determine plan-based exclusivity and competition cap
-    const tutorPlan = tutorProfile?.subscriptionPlan;
-    let targetMaxTutors = updatedLead.maxTutors;
-    let targetStatus = updatedLead.status;
-
-    if (tutorPlan === "PLATINUM") {
-      // 👑 Platinum VIP Solo Exclusivity Lock: Lead closes immediately for 1-to-1 solo access
-      targetMaxTutors = Math.max(1, updatedLead.purchaseCount);
-      targetStatus = "APPLICATIONS_RECEIVED";
-    } else if (tutorPlan === "GOLD") {
-      // 🔒 Gold Tier Semi-Exclusive Lock: Lead capacity capped at max 2 tutors
-      targetMaxTutors = Math.min(updatedLead.maxTutors, Math.max(updatedLead.purchaseCount, 2));
-      if (updatedLead.purchaseCount >= targetMaxTutors) {
-        targetStatus = "APPLICATIONS_RECEIVED";
-      } else if (targetStatus === "ACTIVE") {
-        targetStatus = "MATCHING";
-      }
-    } else if (tutorPlan === "SILVER" || tutorPlan === "BRONZE") {
-      // 👥 Low-Competition Lock (Growth & Silver): Lead capacity capped at max 3 tutors
-      targetMaxTutors = Math.min(updatedLead.maxTutors, Math.max(updatedLead.purchaseCount, 3));
-      if (updatedLead.purchaseCount >= targetMaxTutors) {
-        targetStatus = "APPLICATIONS_RECEIVED";
-      } else if (targetStatus === "ACTIVE") {
-        targetStatus = "MATCHING";
-      }
-    } else {
-      // Starter / Pay-as-you-go: Standard cap
-      if (updatedLead.purchaseCount >= updatedLead.maxTutors && targetStatus !== "APPLICATIONS_RECEIVED") {
-        targetStatus = "APPLICATIONS_RECEIVED";
-      } else if (targetStatus === "ACTIVE") {
-        targetStatus = "MATCHING";
-      }
-    }
-
-    if (targetMaxTutors !== updatedLead.maxTutors || targetStatus !== updatedLead.status) {
+    if (lead.status === "ACTIVE") {
       await tx.lead.update({
         where: { id: leadId },
-        data: {
-          maxTutors: targetMaxTutors,
-          status: targetStatus,
-        },
+        data: { status: "MATCHING" },
       });
     }
 
@@ -758,8 +740,8 @@ export async function purchaseLeadAction(
     if (err.message.startsWith("INSUFFICIENT_COINS")) {
       return { errorType: "INSUFFICIENT_COINS" as const };
     }
-    if (err.message.startsWith("LEAD_CAPACITY_REACHED")) {
-      return { errorType: "LEAD_CAPACITY_REACHED" as const };
+    if (err.message.startsWith("LEAD_CLOSED")) {
+      return { errorType: "LEAD_CLOSED" as const };
     }
     throw err;
   });
@@ -767,13 +749,11 @@ export async function purchaseLeadAction(
   if (result && "errorType" in result) {
     if (result.errorType === "INSUFFICIENT_COINS") {
       return actionError(
-        `Insufficient coins. You need ${lead.coinCost} coins to unlock this lead. Please top up your wallet.`
+        `Insufficient coins. You need ${leadPointCost} coins to unlock this lead. Please top up your wallet.`
       );
     }
-    if (result.errorType === "LEAD_CAPACITY_REACHED") {
-      return actionError(
-        "This lead has reached its maximum capacity of tutors."
-      );
+    if (result.errorType === "LEAD_CLOSED") {
+      return actionError("This lead is no longer accepting applications.");
     }
   }
 
@@ -788,7 +768,7 @@ export async function purchaseLeadAction(
   captureEvent(authCtx.context.userId, Events.LEAD_UNLOCKED, {
     leadId,
     purchaseId: result.id,
-    coinsSpent: lead.coinCost,
+    coinsSpent: effectiveCoinCost,
     city: lead.city,
   });
 
@@ -797,7 +777,7 @@ export async function purchaseLeadAction(
     logActivity({
       userId: authCtx.context.userId,
       event: ActivityEvent.LEAD_PURCHASED,
-      metadata: { leadId, purchaseId: result.id, coinsSpent: lead.coinCost },
+      metadata: { leadId, purchaseId: result.id, coinsSpent: effectiveCoinCost },
     })
   );
 

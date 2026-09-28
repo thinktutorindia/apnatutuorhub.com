@@ -24,20 +24,18 @@ import {
   Unlock,
   ChevronRight,
   User,
-  Users,
   Compass,
   Calendar,
   Languages,
   UserCheck,
   Zap,
-  Crown,
   Star,
 } from "lucide-react";
 import { LeadPurchaseModal, type SubscriptionInfo } from "@/components/tutor/LeadPurchaseModal";
 import { StartChatButton } from "@/components/chat/StartChatButton";
 import { LeadNotifReminderBanner } from "@/components/tutor/LeadNotifReminderBanner";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
-import { getInquiryDisplayCode, formatLeadBudget } from "@/lib/lead-utils";
+import { getInquiryDisplayCode, formatLeadBudget, presentLeadPostedAt, publicTutorSlots } from "@/lib/lead-utils";
 import { getLeadPointCost } from "@/lib/subscription-plans";
 import { RequestLeadRefundButton } from "@/components/tutor/RequestLeadRefundButton";
 import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
@@ -110,8 +108,8 @@ const MODE_STYLES: Record<string, { bg: string; text: string; border: string }> 
   COACHING: { bg: "bg-[#EEF3F8]", text: "text-[#0F2540]", border: "border-[#CBD5E1]" },
 };
 
-function formatPostTime(dateStr: string) {
-  const d = new Date(dateStr);
+function formatPostTime(dateStr: string, seed = "") {
+  const d = presentLeadPostedAt(dateStr, seed);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -271,11 +269,12 @@ function LeadCard({
 }) {
   const [modalOpen, setModalOpen] = useState(autoOpenModal);
 
-  const maxTutorsAllowed = lead.maxTutors || 5;
-  const currentPurchases = lead.purchaseCount || 0;
-  const spotsLeft = Math.max(0, maxTutorsAllowed - currentPurchases);
-  const isAlmostFull = spotsLeft <= 2 && spotsLeft > 0;
-  const isFull = spotsLeft === 0;
+  const slots = publicTutorSlots(lead.purchaseCount);
+  const maxTutorsAllowed = slots.max;
+  const currentPurchases = slots.purchased;
+  const spotsLeft = slots.left;
+  const isAlmostFull = spotsLeft === 1;
+  const isFull = false;
   const progressPercent = Math.min(100, Math.round((currentPurchases / maxTutorsAllowed) * 100));
 
   const planPointCost = getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
@@ -286,7 +285,7 @@ function LeadCard({
     subscriptionInfo?.hasActivePlan && remainingPoints >= planPointCost
   );
 
-  const timeInfo = formatPostTime(lead.createdAt);
+  const timeInfo = formatPostTime(lead.createdAt, lead.id);
 
   const phoneClean = lead.parentDetails?.phone
     ? lead.parentDetails.phone.replace(/[^0-9]/g, "")
@@ -356,27 +355,10 @@ function LeadCard({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 flex-wrap">
               {/* Competition & Exclusivity Tag */}
-              {maxTutorsAllowed === 1 ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF3DC] text-[#92400E] border border-[#F5A623]/40 px-2.5 py-0.5 text-[11px] font-800">
-                  <Crown size={11} className="text-[#F5A623]" />
-                  <span>👑 100% Solo Exclusive</span>
-                </span>
-              ) : maxTutorsAllowed === 2 ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-950 border border-amber-300 px-2.5 py-0.5 text-[11px] font-black shadow-2xs">
-                  <Lock size={11} className="text-amber-600" />
-                  <span>🔒 Semi-Exclusive (Max 2)</span>
-                </span>
-              ) : maxTutorsAllowed === 3 ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200 px-2.5 py-0.5 text-[11px] font-bold shadow-2xs">
-                  <UserCheck size={11} className="text-blue-600" />
-                  <span>👥 Low Competition (Max 3)</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5 text-[11px] font-medium shadow-2xs">
-                  <Users size={11} className="text-slate-500" />
-                  <span>👥 Shared (Max 5)</span>
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200 px-2.5 py-0.5 text-[11px] font-bold shadow-2xs">
+                <UserCheck size={11} className="text-blue-600" />
+                <span>Low Competition (Max 3)</span>
+              </span>
 
               {timeInfo.isFresh && (
                 <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-800">
@@ -643,7 +625,7 @@ function LeadCard({
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-2xs">
                 <Coins size={13} className="text-slate-500" />
-                <span>{lead.coinCost} Coins to Unlock</span>
+                <span>{planPointCost} Coins to Unlock</span>
               </span>
             )}
 
@@ -684,8 +666,8 @@ function LeadCard({
                 <span>Unlock via ₹999 Plan (Free)</span>
               ) : (
                 <>
-                  <span className="sm:hidden">Unlock ({lead.coinCost} Coins)</span>
-                  <span className="hidden sm:inline">Unlock Parent Contact ({lead.coinCost} Coins)</span>
+                  <span className="sm:hidden">Unlock ({planPointCost} Coins)</span>
+                  <span className="hidden sm:inline">Unlock Parent Contact ({planPointCost} Coins)</span>
                 </>
               )}
             </button>
@@ -702,7 +684,7 @@ function LeadCard({
             mode: lead.mode,
             city: lead.city,
             area: lead.area,
-            coinCost: lead.coinCost,
+            coinCost: planPointCost,
           }}
           walletBalance={walletBalance}
           subscriptionInfo={subscriptionInfo}
@@ -756,7 +738,13 @@ export function LeadFeedClient({
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible") router.refresh();
+    }, 30000);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.clearInterval(poll);
+    };
   }, [router]);
 
   const [viewTab, setViewTab] = useState<"matched" | "nearby" | "all" | "shortlisted" | "unlocked">(
@@ -771,7 +759,7 @@ export function LeadFeedClient({
   );
 
   const unpurchased = useMemo(
-    () => leads.filter((l) => !l.isPurchased && l.purchaseCount < (l.maxTutors || 5)),
+    () => leads.filter((l) => !l.isPurchased),
     [leads]
   );
   const shortlisted = useMemo(() => leads.filter((l) => l.isShortlisted), [leads]);
@@ -808,7 +796,7 @@ export function LeadFeedClient({
       .filter((l) => {
         // Tab filtering
         if (viewTab === "matched") {
-          if (l.isPurchased || l.purchaseCount >= (l.maxTutors || 5)) return false;
+          if (l.isPurchased) return false;
           const isMatch = isLeadMatchedToTutor({
             lead: {
               distanceKm: l.distanceKm,
@@ -824,7 +812,7 @@ export function LeadFeedClient({
           });
           if (!isMatch) return false;
         } else if (viewTab === "nearby") {
-          if (l.isPurchased || l.purchaseCount >= (l.maxTutors || 5)) return false;
+          if (l.isPurchased) return false;
           if (hasTutorLocation && l.mode !== "ONLINE") {
             if (l.distanceKm === null || l.distanceKm > (teachingRadius || 10)) return false;
           }
@@ -833,7 +821,7 @@ export function LeadFeedClient({
         } else if (viewTab === "unlocked") {
           if (!l.isPurchased) return false;
         } else if (viewTab === "all") {
-          if (l.isPurchased || l.purchaseCount >= (l.maxTutors || 5)) return false;
+          if (l.isPurchased) return false;
         }
 
         // Subject filter dropdown

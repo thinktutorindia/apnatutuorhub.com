@@ -50,7 +50,7 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
     gradeRange: "Primary & Middle School",
     leadsCount: 6,
     pointCost: 10,
-    description: "Unlock foundation & middle school leads (Monthly tuition fee ₹4,000–₹8,000/mo)",
+    description: "Unlock foundation & middle school leads (Monthly tuition about ₹3,600–₹4,800/mo)",
     popularSubjects: ["All Subjects", "Mathematics", "Science", "English", "Social Studies"],
   },
   {
@@ -58,7 +58,7 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
     gradeRange: "Secondary & Board Prep",
     leadsCount: 3,
     pointCost: 20,
-    description: "Unlock secondary & board preparation leads (Hourly rate ₹550–₹850/hr)",
+    description: "Unlock secondary & board preparation leads (Hourly rate about ₹320–₹400/hr)",
     popularSubjects: ["Mathematics", "Physics", "Chemistry", "Biology", "English"],
   },
   {
@@ -66,7 +66,7 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
     gradeRange: "Senior Secondary / JEE / NEET",
     leadsCount: 2,
     pointCost: 30,
-    description: "Unlock high-ticket senior secondary & competitive exam leads (Hourly rate ₹850–₹1,400+/hr)",
+    description: "Unlock senior secondary & competitive exam leads (Hourly rate about ₹450–₹620/hr)",
     popularSubjects: ["Physics", "Chemistry", "Mathematics", "Biology", "Accountancy", "Coding"],
   },
 ];
@@ -78,7 +78,7 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
 export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   {
     feeBand: "Class 1–8 (Primary & Middle)",
-    monthlyRange: "Monthly Tuition · ₹4,000 – ₹8,000 / mo",
+    monthlyRange: "Monthly Tuition · about ₹3,600 – ₹4,800 / mo",
     leadsCount: 6,
     pointCost: 10,
     description: "Unlock up to 6 foundation & middle school leads (Class 1–8 all subjects, monthly billing)",
@@ -87,7 +87,7 @@ export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   },
   {
     feeBand: "Class 9–10 (Secondary & Board)",
-    monthlyRange: "Hourly Rate · ₹550 – ₹850 / hr",
+    monthlyRange: "Hourly Rate · about ₹320 – ₹400 / hr",
     leadsCount: 3,
     pointCost: 20,
     description: "Unlock up to 3 board exam preparation leads (Class 9 & 10 Maths, Science, English)",
@@ -96,7 +96,7 @@ export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   },
   {
     feeBand: "Class 11–12 & Competitive",
-    monthlyRange: "Hourly Rate · ₹850 – ₹1,400+ / hr",
+    monthlyRange: "Hourly Rate · about ₹450 – ₹620 / hr",
     leadsCount: 2,
     pointCost: 30,
     description: "Unlock up to 2 high-ticket senior secondary & entrance leads (Class 11–12 PCB/PCM, JEE, NEET, Coding)",
@@ -280,9 +280,9 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     termsNote: "Up to 6 Verified Leads allocated by universal fee structure (Class 1–8: 10 pts / up to 6 leads, Class 9–10: 20 pts / up to 3 leads, Class 11–12 & Competitive: 30 pts / up to 2 leads). Valid for 30 days. Shared with max 3 tutors.",
     features: [
       "✅ Up to 6 Verified Leads by fee structure",
-      "📚 Class 1–8 (Monthly Tuition): 10 pts (Up to 6 Leads)",
-      "📈 Class 9–10 (Hourly ₹550–₹850/hr): 20 pts (Up to 3 Leads)",
-      "⭐ Class 11–12 / JEE / NEET (Hourly ₹850–₹1,400/hr): 30 pts (Up to 2 Leads)",
+      "📚 Class 1–8 (about ₹3,600–₹4,800/mo): 10 coins (Up to 6 Leads)",
+      "📈 Class 9–10 (about ₹320–₹400/hr): 20 coins (Up to 3 Leads)",
+      "⭐ Class 11–12 / JEE / NEET (about ₹450–₹620/hr): 30 coins (Up to 2 Leads)",
       "🎉 0% Platform Commission (Keep 100% of student fees!)",
       "👥 Low Competition: Max 3 tutors per lead",
       "Full Parent Contact Info (Direct Phone & Address)",

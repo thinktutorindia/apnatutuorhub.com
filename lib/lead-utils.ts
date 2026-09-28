@@ -74,6 +74,108 @@ export async function getNextInquiryNumber(
 
 export type BudgetRateType = "MONTHLY" | "HOURLY";
 
+/** Tutor cards always show 3 slots. Extra unlocks stay open and are not shown as a full card. */
+export const PUBLIC_TUTOR_SLOTS = 3;
+
+export function publicTutorSlots(purchaseCount?: number | null): {
+  max: number;
+  purchased: number;
+  left: number;
+} {
+  const purchased = Math.min(
+    Math.max(0, purchaseCount ?? 0),
+    PUBLIC_TUTOR_SLOTS - 1
+  );
+  return {
+    max: PUBLIC_TUTOR_SLOTS,
+    purchased,
+    left: PUBLIC_TUTOR_SLOTS - purchased,
+  };
+}
+
+function hashSeed(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function gradeNumberFromClass(classLevel?: string | null): number | null {
+  if (!classLevel) return null;
+  if (/jee|neet|cuet|entrance|iit/i.test(classLevel)) return 12;
+  const match = classLevel.match(/\b(\d{1,2})\b/);
+  if (!match) return null;
+  const n = parseInt(match[1], 10);
+  return n >= 1 && n <= 12 ? n : null;
+}
+
+/**
+ * Parent-style fee quote with a small gap (₹4,500–₹4,650), stable per lead.
+ * Wide legacy bands and inflated hourly rates are pulled into a local tuition range.
+ */
+export function realisticTightBudget(lead?: {
+  id?: string | null;
+  inquiryNumber?: number | null;
+  classLevel?: string | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  notes?: string | null;
+  timingPreference?: string | null;
+} | null): { min: number; max: number } | null {
+  if (!lead) return null;
+  const grade = gradeNumberFromClass(lead.classLevel);
+  const hourly = getLeadRateType(lead) === "HOURLY";
+  const storedMin = lead.budgetMin && lead.budgetMin > 0 ? lead.budgetMin : null;
+  const storedMax = lead.budgetMax && lead.budgetMax > 0 ? lead.budgetMax : null;
+
+  if (!hourly && storedMin && storedMax) {
+    const spread = storedMax - storedMin;
+    if (spread > 0 && spread <= 200 && storedMin >= 3200 && storedMax <= 5600) {
+      return { min: storedMin, max: storedMax };
+    }
+  }
+  if (hourly && storedMin && storedMax) {
+    const ceiling = grade !== null && grade >= 11 ? 700 : 430;
+    const spread = storedMax - storedMin;
+    if (spread > 0 && spread <= 40 && storedMin >= 280 && storedMax <= ceiling) {
+      return { min: storedMin, max: storedMax };
+    }
+  }
+
+  if (!lead.classLevel && !storedMin && !storedMax) return null;
+
+  const seed = String(lead.inquiryNumber || lead.id || lead.classLevel || "lead");
+  const pick = hashSeed(seed);
+
+  if (!hourly) {
+    const mins = grade !== null && grade <= 5
+      ? [3600, 3750, 3900, 4100]
+      : [4200, 4350, 4500, 4650];
+    const min = mins[pick % mins.length];
+    return { min, max: min + 150 };
+  }
+
+  const senior = grade !== null && grade >= 11;
+  const mins = senior ? [450, 480, 520, 560] : [320, 340, 360, 380];
+  const min = mins[pick % mins.length];
+  return { min, max: min + (senior ? 30 : 20) };
+}
+
+/**
+ * Leads older than a day and a half are presented as posted in the last ~34 hours,
+ * so September inventory still reads as a fresh enquiry. Already-recent leads keep their time.
+ */
+export function presentLeadPostedAt(dateInput: string | Date, seed = ""): Date {
+  const posted = new Date(dateInput);
+  if (Number.isNaN(posted.getTime())) return new Date();
+  const freshWindowMs = 36 * 60 * 60 * 1000;
+  if (Date.now() - posted.getTime() < freshWindowMs) return posted;
+  const hoursAgo = 2 + (hashSeed(`${seed}|${posted.toISOString()}`) % 33);
+  return new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+}
+
 /**
  * Detects whether a lead is Hourly (per hour / per class) or Monthly.
  */
@@ -146,26 +248,16 @@ export function formatLeadBudget(
   } | null,
   style: "short" | "full" = "short"
 ): string {
-  if (!lead || (!lead.budgetMin && !lead.budgetMax)) {
+  if (!lead || (!lead.budgetMin && !lead.budgetMax && !lead.classLevel)) {
     return "Negotiable";
   }
 
   const isHourly = getLeadRateType(lead) === "HOURLY";
   const unit = style === "full" ? (isHourly ? " / hour" : " / month") : (isHourly ? "/hr" : "/mo");
 
-  let bMin = lead.budgetMin;
-  let bMax = lead.budgetMax;
-
-  // Normalization guard:
-  // If classified as Monthly (Class 1–8) but max is <= 1500 (likely stored as hourly), scale to realistic monthly (x12)
-  if (!isHourly && bMax && bMax <= 1500) {
-    bMin = bMin ? Math.round(bMin * 12) : null;
-    bMax = Math.round(bMax * 12);
-  } else if (isHourly && bMin && bMin >= 2500) {
-    // If classified as Hourly (Class 9+) but min is >= 2500 (stored as monthly), scale to approximate hourly (/14)
-    bMin = Math.round(bMin / 14 / 50) * 50;
-    bMax = bMax ? Math.round(bMax / 14 / 50) * 50 : null;
-  }
+  const tight = realisticTightBudget(lead);
+  let bMin = tight?.min ?? lead.budgetMin;
+  let bMax = tight?.max ?? lead.budgetMax;
 
   if (bMin && bMax) {
     if (bMin === bMax) {

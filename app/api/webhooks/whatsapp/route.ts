@@ -14,6 +14,7 @@ import { getOrCreateSession, updateSession, resetSession } from "@/lib/whatsapp-
 import { processMessage } from "@/lib/whatsapp-bot/engine";
 import { sendBotMessage } from "@/lib/whatsapp-bot/sender";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
+import { updateWhatsAppChatMessageStatus, upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 
 export const runtime = "nodejs";
 
@@ -23,7 +24,14 @@ export const AUTO_REPLY_ENABLED = true;
 
 // ── Payload normalisation ────────────────────────────────────────────────────
 
-type NormalisedInbound = { phone: string; text: string; messageId?: string } | null;
+type NormalisedInbound = {
+  phone: string;
+  text: string;
+  messageId?: string;
+  messageType?: string;
+  contactName?: string | null;
+  sentAt?: Date;
+} | null;
 
 function extractTextFromMessage(msg: Record<string, unknown>): string {
   let text = "";
@@ -63,7 +71,47 @@ function extractTextFromMessage(msg: Record<string, unknown>): string {
     text = (typeof doc.caption === "string" && doc.caption) || (typeof doc.filename === "string" && `[Document: ${doc.filename}]`) || "[Document Uploaded for KYC/Verification]";
   }
 
+  if (!text && typeof msg.type === "string" && msg.type !== "text") {
+    text = `[${msg.type}]`;
+  }
+
   return text.trim();
+}
+
+function readUnixTime(value: unknown): Date | undefined {
+  const raw = typeof value === "string" || typeof value === "number" ? Number(value) : NaN;
+  if (!Number.isFinite(raw) || raw <= 0) return undefined;
+  const ms = raw > 10_000_000_000 ? raw : raw * 1000;
+  const date = new Date(ms);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function enrichInbound(body: Record<string, unknown>, inbound: NormalisedInbound): NormalisedInbound {
+  if (!inbound) return null;
+  let messageType = inbound.messageType;
+  let contactName = inbound.contactName ?? null;
+  let sentAt = inbound.sentAt;
+
+  const applyValue = (value: Record<string, unknown> | undefined) => {
+    if (!value) return;
+    const contacts = Array.isArray(value.contacts) ? value.contacts : [];
+    const contact = contacts[0] as Record<string, unknown> | undefined;
+    const profile = contact?.profile as Record<string, unknown> | undefined;
+    if (!contactName && typeof profile?.name === "string") contactName = profile.name;
+    const messages = Array.isArray(value.messages) ? value.messages : [];
+    const msg = messages[0] as Record<string, unknown> | undefined;
+    if (!msg) return;
+    if (!messageType && typeof msg.type === "string") messageType = msg.type;
+    if (!sentAt) sentAt = readUnixTime(msg.timestamp);
+  };
+
+  if (Array.isArray(body.entry) && body.entry.length > 0) {
+    const entry = body.entry[0] as Record<string, unknown>;
+    const change = Array.isArray(entry.changes) ? (entry.changes[0] as Record<string, unknown>) : undefined;
+    applyValue(change?.value as Record<string, unknown> | undefined);
+  }
+
+  return { ...inbound, messageType, contactName, sentAt };
 }
 
 /**
@@ -204,7 +252,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const inbound = parseInboundPayload(body);
+  const inbound = enrichInbound(body, parseInboundPayload(body));
 
   if (!inbound) {
     // Check if this is an outbound status update (sent / delivered / read / failed) per SmartPing docs
@@ -219,11 +267,36 @@ export async function POST(request: Request): Promise<NextResponse> {
     return smartPingSuccess();
   }
 
-  const { phone, text, messageId } = inbound;
+  const { phone, text, messageId, messageType, contactName, sentAt } = inbound;
+  const duplicate = isDuplicateMessage(phone, text, messageId);
 
-  // ── Deduplication check ─────────────────────────────────────────────────
-  if (isDuplicateMessage(phone, text, messageId)) {
-    return smartPingSuccess(); // Silently ack, don't re-process
+  if (!duplicate || messageId) {
+    try {
+      const sessionForLog = await getOrCreateSession(phone);
+      const senderName =
+        contactName ||
+        ((sessionForLog.data as Record<string, unknown>)?.name as string) ||
+        "User";
+      await upsertWhatsAppChatMessage({
+        phone,
+        direction: "INBOUND",
+        senderName,
+        contactName,
+        body: text,
+        step: sessionForLog.step,
+        messageId: messageId ?? null,
+        messageType: messageType ?? "text",
+        status: "received",
+        isRead: false,
+        createdAt: sentAt,
+      });
+    } catch (err) {
+      console.warn("[chat-log] Failed to save inbound message:", err);
+    }
+  }
+
+  if (duplicate) {
+    return smartPingSuccess();
   }
 
   // ── Automatic WhatsApp Reply Active ──────────────────────────────────────
@@ -231,7 +304,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (!isAutoReplyOn) {
     console.log(
-      `[whatsapp-bot] Auto-reply is OFF. Inbound from ${phone}: "${text.slice(0, 80)}" acknowledged without sending automated reply.`
+      `[whatsapp-bot] Auto-reply is OFF. Inbound from ${phone} stored without an automated reply.`
     );
     return smartPingSuccess();
   }
@@ -241,22 +314,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     // 1. Load or create session
     const session = await getOrCreateSession(phone);
-
-    // Save inbound message permanently for staff/admin audit
-    const senderName = ((session.data as Record<string, unknown>)?.name as string) || "User";
-    await prisma.whatsappChatMessage
-      .create({
-        data: {
-          phone,
-          direction: "INBOUND",
-          senderName,
-          body: text,
-          step: session.step,
-          messageId: messageId ?? null,
-          isRead: false,
-        },
-      })
-      .catch((err) => console.warn("[chat-log] Failed to save inbound message:", err));
 
     // 2. Process through state machine
     const result = await processMessage(session, text);
@@ -342,6 +399,10 @@ async function handleStatusUpdate(update: NormalisedStatus): Promise<void> {
     const delivery = await prisma.notificationDelivery.findFirst({
       where: { providerMessageId: update.messageId },
       select: { id: true, notificationId: true },
+    });
+
+    await updateWhatsAppChatMessageStatus(update.messageId, update.status).catch((err) => {
+      console.warn("[chat-log] Could not update message status:", err);
     });
 
     if (delivery) {

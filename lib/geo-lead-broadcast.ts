@@ -15,10 +15,11 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { isGenuineEmail, isTill8thClass } from "@/lib/lead-utils";
+import { isGenuineEmail, isTill8thClass, realisticTightBudget } from "@/lib/lead-utils";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { renderNewMatchedLeadEmail } from "@/emails/NewMatchedLeadEmail";
 import { sendAquaWhatsAppMessage, normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
+import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { sendBatchEmails, type BatchEmailItem } from "@/lib/resend-service";
 import { generateDummyLead } from "@/lib/dummy-lead-engine";
 import { cleanSubjectName, sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
@@ -36,12 +37,9 @@ function subjectsOverlap(tutorSubjects: string[], leadSubjects: string[]): boole
 }
 
 function pickTutorSubjects(tutorSubjects: string[], classLevel: string, seed: number): string[] {
+  if (isTill8thClass(classLevel)) return ["All Subjects"];
   const sanitized = sanitizeSubjectsForClassLevel(tutorSubjects || [], classLevel, seed);
-  if (sanitized.length === 0) {
-    return isTill8thClass(classLevel)
-      ? ["All Subjects"]
-      : ["Mathematics"];
-  }
+  if (sanitized.length === 0) return ["Mathematics"];
   return [sanitized[seed % sanitized.length], ...sanitized.filter((_, i) => i !== seed % sanitized.length)].slice(0, 2);
 }
 
@@ -62,21 +60,18 @@ function pickTiming(seed: number): string {
 }
 
 // ── Pricing Generator (Healthy, attractive rates) ──────────────────────────────
-function getHealthyBudget(classLevel: string, isOffline: boolean): { min: number; max: number; label: string } {
-  const numMatch = classLevel.match(/\b(\d{1,2})\b/);
-  const grade = numMatch ? parseInt(numMatch[1], 10) : 7;
-
-  // Universal Rule: Class 1–8 is STRICTLY Monthly, Class 9+ is STRICTLY Hourly
-  if (grade <= 5) {
-    return { min: 4500, max: 6500, label: "₹4,500 – ₹6,500 / month" };
-  }
-  if (grade <= 8) {
-    return { min: 6000, max: 8500, label: "₹6,000 – ₹8,500 / month" };
-  }
-  if (grade <= 10) {
-    return { min: 600, max: 850, label: "₹600 – ₹850 / hr" };
-  }
-  return { min: 950, max: 1400, label: "₹950 – ₹1,400 / hr" };
+function getHealthyBudget(classLevel: string, _isOffline?: boolean): { min: number; max: number; label: string } {
+  const monthly = isTill8thClass(classLevel);
+  const tight = realisticTightBudget({ classLevel, id: classLevel }) ?? (
+    monthly ? { min: 4500, max: 4650 } : { min: 360, max: 380 }
+  );
+  const fmt = (n: number) => n.toLocaleString("en-IN");
+  const unit = monthly ? "/ month" : "/ hour";
+  return {
+    min: tight.min,
+    max: tight.max,
+    label: `₹${fmt(tight.min)} – ₹${fmt(tight.max)} ${unit}`,
+  };
 }
 
 // ── Lead Payload Structure for Dispatch ────────────────────────────────────────
@@ -421,19 +416,17 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
       if (waRes.ok) {
         waSentCount++;
         // Persist to whatsapp_chat_messages so staff and admin see the full conversation thread
-        prisma.whatsappChatMessage
-          .create({
-            data: {
-              phone,
-              direction: "OUTBOUND",
-              senderName: "System Broadcast",
-              body: `[Tuition Enquiry #${p.inquiryCode}]\nClient: ${p.clientName}\nClass: ${p.classLevel} (${p.subjects.slice(0, 2).join(", ")})\nMode: ${p.mode === "OFFLINE" ? "Home Tuition (Offline)" : "Online Class"}\nLocation: ${p.location}\nBudget: ${p.budgetFormatted}\nPreference: ${p.preference}`,
-              step: "BROADCAST_LEAD",
-              messageId: waRes.providerMessageId || null,
-              isRead: true,
-            },
-          })
-          .catch(() => {});
+        upsertWhatsAppChatMessage({
+          phone,
+          direction: "OUTBOUND",
+          senderName: "System Broadcast",
+          body: `[Tuition Enquiry #${p.inquiryCode}]\nClient: ${p.clientName}\nClass: ${p.classLevel} (${p.subjects.slice(0, 2).join(", ")})\nMode: ${p.mode === "OFFLINE" ? "Home Tuition (Offline)" : "Online Class"}\nLocation: ${p.location}\nBudget: ${p.budgetFormatted}\nPreference: ${p.preference}`,
+          step: "BROADCAST_LEAD",
+          messageId: waRes.providerMessageId || null,
+          messageType: "template",
+          status: waRes.rawStatus || "accepted",
+          isRead: true,
+        }).catch(() => {});
       } else {
         waFailedCount++;
         console.warn(`[WA Failed] ${phone} - ${waRes.error}`);

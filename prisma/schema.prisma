@@ -1171,7 +1171,10 @@ model WhatsappChatMessage {
   senderName  String?                       // "User" | "Bot" | Staff Member Name
   body        String   @db.Text             // Full message text
   step        String?                       // Bot step at time of message
-  messageId   String?                       // Provider message ID (Aqua/Meta)
+  messageId   String?  @unique              // Provider message ID (Aqua/Meta); nulls allowed
+  messageType String?                       // text, image, document, template, interactive, ...
+  status      String?                       // received, accepted, sent, delivered, read, failed
+  contactName String?                       // WhatsApp profile / contact name when known
   isRead      Boolean  @default(false)      // Marked true when staff views the message
   createdAt   DateTime @default(now())
 

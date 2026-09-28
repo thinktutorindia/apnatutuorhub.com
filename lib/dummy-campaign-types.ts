@@ -8,34 +8,34 @@
 export const CLASS_FEE_RATES = {
   "1-5": {
     label: "Class 1 to 5 (Primary)",
-    hourlyMin: 350,
-    hourlyMax: 500,
-    monthlyMin: 4000,
-    monthlyMax: 6500,
+    hourlyMin: 280,
+    hourlyMax: 360,
+    monthlyMin: 3600,
+    monthlyMax: 4400,
     classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Nursery", "KG", "LKG", "UKG", "Primary"],
   },
   "6-8": {
     label: "Class 6 to 8 (Middle)",
-    hourlyMin: 450,
-    hourlyMax: 650,
-    monthlyMin: 5500,
-    monthlyMax: 8500,
+    hourlyMin: 320,
+    hourlyMax: 420,
+    monthlyMin: 4200,
+    monthlyMax: 5000,
     classes: ["Class 6", "Class 7", "Class 8", "Middle School"],
   },
   "9-10": {
     label: "Class 9 to 10 (Secondary)",
-    hourlyMin: 550,
-    hourlyMax: 850,
-    monthlyMin: 7500,
-    monthlyMax: 12000,
+    hourlyMin: 320,
+    hourlyMax: 420,
+    monthlyMin: 4500,
+    monthlyMax: 5600,
     classes: ["Class 9", "Class 10", "Secondary"],
   },
   "11-12": {
     label: "Class 11 to 12 & Entrance",
-    hourlyMin: 850,
-    hourlyMax: 1400,
-    monthlyMin: 12000,
-    monthlyMax: 20000,
+    hourlyMin: 450,
+    hourlyMax: 620,
+    monthlyMin: 6000,
+    monthlyMax: 8000,
     classes: ["Class 11", "Class 12", "Senior Secondary", "JEE", "NEET", "IIT-JEE"],
   },
 };
@@ -216,9 +216,8 @@ export function cleanSubjectName(rawSubject: string): string {
 
 /**
  * Sanitizes subjects for the target class level:
- * 1. Class 11 & 12: No generic "Science"! Splits into Physics, Chemistry, Biology, Mathematics.
- * 2. Class 1–8: If "All Subjects" is present, keeps it unified (never "All Subjects, Political Science").
- *    Replaces senior-secondary subjects (Political Science, Accounts) with "Social Studies".
+ * 1. Class 1–8 (and nursery/KG): always "All Subjects".
+ * 2. Class 11 & 12: no generic "Science". Splits into Physics, Chemistry, or Biology.
  */
 export function sanitizeSubjectsForClassLevel(
   subjects: string[],
@@ -227,14 +226,15 @@ export function sanitizeSubjectsForClassLevel(
 ): string[] {
   const n = parseClassNumber(classLevel);
   const isSenior = n !== null ? n >= 11 : /11|12|jee|neet|senior/i.test(classLevel);
-  const isJunior = n !== null ? n <= 8 : /1|2|3|4|5|6|7|8|primary|middle/i.test(classLevel);
+  const isJunior = n !== null ? n <= 8 : /nursery|kg|primary|middle|class\s*[1-8]\b/i.test(classLevel);
+
+  if (isJunior) return ["All Subjects"];
 
   const cleaned = subjects.map(cleanSubjectName).filter(Boolean);
 
   const adapted = cleaned.map((s) => {
     if (isSenior) {
       if (/^science$/i.test(s) || /^general science$/i.test(s)) {
-        // Class 11 & 12 has NO generic Science! Replace with core PCB subject
         const pcb = ["Physics", "Chemistry", "Biology"];
         return pcb[seed % pcb.length];
       }
@@ -242,25 +242,10 @@ export function sanitizeSubjectsForClassLevel(
         return "Political Science";
       }
     }
-    if (isJunior) {
-      if (
-        /^political science$/i.test(s) ||
-        /^accountancy$/i.test(s) ||
-        /^business studies$/i.test(s) ||
-        /^sociology$/i.test(s)
-      ) {
-        return "Social Studies";
-      }
-    }
     return s;
   });
 
   let unique = [...new Set(adapted)];
-
-  // For Class 1-8, if "All Subjects" is present, don't combine with specific subjects
-  if (isJunior && unique.some((s) => /all subjects/i.test(s))) {
-    unique = ["All Subjects"];
-  }
 
   // Ensure Class 11/12 never retains "Science"
   if (isSenior) {
@@ -326,18 +311,18 @@ export function averageBudgetForLead(opts: {
       tMin *= 20;
       tMax *= 20;
     }
-    // Add realistic 15% premium to tutor's requested rate to make lead enticing
-    parts.push(((tMin + tMax) / 2) * 1.15);
+    parts.push((tMin + tMax) / 2);
   }
 
   let avg = parts.reduce((a, b) => a + b, 0) / parts.length;
-  avg *= areaFeeMultiplier(opts.city);
+  avg *= Math.min(areaFeeMultiplier(opts.city), 1.04);
 
-  const step = isHourly ? 50 : 500;
-  const spread = isHourly
-    ? opts.rng() > 0.45 ? 100 : 50
-    : opts.rng() > 0.45 ? 1000 : 500;
-  const min = Math.max(step, Math.round((avg - spread / 2) / step) * step);
+  const step = isHourly ? 10 : 50;
+  const spread = isHourly ? (classNum !== null && classNum >= 11 ? 30 : 20) : 150;
+  const ceiling = isHourly ? (classNum !== null && classNum >= 11 ? 620 : 400) : (classNum !== null && classNum <= 5 ? 4250 : 4850);
+  const floor = isHourly ? (classNum !== null && classNum >= 11 ? 450 : 320) : (classNum !== null && classNum <= 5 ? 3600 : 4200);
+  let min = Math.round(avg / step) * step;
+  min = Math.max(floor, Math.min(min, ceiling));
   const max = min + spread;
   return { min, max, isHourly };
 }

@@ -10,6 +10,7 @@ import { resolveParentContactForLead } from "@/lib/lead-contact-generator";
 import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
 import { generateDummyLead } from "@/lib/dummy-lead-engine";
 import { isLeadMatchedToTutor } from "@/lib/feed-matching";
+import { isTill8thClass } from "@/lib/lead-utils";
 
 export const metadata = { title: "Student Requirements | ApnaTutorHub" };
 
@@ -193,8 +194,6 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
   }
 
   for (const lead of rawLeads) {
-    if (lead.purchaseCount >= lead.maxTutors && !purchasedMap.has(lead.id)) continue;
-
     let leadLat = lead.latitude;
     let leadLng = lead.longitude;
     if ((leadLat == null || leadLng == null) && (lead.area || lead.city)) {
@@ -235,15 +234,15 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       id: lead.id,
       inquiryNumber: lead.inquiryNumber,
       parentProfileId: lead.parentProfileId,
-      subjects: cleanSubjs,
+      subjects: isTill8thClass(cleanCls) ? ["All Subjects"] : cleanSubjs,
       classLevel: cleanCls,
-      mode: lead.mode,
+      mode: isTill8thClass(cleanCls) ? "OFFLINE" : lead.mode,
       board: lead.board,
       budgetMin: lead.budgetMin,
       budgetMax: lead.budgetMax,
       area: resolvedContact?.area || lead.area,
       city: resolvedContact?.city || lead.city,
-      coinCost: lead.coinCost,
+      coinCost: getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax),
       purchaseCount: lead.purchaseCount,
       maxTutors: lead.maxTutors,
       distanceKm: distanceKm !== null ? Math.round(distanceKm * 10) / 10 : null,
@@ -326,9 +325,9 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
           budgetMax: dLead.budgetMax,
           area: dLead.locality || tutorProfile.address || "Delhi NCR",
           city: dLead.city || tutorProfile.city || "Delhi",
-          coinCost: 50,
-          purchaseCount: 1,
-          maxTutors: 5,
+          coinCost: getLeadPointCost(dLead.classLevel, dLead.budgetMin, dLead.budgetMax),
+          purchaseCount: 0,
+          maxTutors: 3,
           distanceKm: dLead.distanceKm ?? null,
           createdAt: new Date(Date.now() - (i * 3 + 2) * 3600 * 1000).toISOString(),
           timingPreference: dLead.timing || "Evening (4 PM - 7 PM)",

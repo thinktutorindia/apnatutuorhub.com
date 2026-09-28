@@ -11,7 +11,8 @@ import { prisma } from "@/lib/prisma";
 import { sendNotification as sendResendNotification, dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush, isWebPushConfigured } from "@/lib/web-push";
 import { isGenuineEmail } from "@/lib/lead-utils";
-import { getAquaWhatsAppConfig, sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
+import { getAquaWhatsAppConfig, sendAquaWhatsAppMessage, normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
+import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { buildAquaTuitionEnquiryPlaceholders } from "@/lib/lead-notify-template";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -236,6 +237,24 @@ async function dispatchNotification(
         });
         if (!wa.ok) {
           throw new Error(wa.error ?? "Aqua SMS WhatsApp send failed");
+        }
+        const loggedPhone = normalizeIndiaWhatsApp(userPhone);
+        if (loggedPhone) {
+          const textBody =
+            aqua.defaultTemplateId
+              ? `[template:${aqua.defaultTemplateId}] ${title}\n${message}`
+              : `${title}\n\n${message}${actionUrl ? `\n${actionUrl}` : ""}`;
+          await upsertWhatsAppChatMessage({
+            phone: loggedPhone,
+            direction: "OUTBOUND",
+            senderName: "Notification",
+            body: textBody,
+            step: "NOTIFICATION",
+            messageId: wa.providerMessageId ?? null,
+            messageType: aqua.defaultTemplateId ? "template" : "text",
+            status: wa.rawStatus ?? "accepted",
+            isRead: true,
+          }).catch((err) => console.warn("[chat-log] Failed to store notification WhatsApp:", err));
         }
         await prisma.notificationDelivery.update({
           where: { id: delivery.id },

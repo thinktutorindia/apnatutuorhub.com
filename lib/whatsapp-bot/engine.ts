@@ -18,6 +18,8 @@ import {
   getChatbotMatchingLeads,
   formatTutorLeadsAndPlansMessage,
   formatCoinPlansMessage,
+  formatCoinBalanceMessage,
+  getTutorCoinBalanceByPhone,
   formatParentDemoMessage,
   formatSingleLeadInquiry,
 } from "./leads-helper";
@@ -948,10 +950,47 @@ export async function processMessage(
     };
   }
 
+  // "I already have coins" and "how many coins" read the live wallet.
+  // A tutor who still has coins is not asked to buy another pack.
+  const asksCoinBalance =
+    /how many coins|kitne coins|coin balance|wallet balance|coins? (?:hai|hain|bache|bach[ae]|left|remaining)|mere (?:paas|pass).{0,24}coins|coins?.{0,24}(?:paas|pass|hain|hai)|already have coins|i (?:already )?have coins|coins? (?:already|to hain)/i.test(rawMessage);
+  const explicitPlanAsk =
+    /\b(buy coins|recharge|purchase coins|coin pack|membership|pricing|buy plan|plans?|kharid)\b/i.test(rawMessage);
+
+  if (asksCoinBalance && !explicitPlanAsk) {
+    const bal = await getTutorCoinBalanceByPhone(session.phone);
+    return {
+      reply: bal.found
+        ? formatCoinBalanceMessage(bal.balance)
+        : `Is number par tutor wallet nahi mila. Login karke coins check karein:\nhttps://apnatutorhub.com/tutor/wallet`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: bal.balance > 0
+        ? ["View All Leads 📋", "Open Wallet 💳", "Talk to Support 📞"]
+        : ["View Plans 💰", "View All Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
   // ── Global Leads & Plans shortcuts ──────────────────────────────────────────
   if (/plan|coin|pack|pricing|membership|buy coins|recharge|wallet/i.test(msg)) {
+    const bal = await getTutorCoinBalanceByPhone(session.phone);
+    if (bal.found && bal.balance > 0 && !explicitPlanAsk) {
+      return {
+        reply: formatCoinBalanceMessage(bal.balance),
+        nextStep: step === "WELCOME" ? "T_CONVO" : step,
+        updatedData: data,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["View All Leads 📋", "Open Wallet 💳", "Talk to Support 📞"],
+      };
+    }
+    const planReply = bal.found && bal.balance > 0
+      ? `Aapke wallet mein already *${bal.balance} coins* hain — leads abhi unlock kar sakte hain.\n\nAur coins chahiye hon to yeh current plan hai:\n\n${formatCoinPlansMessage()}`
+      : formatCoinPlansMessage();
     return {
-      reply: formatCoinPlansMessage(),
+      reply: planReply,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: session.userType || "TUTOR",

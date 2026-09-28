@@ -516,12 +516,11 @@ export async function generateDummyLead(opts: {
 
   const classLevel = pickClassForDay(effectiveClasses, userSeed, stable);
 
-  // Universal subject adaptation: Class 11/12 has NO generic Science (Physics/Chemistry/Bio instead).
-  // Class 1–8 keeps "All Subjects" clean and removes senior secondary subjects.
-  const finalSubjects = sanitizeSubjectsForClassLevel(subjects, classLevel, userSeed);
-
-  // Universal Rule: Class 1 to 8 is strictly MONTHLY; Class 9 and above is strictly HOURLY
+  // Class 1–8: All Subjects, monthly, home tuition. Class 9+: specific subjects, hourly, online or offline.
   const isTill8 = isTill8thClass(classLevel);
+  const finalSubjects = isTill8
+    ? ["All Subjects"]
+    : sanitizeSubjectsForClassLevel(subjects, classLevel, userSeed);
   const isHourly = !isTill8;
   const finalRateType: "HOURLY" | "MONTHLY" = isTill8 ? "MONTHLY" : "HOURLY";
 

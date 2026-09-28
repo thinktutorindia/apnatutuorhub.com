@@ -8,7 +8,7 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { calcProfileScore } from "@/lib/profile-score";
-import { formatLeadBudget, getInquiryDisplayCode } from "@/lib/lead-utils";
+import { formatLeadBudget, getInquiryDisplayCode, publicTutorSlots } from "@/lib/lead-utils";
 import { TutorAnalyticsWidget } from "@/components/tutor/TutorAnalyticsWidget";
 import { EnablePushBanner } from "@/components/EnablePushBanner";
 import { haversineDistanceKm } from "@/lib/haversine";
@@ -523,7 +523,7 @@ export default async function TutorDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {recentLeads.map((lead) => {
               const inquiryCode = getInquiryDisplayCode(lead);
-              const spotsLeft = Math.max(0, lead.maxTutors - lead.purchaseCount);
+              const spotsLeft = publicTutorSlots(lead.purchaseCount).left;
               return (
                 <div key={lead.id} className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#2D9E6B]/50 transition-all space-y-3 flex flex-col justify-between min-w-0 shadow-2xs">
                   <div className="space-y-2">

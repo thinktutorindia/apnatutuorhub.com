@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
+import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
 import { revalidatePath } from "next/cache";
 
@@ -87,6 +88,7 @@ export async function getWhatsAppChatThreadsAction(params?: {
         phone: string;
         direction: string;
         senderName: string | null;
+        contactName: string | null;
         body: string;
         step: string | null;
         messageId: string | null;
@@ -95,7 +97,7 @@ export async function getWhatsAppChatThreadsAction(params?: {
       }>
     >`
       SELECT DISTINCT ON (phone) 
-        id, phone, direction, "senderName", body, step, "messageId", "isRead", "createdAt"
+        id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt"
       FROM whatsapp_chat_messages
       ORDER BY phone, "createdAt" DESC
     `;
@@ -103,7 +105,6 @@ export async function getWhatsAppChatThreadsAction(params?: {
     // 2. Also get any sessions that may not have chat messages yet
     const sessions = await prisma.whatsappSession.findMany({
       orderBy: { lastMessageAt: "desc" },
-      take: 200,
     });
 
     const phoneSet = new Set<string>();
@@ -207,6 +208,7 @@ export async function getWhatsAppChatThreadsAction(params?: {
 
       const name =
         matchedUser?.name ||
+        latestMsg?.contactName ||
         sessionData.name ||
         (matchedSession?.userType ? `${matchedSession.userType} (${phone.slice(-4)})` : `User ${phone.slice(-4)}`);
 
@@ -303,12 +305,22 @@ export async function getWhatsAppChatMessagesAction(
       data: { isRead: true },
     });
 
-    // 2. Fetch all messages in chronological order
-    const rawMessages = await prisma.whatsappChatMessage.findMany({
-      where: { phone: normalized },
-      orderBy: { createdAt: "asc" },
-      take: 500,
-    });
+    // 2. Fetch the full local thread. History does not depend on Aqua still having it.
+    const rawMessages = [];
+    const pageSize = 1000;
+    let cursor: string | undefined;
+    for (;;) {
+      const batch = await prisma.whatsappChatMessage.findMany({
+        where: { phone: normalized },
+        orderBy: { createdAt: "asc" },
+        take: pageSize,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      rawMessages.push(...batch);
+      if (batch.length < pageSize || rawMessages.length >= 20000) break;
+      cursor = batch[batch.length - 1]?.id;
+      if (!cursor) break;
+    }
 
     const messages: WhatsAppChatMessageItem[] = rawMessages.map((m) => ({
       id: m.id,
@@ -346,7 +358,7 @@ export async function getWhatsAppChatMessagesAction(
 
     const contact: WhatsAppChatContactDetails = {
       phone: normalized,
-      name: user?.name || sessionData.name || `User ${normalized.slice(-4)}`,
+      name: user?.name || rawMessages.find((m) => m.contactName)?.contactName || sessionData.name || `User ${normalized.slice(-4)}`,
       email: user?.email || sessionData.email || null,
       role: user?.role || session?.userType || "LEAD",
       location:
@@ -408,18 +420,19 @@ export async function sendStaffWhatsAppReplyAction(params: {
       console.warn(`[sendStaffWhatsAppReplyAction] Aqua API warning: ${res.error}`);
     }
 
-    // 2. Persist to DB regardless so history is never lost
-    const saved = await prisma.whatsappChatMessage.create({
-      data: {
-        phone: normalized,
-        direction: "OUTBOUND",
-        senderName: `${staffName} (Staff)`,
-        body: cleanText,
-        step: "STAFF_REPLY",
-        messageId: res.providerMessageId || null,
-        isRead: true,
-      },
+    // 2. Append to our log immediately. Do not wait for Aqua to echo the message back.
+    const saved = await upsertWhatsAppChatMessage({
+      phone: normalized,
+      direction: "OUTBOUND",
+      senderName: `${staffName} (Staff)`,
+      body: cleanText,
+      step: "STAFF_REPLY",
+      messageId: res.providerMessageId || null,
+      messageType: "text",
+      status: res.ok ? res.rawStatus || "accepted" : "failed",
+      isRead: true,
     });
+    if (!saved) return actionError("Failed to store the reply in the local chat log.");
 
     revalidatePath("/admin/whatsapp-chats");
 

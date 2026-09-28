@@ -453,10 +453,6 @@ export async function findMatchingTutors(
     return [];
   }
 
-  if (lead.purchaseCount >= lead.maxTutors) {
-    return [];
-  }
-
   if (lead.mode === "ONLINE" && isTill8thClass(lead.classLevel)) {
     console.info(`[matching-engine] Online classes disabled for ${lead.classLevel} — returning 0 matches.`);
     return [];

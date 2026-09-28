@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { X, Sparkles, MapPin, BookOpen, IndianRupee, Globe, ArrowRight, BellRing } from "lucide-react";
 import { formatLeadBudget } from "@/lib/lead-utils";
+import { sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
 
 export type MatchingLeadAlert = {
   id: string;
@@ -99,15 +100,32 @@ export function TutorLeadNotificationPopup({
         </div>
 
         {/* Core Subject & Class */}
-        <div className="space-y-1 mb-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-            <BookOpen size={13} className="text-[#2D9E6B]" />
-            <span>Class {activeLead.classLevel || "Requirement"}</span>
-          </div>
-          <h4 className="text-base sm:text-lg font-black text-[#0F2540] line-clamp-1">
-            {activeLead.subjects.join(", ") || "All Subjects"}
-          </h4>
-        </div>
+        {(() => {
+          const rawClass = (activeLead.classLevel || "").trim();
+          const classDisplay = rawClass
+            ? rawClass.toLowerCase().startsWith("class")
+              ? rawClass
+              : `Class ${rawClass}`
+            : "Requirement";
+
+          const cleanSubjects = sanitizeSubjectsForClassLevel(
+            activeLead.subjects && activeLead.subjects.length > 0 ? activeLead.subjects : ["All Subjects"],
+            activeLead.classLevel || "Class 7"
+          );
+          const subjectsDisplay = cleanSubjects.join(", ") || "All Subjects";
+
+          return (
+            <div className="space-y-1 mb-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                <BookOpen size={13} className="text-[#2D9E6B]" />
+                <span>{classDisplay}</span>
+              </div>
+              <h4 className="text-base sm:text-lg font-black text-[#0F2540] line-clamp-1">
+                {subjectsDisplay}
+              </h4>
+            </div>
+          );
+        })()}
 
         {/* Badges: Location, Mode, Fees */}
         <div className="grid grid-cols-2 gap-2 text-xs font-bold mb-4">

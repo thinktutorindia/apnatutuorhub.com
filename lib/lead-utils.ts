@@ -82,8 +82,26 @@ export function getLeadRateType(lead?: {
   budgetMax?: number | null;
   notes?: string | null;
   timingPreference?: string | null;
+  classLevel?: string | null;
 } | null): BudgetRateType {
   if (!lead) return "MONTHLY";
+
+  // UNIVERSAL RULE:
+  // Class 1 to 8: Strictly MONTHLY (/mo or /month)
+  // Class 9 and above: Strictly HOURLY (/hr or /hour)
+  if (lead.classLevel) {
+    if (isTill8thClass(lead.classLevel)) {
+      return "MONTHLY";
+    }
+    const numMatch = lead.classLevel.match(/\b(\d{1,2})\b/);
+    if (numMatch && parseInt(numMatch[1], 10) >= 9) {
+      return "HOURLY";
+    }
+    if (/jee|neet|cuet|entrance|senior|coding|computer/i.test(lead.classLevel)) {
+      return "HOURLY";
+    }
+  }
+
   const notesLower = (lead.notes || "").toLowerCase();
   const timingLower = (lead.timingPreference || "").toLowerCase();
 
@@ -116,6 +134,7 @@ export function getLeadRateType(lead?: {
 
 /**
  * Formats lead budget range nicely with proper unit (/mo or /hr).
+ * Automatically normalizes any mismatched legacy values.
  */
 export function formatLeadBudget(
   lead?: {
@@ -123,6 +142,7 @@ export function formatLeadBudget(
     budgetMax?: number | null;
     notes?: string | null;
     timingPreference?: string | null;
+    classLevel?: string | null;
   } | null,
   style: "short" | "full" = "short"
 ): string {
@@ -133,18 +153,32 @@ export function formatLeadBudget(
   const isHourly = getLeadRateType(lead) === "HOURLY";
   const unit = style === "full" ? (isHourly ? " / hour" : " / month") : (isHourly ? "/hr" : "/mo");
 
-  if (lead.budgetMin && lead.budgetMax) {
-    if (lead.budgetMin === lead.budgetMax) {
-      return `₹${lead.budgetMin.toLocaleString("en-IN")}${unit}`;
+  let bMin = lead.budgetMin;
+  let bMax = lead.budgetMax;
+
+  // Normalization guard:
+  // If classified as Monthly (Class 1–8) but max is <= 1500 (likely stored as hourly), scale to realistic monthly (x12)
+  if (!isHourly && bMax && bMax <= 1500) {
+    bMin = bMin ? Math.round(bMin * 12) : null;
+    bMax = Math.round(bMax * 12);
+  } else if (isHourly && bMin && bMin >= 2500) {
+    // If classified as Hourly (Class 9+) but min is >= 2500 (stored as monthly), scale to approximate hourly (/14)
+    bMin = Math.round(bMin / 14 / 50) * 50;
+    bMax = bMax ? Math.round(bMax / 14 / 50) * 50 : null;
+  }
+
+  if (bMin && bMax) {
+    if (bMin === bMax) {
+      return `₹${bMin.toLocaleString("en-IN")}${unit}`;
     }
-    return `₹${lead.budgetMin.toLocaleString("en-IN")} – ₹${lead.budgetMax.toLocaleString("en-IN")} ${unit}`;
+    return `₹${bMin.toLocaleString("en-IN")} – ₹${bMax.toLocaleString("en-IN")} ${unit}`;
   }
 
-  if (lead.budgetMin) {
-    return `From ₹${lead.budgetMin.toLocaleString("en-IN")} ${unit}`;
+  if (bMin) {
+    return `From ₹${bMin.toLocaleString("en-IN")} ${unit}`;
   }
 
-  return `Up to ₹${lead.budgetMax!.toLocaleString("en-IN")} ${unit}`;
+  return `Up to ₹${bMax!.toLocaleString("en-IN")} ${unit}`;
 }
 
 /**

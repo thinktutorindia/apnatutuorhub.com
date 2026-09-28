@@ -156,19 +156,18 @@ export async function getWhatsAppChatThreadsAction(params?: {
         phone: true,
         email: true,
         role: true,
-        city: true,
         tutorProfile: {
           select: {
             id: true,
             subjects: true,
-            location: true,
+            address: true,
             city: true,
           },
         },
         parentProfile: {
           select: {
             id: true,
-            location: true,
+            address: true,
             city: true,
           },
         },
@@ -220,10 +219,10 @@ export async function getWhatsAppChatThreadsAction(params?: {
       }
 
       const location =
-        matchedUser?.city ||
         matchedUser?.tutorProfile?.city ||
-        matchedUser?.tutorProfile?.location ||
+        matchedUser?.tutorProfile?.address ||
         matchedUser?.parentProfile?.city ||
+        matchedUser?.parentProfile?.address ||
         sessionData.area ||
         sessionData.city ||
         null;
@@ -351,9 +350,10 @@ export async function getWhatsAppChatMessagesAction(
       email: user?.email || sessionData.email || null,
       role: user?.role || session?.userType || "LEAD",
       location:
-        user?.city ||
         user?.tutorProfile?.city ||
-        user?.tutorProfile?.location ||
+        user?.tutorProfile?.address ||
+        user?.parentProfile?.city ||
+        user?.parentProfile?.address ||
         sessionData.area ||
         sessionData.city ||
         null,
@@ -363,8 +363,8 @@ export async function getWhatsAppChatMessagesAction(
       isRegistered: Boolean(user),
       userId: user?.id || null,
       tutorProfileId: user?.tutorProfile?.id || null,
-      walletBalance: user?.tutorProfile?.wallet?.balance || null,
-      coinsBalance: user?.tutorProfile?.wallet?.coins || null,
+      walletBalance: user?.tutorProfile?.wallet?.balance ?? null,
+      coinsBalance: user?.tutorProfile?.wallet?.balance ?? null,
       sessionStep: session?.step || null,
       sessionData,
     };

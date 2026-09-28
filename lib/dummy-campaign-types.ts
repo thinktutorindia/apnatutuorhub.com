@@ -7,35 +7,35 @@
 
 export const CLASS_FEE_RATES = {
   "1-5": {
-    label: "Class 1 to 5",
-    hourlyMin: 300,
-    hourlyMax: 450,
-    monthlyMin: 3500,
-    monthlyMax: 5500,
+    label: "Class 1 to 5 (Primary)",
+    hourlyMin: 350,
+    hourlyMax: 500,
+    monthlyMin: 4000,
+    monthlyMax: 6500,
     classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Nursery", "KG", "LKG", "UKG", "Primary"],
   },
   "6-8": {
-    label: "Class 6 to 8",
-    hourlyMin: 400,
-    hourlyMax: 600,
-    monthlyMin: 5000,
-    monthlyMax: 7500,
+    label: "Class 6 to 8 (Middle)",
+    hourlyMin: 450,
+    hourlyMax: 650,
+    monthlyMin: 5500,
+    monthlyMax: 8500,
     classes: ["Class 6", "Class 7", "Class 8", "Middle School"],
   },
   "9-10": {
-    label: "Class 9 to 10",
+    label: "Class 9 to 10 (Secondary)",
     hourlyMin: 550,
-    hourlyMax: 800,
-    monthlyMin: 7000,
-    monthlyMax: 11000,
+    hourlyMax: 850,
+    monthlyMin: 7500,
+    monthlyMax: 12000,
     classes: ["Class 9", "Class 10", "Secondary"],
   },
   "11-12": {
-    label: "Class 11 to 12",
-    hourlyMin: 750,
-    hourlyMax: 1200,
-    monthlyMin: 10500,
-    monthlyMax: 18000,
+    label: "Class 11 to 12 & Entrance",
+    hourlyMin: 850,
+    hourlyMax: 1400,
+    monthlyMin: 12000,
+    monthlyMax: 20000,
     classes: ["Class 11", "Class 12", "Senior Secondary", "JEE", "NEET", "IIT-JEE"],
   },
 };
@@ -196,6 +196,62 @@ export function cleanSubjectName(rawSubject: string): string {
   return clean || rawSubject.trim();
 }
 
+/**
+ * Sanitizes subjects for the target class level:
+ * 1. Class 11 & 12: No generic "Science"! Splits into Physics, Chemistry, Biology, Mathematics.
+ * 2. Class 1–8: If "All Subjects" is present, keeps it unified (never "All Subjects, Political Science").
+ *    Replaces senior-secondary subjects (Political Science, Accounts) with "Social Studies".
+ */
+export function sanitizeSubjectsForClassLevel(
+  subjects: string[],
+  classLevel: string,
+  seed = 0
+): string[] {
+  const n = parseClassNumber(classLevel);
+  const isSenior = n !== null ? n >= 11 : /11|12|jee|neet|senior/i.test(classLevel);
+  const isJunior = n !== null ? n <= 8 : /1|2|3|4|5|6|7|8|primary|middle/i.test(classLevel);
+
+  const cleaned = subjects.map(cleanSubjectName).filter(Boolean);
+
+  const adapted = cleaned.map((s) => {
+    if (isSenior) {
+      if (/^science$/i.test(s) || /^general science$/i.test(s)) {
+        // Class 11 & 12 has NO generic Science! Replace with core PCB subject
+        const pcb = ["Physics", "Chemistry", "Biology"];
+        return pcb[seed % pcb.length];
+      }
+      if (/^social studies$/i.test(s) || /^sst$/i.test(s)) {
+        return "Political Science";
+      }
+    }
+    if (isJunior) {
+      if (
+        /^political science$/i.test(s) ||
+        /^accountancy$/i.test(s) ||
+        /^business studies$/i.test(s) ||
+        /^sociology$/i.test(s)
+      ) {
+        return "Social Studies";
+      }
+    }
+    return s;
+  });
+
+  let unique = [...new Set(adapted)];
+
+  // For Class 1-8, if "All Subjects" is present, don't combine with specific subjects
+  if (isJunior && unique.some((s) => /all subjects/i.test(s))) {
+    unique = ["All Subjects"];
+  }
+
+  // Ensure Class 11/12 never retains "Science"
+  if (isSenior) {
+    unique = unique.map((s) => (/^science$/i.test(s) ? "Physics" : s));
+  }
+
+  return unique.length > 0 ? unique : isSenior ? ["Physics", "Chemistry"] : ["All Subjects"];
+}
+
 export function feeBandKeyForClass(classLevel: string): FeeBandKey {
   const n = parseClassNumber(classLevel) ?? 7;
   if (n <= 5) return "1-5";
@@ -216,7 +272,7 @@ export function areaFeeMultiplier(city?: string | null): number {
 
 export function averageBudgetForLead(opts: {
   classLevel: string;
-  isHourly: boolean;
+  isHourly?: boolean;
   autoAdapt: boolean;
   campaignMin?: number;
   campaignMax?: number;
@@ -224,10 +280,15 @@ export function averageBudgetForLead(opts: {
   tutorFeeMax?: number | null;
   city?: string | null;
   rng: () => number;
-}): { min: number; max: number } {
+}): { min: number; max: number; isHourly: boolean } {
+  const classNum = parseClassNumber(opts.classLevel);
+
+  // Universal Rule: Class 1 to 8 is ALWAYS Monthly, Class 9 and above is ALWAYS Hourly
+  const isHourly = classNum !== null ? classNum >= 9 : Boolean(opts.isHourly);
+
   const band = CLASS_FEE_RATES[feeBandKeyForClass(opts.classLevel)];
-  const bandMin = opts.isHourly ? band.hourlyMin : band.monthlyMin;
-  const bandMax = opts.isHourly ? band.hourlyMax : band.monthlyMax;
+  const bandMin = isHourly ? band.hourlyMin : band.monthlyMin;
+  const bandMax = isHourly ? band.hourlyMax : band.monthlyMax;
   const bandAvg = (bandMin + bandMax) / 2;
 
   const parts = [bandAvg];
@@ -240,10 +301,10 @@ export function averageBudgetForLead(opts: {
     let tMin = opts.tutorFeeMin;
     let tMax = opts.tutorFeeMax;
     const looksMonthly = tMax > 1500;
-    if (opts.isHourly && looksMonthly) {
+    if (isHourly && looksMonthly) {
       tMin = Math.round(tMin / 24);
       tMax = Math.round(tMax / 24);
-    } else if (!opts.isHourly && !looksMonthly) {
+    } else if (!isHourly && !looksMonthly) {
       tMin *= 20;
       tMax *= 20;
     }
@@ -254,13 +315,13 @@ export function averageBudgetForLead(opts: {
   let avg = parts.reduce((a, b) => a + b, 0) / parts.length;
   avg *= areaFeeMultiplier(opts.city);
 
-  const step = opts.isHourly ? 50 : 500;
-  const spread = opts.isHourly
+  const step = isHourly ? 50 : 500;
+  const spread = isHourly
     ? opts.rng() > 0.45 ? 100 : 50
     : opts.rng() > 0.45 ? 1000 : 500;
   const min = Math.max(step, Math.round((avg - spread / 2) / step) * step);
   const max = min + spread;
-  return { min, max };
+  return { min, max, isHourly };
 }
 
 export type DummyCampaignCfg = {

@@ -92,7 +92,7 @@ export function WhatsAppChatInbox() {
       roleFilter: roleFilter !== "ALL" ? roleFilter : undefined,
       unreadOnly,
     });
-    if (res.ok && res.data) {
+    if (res.success && res.data) {
       setThreads(res.data.threads);
       setTotalUnread(res.data.totalUnread);
       // Auto-select first thread on initial load if none selected
@@ -128,7 +128,7 @@ export function WhatsAppChatInbox() {
 
     getWhatsAppChatMessagesAction(selectedPhone).then((res) => {
       if (!active) return;
-      if (res.ok && res.data) {
+      if (res.success && res.data) {
         setMessages(res.data.messages);
         setContact(res.data.contact);
         // Decrease unread count locally
@@ -150,7 +150,7 @@ export function WhatsAppChatInbox() {
       loadThreads(true);
       if (selectedPhone) {
         getWhatsAppChatMessagesAction(selectedPhone).then((res) => {
-          if (res.ok && res.data) {
+          if (res.success && res.data) {
             setMessages(res.data.messages);
             setContact(res.data.contact);
           }
@@ -189,7 +189,7 @@ export function WhatsAppChatInbox() {
         text: messageText,
       });
 
-      if (res.ok && res.data) {
+      if (res.success && res.data) {
         // Replace temp message with saved message
         setMessages((prev) =>
           prev.map((m) => (m.id === tempMsg.id ? res.data!.message : m))

@@ -282,30 +282,41 @@ function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
-export {
+import {
   CLASS_FEE_RATES,
   expandToIndividualClasses,
   pickClassForDay,
+  cleanSubjectName,
   parseCampaignCfg,
   serializeCampaignCfg,
   stripCampaignCfg,
   modeLabel,
   dummyLeadActionPath,
   parseDummyClaimedQuery,
+  averageBudgetForLead,
+  sanitizeSubjectsForClassLevel,
   type DummyLead,
   type DummyCampaignCfg,
   type DummyClaimedLeadInfo,
 } from "./dummy-campaign-types";
-import {
+
+export {
+  CLASS_FEE_RATES,
+  expandToIndividualClasses,
   pickClassForDay,
   cleanSubjectName,
-  expandToIndividualClasses,
-  averageBudgetForLead,
   parseCampaignCfg,
-  dummyLeadActionPath,
+  serializeCampaignCfg,
+  stripCampaignCfg,
   modeLabel,
+  dummyLeadActionPath,
+  parseDummyClaimedQuery,
+  averageBudgetForLead,
+  sanitizeSubjectsForClassLevel,
   type DummyLead,
-} from "./dummy-campaign-types";
+  type DummyCampaignCfg,
+  type DummyClaimedLeadInfo,
+};
 import { suggestNearbyLocalitiesAI } from "./dummy-locality-ai";
 
 export async function resolveLocalityDynamic(opts: {
@@ -503,9 +514,14 @@ export async function generateDummyLead(opts: {
 
   const classLevel = pickClassForDay(effectiveClasses, userSeed, stable);
 
-  const isHourly =
-    rateType === "HOURLY" ||
-    (rateType !== "MONTHLY" && (budgetMax === undefined || budgetMax <= 1500));
+  // Universal subject adaptation: Class 11/12 has NO generic Science (Physics/Chemistry/Bio instead).
+  // Class 1–8 keeps "All Subjects" clean and removes senior secondary subjects.
+  const finalSubjects = sanitizeSubjectsForClassLevel(subjects, classLevel, userSeed);
+
+  // Universal Rule: Class 1 to 8 is strictly MONTHLY; Class 9 and above is strictly HOURLY
+  const isTill8 = isTill8thClass(classLevel);
+  const isHourly = !isTill8;
+  const finalRateType: "HOURLY" | "MONTHLY" = isTill8 ? "MONTHLY" : "HOURLY";
 
   const { min: bMin, max: bMax } = averageBudgetForLead({
     classLevel,
@@ -520,7 +536,6 @@ export async function generateDummyLead(opts: {
   });
 
   let mode: DummyLead["mode"] = "OFFLINE";
-  const isTill8 = isTill8thClass(classLevel);
   if (isTill8) {
     // Class 1–8: strictly Home Tuition (Offline) — no online classes
     mode = "OFFLINE";
@@ -538,11 +553,11 @@ export async function generateDummyLead(opts: {
     studentName: pick(STUDENT_NAMES, rng),
     classLevel,
     board: pick(BOARDS, rng),
-    subjects,
+    subjects: finalSubjects,
     mode,
     budgetMin: bMin,
     budgetMax: bMax,
-    rateType: isHourly ? "HOURLY" : "MONTHLY",
+    rateType: finalRateType,
     days: pick(DAYS_OPTIONS, rng),
     timing: pick(TIME_OPTIONS, rng),
     isDummy: true,

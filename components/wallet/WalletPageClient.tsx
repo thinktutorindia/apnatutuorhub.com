@@ -89,7 +89,7 @@ export function WalletPageClient({
   userName,
   canTopup = true,
   isOldUser = false,
-  coinCosts = { class18: 20, class912: 30, competitive: 50 },
+  coinCosts = { class18: 10, class912: 20, competitive: 30 },
 }: {
   balance: number;
   totalPurchased: number;
@@ -163,18 +163,18 @@ export function WalletPageClient({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black uppercase tracking-wider text-amber-800">Free Coins Program</span>
-                  <span className="text-[10px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Earn 50 Coins</span>
+                  <span className="text-[10px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Earn 10 Free Coins</span>
                 </div>
                 <p className="text-sm font-black text-slate-900 mt-0.5">
-                  Record a 30-sec Video Review & Get 50 Free Coins!
+                  Record a 30-sec Video Review & Get 10 Free Coins!
                 </p>
                 <p className="text-xs text-slate-600 font-medium mt-1">
-                  Share your experience on Instagram or WhatsApp video to our coordinator. Coins credited instantly!
+                  Share your experience on Instagram or WhatsApp video to our coordinator. Unlocks 1 verified Class 1–8 tuition lead for free!
                 </p>
               </div>
             </div>
             <a
-              href="https://wa.me/919319193109?text=Hi%20ApnaTutorHub%2C%20I%20want%20to%20submit%20my%2030-sec%20video%20review%20for%2050%20free%20coins!"
+              href="https://wa.me/919319193109?text=Hi%20ApnaTutorHub%2C%20I%20want%20to%20submit%20my%2030-sec%20video%20review%20for%2010%20free%20coins!"
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md transition-all inline-flex items-center gap-1.5"
@@ -415,14 +415,35 @@ export function WalletPageClient({
               <h2 className="text-base font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
                 Coin Cost Guide
               </h2>
-              <p className="text-xs text-gray-600 font-600">Current platform rates — each lead card also shows its own cost</p>
+              <p className="text-xs text-gray-600 font-600">Universal platform rates — lead unlock cost corresponds to a fair ~5% of one month&apos;s student fee</p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {[
-              { label: "Class 1–8", cost: coinCosts.class18, badge: "Primary & Middle", bg: "bg-emerald-50 border-emerald-200", textColor: "text-emerald-950" },
-              { label: "Class 9–12", cost: coinCosts.class912, badge: "Board Prep", bg: "bg-blue-50 border-blue-200", textColor: "text-blue-950" },
-              { label: "JEE / NEET / Coding", cost: coinCosts.competitive, badge: "Entrance & Tech", bg: "bg-amber-50 border-amber-200", textColor: "text-amber-950" },
+              {
+                label: "Class 1–8",
+                cost: coinCosts.class18,
+                badge: "Primary & Middle",
+                billing: "Monthly Tuition (₹4,000 – ₹7,000 / mo)",
+                bg: "bg-emerald-50 border-emerald-200",
+                textColor: "text-emerald-950",
+              },
+              {
+                label: "Class 9–10",
+                cost: coinCosts.class912,
+                badge: "Secondary & Board",
+                billing: "Hourly Rate (₹550 – ₹850 / hr)",
+                bg: "bg-blue-50 border-blue-200",
+                textColor: "text-blue-950",
+              },
+              {
+                label: "Class 11–12 & Tech",
+                cost: coinCosts.competitive,
+                badge: "Entrance & Senior",
+                billing: "Hourly Rate (₹850 – ₹1,400+ / hr)",
+                bg: "bg-amber-50 border-amber-200",
+                textColor: "text-amber-950",
+              },
             ].map((tier) => (
               <div
                 key={tier.label}
@@ -435,7 +456,8 @@ export function WalletPageClient({
                 <p className="text-3xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
                   {tier.cost} <span className="text-lg font-700 text-amber-600">🪙</span>
                 </p>
-                <p className="text-[11px] font-600 text-gray-500">per unlocked contact</p>
+                <p className="text-[11px] font-700 text-emerald-800">{tier.billing}</p>
+                <p className="text-[10px] font-600 text-gray-500">per unlocked contact (~5% fee share)</p>
               </div>
             ))}
           </div>

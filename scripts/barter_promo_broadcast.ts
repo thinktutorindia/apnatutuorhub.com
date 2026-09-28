@@ -44,7 +44,7 @@ async function main() {
 
   for (const tutor of tutors) {
     const name = tutor.user.name || "Teacher";
-    const waText = `🎁 *Earn 50 FREE Coins on ApnaTutorHub (Worth ₹500)!*
+    const waText = `🎁 *Earn 10 FREE Coins on ApnaTutorHub (1 Free Lead Unlock!)*
 
 Namaste ${name}! 🎓
 
@@ -53,7 +53,7 @@ Aap ApnaTutorHub par bina kisi payment ke free leads unlock kar sakte hain hamar
 📹 *Kaise karein?*
 1. Apne phone se ek chhota sa 30–60 second ka video banayein (Apna experience / introduction as an ApnaTutorHub tutor).
 2. Use Instagram par post karein (@apnatutorhub ko tag karein) YA seedha is WhatsApp number par video bhej dein!
-3. Video aate hi aapke wallet mein *50 Free Coins* credit ho jayenge!
+3. Video aate hi aapke wallet mein *10 Free Coins* credit ho jayenge (1 Free Lead Unlock)!
 
 👉 Direct Coordinator WhatsApp: +91 93191 93109
 👉 Check Your Wallet: https://apnatutorhub.com/tutor/wallet
@@ -78,8 +78,8 @@ _Offer valid for this week only. Happy Teaching!_ 🙏`;
     await createNotification({
       userId: tutor.user.id,
       type: "SYSTEM",
-      title: "🎁 Get 50 Free Coins: Video Review Program",
-      message: "Send us a 30s video review on WhatsApp to get 50 free coins credited instantly!",
+      title: "🎁 Get 10 Free Coins: Video Review Program",
+      message: "Send us a 30s video review on WhatsApp to get 10 free coins credited instantly!",
       actionUrl: "/tutor/wallet",
     }).catch(() => {});
 

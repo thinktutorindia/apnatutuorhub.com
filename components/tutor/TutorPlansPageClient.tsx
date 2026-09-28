@@ -383,7 +383,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
                   <Layers size={14} className="text-emerald-600" />
-                  Lead Allocation by Parent Monthly Fee
+                  Lead Allocation by Universal Fee Structure
                 </span>
                 <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
                   Total 60 Plan Points
@@ -405,7 +405,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 ))}
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                *Lower fee inquiries take 10 points (up to 6 leads), standard ₹3k–₹5k fees take 20 points (up to 3 leads), higher fees take 30 points (up to 2 leads). Mix &amp; match freely!
+                *Class 1–8 leads cost 10 points (up to 6 leads), Class 9–10 leads cost 20 points (up to 3 leads), Class 11–12 &amp; competitive exam leads cost 30 points (up to 2 leads). Mix &amp; match freely!
               </p>
             </div>
 
@@ -465,7 +465,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
         {/* Asterisk Footnote */}
         <div className="text-center pt-6 text-xs font-semibold text-slate-500 max-w-3xl mx-auto">
-          *Lead quota on the ₹999 Growth Plan dynamically adapts based on parent tuition fee budget: <strong>Lower fee tuition (&lt; ₹3,000/mo: up to 6 leads)</strong>, <strong>Standard tuition (₹3,000–₹5,000/mo: up to 3 leads)</strong>, and <strong>Higher tuition (&gt; ₹5,000/mo: up to 2 high-earning leads)</strong>. You can mix and match classes freely using your 60 plan points.
+          *Lead quota on the ₹999 Growth Plan dynamically adapts based on universal fee structure: <strong>Class 1–8 Monthly tuition (up to 6 leads)</strong>, <strong>Class 9–10 Board prep (up to 3 leads)</strong>, and <strong>Class 11–12 / Competitive (up to 2 leads)</strong>. Lead cost represents a fair ~5% of one month&apos;s student fee. You can mix and match classes freely using your 60 plan points.
         </div>
 
         {/* ── TUITION FEE STRUCTURE LEAD SCHEDULE SECTION ── */}
@@ -482,7 +482,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               Tuition Fee Structure Lead Delivery Schedule
             </h2>
             <p className="text-xs sm:text-sm font-medium text-slate-300 leading-relaxed">
-              On the ₹999 Growth Plan, leads are dynamically unlocked based on the student requirement&apos;s monthly tuition fee. Lower fee inquiries give you up to 6 leads, while higher fee inquiries give you high-earning student tuitions.
+              On the ₹999 Growth Plan, leads are dynamically unlocked based on universal class &amp; tuition fee structure. Lead unlock costs represent a fair ~5% of one month&apos;s student tuition fee across all grades &amp; subjects.
             </p>
           </div>
 

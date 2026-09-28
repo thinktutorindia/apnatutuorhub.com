@@ -548,19 +548,19 @@ export async function verifyEmailOtpAction(
           onboardingStep: true,
           subjects: true,
           city: true,
-          location: true,
+          address: true,
         },
       },
     },
   });
 
-  // If user already has profile details (subjects, city, location, or completed onboarding), go to dashboard
+  // If user already has profile details (subjects, city, address, or completed onboarding), go to dashboard
   const isExistingProfile = Boolean(
     user?.tutorProfile &&
       ((user.tutorProfile.onboardingStep ?? 1) >= 7 ||
         (user.tutorProfile.subjects && user.tutorProfile.subjects.length > 0) ||
         user.tutorProfile.city ||
-        user.tutorProfile.location)
+        user.tutorProfile.address)
   );
 
   const dest = isExistingProfile ? "/tutor/dashboard" : "/tutor/onboarding";

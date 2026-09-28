@@ -21,7 +21,8 @@ import { renderNewMatchedLeadEmail } from "@/emails/NewMatchedLeadEmail";
 import { sendAquaWhatsAppMessage, normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 import { sendBatchEmails, type BatchEmailItem } from "@/lib/resend-service";
 import { generateDummyLead } from "@/lib/dummy-lead-engine";
-import { cleanSubjectName } from "@/lib/dummy-campaign-types";
+import { cleanSubjectName, sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
+import { getLeadPointCost } from "@/lib/subscription-plans";
 
 const MATCH_RADIUS_KM = 5;
 
@@ -35,13 +36,13 @@ function subjectsOverlap(tutorSubjects: string[], leadSubjects: string[]): boole
 }
 
 function pickTutorSubjects(tutorSubjects: string[], classLevel: string, seed: number): string[] {
-  const cleaned = [...new Set((tutorSubjects || []).map(cleanSubjectName).filter(Boolean))];
-  if (cleaned.length === 0) {
+  const sanitized = sanitizeSubjectsForClassLevel(tutorSubjects || [], classLevel, seed);
+  if (sanitized.length === 0) {
     return isTill8thClass(classLevel)
-      ? ["All Subjects (Maths, Science, English, Hindi, SST)"]
+      ? ["All Subjects"]
       : ["Mathematics"];
   }
-  return [cleaned[seed % cleaned.length], ...cleaned.filter((_, i) => i !== seed % cleaned.length)].slice(0, 2);
+  return [sanitized[seed % sanitized.length], ...sanitized.filter((_, i) => i !== seed % sanitized.length)].slice(0, 2);
 }
 
 export type GeoBroadcastMode = "dry-run" | "live" | "in-app-only";
@@ -65,16 +66,17 @@ function getHealthyBudget(classLevel: string, isOffline: boolean): { min: number
   const numMatch = classLevel.match(/\b(\d{1,2})\b/);
   const grade = numMatch ? parseInt(numMatch[1], 10) : 7;
 
+  // Universal Rule: Class 1–8 is STRICTLY Monthly, Class 9+ is STRICTLY Hourly
   if (grade <= 5) {
-    return { min: 6500, max: 8500, label: "₹6,500 – ₹8,500 / month" };
+    return { min: 4500, max: 6500, label: "₹4,500 – ₹6,500 / month" };
   }
   if (grade <= 8) {
-    return { min: 7500, max: 10500, label: "₹7,500 – ₹10,500 / month" };
+    return { min: 6000, max: 8500, label: "₹6,000 – ₹8,500 / month" };
   }
   if (grade <= 10) {
-    return { min: 9000, max: 13000, label: "₹9,000 – ₹13,000 / month" };
+    return { min: 600, max: 850, label: "₹600 – ₹850 / hr" };
   }
-  return { min: 12000, max: 18000, label: "₹12,000 – ₹18,000 / month" };
+  return { min: 950, max: 1400, label: "₹950 – ₹1,400 / hr" };
 }
 
 // ── Lead Payload Structure for Dispatch ────────────────────────────────────────
@@ -204,7 +206,7 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
         isTill8thClass(rawClass) ? "OFFLINE" : matchedRealLead.mode === "ONLINE" ? "ONLINE" : "OFFLINE";
       const subjects =
         matchedRealLead.subjects && matchedRealLead.subjects.length > 0
-          ? matchedRealLead.subjects.map(cleanSubjectName).filter(Boolean)
+          ? sanitizeSubjectsForClassLevel(matchedRealLead.subjects, rawClass, idx)
           : pickTutorSubjects(tutorSubjects, rawClass, idx);
 
       const budget = getHealthyBudget(rawClass, mode === "OFFLINE");
@@ -365,7 +367,7 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
       teachingMode: p.mode,
       budgetFormatted: p.budgetFormatted,
       timing: p.timing,
-      coinCost: 10,
+      coinCost: getLeadPointCost(p.classLevel),
       leadUrl: p.actionUrl,
     });
 

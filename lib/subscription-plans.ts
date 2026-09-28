@@ -46,127 +46,130 @@ export function getPriceWithGst(basePrice: number): number {
 
 export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
   {
-    classLevel: "Class 1–5",
-    gradeRange: "Primary & Foundation",
-    leadsCount: 10,
+    classLevel: "Class 1–8",
+    gradeRange: "Primary & Middle School",
+    leadsCount: 6,
     pointCost: 10,
-    description: "Unlock foundation leads for all primary subjects & phonics (10–30 leads by plan)",
-    popularSubjects: ["All Subjects", "Maths", "English", "Science", "EVS"],
-  },
-  {
-    classLevel: "Class 6–8",
-    gradeRange: "Middle School",
-    leadsCount: 8,
-    pointCost: 15,
-    description: "Unlock middle school leads for core academic subjects (8–24 leads by plan)",
-    popularSubjects: ["Mathematics", "Science", "English", "Social Science", "Hindi"],
+    description: "Unlock foundation & middle school leads (Monthly tuition fee ₹4,000–₹7,000/mo)",
+    popularSubjects: ["All Subjects", "Mathematics", "Science", "English", "Social Studies"],
   },
   {
     classLevel: "Class 9–10",
     gradeRange: "Secondary & Board Prep",
-    leadsCount: 6,
+    leadsCount: 3,
     pointCost: 20,
-    description: "Unlock board examination preparation leads (6–18 leads by plan)",
-    popularSubjects: ["Maths Standard/Basic", "Physics", "Chemistry", "Biology", "English"],
+    description: "Unlock secondary & board preparation leads (Hourly rate ₹550–₹850/hr)",
+    popularSubjects: ["Mathematics", "Physics", "Chemistry", "Biology", "English"],
   },
   {
     classLevel: "Class 11–12 & Entrance",
     gradeRange: "Senior Secondary / JEE / NEET",
-    leadsCount: 4,
+    leadsCount: 2,
     pointCost: 30,
-    description: "Unlock high-ticket senior secondary, JEE, NEET & CUET leads (4–12 leads by plan)",
-    popularSubjects: ["Physics", "Chemistry", "Mathematics", "Biology", "Accountancy", "Economics"],
+    description: "Unlock high-ticket senior secondary & competitive exam leads (Hourly rate ₹850–₹1,400+/hr)",
+    popularSubjects: ["Physics", "Chemistry", "Mathematics", "Biology", "Accountancy", "Coding"],
   },
 ];
 
 /**
  * Dynamic Lead Quota Breakdown by Tuition Fee Structure for ₹999 Growth Plan (60 pts total)
+ * Lead unlock cost corresponds to fair ~5% of one month's student fee.
  */
 export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   {
-    feeBand: "Lower Fee Leads",
-    monthlyRange: "Under ₹3,000 / month",
+    feeBand: "Class 1–8 (Primary & Middle)",
+    monthlyRange: "Monthly Tuition · ₹4,000 – ₹7,000 / mo",
     leadsCount: 6,
     pointCost: 10,
-    description: "Unlock up to 6 foundation & primary tuition leads (Nursery, KG, Class 1–5, Single Subjects, or basic tuition)",
-    popularClasses: ["Class 1–5", "Nursery / KG", "Spoken English", "Basic Maths"],
+    description: "Unlock up to 6 foundation & middle school leads (Class 1–8 all subjects, monthly billing)",
+    popularClasses: ["Class 1–5", "Class 6–8", "All Subjects", "Foundation"],
     badge: "⚡ Up to 6 Leads",
   },
   {
-    feeBand: "Standard Fee Leads",
-    monthlyRange: "₹3,000 – ₹5,000 / month",
+    feeBand: "Class 9–10 (Secondary & Board)",
+    monthlyRange: "Hourly Rate · ₹550 – ₹850 / hr",
     leadsCount: 3,
     pointCost: 20,
-    description: "Unlock up to 3 standard middle & secondary tuition leads (Class 6–10 core academic subjects)",
-    popularClasses: ["Class 6–8", "Class 9–10", "Board Preparation", "Science & Maths"],
+    description: "Unlock up to 3 board exam preparation leads (Class 9 & 10 Maths, Science, English)",
+    popularClasses: ["Class 9", "Class 10", "CBSE Board", "ICSE Board"],
     badge: "⚡ Up to 3 Leads",
   },
   {
-    feeBand: "Higher / High-Ticket Leads",
-    monthlyRange: "Above ₹5,000 / month",
+    feeBand: "Class 11–12 & Competitive",
+    monthlyRange: "Hourly Rate · ₹850 – ₹1,400+ / hr",
     leadsCount: 2,
     pointCost: 30,
-    description: "Unlock up to 2 high-ticket senior secondary & competitive exam leads (Class 11–12, JEE, NEET, CUET)",
-    popularClasses: ["Class 11–12", "IIT-JEE / NEET", "Commerce / Accounts", "CUET Prep"],
+    description: "Unlock up to 2 high-ticket senior secondary & entrance leads (Class 11–12 PCB/PCM, JEE, NEET, Coding)",
+    popularClasses: ["Class 11–12", "IIT-JEE / NEET", "Commerce / Accounts", "Coding / Tech"],
     badge: "⚡ Up to 2 Leads",
   },
 ];
 
 /**
- * Calculates lead point deduction based on student fee structure (budget) or class level fallback.
+ * Calculates lead point deduction based on class level (Primary) and fee structure.
+ * Standardizes lead unlock costs to ~5% of student monthly fee:
+ * - Class 1–8: 10 points (Monthly tuition ~₹5,000/mo)
+ * - Class 9–10: 20 points (Hourly tuition ~₹700/hr -> ~₹8,400/mo)
+ * - Class 11–12 / JEE / NEET: 30 points (Hourly tuition ~₹1,100/hr -> ~₹13,200/mo)
  */
 export function getLeadPointCost(
   classGrade?: string | null,
   budgetMin?: number | null,
   budgetMax?: number | null
 ): number {
-  // 1. If explicit monthly fee/budget is known, use fee-based pricing
-  const effectiveBudget = (budgetMax && budgetMax > 0)
-    ? budgetMax
-    : (budgetMin && budgetMin > 0)
-      ? budgetMin
-      : null;
+  const gradeStr = (classGrade || "").toLowerCase();
+  const numMatch = gradeStr.match(/\b(\d{1,2})\b/);
+  const gradeNum = numMatch ? parseInt(numMatch[1], 10) : null;
+
+  // 1. Direct class grade rules (Primary Source of Truth)
+  if (
+    (gradeNum !== null && gradeNum >= 11) ||
+    gradeStr.includes("jee") ||
+    gradeStr.includes("neet") ||
+    gradeStr.includes("cuet") ||
+    gradeStr.includes("entrance") ||
+    gradeStr.includes("senior") ||
+    gradeStr.includes("iit") ||
+    gradeStr.includes("coding")
+  ) {
+    return 30; // Class 11-12 & Entrance: 30 pts (~5% of ~₹14,000/mo value)
+  }
+
+  if (
+    (gradeNum !== null && (gradeNum === 9 || gradeNum === 10)) ||
+    gradeStr.includes("board") ||
+    gradeStr.includes("secondary") ||
+    gradeStr.includes("metric") ||
+    gradeStr.includes("matric")
+  ) {
+    return 20; // Class 9-10: 20 pts (~5% of ~₹8,400/mo value)
+  }
+
+  if (gradeNum !== null && gradeNum <= 8) {
+    return 10; // Class 1-8: 10 pts (~5% of ~₹5,000/mo value)
+  }
+
+  // 2. Budget evaluation fallback if grade couldn't be parsed
+  const effectiveBudget =
+    budgetMax && budgetMax > 0
+      ? budgetMax
+      : budgetMin && budgetMin > 0
+        ? budgetMin
+        : null;
 
   if (effectiveBudget !== null) {
-    if (effectiveBudget > 5000) return 30; // High ticket (> ₹5,000/mo)
-    if (effectiveBudget >= 3000) return 20; // Medium / Standard (₹3,000 – ₹5,000/mo)
-    return 10; // Low fee (< ₹3,000/mo)
+    // If rate is hourly (< 2000)
+    if (effectiveBudget < 2000) {
+      if (effectiveBudget >= 850) return 30;
+      if (effectiveBudget >= 500) return 20;
+      return 10;
+    }
+    // If rate is monthly (>= 2000)
+    if (effectiveBudget >= 10000) return 30;
+    if (effectiveBudget >= 6500) return 20;
+    return 10;
   }
 
-  // 2. Fallback to classGrade heuristic when fee is unspecified
-  if (!classGrade) return 15;
-  const lower = classGrade.toLowerCase();
-  if (
-    lower.includes("11") ||
-    lower.includes("12") ||
-    lower.includes("jee") ||
-    lower.includes("neet") ||
-    lower.includes("cuet") ||
-    lower.includes("entrance") ||
-    lower.includes("senior") ||
-    lower.includes("iit")
-  ) {
-    return 30;
-  }
-  if (
-    lower.includes("9") ||
-    lower.includes("10") ||
-    lower.includes("board") ||
-    lower.includes("secondary") ||
-    lower.includes("metric") ||
-    lower.includes("matric")
-  ) {
-    return 20;
-  }
-  if (
-    lower.includes("6") ||
-    lower.includes("7") ||
-    lower.includes("8") ||
-    lower.includes("middle")
-  ) {
-    return 15;
-  }
-  // Class 1-5 / Primary / Nursery / Kindergarten
   return 10;
 }
 
@@ -274,13 +277,13 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     badgeText: "text-blue-950 font-bold",
     cardBorder: "border-blue-400 shadow-xl ring-2 ring-blue-400/25",
     popular: true,
-    termsNote: "Up to 6 Verified Leads allocated according to student fee structure (Fees < ₹3k: 6 leads, Fees ₹3k–₹5k: 3 leads, Fees > ₹5k: 2 leads, or mixed). Valid for 30 days. Shared with max 3 tutors.",
+    termsNote: "Up to 6 Verified Leads allocated by universal fee structure (Class 1–8: 10 pts / up to 6 leads, Class 9–10: 20 pts / up to 3 leads, Class 11–12 & Competitive: 30 pts / up to 2 leads). Valid for 30 days. Shared with max 3 tutors.",
     features: [
       "✅ Up to 6 Verified Leads by fee structure",
-      "💰 Fees < ₹3,000/mo: Up to 6 Leads",
-      "📈 Fees ₹3,000–₹5,000/mo: Up to 3 Leads",
-      "⭐ Fees > ₹5,000/mo: Up to 2 Leads",
-      "🎉 0% Platform Commission (Keep 100%)",
+      "📚 Class 1–8 (Monthly Tuition): 10 pts (Up to 6 Leads)",
+      "📈 Class 9–10 (Hourly ₹550–₹850/hr): 20 pts (Up to 3 Leads)",
+      "⭐ Class 11–12 / JEE / NEET (Hourly ₹850–₹1,400/hr): 30 pts (Up to 2 Leads)",
+      "🎉 0% Platform Commission (Keep 100% of student fees!)",
       "👥 Low Competition: Max 3 tutors per lead",
       "Full Parent Contact Info (Direct Phone & Address)",
       "Expanded Matching Radius (up to 15 km)",

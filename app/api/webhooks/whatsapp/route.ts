@@ -57,10 +57,10 @@ function extractTextFromMessage(msg: Record<string, unknown>): string {
   // 4. Media Caption fallback
   if (!text && msg.image && typeof msg.image === "object") {
     const img = msg.image as Record<string, unknown>;
-    if (typeof img.caption === "string") text = img.caption;
+    text = (typeof img.caption === "string" && img.caption) || "[Photo / Document Uploaded for KYC/Verification]";
   } else if (!text && msg.document && typeof msg.document === "object") {
     const doc = msg.document as Record<string, unknown>;
-    if (typeof doc.caption === "string") text = doc.caption;
+    text = (typeof doc.caption === "string" && doc.caption) || (typeof doc.filename === "string" && `[Document: ${doc.filename}]`) || "[Document Uploaded for KYC/Verification]";
   }
 
   return text.trim();

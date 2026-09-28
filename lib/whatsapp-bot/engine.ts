@@ -393,20 +393,48 @@ export async function processMessage(
     };
   }
 
-  if (HELP_COMMANDS.includes(msg) || /^call$/i.test(msg.trim()) || /support/i.test(msg)) {
+  // ── Tutor Document Submission on WhatsApp ──────────────────────────────────
+  if (
+    /(?:\[photo\s*\/\s*document|\[document|\b(?:bhej\s*diya|bhej\s*diye|documents?\s*sent|documents?\s*attached|ye\s*lo|check\s*karo|check\s*kar\s*lo|upload\s*kar\s*diya)\b)/i.test(rawMessage)
+  ) {
     return {
-      reply: `📞 Hamare coordinator se seedha baat karein:\n\nWhatsApp: +91 93191 93109\nTime: 9am – 7pm (Mon–Sat)\n\nUnhe batayein aapka naam aur issue.`,
+      reply: `✅ *Documents Received for Verification!*\n\nAapke documents hamare verification desk ko receive ho gaye hain. 📋\n\nHamari team 2 se 4 working hours mein ise review karke aapke profile par *Verified Tutor Badge ✅* activate kar degi. Approval hote hi aapko yahan WhatsApp par confirmation mil jayega.\n\nTab tak aap fresh tuition requirements dekh sakte hain aur parents se connect kar sakte hain:\n👉 https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, kycDocsSubmittedOnWa: true },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Check Profile 👤", "Buy Coins 🪙"],
+    };
+  }
+
+  // ── KYC & Profile Verification Handler ──────────────────────────────────────
+  if (
+    /(?:kyc|verif|document|aadhaar|pan\s*card|identity|id\s*proof|marksheet|degree|profile\s*complet|complet.*profile|verify\s*profile)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `🎓 *ApnaTutorHub — Tutor Profile & KYC Verification Guide*\n\nNamaste Teacher! 🙏\nAap 2 aasan tareeqon se apna KYC verification complete karke *Verified Teacher Badge ✅* pa sakte hain:\n\n━━━━━━━━━━━━━━━━━━━\n*Option 1: Direct Website Par Upload Karein (Sabse Fast)*\n━━━━━━━━━━━━━━━━━━━\nNeeche diye gaye link par jakar Step 6 (KYC Badge) par click karein aur apne documents upload karein:\n👉 *Upload Portal:* https://apnatutorhub.com/tutor/profile\n\n*Zaroori Documents:*\n1️⃣ Government ID (Aadhaar Card Front & Back / PAN Card)\n2️⃣ Address Proof (Aadhaar / Utility Bill / Bank Passbook)\n3️⃣ Live Selfie (holding your ID)\n\n━━━━━━━━━━━━━━━━━━━\n*Option 2: Seedha Isi WhatsApp Par Bhejein*\n━━━━━━━━━━━━━━━━━━━\nAap *seedha isi chat par* apne documents ki photo bhej dein:\n📄 1. Aadhaar Card (Dono Taraf) ya PAN Card\n🎓 2. Highest Degree / Marksheet photo\n🤳 3. Ek clear Selfie\n\n*⏱️ Review Time:* Hamari verification team 2–4 ghante mein documents check karke aapka account verify kar degi.\n\n*⭐ Verified Tutor Hone Ke Fayde:*\n✅ Profile par 'Verified Teacher' green badge\n✅ Parents ki taraf se 5x zyada trust & direct inquiries\n✅ First Priority Lead Matching\n\n💡 *Lead Unlocking Note:* KYC verification optional hai — aap abhi bhi direct tuition leads unlock kar sakte hain bina KYC ke!\n👉 *All Leads:* https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, askedKyc: true },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Open Profile 👤", "Main Menu 🏠"],
+    };
+  }
+
+  if (HELP_COMMANDS.includes(msg) || /^call$/i.test(msg.trim()) || /^(?:support|help|madad|coordinator)$/i.test(msg.trim())) {
+    return {
+      reply: `📞 *ApnaTutorHub Support Desk*\n\nAapka message hamari coordinator team ko mil gaya hai. Hamara representative jald hi isi WhatsApp chat par aapko reply karega. 🙏\n\nAgar aapko direct call karni hai:\n📞 Helpline: 08062180653\n⏰ Time: 9:00 AM – 7:00 PM (Mon–Sat)\n\nAap apna specific sawaal ya problem yahan likhein — hum turant resolve karenge!`,
       nextStep: step,
       updatedData: data,
       retries: 0,
-      quickReplies: ["MENU", "View Leads", "Buy Coins"],
+      quickReplies: ["View Leads 📋", "View Plans 💰", "MENU 🏠"],
     };
   }
 
   // ── Staff Escalation: complaint / issue / problem / scam ─────────────────
   if (/\b(problem|issue|complaint|cheated|fraud|refund|not working|call me|fake|chor|scam|dhokha|loot|police|court)\b/i.test(rawMessage)) {
     return {
-      reply: `Samajh gaya. Seedha humse baat karo:\n\n📞 WhatsApp: +91 93191 93109\nTime: 9am–7pm (Mon–Sat)\n\nUnhe aapka naam aur issue batao.`,
+      reply: `Aapka issue register kar liya gaya hai. Hamare senior coordinator isi chat par aapki madad karenge.\n\n📞 Direct Helpline: 08062180653\nTime: 9am–7pm (Mon–Sat)\n\nKripya apna registered phone number aur issue ka detail yahan likhein.`,
       nextStep: step,
       updatedData: data,
       retries: 0,

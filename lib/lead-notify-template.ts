@@ -16,7 +16,8 @@
  * 🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads
  */
 
-import { getInquiryDisplayCode } from "@/lib/lead-utils";
+import { getInquiryDisplayCode, isTill8thClass } from "@/lib/lead-utils";
+import { sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
 
 export interface LeadTemplateData {
   id?: string | null;
@@ -98,7 +99,10 @@ export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
     )
   );
 
-  const subjectsStr = cleanedSubjects.join(", ");
+  // Sanitize: No generic "Science" in Class 11/12 (PCB instead); keep Class 1-8 All Subjects clean
+  const finalSubjects = sanitizeSubjectsForClassLevel(cleanedSubjects, data.classLevel || classBase);
+
+  const subjectsStr = finalSubjects.join(", ");
   const classStr = [
     classBase,
     subjectsStr ? `(${subjectsStr})` : "",
@@ -118,18 +122,53 @@ export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
   const locationBase = locationParts.join(", ") || data.city || "Delhi NCR";
   const locationStr = data.pincode ? `${locationBase} (Pin: ${data.pincode})` : locationBase;
 
+  // Universal Rule: Class 1–8 is STRICTLY Monthly, Class 9+ is STRICTLY Hourly
+  const isClassTill8 = isTill8thClass(data.classLevel || classBase);
   let feesStr = "₹5,000 / month";
-  if (data.feeMonthly) {
-    feesStr = `₹${data.feeMonthly} / month`;
-  } else if (data.budgetMin && data.budgetMax) {
-    feesStr =
-      data.budgetMin === data.budgetMax
-        ? `₹${data.budgetMin} / month`
-        : `₹${data.budgetMin} to ₹${data.budgetMax} ${data.budgetMin < 2000 ? '/hr' : '/month'}`;
-  } else if (data.budgetMin) {
-    feesStr = `₹${data.budgetMin} ${data.budgetMin < 2000 ? '/hr' : '/month'}`;
-  } else if (data.budgetMax) {
-    feesStr = `₹${data.budgetMax} ${data.budgetMax < 2000 ? '/hr' : '/month'}`;
+
+  if (isClassTill8) {
+    if (data.feeMonthly) {
+      feesStr = `₹${Number(data.feeMonthly).toLocaleString("en-IN")} / month`;
+    } else if (data.budgetMin && data.budgetMax) {
+      let bMin = data.budgetMin;
+      let bMax = data.budgetMax;
+      if (bMax <= 1500) {
+        bMin = Math.round(bMin * 12);
+        bMax = Math.round(bMax * 12);
+      }
+      feesStr =
+        bMin === bMax
+          ? `₹${bMin.toLocaleString("en-IN")} / month`
+          : `₹${bMin.toLocaleString("en-IN")} – ₹${bMax.toLocaleString("en-IN")} / month`;
+    } else if (data.budgetMin || data.budgetMax) {
+      let val = data.budgetMin || data.budgetMax || 5000;
+      if (val <= 1500) val = Math.round(val * 12);
+      feesStr = `₹${val.toLocaleString("en-IN")} / month`;
+    } else {
+      feesStr = "₹5,000 – ₹7,000 / month";
+    }
+  } else {
+    if (data.budgetMin && data.budgetMax) {
+      let bMin = data.budgetMin;
+      let bMax = data.budgetMax;
+      if (bMin >= 2500) {
+        bMin = Math.round(bMin / 14 / 50) * 50;
+        bMax = Math.round(bMax / 14 / 50) * 50;
+      }
+      feesStr =
+        bMin === bMax
+          ? `₹${bMin.toLocaleString("en-IN")} / hr`
+          : `₹${bMin.toLocaleString("en-IN")} – ₹${bMax.toLocaleString("en-IN")} / hr`;
+    } else if (data.budgetMin || data.budgetMax) {
+      let val = data.budgetMin || data.budgetMax || 800;
+      if (val >= 2500) val = Math.round(val / 14 / 50) * 50;
+      feesStr = `₹${val.toLocaleString("en-IN")} / hr`;
+    } else if (data.feeMonthly) {
+      const hRate = Math.round(Number(data.feeMonthly) / 14 / 50) * 50;
+      feesStr = `₹${hRate.toLocaleString("en-IN")} / hr`;
+    } else {
+      feesStr = "₹700 – ₹1,000 / hr";
+    }
   }
 
   let genderStr = "Any (Male or Female Tutor)";

@@ -18,7 +18,29 @@ const COIN_COST_KEY_BY_CLASS_LEVEL: Record<string, PlatformSettingKey> = {
 };
 
 export function coinCostSettingKey(classLevel: string): PlatformSettingKey {
-  return COIN_COST_KEY_BY_CLASS_LEVEL[classLevel] ?? "COIN_COST_CLASS_1_8";
+  const lower = (classLevel || "").toLowerCase();
+  if (
+    lower.includes("11") ||
+    lower.includes("12") ||
+    lower.includes("jee") ||
+    lower.includes("neet") ||
+    lower.includes("cuet") ||
+    lower.includes("coding") ||
+    lower.includes("ca") ||
+    lower.includes("senior") ||
+    lower.includes("entrance")
+  ) {
+    return "COIN_COST_COMPETITIVE_CODING";
+  }
+  if (
+    lower.includes("9") ||
+    lower.includes("10") ||
+    lower.includes("secondary") ||
+    lower.includes("board")
+  ) {
+    return "COIN_COST_CLASS_9_12";
+  }
+  return "COIN_COST_CLASS_1_8";
 }
 
 export type LeadCommercials = {

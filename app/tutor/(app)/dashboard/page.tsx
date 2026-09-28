@@ -15,6 +15,10 @@ import { haversineDistanceKm } from "@/lib/haversine";
 import { hasSubjectOverlap } from "@/lib/feed-matching";
 import { resolveLocationCoordinates } from "@/lib/geocoding";
 import { isGenderCompatible } from "@/lib/matching-engine";
+import {
+  cleanClassLevelDisplay,
+  sanitizeSubjectsForClassLevel,
+} from "@/lib/dummy-campaign-types";
 import { TutorLeadNotificationPopup } from "@/components/tutor/TutorLeadNotificationPopup";
 
 export default async function TutorDashboardPage() {
@@ -87,7 +91,7 @@ export default async function TutorDashboardPage() {
     { done: (tutorProfile?.subjects?.length ?? 0) >= 3, label: "Add subjects (3+)" },
     { done: (tutorProfile?.classLevels?.length ?? 0) >= 2, label: "Select class levels (2+)" },
     { done: (tutorProfile?.bio?.length ?? 0) >= 20, label: "Write your bio" },
-    { done: !!tutorProfile?.feeMin, label: "Set your hourly fee" },
+    { done: !!tutorProfile?.feeMin, label: "Set your tuition fee" },
     { done: !!tutorProfile?.city, label: "Set your city" },
     { done: isKycApproved, label: "Complete KYC verification (Optional)" },
   ];
@@ -547,7 +551,7 @@ export default async function TutorDashboardPage() {
 
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-800 px-2.5 py-0.5 rounded-full bg-[#0F2540] text-white">
-                        {lead.classLevel || "Tuition"}
+                        {cleanClassLevelDisplay(lead.classLevel) || "Tuition"}
                       </span>
                       <span className="text-[11px] font-700 text-[#64748B] bg-white px-2 py-0.5 rounded-md border border-slate-200">
                         {lead.mode === "ONLINE" ? "Online Class" : "Home Tuition"}
@@ -560,7 +564,11 @@ export default async function TutorDashboardPage() {
                     </div>
 
                     <h3 className="text-sm font-800 text-[#0F2540] leading-snug">
-                      {(lead.subjects && lead.subjects.slice(0, 3).join(", ")) || "Multiple subjects"}
+                      {(lead.subjects &&
+                        sanitizeSubjectsForClassLevel(lead.subjects, lead.classLevel)
+                          .slice(0, 3)
+                          .join(", ")) ||
+                        "Multiple subjects"}
                     </h3>
 
                     <p className="text-xs text-[#64748B] flex items-center gap-1 min-w-0">

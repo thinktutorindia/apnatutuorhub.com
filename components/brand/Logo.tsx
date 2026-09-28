@@ -59,12 +59,12 @@ export function LogoBrand({
   light?: boolean;
 }) {
   const frame = (
-    <span className={`relative block h-10 w-[200px] sm:h-11 sm:w-[240px] max-w-[52vw]`}>
+    <span className={`relative block h-9 w-[185px] sm:h-10 sm:w-[210px] max-w-[50vw]`}>
       <Image
         src={LOGO_SRC}
         alt="ApnaTutorHub"
         fill
-        sizes="240px"
+        sizes="210px"
         className="object-contain object-left"
         priority
         unoptimized

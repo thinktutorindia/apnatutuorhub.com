@@ -30,7 +30,7 @@ interface Props {
 const FAQ_ITEMS = [
   {
     q: "How does the tuition fee structure lead allocation work on the ₹999 Plan?",
-    a: "On the ₹999 Growth Plan, leads are dynamically unlocked based on student tuition fees: Lower fee leads (under ₹3,000/month) give you up to 6 leads; standard fee leads (₹3,000 to ₹5,000/month) give you up to 3 leads; higher fee leads (above ₹5,000/month) give you up to 2 high-earning leads. You can also mix and match freely across classes and fees using your 60 plan points!",
+    a: "On the ₹999 Growth Plan, leads are dynamically unlocked based on the universal fee structure using your 60 plan points: Class 1–8 leads (Monthly billing ₹4,000–₹8,000/mo) cost 10 points each (up to 6 leads); Class 9–10 board leads (Hourly billing ₹550–₹850/hr) cost 20 points each (up to 3 leads); Class 11–12 & competitive entrance leads (Hourly billing ₹850–₹1,400+/hr) cost 30 points each (up to 2 leads). You can mix and match freely across classes!",
   },
   {
     q: "Is there any platform commission on the ₹999 Growth Plan?",
@@ -581,24 +581,33 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   {showSpecialOffer && (
                     <td className="py-3.5 px-4 text-center font-bold text-slate-900">1 Verified Lead (Any class)</td>
                   )}
-                  <td className="py-3.5 px-4 text-center font-bold text-emerald-800 bg-emerald-50/20">Up to 6 Leads* (by fee structure)</td>
+                  <td className="py-3.5 px-4 text-center font-bold text-emerald-800 bg-emerald-50/20">Up to 6 Leads* (Total 60 Plan Points)</td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Lower Fee Leads (&lt; ₹3,000/mo)</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-900">
+                    <div>Class 1–8 Leads</div>
+                    <div className="text-[11px] font-normal text-slate-500">Monthly Tuition · ₹4,000–₹8,000 / mo</div>
+                  </td>
                   {showSpecialOffer && (
                     <td className="py-3.5 px-4 text-center font-bold text-slate-700">1 Lead</td>
                   )}
                   <td className="py-3.5 px-4 text-center font-black text-emerald-700 bg-emerald-50/20">Up to 6 Leads (10 pts/lead)</td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Standard Fee Leads (₹3,000–₹5,000/mo)</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-900">
+                    <div>Class 9–10 Leads</div>
+                    <div className="text-[11px] font-normal text-slate-500">Hourly Rate · ₹550–₹850 / hr</div>
+                  </td>
                   {showSpecialOffer && (
                     <td className="py-3.5 px-4 text-center font-bold text-slate-700">1 Lead</td>
                   )}
                   <td className="py-3.5 px-4 text-center font-black text-emerald-700 bg-emerald-50/20">Up to 3 Leads (20 pts/lead)</td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Higher Fee Leads (&gt; ₹5,000/mo)</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-900">
+                    <div>Class 11–12 &amp; Entrance Leads</div>
+                    <div className="text-[11px] font-normal text-slate-500">Hourly Rate · ₹850–₹1,400+ / hr</div>
+                  </td>
                   {showSpecialOffer && (
                     <td className="py-3.5 px-4 text-center font-bold text-slate-700">1 Lead</td>
                   )}
@@ -659,7 +668,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               <span>Transparent Terms &amp; Verified Lead Guarantee</span>
             </h4>
             <p className="text-xs font-medium text-slate-600 max-w-2xl leading-relaxed">
-              All lead allowances (<strong>Growth Plan: up to 6 leads by fee structure</strong>), 0% platform commission terms, validity (30 days), and the low-competition tutor cap (max 3 tutors) are governed by our platform terms.
+              All lead allowances (<strong>Growth Plan: up to 6 leads across Class 1–8 monthly, Class 9–10 hourly, and Class 11–12 hourly</strong>), 0% platform commission terms, validity (30 days), and the low-competition tutor cap (max 3 tutors) are governed by our platform terms.
             </p>
           </div>
           <Link

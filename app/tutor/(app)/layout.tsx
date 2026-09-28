@@ -112,8 +112,8 @@ export default async function TutorAppLayout({
     <div className="flex min-h-screen flex-col bg-[#F0F4F8]">
       {/* Top sticky header */}
       <header className="sticky top-0 z-40 bg-white border-b border-[#E2E8F0] shadow-[0_2px_12px_rgba(15,37,64,0.05)] overflow-x-clip">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 md:h-[72px] flex items-center gap-4 min-w-0">
-          <div className="shrink-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 md:h-[72px] flex items-center justify-between gap-3 lg:gap-5 min-w-0">
+          <div className="shrink-0 mr-1 lg:mr-3">
             <LogoBrand href="/tutor/dashboard" />
           </div>
 

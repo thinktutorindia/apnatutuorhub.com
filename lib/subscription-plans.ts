@@ -50,7 +50,7 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
     gradeRange: "Primary & Middle School",
     leadsCount: 6,
     pointCost: 10,
-    description: "Unlock foundation & middle school leads (Monthly tuition fee ₹4,000–₹7,000/mo)",
+    description: "Unlock foundation & middle school leads (Monthly tuition fee ₹4,000–₹8,000/mo)",
     popularSubjects: ["All Subjects", "Mathematics", "Science", "English", "Social Studies"],
   },
   {
@@ -78,7 +78,7 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
 export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   {
     feeBand: "Class 1–8 (Primary & Middle)",
-    monthlyRange: "Monthly Tuition · ₹4,000 – ₹7,000 / mo",
+    monthlyRange: "Monthly Tuition · ₹4,000 – ₹8,000 / mo",
     leadsCount: 6,
     pointCost: 10,
     description: "Unlock up to 6 foundation & middle school leads (Class 1–8 all subjects, monthly billing)",

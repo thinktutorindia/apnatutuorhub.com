@@ -29,6 +29,11 @@ import {
 } from "@/app/actions/leads.actions";
 import { FieldError, FormAlert } from "@/components/ui/FieldError";
 import { getLeadPointCost } from "@/lib/subscription-plans";
+import { isTill8thClass } from "@/lib/lead-utils";
+import {
+  cleanClassLevelDisplay,
+  sanitizeSubjectsForClassLevel,
+} from "@/lib/dummy-campaign-types";
 
 const applicationInitial: ApplicationState = { success: false };
 
@@ -177,7 +182,10 @@ export function LeadPurchaseModal({
                 {stage === "success" ? "Lead Unlocked Successfully! 🎉" : "Unlock Student Requirement"}
               </h2>
               <p className="text-xs font-semibold text-slate-500">
-                {lead.classLevel} · {lead.subjects.slice(0, 3).join(", ")}
+                {cleanClassLevelDisplay(lead.classLevel)} ·{" "}
+                {sanitizeSubjectsForClassLevel(lead.subjects, lead.classLevel)
+                  .slice(0, 3)
+                  .join(", ")}
               </p>
             </div>
           </div>
@@ -355,13 +363,15 @@ export function LeadPurchaseModal({
                     {contact.phone && <CopyButton text={contact.phone} />}
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-semibold">Email:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="font-bold text-[#0F2540]">{contact.email}</span>
-                    <CopyButton text={contact.email} />
+                {contact.email && !contact.email.startsWith("wa_") && !contact.email.includes("apnatutorhub") && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-semibold">Email:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-[#0F2540]">{contact.email}</span>
+                      <CopyButton text={contact.email} />
+                    </div>
                   </div>
-                </div>
+                )}
                 {(contact.area || contact.city || contact.pincode) && (
                   <div className="flex items-start justify-between">
                     <span className="text-slate-500 font-semibold">Address:</span>
@@ -403,7 +413,11 @@ export function LeadPurchaseModal({
                   type="number"
                   min={0}
                   step={50}
-                  placeholder="Expected Monthly / Hourly Fee Quote (₹)"
+                  placeholder={
+                    isTill8thClass(lead.classLevel)
+                      ? "Expected Monthly Fee Quote (₹ / month)"
+                      : "Expected Hourly Fee Quote (₹ / hour)"
+                  }
                   className="w-full rounded-2xl pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B]"
                 />
               </div>

@@ -49,6 +49,24 @@ export function parseClassNumber(label: string): number | null {
   return n >= 1 && n <= 12 ? n : null;
 }
 
+export function cleanClassLevelDisplay(raw?: string | null): string {
+  if (!raw) return "Class 7";
+  const s = String(raw).trim();
+  const m = s.match(/(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?\b/i);
+  if (m) {
+    const num = parseInt(m[1], 10);
+    if (num >= 1 && num <= 12) return `Class ${num}`;
+  }
+  if (/nursery/i.test(s)) return "Nursery";
+  if (/lkg/i.test(s)) return "LKG";
+  if (/ukg/i.test(s)) return "UKG";
+  if (/kg/i.test(s)) return "KG";
+  if (/jee/i.test(s)) return "JEE";
+  if (/neet/i.test(s)) return "NEET";
+  if (/cuet/i.test(s)) return "CUET";
+  return s.length > 18 ? "Class 8" : s;
+}
+
 export function expandToIndividualClasses(inputClasses?: string[] | null): string[] {
   if (!inputClasses || inputClasses.length === 0) {
     return Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`);

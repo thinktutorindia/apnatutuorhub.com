@@ -5,7 +5,8 @@ import { getSubscriptionPlan, getLeadPointCost, getPlanTotalPoints } from "@/lib
 import { LeadFeedClient, type FeedLead } from "@/components/tutor/LeadFeedClient";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { resolveLocationCoordinates } from "@/lib/geocoding";
-import { parseDummyClaimedQuery } from "@/lib/dummy-campaign-types";
+import { parseDummyClaimedQuery, cleanClassLevelDisplay, sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
+import { resolveParentContactForLead } from "@/lib/lead-contact-generator";
 import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
 import { generateDummyLead } from "@/lib/dummy-lead-engine";
 import { isLeadMatchedToTutor } from "@/lib/feed-matching";
@@ -226,18 +227,22 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
     const purchaseInfo = purchasedMap.get(lead.id);
     const isPurchased = Boolean(purchaseInfo);
 
+    const cleanCls = cleanClassLevelDisplay(lead.classLevel);
+    const cleanSubjs = sanitizeSubjectsForClassLevel(lead.subjects, cleanCls);
+    const resolvedContact = isPurchased ? resolveParentContactForLead(lead) : null;
+
     feedLeads.push({
       id: lead.id,
       inquiryNumber: lead.inquiryNumber,
       parentProfileId: lead.parentProfileId,
-      subjects: lead.subjects,
-      classLevel: lead.classLevel,
+      subjects: cleanSubjs,
+      classLevel: cleanCls,
       mode: lead.mode,
       board: lead.board,
       budgetMin: lead.budgetMin,
       budgetMax: lead.budgetMax,
-      area: lead.area,
-      city: lead.city,
+      area: resolvedContact?.area || lead.area,
+      city: resolvedContact?.city || lead.city,
       coinCost: lead.coinCost,
       purchaseCount: lead.purchaseCount,
       maxTutors: lead.maxTutors,
@@ -254,15 +259,15 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       purchaseId: purchaseInfo?.id ?? null,
       purchasedAt: purchaseInfo?.createdAt ? purchaseInfo.createdAt.toISOString() : null,
       status: lead.status,
-      parentDetails: isPurchased
+      parentDetails: isPurchased && resolvedContact
         ? {
-            name: lead.parentProfile.user.name || "Parent",
-            phone: lead.parentProfile.user.phone || null,
-            email: lead.parentProfile.user.email || null,
-            address: lead.parentProfile.address || null,
-            city: lead.city || lead.parentProfile.city || null,
+            name: resolvedContact.name,
+            phone: resolvedContact.phone,
+            email: resolvedContact.email,
+            address: resolvedContact.area,
+            city: resolvedContact.city,
             state: lead.parentProfile.state || null,
-            pincode: lead.pincode || lead.parentProfile.pincode || null,
+            pincode: resolvedContact.pincode || null,
             board: lead.board || null,
             tutorGenderPref: lead.tutorGenderPref || null,
             languagePref: lead.languagePref || null,

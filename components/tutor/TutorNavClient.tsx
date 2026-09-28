@@ -130,14 +130,14 @@ export function TutorNavClient({ userName, userEmail, walletBalance, unreadCount
 
   return (
     <>
-      <nav className="hidden xl:flex flex-1 items-center justify-center gap-1 min-w-0">
-        {NAV_ITEMS.map((item) => {
+      <nav className="hidden xl:flex flex-1 items-center justify-center gap-0.5 2xl:gap-1.5 min-w-0 px-2">
+        {NAV_ITEMS.filter((i) => i.href !== "/tutor/help").map((item) => {
           const active = isActive(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`group flex items-center gap-1.5 px-2.5 py-2 text-sm font-700 whitespace-nowrap border-b-2 min-h-11 ${
+              className={`group flex items-center gap-1.5 px-2 2xl:px-3 py-1.5 text-xs 2xl:text-sm font-700 whitespace-nowrap border-b-2 min-h-11 ${
                 active
                   ? "border-[#2D9E6B] text-[#2D9E6B]"
                   : "border-transparent text-[#64748B] hover:text-[#0F2540]"

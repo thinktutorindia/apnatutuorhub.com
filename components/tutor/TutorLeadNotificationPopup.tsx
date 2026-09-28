@@ -76,7 +76,7 @@ export function TutorLeadNotificationPopup({
     <div
       role="alertdialog"
       aria-label="New matching tuition inquiry"
-      className="fixed bottom-4 right-4 z-50 max-w-sm sm:max-w-md w-full animate-in slide-in-from-bottom-6 fade-in duration-300"
+      className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 max-w-sm sm:max-w-md w-full animate-in slide-in-from-bottom-6 fade-in duration-300"
     >
       <div className="relative overflow-hidden rounded-3xl bg-white border-2 border-emerald-500 shadow-2xl p-5 text-slate-900 ring-4 ring-emerald-500/10">
         {/* Glow accent */}

@@ -1,11 +1,22 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
 export function FloatingWhatsAppButton() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+
+  // Do not show marketing/parent floating WhatsApp button on tutor dashboard/portal, admin workspace, or chat
+  if (
+    pathname.startsWith("/tutor") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/chat")
+  ) {
+    return null;
+  }
 
   // Auto-show speech bubble after 3 seconds for better engagement
   useEffect(() => {

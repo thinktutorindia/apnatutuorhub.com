@@ -41,7 +41,11 @@ import { getInquiryDisplayCode, formatLeadBudget } from "@/lib/lead-utils";
 import { getLeadPointCost } from "@/lib/subscription-plans";
 import { RequestLeadRefundButton } from "@/components/tutor/RequestLeadRefundButton";
 import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
-import type { DummyClaimedLeadInfo } from "@/lib/dummy-campaign-types";
+import {
+  cleanClassLevelDisplay,
+  sanitizeSubjectsForClassLevel,
+  type DummyClaimedLeadInfo,
+} from "@/lib/dummy-campaign-types";
 import { hasSubjectOverlap, isLeadMatchedToTutor } from "@/lib/feed-matching";
 import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
 
@@ -312,7 +316,7 @@ function LeadCard({
               </span>
 
               <span className="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-[#0F2540] text-white shadow-2xs">
-                {lead.classLevel}
+                {cleanClassLevelDisplay(lead.classLevel)}
               </span>
 
               {lead.board && (
@@ -460,7 +464,10 @@ function LeadCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
               Required Subjects
             </span>
-            <UserSubjectChips subjects={lead.subjects} maxVisible={3} />
+            <UserSubjectChips
+              subjects={sanitizeSubjectsForClassLevel(lead.subjects, lead.classLevel)}
+              maxVisible={3}
+            />
           </div>
 
           {/* Shortlisted Banner */}
@@ -529,12 +536,16 @@ function LeadCard({
                   </p>
                 </div>
 
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 block">Email</span>
-                  <p className="font-bold text-[#0F2540] truncate">
-                    {lead.parentDetails.email || "—"}
-                  </p>
-                </div>
+                {lead.parentDetails.email &&
+                  !lead.parentDetails.email.startsWith("wa_") &&
+                  !lead.parentDetails.email.includes("@apnatutorhub") && (
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 block">Email</span>
+                      <p className="font-bold text-[#0F2540] truncate">
+                        {lead.parentDetails.email}
+                      </p>
+                    </div>
+                  )}
 
                 <div className="sm:col-span-2">
                   <span className="text-[10px] font-bold text-slate-500 block">Address & Locality</span>

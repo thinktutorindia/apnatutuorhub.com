@@ -21,6 +21,7 @@ import { getNextInquiryNumber } from "@/lib/lead-utils";
 import { geocodeLocation } from "@/lib/geocoding";
 import { logActivity, ActivityEvent } from "@/lib/activity-logger";
 import { createNotification } from "@/lib/notification-engine";
+import { resolveParentContactForLead } from "@/lib/lead-contact-generator";
 
 export type RequirementState = ActionResult<{ leadId: string; coinCost?: number }>;
 
@@ -821,15 +822,17 @@ export async function purchaseLeadAction(
     });
   });
 
+  const resolvedContact = resolveParentContactForLead(lead);
+
   return actionSuccess({
     purchaseId: result.id,
     parentContact: {
-      name: lead.parentProfile.user.name || "ApnaTutorHub Coordinator Desk",
-      email: lead.parentProfile.user.email || "support@apnatutorhub.com",
-      phone: lead.parentProfile.user.phone || "9319193109",
-      area: lead.area,
-      city: lead.city,
-      pincode: lead.pincode,
+      name: resolvedContact.name,
+      email: resolvedContact.email,
+      phone: resolvedContact.phone,
+      area: resolvedContact.area,
+      city: resolvedContact.city,
+      pincode: resolvedContact.pincode ?? null,
     },
   });
 }

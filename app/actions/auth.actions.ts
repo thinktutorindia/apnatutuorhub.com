@@ -322,6 +322,11 @@ export async function requestPasswordResetAction(
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
+  // Clear any existing tokens (OTP or previous reset) to avoid unique constraint conflicts
+  await prisma.verificationToken.deleteMany({
+    where: { identifier: cleanEmail },
+  });
+
   await prisma.verificationToken.create({
     data: {
       identifier: cleanEmail,

@@ -187,32 +187,64 @@ export async function syncUserCredentialsInDb(params: {
     const normalizedPhone = normalizeIndiaWhatsApp(params.phone) ?? rawTargetPhone;
     const last10Phone = rawTargetPhone.slice(-10);
 
-    const phoneFilters = [
-      ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
-      ...(last10Phone ? [{ phone: { contains: last10Phone } }] : []),
-    ];
+    // Build exact phone OR filters covering all stored formats
+    const phoneFilters: Array<{ phone: string }> = [];
+    if (normalizedPhone) phoneFilters.push({ phone: normalizedPhone });
+    if (last10Phone) phoneFilters.push({ phone: last10Phone });
+    if (rawTargetPhone.length > 10) {
+      phoneFilters.push({ phone: rawTargetPhone });
+    }
+    // Also include 91XXXXXXXXXX variant explicitly
+    if (last10Phone && !rawTargetPhone.startsWith("91")) {
+      phoneFilters.push({ phone: `91${last10Phone}` });
+    }
 
-    // 1. Password update
+    // Fallback: also match by wa_ generated email (used when phone-based register happened)
+    const waEmail = `wa_${last10Phone}@apnatutorhub.com`;
+
+    // 1. Password update — find the specific user first (prioritize tutor), then update by ID
     let passwordHash: string | undefined;
     if (params.password && params.password.trim().length >= 6) {
       passwordHash = await bcrypt.hash(params.password.trim(), 10);
-      const res = await prisma.user.updateMany({
+
+      // Try phone-based lookup first
+      let targetUser = await prisma.user.findFirst({
         where: { OR: phoneFilters },
-        data: { passwordHash },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
       });
-      if (res.count > 0) {
+
+      // Fallback: look up by wa_ email
+      if (!targetUser) {
+        targetUser = await prisma.user.findFirst({
+          where: { email: waEmail },
+          select: { id: true },
+        });
+      }
+
+      if (targetUser) {
+        await prisma.user.update({
+          where: { id: targetUser.id },
+          data: { passwordHash },
+        });
         updatedFields.push("password");
+        console.info(`[syncUserCredentialsInDb] Password updated for user ${targetUser.id}`);
+      } else {
+        console.warn(`[syncUserCredentialsInDb] No user found for phone ${params.phone} — password NOT updated`);
       }
     }
 
     // 2. Email update
     if (params.email && isValidEmailDomain(params.email)) {
       const cleanEmail = params.email.trim().toLowerCase();
-      // Find the user to update - prioritize tutor
-      const user = await prisma.user.findFirst({
+      // Find the user to update — try phone first, then wa_ email fallback
+      let user = await prisma.user.findFirst({
         where: { OR: phoneFilters },
         orderBy: { createdAt: "desc" },
       });
+      if (!user) {
+        user = await prisma.user.findFirst({ where: { email: waEmail } });
+      }
 
       if (user) {
         // Check if another distinct user owns this email
@@ -230,29 +262,30 @@ export async function syncUserCredentialsInDb(params: {
             },
           });
           updatedFields.push("email");
-        } else if (existingEmailUser.phone?.includes(last10Phone)) {
-          // Already owned by another record of same user
-          if (passwordHash) {
-            await prisma.user.update({
-              where: { id: existingEmailUser.id },
-              data: { passwordHash },
-            });
-          }
-          updatedFields.push("email");
+          console.info(`[syncUserCredentialsInDb] Email updated to ${cleanEmail} for user ${user.id}`);
         } else {
           console.warn(`[syncUserCredentialsInDb] Email ${cleanEmail} is already taken by user ${existingEmailUser.id}`);
         }
+      } else {
+        console.warn(`[syncUserCredentialsInDb] No user found for phone ${params.phone} — email NOT updated`);
       }
     }
 
     // 3. Name update
     if (params.name && isValidName(params.name)) {
       const cleanName = params.name.trim();
-      await prisma.user.updateMany({
+      let nameUser = await prisma.user.findFirst({
         where: { OR: phoneFilters },
-        data: { name: cleanName },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
       });
-      updatedFields.push("name");
+      if (!nameUser) {
+        nameUser = await prisma.user.findFirst({ where: { email: waEmail }, select: { id: true } });
+      }
+      if (nameUser) {
+        await prisma.user.update({ where: { id: nameUser.id }, data: { name: cleanName } });
+        updatedFields.push("name");
+      }
     }
 
     // 4. Tutor profile update (subjects, area, city)
@@ -1804,13 +1837,6 @@ export async function processMessage(
             }
           }
 
-          const leads = await getChatbotMatchingLeads(
-            areaName,
-            cityName,
-            mergedData.classLevel as string,
-            subsArray,
-            tutorGender
-          );
 
           try {
             await registerTutorFromWhatsapp(session.phone, {
@@ -1830,23 +1856,27 @@ export async function processMessage(
 
           const usedDefault = mergedData._usedDefaultPassword === true;
           mergedData._registered = true;
-          const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
-            email: emailToUse,
-            phone: phoneToUse,
-            hasPassword: true,
-          }) + (usedDefault ? `\n\n🔑 Default password *12345678* set kiya hai. Website par login karke change kar sakte hain: https://apnatutorhub.com/login` : "") +
-          `\n\n📲 *Download Mobile App for Instant Alerts:*\nApne area ke student lead alerts seedha phone par paane ke liye app install karein:\n👉 https://apnatutorhub.com/app`;
+
+          // Simple profile-created confirmation. Leads/plans are only sent when tutor asks.
+          const loginLine = `📧 ${emailToUse} | 📱 ${phoneToUse}`;
+          const pwdNote = usedDefault
+            ? `\n🔑 Default password *12345678* — login karke change kar lein: https://apnatutorhub.com/login`
+            : ``;
+          const profileReply =
+            `✅ *Profile taiyaar ho gayi hai ${tutorName} ji!*\n` +
+            `🔐 Login: ${loginLine}\nhttps://apnatutorhub.com/login${pwdNote}\n\n` +
+            `Matching student leads dekhne ke liye reply karein *LEADS* 📋\n` +
+            `Membership plans ke liye reply karein *PLANS* 💎`;
 
           return {
-            reply: richReply,
+            reply: profileReply,
             nextStep: "DONE",
             updatedData: mergedData,
             userType: "TUTOR",
             retries: 0,
             quickReplies: [
-              "View Leads",
-              "Install App 📲",
-              "₹999 Plan",
+              "View Leads 📋",
+              "Membership Plans 💎",
               "My Profile",
             ],
           };
@@ -1971,26 +2001,25 @@ export async function processMessage(
             console.error("[engine] auto-register parent failed:", regErr);
           }
 
-          const richReply = formatParentDemoMessage(
-            areaName,
-            classLevelName,
-            parentSubs,
-            {
-              email: (mergedData.email as string) || undefined,
-              phone: (mergedData.phone as string) || undefined,
-              name: (mergedData.name as string) || (mergedData.parentName as string) || undefined,
-            }
-          );
-
           mergedData._registered = true;
 
+          // Simple profile-created confirmation only. Tutors/demo sent only on request.
+          const parentName = (mergedData.name as string) || (mergedData.parentName as string) || "";
+          const parentProfileReply =
+            `✅ *Aapki request register ho gayi hai${parentName ? " " + parentName + " ji" : ""}!*\n\n` +
+            `📚 Class: ${classLevelName}\n` +
+            `📖 Subjects: ${parentSubs.length > 0 ? parentSubs.join(", ") : "All Subjects"}\n` +
+            `📍 Area: ${areaName}\n\n` +
+            `Hamari team aapke liye suitable tutors match kar rahi hai. \n` +
+            `Free demo class book karne ke liye reply karein *DEMO* 🎓`;
+
           return {
-            reply: richReply,
+            reply: parentProfileReply,
             nextStep: "DONE",
             updatedData: mergedData,
             userType: "PARENT",
             retries: 0,
-            quickReplies: ["Book Free Demo", "Fee Structure", "Call Coordinator"],
+            quickReplies: ["Book Free Demo 🎓", "Fee Structure", "Call Coordinator 📞"],
           };
         }
 
@@ -2437,13 +2466,6 @@ export async function processMessage(
       }
     }
 
-    const leads = await getChatbotMatchingLeads(
-      areaName,
-      (updated.city as string) || "Delhi",
-      updated.classLevel as string,
-      updated.subjects as string[],
-      tutorGender
-    );
 
     try {
       await registerTutorFromWhatsapp(session.phone, {
@@ -2464,22 +2486,28 @@ export async function processMessage(
 
     const usedDefault = updated._usedDefaultPassword === true;
     updated._registered = true;
-    const richReply = formatTutorLeadsAndPlansMessage(tutorName, areaName, leads, {
-      email: emailToUse,
-      phone: phoneToUse,
-      hasPassword: true,
-    }) + (usedDefault ? `\n\n🔑 Default password *12345678* set kiya hai. Website par login karke change kar sakte hain: https://apnatutorhub.com/login` : "");
+
+    // Simple profile-created confirmation only. Leads/plans sent only when tutor asks.
+    const loginLine2 = `📧 ${emailToUse} | 📱 ${phoneToUse}`;
+    const pwdNote2 = usedDefault
+      ? `\n🔑 Default password *12345678* — login karke change kar lein: https://apnatutorhub.com/login`
+      : ``;
+    const profileReply2 =
+      `✅ *Profile taiyaar ho gayi hai ${tutorName} ji!*\n` +
+      `🔐 Login: ${loginLine2}\nhttps://apnatutorhub.com/login${pwdNote2}\n\n` +
+      `Matching student leads dekhne ke liye reply karein *LEADS* 📋\n` +
+      `Membership plans ke liye reply karein *PLANS* 💎`;
 
     return {
-      reply: richReply,
+      reply: profileReply2,
       nextStep: "DONE",
       updatedData: updated,
       userType: "TUTOR",
       retries: 0,
       quickReplies: [
-        leads.length > 0 ? `🔥 Unlock Lead #${leads[0].inquiryNumber}` : "🔥 View All Leads",
-        "💰 View Coin Plans",
-        "🌐 Leads Dashboard",
+        "View Leads 📋",
+        "Membership Plans 💎",
+        "My Profile",
       ],
     };
   }
@@ -2514,14 +2542,17 @@ export async function processMessage(
       console.error("[engine] fallback auto-register parent failed:", regErr);
     }
 
-    const richReply = formatParentDemoMessage(
-      areaName,
-      updated.classLevel as string,
-      updated.subjects as string[]
-    );
+    // Simple profile-created confirmation only. Tutors/demo sent only on request.
+    const pName = (updated.name as string) || (updated.parentName as string) || "";
+    const parentProfileReply2 =
+      `✅ *Aapki request register ho gayi hai${pName ? " " + pName + " ji" : ""}!*\n\n` +
+      `📚 Class: ${(updated.classLevel as string) || ""} \n` +
+      `📍 Area: ${areaName}\n\n` +
+      `Hamari team aapke liye suitable tutors match kar rahi hai.\n` +
+      `Free demo class book karne ke liye reply karein *DEMO* 🎓`;
 
     return {
-      reply: richReply,
+      reply: parentProfileReply2,
       nextStep: "DONE",
       updatedData: updated,
       userType: "PARENT",

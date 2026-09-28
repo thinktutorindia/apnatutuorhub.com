@@ -29,12 +29,80 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
     update: { lastMessageAt: new Date() },
   });
 
+  let step = raw.step;
+  let data = (raw.data as Record<string, unknown>) ?? {};
+
+  // ── Session recovery for already-registered users ──────────────────────────
+  // If the session looks fresh (LANG_SELECT/WELCOME with empty data), check if
+  // this phone is already a registered user. If yes, restore to DONE so the bot
+  // doesn't ask them to create a profile again.
+  const isBlankSession = (step === "LANG_SELECT" || step === "WELCOME") && !data._registered;
+  if (isBlankSession) {
+    const rawPhone = phone.replace(/\D/g, "");
+    const last10 = rawPhone.slice(-10);
+    const phoneVariants: string[] = [phone, rawPhone];
+    if (last10) {
+      phoneVariants.push(last10);
+      phoneVariants.push(`91${last10}`);
+    }
+
+    const registeredUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...phoneVariants.map((p) => ({ phone: p })),
+          { email: `wa_${last10}@apnatutorhub.com` },
+        ],
+      },
+      include: {
+        tutorProfile: { select: { id: true, address: true, city: true, subjects: true } },
+        parentProfile: { select: { id: true } },
+      },
+    });
+
+    if (registeredUser) {
+      // Restore session to DONE state with stored profile data
+      const restoredData: Record<string, unknown> = {
+        _registered: true,
+        name: registeredUser.name ?? "",
+        email: registeredUser.email ?? "",
+        phone: registeredUser.phone ?? phone,
+      };
+
+      if (registeredUser.tutorProfile) {
+        restoredData.area = registeredUser.tutorProfile.address ?? "";
+        restoredData.city = registeredUser.tutorProfile.city ?? "";
+        restoredData.subjects = registeredUser.tutorProfile.subjects ?? [];
+      }
+
+      const userType = registeredUser.parentProfile ? "PARENT" : "TUTOR";
+
+      // Persist restored session so future requests don't need to re-query
+      await prisma.whatsappSession.update({
+        where: { phone },
+        data: { step: "DONE", data: restoredData as never, userType, lastMessageAt: new Date() },
+      });
+
+      return {
+        id: raw.id,
+        phone: raw.phone,
+        userType,
+        step: "DONE",
+        data: restoredData,
+        retries: 0,
+        lastMessageAt: existing?.lastMessageAt || raw.lastMessageAt,
+        isIdle,
+      };
+    }
+  }
+  // ── End session recovery ───────────────────────────────────────────────────
+
+  // Normal path: return session as-is from DB
   return {
     id: raw.id,
     phone: raw.phone,
     userType: raw.userType,
-    step: raw.step,
-    data: (raw.data as Record<string, unknown>) ?? {},
+    step,
+    data,
     retries: raw.retries,
     lastMessageAt: existing?.lastMessageAt || raw.lastMessageAt,
     isIdle,

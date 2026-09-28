@@ -30,7 +30,6 @@ export function BatchDetailedReportModal({
   onClose,
   onBatchUpdated,
 }: Props) {
-  if (isOpen === false) return null;
   const [currentBatchId, setCurrentBatchId] = useState(batchId);
   const [data, setData] = useState<BatchDetailedReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,6 +131,8 @@ export function BatchDetailedReportModal({
       return true;
     });
   }, [data?.leads, searchQuery, selectedStaffFilter, selectedStatusFilter, selectedLocationFilter, selectedEmailFilter]);
+
+  if (isOpen === false) return null;
 
   // Bulk Reassign Handler
   const handleBulkReassign = () => {

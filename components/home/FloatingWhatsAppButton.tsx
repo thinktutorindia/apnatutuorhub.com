@@ -9,24 +9,26 @@ export function FloatingWhatsAppButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  // Do not show marketing/parent floating WhatsApp button on tutor dashboard/portal, admin workspace, or chat
-  if (
+  const isHiddenRoute =
     pathname.startsWith("/tutor") ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/chat")
-  ) {
-    return null;
-  }
+    pathname.startsWith("/chat");
 
   // Auto-show speech bubble after 3 seconds for better engagement
   useEffect(() => {
+    if (isHiddenRoute) return;
     const timer = setTimeout(() => {
       if (!isDismissed) {
         setIsOpen(true);
       }
     }, 3000);
     return () => clearTimeout(timer);
-  }, [isDismissed]);
+  }, [isDismissed, isHiddenRoute]);
+
+  // Do not show marketing/parent floating WhatsApp button on tutor dashboard/portal, admin workspace, or chat
+  if (isHiddenRoute) {
+    return null;
+  }
 
   const whatsappNumber = "919319193109";
   const defaultText = encodeURIComponent(

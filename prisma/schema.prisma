@@ -1156,3 +1156,27 @@ model WhatsappSession {
   @@index([lastMessageAt])
   @@map("whatsapp_sessions")
 }
+
+// ────────────────────────────────────────────────
+// WhatsApp Chat Message Log
+// Permanently stores every inbound (user → bot) and
+// outbound (bot/staff → user) message so staff/admin can
+// view full chat history beyond Aqua's 24-hour window.
+// ────────────────────────────────────────────────
+
+model WhatsappChatMessage {
+  id          String   @id @default(cuid())
+  phone       String                        // E.164, e.g. "919876543210"
+  direction   String                        // "INBOUND" | "OUTBOUND"
+  senderName  String?                       // "User" | "Bot" | Staff Member Name
+  body        String   @db.Text             // Full message text
+  step        String?                       // Bot step at time of message
+  messageId   String?                       // Provider message ID (Aqua/Meta)
+  isRead      Boolean  @default(false)      // Marked true when staff views the message
+  createdAt   DateTime @default(now())
+
+  @@index([phone, createdAt])
+  @@index([createdAt])
+  @@index([isRead])
+  @@map("whatsapp_chat_messages")
+}

@@ -242,6 +242,22 @@ export async function POST(request: Request): Promise<NextResponse> {
     // 1. Load or create session
     const session = await getOrCreateSession(phone);
 
+    // Save inbound message permanently for staff/admin audit
+    const senderName = ((session.data as Record<string, unknown>)?.name as string) || "User";
+    await prisma.whatsappChatMessage
+      .create({
+        data: {
+          phone,
+          direction: "INBOUND",
+          senderName,
+          body: text,
+          step: session.step,
+          messageId: messageId ?? null,
+          isRead: false,
+        },
+      })
+      .catch((err) => console.warn("[chat-log] Failed to save inbound message:", err));
+
     // 2. Process through state machine
     const result = await processMessage(session, text);
 
@@ -255,7 +271,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
 
     // 4. Send reply (free within 24-hr service window)
-    const sent = await sendBotMessage(phone, result.reply);
+    const sent = await sendBotMessage(phone, result.reply, {
+      step: result.nextStep,
+      senderName: "Bot",
+    });
     console.log(`[whatsapp-webhook] Automated reply sent to ${phone}: ${sent ? "SUCCESS" : "FAILED"}`);
 
     return smartPingSuccess();

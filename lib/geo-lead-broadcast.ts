@@ -418,6 +418,20 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
 
       if (waRes.ok) {
         waSentCount++;
+        // Persist to whatsapp_chat_messages so staff and admin see the full conversation thread
+        prisma.whatsappChatMessage
+          .create({
+            data: {
+              phone,
+              direction: "OUTBOUND",
+              senderName: "System Broadcast",
+              body: `[Tuition Enquiry #${p.inquiryCode}]\nClient: ${p.clientName}\nClass: ${p.classLevel} (${p.subjects.slice(0, 2).join(", ")})\nMode: ${p.mode === "OFFLINE" ? "Home Tuition (Offline)" : "Online Class"}\nLocation: ${p.location}\nBudget: ${p.budgetFormatted}\nPreference: ${p.preference}`,
+              step: "BROADCAST_LEAD",
+              messageId: waRes.providerMessageId || null,
+              isRead: true,
+            },
+          })
+          .catch(() => {});
       } else {
         waFailedCount++;
         console.warn(`[WA Failed] ${phone} - ${waRes.error}`);

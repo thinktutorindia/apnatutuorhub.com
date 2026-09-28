@@ -96,6 +96,7 @@ export const FEATURE_PERMISSION_MAP: Record<AdminFeatureKey, readonly Permission
   "staff-leads": ["leads:read", "leads:manage", "users:read"],
   bookings: ["leads:read", "leads:manage", "users:read"],
   chat: ["users:read", "users:manage"],
+  "whatsapp-chats": ["users:read", "users:manage"],
   reviews: ["users:read"],
   // Granting the Wallets sidebar module is view-only. Coin credit/debit stays
   // on SUPER_ADMIN / FINANCE via PERMISSION_MATRIX (`wallets:manage`).
@@ -164,6 +165,7 @@ export type AdminFeatureKey =
   | "staff-leads"
   | "bookings"
   | "chat"
+  | "whatsapp-chats"
   | "reviews"
   | "wallets"
   | "notifications"
@@ -189,6 +191,7 @@ export const ALL_ADMIN_FEATURES: AdminFeatureDef[] = [
   { key: "staff-leads", label: "Staff Leads CRM", category: "Operations", description: "Staging, daily follow-up and promotion of raw tutor leads", route: "/admin/staff-leads" },
   { key: "bookings", label: "Tuition Bookings", category: "Operations", description: "Oversee trial classes and booking schedules", route: "/admin/bookings" },
   { key: "chat", label: "Support Chat", category: "Operations", description: "Access live support chat and user messages", route: "/admin/chat" },
+  { key: "whatsapp-chats", label: "WhatsApp Live Chats", category: "Operations", description: "Permanent chat logs & two-way live messaging with users", route: "/admin/whatsapp-chats" },
   { key: "reviews", label: "Reviews Moderation", category: "Operations", description: "Moderate tutor reviews and parent ratings", route: "/admin/reviews" },
   { key: "wallets", label: "Wallets & Coin Revenue", category: "Growth & Finance", description: "Manage tutor coin balances, refunds & credits", route: "/admin/wallets" },
   { key: "notifications", label: "Notification Hub & Schedule", category: "Growth & Finance", description: "Inspect all past, present & scheduled notifications and delivery logs", route: "/admin/notifications" },
@@ -199,10 +202,10 @@ export const ALL_ADMIN_FEATURES: AdminFeatureDef[] = [
 ];
 
 export const DEFAULT_ROLE_FEATURES: Record<string, AdminFeatureKey[]> = {
-  SUPPORT: ["dashboard", "users", "bookings", "chat", "reviews", "leads", "staff-leads", "audit-logs"],
+  SUPPORT: ["dashboard", "users", "bookings", "chat", "whatsapp-chats", "reviews", "leads", "staff-leads", "audit-logs"],
   VERIFICATION: ["dashboard", "kyc", "users", "staff-leads", "audit-logs"],
   FINANCE: ["dashboard", "wallets", "staff-leads", "audit-logs"],
-  OPERATIONS: ["dashboard", "leads", "staff-leads", "bookings", "chat", "users", "audit-logs"],
+  OPERATIONS: ["dashboard", "leads", "staff-leads", "bookings", "chat", "whatsapp-chats", "users", "audit-logs"],
   MARKETING: ["dashboard", "settings", "coupons", "notifications", "broadcast", "staff-leads", "audit-logs"],
 };
 
@@ -213,6 +216,7 @@ export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
     "/admin/users",
     "/admin/bookings",
     "/admin/chat",
+    "/admin/whatsapp-chats",
     "/admin/reviews",
     "/admin/leads",
     "/admin/staff-leads",
@@ -233,6 +237,7 @@ export const SUB_ADMIN_MODULE_MAP: Record<string, string[]> = {
     "/admin/staff-leads/assign",
     "/admin/bookings",
     "/admin/chat",
+    "/admin/whatsapp-chats",
     "/admin/users",
     "/admin/audit-logs",
   ],

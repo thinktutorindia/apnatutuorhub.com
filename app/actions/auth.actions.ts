@@ -257,15 +257,6 @@ export async function loginAction(
       });
     }
 
-    // If tutor is logging in but email is not verified yet, send OTP & redirect to verify
-    if (user?.role === "TUTOR" && !user.emailVerified && user.email) {
-      sendEmailOtp(user.email).catch(() => {});
-      return {
-        success: true,
-        redirectTo: `/verify-email?email=${encodeURIComponent(user.email)}&role=tutor`,
-      };
-    }
-
     const redirectMap: Record<string, string> = {
       TUTOR: "/tutor/dashboard",
       SUPER_ADMIN: "/admin/dashboard",
@@ -387,7 +378,10 @@ export async function resetPasswordWithTokenAction(
   await prisma.$transaction([
     prisma.user.update({
       where: { email: cleanEmail },
-      data: { passwordHash },
+      data: {
+        passwordHash,
+        emailVerified: new Date(), // Verified via email reset token
+      },
     }),
     prisma.verificationToken.deleteMany({
       where: { identifier: cleanEmail },
@@ -548,13 +542,28 @@ export async function verifyEmailOtpAction(
     where: { email: email.trim().toLowerCase() },
     select: {
       role: true,
-      tutorProfile: { select: { onboardingStep: true } },
+      tutorProfile: {
+        select: {
+          id: true,
+          onboardingStep: true,
+          subjects: true,
+          city: true,
+          location: true,
+        },
+      },
     },
   });
 
-  const dest = user?.tutorProfile && (user.tutorProfile.onboardingStep ?? 1) >= 7
-    ? "/tutor/dashboard"
-    : "/tutor/onboarding";
+  // If user already has profile details (subjects, city, location, or completed onboarding), go to dashboard
+  const isExistingProfile = Boolean(
+    user?.tutorProfile &&
+      ((user.tutorProfile.onboardingStep ?? 1) >= 7 ||
+        (user.tutorProfile.subjects && user.tutorProfile.subjects.length > 0) ||
+        user.tutorProfile.city ||
+        user.tutorProfile.location)
+  );
+
+  const dest = isExistingProfile ? "/tutor/dashboard" : "/tutor/onboarding";
 
   return {
     success: true,

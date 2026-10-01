@@ -15,11 +15,13 @@ import { createNotification } from "@/lib/notification-engine";
 import { inferClassLevelFromSubjects } from "@/lib/validations";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
+import { coinCostFromTuitionFee } from "@/lib/subscription-plans";
+import type { LeadNotifyChannel } from "@/lib/queue";
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { hasSubjectOverlap, coversClassLevel, isGenderCompatible } from "@/lib/matching-engine";
 import { geocodeAddressWithGemini } from "@/lib/gemini-geocoder";
 import { processReferralRewardOnKyc } from "@/app/actions/referral.actions";
-import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass } from "@/lib/lead-utils";
+import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins
@@ -1018,15 +1020,27 @@ export type AdminCreateLeadInput = {
   languagePref?: string;
   notes?: string;
   leadSourceTag?: string;
+  rateType?: "MONTHLY" | "HOURLY";
   coinCost?: number;
   maxTutors?: number;
   radiusKm?: number;
   notifyMatchingTutors?: boolean;
+  /** Channels used when matching tutors are notified. Ignored when notify is off. */
+  notifyChannels?: LeadNotifyChannel[];
 };
 
 export async function adminCreateLeadAction(
   input: AdminCreateLeadInput
-): Promise<ActionResult<{ leadId: string }>> {
+): Promise<
+  ActionResult<{
+    leadId: string;
+    coinCost: number;
+    budgetMin: number;
+    budgetMax: number;
+    rateType: "MONTHLY" | "HOURLY";
+    maxTutors: number;
+  }>
+> {
   const { error, session } = await requirePermission("leads:manage");
   if (error) return actionError(error);
 
@@ -1038,6 +1052,11 @@ export async function adminCreateLeadAction(
   }
   if (input.mode === "ONLINE" && isTill5thClass(input.classLevel)) {
     return actionError("Online classes are not available for classes up to 5th grade. Please select Home Tuition (Offline).");
+  }
+  const budgetMin = input.budgetMin && input.budgetMin > 0 ? input.budgetMin : null;
+  const budgetMax = input.budgetMax && input.budgetMax > 0 ? input.budgetMax : null;
+  if (!budgetMin && !budgetMax) {
+    return actionError("Enter the tuition fee. Unlock coins are 5% of that amount.");
   }
 
   // 1. Resolve Parent Profile ID
@@ -1128,8 +1147,22 @@ export async function adminCreateLeadAction(
   // 3. Create Lead Record with Sequential Inquiry Number
   const nextInquiryNumber = await getNextInquiryNumber(prisma);
 
+  const rateType =
+    input.rateType ??
+    getLeadRateType({ classLevel: input.classLevel, budgetMin, budgetMax });
+  const coinCost = coinCostFromTuitionFee({
+    budgetMin,
+    budgetMax,
+    rateType,
+    classLevel: input.classLevel,
+  });
+  const rateMarker = rateType === "HOURLY" ? "[HOURLY RATE]" : "[MONTHLY RATE]";
   const sourcePrefix = input.leadSourceTag?.trim() ? `[Source: ${input.leadSourceTag.trim()}]` : "";
-  const finalLeadNotes = [sourcePrefix, input.notes?.trim()].filter(Boolean).join(" ") || null;
+  const cleanedNotes = (input.notes ?? "")
+    .replace(/\[HOURLY RATE\]/gi, "")
+    .replace(/\[MONTHLY RATE\]/gi, "")
+    .trim();
+  const finalLeadNotes = [rateMarker, sourcePrefix, cleanedNotes].filter(Boolean).join(" ") || null;
 
   const newLead = await prisma.lead.create({
     data: {
@@ -1140,8 +1173,8 @@ export async function adminCreateLeadAction(
       classLevel: input.classLevel,
       board: input.board ?? null,
       mode: input.mode,
-      budgetMin: input.budgetMin ?? null,
-      budgetMax: input.budgetMax ?? null,
+      budgetMin,
+      budgetMax,
       latitude: input.latitude ?? null,
       longitude: input.longitude ?? null,
       city: input.city ?? null,
@@ -1152,8 +1185,8 @@ export async function adminCreateLeadAction(
       languagePref: input.languagePref ?? null,
       notes: finalLeadNotes,
       status: "ACTIVE",
-      coinCost: input.coinCost && input.coinCost > 0 ? input.coinCost : 10,
-      maxTutors: input.maxTutors && input.maxTutors > 0 ? input.maxTutors : 5,
+      coinCost,
+      maxTutors: PUBLIC_TUTOR_SLOTS,
       radiusKm: input.radiusKm && input.radiusKm > 0 ? input.radiusKm : 10,
     },
   });
@@ -1196,15 +1229,32 @@ export async function adminCreateLeadAction(
 
   // 5. Match Dispatcher Trigger (if enabled)
   if (input.notifyMatchingTutors !== false) {
-    try {
-      await dispatchLeadMatching(newLead.id);
-    } catch (err) {
-      console.error("[adminCreateLeadAction] Error dispatching matching:", err);
+    const requested = input.notifyChannels;
+    const notifyChannels = (requested ?? []).filter((channel): channel is LeadNotifyChannel =>
+      channel === "IN_APP" || channel === "PUSH" || channel === "EMAIL" || channel === "WHATSAPP"
+    );
+    const skipped = Array.isArray(requested) && notifyChannels.length === 0;
+    if (!skipped) {
+      try {
+        await dispatchLeadMatching(
+          newLead.id,
+          notifyChannels.length > 0 ? { channels: notifyChannels } : undefined
+        );
+      } catch (err) {
+        console.error("[adminCreateLeadAction] Error dispatching matching:", err);
+      }
     }
   }
 
   revalidatePath("/admin/leads");
-  return actionSuccess({ leadId: newLead.id });
+  return actionSuccess({
+    leadId: newLead.id,
+    coinCost,
+    budgetMin: budgetMin ?? budgetMax ?? 0,
+    budgetMax: budgetMax ?? budgetMin ?? 0,
+    rateType,
+    maxTutors: PUBLIC_TUTOR_SLOTS,
+  });
 }
 
 export type MatchedTutorSummary = {

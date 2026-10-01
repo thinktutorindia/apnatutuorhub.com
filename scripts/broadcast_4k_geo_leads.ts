@@ -4,8 +4,9 @@
  * Dedicated Geo-Lead Broadcast Engine for 4,000 Tutors:
  * - Class 1 to 8: Strictly OFFLINE (Home Tuition) & Strictly MONTHLY based.
  * - Class 9+: Online or Offline (per tutor preference) & Strictly HOURLY based.
- * - Exact realistic pricing: small tight spreads, slightly above market (e.g. ₹5,220 – ₹5,700 / month, ₹580 – ₹660 / hr).
- * - Location: Strictly within 5 km radius, enriched with realistic sub-landmarks (e.g. "Sangam Vihar, 16 No. Road, Near Kumar Sweets").
+ * - Tight local fees: Class 1–5 about ₹3,600–₹4,250/month, Class 6–8 about ₹4,200–₹4,800/month,
+ *   Class 9–10 about ₹320–₹400/hour, Class 11–12 about ₹450–₹620/hour.
+ * - Location: a nearby locality only (colony, sector, neighbourhood). Never the tutor's house, landmark, or chat text.
  * - Target Pool: Exactly 4,000 tutors with valid location AND subjects (includes Abdullah Sheikh at #1).
  * - Multi-Channel: WhatsApp (Aqua SMS Pinbot), Email (Resend Batch API), Web Push & In-App Notification.
  *
@@ -22,7 +23,7 @@ import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "../lib/aqua-wha
 import { sendBatchEmails, type BatchEmailItem } from "../lib/resend-service";
 import { renderNewMatchedLeadEmail } from "../emails/NewMatchedLeadEmail";
 import { sendWebPush } from "../lib/web-push";
-import { isGenuineEmail } from "../lib/lead-utils";
+import { extractPublicLocality, isGenuineEmail, isTill8thClass, leadSubjectsForClass, normalizeCanonicalClassLevel, realisticTightBudget } from "../lib/lead-utils";
 import { getLeadPointCost } from "../lib/subscription-plans";
 
 // Load environment variables from .env.local if present
@@ -40,121 +41,25 @@ try {
 
 const TARGET_COUNT = 4000;
 
-// ── Landmark Generators ────────────────────────────────────────────────────────
-const SANGAM_VIHAR_LANDMARKS = [
-  "16 No. Road, Near Kumar Sweets",
-  "Peepal Chowk, Near Sharma Medicos",
-  "Block L-1st, Near Devli Mor",
-  "Gali No. 4, Near Hamdard Nagar",
-  "Bandh Road, Near Shiv Mandir",
-  "Block C, Near DDA Park",
-  "Peepli Chowk, Near Mother Dairy",
-];
-
-const GENERIC_LANDMARKS = [
-  "Block B, Near Mother Dairy",
-  "Sector Main Market, Near SBI Branch",
-  "Pocket 3, Near Community Centre",
-  "Main Road, Near Apollo Pharmacy",
-  "Block C, Near Ram Mandir",
-  "Gali No. 6, Near Central Park",
-  "Near Metro Station Gate No. 2",
-  "Avenue Road, Near Aggarwal Sweets",
-  "Block D, Near Govt Primary School",
-  "Phase 1, Near Shopping Complex",
-];
-
 export function enhanceLocalityWithLandmark(rawLocation: string, seed: number): { location: string; distanceKm: number } {
-  const loc = rawLocation.trim();
-  const isSangamVihar = /sangam\s*vihar/i.test(loc);
   const distances = [1.4, 1.8, 2.2, 2.7, 3.1, 3.6, 4.1, 4.4];
   const distanceKm = distances[seed % distances.length];
-
-  if (isSangamVihar) {
-    const landmark = SANGAM_VIHAR_LANDMARKS[seed % SANGAM_VIHAR_LANDMARKS.length];
-    return {
-      location: `Sangam Vihar, ${landmark}, New Delhi`,
-      distanceKm,
-    };
-  }
-
-  if (/near|gali|road|block|sector|pocket/i.test(loc)) {
-    return {
-      location: loc,
-      distanceKm,
-    };
-  }
-
-  const landmark = GENERIC_LANDMARKS[seed % GENERIC_LANDMARKS.length];
-  return {
-    location: `${loc}, ${landmark}`,
-    distanceKm,
-  };
+  const location = extractPublicLocality(rawLocation) || "Nearby locality";
+  return { location, distanceKm };
 }
 
 // ── Realistic Exact Pricing Generator ──────────────────────────────────────────
-export function getHealthyBudget(classLevel: string, isOffline: boolean, seed: number): { min: number; max: number; label: string } {
-  const numMatch = classLevel.match(/\b(\d{1,2})\b/);
-  const grade = numMatch ? parseInt(numMatch[1], 10) : 7;
-
-  // Class 1 to 8: STRICTLY MONTHLY, exact pricing, no high difference (e.g. 5220 - 5700)
-  if (grade <= 5) {
-    const bases = [4850, 4920, 5100, 5150, 5220, 5250, 5300];
-    const spreads = [450, 480, 500, 520, 550];
-    const min = bases[seed % bases.length];
-    const max = min + spreads[(seed + 1) % spreads.length];
-    return {
-      min,
-      max,
-      label: `₹${min.toLocaleString("en-IN")} – ₹${max.toLocaleString("en-IN")} / month`,
-    };
-  }
-
-  if (grade <= 8) {
-    const bases = [5450, 5580, 5650, 5720, 5850, 5920];
-    const spreads = [480, 520, 550, 580, 600];
-    const min = bases[seed % bases.length];
-    const max = min + spreads[(seed + 2) % spreads.length];
-    return {
-      min,
-      max,
-      label: `₹${min.toLocaleString("en-IN")} – ₹${max.toLocaleString("en-IN")} / month`,
-    };
-  }
-
-  // Class 9 and above: STRICTLY HOURLY, exact pricing, small spread
-  if (grade <= 10) {
-    const bases = [580, 600, 620, 650, 680];
-    const spreads = [70, 80, 90, 100];
-    const min = bases[seed % bases.length];
-    const max = min + spreads[(seed + 1) % spreads.length];
-    return {
-      min,
-      max,
-      label: `₹${min} – ₹${max} / hr`,
-    };
-  }
-
-  if (grade <= 12) {
-    const bases = [850, 880, 920, 950, 980];
-    const spreads = [90, 100, 110, 120];
-    const min = bases[seed % bases.length];
-    const max = min + spreads[(seed + 2) % spreads.length];
-    return {
-      min,
-      max,
-      label: `₹${min} – ₹${max} / hr`,
-    };
-  }
-
-  const bases = [1150, 1220, 1280, 1350];
-  const spreads = [130, 150, 170];
-  const min = bases[seed % bases.length];
-  const max = min + spreads[seed % spreads.length];
+export function getHealthyBudget(classLevel: string, _isOffline: boolean, seed: number): { min: number; max: number; label: string } {
+  const monthly = isTill8thClass(classLevel);
+  const tight = realisticTightBudget({ classLevel, id: `${classLevel}:${seed}` }) ?? (
+    monthly ? { min: 4500, max: 4650 } : { min: 360, max: 380 }
+  );
+  const unit = monthly ? "/ month" : "/ hour";
+  const fmt = (n: number) => n.toLocaleString("en-IN");
   return {
-    min,
-    max,
-    label: `₹${min} – ₹${max} / hr`,
+    min: tight.min,
+    max: tight.max,
+    label: `₹${fmt(tight.min)} – ₹${fmt(tight.max)} ${unit}`,
   };
 }
 
@@ -278,13 +183,11 @@ export async function assemble4kTargetPool(): Promise<PreparedLeadTarget[]> {
 
     // Pick class based on tutor classes or rotation
     const classCandidates = ["Class 8", "Class 7", "Class 4", "Class 9", "Class 10", "Class 12"];
-    const classLevel = (prof.classLevels && prof.classLevels.length > 0)
+    const pickedClass = (prof.classLevels && prof.classLevels.length > 0)
       ? prof.classLevels[seed % prof.classLevels.length]
       : classCandidates[seed % classCandidates.length];
-
-    const numMatch = classLevel.match(/\b(\d{1,2})\b/);
-    const grade = numMatch ? parseInt(numMatch[1], 10) : 8;
-    const isTill8 = grade <= 8;
+    const classLevel = normalizeCanonicalClassLevel(pickedClass) || classCandidates[seed % classCandidates.length];
+    const isTill8 = isTill8thClass(classLevel);
 
     // Class 1 to 8: Strictly OFFLINE
     const mode = isTill8
@@ -298,7 +201,8 @@ export async function assemble4kTargetPool(): Promise<PreparedLeadTarget[]> {
             : "Online Class";
 
     const budget = getHealthyBudget(classLevel, mode.includes("Offline"), seed);
-    const leadSubjects = subs.slice(0, 2);
+    const seniorSubs = leadSubjectsForClass(classLevel, subs);
+    const leadSubjects = isTill8 ? ["All Subjects"] : seniorSubs.length > 0 ? seniorSubs : ["Mathematics"];
 
     pool.push({
       tutorUserId: u.id,
@@ -369,11 +273,10 @@ export async function assemble4kTargetPool(): Promise<PreparedLeadTarget[]> {
     const locInfo = enhanceLocalityWithLandmark(rawLoc, seed);
 
     const classCandidates = ["Class 7", "Class 8", "Class 4", "Class 10", "Class 9", "Class 12"];
-    const classLevel = classes.length > 0 ? classes[seed % classes.length] : classCandidates[seed % classCandidates.length];
+    const pickedClass = classes.length > 0 ? classes[seed % classes.length] : classCandidates[seed % classCandidates.length];
+    const classLevel = normalizeCanonicalClassLevel(pickedClass) || classCandidates[seed % classCandidates.length];
 
-    const numMatch = classLevel.match(/\b(\d{1,2})\b/);
-    const grade = numMatch ? parseInt(numMatch[1], 10) : 8;
-    const isTill8 = grade <= 8;
+    const isTill8 = isTill8thClass(classLevel);
 
     const mode = isTill8
       ? "Home Tuition (Offline)"
@@ -382,7 +285,8 @@ export async function assemble4kTargetPool(): Promise<PreparedLeadTarget[]> {
         : "Online Class";
 
     const budget = getHealthyBudget(classLevel, mode.includes("Offline"), seed);
-    const leadSubjects = subjects.slice(0, 2);
+    const seniorSubs = leadSubjectsForClass(classLevel, subjects);
+    const leadSubjects = isTill8 ? ["All Subjects"] : seniorSubs.length > 0 ? seniorSubs : ["Mathematics"];
 
     pool.push({
       name,

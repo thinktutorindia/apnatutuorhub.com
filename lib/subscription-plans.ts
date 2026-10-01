@@ -105,23 +105,39 @@ export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   },
 ];
 
+/** Hourly quotes are turned into one month before the 5% coin charge. */
+export const HOURLY_CLASSES_PER_MONTH = 12;
+/** ₹999 Growth Plan wallet. 5% of the fee is priced in these coins, never above the whole plan. */
+export const GROWTH_PLAN_PRICE_INR = 999;
+export const GROWTH_PLAN_COINS = 60;
+
 /**
- * Calculates lead point deduction based on class level (Primary) and fee structure.
- * Standardizes lead unlock costs to ~5% of student monthly fee:
- * - Class 1–8: 10 points (Monthly tuition ~₹5,000/mo)
- * - Class 9–10: 20 points (Hourly tuition ~₹700/hr -> ~₹8,400/mo)
- * - Class 11–12 / JEE / NEET: 30 points (Hourly tuition ~₹1,100/hr -> ~₹13,200/mo)
+ * Unlock coins are 5% of the tuition fee, priced inside the ₹999 plan (60 coins).
+ * Hourly fees become a month first (rate × 12). One lead never costs more than 60 coins.
+ * Class is used only when no fee amount is present.
  */
-export function getLeadPointCost(
-  classGrade?: string | null,
-  budgetMin?: number | null,
-  budgetMax?: number | null
-): number {
+export function coinCostFromTuitionFee(opts: {
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  rateType?: "MONTHLY" | "HOURLY";
+  classLevel?: string | null;
+}): number {
+  const min = opts.budgetMin && opts.budgetMin > 0 ? opts.budgetMin : 0;
+  const max = opts.budgetMax && opts.budgetMax > 0 ? opts.budgetMax : 0;
+  const fee = min && max ? Math.round((min + max) / 2) : max || min;
+  if (!fee) return coinCostFromClass(opts.classLevel);
+
+  const rateType = opts.rateType ?? (fee < 2000 ? "HOURLY" : "MONTHLY");
+  const monthly = rateType === "HOURLY" ? fee * HOURLY_CLASSES_PER_MONTH : fee;
+  const coins = Math.round((monthly * 0.05 * GROWTH_PLAN_COINS) / GROWTH_PLAN_PRICE_INR);
+  return Math.min(GROWTH_PLAN_COINS, Math.max(1, coins));
+}
+
+function coinCostFromClass(classGrade?: string | null): number {
   const gradeStr = (classGrade || "").toLowerCase();
   const numMatch = gradeStr.match(/\b(\d{1,2})\b/);
   const gradeNum = numMatch ? parseInt(numMatch[1], 10) : null;
 
-  // 1. Direct class grade rules (Primary Source of Truth)
   if (
     (gradeNum !== null && gradeNum >= 11) ||
     gradeStr.includes("jee") ||
@@ -132,7 +148,7 @@ export function getLeadPointCost(
     gradeStr.includes("iit") ||
     gradeStr.includes("coding")
   ) {
-    return 30; // Class 11-12 & Entrance: 30 pts (~5% of ~₹14,000/mo value)
+    return 30;
   }
 
   if (
@@ -142,35 +158,29 @@ export function getLeadPointCost(
     gradeStr.includes("metric") ||
     gradeStr.includes("matric")
   ) {
-    return 20; // Class 9-10: 20 pts (~5% of ~₹8,400/mo value)
-  }
-
-  if (gradeNum !== null && gradeNum <= 8) {
-    return 10; // Class 1-8: 10 pts (~5% of ~₹5,000/mo value)
-  }
-
-  // 2. Budget evaluation fallback if grade couldn't be parsed
-  const effectiveBudget =
-    budgetMax && budgetMax > 0
-      ? budgetMax
-      : budgetMin && budgetMin > 0
-        ? budgetMin
-        : null;
-
-  if (effectiveBudget !== null) {
-    // If rate is hourly (< 2000)
-    if (effectiveBudget < 2000) {
-      if (effectiveBudget >= 850) return 30;
-      if (effectiveBudget >= 500) return 20;
-      return 10;
-    }
-    // If rate is monthly (>= 2000)
-    if (effectiveBudget >= 10000) return 30;
-    if (effectiveBudget >= 6500) return 20;
-    return 10;
+    return 20;
   }
 
   return 10;
+}
+
+/**
+ * Lead unlock cost. A fee amount wins: coins are 5% of that fee.
+ * Class buckets apply only when the lead has no fee.
+ */
+export function getLeadPointCost(
+  classGrade?: string | null,
+  budgetMin?: number | null,
+  budgetMax?: number | null
+): number {
+  if ((budgetMin && budgetMin > 0) || (budgetMax && budgetMax > 0)) {
+    return coinCostFromTuitionFee({
+      budgetMin,
+      budgetMax,
+      classLevel: classGrade,
+    });
+  }
+  return coinCostFromClass(classGrade);
 }
 
 export interface SubscriptionPlanConfig {

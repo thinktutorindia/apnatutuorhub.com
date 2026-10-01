@@ -16,7 +16,7 @@
  * 🔗 Unlock on Portal: https://apnatutorhub.com/tutor/leads
  */
 
-import { getInquiryDisplayCode, isTill8thClass } from "@/lib/lead-utils";
+import { extractPublicLocality, formatLeadBudget, getInquiryDisplayCode, isTill8thClass, leadSubjectsForClass } from "@/lib/lead-utils";
 import { sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
 
 export interface LeadTemplateData {
@@ -99,8 +99,10 @@ export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
     )
   );
 
-  // Sanitize: No generic "Science" in Class 11/12 (PCB instead); keep Class 1-8 All Subjects clean
-  const finalSubjects = sanitizeSubjectsForClassLevel(cleanedSubjects, data.classLevel || classBase);
+  // Class 1–8 is exactly "All Subjects". Class 9+ keeps the subjects asked for.
+  const finalSubjects = isTill8thClass(data.classLevel || classBase)
+    ? leadSubjectsForClass(data.classLevel || classBase, cleanedSubjects)
+    : sanitizeSubjectsForClassLevel(cleanedSubjects, data.classLevel || classBase);
 
   const subjectsStr = finalSubjects.join(", ");
   const classStr = [
@@ -111,65 +113,32 @@ export function getLeadNotifyFields(data: LeadTemplateData): LeadNotifyFields {
     .filter(Boolean)
     .join(" ");
 
+  const juniorCard = isTill8thClass(data.classLevel || classBase);
   const modeStr =
-    data.mode === "OFFLINE" || data.mode === "IN_PERSON"
+    juniorCard || data.mode === "OFFLINE" || data.mode === "IN_PERSON"
       ? "Home Tuition (Offline)"
       : data.mode === "ONLINE"
         ? "Online Classes"
         : "Home Tuition (Offline) / Online";
 
-  const locationParts = [data.area, data.city, data.state].filter(Boolean);
-  const locationBase = locationParts.join(", ") || data.city || "Delhi NCR";
-  const locationStr = data.pincode ? `${locationBase} (Pin: ${data.pincode})` : locationBase;
+  const locationStr =
+    extractPublicLocality([data.area, data.city].filter(Boolean).join(", "), data.city) ||
+    extractPublicLocality(data.city) ||
+    data.city ||
+    "Delhi NCR";
 
-  // Universal Rule: Class 1–8 is STRICTLY Monthly, Class 9+ is STRICTLY Hourly
-  const isClassTill8 = isTill8thClass(data.classLevel || classBase);
-  let feesStr = "₹5,000 / month";
-
-  if (isClassTill8) {
-    if (data.feeMonthly) {
-      feesStr = `₹${Number(data.feeMonthly).toLocaleString("en-IN")} / month`;
-    } else if (data.budgetMin && data.budgetMax) {
-      let bMin = data.budgetMin;
-      let bMax = data.budgetMax;
-      if (bMax <= 1500) {
-        bMin = Math.round(bMin * 12);
-        bMax = Math.round(bMax * 12);
-      }
-      feesStr =
-        bMin === bMax
-          ? `₹${bMin.toLocaleString("en-IN")} / month`
-          : `₹${bMin.toLocaleString("en-IN")} – ₹${bMax.toLocaleString("en-IN")} / month`;
-    } else if (data.budgetMin || data.budgetMax) {
-      let val = data.budgetMin || data.budgetMax || 5000;
-      if (val <= 1500) val = Math.round(val * 12);
-      feesStr = `₹${val.toLocaleString("en-IN")} / month`;
-    } else {
-      feesStr = "₹5,000 – ₹7,000 / month";
-    }
-  } else {
-    if (data.budgetMin && data.budgetMax) {
-      let bMin = data.budgetMin;
-      let bMax = data.budgetMax;
-      if (bMin >= 2500) {
-        bMin = Math.round(bMin / 14 / 50) * 50;
-        bMax = Math.round(bMax / 14 / 50) * 50;
-      }
-      feesStr =
-        bMin === bMax
-          ? `₹${bMin.toLocaleString("en-IN")} / hr`
-          : `₹${bMin.toLocaleString("en-IN")} – ₹${bMax.toLocaleString("en-IN")} / hr`;
-    } else if (data.budgetMin || data.budgetMax) {
-      let val = data.budgetMin || data.budgetMax || 800;
-      if (val >= 2500) val = Math.round(val / 14 / 50) * 50;
-      feesStr = `₹${val.toLocaleString("en-IN")} / hr`;
-    } else if (data.feeMonthly) {
-      const hRate = Math.round(Number(data.feeMonthly) / 14 / 50) * 50;
-      feesStr = `₹${hRate.toLocaleString("en-IN")} / hr`;
-    } else {
-      feesStr = "₹700 – ₹1,000 / hr";
-    }
-  }
+  const feesStr = formatLeadBudget(
+    {
+      id: data.id,
+      inquiryNumber: typeof data.inquiryNumber === "number" ? data.inquiryNumber : null,
+      classLevel: data.classLevel || classBase,
+      budgetMin: data.budgetMin,
+      budgetMax: data.budgetMax,
+      notes: data.notes,
+      timingPreference: data.timingPreference,
+    },
+    "full"
+  );
 
   let genderStr = "Any (Male or Female Tutor)";
   if (data.genderPreference) {

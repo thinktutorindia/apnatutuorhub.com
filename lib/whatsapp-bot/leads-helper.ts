@@ -7,7 +7,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { formatLeadBudget } from "@/lib/lead-utils";
+import { extractPublicLocality, formatLeadBudget, isTill8thClass, leadSubjectsForClass } from "@/lib/lead-utils";
 import { getLeadPointCost } from "@/lib/subscription-plans";
 import { coversClassLevel, hasSubjectOverlap, extractGradeNumber, isGenderCompatible } from "@/lib/matching-engine";
 import { expandTutorSubjectsAndClasses } from "./auto-register";
@@ -505,24 +505,13 @@ export async function getChatbotMatchingLeads(
     }
 
     return deduplicated.map(({ lead }) => {
-      let budgetStr = "₹5,000 – ₹8,000 / mo";
-      if (lead.budgetMin && lead.budgetMax) {
-        if (lead.budgetMax <= 1500) {
-          budgetStr = `₹${lead.budgetMin} – ₹${lead.budgetMax} / hr`;
-        } else {
-          budgetStr = `₹${lead.budgetMin.toLocaleString("en-IN")} – ₹${lead.budgetMax.toLocaleString("en-IN")} / mo`;
-        }
-      } else if (lead.budgetMax) {
-        budgetStr = `Up to ₹${lead.budgetMax.toLocaleString("en-IN")} / mo`;
-      }
-
       return {
         inquiryNumber: lead.inquiryNumber,
         classLevel: lead.classLevel,
-        subjects: lead.subjects.slice(0, 3),
-        area: lead.area || lead.city || "Delhi NCR",
+        subjects: leadSubjectsForClass(lead.classLevel, lead.subjects).slice(0, 3),
+        area: extractPublicLocality(lead.area, lead.city) || lead.city || "Delhi",
         city: lead.city || "Delhi",
-        budget: budgetStr,
+        budget: formatLeadBudget(lead, "full"),
         mode: lead.mode === "ONLINE" ? "Online" : lead.mode === "OFFLINE" ? "Home Visit 🏡" : "Both 🔄",
       };
     });
@@ -741,11 +730,16 @@ export async function formatSingleLeadInquiry(
     }
   }
 
-  const subjStr = Array.isArray(lead.subjects) && lead.subjects.length > 0 ? lead.subjects.join(", ") : "All Core Subjects";
-  const modeStr = lead.mode === "OFFLINE" ? "Home Visit 🏡" : lead.mode === "ONLINE" ? "Online Class 💻" : "Home Visit / Online";
+  const displaySubjects = leadSubjectsForClass(lead.classLevel, lead.subjects);
+  const subjStr = displaySubjects.length > 0 ? displaySubjects.join(", ") : "All Core Subjects";
+  const modeStr = isTill8thClass(lead.classLevel) || lead.mode === "OFFLINE"
+    ? "Home Visit 🏡"
+    : lead.mode === "ONLINE"
+      ? "Online Class 💻"
+      : "Home Visit / Online";
   const budgetStr = formatLeadBudget(lead, "full");
 
-  const locStr = [lead.area, lead.city].filter(Boolean).join(", ") || "Delhi NCR";
+  const locStr = extractPublicLocality([lead.area, lead.city].filter(Boolean).join(", "), lead.city) || lead.city || "Delhi";
 
   let genderNote = "";
   if (lead.tutorGenderPref && lead.tutorGenderPref !== "ANY") {

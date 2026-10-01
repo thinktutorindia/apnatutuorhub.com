@@ -38,8 +38,18 @@ import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
-import { isTill5thClass } from "@/lib/lead-utils";
+import { isTill5thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
+import { coinCostFromTuitionFee, HOURLY_CLASSES_PER_MONTH, GROWTH_PLAN_COINS, GROWTH_PLAN_PRICE_INR } from "@/lib/subscription-plans";
 import type { TeachingMode } from "@prisma/client";
+
+type LeadNotifyChannel = "IN_APP" | "PUSH" | "EMAIL" | "WHATSAPP";
+
+const NOTIFY_CHANNELS: { id: LeadNotifyChannel; label: string }[] = [
+  { id: "IN_APP", label: "In-app" },
+  { id: "PUSH", label: "Push" },
+  { id: "EMAIL", label: "Email" },
+  { id: "WHATSAPP", label: "WhatsApp" },
+];
 
 export type ResolvedLocation = {
   city: string;
@@ -108,32 +118,45 @@ export function CreateLeadModal({
   const [showCategoryTree, setShowCategoryTree] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
-  // Commercials & Location
   const [budgetRateType, setBudgetRateType] = useState<"MONTHLY" | "HOURLY">("MONTHLY");
-  const [budgetMin, setBudgetMin] = useState<string>("4000");
-  const [budgetMax, setBudgetMax] = useState<string>("8000");
-  const [coinCost, setCoinCost] = useState<string>("10");
-  const [maxTutors, setMaxTutors] = useState<string>("5");
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
   const [radiusKm, setRadiusKm] = useState<string>("10");
   const [notifyMatchingTutors, setNotifyMatchingTutors] = useState(true);
+  const [notifyChannels, setNotifyChannels] = useState<LeadNotifyChannel[]>([
+    "IN_APP",
+    "PUSH",
+    "EMAIL",
+    "WHATSAPP",
+  ]);
 
-  const handleBudgetRateTypeChange = (newType: "MONTHLY" | "HOURLY") => {
-    if (newType === budgetRateType) return;
-    setBudgetRateType(newType);
-    if (newType === "HOURLY") {
-      const minNum = parseInt(budgetMin, 10);
-      if (isNaN(minNum) || minNum >= 2000) {
-        setBudgetMin("500");
-        setBudgetMax("800");
-      }
-    } else {
-      const minNum = parseInt(budgetMin, 10);
-      if (isNaN(minNum) || minNum <= 1500) {
-        setBudgetMin("4000");
-        setBudgetMax("8000");
-      }
-    }
-  };
+  const feeQuote = useMemo(() => {
+    const min = Number(budgetMin) || 0;
+    const max = Number(budgetMax) || 0;
+    if (!min && !max) return null;
+    const fee = min && max ? Math.round((min + max) / 2) : max || min;
+    const monthly = budgetRateType === "HOURLY" ? fee * HOURLY_CLASSES_PER_MONTH : fee;
+    return {
+      rateType: budgetRateType,
+      budgetMin: min,
+      budgetMax: max,
+      fee,
+      monthly,
+      coinCost: coinCostFromTuitionFee({
+        budgetMin: min || null,
+        budgetMax: max || null,
+        rateType: budgetRateType,
+        classLevel,
+      }),
+    };
+  }, [budgetMin, budgetMax, budgetRateType, classLevel]);
+
+  const [publishedQuote, setPublishedQuote] = useState<{
+    budgetMin: number;
+    budgetMax: number;
+    coinCost: number;
+    rateType: "MONTHLY" | "HOURLY";
+  } | null>(null);
 
   // Location search state
   const [locationQuery, setLocationQuery] = useState("");
@@ -267,6 +290,11 @@ export function CreateLeadModal({
     }
   }, [classLevel, mode]);
 
+  useEffect(() => {
+    if (!classLevel) return;
+    setBudgetRateType(getLeadRateType({ classLevel }));
+  }, [classLevel]);
+
   const addCustomSubject = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const clean = customSubjectInput.trim();
@@ -302,6 +330,7 @@ export function CreateLeadModal({
     setIsOpen(false);
     setErrorMsg(null);
     setCreatedLeadId(null);
+    setPublishedQuote(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -315,6 +344,16 @@ export function CreateLeadModal({
 
     if (selectedSubjects.length === 0) {
       setErrorMsg("Please select at least one subject for this lead enquiry.");
+      return;
+    }
+
+    if (notifyMatchingTutors && notifyChannels.length === 0) {
+      setErrorMsg("Choose at least one notification channel, or turn notifications off.");
+      return;
+    }
+
+    if (!feeQuote) {
+      setErrorMsg("Enter the tuition fee. Unlock coins are 5% of that amount.");
       return;
     }
 
@@ -339,16 +378,7 @@ export function CreateLeadModal({
       normalizedParentPhone = digits;
     }
 
-    let finalNotes = notes.trim();
-    if (budgetRateType === "HOURLY") {
-      if (!finalNotes.toLowerCase().includes("hourly") && !finalNotes.toLowerCase().includes("/hr")) {
-        finalNotes = finalNotes ? `[HOURLY RATE] ${finalNotes}` : `[HOURLY RATE]`;
-      }
-    } else if (budgetRateType === "MONTHLY") {
-      if (!finalNotes.toLowerCase().includes("monthly") && !finalNotes.toLowerCase().includes("/mo")) {
-        finalNotes = finalNotes ? `[MONTHLY RATE] ${finalNotes}` : `[MONTHLY RATE]`;
-      }
-    }
+    const finalNotes = notes.trim();
 
     const finalSourceTag =
       leadSourceTag === "CUSTOM"
@@ -365,8 +395,9 @@ export function CreateLeadModal({
       classLevel,
       board: board || undefined,
       mode,
-      budgetMin: budgetMin ? parseInt(budgetMin, 10) : undefined,
-      budgetMax: budgetMax ? parseInt(budgetMax, 10) : undefined,
+      budgetMin: feeQuote.budgetMin || undefined,
+      budgetMax: feeQuote.budgetMax || undefined,
+      rateType: feeQuote.rateType,
       city: effectiveCity,
       area: effectiveArea,
       pincode: effectivePincode,
@@ -377,10 +408,9 @@ export function CreateLeadModal({
       languagePref: languagePref.trim() || undefined,
       notes: finalNotes || undefined,
       leadSourceTag: finalSourceTag,
-      coinCost: coinCost ? parseInt(coinCost, 10) : 10,
-      maxTutors: maxTutors ? parseInt(maxTutors, 10) : 5,
       radiusKm: radiusKm ? parseInt(radiusKm, 10) : 10,
       notifyMatchingTutors,
+      notifyChannels: notifyMatchingTutors ? notifyChannels : [],
     };
 
     startTransition(async () => {
@@ -388,6 +418,14 @@ export function CreateLeadModal({
       if (!res.success) {
         setErrorMsg(res.error ?? "Failed to create lead enquiry.");
       } else {
+        if (res.data) {
+          setPublishedQuote({
+            budgetMin: res.data.budgetMin,
+            budgetMax: res.data.budgetMax,
+            coinCost: res.data.coinCost,
+            rateType: res.data.rateType,
+          });
+        }
         setCreatedLeadId(res.data?.leadId ?? "created");
         if (onLeadCreated && res.data?.leadId) {
           onLeadCreated(res.data.leadId);
@@ -408,8 +446,8 @@ export function CreateLeadModal({
       city: selectedLocation?.city || manualCity || undefined,
       state: selectedLocation?.state ?? undefined,
       pincode: selectedLocation?.pincode ?? undefined,
-      budgetMin: Number(budgetMin) || null,
-      budgetMax: Number(budgetMax) || null,
+      budgetMin: publishedQuote?.budgetMin ?? feeQuote?.budgetMin ?? null,
+      budgetMax: publishedQuote?.budgetMax ?? feeQuote?.budgetMax ?? null,
       genderPreference: "Any",
       notes,
       timingPreference,
@@ -528,7 +566,11 @@ export function CreateLeadModal({
                       </div>
                       <div>
                         <span className="text-slate-500 font-semibold block text-[11px]">Budget &amp; Coins</span>
-                        <span className="font-bold text-[#0F2540]">₹{budgetMin}-₹{budgetMax} / {coinCost} coins</span>
+                        <span className="font-bold text-[#0F2540]">
+                          ₹{publishedQuote?.budgetMin ?? feeQuote?.budgetMin}-₹{publishedQuote?.budgetMax ?? feeQuote?.budgetMax}
+                          {" "}{publishedQuote?.rateType === "HOURLY" || feeQuote?.rateType === "HOURLY" ? "/hr" : "/mo"}
+                          {" "}· {publishedQuote?.coinCost ?? feeQuote?.coinCost} coins
+                        </span>
                       </div>
                       <div className="sm:col-span-2">
                         <span className="text-slate-500 font-semibold block text-[11px]">Location</span>
@@ -1063,154 +1105,89 @@ export function CreateLeadModal({
                           4
                         </span>
                         <label className="text-xs font-bold uppercase tracking-wider text-[#0F2540]">
-                          Budget, Coins &amp; Match Settings
+                          5% Fee, Coins &amp; Match Settings
                         </label>
                       </div>
 
-                      {/* Hourly vs Monthly Toggle Tabs */}
-                      <div className="inline-flex p-1 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                        <button
-                          type="button"
-                          onClick={() => handleBudgetRateTypeChange("MONTHLY")}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                            budgetRateType === "MONTHLY"
-                              ? "bg-[#2D9E6B] text-white shadow-xs"
-                              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                          }`}
-                        >
-                          <span>📅 Monthly Rate</span>
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                            budgetRateType === "MONTHLY" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
-                          }`}>₹/mo</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleBudgetRateTypeChange("HOURLY")}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                            budgetRateType === "HOURLY"
-                              ? "bg-[#0F2540] text-white shadow-xs"
-                              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                          }`}
-                        >
-                          <span>⏱️ Hourly Rate</span>
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                            budgetRateType === "HOURLY" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
-                          }`}>₹/hr</span>
-                        </button>
-                      </div>
                     </div>
 
-                    <div className={`grid gap-3 ${mode === "ONLINE" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-5"}`}>
+                    <div className="inline-flex p-1 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setBudgetRateType("MONTHLY")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer ${
+                          budgetRateType === "MONTHLY" ? "bg-[#2D9E6B] text-white" : "text-slate-600"
+                        }`}
+                      >
+                        Monthly ₹/mo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBudgetRateType("HOURLY")}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer ${
+                          budgetRateType === "HOURLY" ? "bg-[#0F2540] text-white" : "text-slate-600"
+                        }`}
+                      >
+                        Hourly ₹/hr
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block font-bold text-slate-700 text-xs">
-                          Budget Min ({budgetRateType === "HOURLY" ? "₹/hr" : "₹/mo"})
+                          Fee min ({budgetRateType === "HOURLY" ? "₹/hr" : "₹/mo"})
                         </label>
                         <input
                           type="number"
                           value={budgetMin}
                           onChange={(e) => setBudgetMin(e.target.value)}
-                          placeholder={budgetRateType === "HOURLY" ? "500" : "4000"}
+                          placeholder={budgetRateType === "HOURLY" ? "400" : "4500"}
                           className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
                         />
                       </div>
                       <div>
                         <label className="mb-1 block font-bold text-slate-700 text-xs">
-                          Budget Max ({budgetRateType === "HOURLY" ? "₹/hr" : "₹/mo"})
+                          Fee max ({budgetRateType === "HOURLY" ? "₹/hr" : "₹/mo"})
                         </label>
                         <input
                           type="number"
                           value={budgetMax}
                           onChange={(e) => setBudgetMax(e.target.value)}
-                          placeholder={budgetRateType === "HOURLY" ? "800" : "8000"}
+                          placeholder={budgetRateType === "HOURLY" ? "500" : "5000"}
                           className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
                         />
                       </div>
-                      <div>
-                        <label className="mb-1 block font-bold text-slate-700 text-xs">Unlock Coins</label>
-                        <input
-                          type="number"
-                          value={coinCost}
-                          onChange={(e) => setCoinCost(e.target.value)}
-                          className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block font-bold text-slate-700 text-xs">Max Tutors</label>
-                        <input
-                          type="number"
-                          value={maxTutors}
-                          onChange={(e) => setMaxTutors(e.target.value)}
-                          className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
-                        />
-                      </div>
-                      {mode !== "ONLINE" && (
-                        <div className="col-span-2 sm:col-span-1">
-                          <label className="mb-1 block font-bold text-slate-700 text-xs">Radius (km)</label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={50}
-                            value={radiusKm}
-                            onChange={(e) => setRadiusKm(e.target.value)}
-                            className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
-                          />
-                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-3.5 py-3 text-xs text-emerald-950">
+                      <p className="font-extrabold text-[#0F2540]">Unlock coins are 5% of this fee, inside the ₹{GROWTH_PLAN_PRICE_INR} plan ({GROWTH_PLAN_COINS} coins)</p>
+                      {feeQuote ? (
+                        <p className="mt-1 font-semibold text-emerald-900">
+                          {feeQuote.rateType === "HOURLY"
+                            ? `₹${feeQuote.fee.toLocaleString("en-IN")}/hr × ${HOURLY_CLASSES_PER_MONTH} classes = ₹${feeQuote.monthly.toLocaleString("en-IN")}/month. `
+                            : `Fee ₹${feeQuote.fee.toLocaleString("en-IN")}/month. `}
+                          5% of that fee is <span className="font-extrabold">{feeQuote.coinCost} coins</span>
+                          {` (a ₹${GROWTH_PLAN_PRICE_INR} plan has ${GROWTH_PLAN_COINS} coins).`}
+                          {" "}The card shows {PUBLIC_TUTOR_SLOTS} tutor slots.
+                        </p>
+                      ) : (
+                        <p className="mt-1 font-semibold text-emerald-900">Enter the fee. Coins are 5% of that amount, scaled to the 60-coin plan.</p>
                       )}
                     </div>
 
-                    {/* Quick Budget Presets */}
-                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                        {budgetRateType === "HOURLY" ? "⏱️ Hourly Presets:" : "📅 Monthly Presets:"}
-                      </span>
-                      {budgetRateType === "HOURLY"
-                        ? [
-                            { label: "₹300 - ₹500/hr", min: "300", max: "500" },
-                            { label: "₹500 - ₹800/hr", min: "500", max: "800" },
-                            { label: "₹800 - ₹1200/hr", min: "800", max: "1200" },
-                            { label: "₹1000 - ₹1500/hr", min: "1000", max: "1500" },
-                            { label: "₹1500 - ₹2500/hr", min: "1500", max: "2500" },
-                          ].map((p) => (
-                            <button
-                              key={p.label}
-                              type="button"
-                              onClick={() => {
-                                setBudgetMin(p.min);
-                                setBudgetMax(p.max);
-                              }}
-                              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
-                                budgetMin === p.min && budgetMax === p.max
-                                  ? "bg-[#0F2540] text-white border-[#0F2540] shadow-xs"
-                                  : "bg-white text-[#0F2540] border-slate-200 hover:border-[#2D9E6B]"
-                              }`}
-                            >
-                              {p.label}
-                            </button>
-                          ))
-                        : [
-                            { label: "₹3k - ₹5k/mo", min: "3000", max: "5000" },
-                            { label: "₹4k - ₹8k/mo", min: "4000", max: "8000" },
-                            { label: "₹6k - ₹10k/mo", min: "6000", max: "10000" },
-                            { label: "₹8k - ₹15k/mo", min: "8000", max: "15000" },
-                            { label: "₹15k - ₹25k/mo", min: "15000", max: "25000" },
-                          ].map((p) => (
-                            <button
-                              key={p.label}
-                              type="button"
-                              onClick={() => {
-                                setBudgetMin(p.min);
-                                setBudgetMax(p.max);
-                              }}
-                              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
-                                budgetMin === p.min && budgetMax === p.max
-                                  ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
-                                  : "bg-white text-emerald-900 border-emerald-200 hover:border-emerald-300"
-                              }`}
-                            >
-                              {p.label}
-                            </button>
-                          ))}
-                    </div>
+                    {mode !== "ONLINE" && (
+                      <div className="max-w-xs">
+                        <label className="mb-1 block font-bold text-slate-700 text-xs">Radius (km)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          value={radiusKm}
+                          onChange={(e) => setRadiusKm(e.target.value)}
+                          className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
+                        />
+                      </div>
+                    )}
 
                     {/* Radius quick preset pills - only for OFFLINE/EITHER/COACHING */}
                     {mode !== "ONLINE" && (
@@ -1317,17 +1294,48 @@ export function CreateLeadModal({
                       />
                     </div>
 
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="checkbox"
-                        id="notifyMatchingTutors"
-                        checked={notifyMatchingTutors}
-                        onChange={(e) => setNotifyMatchingTutors(e.target.checked)}
-                        className="h-4 w-4 rounded text-[#2D9E6B] focus:ring-emerald-500 cursor-pointer"
-                      />
-                      <label htmlFor="notifyMatchingTutors" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
-                        ⚡ Automatically notify matching tutors in this area immediately upon publication
-                      </label>
+                    <div className="space-y-2.5 pt-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="notifyMatchingTutors"
+                          checked={notifyMatchingTutors}
+                          onChange={(e) => setNotifyMatchingTutors(e.target.checked)}
+                          className="h-4 w-4 rounded text-[#2D9E6B] focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <label htmlFor="notifyMatchingTutors" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                          Notify matching tutors when this enquiry is published
+                        </label>
+                      </div>
+                      {notifyMatchingTutors && (
+                        <div className="flex flex-wrap items-center gap-1.5 pl-6">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Send on</span>
+                          {NOTIFY_CHANNELS.map((channel) => {
+                            const on = notifyChannels.includes(channel.id);
+                            return (
+                              <button
+                                key={channel.id}
+                                type="button"
+                                onClick={() =>
+                                  setNotifyChannels((prev) =>
+                                    prev.includes(channel.id)
+                                      ? prev.filter((item) => item !== channel.id)
+                                      : [...prev, channel.id]
+                                  )
+                                }
+                                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                                  on
+                                    ? "bg-[#0F2540] text-white border-[#0F2540]"
+                                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                                }`}
+                              >
+                                {on ? "✓ " : ""}
+                                {channel.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1352,9 +1360,13 @@ export function CreateLeadModal({
                       <div className="text-slate-600 text-[11px] flex flex-wrap items-center gap-2">
                         <span>📍 Location: {[manualArea, manualCity || selectedLocation?.city].filter(Boolean).join(", ") || "Location pending"}</span>
                         <span>•</span>
-                        <span>💰 Budget: ₹{budgetMin || "0"} - ₹{budgetMax || "0"}/mo</span>
+                        <span>
+                          💰 Fee: {feeQuote
+                            ? `₹${feeQuote.fee.toLocaleString("en-IN")}${feeQuote.rateType === "HOURLY" ? "/hr" : "/mo"}`
+                            : "Enter a fee"}
+                        </span>
                         <span>•</span>
-                        <span>🪙 {coinCost || "10"} coins to unlock</span>
+                        <span>🪙 {feeQuote ? `${feeQuote.coinCost} of ${GROWTH_PLAN_COINS} coins` : "5% of the fee, in plan coins"} · {PUBLIC_TUTOR_SLOTS} slots shown</span>
                       </div>
                     </div>
                   </div>

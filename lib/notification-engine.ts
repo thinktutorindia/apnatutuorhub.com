@@ -36,6 +36,10 @@ export type CreateNotificationInput = {
   forceSend?: boolean;
   /** If true, dispatches an email via Resend in addition to in-app / push */
   sendEmail?: boolean;
+  /** WEB channel sends push unless this is false */
+  sendPush?: boolean;
+  /** When true, HIGH/CRITICAL does not auto-email. sendEmail still sends. */
+  skipAutoEmail?: boolean;
 };
 
 // ── Notification Creation ─────────────────────────────────────────────────────
@@ -60,6 +64,8 @@ export async function createNotification(
     referenceId,
     forceSend = false,
     sendEmail = false,
+    sendPush,
+    skipAutoEmail = false,
   } = input;
 
   try {
@@ -105,7 +111,7 @@ export async function createNotification(
       title,
       message,
       actionUrl ?? undefined,
-      { sendEmail, priority }
+      { sendEmail, priority, sendPush, skipAutoEmail }
     );
 
     return notification.id;
@@ -128,7 +134,12 @@ async function dispatchNotification(
   title: string,
   message: string,
   actionUrl?: string,
-  options?: { sendEmail?: boolean; priority?: NotificationPriority }
+  options?: {
+    sendEmail?: boolean;
+    priority?: NotificationPriority;
+    sendPush?: boolean;
+    skipAutoEmail?: boolean;
+  }
 ): Promise<void> {
   // Fetch user contact details
   let userEmail: string | null = null;
@@ -168,7 +179,7 @@ async function dispatchNotification(
         });
 
         // 1. Web Push Dispatch
-        if (isWebPushConfigured()) {
+        if (isWebPushConfigured() && options?.sendPush !== false) {
           try {
             await sendWebPush(userId, {
               title,
@@ -182,7 +193,10 @@ async function dispatchNotification(
         }
 
         // 2. Email Dispatch if requested or High Priority (skips system/test placeholder accounts to preserve credits)
-        if (userEmail && isGenuineEmail(userEmail) && (options?.sendEmail || options?.priority === "HIGH" || options?.priority === "CRITICAL")) {
+        const autoEmail =
+          !options?.skipAutoEmail &&
+          (options?.priority === "HIGH" || options?.priority === "CRITICAL");
+        if (userEmail && isGenuineEmail(userEmail) && (options?.sendEmail || autoEmail)) {
           try {
             await sendResendNotification({
               userId,

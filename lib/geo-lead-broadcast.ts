@@ -15,7 +15,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { isGenuineEmail, isTill8thClass, realisticTightBudget } from "@/lib/lead-utils";
+import { extractPublicLocality, isGenuineEmail, isTill8thClass, leadSubjectsForClass, realisticTightBudget } from "@/lib/lead-utils";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { renderNewMatchedLeadEmail } from "@/emails/NewMatchedLeadEmail";
 import { sendAquaWhatsAppMessage, normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
@@ -199,14 +199,19 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
       // Class 1–8: strictly Home Tuition. Subjects stay what they teach / lead asked.
       const mode: "ONLINE" | "OFFLINE" =
         isTill8thClass(rawClass) ? "OFFLINE" : matchedRealLead.mode === "ONLINE" ? "ONLINE" : "OFFLINE";
-      const subjects =
+      const subjects = leadSubjectsForClass(
+        rawClass,
         matchedRealLead.subjects && matchedRealLead.subjects.length > 0
           ? sanitizeSubjectsForClassLevel(matchedRealLead.subjects, rawClass, idx)
-          : pickTutorSubjects(tutorSubjects, rawClass, idx);
+          : pickTutorSubjects(tutorSubjects, rawClass, idx)
+      );
 
       const budget = getHealthyBudget(rawClass, mode === "OFFLINE");
       const timing = matchedRealLead.timingPreference || pickTiming(idx);
-      const location = [matchedRealLead.area, matchedRealLead.city].filter(Boolean).join(", ") || tCity;
+      const location =
+        extractPublicLocality([matchedRealLead.area, matchedRealLead.city].filter(Boolean).join(", "), tCity) ||
+        extractPublicLocality(tCity) ||
+        tCity;
 
       preparedLeads.push({
         tutorUserId: tutor.id,
@@ -253,16 +258,18 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
         : dummy.mode === "ONLINE"
           ? "ONLINE"
           : "OFFLINE";
-      const subjects = pickTutorSubjects(
-        tutorSubjects.length > 0 ? tutorSubjects : dummy.subjects,
+      const subjects = leadSubjectsForClass(
         rawClass,
-        idx
+        pickTutorSubjects(tutorSubjects.length > 0 ? tutorSubjects : dummy.subjects, rawClass, idx)
       );
 
       const budget = getHealthyBudget(rawClass, mode === "OFFLINE");
       const timing = pickTiming(idx);
       const dummyKm = Math.min(MATCH_RADIUS_KM, Math.max(1, dummy.distanceKm || 3.2));
-      const location = `${dummy.locality}, ${dummy.city}`;
+      const location =
+        extractPublicLocality(`${dummy.locality}, ${dummy.city}`, dummy.city) ||
+        extractPublicLocality(dummy.city) ||
+        tCity;
 
       preparedLeads.push({
         tutorUserId: tutor.id,
@@ -397,7 +404,7 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
     const waPlaceholders = [
       p.inquiryCode,
       p.clientName,
-      `${p.classLevel} (${p.subjects.slice(0, 2).join(", ")})`,
+      `${p.classLevel} (${(p.subjects.length > 0 ? p.subjects : ["All Subjects"]).slice(0, 2).join(", ")})`,
       p.mode === "OFFLINE" ? "Home Tuition (Offline)" : "Online Class",
       p.location,
       p.budgetFormatted,

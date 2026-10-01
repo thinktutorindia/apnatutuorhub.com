@@ -291,7 +291,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       },
       tutorSubjects: tutorProfile.subjects,
       tutorClassLevels: tutorProfile.classLevels,
-      teachingRadius: tutorProfile.teachingRadius || 10,
+      teachingRadius: 5,
       hasTutorLocation: Boolean(tutorLat && tutorLng),
     })
   ).length;
@@ -307,7 +307,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
           tutorAddress: tutorProfile.address || tutorProfile.city || "Delhi NCR",
           tutorSubjects: tutorProfile.subjects,
           tutorClassLevels: tutorProfile.classLevels,
-          teachingRadius: Math.min(10, tutorProfile.teachingRadius || 10),
+          teachingRadius: 5,
           userSeed: i * 37 + (tutorProfile.id.charCodeAt(0) || 1),
           stable: true,
         });
@@ -381,7 +381,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
         leads={feedLeads}
         walletBalance={walletBalance}
         tutorSubjects={tutorProfile.subjects}
-        teachingRadius={tutorProfile.teachingRadius || 10}
+        teachingRadius={5}
         tutorClassLevels={tutorProfile.classLevels}
         tutorLocation={{
           city: tutorProfile.city,

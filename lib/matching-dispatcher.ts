@@ -12,14 +12,20 @@
 /**
  * Dispatches a lead-matching job. Call this inside `after()` or Server Actions.
  * It returns void and never throws.
+ * `channels` limits how matched tutors are notified. Omit it to keep the default
+ * in-app alert (high priority also emails).
  */
-export async function dispatchLeadMatching(leadId: string): Promise<void> {
+export async function dispatchLeadMatching(
+  leadId: string,
+  options?: { channels?: import("@/lib/queue").LeadNotifyChannel[] }
+): Promise<void> {
+  const job = { leadId, channels: options?.channels };
   try {
     if (process.env.REDIS_URL) {
       try {
         const { enqueueLeadMatching, isRedisConfigured } = await import("@/lib/queue");
         if (isRedisConfigured()) {
-          await enqueueLeadMatching({ leadId });
+          await enqueueLeadMatching(job);
           return;
         }
       } catch (err) {
@@ -29,7 +35,7 @@ export async function dispatchLeadMatching(leadId: string): Promise<void> {
 
     // Run matching inline (development / direct execution)
     const { processLeadMatching } = await import("@/jobs/matching.worker");
-    const result = await processLeadMatching({ leadId });
+    const result = await processLeadMatching(job);
     console.info(
       `[matching-dispatcher] Inline matching complete: ${result.matchedCount} tutors matched`
     );

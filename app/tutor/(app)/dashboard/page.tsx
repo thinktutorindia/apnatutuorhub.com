@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import {
   ArrowRight, Search, Wallet, ShieldCheck, ShieldAlert, Star, UserCog,
   BookOpen, CheckCircle2, MapPin, MessageSquare, ChevronRight, UserCheck,
-  Navigation, Globe, Sparkles,
+  Navigation, Globe,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +12,7 @@ import { formatLeadBudget, getInquiryDisplayCode, publicTutorSlots } from "@/lib
 import { TutorAnalyticsWidget } from "@/components/tutor/TutorAnalyticsWidget";
 import { EnablePushBanner } from "@/components/EnablePushBanner";
 import { haversineDistanceKm } from "@/lib/haversine";
+import { INDIAN_CITY_COORDINATES } from "@/lib/geocoding";
 import { hasSubjectOverlap } from "@/lib/feed-matching";
 import { resolveLocationCoordinates } from "@/lib/geocoding";
 import { isGenderCompatible } from "@/lib/matching-engine";
@@ -116,26 +117,44 @@ export default async function TutorDashboardPage() {
     }
   }
 
-  // Fetch active student requirements prioritizing tutor city and online classes
-  const isDelhiRegion = tutorCity ? /delhi|noida|gurgaon|gurugram|ghaziabad|faridabad/i.test(tutorCity) : false;
+  const NEARBY_KM = 5;
+  const nearbyNames =
+    tutorLat != null && tutorLng != null
+      ? Object.entries(INDIAN_CITY_COORDINATES)
+          .filter(([, point]) => haversineDistanceKm(tutorLat!, tutorLng!, point.lat, point.lng) <= NEARBY_KM)
+          .map(([name]) => name)
+          .filter((name) => name.length >= 4)
+          .slice(0, 12)
+      : [];
+  const latPad = NEARBY_KM / 111;
+  const lngPad =
+    tutorLat != null
+      ? NEARBY_KM / (111 * Math.max(0.2, Math.cos((tutorLat * Math.PI) / 180)))
+      : 0.05;
 
   const candidateLeads = await prisma.lead.findMany({
     where: {
       status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] },
-      ...(tutorCity
+      mode: { not: "ONLINE" },
+      ...(nearbyNames.length > 0 || (tutorLat != null && tutorLng != null)
         ? {
             OR: [
-              { mode: "ONLINE" },
-              { city: { contains: tutorCity, mode: "insensitive" as const } },
-              ...(isDelhiRegion
+              ...(tutorLat != null && tutorLng != null
                 ? [
-                    { city: { in: ["Delhi", "New Delhi", "Noida", "Gurugram", "Gurgaon", "Ghaziabad", "Faridabad"] } },
-                    { area: { contains: "Delhi", mode: "insensitive" as const } },
+                    {
+                      latitude: { gte: tutorLat - latPad, lte: tutorLat + latPad },
+                      longitude: { gte: tutorLng - lngPad, lte: tutorLng + lngPad },
+                    },
                   ]
                 : []),
+              ...nearbyNames.map((name) => ({
+                area: { contains: name, mode: "insensitive" as const },
+              })),
             ],
           }
-        : {}),
+        : tutorCity
+          ? { city: { contains: tutorCity, mode: "insensitive" as const } }
+          : {}),
     },
     orderBy: { createdAt: "desc" },
     take: 500,
@@ -200,8 +219,7 @@ export default async function TutorDashboardPage() {
     }
 
     const isOnline = lead.mode === "ONLINE";
-    // Strict nearby location: within 10km radius
-    const isStrictNearby = distanceKm !== null && distanceKm <= 10;
+    const isStrictNearby = distanceKm !== null && distanceKm <= NEARBY_KM;
 
     // Strict subject matching: lead must match subjects the teacher teaches
     const subjectMatched =
@@ -229,43 +247,22 @@ export default async function TutorDashboardPage() {
     deduplicatedProcessed.push(pl);
   }
 
-  // 1. Strict Subject Filter: only leads matching what the teacher teaches
   const subjectMatchedLeads = deduplicatedProcessed.filter((l) => l.subjectMatched);
 
-  // 2. Strict Nearby (<10km) and Online Classes within 10km or available
-  const strictNearbyLeads = subjectMatchedLeads
-    .filter((l) => {
-      if (l.isOnline) {
-        return l.distanceKm === null || l.distanceKm <= 10 || l.isOnline;
-      }
-      return l.isStrictNearby;
-    })
-    .sort((a, b) => {
+  // Home-tuition classes inside 5 km. Subject match first, then any class in that radius.
+  const withinFiveKm = (l: DashboardLead) => !l.isOnline && l.isStrictNearby;
+  const nearbyBySubject = subjectMatchedLeads.filter(withinFiveKm);
+  const nearbyAnyClass = deduplicatedProcessed.filter(withinFiveKm);
+  const strictNearbyLeads = (nearbyBySubject.length > 0 ? nearbyBySubject : nearbyAnyClass).sort(
+    (a, b) => {
       const distA = a.distanceKm ?? 999;
       const distB = b.distanceKm ?? 999;
       if (distA !== distB) return distA - distB;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    }
+  );
 
-  // 3. Fallback: If no leads around their location, show uploaded leads matching the subjects they teach
-  let isFallback = false;
-  let recentLeads: DashboardLead[] = [];
-
-  if (strictNearbyLeads.length > 0) {
-    recentLeads = strictNearbyLeads.slice(0, 3);
-  } else {
-    isFallback = true;
-    recentLeads = subjectMatchedLeads
-      .sort((a, b) => {
-        // Prioritize city match, then online mode, then newest
-        const cityA = tutorCity && a.city?.toLowerCase().includes(tutorCity) ? 1 : 0;
-        const cityB = tutorCity && b.city?.toLowerCase().includes(tutorCity) ? 1 : 0;
-        if (cityA !== cityB) return cityB - cityA;
-        if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      })
-      .slice(0, 3);
-  }
+  const recentLeads: DashboardLead[] = strictNearbyLeads.slice(0, 3);
 
   const purchasedLeadIds = new Set(
     tutorProfile
@@ -496,22 +493,14 @@ export default async function TutorDashboardPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-                {isFallback ? "Tuition enquiries for your subjects" : "Strict nearby tuition enquiries (≤10km)"}
+                Nearby classes within 5 km
               </h2>
-              {isFallback ? (
-                <span className="text-[11px] font-800 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
-                  <Sparkles size={11} className="text-blue-600" /> Uploaded Leads Section
-                </span>
-              ) : (
-                <span className="text-[11px] font-800 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
-                  <Navigation size={11} className="text-[#2D9E6B]" /> Within 10km &amp; Online
-                </span>
-              )}
+              <span className="text-[11px] font-800 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                <Navigation size={11} className="text-[#2D9E6B]" /> Within 5 km
+              </span>
             </div>
             <p className="text-sm text-[#64748B]">
-              {isFallback
-                ? "No student postings within 10km right now. Showing active leads uploaded in the system strictly matching what you teach!"
-                : "Student requirements strictly matching the subjects you teach within a 10km radius and available online classes."}
+              Home tuition requirements inside 5 km of your saved location.
             </p>
           </div>
           <Link href="/tutor/leads" className="text-sm font-800 text-[#2D9E6B] hover:text-[#238357] inline-flex items-center gap-1 shrink-0">
@@ -533,7 +522,7 @@ export default async function TutorDashboardPage() {
                         #{inquiryCode}
                       </span>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {lead.distanceKm !== null && lead.distanceKm <= 10 ? (
+                        {lead.distanceKm !== null && lead.distanceKm <= 5 ? (
                           <span className="text-[11px] font-800 px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">
                             <Navigation size={10} className="text-[#238357]" /> {lead.distanceKm.toFixed(1)} km
                           </span>

@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateSession, updateSession, resetSession } from "@/lib/whatsapp-bot/session";
+import { claimReplyTurn, getOrCreateSession, updateSession, resetSession } from "@/lib/whatsapp-bot/session";
 import { processMessage } from "@/lib/whatsapp-bot/engine";
 import { sendBotMessage } from "@/lib/whatsapp-bot/sender";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
@@ -270,20 +270,38 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { phone, text, messageId, messageType, contactName, sentAt } = inbound;
   const duplicate = isDuplicateMessage(phone, text, messageId);
 
+  let retryAfterMissedReply = false;
+  if (messageId) {
+    const prior = await prisma.whatsappChatMessage.findUnique({
+      where: { messageId },
+      select: { createdAt: true },
+    });
+    if (prior) {
+      const alreadyReplied = await prisma.whatsappChatMessage.findFirst({
+        where: {
+          phone,
+          direction: "OUTBOUND",
+          senderName: "Bot",
+          createdAt: { gte: prior.createdAt },
+        },
+        select: { id: true },
+      });
+      const stillWorking = Date.now() - prior.createdAt.getTime() < 20_000;
+      if (alreadyReplied || stillWorking) {
+        return smartPingSuccess();
+      }
+      retryAfterMissedReply = true;
+    }
+  }
+
   if (!duplicate || messageId) {
     try {
-      const sessionForLog = await getOrCreateSession(phone);
-      const senderName =
-        contactName ||
-        ((sessionForLog.data as Record<string, unknown>)?.name as string) ||
-        "User";
       await upsertWhatsAppChatMessage({
         phone,
         direction: "INBOUND",
-        senderName,
+        senderName: contactName || "User",
         contactName,
         body: text,
-        step: sessionForLog.step,
         messageId: messageId ?? null,
         messageType: messageType ?? "text",
         status: "received",
@@ -295,7 +313,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
   }
 
-  if (duplicate) {
+  if (duplicate && !retryAfterMissedReply) {
     return smartPingSuccess();
   }
 
@@ -304,7 +322,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (!isAutoReplyOn) {
     console.log(
-      `[whatsapp-bot] Auto-reply is OFF. Inbound from ${phone} stored without an automated reply.`
+      "[whatsapp-bot] Auto-reply is OFF. Inbound message stored without an automated reply."
     );
     return smartPingSuccess();
   }
@@ -314,6 +332,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     // 1. Load or create session
     const session = await getOrCreateSession(phone);
+    const ownsTurn = await claimReplyTurn(session);
+    if (!ownsTurn) {
+      return smartPingSuccess();
+    }
 
     // 2. Process through state machine
     const result = await processMessage(session, text);
@@ -346,7 +368,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     } catch {
       // Best-effort
     }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return smartPingSuccess();
   }
 }
 

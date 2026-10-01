@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { getOrCreateSession, updateSession, resetSession } from "@/lib/whatsapp-bot/session";
 import { processMessage } from "@/lib/whatsapp-bot/engine";
+import { omitStarterPlan } from "@/lib/whatsapp-bot/sender";
 
 export const runtime = "nodejs";
 
@@ -43,7 +44,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
-      reply: result.reply,
+      reply: omitStarterPlan(result.reply),
       quickReplies: result.quickReplies || [],
       nextStep: result.nextStep,
       updatedData: result.updatedData,

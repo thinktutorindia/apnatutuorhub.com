@@ -58,17 +58,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-  const [showSpecialOffer, setShowSpecialOffer] = useState(false);
-
-  // Check URL for special retargeting offer flag (e.g. ?offer=99 or ?deal=99)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("offer") === "99" || params.get("deal") === "99" || params.get("deal") === "special") {
-        setShowSpecialOffer(true);
-      }
-    }
-  }, []);
+  const showSpecialOffer = false;
 
   // Dynamically inject Razorpay Checkout SDK
   useEffect(() => {
@@ -268,7 +258,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
         )}
 
         {/* ⏰ Special Retargeting ₹99 Trial Pass — only shown via special deal link or if currently on STARTER */}
-        {(showSpecialOffer || currentPlan === "STARTER") && (
+        {false && (
           <div className="rounded-3xl border-2 border-amber-400/80 bg-gradient-to-r from-amber-500/10 via-white to-orange-500/10 p-6 sm:p-8 mb-8 shadow-md">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
               {/* Left content */}

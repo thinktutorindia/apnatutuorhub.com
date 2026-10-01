@@ -21,8 +21,8 @@ export async function POST(request: Request) {
   const { planId } = body;
   const plan = getSubscriptionPlan(planId);
 
-  if (!plan) {
-    return NextResponse.json({ error: "Invalid subscription plan ID" }, { status: 400 });
+  if (!plan || plan.id === "STARTER") {
+    return NextResponse.json({ error: "This plan is not available." }, { status: 400 });
   }
 
   const tutorProfile = await prisma.tutorProfile.findUnique({

@@ -17,7 +17,8 @@ import {
 import { validateAndCleanLocality, validateAndAlignSubjects } from "./subject-rules";
 import { ALL_CANONICAL_SUBJECTS } from "@/lib/subject-taxonomy";
 import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
-import { isTill8thClass, realisticTightBudget } from "@/lib/lead-utils";
+import { extractPublicLocality, isTill8thClass, leadSubjectsForClass, normalizeCanonicalClassLevel, realisticTightBudget } from "@/lib/lead-utils";
+import { sealLeadEntry } from "@/lib/whatsapp-bot/intake";
 import { getLeadPointCost } from "@/lib/subscription-plans";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -437,10 +438,10 @@ export async function registerTutorFromWhatsapp(
   const normalizedPhone = normalizeIndiaWhatsApp(data.phone || phone) ?? rawTargetPhone;
   const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(normalizedPhone);
 
-  // Universally clean and validate area & city
+  // Locality only — never store a chat sentence or door address as the teaching area.
   const locRes = validateAndCleanLocality(data.area, data.city);
   const city = locRes.isValid ? locRes.city : (data.city || "Delhi");
-  const area = locRes.isValid ? locRes.area : (data.area || "Delhi NCR");
+  const area = extractPublicLocality(locRes.isValid ? locRes.area : data.area, city) || city;
 
   // Validate and align subjects to canonical taxonomy (enforces Class 1-8 rules)
   const subRes = validateAndAlignSubjects(data.subjects, data.classLevel || (data.classLevels ? data.classLevels[0] : undefined));
@@ -594,7 +595,18 @@ export async function registerParentFromWhatsapp(
   const rawTargetPhone = (data.phone || phone).replace(/\D/g, "");
   const normalizedPhone = normalizeIndiaWhatsApp(data.phone || phone) ?? rawTargetPhone;
   const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(normalizedPhone);
-  const classLevel = data.classLevel || (data.classKey && CLASS_MAP[data.classKey]) || "Class 10";
+  const classLevel = normalizeCanonicalClassLevel(
+    data.classLevel || (data.classKey && CLASS_MAP[data.classKey]) || ""
+  );
+  if (!classLevel) return { ok: false, error: "A real class is required" };
+  const sealed = sealLeadEntry({
+    classLevel,
+    subjects: data.subjects,
+    area: data.area,
+    mode: data.modeKey === "2" ? "ONLINE" : "OFFLINE",
+  });
+  if (!sealed.ok) return { ok: false, error: sealed.reason };
+
   const rawBudget = (data.budgetKey && BUDGET_MAP[data.budgetKey]) ? BUDGET_MAP[data.budgetKey] : { min: 4500, max: 4650 };
   const budget = realisticTightBudget({
     id: `${normalizedPhone || "parent"}-${classLevel}`,
@@ -605,19 +617,20 @@ export async function registerParentFromWhatsapp(
   const junior = isTill8thClass(classLevel);
   const mode = junior ? "OFFLINE" : (data.modeKey ? modeToLeadMode(data.modeKey) : "OFFLINE");
 
-  // Class 1–8 is always All Subjects. Upper classes keep the subjects the parent asked for.
+  // Class 1–8 is always exactly All Subjects. Class 9+ keeps the subjects the parent asked for.
   const subRes = validateAndAlignSubjects(data.subjects, classLevel);
   const canonicalSet = new Set(ALL_CANONICAL_SUBJECTS);
   const rawSubs = subRes.isValid && subRes.subjects.length > 0
     ? subRes.subjects
-    : (data.subjects && data.subjects.length > 0 ? data.subjects : ["All Subjects"]);
+    : (data.subjects && data.subjects.length > 0 ? data.subjects : []);
   const validSubs = rawSubs.filter((s) => canonicalSet.has(s));
-  const subjects = junior ? ["All Subjects"] : (validSubs.length > 0 ? validSubs : ["All Subjects"]);
+  const subjects = leadSubjectsForClass(classLevel, validSubs.length > 0 ? validSubs : rawSubs);
+  if (subjects.length === 0) return { ok: false, error: "Real subjects are required" };
 
-  // Universally validate and clean area & city
   const locRes = validateAndCleanLocality(data.area, data.city);
   const city = locRes.isValid ? locRes.city : (data.city || "Delhi");
-  const area = locRes.isValid ? locRes.area : (data.area || "Delhi NCR");
+  const area = extractPublicLocality(locRes.isValid ? locRes.area : data.area, city);
+  if (!area) return { ok: false, error: "A locality is required" };
 
   const parentName = data.parentName || data.name || "Parent";
   const studentName = data.studentName || parentName;
@@ -684,8 +697,8 @@ export async function registerParentFromWhatsapp(
       data: {
         parentProfileId: parentProfile.id,
         name: studentName,
-        classLevel,
-        subjects,
+        classLevel: sealed.classLevel,
+        subjects: sealed.subjects,
       },
     });
 
@@ -695,11 +708,11 @@ export async function registerParentFromWhatsapp(
         inquiryNumber,
         parentProfileId: parentProfile.id,
         studentProfileId: student.id,
-        subjects,
-        classLevel,
-        mode,
+        subjects: sealed.subjects,
+        classLevel: sealed.classLevel,
+        mode: sealed.mode,
         city,
-        area,
+        area: sealed.area,
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
         timingPreference: data.timing,

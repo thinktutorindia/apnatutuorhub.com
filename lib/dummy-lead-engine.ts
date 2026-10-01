@@ -13,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { dispatchEmail } from "@/lib/aws-notification";
 import { sendWebPush } from "@/lib/web-push";
 import { renderDummyLeadEmail } from "@/emails/DummyLeadEmail";
-import { isTill8thClass, isGenuineEmail } from "@/lib/lead-utils";
+import { isTill8thClass, isGenuineEmail, extractPublicLocality } from "@/lib/lead-utils";
 import { sendAquaWhatsAppMessage, normalizeIndiaWhatsApp, getAquaWhatsAppConfig } from "@/lib/aqua-whatsapp";
 
 // ─── Geo-tagged Locality Database ─────────────────────────────────────────────
@@ -348,11 +348,14 @@ export async function resolveLocalityDynamic(opts: {
     });
     if (aiPlaces && aiPlaces.length > 0) {
       const picked = aiPlaces[(dayNum + userSeed) % aiPlaces.length];
-      return {
-        locality: picked.name,
-        city: picked.city || city,
-        distanceKm: Math.min(5, Math.max(1, picked.distanceKm || Math.floor(rng() * 4) + 1)),
-      };
+      const pub = extractPublicLocality(picked.name, picked.city || city);
+      if (pub) {
+        return {
+          locality: pub,
+          city: picked.city || city,
+          distanceKm: Math.min(5, Math.max(1, picked.distanceKm || Math.floor(rng() * 4) + 1)),
+        };
+      }
     }
   }
 
@@ -368,31 +371,12 @@ export async function resolveLocalityDynamic(opts: {
     }
   }
 
-  // Step 2: Attempt address parsing (extract sub-locality from tutor's custom address string)
+  // Step 2: Locality only. Never the tutor's house number, landmark, or chat sentence.
   if (tutorAddress && tutorAddress.trim().length > 3) {
-    const parts = tutorAddress.split(",").map((p) => p.trim()).filter(Boolean);
-    const candidateParts = parts.filter(
-      (p) => !/^\d+$/.test(p) && !/^\d{6}$/.test(p) && p.toLowerCase() !== city.toLowerCase()
-    );
-
-    if (candidateParts.length > 0) {
-      const rawArea = candidateParts[0] || candidateParts[candidateParts.length - 1];
-      let cleanArea = rawArea
-        .replace(/^(?:near|opp|opposite|behind|beside|at|in|near by)\s+/i, "")
-        .replace(/^(?:south|north|east|west|central)\s+delhi/i, "")
-        .trim();
-      if (!cleanArea || cleanArea.length < 2) cleanArea = rawArea.trim();
-
-      const variations = [
-        cleanArea,
-        `Near ${cleanArea}`,
-        `${cleanArea} Main Market`,
-        `${cleanArea} Phase 1`,
-        `Block B, ${cleanArea}`,
-      ];
-      const idx = (dayNum + userSeed) % variations.length;
+    const pub = extractPublicLocality(tutorAddress, city);
+    if (pub) {
       return {
-        locality: variations[idx],
+        locality: pub,
         city,
         distanceKm: Math.min(5, Math.max(1, Math.floor(rng() * 4) + 1)),
       };
@@ -416,10 +400,10 @@ export async function resolveLocalityDynamic(opts: {
   // Step 4: Universal Fallback for any unknown city worldwide
   const cityAreaTemplates = [
     `${city} Central`,
-    `Near ${city} Main Market`,
     `${city} Civil Lines`,
-    `Near ${city} Model Town`,
-    `${city} Sector 1`,
+    `${city} Model Town`,
+    `Sector 2, ${city}`,
+    `Sector 5, ${city}`,
   ];
   const idx = (dayNum + userSeed) % cityAreaTemplates.length;
   return {

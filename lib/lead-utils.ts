@@ -111,6 +111,156 @@ function gradeNumberFromClass(classLevel?: string | null): number | null {
   return n >= 1 && n <= 12 ? n : null;
 }
 
+const CLASS_RANGE_RE =
+  /\b(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:to|-|–|—|and|&)\s*(?:class\s*)?(\d{1,2})\s*(?:st|nd|rd|th)?\b/i;
+
+function formatClassRange(lo: number, hi: number): string {
+  const a = Math.min(lo, hi);
+  const b = Math.max(lo, hi);
+  if (a === b) return `Class ${a}`;
+  return `Class ${a}-${b}`;
+}
+
+/**
+ * A lead/tutor class is real only when it names Class 1–12, a standard band,
+ * nursery/KG, or an entrance exam. Menu digits, subject names, and chat
+ * sentences are not classes.
+ */
+export function normalizeCanonicalClassLevel(raw?: string | null): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const s = raw.trim().replace(/\s+/g, " ");
+  if (!s || s.length > 80) return null;
+  if (/not specified|mention it|please call|attending the class/i.test(s)) return null;
+
+  if (/\b(iit[\s-]*)?jee\b/i.test(s) && !CLASS_RANGE_RE.test(s) && !/\bclass\s*([1-9]|1[0-2])\b/i.test(s)) {
+    return "JEE";
+  }
+  if (/\bneet\b/i.test(s) && !CLASS_RANGE_RE.test(s) && !/\bclass\s*([1-9]|1[0-2])\b/i.test(s)) {
+    return "NEET";
+  }
+  if (/\bcuet\b/i.test(s) && !CLASS_RANGE_RE.test(s)) return "CUET";
+
+  const range = s.match(CLASS_RANGE_RE);
+  if (range) {
+    const a = parseInt(range[1], 10);
+    const b = parseInt(range[2], 10);
+    if (a >= 1 && a <= 12 && b >= 1 && b <= 12) return formatClassRange(a, b);
+  }
+
+  if (/\blkg\b/i.test(s) && /\b([1-8])\b/.test(s)) return "Class 1-5";
+  if (/\b(nursery|playgroup)\b/i.test(s) && !/\bclass\s*\d/i.test(s)) return "Nursery";
+  if (/\blkg\b/i.test(s)) return "LKG";
+  if (/\bukg\b/i.test(s)) return "UKG";
+  if (/\bkg\b/i.test(s) && !/\bclass\s*\d/i.test(s)) return "KG";
+  if (/^primary$/i.test(s) || /\bprimary\b/i.test(s) && !/\d/.test(s)) return "Class 1-5";
+  if (/^middle(\s+school)?$/i.test(s)) return "Class 6-8";
+
+  const grades = [...s.matchAll(/\b(\d{1,2})\s*(st|nd|rd|th)?\b/gi)]
+    .map((m) => ({ n: parseInt(m[1], 10), ordinal: Boolean(m[2]) }))
+    .filter((g) => g.n >= 1 && g.n <= 12);
+
+  const hasClassWord = /\b(class|grade|std|standard)\b/i.test(s);
+  const bareNumber = /^(?:class\s*)?(\d{1,2})\.?$/i.test(s);
+  if (bareNumber && !/\b(class|grade|std|standard)\b/i.test(s)) return null;
+  if (/^(hindi|english|maths?|science|physics|chemistry|biology|accountancy|accounts|history|geography|economics|computer|sst|evs|commerce)$/i.test(s)) {
+    return null;
+  }
+
+  const chatty = /\b(please|call|hello|hi|hu|hoon|hai|skti|sakti|sakta|le\s+sk|online|tuition|tution|padhta|padhti|padhate|chahiye|kya|nahi|not|attending|msg|message)\b/i.test(s);
+  if (chatty && !hasClassWord && !grades.some((g) => g.ordinal) && !range) return null;
+
+  if (grades.length === 0) return null;
+  if (!hasClassWord && !grades.some((g) => g.ordinal) && s.split(/\s+/).length > 2) return null;
+
+  const unique = [...new Set(grades.map((g) => g.n))].sort((a, b) => a - b);
+  if (unique.length === 1) return `Class ${unique[0]}`;
+  return formatClassRange(unique[0], unique[unique.length - 1]);
+}
+
+export function isRealClassLevel(raw?: string | null): boolean {
+  if (!raw || typeof raw !== "string") return false;
+  if (normalizeCanonicalClassLevel(raw)) return true;
+  const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+  return parts.length > 1 && parts.every((p) => Boolean(normalizeCanonicalClassLevel(p)));
+}
+
+/** Class 1–8 leads always store exactly this subject list. */
+export function leadSubjectsForClass(classLevel?: string | null, subjects?: string[] | null): string[] {
+  if (isTill8thClass(classLevel)) return ["All Subjects"];
+  const cleaned = (subjects || [])
+    .map((s) => String(s || "").trim())
+    .filter((s) => s && !/^all subjects\s*\(/i.test(s) && !/^all subjects for class\b/i.test(s));
+  const unique = [...new Set(cleaned)];
+  const specific = unique.filter((s) => !/^all subjects$/i.test(s));
+  if (specific.length > 0) return specific.slice(0, 3);
+  if (unique.some((s) => /^all subjects$/i.test(s))) return ["All Subjects"];
+  return [];
+}
+
+const LOCALITY_DROP =
+  /^(near|opp\.?|opposite|behind|beside|next to)\b|\b(sbi|atm|bank|branch|mother dairy|metro station|mandir|temple|pharmacy|sweets|medicos|community centre|community center)\b|\b(india|uttar pradesh|madhya pradesh|himachal pradesh|andhra pradesh|arunachal pradesh|west bengal|tamil nadu|uttarakhand)\b$|\b(pan-?india|online class|virtual|not specified|default|mention it)\b/i;
+
+const HOUSE_PART =
+  /^(house|h\.?\s*no|flat|plot|floor|tower|apartment|apartments|block|pocket|gali|shop|room|ward|khasra)\b|\b(towers?|apartments?|residency|heights|wish town)\b/i;
+
+/**
+ * Locality a parent or nearby lead may show: colony, sector, or neighbourhood.
+ * House numbers, landmarks, pincodes, and chat sentences are removed.
+ */
+export function extractPublicLocality(raw?: string | null, fallbackCity?: string | null): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  let s = raw.trim().replace(/\s+/g, " ");
+  if (!s) return null;
+  s = s.replace(/\b[1-8]\d{5}\b/g, " ").replace(/\s+/g, " ").trim();
+  if (!s) return null;
+
+  if (/^(class|grade|std|standard)\b/i.test(s) && !/\b(nagar|vihar|sector|colony|enclave|pur|ganj|bagh|kunj)\b/i.test(s)) {
+    return null;
+  }
+  if (/^(nursery|lkg|ukg|kg|jee|neet|cuet|all subjects|hindi|english|maths|science|physics|please call)$/i.test(s)) {
+    return null;
+  }
+
+  const sentence = /[?]|\b(mai|main|mein|hu|hoon|i am|i'm|from|padhta|padhti|padhate|padtha|tuition|tution|kya|please|call|skti|sakti|sakta|message|msg|near by|nearby|medium)\b/i.test(s);
+
+  const title = (value: string) =>
+    value
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+
+  if (sentence) {
+    const sector = s.match(/\bsector\s*-?\s*(\d{1,3}[a-z]?)\b/i);
+    if (sector) return `Sector ${sector[1].toUpperCase()}`;
+    const region = s.match(/\b((?:north|south|east|west|central)\s+delhi|greater\s+noida|noida|gurugram|gurgaon|rohini|dwarka|mukundpur|pitampura|janakpuri|laxmi\s+nagar|lakshmi\s+nagar)\b/i);
+    if (region) return title(region[1]);
+    const named = s.match(/\b([a-z][a-z .'-]{2,30}?(?:pur|nagar|vihar|ganj|abad|bagh|kunj|colony|enclave))\b/i);
+    if (named) return title(named[1].replace(/\s+/g, " "));
+    return null;
+  }
+
+  const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
+  const kept: string[] = [];
+  for (const part of parts) {
+    if (!part || part.length < 2) continue;
+    if (/^\d+[a-z]?$/i.test(part)) continue;
+    if (LOCALITY_DROP.test(part) || HOUSE_PART.test(part)) continue;
+    if (/^(delhi ncr|ncr|online)$/i.test(part)) continue;
+    if (/main market/i.test(part) && !/\bsector\s*\d/i.test(part)) continue;
+    kept.push(part);
+  }
+
+  if (kept.length === 0 && fallbackCity && !/^(ncr|pan-?india|online|delhi ncr)$/i.test(fallbackCity.trim())) {
+    const fromCity = extractPublicLocality(fallbackCity);
+    return fromCity;
+  }
+  if (kept.length === 0) return null;
+
+  const chosen = kept.slice(0, 2).join(", ");
+  return chosen.length > 70 ? kept[0].slice(0, 48) : chosen;
+}
+
 /**
  * Parent-style fee quote with a small gap (₹4,500–₹4,650), stable per lead.
  * Wide legacy bands and inflated hourly rates are pulled into a local tuition range.
@@ -130,16 +280,14 @@ export function realisticTightBudget(lead?: {
   const storedMin = lead.budgetMin && lead.budgetMin > 0 ? lead.budgetMin : null;
   const storedMax = lead.budgetMax && lead.budgetMax > 0 ? lead.budgetMax : null;
 
-  if (!hourly && storedMin && storedMax) {
+  const senior = grade !== null && grade >= 11;
+  const floor = !hourly ? (grade !== null && grade <= 5 ? 3600 : 4200) : senior ? 450 : 320;
+  const ceiling = !hourly ? (grade !== null && grade <= 5 ? 4250 : 4800) : senior ? 620 : 400;
+  const maxSpread = !hourly ? 200 : senior ? 40 : 25;
+
+  if (storedMin && storedMax) {
     const spread = storedMax - storedMin;
-    if (spread > 0 && spread <= 200 && storedMin >= 3200 && storedMax <= 5600) {
-      return { min: storedMin, max: storedMax };
-    }
-  }
-  if (hourly && storedMin && storedMax) {
-    const ceiling = grade !== null && grade >= 11 ? 700 : 430;
-    const spread = storedMax - storedMin;
-    if (spread > 0 && spread <= 40 && storedMin >= 280 && storedMax <= ceiling) {
+    if (spread > 0 && spread <= maxSpread && storedMin >= floor && storedMax <= ceiling) {
       return { min: storedMin, max: storedMax };
     }
   }
@@ -157,8 +305,7 @@ export function realisticTightBudget(lead?: {
     return { min, max: min + 150 };
   }
 
-  const senior = grade !== null && grade >= 11;
-  const mins = senior ? [450, 480, 520, 560] : [320, 340, 360, 380];
+  const mins = senior ? [450, 480, 520, 560, 590] : [320, 340, 360, 380];
   const min = mins[pick % mins.length];
   return { min, max: min + (senior ? 30 : 20) };
 }

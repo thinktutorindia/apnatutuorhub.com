@@ -28,6 +28,9 @@ import {
   registerParentFromWhatsapp,
 } from "./auto-register";
 import { prisma } from "@/lib/prisma";
+import { resolveLocationCoordinates } from "@/lib/geocoding";
+import { extractPublicLocality, isTill8thClass, leadSubjectsForClass, normalizeCanonicalClassLevel } from "@/lib/lead-utils";
+import { assessIntake, sealLeadEntry, type IntakeDraft } from "@/lib/whatsapp-bot/intake";
 import bcrypt from "bcryptjs";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 import {
@@ -66,7 +69,28 @@ export const DELHI_NCR_LOCALITIES = [
 
 export function cleanExtractedArea(raw: unknown, defaultCity = "Delhi"): string {
   const res = validateAndCleanLocality(raw, defaultCity);
-  return res.isValid ? res.area : "";
+  return extractPublicLocality(res.isValid ? res.area : typeof raw === "string" ? raw : "", res.city || defaultCity) || "";
+}
+
+function classSignalInMessage(rawMessage: string): boolean {
+  return /\b(class|grade|std|standard|nursery|lkg|ukg|jee|neet|cuet|\d{1,2}\s*(?:st|nd|rd|th))\b/i.test(rawMessage);
+}
+
+function keepClassLevel(current: unknown, rawMessage: string, previous: unknown): string | undefined {
+  const fromMsg = normalizeCanonicalClassLevel(rawMessage);
+  if (fromMsg) return fromMsg;
+  const prev = normalizeCanonicalClassLevel(typeof previous === "string" ? previous : "");
+  const next = normalizeCanonicalClassLevel(typeof current === "string" ? current : "");
+  if (next && classSignalInMessage(rawMessage)) return next;
+  return prev;
+}
+
+function keepArea(current: unknown, rawMessage: string, previous: unknown, city?: string): string | undefined {
+  const fromMsg = extractPublicLocality(rawMessage, city);
+  if (fromMsg) return fromMsg;
+  const next = extractPublicLocality(typeof current === "string" ? current : "", city);
+  const prev = extractPublicLocality(typeof previous === "string" ? previous : "", city);
+  return next || prev;
 }
 
 export function isValidEmailDomain(email: string): boolean {
@@ -86,6 +110,10 @@ export function isValidEmailDomain(email: string): boolean {
   if (/\.(gom|con|cpm|coom|comm|cm)$/i.test(domain)) return false;
 
   return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(domain);
+}
+
+function profileNotSavedReply(): string {
+  return `Profile save nahi hua. Is WhatsApp number par tutor account nahi mila.\n\nLogin karke yahan update karein:\nhttps://apnatutorhub.com/tutor/profile`;
 }
 
 function isValidName(v: string): boolean {
@@ -180,6 +208,7 @@ export async function syncUserCredentialsInDb(params: {
   password?: string;
   name?: string;
   subjects?: string[];
+  classLevels?: string[];
   area?: string;
   city?: string;
 }): Promise<{ ok: boolean; updatedFields: string[]; error?: string }> {
@@ -190,15 +219,21 @@ export async function syncUserCredentialsInDb(params: {
     const last10Phone = rawTargetPhone.slice(-10);
 
     // Build exact phone OR filters covering all stored formats
-    const phoneFilters: Array<{ phone: string }> = [];
-    if (normalizedPhone) phoneFilters.push({ phone: normalizedPhone });
-    if (last10Phone) phoneFilters.push({ phone: last10Phone });
-    if (rawTargetPhone.length > 10) {
-      phoneFilters.push({ phone: rawTargetPhone });
+    const phoneFilters: Array<{ phone: string } | { phone: { endsWith: string } }> = [];
+    const phoneVariants = new Set<string>();
+    if (normalizedPhone) phoneVariants.add(normalizedPhone);
+    if (last10Phone) phoneVariants.add(last10Phone);
+    if (rawTargetPhone) phoneVariants.add(rawTargetPhone);
+    if (last10Phone) {
+      phoneVariants.add(`91${last10Phone}`);
+      phoneVariants.add(`+91${last10Phone}`);
+      phoneVariants.add(`0${last10Phone}`);
     }
-    // Also include 91XXXXXXXXXX variant explicitly
-    if (last10Phone && !rawTargetPhone.startsWith("91")) {
-      phoneFilters.push({ phone: `91${last10Phone}` });
+    for (const variant of phoneVariants) {
+      if (variant) phoneFilters.push({ phone: variant });
+    }
+    if (last10Phone.length === 10) {
+      phoneFilters.push({ phone: { endsWith: last10Phone } });
     }
 
     // Fallback: also match by wa_ generated email (used when phone-based register happened)
@@ -290,22 +325,47 @@ export async function syncUserCredentialsInDb(params: {
       }
     }
 
-    // 4. Tutor profile update (subjects, area, city)
-    const tutorUser = await prisma.user.findFirst({
-      where: { OR: phoneFilters, tutorProfile: { isNot: null } },
+    // 4. Tutor profile update (subjects, class, area, city)
+    const profileCandidates = await prisma.user.findMany({
+      where: { OR: phoneFilters },
       include: { tutorProfile: true },
+      orderBy: { createdAt: "desc" },
+      take: 5,
     });
+    const tutorUser = profileCandidates.find((u) => u.tutorProfile) ?? null;
+    const wantsProfileWrite = Boolean(
+      params.area || params.city || (params.subjects && params.subjects.length > 0) || (params.classLevels && params.classLevels.length > 0)
+    );
 
     if (tutorUser && tutorUser.tutorProfile) {
-      const profileUpdates: any = {};
+      const profileUpdates: {
+        address?: string;
+        city?: string;
+        latitude?: number;
+        longitude?: number;
+        subjects?: string[];
+        classLevels?: string[];
+      } = {};
       if (params.area) {
         profileUpdates.address = params.area;
       }
       if (params.city) {
         profileUpdates.city = params.city;
       }
+      if (params.area || params.city) {
+        const coords = resolveLocationCoordinates(
+          `${params.area || tutorUser.tutorProfile.address || ""} ${params.city || tutorUser.tutorProfile.city || ""}`.trim()
+        );
+        if (coords) {
+          profileUpdates.latitude = coords.lat;
+          profileUpdates.longitude = coords.lng;
+        }
+      }
       if (params.subjects && params.subjects.length > 0) {
         profileUpdates.subjects = params.subjects;
+      }
+      if (params.classLevels && params.classLevels.length > 0) {
+        profileUpdates.classLevels = params.classLevels;
       }
       if (Object.keys(profileUpdates).length > 0) {
         await prisma.tutorProfile.update({
@@ -314,8 +374,10 @@ export async function syncUserCredentialsInDb(params: {
         });
         if (params.area || params.city) updatedFields.push("area");
         if (params.subjects) updatedFields.push("subjects");
+        if (params.classLevels) updatedFields.push("class");
       }
     }
+    const profileMissing = wantsProfileWrite && !tutorUser?.tutorProfile;
 
     // 5. Also update whatsappSession.data if session exists
     try {
@@ -328,9 +390,13 @@ export async function syncUserCredentialsInDb(params: {
         if (params.email) merged.email = params.email.trim().toLowerCase();
         if (params.password) merged.password = params.password.trim();
         if (params.name) merged.name = params.name.trim();
-        if (params.area) merged.area = params.area.trim();
-        if (params.city) merged.city = params.city.trim();
-        if (params.subjects) merged.subjects = params.subjects;
+        if (!profileMissing) {
+          if (params.area) merged.area = params.area.trim();
+          if (params.city) merged.city = params.city.trim();
+          if (params.subjects) merged.subjects = params.subjects;
+          if (params.classLevels) merged.classLevels = params.classLevels;
+          if (params.classLevels?.[0]) merged.classLevel = params.classLevels[0];
+        }
 
         await prisma.whatsappSession.update({
           where: { id: existingSession.id },
@@ -341,6 +407,9 @@ export async function syncUserCredentialsInDb(params: {
       console.warn("[syncUserCredentialsInDb] Session sync warning:", sessionErr);
     }
 
+    if (profileMissing) {
+      return { ok: false, updatedFields, error: "No tutor profile for this WhatsApp number" };
+    }
     return { ok: true, updatedFields };
   } catch (err: any) {
     console.error("[syncUserCredentialsInDb] Error syncing credentials:", err);
@@ -449,7 +518,7 @@ export async function processMessage(
     /(?:bina\s*(?:paise|reg|payment)|free\s*(?:lead|enquiry|tuition|demo)|pehle\s*demo\s*(?:fir|phir|baad)|payment\s*baad|ek\s*(?:lead|enquiry)\s*(?:free|dedo))/i.test(rawMessage)
   ) {
     return {
-      reply: `Sir hum samajhte hain, par parents ke direct verified phone number aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹99 starter offer ya ₹999 plan se shuru kar sakte hain jisme 100% fees aapki rehti hai (0% commission)!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
+      reply: `Sir hum samajhte hain, par parents ke direct verified phone number aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹999 plan se shuru kar sakte hain jisme 100% fees aapki rehti hai (0% commission)!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
@@ -644,15 +713,19 @@ export async function processMessage(
   }
 
   // ── Single-shot Name ──
-  const directNameMatch = rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?name\s+(.+)$/i);
+  const directNameMatch = rawMessage.trim().match(
+    /^(?:(?:please|pls|can you|could you)\s+)?(?:update|change|set)\s+(?:my\s+)?name\s+(?:to\s+|as\s+|is\s+)?(.+)$/i
+  );
   if (directNameMatch) {
     const newName = directNameMatch[1].trim();
     if (isValidName(newName)) {
-      await syncUserCredentialsInDb({ phone: session.phone, name: newName });
+      const saved = await syncUserCredentialsInDb({ phone: session.phone, name: newName });
       return {
-        reply: `Naam successfully update ho gaya: *${newName}* ✅`,
+        reply: saved.updatedFields.includes("name")
+          ? `Naam save ho gaya: *${newName}* ✅`
+          : profileNotSavedReply(),
         nextStep: "DONE",
-        updatedData: { ...data, name: newName },
+        updatedData: saved.updatedFields.includes("name") ? { ...data, name: newName } : data,
         retries: 0,
         quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
       };
@@ -662,16 +735,32 @@ export async function processMessage(
     return { reply: "Apna naya naam type karo:", nextStep: "UPDATE_NAME", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
   }
 
-  // ── Single-shot Area ──
-  const directAreaMatch = rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?area\s+(.+)$/i);
+  // ── Single-shot Area / Location ──
+  const directAreaMatch = rawMessage.trim().match(
+    /^(?:(?:please|pls|can you|could you|kindly)\s+)?(?:update|change|set)\s+(?:my\s+)?(?:new\s+)?(?:area|location|locality)\s+(?:to\s+|as\s+|is\s+|hai\s+)?(.+)$/i
+  );
   if (directAreaMatch) {
-    const newArea = directAreaMatch[1].trim();
-    const cleanArea = cleanExtractedArea(newArea) || newArea;
-    await syncUserCredentialsInDb({ phone: session.phone, area: cleanArea });
+    const loc = validateAndCleanLocality(directAreaMatch[1].trim(), (data.city as string) || "Delhi");
+    if (!loc.isValid || !resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
+      return {
+        reply: "Sirf locality likhein — jaise *Rohini*, *Saket*, ya *Sector 45*. Ghar number ya poora message area nahi hai. 📍",
+        nextStep: "UPDATE_AREA",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["Cancel"],
+      };
+    }
+    const saved = await syncUserCredentialsInDb({
+      phone: session.phone,
+      area: loc.area,
+      city: loc.city,
+    });
     return {
-      reply: `Area successfully update ho gaya: *${cleanArea}* 📍`,
+      reply: saved.updatedFields.includes("area")
+        ? `Location save ho gayi: *${loc.area}, ${loc.city}* 📍\n\nDashboard par isi area ke 5 km ki classes dikhengi.`
+        : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: { ...data, area: cleanArea },
+      updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
@@ -709,11 +798,11 @@ export async function processMessage(
         retries: 0,
       };
     }
-    await syncUserCredentialsInDb({ phone: session.phone, name: newName });
+    const saved = await syncUserCredentialsInDb({ phone: session.phone, name: newName });
     return {
-      reply: `Naam update ho gaya: *${newName}* ✅`,
+      reply: saved.updatedFields.includes("name") ? `Naam update ho gaya: *${newName}* ✅` : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: { ...data, name: newName },
+      updatedData: saved.updatedFields.includes("name") ? { ...data, name: newName } : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
@@ -731,11 +820,13 @@ export async function processMessage(
         retries: 0,
       };
     }
-    await syncUserCredentialsInDb({ phone: session.phone, email: newEmail });
+    const saved = await syncUserCredentialsInDb({ phone: session.phone, email: newEmail });
     return {
-      reply: `Email update ho gaya: *${newEmail}* ✅\n\nAap is email se login kar sakte hain: https://apnatutorhub.com/login`,
+      reply: saved.updatedFields.includes("email")
+        ? `Email update ho gaya: *${newEmail}* ✅\n\nAap is email se login kar sakte hain: https://apnatutorhub.com/login`
+        : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: { ...data, email: newEmail },
+      updatedData: saved.updatedFields.includes("email") ? { ...data, email: newEmail } : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
@@ -751,36 +842,87 @@ export async function processMessage(
         retries: 0,
       };
     }
-    await syncUserCredentialsInDb({ phone: session.phone, password: newPass });
+    const saved = await syncUserCredentialsInDb({ phone: session.phone, password: newPass });
     const userEmail = (data.email as string) || "aapka email";
     return {
-      reply: `Password successfully update ho gaya hai: *${newPass}* 🔒\n\nAap is email (*${userEmail}*) aur naye password se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+      reply: saved.updatedFields.includes("password")
+        ? `Password successfully update ho gaya hai. 🔒\n\nAap is email (*${userEmail}*) aur naye password se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`
+        : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: { ...data, password: newPass },
+      updatedData: saved.updatedFields.includes("password") ? { ...data, password: newPass } : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
   }
 
   if (step === "UPDATE_SUBJECTS") {
-    const subs = rawMessage.split(/,|and/i).map((s) => s.trim()).filter(Boolean);
-    await syncUserCredentialsInDb({ phone: session.phone, subjects: subs });
+    const aligned = validateAndAlignSubjects(rawMessage.trim(), data.classLevel as string | undefined);
+    if (!aligned.isValid || aligned.subjects.length === 0) {
+      return {
+        reply: aligned.errorPrompt || "Kaunse subjects padhate ho? Jaise: *Maths, Science* ya *All Subjects*.",
+        nextStep: "UPDATE_SUBJECTS",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["Maths", "All Subjects", "Physics", "Cancel"],
+      };
+    }
+    const saved = await syncUserCredentialsInDb({ phone: session.phone, subjects: aligned.subjects });
     return {
-      reply: `Subjects update ho gaye: *${subs.join(", ")}* ✅`,
+      reply: saved.updatedFields.includes("subjects")
+        ? `Subjects save ho gaye: *${aligned.subjects.join(", ")}* ✅`
+        : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: { ...data, subjects: subs },
+      updatedData: saved.updatedFields.includes("subjects") ? { ...data, subjects: aligned.subjects } : data,
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
+  }
+
+  if (step === "UPDATE_CLASS") {
+    const cls = normalizeCanonicalClassLevel(rawMessage.trim());
+    if (!cls) {
+      return {
+        reply: "Kaunsi class padhate ho? Jaise: *Class 5*, *Class 9-10*, ya *Class 11-12*.",
+        nextStep: "UPDATE_CLASS",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
+      };
+    }
+    const saved = await syncUserCredentialsInDb({ phone: session.phone, classLevels: [cls] });
+    return {
+      reply: saved.updatedFields.includes("class")
+        ? `Class save ho gayi: *${cls}* ✅`
+        : profileNotSavedReply(),
+      nextStep: "DONE",
+      updatedData: saved.updatedFields.includes("class") ? { ...data, classLevel: cls, classLevels: [cls] } : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
   }
 
   if (step === "UPDATE_AREA") {
-    const cleanArea = cleanExtractedArea(rawMessage.trim()) || rawMessage.trim();
-    await syncUserCredentialsInDb({ phone: session.phone, area: cleanArea });
+    const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || "Delhi");
+    if (!loc.isValid || !resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
+      return {
+        reply: loc.errorPrompt || "Sirf locality likhein — jaise *Saket*, *Rohini*, ya *Dwarka*. 📍",
+        nextStep: "UPDATE_AREA",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["Saket", "Rohini", "Dwarka", "Cancel"],
+      };
+    }
+    const saved = await syncUserCredentialsInDb({
+      phone: session.phone,
+      area: loc.area,
+      city: loc.city,
+    });
     return {
-      reply: `Area update ho gaya: *${cleanArea}* 📍`,
+      reply: saved.updatedFields.includes("area")
+        ? `Location save ho gayi: *${loc.area}, ${loc.city}* 📍\n\nDashboard par isi area ke 5 km ki classes dikhengi.`
+        : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: { ...data, area: cleanArea },
+      updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
@@ -950,6 +1092,126 @@ export async function processMessage(
     };
   }
 
+  // "Please call" is a callback request, not a class or a new lead.
+  if (/^(?:please\s*)?call(?:\s*me|\s*karo|\s*kro|\s*kariye)?\.?$|\bmujhe\s+call\b|\bcall\s+kar(?:o|na)\b/i.test(rawMessage.trim())) {
+    return {
+      reply: `Ji, call ke liye coordinator se baat karein:\n📞 WhatsApp: +91 93191 93109\nTime: 9am–7pm (Mon–Sat)\n\nAgar aap tutor hain to leads yahan hain: https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "WELCOME" : step,
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["View Leads 📋", "I'm a Tutor", "I'm a Parent"],
+    };
+  }
+
+  // "Online le skti hu" is a teaching-mode reply, not a class name.
+  if (/\bonline\s+le\s+s(?:k|ak)/i.test(rawMessage) || /\b(online|offline)\s+(?:le|kar)\s+(?:sakti|sakta|skti|skta)\b/i.test(rawMessage)) {
+    const cls = normalizeCanonicalClassLevel(rawMessage);
+    const wantsOnline = /\bonline\b/i.test(rawMessage);
+    return {
+      reply: wantsOnline
+        ? `Online sirf *Class 9 aur usse upar* ke liye hai. Class 1–8 par sirf *home tuition (offline)* milta hai.\n\nAap kaunsi class aur kaunse subjects padhate hain? 📚`
+        : `Home tuition (offline) Class 1–8 ke liye hai. Class 9+ online ya ghar par dono ho sakta hai.\n\nKaunsi class aur subjects batayein? 📚`,
+      nextStep: "T_CONVO",
+      updatedData: { ...data, mode: wantsOnline ? "ONLINE" : "OFFLINE", ...(cls ? { classLevel: cls } : {}) },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["All Subjects, Class 1-8", "Maths, Class 9-10", "Physics, Class 11-12"],
+    };
+  }
+
+  // One clear reply when the person says the bot is not following them.
+  if (/\b(samajh|samjh)\s*nahi\b|\bbaat\s*samajh\b|\bkya\s*bol\s*rahe\b|\bconfus/i.test(rawMessage)) {
+    const cls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
+    return {
+      reply: cls
+        ? `Theek hai, seedha batayein. *${cls}* ke liye subject aur locality likh dein.\nJaise: *Maths, Rohini*`
+        : `Theek hai. Ek line mein likh dein:\n*Class 8, All Subjects, Mukundpur*\n\nTutor hain to *1*, parent hain to *2*.`,
+      nextStep: session.userType === "PARENT" ? "P_CONVO" : step === "WELCOME" ? "WELCOME" : "T_CONVO",
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["Class 1-8 All Subjects", "Class 9-10 Maths", "1 - Tutor", "2 - Parent"],
+    };
+  }
+
+  // Agreeing, asking for a free class, or asking about charges is not a new lead.
+  if (/\b(agree to take|free\s+(?:one\s+)?class|registration fees?|charges?\s+(?:bhi\s+)?lage|koi charges)\b/i.test(rawMessage)) {
+    return {
+      reply: `Lead unlock ke alawa koi registration fee nahi hai. Parent tutor ko fees seedha dete hain, aur us par *0% commission* hai.\n\nClass 1–8 = 10 coins, Class 9–10 = 20, Class 11–12 = 30. Coins pehle se hain to naya pack mat lijiye.\n👉 https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["My Coins 🪙", "View Leads 📋", "View Plans 💰"],
+    };
+  }
+
+  // "Hindi medium" is the language, not the class Hindi.
+  if (/\b(hindi|english)\s+medium\b/i.test(rawMessage) && !normalizeCanonicalClassLevel(rawMessage)) {
+    const medium = /hindi/i.test(rawMessage) ? "Hindi" : "English";
+    return {
+      reply: `*${medium} medium* note kar liya. Kaunsi class padhate hain — Class 1 se 8 (All Subjects) ya Class 9–12? 📚`,
+      nextStep: "T_CONVO",
+      updatedData: { ...data, languagePref: `${medium} medium` },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Class 1-8 All Subjects", "Class 9-10", "Class 11-12"],
+    };
+  }
+
+  // Attendance complaints are not a class level.
+  if (/\b(not attending|attend(?:ing)? the class|class nahi le|class miss)\b/i.test(rawMessage)) {
+    return {
+      reply: `Yeh ApnaTutorHub ka tuition matching number hai. Kisi class ki attendance yahan se nahi hoti.\n\nAap tutor hain ya student ke liye tutor chahiye?\n1 — Tutor\n2 — Parent`,
+      nextStep: "WELCOME",
+      updatedData: {},
+      userType: null,
+      retries: 0,
+      quickReplies: ["1️⃣ I'm a Tutor", "2️⃣ I'm a Parent"],
+    };
+  }
+
+  // "Where is the tuition / location?" — answer with how locality works, don't save the question as an area.
+  if (/\b(location\s*(kya|kahan|hai)|kahan\s*(hai|padh|hai ye)|where\s+is\s+(the\s+)?(tuition|class|location)|kitni\s+door|konsi\s+jagah)\b/i.test(rawMessage)) {
+    return {
+      reply: `Lead par sirf *mohalla / sector / colony* dikhta hai, tutor ka ghar nahi.\n\nApna locality batayein — jaise *Mukundpur*, *Rohini*, ya *Sector 45*. Class 1–8 home tuition usi area ke paas milta hai. Class 9+ online bhi ho sakta hai.`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Update Area 📍", "View Leads 📋", "Online Classes"],
+    };
+  }
+
+  // Fee is paid to the tutor by the parent, not a class name.
+  if (/\b(payment|fees?)\b.*\b(pehle|before|class)\b|\bclass(?:es)?\s+milne\s+se\s+pehle\b/i.test(rawMessage)) {
+    return {
+      reply: `Tutor ko parent fees seedha dete hain. ApnaTutorHub monthly fees par *0% commission* leta hai.\n\nLead unlock karne ke liye coins lagte hain (Class 1–8: 10, Class 9–10: 20, Class 11–12: 30). Coins pehle se hain to naya pack lene ki zaroorat nahi.\n\n👉 https://apnatutorhub.com/tutor/wallet`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["My Coins 🪙", "View Leads 📋", "View Plans 💰"],
+    };
+  }
+
+  // "Both" answers online vs offline. Class 1–8 stays home tuition.
+  if (/^(both|dono|online and offline|offline and online)$/i.test(rawMessage.trim())) {
+    const cls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
+    const junior = cls ? isTill8thClass(cls) : false;
+    return {
+      reply: junior
+        ? `Class 1–8 ke liye sirf *home tuition (offline)* hai. Aapka area kaunsa hai? 📍`
+        : `Class 9+ ke liye *home tuition aur online* dono chalega. Kaunsi class aur subjects confirm kar dein?`,
+      nextStep: session.userType === "PARENT" ? "P_CONVO" : "T_CONVO",
+      updatedData: { ...data, mode: junior ? "OFFLINE" : "EITHER" },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: junior ? ["Class 1-5 All Subjects", "Class 6-8", "Sector 45"] : ["Class 9-10 Maths", "Class 11-12 Physics", "Home Tuition"],
+    };
+  }
+
   // "I already have coins" and "how many coins" read the live wallet.
   // A tutor who still has coins is not asked to buy another pack.
   const asksCoinBalance =
@@ -1040,8 +1302,15 @@ export async function processMessage(
       let sClass = "All Classes";
       let sArea = "Delhi NCR";
 
-      const classMatch = rawMessage.match(/\b(class\s*\d{1,2}|nursery|kg|jee|neet|\d{1,2}(?:th|st|nd|rd)?(?:\s*class)?)\b/i);
-      if (classMatch) sClass = classMatch[0].trim();
+      const classMatch = normalizeCanonicalClassLevel(rawMessage);
+      if (classMatch) sClass = classMatch;
+      else return {
+        reply: `Class clear nahi hai. Is format mein bhejein:\n*Class 8, All Subjects, Rohini, 98xxxxxx*`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: session.userType,
+        retries: 0,
+      };
 
       const localityPattern = new RegExp(`\\b(${DELHI_NCR_LOCALITIES.join("|")})\\b`, "i");
       const areaMatch = rawMessage.match(localityPattern);
@@ -1049,6 +1318,42 @@ export async function processMessage(
         sArea = areaMatch[0].charAt(0).toUpperCase() + areaMatch[0].slice(1).toLowerCase();
       } else if (lines.length >= 2) {
         sArea = lines[lines.length - 1];
+      }
+      const publicArea = extractPublicLocality(sArea, "Delhi") || extractPublicLocality(rawMessage, "Delhi");
+      if (!publicArea) {
+        return {
+          reply: `Locality clear nahi hai. Ghar number mat likhein.\nJaise: *Class 8, All Subjects, Rohini*`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: session.userType,
+          retries: 0,
+        };
+      }
+      sArea = publicArea;
+      const adminSubjects = leadSubjectsForClass(
+        sClass,
+        validateAndAlignSubjects(rawMessage, sClass).subjects
+      );
+      if (adminSubjects.length === 0) {
+        return {
+          reply: `Subject clear nahi hai. Class 1–8 ke liye *All Subjects* likhein. Class 9+ ke liye Maths, Science ya Physics.`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: session.userType,
+          retries: 0,
+        };
+      }
+
+      const adminMode = isTill8thClass(sClass) ? "OFFLINE" : /\bonline\b/i.test(rawMessage) ? "ONLINE" : "OFFLINE";
+      const adminSealed = sealLeadEntry({ classLevel: sClass, subjects: adminSubjects, area: sArea, mode: adminMode });
+      if (!adminSealed.ok) {
+        return {
+          reply: adminSealed.reason,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: session.userType,
+          retries: 0,
+        };
       }
 
       try {
@@ -1071,10 +1376,10 @@ export async function processMessage(
               data: {
                 inquiryNumber: nextInq,
                 parentProfileId,
-                subjects: ["All Subjects"],
-                classLevel: sClass,
-                mode: "OFFLINE",
-                area: sArea,
+                subjects: adminSealed.subjects,
+                classLevel: adminSealed.classLevel,
+                mode: adminSealed.mode,
+                area: adminSealed.area,
                 city: "Delhi",
                 status: "ACTIVE",
                 notes: `Direct Admin Entry: ${sName}, Phone: +91-${pNum}`,
@@ -1148,7 +1453,7 @@ export async function processMessage(
     "T_TIMING", "T_EXPERIENCE", "T_CONFIRM", "T_EMAIL", "T_PASSWORD",
     "P_STUDENT_NAME", "P_CLASS", "P_SUBJECTS", "P_CITY", "P_AREA",
     "P_MODE", "P_BUDGET", "P_PHONE", "P_EMAIL",
-    "UPDATE_NAME", "UPDATE_EMAIL", "UPDATE_PASSWORD", "UPDATE_SUBJECTS", "UPDATE_AREA", "UPDATE_PHONE",
+    "UPDATE_NAME", "UPDATE_EMAIL", "UPDATE_PASSWORD", "UPDATE_SUBJECTS", "UPDATE_CLASS", "UPDATE_AREA", "UPDATE_PHONE",
   ]);
   const isMidFlow = !session.isIdle && MID_FLOW_STEPS.has(step);
   if (SPECIAL_COMMANDS.includes(msg) && !isMidFlow) {
@@ -1216,7 +1521,7 @@ export async function processMessage(
     // Conversational fallbacks for tutors asking about free leads, bargaining, or delayed payment:
     if (/bina\s*reg|free\s*lead|paise\s*nahi|payment\s*baad|ek\s*enquiry|enquiry\s*dedo|pehle\s*demo|yaar\b/i.test(rawMessage)) {
       return {
-        reply: `Sir hum samajhte hain, par parents ke direct contact details aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹99 starter offer ya ₹999 plan se shuru kar sakte hain jisme 100% fees aapki rehti hai (0% commission)!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
+        reply: `Sir hum samajhte hain, par parents ke direct contact details aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹999 plan se shuru kar sakte hain jisme 100% fees aapki rehti hai (0% commission)!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
         nextStep: "DONE",
         updatedData: data,
         userType: "TUTOR",
@@ -1266,6 +1571,110 @@ export async function processMessage(
       };
     }
 
+    const wantsProfileChange = /\b(update|change|set|changed|badal|naya|new)\b/i.test(rawMessage);
+    if (wantsProfileChange && /\b(location|area|locality|jagah)\b/i.test(rawMessage)) {
+      const tail = rawMessage.match(/\b(?:location|area|locality|jagah)\s+(?:to\s+|as\s+|is\s+|hai\s+|ko\s+)?([a-zA-Z][a-zA-Z\s-]{1,40})$/i);
+      const loc = tail
+        ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || "Delhi")
+        : null;
+      if (loc?.isValid && resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
+        const saved = await syncUserCredentialsInDb({
+          phone: session.phone,
+          area: loc.area,
+          city: loc.city,
+        });
+        return {
+          reply: saved.updatedFields.includes("area")
+            ? `Location save ho gayi: *${loc.area}, ${loc.city}* 📍\n\nDashboard par isi area ke 5 km ki classes dikhengi.`
+            : profileNotSavedReply(),
+          nextStep: "DONE",
+          updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["My Profile 👤", "View Leads 📋"],
+        };
+      }
+      return {
+        reply: `Naya teaching area kaunsa hai? Sirf locality likhein — jaise *Saket*, *Rohini*, ya *Dwarka*. 📍`,
+        nextStep: "UPDATE_AREA",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Saket", "Rohini", "Dwarka", "Cancel"],
+      };
+    }
+    if (wantsProfileChange && /\bsubjects?\b/i.test(rawMessage)) {
+      const tail = rawMessage.match(/\bsubjects?\s+(?:to\s+|as\s+|hai\s+|are\s+)?(.+)$/i);
+      const aligned = tail ? validateAndAlignSubjects(tail[1].trim(), data.classLevel as string | undefined) : null;
+      if (aligned?.isValid && aligned.subjects.length > 0) {
+        const saved = await syncUserCredentialsInDb({ phone: session.phone, subjects: aligned.subjects });
+        return {
+          reply: saved.updatedFields.includes("subjects")
+            ? `Subjects save ho gaye: *${aligned.subjects.join(", ")}* ✅`
+            : profileNotSavedReply(),
+          nextStep: "DONE",
+          updatedData: saved.updatedFields.includes("subjects") ? { ...data, subjects: aligned.subjects } : data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["My Profile 👤", "View Leads 📋"],
+        };
+      }
+      return {
+        reply: `Kaunse subjects padhate ho? Jaise: *Maths, Science* ya *All Subjects*.`,
+        nextStep: "UPDATE_SUBJECTS",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Maths", "All Subjects", "Physics", "Cancel"],
+      };
+    }
+    if (wantsProfileChange && /\bname\b/i.test(rawMessage)) {
+      const tail = rawMessage.match(/\bname\s+(?:to\s+|as\s+|is\s+|hai\s+)?([a-zA-Z][a-zA-Z\s.'-]{1,48})$/i);
+      if (tail && isValidName(tail[1]) && !/^(update|change|changed|new|naya|set|badal|name)$/i.test(tail[1].trim())) {
+        const saved = await syncUserCredentialsInDb({ phone: session.phone, name: tail[1].trim() });
+        return {
+          reply: saved.updatedFields.includes("name")
+            ? `Naam save ho gaya: *${tail[1].trim()}* ✅`
+            : profileNotSavedReply(),
+          nextStep: "DONE",
+          updatedData: saved.updatedFields.includes("name") ? { ...data, name: tail[1].trim() } : data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["My Profile 👤", "View Leads 📋"],
+        };
+      }
+      return {
+        reply: "Apna naya naam type karo:",
+        nextStep: "UPDATE_NAME",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Cancel"],
+      };
+    }
+    if (wantsProfileChange && /\b(class|classes|grade)\b/i.test(rawMessage)) {
+      const cls = normalizeCanonicalClassLevel(rawMessage);
+      if (!cls) {
+        return {
+          reply: `Kaunsi class padhate ho? Jaise: *Class 5*, *Class 9-10*, ya *Class 11-12*.`,
+          nextStep: "UPDATE_CLASS",
+          updatedData: data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
+        };
+      }
+      const saved = await syncUserCredentialsInDb({ phone: session.phone, classLevels: [cls] });
+      return {
+        reply: saved.updatedFields.includes("class") ? `Class save ho gayi: *${cls}* ✅` : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("class") ? { ...data, classLevel: cls, classLevels: [cls] } : data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋"],
+      };
+    }
+
     if (useAi) {
       try {
         const ai = await askGeminiChatbot(rawMessage, session);
@@ -1288,16 +1697,72 @@ export async function processMessage(
             credentialsChanged = true;
           }
 
-          if (credentialsChanged) {
-            await syncUserCredentialsInDb({
-              phone: session.phone,
-              email: mergedData.email,
-              password: mergedData.password,
-            });
+          const updateIntent = /\b(update|change|set|changed|badal|naya|new)\b/i.test(rawMessage);
+          let areaToSave: string | undefined;
+          let cityToSave: string | undefined;
+          if (updateIntent && typeof ai.extractedData?.area === "string") {
+            const loc = validateAndCleanLocality(ai.extractedData.area, (data.city as string) || "Delhi");
+            if (loc.isValid && resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
+              areaToSave = loc.area;
+              cityToSave = loc.city;
+            }
           }
+          let subjectsToSave: string[] | undefined;
+          if (updateIntent && Array.isArray(ai.extractedData?.subjects) && ai.extractedData.subjects.length > 0) {
+            const aligned = validateAndAlignSubjects(ai.extractedData.subjects, data.classLevel as string | undefined);
+            if (aligned.isValid) subjectsToSave = aligned.subjects;
+          }
+          const classRaw = updateIntent
+            ? (ai.extractedData?.classLevel as string) ||
+              (Array.isArray(ai.extractedData?.classLevels) ? String(ai.extractedData.classLevels[0] || "") : "")
+            : "";
+          const classToSave = classRaw ? normalizeCanonicalClassLevel(classRaw) : null;
+          const nameToSave = updateIntent && typeof ai.extractedData?.name === "string" && isValidName(ai.extractedData.name)
+            ? ai.extractedData.name.trim()
+            : undefined;
+
+          const hasPatch = Boolean(
+            credentialsChanged || nameToSave || areaToSave || subjectsToSave || classToSave
+          );
+          const saved = hasPatch
+            ? await syncUserCredentialsInDb({
+                phone: session.phone,
+                email: credentialsChanged ? mergedData.email : undefined,
+                password: credentialsChanged ? mergedData.password : undefined,
+                name: nameToSave,
+                area: areaToSave,
+                city: cityToSave,
+                subjects: subjectsToSave,
+                classLevels: classToSave ? [classToSave] : undefined,
+              })
+            : { ok: true, updatedFields: [] as string[] };
+          if (saved.updatedFields.includes("area")) {
+            mergedData.area = areaToSave;
+            mergedData.city = cityToSave;
+          }
+          if (saved.updatedFields.includes("subjects")) mergedData.subjects = subjectsToSave;
+          if (saved.updatedFields.includes("class") && classToSave) {
+            mergedData.classLevel = classToSave;
+            mergedData.classLevels = [classToSave];
+          }
+          if (saved.updatedFields.includes("name")) mergedData.name = nameToSave;
+
+          const savedBits = [
+            saved.updatedFields.includes("name") ? `naam *${nameToSave}*` : "",
+            saved.updatedFields.includes("area") ? `location *${areaToSave}, ${cityToSave}*` : "",
+            saved.updatedFields.includes("subjects") ? `subjects *${subjectsToSave?.join(", ")}*` : "",
+            saved.updatedFields.includes("class") ? `class *${classToSave}*` : "",
+            saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
+          ].filter(Boolean);
+          const profileTopic = /\b(name|naam|location|area|locality|subject|class|email|gmail|password)\b/i.test(rawMessage);
+          const reply = updateIntent && profileTopic
+            ? savedBits.length > 0
+              ? `Save ho gaya: ${savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`
+              : profileNotSavedReply()
+            : ai.reply;
 
           return {
-            reply: ai.reply,
+            reply,
             nextStep: "DONE",
             updatedData: mergedData,
             userType: session.userType,
@@ -1320,6 +1785,67 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["View Leads 📋", "View Plans 💰", "My Profile 👤", "Help 📞"],
+    };
+  }
+
+  // Any requirement-like message is checked before the AI can save a lead.
+  // Tutors who already chose Tutor stay on the tutor flow.
+  const mentionsRequirement = /\b(class|grade|subject|physics|chemistry|maths|math|science|accounts|accountancy|biology|nursery|lkg|ukg|jee|neet|all subjects)\b/i.test(rawMessage);
+  if (session.userType !== "TUTOR" && step !== "DONE" && (session.userType === "PARENT" || step.startsWith("P_") || mentionsRequirement)) {
+    const previous: IntakeDraft = {
+      classLevel: typeof data.classLevel === "string" ? data.classLevel : undefined,
+      subjects: Array.isArray(data.subjects) ? (data.subjects as string[]) : undefined,
+      area: typeof data.area === "string" ? data.area : undefined,
+      mode: data.mode === "ONLINE" || data.mode === "OFFLINE" ? data.mode : undefined,
+      confirm: (data.intakeConfirm as IntakeDraft["confirm"]) ?? null,
+    };
+    const assessed = assessIntake(rawMessage, previous);
+    const intakeData: Record<string, unknown> = {
+      ...data,
+      classLevel: assessed.draft.classLevel,
+      subjects: assessed.draft.subjects,
+      area: assessed.draft.area,
+      mode: assessed.draft.mode,
+      intakeConfirm: assessed.draft.confirm ?? null,
+      userType: "PARENT",
+    };
+    if (!assessed.ready || !assessed.draft.classLevel || !assessed.draft.area || !assessed.draft.subjects?.length) {
+      return {
+        reply: assessed.reply,
+        nextStep: "P_CONVO",
+        updatedData: intakeData,
+        userType: "PARENT",
+        retries: 0,
+        quickReplies: assessed.quickReplies,
+      };
+    }
+    const saved = await registerParentFromWhatsapp(session.phone, {
+      studentName: (data.studentName as string) || (data.name as string) || "Student",
+      parentName: (data.parentName as string) || (data.name as string) || "Parent",
+      email: (data.email as string) || undefined,
+      phone: (data.phone as string) || session.phone,
+      city: (data.city as string) || "Delhi",
+      area: assessed.draft.area,
+      classLevel: assessed.draft.classLevel,
+      subjects: assessed.draft.subjects,
+      modeKey: assessed.draft.mode === "ONLINE" ? "2" : "1",
+    });
+    if (!saved.ok) {
+      return {
+        reply: `Abhi save nahi hua: ${saved.error}\nClass, subject aur locality dubara bhejein. Jaise: *Class 8, All Subjects, Rohini*`,
+        nextStep: "P_CONVO",
+        updatedData: intakeData,
+        userType: "PARENT",
+        retries: 0,
+      };
+    }
+    return {
+      reply: `✅ Request save ho gayi.\n\n📚 ${assessed.draft.classLevel} · ${assessed.draft.subjects.join(", ")}\n📍 ${assessed.draft.area}\n🏠 ${assessed.draft.mode === "ONLINE" ? "Online" : "Home tuition"}\n\nRef #${saved.inquiryNumber}. Team tutor match karegi.`,
+      nextStep: "DONE",
+      updatedData: { ...intakeData, _registered: true, intakeConfirm: null },
+      userType: "PARENT",
+      retries: 0,
+      quickReplies: ["Fee Info", "Talk to Coordinator 📞"],
     };
   }
 
@@ -1402,12 +1928,17 @@ export async function processMessage(
             mergedData.city = stepLoc.city;
           }
         }
-        if ((session.step === "T_CLASS" || session.step === "P_CLASS" || session.step === "P_CONVO") && !mergedData.classLevel && rawMessage.trim().length >= 1 && !/^(menu|help|cancel)$/i.test(rawMessage.trim()) && !isInitialWelcomeChoice) {
-          const rawCl = rawMessage.trim();
-          const cl = /^\d+$/.test(rawCl) ? `Class ${rawCl}` : rawCl;
-          mergedData.classLevel = cl;
-          mergedData.classLevels = [cl];
+        const keptClass = keepClassLevel(mergedData.classLevel, rawMessage, data.classLevel);
+        if (keptClass) {
+          mergedData.classLevel = keptClass;
+          mergedData.classLevels = [keptClass];
+        } else {
+          delete mergedData.classLevel;
+          delete mergedData.classLevels;
         }
+        const keptArea = keepArea(mergedData.area, rawMessage, data.area, (mergedData.city || data.city || "Delhi") as string);
+        if (keptArea) mergedData.area = keptArea;
+        else delete mergedData.area;
         if (session.step === "T_SUBJECTS" && (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
           const stepSub = validateAndAlignSubjects(rawMessage.trim(), targetCls);
           if (stepSub.isValid) {
@@ -1417,20 +1948,15 @@ export async function processMessage(
 
         // Taxonomy & Till 8th grade handling
         if (/all\s*subjects?|combo/i.test(rawMessage)) {
-          if (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) {
-            mergedData.subjects = ["All Subjects", "All Subjects (Class 1-8)"];
-          } else if (!mergedData.subjects.some((s: string) => /all\s*subjects?/i.test(s))) {
-            mergedData.subjects.push("All Subjects", "All Subjects (Class 1-8)");
-          }
+          const clsNow = normalizeCanonicalClassLevel(String(mergedData.classLevel || ""));
+          mergedData.subjects = leadSubjectsForClass(clsNow, ["All Subjects"]);
         }
-        if (/1\s*[-–to]\s*8|class\s*1-8|primary|middle|till\s*8/i.test(rawMessage)) {
+        if (/1\s*[-–to]+\s*8|class\s*1\s*[-–to]+\s*8|primary|middle|till\s*8/i.test(rawMessage)) {
           if (!mergedData.classLevel) {
             mergedData.classLevel = "Class 1-8";
             mergedData.classLevels = ["Class 1-8"];
           }
-          if (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) {
-            mergedData.subjects = ["All Subjects", "All Subjects (Class 1-8)"];
-          }
+          mergedData.subjects = ["All Subjects"];
         }
 
         // Robust role detection
@@ -2048,24 +2574,70 @@ export async function processMessage(
             };
           }
 
-          // All 3 criteria present!
-          const areaName = parentArea;
-          const classLevelName = String(parentClass);
+          // All 3 criteria present — still refuse a sentence, a menu digit, or the tutor's own address.
+          const classLevelName = normalizeCanonicalClassLevel(String(parentClass));
+          const areaName = extractPublicLocality(parentArea, (mergedData.city as string) || "Delhi");
+          if (!classLevelName) {
+            return {
+              reply: `Kaunsi class hai? Class 1 se 12, Nursery, JEE ya NEET likhein. 🎓`,
+              nextStep: "P_CONVO",
+              updatedData: { ...mergedData, classLevel: undefined, classLevels: undefined },
+              userType: "PARENT",
+              retries: 0,
+              quickReplies: ["Class 1-5", "Class 6-8", "Class 9-10", "Class 11-12"],
+            };
+          }
+          const parentLeadSubjects = leadSubjectsForClass(classLevelName, parentSubs);
+          if (parentLeadSubjects.length === 0) {
+            return {
+              reply: `Class ${classLevelName.replace(/^Class\s*/i, "")} ke kaunse subjects chahiye? 📚`,
+              nextStep: "P_CONVO",
+              updatedData: { ...mergedData, classLevel: classLevelName },
+              userType: "PARENT",
+              retries: 0,
+              quickReplies: ["Maths", "Science", "English", "Physics"],
+            };
+          }
+          if (!areaName) {
+            return {
+              reply: `*${parentLeadSubjects.join(", ")} (${classLevelName})* ke liye locality batayein — mohalla ya sector, ghar number nahi. 📍`,
+              nextStep: "P_AREA",
+              updatedData: { ...mergedData, classLevel: classLevelName, subjects: parentLeadSubjects },
+              userType: "PARENT",
+              retries: 0,
+              quickReplies: ["Dwarka", "Rohini", "Mukundpur", "Sector 45"],
+            };
+          }
 
-          try {
-            await registerParentFromWhatsapp(session.phone, {
-              studentName: (mergedData.studentName as string) || (mergedData.name as string) || "Student",
-              parentName: (mergedData.parentName as string) || (mergedData.name as string) || "Parent",
-              email: (mergedData.email as string) || undefined,
-              phone: (mergedData.phone as string) || session.phone,
-              city: (mergedData.city as string) || "Delhi",
-              area: areaName,
-              classLevel: classLevelName,
-              subjects: parentSubs,
-              timing: (mergedData.timing as string) || undefined,
-            });
-          } catch (regErr) {
-            console.error("[engine] auto-register parent failed:", regErr);
+          if (session.userType === "TUTOR") {
+            return {
+              reply: `Aap tutor hain, isliye yeh student lead nahi bani.\nLeads dekhne ke liye *LEADS* likhein.\n\nParent ki request tabhi save hoti hai jab class, subject aur locality teeno valid hon.`,
+              nextStep: "T_CONVO",
+              updatedData: data,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ["View Leads 📋", "My Profile"],
+            };
+          }
+          const parentReg = await registerParentFromWhatsapp(session.phone, {
+            studentName: (mergedData.studentName as string) || (mergedData.name as string) || "Student",
+            parentName: (mergedData.parentName as string) || (mergedData.name as string) || "Parent",
+            email: (mergedData.email as string) || undefined,
+            phone: (mergedData.phone as string) || session.phone,
+            city: (mergedData.city as string) || "Delhi",
+            area: areaName,
+            classLevel: classLevelName,
+            subjects: parentLeadSubjects,
+            timing: (mergedData.timing as string) || undefined,
+          });
+          if (!parentReg.ok) {
+            return {
+              reply: `Request save nahi ho payi. Class, subject aur locality alag-alag bhejein.\nJaise: *Class 4, All Subjects, Mukundpur*`,
+              nextStep: "P_CONVO",
+              updatedData: { ...mergedData, classLevel: classLevelName, area: areaName, subjects: parentLeadSubjects },
+              userType: "PARENT",
+              retries: 0,
+            };
           }
 
           mergedData._registered = true;
@@ -2075,7 +2647,7 @@ export async function processMessage(
           const parentProfileReply =
             `✅ *Aapki request register ho gayi hai${parentName ? " " + parentName + " ji" : ""}!*\n\n` +
             `📚 Class: ${classLevelName}\n` +
-            `📖 Subjects: ${parentSubs.length > 0 ? parentSubs.join(", ") : "All Subjects"}\n` +
+            `📖 Subjects: ${parentLeadSubjects.join(", ")}\n` +
             `📍 Area: ${areaName}\n\n` +
             `Hamari team aapke liye suitable tutors match kar rahi hai. \n` +
             `Free demo class book karne ke liye reply karein *DEMO* 🎓`;
@@ -2156,13 +2728,12 @@ export async function processMessage(
       };
     }
 
-    // If user provided an area or natural greeting directly
-    const isLocality = /vihar|nagar|road|enclave|colony|delhi|noida|gurgaon|sector|pur|ext|bengaluru|mumbai|saket|kalkaji/i.test(normalized);
-    if (isLocality || normalized.length >= 3) {
+    const welcomedArea = extractPublicLocality(normalized);
+    if (welcomedArea || normalized.length >= 3) {
       return {
         reply: `Swagat hai! *ApnaTutorHub* pe. 🙏\n\nAap kaun hain — tutor ya parent?\n\n1 — *Tutor* (teaching chahiye)\n2 — *Parent* (tutor chahiye)`,
         nextStep: "WELCOME",
-        updatedData: { area: normalized, city: "Delhi" },
+        updatedData: welcomedArea ? { area: welcomedArea, city: "Delhi" } : {},
         userType: null,
         retries: 0,
         quickReplies: ["1️⃣ I'm a Tutor", "2️⃣ I'm a Parent"],
@@ -2199,19 +2770,23 @@ export async function processMessage(
       trimmed.match(/(?:class|grade)\s*(\d{1,2}(?:\s*(?:to|-|and)\s*\d{1,2})?|\b[1-9]\b|\b1[0-2]\b|primary|middle|senior|nursery|kg|jee|neet|all)/i) ||
       trimmed.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s*(?:to|-|and)\s*\d{1,2}(?:st|nd|rd|th)?)\b/i) ||
       trimmed.match(/\b(primary|middle school|senior secondary|11th and 12th|9th and 10th|1st to 5th|6th to 8th|9th to 12th|all classes|class 1-8|till 8th)\b/i);
-    if (classMatch && !/^[12]$/.test(trimmed)) {
-      const cl = classMatch[0].trim();
-      updated.classLevel = cl;
-      updated.classLevels = [cl];
-    } else if (step === "T_CLASS" && !/^(menu|help|cancel)$/i.test(trimmed)) {
-      updated.classLevel = trimmed;
-      updated.classLevels = [trimmed];
+    const keptTutorClass = keepClassLevel(classMatch && !/^[12]$/.test(trimmed) ? classMatch[0] : updated.classLevel, trimmed, data.classLevel);
+    if (keptTutorClass) {
+      updated.classLevel = keptTutorClass;
+      updated.classLevels = [keptTutorClass];
+    } else if (step === "T_CLASS") {
+      delete updated.classLevel;
+      delete updated.classLevels;
     }
 
     const locResFallback = validateAndCleanLocality(trimmed, (updated.city as string) || "Delhi");
-    if (locResFallback.isValid) {
-      updated.area = locResFallback.area;
-      updated.city = locResFallback.city;
+    const pubArea = extractPublicLocality(
+      locResFallback.isValid ? locResFallback.area : trimmed,
+      locResFallback.city || (updated.city as string) || "Delhi"
+    );
+    if (pubArea) {
+      updated.area = pubArea;
+      if (locResFallback.isValid) updated.city = locResFallback.city;
     }
 
     const subAlignFallback = validateAndAlignSubjects(trimmed, updated.classLevel as string);
@@ -2579,35 +3154,80 @@ export async function processMessage(
     };
   }
 
-  // PARENT conversational fallback: Instantly deliver tutors & demo link!
+  // PARENT conversational fallback: register only a real class, real subjects, and a locality.
   if (step === "P_CONVO") {
     const trimmed = rawMessage.trim();
-    const updated = { ...data };
+    const updated: Record<string, any> = { ...data };
 
-    if (!updated.area && /vihar|nagar|road|enclave|colony|delhi|noida|gurgaon|sector|pur|ext|saket/i.test(trimmed)) {
-      updated.area = trimmed;
-      updated.city = (updated.city as string) || "Delhi";
-    } else if (!updated.classLevel) {
-      updated.classLevel = trimmed;
+    const parsedClass = keepClassLevel(updated.classLevel, trimmed, data.classLevel);
+    if (parsedClass) updated.classLevel = parsedClass;
+    else delete updated.classLevel;
+
+    const subAlign = validateAndAlignSubjects(trimmed, typeof updated.classLevel === "string" ? updated.classLevel : undefined);
+    if (subAlign.isValid && subAlign.subjects.length > 0) {
+      updated.subjects = subAlign.subjects;
+    }
+    const parsedArea = keepArea(updated.area, trimmed, data.area, (updated.city as string) || "Delhi");
+    if (parsedArea) updated.area = parsedArea;
+    else if (!extractPublicLocality(typeof updated.area === "string" ? updated.area : "")) delete updated.area;
+
+    const classLevelName = normalizeCanonicalClassLevel(typeof updated.classLevel === "string" ? updated.classLevel : "");
+    const leadSubjects = classLevelName ? leadSubjectsForClass(classLevelName, Array.isArray(updated.subjects) ? updated.subjects : []) : [];
+    const areaName = extractPublicLocality(typeof updated.area === "string" ? updated.area : "", (updated.city as string) || "Delhi");
+
+    if (!classLevelName) {
+      return {
+        reply: `Bachche ki class batayein — Class 1 se 12, Nursery, JEE ya NEET. Ek sentence class nahi hota. 🎓`,
+        nextStep: "P_CONVO",
+        updatedData: updated,
+        userType: "PARENT",
+        retries: 0,
+        quickReplies: ["Class 1-5", "Class 6-8", "Class 9-10", "Class 11-12"],
+      };
+    }
+    if (leadSubjects.length === 0) {
+      return {
+        reply: `*${classLevelName}* ke kaunse subjects chahiye? Class 1–8 par All Subjects hota hai. 📚`,
+        nextStep: "P_CONVO",
+        updatedData: { ...updated, classLevel: classLevelName },
+        userType: "PARENT",
+        retries: 0,
+        quickReplies: isTill8thClass(classLevelName) ? ["All Subjects"] : ["Maths", "Science", "English", "Physics"],
+      };
+    }
+    if (!areaName) {
+      return {
+        reply: `*${classLevelName}* ke liye locality batayein — jaise *Mukundpur* ya *Sector 45*. Ghar number mat likhein. 📍`,
+        nextStep: "P_AREA",
+        updatedData: { ...updated, classLevel: classLevelName, subjects: leadSubjects },
+        userType: "PARENT",
+        retries: 0,
+        quickReplies: ["Dwarka", "Rohini", "Mukundpur", "Sector 45"],
+      };
     }
 
-    const areaName = (updated.area as string) || "Delhi NCR";
-
-    // Auto-register Parent in database (User + ParentProfile + StudentProfile + Lead)
-    try {
-      await registerParentFromWhatsapp(session.phone, {
-        studentName: (updated.studentName as string) || (updated.name as string) || "Student",
-        parentName: (updated.parentName as string) || (updated.name as string) || "Parent",
-        email: (updated.email as string) || undefined,
-        phone: (updated.phone as string) || session.phone,
-        city: (updated.city as string) || "Delhi",
-        area: areaName,
-        classLevel: (updated.classLevel as string) || "Class 10",
-        subjects: Array.isArray(updated.subjects) && updated.subjects.length > 0 ? (updated.subjects as string[]) : ["All Subjects"],
-      });
-    } catch (regErr) {
-      console.error("[engine] fallback auto-register parent failed:", regErr);
+    const parentReg = await registerParentFromWhatsapp(session.phone, {
+      studentName: (updated.studentName as string) || (updated.name as string) || "Student",
+      parentName: (updated.parentName as string) || (updated.name as string) || "Parent",
+      email: (updated.email as string) || undefined,
+      phone: (updated.phone as string) || session.phone,
+      city: (updated.city as string) || "Delhi",
+      area: areaName,
+      classLevel: classLevelName,
+      subjects: leadSubjects,
+    });
+    if (!parentReg.ok) {
+      return {
+        reply: `Abhi request save nahi ho payi. Class, subject aur area ek saath bhejein.\nJaise: *Class 5, All Subjects, Rohini*`,
+        nextStep: "P_CONVO",
+        updatedData: { ...updated, classLevel: classLevelName, area: areaName, subjects: leadSubjects },
+        userType: "PARENT",
+        retries: 0,
+      };
     }
+    updated.classLevel = classLevelName;
+    updated.area = areaName;
+    updated.subjects = leadSubjects;
 
     // Simple profile-created confirmation only. Tutors/demo sent only on request.
     const pName = (updated.name as string) || (updated.parentName as string) || "";

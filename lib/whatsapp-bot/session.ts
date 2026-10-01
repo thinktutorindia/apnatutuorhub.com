@@ -14,6 +14,7 @@ export type BotSession = {
   retries: number;
   lastMessageAt?: Date;
   isIdle?: boolean;
+  justCreated?: boolean;
 };
 
 /** Load existing session or create a fresh language-select one. */
@@ -26,7 +27,7 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
   const raw = await prisma.whatsappSession.upsert({
     where: { phone },
     create: { phone, step: "LANG_SELECT", data: {}, retries: 0 },
-    update: { lastMessageAt: new Date() },
+    update: { step: existing?.step ?? "LANG_SELECT" },
   });
 
   let step = raw.step;
@@ -91,6 +92,7 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
         retries: 0,
         lastMessageAt: existing?.lastMessageAt || raw.lastMessageAt,
         isIdle,
+        justCreated: !existing,
       };
     }
   }
@@ -106,7 +108,28 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
     retries: raw.retries,
     lastMessageAt: existing?.lastMessageAt || raw.lastMessageAt,
     isIdle,
+    justCreated: !existing,
   };
+}
+
+/**
+ * One reply per phone at a time. A second webhook for the same tap loses this lock
+ * and must not send another message.
+ */
+export async function claimReplyTurn(session: BotSession): Promise<boolean> {
+  const now = new Date();
+  const previous = session.lastMessageAt ? new Date(session.lastMessageAt) : null;
+  if (!session.justCreated && previous && now.getTime() - previous.getTime() < 4500) {
+    return false;
+  }
+  const won = await prisma.whatsappSession.updateMany({
+    where: {
+      id: session.id,
+      ...(previous ? { lastMessageAt: previous } : {}),
+    },
+    data: { lastMessageAt: now },
+  });
+  return won.count === 1;
 }
 
 /** Persist updated step + data. */

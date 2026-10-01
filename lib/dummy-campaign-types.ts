@@ -11,21 +11,21 @@ export const CLASS_FEE_RATES = {
     hourlyMin: 280,
     hourlyMax: 360,
     monthlyMin: 3600,
-    monthlyMax: 4400,
+    monthlyMax: 4250,
     classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Nursery", "KG", "LKG", "UKG", "Primary"],
   },
   "6-8": {
     label: "Class 6 to 8 (Middle)",
     hourlyMin: 320,
-    hourlyMax: 420,
+    hourlyMax: 400,
     monthlyMin: 4200,
-    monthlyMax: 5000,
+    monthlyMax: 4800,
     classes: ["Class 6", "Class 7", "Class 8", "Middle School"],
   },
   "9-10": {
     label: "Class 9 to 10 (Secondary)",
     hourlyMin: 320,
-    hourlyMax: 420,
+    hourlyMax: 400,
     monthlyMin: 4500,
     monthlyMax: 5600,
     classes: ["Class 9", "Class 10", "Secondary"],
@@ -319,10 +319,10 @@ export function averageBudgetForLead(opts: {
 
   const step = isHourly ? 10 : 50;
   const spread = isHourly ? (classNum !== null && classNum >= 11 ? 30 : 20) : 150;
-  const ceiling = isHourly ? (classNum !== null && classNum >= 11 ? 620 : 400) : (classNum !== null && classNum <= 5 ? 4250 : 4850);
+  const ceiling = isHourly ? (classNum !== null && classNum >= 11 ? 620 : 400) : (classNum !== null && classNum <= 5 ? 4250 : 4800);
   const floor = isHourly ? (classNum !== null && classNum >= 11 ? 450 : 320) : (classNum !== null && classNum <= 5 ? 3600 : 4200);
   let min = Math.round(avg / step) * step;
-  min = Math.max(floor, Math.min(min, ceiling));
+  min = Math.max(floor, Math.min(min, ceiling - spread));
   const max = min + spread;
   return { min, max, isHourly };
 }

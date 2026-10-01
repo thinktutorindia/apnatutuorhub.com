@@ -317,14 +317,14 @@ export function WalletPageClient({
               </div>
               <p className="text-sm font-700 text-gray-800">No transactions recorded yet</p>
               <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                Get your first lead with the Festival Season Pass for just ₹99 — or choose any membership plan.
+                Choose the ₹999 Growth Plan to unlock verified student leads.
               </p>
               <Link
                 href="/tutor/plans"
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 !text-white text-xs font-800 inline-flex items-center gap-1.5 mt-2"
               >
                 <Sparkles size={14} />
-                <span className="!text-white font-800">🎉 Get 1st Lead for ₹99 →</span>
+                <span className="!text-white font-800">View ₹999 Growth Plan →</span>
               </Link>
             </div>
           ) : (

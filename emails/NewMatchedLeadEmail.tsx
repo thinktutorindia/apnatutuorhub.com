@@ -49,7 +49,7 @@ export function renderNewMatchedLeadEmail(props: NewMatchedLeadEmailProps): stri
 
   const displayCode = inquiryCode ? `#${inquiryCode.replace(/^#/, "")}` : "#031842";
   const displayLocation = city || "Delhi NCR";
-  const displayBudget = budgetFormatted || "₹7,500 – ₹10,000 / month";
+  const displayBudget = budgetFormatted || "₹4,500 – ₹4,650 / month";
 
   return `<!DOCTYPE html>
 <html lang="en">

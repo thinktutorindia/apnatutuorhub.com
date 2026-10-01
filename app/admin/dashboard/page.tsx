@@ -122,6 +122,7 @@ export default async function AdminDashboardPage() {
 
   const [recentLeads, pendingKycTutors, leadsToday, totalStaffLeads] = await Promise.all([
     prisma.lead.findMany({
+      where: { status: { in: ["ACTIVE", "MATCHING", "APPLICATIONS_RECEIVED"] } },
       orderBy: { createdAt: "desc" },
       take: 6,
       select: {

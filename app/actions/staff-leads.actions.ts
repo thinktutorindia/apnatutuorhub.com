@@ -17,7 +17,7 @@ import { extractLeadData } from "@/lib/gemini-lead-extractor";
 import type { StaffLeadStatus, CallOutcome } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { applyStaffRecordType, getStaffRecordType, PARENT_TAG, staffNotesFromParsed } from "@/lib/staff-lead-type";
-import { isTill8thClass, realisticTightBudget } from "@/lib/lead-utils";
+import { extractPublicLocality, isTill8thClass, normalizeCanonicalClassLevel, realisticTightBudget } from "@/lib/lead-utils";
 import { getLeadPointCost } from "@/lib/subscription-plans";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
@@ -1584,7 +1584,8 @@ export async function promoteLeadToStudentRequirementAction(
     });
     const nextInquiryNumber = (lastInquiry?.inquiryNumber ?? 1000) + 1;
 
-    const publishedClass = lead.classes[0] || "Class 10";
+    const publishedClass = normalizeCanonicalClassLevel(lead.classes[0] || "") || "";
+    if (!publishedClass) return actionError("A real class (Class 1–12, JEE, or NEET) is required before publishing.");
     const publishedJunior = isTill8thClass(publishedClass);
     const publishedBudget = realisticTightBudget({
       classLevel: publishedClass,
@@ -1601,7 +1602,7 @@ export async function promoteLeadToStudentRequirementAction(
         budgetMin: publishedBudget.min,
         budgetMax: publishedBudget.max,
         city: lead.location?.split(",")[0]?.trim() || "Delhi",
-        area: lead.location?.split(",")[1]?.trim() || lead.location || null,
+        area: extractPublicLocality(lead.location, lead.location?.split(",")[0]) || null,
         pincode: lead.pincode || null,
         timingPreference: "Evening (5:00 PM - 7:00 PM)",
         tutorGenderPref: "ANY",

@@ -153,8 +153,6 @@ Your profile is live and will be matched with nearby parents.
 📲 *Complete your profile* (add photo, education, bio):
 🔗 ${link}
 
-💡 *Exciting offer:* Get your first verified parent lead for just *₹99* (No GST)!
-
 Our team will contact you for profile verification shortly.
 
 Thank you for joining *ApnaTutorHub*! 🙏

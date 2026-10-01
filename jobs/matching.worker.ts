@@ -15,8 +15,11 @@ import { calculateRankingScore } from "@/lib/ranking-score";
 import { loadMatchingWeights } from "@/lib/matching-config";
 import { createNotification } from "@/lib/notification-engine";
 import { isTill8thClass } from "@/lib/lead-utils";
+import { buildAquaTuitionEnquiryPlaceholders } from "@/lib/lead-notify-template";
+import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
+import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import type { MatchableLead } from "@/lib/matching-engine";
-import type { LeadMatchingJob } from "@/lib/queue";
+import type { LeadMatchingJob, LeadNotifyChannel } from "@/lib/queue";
 
 /**
  * Core processing logic for a lead-matching job.
@@ -42,6 +45,13 @@ export async function processLeadMatching(
       status: true,
       maxTutors: true,
       purchaseCount: true,
+      inquiryNumber: true,
+      board: true,
+      pincode: true,
+      tutorGenderPref: true,
+      notes: true,
+      timingPreference: true,
+      parentProfile: { select: { user: { select: { name: true } } } },
     },
   });
 
@@ -97,18 +107,52 @@ export async function processLeadMatching(
   const isOnline = lead.mode === "ONLINE";
   const locationLabel = [lead.area, lead.city].filter(Boolean).join(", ") || "your area";
 
-  // Create in-app & tracked notifications for all matched tutors.
+  const channels = job.channels;
+  const title = isOnline ? "🌐 New Online Tuition Lead Matched!" : "🎯 New Tuition Lead Matched!";
+  const message = isOnline
+    ? `A parent is looking for an online ${lead.classLevel} (${subjectLabel}) tutor (Pan-India). Unlock now to start classes.`
+    : `A parent is looking for a ${lead.classLevel} ${subjectLabel} tutor in ${locationLabel}. Unlock now to claim contact details.`;
+
+  const wantsWhatsApp = channels?.includes("WHATSAPP") ?? false;
+  const phoneByUserId = new Map<string, string | null>();
+  if (wantsWhatsApp) {
+    const phones = await prisma.user.findMany({
+      where: { id: { in: rankedTutors.map((row) => row.tutor.userId) } },
+      select: { id: true, phone: true },
+    });
+    for (const row of phones) phoneByUserId.set(row.id, row.phone);
+  }
+
+  const waPlaceholders = wantsWhatsApp
+    ? buildAquaTuitionEnquiryPlaceholders({
+        id: lead.id,
+        inquiryNumber: lead.inquiryNumber,
+        clientName: lead.parentProfile?.user?.name,
+        subjects: lead.subjects,
+        classLevel: lead.classLevel,
+        board: lead.board,
+        mode: lead.mode,
+        city: lead.city,
+        area: lead.area,
+        pincode: lead.pincode,
+        budgetMin: lead.budgetMin,
+        budgetMax: lead.budgetMax,
+        genderPreference: lead.tutorGenderPref,
+        notes: lead.notes,
+        timingPreference: lead.timingPreference,
+      })
+    : null;
+
+  // Notify matched tutors. No channel list keeps the original in-app + high-priority email.
   for (const { tutor } of rankedTutors) {
-    await createNotification({
+    await notifyMatchedTutor({
       userId: tutor.userId,
-      type: "LEAD_MATCHED",
-      priority: "HIGH",
-      title: isOnline ? "🌐 New Online Tuition Lead Matched!" : "🎯 New Tuition Lead Matched!",
-      message: isOnline
-        ? `A parent is looking for an online ${lead.classLevel} (${subjectLabel}) tutor (Pan-India). Unlock now to start classes.`
-        : `A parent is looking for a ${lead.classLevel} ${subjectLabel} tutor in ${locationLabel}. Unlock now to claim contact details.`,
-      actionUrl: "/tutor/leads",
-      referenceId: lead.id,
+      phone: phoneByUserId.get(tutor.userId) ?? null,
+      leadId: lead.id,
+      title,
+      message,
+      channels,
+      waPlaceholders,
     });
   }
 
@@ -121,4 +165,109 @@ export async function processLeadMatching(
   }
 
   return { matchedCount: rankedTutors.length };
+}
+
+async function notifyMatchedTutor(opts: {
+  userId: string;
+  phone: string | null;
+  leadId: string;
+  title: string;
+  message: string;
+  channels?: LeadNotifyChannel[];
+  waPlaceholders: string[] | null;
+}) {
+  const { userId, phone, leadId, title, message, channels, waPlaceholders } = opts;
+  const selected = channels?.length ? channels : null;
+
+  if (!selected) {
+    await createNotification({
+      userId,
+      type: "LEAD_MATCHED",
+      priority: "HIGH",
+      title,
+      message,
+      actionUrl: "/tutor/leads",
+      referenceId: leadId,
+    });
+    return;
+  }
+
+  const wantsInApp = selected.includes("IN_APP");
+  const wantsPush = selected.includes("PUSH");
+  const wantsEmail = selected.includes("EMAIL");
+
+  if (wantsInApp) {
+    await createNotification({
+      userId,
+      type: "LEAD_MATCHED",
+      priority: "HIGH",
+      channel: "WEB",
+      title,
+      message,
+      actionUrl: "/tutor/leads",
+      referenceId: leadId,
+      sendEmail: wantsEmail,
+      sendPush: wantsPush,
+      skipAutoEmail: !wantsEmail,
+    });
+  } else {
+    if (wantsPush) {
+      await createNotification({
+        userId,
+        type: "LEAD_MATCHED",
+        priority: "HIGH",
+        channel: "PUSH",
+        title,
+        message,
+        actionUrl: "/tutor/leads",
+        referenceId: leadId,
+        skipAutoEmail: true,
+      });
+    }
+    if (wantsEmail) {
+      await createNotification({
+        userId,
+        type: "LEAD_MATCHED",
+        priority: "HIGH",
+        channel: "EMAIL",
+        title,
+        message,
+        actionUrl: "/tutor/leads",
+        referenceId: leadId,
+        sendEmail: true,
+        skipAutoEmail: true,
+        forceSend: wantsPush,
+      });
+    }
+  }
+
+  if (!selected.includes("WHATSAPP") || !waPlaceholders) return;
+
+  const normalizedPhone = phone ? normalizeIndiaWhatsApp(phone) : null;
+  if (!normalizedPhone) return;
+
+  const wa = await sendAquaWhatsAppMessage({
+    to: normalizedPhone,
+    mode: "template",
+    templateId: "tuition_enquiry_direct",
+    placeholders: waPlaceholders.slice(0, 7),
+    text: `${title}\n\n${message}\nhttps://apnatutorhub.com/tutor/leads`,
+    bypassDailyCap: true,
+  });
+
+  if (wa.ok) {
+    await upsertWhatsAppChatMessage({
+      phone: normalizedPhone,
+      direction: "OUTBOUND",
+      senderName: "Lead Enquiry",
+      body: `[Tuition Enquiry]\n${message}`,
+      step: "LEAD_MATCHED",
+      messageId: wa.providerMessageId ?? null,
+      messageType: "template",
+      status: wa.rawStatus ?? "accepted",
+      isRead: true,
+    }).catch(() => {});
+  } else {
+    console.warn(`[matching] WhatsApp failed for ${normalizedPhone}: ${wa.error}`);
+  }
 }

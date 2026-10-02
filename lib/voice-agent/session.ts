@@ -4,12 +4,12 @@ import { registerParentFromWhatsapp } from "@/lib/whatsapp-bot/auto-register";
 import {
   mergeExtract,
   nextVoiceTurn,
-  VOICE_GREETING,
   type VoiceExtract,
   type VoiceHistoryItem,
   type VoiceRole,
   type VoiceTurn,
 } from "./agent";
+import { VOICE_GREETING } from "./training-playbook";
 
 type StoredCall = {
   role: VoiceRole;
@@ -123,8 +123,8 @@ export async function handleCallerTurn(input: {
   });
   const history: VoiceHistoryItem[] = [
     ...call.history,
-    { speaker: "caller", text: input.callerText },
-    { speaker: "priya", text: turn.say },
+    { speaker: "caller" as const, text: input.callerText },
+    { speaker: "priya" as const, text: turn.say },
   ].slice(-12);
   const next: StoredCall = {
     role: turn.role,
@@ -138,7 +138,7 @@ export async function handleCallerTurn(input: {
       next.leadId = saved.leadId;
       next.inquiryNumber = saved.inquiryNumber;
       const say = saved.say || turn.say;
-      next.history = [...history.slice(0, -1), { speaker: "priya", text: say }];
+      next.history = [...history.slice(0, -1), { speaker: "priya" as const, text: say }];
       await saveCall(input.callId, input.from, next, "DONE");
       return { ...turn, say, inquiryNumber: saved.inquiryNumber, complete: true };
     }

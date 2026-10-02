@@ -62,7 +62,7 @@ export async function synthesizeSpeech(text: string): Promise<Buffer | null> {
   return Buffer.from(audio, "base64");
 }
 
-export async function transcribeSpeech(audio: Buffer, filename = "caller.wav"): Promise<string> {
+export async function transcribeSpeech(audio: Buffer, filename = "caller.m4a"): Promise<string> {
   const key = sarvamKey();
   if (!key || audio.length === 0) return "";
   const form = new FormData();
@@ -86,4 +86,24 @@ export async function downloadRecording(url: string): Promise<Buffer> {
   const response = await fetch(url);
   if (!response.ok) return Buffer.alloc(0);
   return Buffer.from(await response.arrayBuffer());
+}
+
+const ttsCache = new Map<string, Buffer>();
+
+/** Pre-generate audio while the telephony webhook finishes so Play starts immediately. */
+export async function prefetchSpeech(text: string): Promise<void> {
+  const spoken = text.slice(0, 500);
+  if (!spoken || ttsCache.has(spoken)) return;
+  const audio = await synthesizeSpeech(spoken);
+  if (audio) {
+    ttsCache.set(spoken, audio);
+    if (ttsCache.size > 48) {
+      const oldest = ttsCache.keys().next().value;
+      if (oldest) ttsCache.delete(oldest);
+    }
+  }
+}
+
+export function readCachedSpeech(text: string): Buffer | null {
+  return ttsCache.get(text.slice(0, 500)) ?? null;
 }

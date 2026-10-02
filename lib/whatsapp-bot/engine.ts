@@ -34,6 +34,11 @@ import { assessIntake, sealLeadEntry, type IntakeDraft } from "@/lib/whatsapp-bo
 import bcrypt from "bcryptjs";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 import {
+  buildIndiaPhoneOrFilter,
+  findPrimaryUserForWhatsApp,
+  waPlaceholderEmail,
+} from "@/lib/india-phone";
+import {
   getSubjectClassSuggestions,
   validateSubjectClassCompatibility,
   parseGrade,
@@ -214,30 +219,9 @@ export async function syncUserCredentialsInDb(params: {
 }): Promise<{ ok: boolean; updatedFields: string[]; error?: string }> {
   const updatedFields: string[] = [];
   try {
-    const rawTargetPhone = params.phone.replace(/\D/g, "");
-    const normalizedPhone = normalizeIndiaWhatsApp(params.phone) ?? rawTargetPhone;
-    const last10Phone = rawTargetPhone.slice(-10);
-
-    // Build exact phone OR filters covering all stored formats
-    const phoneFilters: Array<{ phone: string } | { phone: { endsWith: string } }> = [];
-    const phoneVariants = new Set<string>();
-    if (normalizedPhone) phoneVariants.add(normalizedPhone);
-    if (last10Phone) phoneVariants.add(last10Phone);
-    if (rawTargetPhone) phoneVariants.add(rawTargetPhone);
-    if (last10Phone) {
-      phoneVariants.add(`91${last10Phone}`);
-      phoneVariants.add(`+91${last10Phone}`);
-      phoneVariants.add(`0${last10Phone}`);
-    }
-    for (const variant of phoneVariants) {
-      if (variant) phoneFilters.push({ phone: variant });
-    }
-    if (last10Phone.length === 10) {
-      phoneFilters.push({ phone: { endsWith: last10Phone } });
-    }
-
-    // Fallback: also match by wa_ generated email (used when phone-based register happened)
-    const waEmail = `wa_${last10Phone}@apnatutorhub.com`;
+    const phoneFilters = buildIndiaPhoneOrFilter(params.phone);
+    const waEmail = waPlaceholderEmail(params.phone);
+    const primaryUser = await findPrimaryUserForWhatsApp(prisma, params.phone);
 
     // 1. Password update — find the specific user first (prioritize tutor), then update by ID
     let passwordHash: string | undefined;
@@ -245,19 +229,7 @@ export async function syncUserCredentialsInDb(params: {
       passwordHash = await bcrypt.hash(params.password.trim(), 10);
 
       // Try phone-based lookup first
-      let targetUser = await prisma.user.findFirst({
-        where: { OR: phoneFilters },
-        orderBy: { createdAt: "desc" },
-        select: { id: true },
-      });
-
-      // Fallback: look up by wa_ email
-      if (!targetUser) {
-        targetUser = await prisma.user.findFirst({
-          where: { email: waEmail },
-          select: { id: true },
-        });
-      }
+      const targetUser = primaryUser ?? (await prisma.user.findFirst({ where: { email: waEmail }, select: { id: true } }));
 
       if (targetUser) {
         await prisma.user.update({
@@ -275,13 +247,7 @@ export async function syncUserCredentialsInDb(params: {
     if (params.email && isValidEmailDomain(params.email)) {
       const cleanEmail = params.email.trim().toLowerCase();
       // Find the user to update — try phone first, then wa_ email fallback
-      let user = await prisma.user.findFirst({
-        where: { OR: phoneFilters },
-        orderBy: { createdAt: "desc" },
-      });
-      if (!user) {
-        user = await prisma.user.findFirst({ where: { email: waEmail } });
-      }
+      let user = primaryUser ?? (await prisma.user.findFirst({ where: { email: waEmail } }));
 
       if (user) {
         // Check if another distinct user owns this email
@@ -311,14 +277,8 @@ export async function syncUserCredentialsInDb(params: {
     // 3. Name update
     if (params.name && isValidName(params.name)) {
       const cleanName = params.name.trim();
-      let nameUser = await prisma.user.findFirst({
-        where: { OR: phoneFilters },
-        orderBy: { createdAt: "desc" },
-        select: { id: true },
-      });
-      if (!nameUser) {
-        nameUser = await prisma.user.findFirst({ where: { email: waEmail }, select: { id: true } });
-      }
+      const nameUser =
+        primaryUser ?? (await prisma.user.findFirst({ where: { email: waEmail }, select: { id: true } }));
       if (nameUser) {
         await prisma.user.update({ where: { id: nameUser.id }, data: { name: cleanName } });
         updatedFields.push("name");
@@ -326,18 +286,18 @@ export async function syncUserCredentialsInDb(params: {
     }
 
     // 4. Tutor profile update (subjects, class, area, city)
-    const profileCandidates = await prisma.user.findMany({
-      where: { OR: phoneFilters },
-      include: { tutorProfile: true },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    });
-    const tutorUser = profileCandidates.find((u) => u.tutorProfile) ?? null;
+    const tutorUser = primaryUser
+      ? await prisma.user.findUnique({
+          where: { id: primaryUser.id },
+          include: { tutorProfile: true },
+        })
+      : null;
+    const tutorRow = tutorUser?.tutorProfile ? tutorUser : null;
     const wantsProfileWrite = Boolean(
       params.area || params.city || (params.subjects && params.subjects.length > 0) || (params.classLevels && params.classLevels.length > 0)
     );
 
-    if (tutorUser && tutorUser.tutorProfile) {
+    if (tutorRow && tutorRow.tutorProfile) {
       const profileUpdates: {
         address?: string;
         city?: string;
@@ -354,7 +314,7 @@ export async function syncUserCredentialsInDb(params: {
       }
       if (params.area || params.city) {
         const coords = resolveLocationCoordinates(
-          `${params.area || tutorUser.tutorProfile.address || ""} ${params.city || tutorUser.tutorProfile.city || ""}`.trim()
+          `${params.area || tutorRow.tutorProfile.address || ""} ${params.city || tutorRow.tutorProfile.city || ""}`.trim()
         );
         if (coords) {
           profileUpdates.latitude = coords.lat;
@@ -369,15 +329,22 @@ export async function syncUserCredentialsInDb(params: {
       }
       if (Object.keys(profileUpdates).length > 0) {
         await prisma.tutorProfile.update({
-          where: { id: tutorUser.tutorProfile.id },
+          where: { id: tutorRow.tutorProfile.id },
           data: profileUpdates,
         });
+        const canon = normalizeIndiaWhatsApp(params.phone);
+        if (canon) {
+          await prisma.user.update({
+            where: { id: tutorRow.id },
+            data: { phone: canon },
+          });
+        }
         if (params.area || params.city) updatedFields.push("area");
         if (params.subjects) updatedFields.push("subjects");
         if (params.classLevels) updatedFields.push("class");
       }
     }
-    const profileMissing = wantsProfileWrite && !tutorUser?.tutorProfile;
+    const profileMissing = wantsProfileWrite && !tutorRow?.tutorProfile;
 
     // 5. Also update whatsappSession.data if session exists
     try {
@@ -1755,11 +1722,18 @@ export async function processMessage(
             saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
           ].filter(Boolean);
           const profileTopic = /\b(name|naam|location|area|locality|subject|class|email|gmail|password)\b/i.test(rawMessage);
-          const reply = updateIntent && profileTopic
-            ? savedBits.length > 0
-              ? `Save ho gaya: ${savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`
-              : profileNotSavedReply()
-            : ai.reply;
+          const aiClaimsSaved = /\b(updated|save ho gay|note ho gay|kar diya|changed your|location has been)\b/i.test(
+            ai.reply
+          );
+          let reply = ai.reply;
+          if (updateIntent && profileTopic) {
+            reply =
+              savedBits.length > 0
+                ? `Save ho gaya: ${savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`
+                : profileNotSavedReply();
+          } else if (aiClaimsSaved && savedBits.length === 0 && hasPatch) {
+            reply = profileNotSavedReply();
+          }
 
           return {
             reply,

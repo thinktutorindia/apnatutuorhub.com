@@ -6,7 +6,12 @@
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
+import {
+  canonicalIndiaPhone,
+  ensureCanonicalPhoneOnUser,
+  findPrimaryUserForWhatsApp,
+  waPlaceholderEmail,
+} from "@/lib/india-phone";
 import { resolveLocationCoordinates } from "@/lib/geocoding";
 import {
   TUTOR_CLASS_MAP,
@@ -70,7 +75,7 @@ function modeToLeadMode(key: string): "ONLINE" | "OFFLINE" | "EITHER" {
 }
 
 function phoneToEmail(phone: string): string {
-  return `wa_${phone}@apnatutorhub.com`;
+  return waPlaceholderEmail(phone);
 }
 
 /** Generate a magic login link using NextAuth email sign-in (passwordless). */
@@ -435,8 +440,8 @@ export async function registerTutorFromWhatsapp(
   data: TutorBotData
 ): Promise<TutorRegistrationResult> {
   const rawTargetPhone = (data.phone || phone).replace(/\D/g, "");
-  const normalizedPhone = normalizeIndiaWhatsApp(data.phone || phone) ?? rawTargetPhone;
-  const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(normalizedPhone);
+  const normalizedPhone = canonicalIndiaPhone(data.phone || phone) ?? rawTargetPhone;
+  const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(phone);
 
   // Locality only — never store a chat sentence or door address as the teaching area.
   const locRes = validateAndCleanLocality(data.area, data.city);
@@ -466,23 +471,9 @@ export async function registerTutorFromWhatsapp(
       passwordHash = await bcrypt.hash(data.password.trim(), 10);
     }
 
-    // First find user by phone (primary identity on WhatsApp)
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
-          ...(data.phone ? [{ phone: data.phone }] : []),
-          ...(rawTargetPhone ? [{ phone: rawTargetPhone }] : []),
-        ],
-      },
-    });
-
-    // If not found by phone, check if a user exists with this email
-    if (!user && email) {
-      user = await prisma.user.findUnique({
-        where: { email },
-      });
-    }
+    let user =
+      (await findPrimaryUserForWhatsApp(prisma, data.phone || phone)) ??
+      (email ? await prisma.user.findUnique({ where: { email } }) : null);
 
     if (user) {
       let emailToUpdate: string | undefined = undefined;
@@ -504,19 +495,20 @@ export async function registerTutorFromWhatsapp(
               : user.role === "SUB_ADMIN"
               ? "SUB_ADMIN"
               : user.role || "TUTOR",
-          ...(!user.phone && normalizedPhone ? { phone: normalizedPhone } : {}),
+          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
           ...(emailToUpdate ? { email: emailToUpdate } : {}),
           ...(passwordHash ? { passwordHash } : {}),
           // Mark as WHATSAPP
           signupSource: "WHATSAPP",
         },
       });
+      await ensureCanonicalPhoneOnUser(prisma, user.id, data.phone || phone);
     } else {
       user = await prisma.user.create({
         data: {
           name: data.name || "Tutor",
           email,
-          phone: normalizedPhone,
+          phone: normalizedPhone || null,
           passwordHash: passwordHash || null,
           role: "TUTOR",
           isActive: true,
@@ -593,8 +585,8 @@ export async function registerParentFromWhatsapp(
   data: ParentBotData
 ): Promise<ParentRegistrationResult> {
   const rawTargetPhone = (data.phone || phone).replace(/\D/g, "");
-  const normalizedPhone = normalizeIndiaWhatsApp(data.phone || phone) ?? rawTargetPhone;
-  const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(normalizedPhone);
+  const normalizedPhone = canonicalIndiaPhone(data.phone || phone) ?? rawTargetPhone;
+  const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(phone);
   const classLevel = normalizeCanonicalClassLevel(
     data.classLevel || (data.classKey && CLASS_MAP[data.classKey]) || ""
   );
@@ -642,33 +634,27 @@ export async function registerParentFromWhatsapp(
   const inquiryNumber = Math.floor(100000 + Math.random() * 900000);
 
   try {
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          ...(email ? [{ email }] : []),
-          ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
-          ...(data.phone ? [{ phone: data.phone }] : []),
-          ...(rawTargetPhone ? [{ phone: rawTargetPhone }] : []),
-        ],
-      },
-    });
+    let user =
+      (await findPrimaryUserForWhatsApp(prisma, data.phone || phone)) ??
+      (email ? await prisma.user.findUnique({ where: { email } }) : null);
 
     if (user) {
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
           name: parentName || user.name,
-          ...(!user.phone && normalizedPhone ? { phone: normalizedPhone } : {}),
+          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
           ...((!user.email || user.email.startsWith("wa_")) && email && !email.startsWith("wa_") ? { email } : {}),
           ...(!(user as any).signupSource || (user as any).signupSource === "WEBSITE" ? { signupSource: "WHATSAPP" } : {}),
         },
       });
+      await ensureCanonicalPhoneOnUser(prisma, user.id, data.phone || phone);
     } else {
       user = await prisma.user.create({
         data: {
           name: parentName,
           email,
-          phone: normalizedPhone,
+          phone: normalizedPhone || null,
           role: "PARENT",
           isActive: true,
           signupSource: "WHATSAPP",

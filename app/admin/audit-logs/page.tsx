@@ -225,6 +225,7 @@ export default async function AdminAuditLogsPage({
                         hour: "2-digit",
                         minute: "2-digit",
                         second: "2-digit",
+                        timeZone: "Asia/Kolkata",
                       })}
                     </p>
                     <p className="text-[11px] text-slate-500 font-600">
@@ -232,6 +233,7 @@ export default async function AdminAuditLogsPage({
                         day: "numeric",
                         month: "short",
                         year: "numeric",
+                        timeZone: "Asia/Kolkata",
                       })}
                     </p>
                   </div>

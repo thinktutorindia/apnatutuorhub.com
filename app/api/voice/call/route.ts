@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { VOICE_GREETING, handleCallerTurn } from "@/lib/voice-agent/session";
-import { downloadRecording, speakPath, transcribeSpeech } from "@/lib/voice-agent/speech";
+import {
+  downloadRecording,
+  prefetchSpeech,
+  speakPath,
+  transcribeSpeech,
+} from "@/lib/voice-agent/speech";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +29,7 @@ function callXml(origin: string, callId: string, say: string, done: boolean): st
   const action = xmlEscape(`${origin}/api/voice/call?callId=${encodeURIComponent(callId)}`);
   const follow = done
     ? "<Hangup/>"
-    : `<Record action="${action}" maxLength="12" timeout="4" playBeep="false" />`;
+    : `<Record action="${action}" maxLength="10" timeout="3" playBeep="false" />`;
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Play>${play}</Play>${follow}</Response>`;
 }
 
@@ -74,6 +79,7 @@ export async function POST(request: Request) {
   }
 
   if (!callerText) {
+    await prefetchSpeech(VOICE_GREETING);
     if (wantsJson) {
       return NextResponse.json({ say: VOICE_GREETING, callId, audioUrl: speakPath(origin, VOICE_GREETING) });
     }
@@ -83,6 +89,7 @@ export async function POST(request: Request) {
   }
 
   const turn = await handleCallerTurn({ callId, from: from || "unknown", callerText });
+  await prefetchSpeech(turn.say);
   const done = turn.complete || turn.handoff;
   if (wantsJson) {
     return NextResponse.json({

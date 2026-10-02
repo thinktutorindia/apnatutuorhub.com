@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { buildIndiaUserLookupOr, canonicalIndiaPhone } from "@/lib/india-phone";
 
 export type BotSession = {
   id: string;
@@ -19,14 +20,15 @@ export type BotSession = {
 
 /** Load existing session or create a fresh language-select one. */
 export async function getOrCreateSession(phone: string): Promise<BotSession> {
-  const existing = await prisma.whatsappSession.findUnique({ where: { phone } });
+  const sessionPhone = canonicalIndiaPhone(phone) ?? phone.replace(/\D/g, "");
+  const existing = await prisma.whatsappSession.findUnique({ where: { phone: sessionPhone } });
   const isIdle = existing?.lastMessageAt
     ? Date.now() - new Date(existing.lastMessageAt).getTime() > 15 * 60 * 1000 // 15 minutes idle
     : false;
 
   const raw = await prisma.whatsappSession.upsert({
-    where: { phone },
-    create: { phone, step: "LANG_SELECT", data: {}, retries: 0 },
+    where: { phone: sessionPhone },
+    create: { phone: sessionPhone, step: "LANG_SELECT", data: {}, retries: 0 },
     update: { step: existing?.step ?? "LANG_SELECT" },
   });
 
@@ -39,20 +41,9 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
   // doesn't ask them to create a profile again.
   const isBlankSession = (step === "LANG_SELECT" || step === "WELCOME") && !data._registered;
   if (isBlankSession) {
-    const rawPhone = phone.replace(/\D/g, "");
-    const last10 = rawPhone.slice(-10);
-    const phoneVariants: string[] = [phone, rawPhone];
-    if (last10) {
-      phoneVariants.push(last10);
-      phoneVariants.push(`91${last10}`);
-    }
-
     const registeredUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          ...phoneVariants.map((p) => ({ phone: p })),
-          { email: `wa_${last10}@apnatutorhub.com` },
-        ],
+        OR: buildIndiaUserLookupOr(sessionPhone) as never,
       },
       include: {
         tutorProfile: { select: { id: true, address: true, city: true, subjects: true } },
@@ -79,13 +70,13 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
 
       // Persist restored session so future requests don't need to re-query
       await prisma.whatsappSession.update({
-        where: { phone },
+        where: { phone: sessionPhone },
         data: { step: "DONE", data: restoredData as never, userType, lastMessageAt: new Date() },
       });
 
       return {
         id: raw.id,
-        phone: raw.phone,
+        phone: sessionPhone,
         userType,
         step: "DONE",
         data: restoredData,

@@ -184,41 +184,34 @@ export async function adminCreateUserAction(
 
   let emailClean = input.email ? input.email.trim().toLowerCase() : "";
 
-  // 10-Digit Mobile Number Validation & Normalization
+  // Mobile — store canonical 91XXXXXXXXXX (same as WhatsApp bot)
   let phoneToStore: string | null = null;
   if (input.phone && input.phone.trim()) {
-    let cleanPhone = input.phone.trim().replace(/\D/g, "");
-    if (cleanPhone.startsWith("91") && cleanPhone.length === 12) {
-      cleanPhone = cleanPhone.slice(2);
-    } else if (cleanPhone.startsWith("0") && cleanPhone.length === 11) {
-      cleanPhone = cleanPhone.slice(1);
+    const { canonicalIndiaPhone, findPrimaryUserForWhatsApp, indiaPhoneLast10 } = await import(
+      "@/lib/india-phone"
+    );
+    const canon = canonicalIndiaPhone(input.phone.trim());
+    const last10 = indiaPhoneLast10(input.phone.trim());
+
+    if (!canon || !last10) {
+      return actionError("Mobile number must be a valid 10-digit Indian number (e.g. 9876543210).");
     }
 
-    if (cleanPhone.length !== 10) {
-      return actionError("Mobile number must be exactly 10 digits (e.g. 9876543210).");
-    }
-
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      return actionError("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
-    }
-
-    const existingPhone = await prisma.user.findUnique({
-      where: { phone: cleanPhone },
-      select: { id: true, name: true, email: true, phone: true, role: true, subAdminRole: true },
-    });
+    const existingPhone = await findPrimaryUserForWhatsApp(prisma, input.phone.trim());
     if (existingPhone) {
       return actionError(
-        `User with mobile number "${cleanPhone}" already exists as a ${existingPhone.role} (${existingPhone.name || existingPhone.email}). User ID: ${existingPhone.id}`
+        `User with this mobile already exists as ${existingPhone.role} (${existingPhone.name || existingPhone.email}). User ID: ${existingPhone.id}`
       );
     }
 
-    phoneToStore = cleanPhone;
+    phoneToStore = canon;
   }
 
   // Auto-generate sequential fallback email if not provided
   if (!emailClean) {
     if (phoneToStore) {
-      const phoneCandidate = `user${phoneToStore}@apnatutorhub.com`;
+      const last10 = phoneToStore.slice(-10);
+      const phoneCandidate = `user${last10}@apnatutorhub.com`;
       const exists = await prisma.user.findUnique({ where: { email: phoneCandidate } });
       if (!exists) {
         emailClean = phoneCandidate;

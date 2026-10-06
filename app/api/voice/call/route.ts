@@ -10,6 +10,7 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 function originOf(request: Request): string {
   const configured = process.env.AUTH_URL || process.env.NEXTAUTH_URL || "";
@@ -82,7 +83,11 @@ export async function POST(request: Request) {
   if (!callerText) {
     await prefetchSpeech(VOICE_GREETING);
     if (wantsJson) {
-      return NextResponse.json({ say: VOICE_GREETING, callId, audioUrl: speakPath(origin, VOICE_GREETING) });
+      return NextResponse.json({
+        say: VOICE_GREETING,
+        callId,
+        audioUrl: hasServerVoice() ? speakPath(origin, VOICE_GREETING) : null,
+      });
     }
     return new NextResponse(callXml(origin, callId, VOICE_GREETING, false), {
       headers: { "Content-Type": "text/xml; charset=utf-8" },
@@ -100,7 +105,7 @@ export async function POST(request: Request) {
       handoff: turn.handoff,
       complete: turn.complete,
       inquiryNumber: turn.inquiryNumber ?? null,
-      audioUrl: speakPath(origin, turn.say),
+      audioUrl: hasServerVoice() ? speakPath(origin, turn.say) : null,
     });
   }
   return new NextResponse(callXml(origin, callId, turn.say, done), {

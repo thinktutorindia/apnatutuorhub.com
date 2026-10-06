@@ -10,6 +10,7 @@ import {
   type VoiceRole,
   type VoiceTurn,
 } from "./agent";
+import { extractFromCallerText, inferVoiceRole, parentReady } from "./match";
 import { VOICE_GREETING } from "./training-playbook";
 
 type StoredCall = {
@@ -127,8 +128,8 @@ export async function handleCallerTurn(input: {
   const turn = await nextVoiceTurn({
     callerText: input.callerText,
     history: call.history,
-    extracted: call.extracted,
-    role: call.role,
+    extracted: mergeExtract(call.extracted, extractFromCallerText(input.callerText, {})),
+    role: inferVoiceRole(input.callerText, call.role),
   });
   const history: VoiceHistoryItem[] = [
     ...call.history,
@@ -141,7 +142,7 @@ export async function handleCallerTurn(input: {
     history,
   };
 
-  if (turn.complete && turn.role === "PARENT" && !turn.handoff) {
+  if (parentReady(next.role, next.extracted) && !turn.handoff) {
     const saved = await saveParentLead(input.from, next.extracted);
     if (saved.inquiryNumber) {
       next.leadId = saved.leadId;

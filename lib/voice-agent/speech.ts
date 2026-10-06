@@ -40,8 +40,8 @@ export function readSpeakToken(token: string, signature: string): string | null 
   return text;
 }
 
-function languageCode(text: string): "hi-IN" | "en-IN" {
-  return /[\u0900-\u097F]/.test(text) ? "hi-IN" : "en-IN";
+export function languageCode(text: string): "hi-IN" | "en-IN" {
+  return /[\u0900-\u097F]/.test(text) || /\b(hai|hoon|chahiye|kya|mujhe)\b/i.test(text) ? "hi-IN" : "en-IN";
 }
 
 function pcmToWav(pcm: Buffer, sampleRate = 24000): Buffer {
@@ -62,29 +62,32 @@ function pcmToWav(pcm: Buffer, sampleRate = 24000): Buffer {
   return Buffer.concat([header, pcm]);
 }
 
-async function synthesizeWithSarvam(text: string): Promise<Buffer | null> {
+async function sarvamOnce(
+  text: string,
+  model: "bulbul:v3" | "bulbul:v2",
+  speaker: string
+): Promise<Buffer | null> {
   const key = sarvamKey();
   if (!key) return null;
   const spoken = text.slice(0, 500);
-  const body = {
-    text: spoken,
-    target_language_code: languageCode(spoken),
-    language_code: languageCode(spoken),
-    model: "bulbul:v3",
-    speaker: "priya",
-    pace: 1,
-    speech_sample_rate: 8000,
-  };
   const response = await fetch(`${SARVAM_BASE}/text-to-speech`, {
     method: "POST",
     headers: {
       "api-subscription-key": key,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      text: spoken,
+      target_language_code: languageCode(spoken),
+      model,
+      speaker,
+      pace: 1,
+      speech_sample_rate: 24000,
+      enable_preprocessing: true,
+    }),
   });
   if (!response.ok) {
-    console.warn("[voice] Sarvam TTS skipped", response.status);
+    console.warn("[voice] Sarvam TTS skipped", model, speaker, response.status);
     return null;
   }
   const json = (await response.json()) as { audios?: string[] };
@@ -93,15 +96,19 @@ async function synthesizeWithSarvam(text: string): Promise<Buffer | null> {
   return Buffer.from(audio, "base64");
 }
 
+async function synthesizeWithSarvam(text: string): Promise<Buffer | null> {
+  return (
+    (await sarvamOnce(text, "bulbul:v3", "priya")) ||
+    (await sarvamOnce(text, "bulbul:v2", "anushka"))
+  );
+}
+
 async function synthesizeWithGemini(text: string): Promise<Buffer | null> {
   const key = geminiKey();
   if (!key) return null;
   const spoken = text.slice(0, 500);
-  const hindi = languageCode(spoken) === "hi-IN";
-  const prompt = hindi
-    ? `Speak this in natural Indian Hindi, warm female coordinator voice, no extra words:\n${spoken}`
-    : `Speak this in natural Indian English, warm female coordinator voice, no extra words:\n${spoken}`;
-  const models = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"];
+  const lang = languageCode(spoken);
+  const models = ["gemini-2.5-flash-preview-tts", "gemini-2.5-flash-tts", "gemini-2.5-pro-preview-tts"];
   for (const model of models) {
     try {
       const response = await fetch(
@@ -110,10 +117,11 @@ async function synthesizeWithGemini(text: string): Promise<Buffer | null> {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
+            contents: [{ parts: [{ text: spoken }] }],
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: {
+                languageCode: lang,
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } },
               },
             },

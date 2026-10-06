@@ -1,8 +1,17 @@
 /**
- * Spoken call agent. Gemini decides the next line. Sarvam speaks it.
+ * Spoken call agent. Gemini decides the next line. TTS speaks it.
  * Playbook trained from whattodo/ coordinator recordings (Arti WFH, 2026-09-24).
  */
+import { normalizeCanonicalClassLevel } from "@/lib/lead-utils";
 import { VOICE_GREETING, VOICE_PROMPT_BODY } from "./training-playbook";
+import {
+  callerPrefersHindi,
+  extractFromCallerText,
+  inferVoiceRole,
+  languageMismatch,
+  nextMissingAsk,
+  parentReady,
+} from "./match";
 
 export type VoiceRole = "PARENT" | "TUTOR" | null;
 
@@ -37,10 +46,11 @@ function geminiKey(): string | null {
   );
 }
 
-function asRole(value: unknown): VoiceRole {
-  const text = String(value ?? "").toUpperCase();
-  if (text.includes("TUTOR") || text.includes("TEACH")) return "TUTOR";
-  if (text.includes("PARENT") || text.includes("STUDENT")) return "PARENT";
+function asRole(value: unknown, locked: VoiceRole): VoiceRole {
+  if (locked) return locked;
+  const text = String(value ?? "").toUpperCase().trim();
+  if (text === "TUTOR") return "TUTOR";
+  if (text === "PARENT") return "PARENT";
   return null;
 }
 
@@ -52,9 +62,10 @@ function asExtract(value: unknown): VoiceExtract {
     : undefined;
   const fee = Number(raw.fee);
   const rate = String(raw.rateType ?? "").toUpperCase();
+  const classLevel = raw.classLevel ? normalizeCanonicalClassLevel(String(raw.classLevel)) || undefined : undefined;
   return {
     name: raw.name ? String(raw.name).trim() : undefined,
-    classLevel: raw.classLevel ? String(raw.classLevel).trim() : undefined,
+    classLevel,
     subjects,
     area: raw.area ? String(raw.area).trim() : undefined,
     city: raw.city ? String(raw.city).trim() : undefined,
@@ -77,34 +88,54 @@ export function mergeExtract(prev: VoiceExtract, next: VoiceExtract): VoiceExtra
 
 export { VOICE_GREETING };
 
+function groundedTurn(input: {
+  callerText: string;
+  extracted: VoiceExtract;
+  role: VoiceRole;
+  llmExtract?: VoiceExtract;
+  say?: string;
+  handoff?: boolean;
+}): VoiceTurn {
+  const thisTurn = extractFromCallerText(input.callerText, {});
+  const locked = mergeExtract(input.extracted, thisTurn);
+  const extracted = mergeExtract(input.llmExtract ?? {}, locked);
+  const role = inferVoiceRole(input.callerText, input.role);
+  const hindi = callerPrefersHindi(input.callerText);
+  let say = (input.say || "").trim();
+  if (say && languageMismatch(say, hindi)) say = "";
+  return {
+    say: say || nextMissingAsk(role, extracted, hindi),
+    role,
+    extracted,
+    handoff: Boolean(input.handoff),
+    complete: parentReady(role, extracted),
+  };
+}
+
 export async function nextVoiceTurn(input: {
   callerText: string;
   history: VoiceHistoryItem[];
   extracted: VoiceExtract;
   role: VoiceRole;
 }): Promise<VoiceTurn> {
-  const fallback: VoiceTurn = {
-    say: "Maaf kijiye, awaaz clear nahi aayi. Ek baar phir bataiye, aapko tutor chahiye ya aap padhate hain?",
-    role: input.role,
-    extracted: input.extracted,
-    handoff: false,
-    complete: false,
-  };
+  const grounded = groundedTurn(input);
   const apiKey = geminiKey();
-  if (!apiKey || !input.callerText.trim()) return fallback;
+  if (!apiKey || !input.callerText.trim()) return grounded;
 
   const prompt = `${VOICE_PROMPT}
 
-Collected so far: ${JSON.stringify({ role: input.role, ...input.extracted })}
+Collected so far: ${JSON.stringify({ role: grounded.role, ...grounded.extracted })}
 Recent call:
 ${input.history.map((item) => `${item.speaker}: ${item.text}`).join("\n")}
 Caller just said: "${input.callerText.replace(/"/g, "'")}"
+
+Reply language must match the caller. Do not change role if already set. Use the collected class and locality; do not invent a different class.
 `;
 
-  const models = ["gemini-2.0-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest"];
+  const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-flash-lite-latest"];
   for (const model of models) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4500);
+    const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -114,7 +145,7 @@ Caller just said: "${input.callerText.replace(/"/g, "'")}"
           signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+            generationConfig: { temperature: 0.15, responseMimeType: "application/json" },
           }),
         }
       );
@@ -128,18 +159,19 @@ Caller just said: "${input.callerText.replace(/"/g, "'")}"
       const parsed = JSON.parse(match[0]) as Record<string, unknown>;
       const say = String(parsed.say ?? "").trim();
       if (!say) continue;
-      return {
+      return groundedTurn({
+        callerText: input.callerText,
+        extracted: grounded.extracted,
+        role: asRole(parsed.role, grounded.role),
+        llmExtract: asExtract(parsed.extracted),
         say,
-        role: asRole(parsed.role) ?? input.role,
-        extracted: mergeExtract(input.extracted, asExtract(parsed.extracted)),
         handoff: Boolean(parsed.handoff),
-        complete: Boolean(parsed.complete),
-      };
+      });
     } catch {
       continue;
     } finally {
       clearTimeout(timer);
     }
   }
-  return fallback;
+  return grounded;
 }

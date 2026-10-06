@@ -10,8 +10,9 @@ import {
   type VoiceRole,
   type VoiceTurn,
 } from "./agent";
-import { extractFromCallerText, inferVoiceRole, parentReady } from "./match";
+import { extractFromCallerText, inferVoiceRole, normalizeCallerText, parentReady } from "./match";
 import { VOICE_GREETING } from "./training-playbook";
+import { getChatbotMatchingLeads } from "@/lib/whatsapp-bot/leads-helper";
 
 type StoredCall = {
   role: VoiceRole;
@@ -108,15 +109,31 @@ async function saveParentLead(
   };
 }
 
+export async function rememberGreeting(callId: string, from: string) {
+  const call = await loadCall(callId);
+  if (call.history.length > 0) return;
+  await saveCall(
+    callId,
+    from,
+    {
+      role: null,
+      extracted: {},
+      history: [{ speaker: "priya", text: VOICE_GREETING }],
+    },
+    "VOICE"
+  );
+}
+
 export async function handleCallerTurn(input: {
   callId: string;
   from: string;
   callerText: string;
 }): Promise<VoiceTurn & { inquiryNumber?: number }> {
+  const callerText = normalizeCallerText(input.callerText);
   const call = await loadCall(input.callId);
   if (call.inquiryNumber) {
     return {
-      say: `Aapki enquiry ${call.inquiryNumber} pehle hi note ho chuki hai. Coordinator zarurat padne par call karega. Dhanyavaad.`,
+      say: `Aapki enquiry ${call.inquiryNumber} pehle hi note ho chuki hai. Coordinator zarurat padne par WhatsApp karega.`,
       role: call.role,
       extracted: call.extracted,
       handoff: false,
@@ -125,15 +142,34 @@ export async function handleCallerTurn(input: {
     };
   }
 
+  const guessed = mergeExtract(call.extracted, extractFromCallerText(callerText, {}));
+  const role = inferVoiceRole(callerText, call.role);
+  const liveLeads =
+    role === "TUTOR" && guessed.area
+      ? (await getChatbotMatchingLeads(guessed.area, guessed.city, guessed.classLevel, guessed.subjects)).map(
+          (lead) => ({
+            classLevel: lead.classLevel,
+            area: lead.area,
+            budget: lead.budget,
+          })
+        )
+      : [];
+
+  const priorHistory =
+    call.history.length > 0
+      ? call.history
+      : [{ speaker: "priya" as const, text: VOICE_GREETING }];
+
   const turn = await nextVoiceTurn({
-    callerText: input.callerText,
-    history: call.history,
-    extracted: mergeExtract(call.extracted, extractFromCallerText(input.callerText, {})),
-    role: inferVoiceRole(input.callerText, call.role),
+    callerText,
+    history: priorHistory,
+    extracted: guessed,
+    role,
+    liveLeads,
   });
   const history: VoiceHistoryItem[] = [
-    ...call.history,
-    { speaker: "caller" as const, text: input.callerText },
+    ...priorHistory,
+    { speaker: "caller" as const, text: callerText },
     { speaker: "priya" as const, text: turn.say },
   ].slice(-12);
   const next: StoredCall = {

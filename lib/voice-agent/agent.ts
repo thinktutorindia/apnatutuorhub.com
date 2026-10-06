@@ -1,6 +1,5 @@
 /**
  * Spoken call agent. Gemini decides the next line. TTS speaks it.
- * Playbook trained from whattodo/ coordinator recordings (Arti WFH, 2026-09-24).
  */
 import { normalizeCanonicalClassLevel } from "@/lib/lead-utils";
 import { VOICE_GREETING, VOICE_PROMPT_BODY } from "./training-playbook";
@@ -11,6 +10,8 @@ import {
   languageMismatch,
   nextMissingAsk,
   parentReady,
+  soundsLikeChatbot,
+  type VoiceLeadBrief,
 } from "./match";
 
 export type VoiceRole = "PARENT" | "TUTOR" | null;
@@ -34,8 +35,6 @@ export type VoiceTurn = {
 };
 
 export type VoiceHistoryItem = { speaker: "caller" | "priya"; text: string };
-
-const VOICE_PROMPT = VOICE_PROMPT_BODY;
 
 function geminiKey(): string | null {
   return (
@@ -62,7 +61,7 @@ function asExtract(value: unknown): VoiceExtract {
     : undefined;
   const fee = Number(raw.fee);
   const rate = String(raw.rateType ?? "").toUpperCase();
-  const classLevel = raw.classLevel ? normalizeCanonicalClassLevel(String(raw.classLevel)) || undefined : undefined;
+  const classLevel = raw.classLevel ? normalizeCanonicalClassLevel(String(raw.classLevel)) || String(raw.classLevel).trim() || undefined : undefined;
   return {
     name: raw.name ? String(raw.name).trim() : undefined,
     classLevel,
@@ -95,6 +94,8 @@ function groundedTurn(input: {
   llmExtract?: VoiceExtract;
   say?: string;
   handoff?: boolean;
+  leads?: VoiceLeadBrief[];
+  alreadyGreeted?: boolean;
 }): VoiceTurn {
   const thisTurn = extractFromCallerText(input.callerText, {});
   const locked = mergeExtract(input.extracted, thisTurn);
@@ -103,8 +104,10 @@ function groundedTurn(input: {
   const hindi = callerPrefersHindi(input.callerText);
   let say = (input.say || "").trim();
   if (say && languageMismatch(say, hindi)) say = "";
+  if (say && soundsLikeChatbot(say)) say = "";
+  if (say && input.alreadyGreeted && /नमस्ते|स्वागत|welcome/i.test(say)) say = "";
   return {
-    say: say || nextMissingAsk(role, extracted, hindi),
+    say: say || nextMissingAsk(role, extracted, hindi, input.leads),
     role,
     extracted,
     handoff: Boolean(input.handoff),
@@ -117,19 +120,39 @@ export async function nextVoiceTurn(input: {
   history: VoiceHistoryItem[];
   extracted: VoiceExtract;
   role: VoiceRole;
+  liveLeads?: VoiceLeadBrief[];
 }): Promise<VoiceTurn> {
-  const grounded = groundedTurn(input);
+  const history =
+    input.history.length > 0
+      ? input.history
+      : [{ speaker: "priya" as const, text: VOICE_GREETING }];
+  const leads = input.liveLeads ?? [];
+  const grounded = groundedTurn({
+    callerText: input.callerText,
+    extracted: input.extracted,
+    role: input.role,
+    leads,
+    alreadyGreeted: true,
+  });
   const apiKey = geminiKey();
   if (!apiKey || !input.callerText.trim()) return grounded;
 
-  const prompt = `${VOICE_PROMPT}
+  const leadBlock =
+    leads.length > 0
+      ? `LIVE_LEADS (speak only the first, then ask):\n${leads
+          .slice(0, 2)
+          .map((lead, i) => `${i + 1}. ${lead.classLevel}, ${lead.area}, ${lead.budget}`)
+          .join("\n")}`
+      : "LIVE_LEADS: none in that area/class right now.";
 
+  const prompt = `${VOICE_PROMPT_BODY}
+
+${leadBlock}
 Collected so far: ${JSON.stringify({ role: grounded.role, ...grounded.extracted })}
+This call already started. Priya already greeted. Continue — do not welcome again.
 Recent call:
-${input.history.map((item) => `${item.speaker}: ${item.text}`).join("\n")}
+${history.map((item) => `${item.speaker}: ${item.text}`).join("\n")}
 Caller just said: "${input.callerText.replace(/"/g, "'")}"
-
-Reply language must match the caller. Do not change role if already set. Use the collected class and locality; do not invent a different class.
 `;
 
   const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-flash-lite-latest"];
@@ -145,7 +168,7 @@ Reply language must match the caller. Do not change role if already set. Use the
           signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.15, responseMimeType: "application/json" },
+            generationConfig: { temperature: 0.35, responseMimeType: "application/json" },
           }),
         }
       );
@@ -166,6 +189,8 @@ Reply language must match the caller. Do not change role if already set. Use the
         llmExtract: asExtract(parsed.extracted),
         say,
         handoff: Boolean(parsed.handoff),
+        leads,
+        alreadyGreeted: true,
       });
     } catch {
       continue;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { VOICE_GREETING, handleCallerTurn } from "@/lib/voice-agent/session";
+import { VOICE_GREETING, handleCallerTurn, rememberGreeting } from "@/lib/voice-agent/session";
 import {
   downloadRecording,
   hasServerVoice,
@@ -81,6 +81,7 @@ export async function POST(request: Request) {
   }
 
   if (!callerText) {
+    await rememberGreeting(callId, from || "unknown");
     await prefetchSpeech(VOICE_GREETING);
     if (wantsJson) {
       return NextResponse.json({

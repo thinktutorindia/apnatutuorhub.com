@@ -87,7 +87,7 @@ function keepClassLevel(current: unknown, rawMessage: string, previous: unknown)
   const prev = normalizeCanonicalClassLevel(typeof previous === "string" ? previous : "");
   const next = normalizeCanonicalClassLevel(typeof current === "string" ? current : "");
   if (next && classSignalInMessage(rawMessage)) return next;
-  return prev;
+  return prev ?? undefined;
 }
 
 function keepArea(current: unknown, rawMessage: string, previous: unknown, city?: string): string | undefined {
@@ -95,7 +95,7 @@ function keepArea(current: unknown, rawMessage: string, previous: unknown, city?
   if (fromMsg) return fromMsg;
   const next = extractPublicLocality(typeof current === "string" ? current : "", city);
   const prev = extractPublicLocality(typeof previous === "string" ? previous : "", city);
-  return next || prev;
+  return next || prev || undefined;
 }
 
 export function isValidEmailDomain(email: string): boolean {

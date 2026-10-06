@@ -387,6 +387,8 @@ export function getLeadRateType(lead?: {
  */
 export function formatLeadBudget(
   lead?: {
+    id?: string | null;
+    inquiryNumber?: number | null;
     budgetMin?: number | null;
     budgetMax?: number | null;
     notes?: string | null;

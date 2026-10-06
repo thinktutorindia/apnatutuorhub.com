@@ -10,6 +10,7 @@ export type VoiceLeadBrief = {
   classLevel: string;
   area: string;
   budget: string;
+  inquiryNumber?: number | null;
 };
 
 export function normalizeCallerText(raw: string): string {
@@ -99,16 +100,39 @@ function titlePlace(value: string): string {
     .join(" ");
 }
 
+function isJunkArea(area?: string | null): boolean {
+  if (!area) return true;
+  const s = area.trim();
+  if (s.length < 3) return true;
+  if (/^(delhi|ncr|delhi ncr|india)$/i.test(s)) return true;
+  if (
+    /^(aapko|aap|chahiye|haan|han|bhej|do|tutor|hoon|main|nahi|leads|please|ok|yes|ji|theek)$/i.test(s)
+  ) {
+    return true;
+  }
+  if (
+    /\b(chahiye|bhej do|haan|tutor|padhata|leads bata|whatsapp)\b/i.test(s) &&
+    !/\b(vihar|nagar|sector|colony|enclave|rohini|dwarka|sangam|saket)\b/i.test(s)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function cleanArea(area?: string | null): string | undefined {
-  if (!area) return undefined;
+  if (!area || isJunkArea(area)) return undefined;
   const named = area.match(
     /\b([A-Za-z][A-Za-z'-]*\s+(?:Vihar|Nagar|Bagh|Kunj|Colony|Enclave|Ganj|Pur)|Sector\s*-?\s*\d+[A-Za-z]?|Rohini|Dwarka|Saket|Kalkaji)\b/i
   );
-  if (named) return titlePlace(named[1]);
+  if (named) {
+    const place = titlePlace(named[1]);
+    return isJunkArea(place) ? undefined : place;
+  }
   const stripped = area
-    .replace(/^\s*(app|aap|mujhe|mujhko|please|ko|ki|ke|main|hoon)\s+/gi, "")
+    .replace(/^\s*(app|aapko|aap|mujhe|mujhko|please|ko|ki|ke|main|hoon)\s+/gi, "")
     .trim();
-  return stripped || undefined;
+  if (!stripped || isJunkArea(stripped)) return undefined;
+  return stripped;
 }
 
 function classFromSpeech(text: string, prev?: string): string | undefined {
@@ -133,8 +157,13 @@ function isJuniorBand(classLevel?: string): boolean {
 export function extractFromCallerText(text: string, prev: VoiceExtract): VoiceExtract {
   const classLevel = classFromSpeech(text, prev.classLevel);
   const area =
-    cleanArea(extractPublicLocality(text, prev.city || inferCity(text, prev.city))) || prev.area;
-  const city = inferCity(text, prev.city);
+    cleanArea(extractPublicLocality(text, prev.city || inferCity(text, prev.city))) ||
+    (prev.area && !isJunkArea(prev.area) ? prev.area : undefined);
+  const city =
+    inferCity(text, prev.city) ||
+    (area && /sangam|rohini|dwarka|saket|karol|janakpuri|kalkaji|laxmi|mayur|pitampura/i.test(area)
+      ? "Delhi"
+      : prev.city);
   const fee = inferFee(text) ?? prev.fee;
   const name = inferName(text, prev.name);
   const subjects = classLevel
@@ -175,6 +204,7 @@ export function parentReady(role: VoiceRole, extracted: VoiceExtract): boolean {
   if (role !== "PARENT") return false;
   if (!extracted.classLevel || !extracted.area) return false;
   if (/^(delhi|ncr|delhi ncr|india)$/i.test(extracted.area)) return false;
+  if (isJunkArea(extracted.area)) return false;
   if (!isTill8thClass(extracted.classLevel) && !extracted.subjects?.length) return false;
   return true;
 }
@@ -182,9 +212,9 @@ export function parentReady(role: VoiceRole, extracted: VoiceExtract): boolean {
 export function spokenLeadLine(lead: VoiceLeadBrief, hindi: boolean): string {
   const place = lead.area || "nearby";
   if (hindi) {
-    return `${place} में ${lead.classLevel} की एक enquiry है, फीस लगभग ${lead.budget}। Unlock करीब दस कॉइन। WhatsApp पर भेज दूँ?`;
+    return `${place}, ${lead.classLevel}। एक enquiry है, फीस ${lead.budget}। WhatsApp पर भेज दूँ?`;
   }
-  return `There is a ${lead.classLevel} enquiry in ${place}, fee about ${lead.budget}. Unlock is about 10 coins. Shall I send it on WhatsApp?`;
+  return `${place}, ${lead.classLevel}. One enquiry, fee ${lead.budget}. Shall I send it on WhatsApp?`;
 }
 
 export function nextMissingAsk(
@@ -200,7 +230,7 @@ export function nextMissingAsk(
   }
   if (role === "TUTOR") {
     if (leads[0]) return spokenLeadLine(leads[0], hindi);
-    if (!extracted.area || /^(delhi|ncr|delhi ncr|india)$/i.test(extracted.area)) {
+    if (!extracted.area || isJunkArea(extracted.area)) {
       return hindi ? "अच्छा, आप ट्यूटर हैं। कौनसी एरिया से पढ़ाते हैं?" : "Got it, you teach. Which area are you in?";
     }
     if (!extracted.classLevel) {
@@ -218,7 +248,7 @@ export function nextMissingAsk(
   if (!isTill8thClass(extracted.classLevel) && !extracted.subjects?.length) {
     return hindi ? "कौनसा विषय चाहिए?" : "Which subject?";
   }
-  if (!extracted.area || /^(delhi|ncr|delhi ncr|india)$/i.test(extracted.area)) {
+  if (!extracted.area || isJunkArea(extracted.area)) {
     return hindi ? "कौनसी कॉलोनी है? जैसे संगम विहार या रोहिणी।" : "Which colony? For example Sangam Vihar or Rohini.";
   }
   if (!extracted.name) {

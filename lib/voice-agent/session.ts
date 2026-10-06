@@ -8,11 +8,12 @@ import {
   type VoiceExtract,
   type VoiceHistoryItem,
   type VoiceRole,
-  type VoiceTurn,
 } from "./agent";
-import { extractFromCallerText, inferVoiceRole, normalizeCallerText, parentReady } from "./match";
+import { extractFromCallerText, inferVoiceRole, normalizeCallerText, parentReady, callerPrefersHindi } from "./match";
 import { VOICE_GREETING } from "./training-playbook";
 import { getChatbotMatchingLeads } from "@/lib/whatsapp-bot/leads-helper";
+import { sendBotMessage } from "@/lib/whatsapp-bot/sender";
+import type { VoiceLeadBrief } from "./match";
 
 type StoredCall = {
   role: VoiceRole;
@@ -20,6 +21,8 @@ type StoredCall = {
   history: VoiceHistoryItem[];
   leadId?: string;
   inquiryNumber?: number;
+  offeredLead?: VoiceLeadBrief | null;
+  leadIndex?: number;
 };
 
 function sessionPhone(callId: string): string {
@@ -36,6 +39,8 @@ async function loadCall(callId: string): Promise<StoredCall> {
     history: Array.isArray(data.history) ? data.history.slice(-12) : [],
     leadId: data.leadId,
     inquiryNumber: data.inquiryNumber,
+    offeredLead: data.offeredLead ?? null,
+    leadIndex: data.leadIndex ?? 0,
   };
 }
 
@@ -105,7 +110,7 @@ async function saveParentLead(
   return {
     inquiryNumber: result.inquiryNumber,
     leadId: result.leadId,
-    say: `Aapki enquiry number ${result.inquiryNumber} note ho gayi hai. Paas ke tutors ko bataya jayega. Dhanyavaad.`,
+    say: `Enquiry नंबर ${result.inquiryNumber} नोट हो गई। पास के ट्यूटर को बताया जाएगा।`,
   };
 }
 
@@ -144,16 +149,27 @@ export async function handleCallerTurn(input: {
 
   const guessed = mergeExtract(call.extracted, extractFromCallerText(callerText, {}));
   const role = inferVoiceRole(callerText, call.role);
-  const liveLeads =
-    role === "TUTOR" && guessed.area
-      ? (await getChatbotMatchingLeads(guessed.area, guessed.city, guessed.classLevel, guessed.subjects)).map(
-          (lead) => ({
-            classLevel: lead.classLevel,
-            area: lead.area,
-            budget: lead.budget,
-          })
-        )
-      : [];
+  let liveLeads: VoiceLeadBrief[] = [];
+  if (role === "TUTOR" && guessed.area) {
+    liveLeads = (
+      await getChatbotMatchingLeads(guessed.area, guessed.city, guessed.classLevel, guessed.subjects)
+    ).map((lead) => ({
+      classLevel: lead.classLevel,
+      area: lead.area,
+      budget: lead.budget,
+      inquiryNumber: lead.inquiryNumber,
+    }));
+    if (liveLeads.length === 0 && guessed.classLevel) {
+      liveLeads = (await getChatbotMatchingLeads(guessed.area, guessed.city, undefined, guessed.subjects)).map(
+        (lead) => ({
+          classLevel: lead.classLevel,
+          area: lead.area,
+          budget: lead.budget,
+          inquiryNumber: lead.inquiryNumber,
+        })
+      );
+    }
+  }
 
   const priorHistory =
     call.history.length > 0
@@ -166,6 +182,8 @@ export async function handleCallerTurn(input: {
     extracted: guessed,
     role,
     liveLeads,
+    offeredLead: call.offeredLead,
+    leadIndex: call.leadIndex,
   });
   const history: VoiceHistoryItem[] = [
     ...priorHistory,
@@ -176,7 +194,27 @@ export async function handleCallerTurn(input: {
     role: turn.role,
     extracted: mergeExtract(call.extracted, turn.extracted),
     history,
+    offeredLead: turn.offeredLead ?? call.offeredLead ?? null,
+    leadIndex: turn.leadIndex ?? call.leadIndex ?? 0,
   };
+
+  if (turn.sendOffered && next.offeredLead) {
+    const phone = callerPhone(input.from);
+    const dummy = !phone || /9876543210/.test(phone);
+    if (phone && !dummy) {
+      const lead = next.offeredLead;
+      const code = lead.inquiryNumber ? `#${lead.inquiryNumber}` : "";
+      await sendBotMessage(
+        phone,
+        `Priya (call): ${lead.area}, ${lead.classLevel} ${code}, fee ${lead.budget}. Unlock ~10 coins class 1-8. Forgot Password → Tutor Leads. Plan 999 + GST.`
+      ).catch(() => false);
+    } else {
+      turn.say = callerPrefersHindi(callerText)
+        ? "जी, लीड नोट है। अपना WhatsApp नंबर बोलिए, भेज देती हूँ।"
+        : "The lead is noted. Tell me your WhatsApp number and I will send it.";
+      next.history = [...history.slice(0, -1), { speaker: "priya" as const, text: turn.say }];
+    }
+  }
 
   if (parentReady(next.role, next.extracted) && !turn.handoff) {
     const saved = await saveParentLead(input.from, next.extracted);

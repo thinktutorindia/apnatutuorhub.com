@@ -6,8 +6,21 @@ function sarvamKey(): string | null {
   return process.env.SARVAM_API_KEY || null;
 }
 
+function geminiKey(): string | null {
+  return (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY ||
+    null
+  );
+}
+
 function voiceSecret(): string {
   return process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.SARVAM_API_KEY || "apnatutorhub-voice";
+}
+
+export function hasServerVoice(): boolean {
+  return Boolean(sarvamKey() || geminiKey());
 }
 
 export function speakToken(text: string): string {
@@ -31,7 +44,25 @@ function languageCode(text: string): "hi-IN" | "en-IN" {
   return /[\u0900-\u097F]/.test(text) ? "hi-IN" : "en-IN";
 }
 
-export async function synthesizeSpeech(text: string): Promise<Buffer | null> {
+function pcmToWav(pcm: Buffer, sampleRate = 24000): Buffer {
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+
+async function synthesizeWithSarvam(text: string): Promise<Buffer | null> {
   const key = sarvamKey();
   if (!key) return null;
   const spoken = text.slice(0, 500);
@@ -53,13 +84,63 @@ export async function synthesizeSpeech(text: string): Promise<Buffer | null> {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    console.warn("[voice] Sarvam TTS failed", response.status, (await response.text()).slice(0, 180));
+    console.warn("[voice] Sarvam TTS skipped", response.status);
     return null;
   }
   const json = (await response.json()) as { audios?: string[] };
   const audio = json.audios?.[0];
   if (!audio) return null;
   return Buffer.from(audio, "base64");
+}
+
+async function synthesizeWithGemini(text: string): Promise<Buffer | null> {
+  const key = geminiKey();
+  if (!key) return null;
+  const spoken = text.slice(0, 500);
+  const hindi = languageCode(spoken) === "hi-IN";
+  const prompt = hindi
+    ? `Speak this in natural Indian Hindi, warm female coordinator voice, no extra words:\n${spoken}`
+    : `Speak this in natural Indian English, warm female coordinator voice, no extra words:\n${spoken}`;
+  const models = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"];
+  for (const model of models) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } },
+              },
+            },
+          }),
+        }
+      );
+      if (!response.ok) continue;
+      const json = (await response.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>;
+      };
+      const part = json.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+      const data = part?.inlineData?.data;
+      const mime = part?.inlineData?.mimeType || "";
+      if (!data) continue;
+      const raw = Buffer.from(data, "base64");
+      const rateMatch = mime.match(/rate=(\d+)/);
+      const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
+      return mime.includes("wav") ? raw : pcmToWav(raw, sampleRate);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+export async function synthesizeSpeech(text: string): Promise<Buffer | null> {
+  return (await synthesizeWithSarvam(text)) || (await synthesizeWithGemini(text));
 }
 
 export async function transcribeSpeech(audio: Buffer, filename = "caller.m4a"): Promise<string> {
@@ -90,7 +171,6 @@ export async function downloadRecording(url: string): Promise<Buffer> {
 
 const ttsCache = new Map<string, Buffer>();
 
-/** Pre-generate audio while the telephony webhook finishes so Play starts immediately. */
 export async function prefetchSpeech(text: string): Promise<void> {
   const spoken = text.slice(0, 500);
   if (!spoken || ttsCache.has(spoken)) return;

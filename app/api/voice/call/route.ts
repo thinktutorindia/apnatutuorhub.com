@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { VOICE_GREETING, handleCallerTurn } from "@/lib/voice-agent/session";
 import {
   downloadRecording,
+  hasServerVoice,
   prefetchSpeech,
   speakPath,
   transcribeSpeech,
@@ -60,7 +61,7 @@ export async function GET() {
     agent: "Priya",
     number: "08062180653",
     greeting: VOICE_GREETING,
-    speech: Boolean(process.env.SARVAM_API_KEY),
+    speech: hasServerVoice(),
   });
 }
 

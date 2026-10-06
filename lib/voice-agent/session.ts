@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { coinCostFromTuitionFee } from "@/lib/subscription-plans";
 import { registerParentFromWhatsapp } from "@/lib/whatsapp-bot/auto-register";
+import { canonicalIndiaPhone } from "@/lib/india-phone";
 import {
   mergeExtract,
   nextVoiceTurn,
@@ -55,21 +56,29 @@ async function saveCall(callId: string, from: string, call: StoredCall, step: st
   });
 }
 
+function callerPhone(from: string): string | null {
+  return canonicalIndiaPhone(from);
+}
+
 async function saveParentLead(
   from: string,
   extracted: VoiceExtract
-): Promise<{ inquiryNumber?: number; leadId?: string; say?: string }> {
-  const result = await registerParentFromWhatsapp(from, {
+): Promise<{ inquiryNumber?: number; leadId?: string; say?: string; error?: string }> {
+  const phone = callerPhone(from);
+  if (!phone) return { error: "phone" };
+  if (!extracted.classLevel) return { error: "class" };
+  if (!extracted.area) return { error: "area" };
+  const result = await registerParentFromWhatsapp(phone, {
     name: extracted.name,
     parentName: extracted.name,
-    phone: from,
+    phone,
     classLevel: extracted.classLevel,
     subjects: extracted.subjects,
     area: extracted.area,
     city: extracted.city,
     modeKey: "1",
   });
-  if (!result.ok) return {};
+  if (!result.ok) return { error: "save" };
   const fee = extracted.fee;
   const rateType = extracted.rateType ?? (fee && fee < 2000 ? "HOURLY" : "MONTHLY");
   await prisma.lead.update({
@@ -142,6 +151,14 @@ export async function handleCallerTurn(input: {
       await saveCall(input.callId, input.from, next, "DONE");
       return { ...turn, say, inquiryNumber: saved.inquiryNumber, complete: true };
     }
+    const ask =
+      saved.error === "area"
+        ? "Kaunsi colony ya locality hai? Jaise Rohini, Karol Bagh, ya Noida Sector 40."
+        : saved.error === "class"
+          ? "Bachcha kaunsi class mein hai?"
+          : "Ek baar locality aur class clearly bataiye, enquiry save kar deti hoon.";
+    await saveCall(input.callId, input.from, next, "VOICE");
+    return { ...turn, say: ask, complete: false };
   }
 
   await saveCall(input.callId, input.from, next, turn.handoff ? "HANDOFF" : "VOICE");

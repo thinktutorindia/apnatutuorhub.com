@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   }
   if (!audio) {
     return NextResponse.json(
-      { error: "Speech is not configured. Add SARVAM_API_KEY." },
+      { error: "Speech is not configured." },
       { status: 503 }
     );
   }

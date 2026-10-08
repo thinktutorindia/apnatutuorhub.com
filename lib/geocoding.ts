@@ -75,6 +75,14 @@ export const INDIAN_CITY_COORDINATES: Record<string, { lat: number; lng: number 
   "model town": { lat: 28.7030, lng: 77.1930 },
   "ashok vihar": { lat: 28.6920, lng: 77.1750 },
   "civil lines": { lat: 28.6810, lng: 77.2220 },
+  "mukundpur": { lat: 28.7376, lng: 77.1853 },
+  "mukund pur": { lat: 28.7376, lng: 77.1853 },
+  "karawal nagar": { lat: 28.7283, lng: 77.2744 },
+  "karawal nagger": { lat: 28.7283, lng: 77.2744 },
+  "jahangirpuri": { lat: 28.7259, lng: 77.1627 },
+  "yamuna vihar": { lat: 28.7012, lng: 77.2724 },
+  "bhajanpura": { lat: 28.6998, lng: 77.2668 },
+  "hamdard nagar": { lat: 28.5135, lng: 77.2500 },
 
   // Delhi NCR (East Delhi, Ghaziabad, Noida)
   "laxmi nagar": { lat: 28.6315, lng: 77.2773 },

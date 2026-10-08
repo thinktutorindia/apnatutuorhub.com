@@ -22,6 +22,7 @@ import { hasSubjectOverlap, coversClassLevel, isGenderCompatible } from "@/lib/m
 import { geocodeAddressWithGemini } from "@/lib/gemini-geocoder";
 import { processReferralRewardOnKyc } from "@/app/actions/referral.actions";
 import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
+import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins
@@ -3352,13 +3353,46 @@ export async function sendAdminCustomNotificationAction(data: {
 
   const schedDate = data.scheduledAt ? new Date(data.scheduledAt) : new Date();
 
+  const channel = data.channel || "WEB";
+  if (channel === "WHATSAPP" && !data.scheduledAt) {
+    const target = await prisma.user.findUnique({
+      where: { id: data.targetUserId },
+      select: { phone: true },
+    });
+    const to = normalizeIndiaWhatsApp(target?.phone || "");
+    if (!to) {
+      return actionError("This user has no valid WhatsApp number.");
+    }
+    const body = `*${data.title.trim()}*\n\n${data.message.trim()}`;
+    const waRes = await sendAquaWhatsAppMessage({
+      to,
+      mode: "text",
+      text: body,
+      bypassDailyCap: true,
+    });
+    if (!waRes.ok) {
+      return actionError(waRes.error || "WhatsApp did not send. User may be outside the 24-hour chat window.");
+    }
+    await prisma.whatsappChatMessage.create({
+      data: {
+        phone: to,
+        direction: "OUTBOUND",
+        senderName: "Admin",
+        body,
+        step: "ADMIN_CUSTOM",
+        messageId: waRes.providerMessageId || null,
+        isRead: true,
+      },
+    }).catch(() => {});
+  }
+
   const notif = await prisma.notification.create({
     data: {
       userId: data.targetUserId,
       title: data.title.trim(),
       message: data.message.trim(),
       type: "ADMIN_ALERT",
-      channel: (data.channel as any) || "WEB",
+      channel: channel as any,
       scheduledAt: schedDate,
       status: data.scheduledAt ? "PENDING" : "SENT",
     },

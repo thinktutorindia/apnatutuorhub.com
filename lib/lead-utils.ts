@@ -281,9 +281,9 @@ export function realisticTightBudget(lead?: {
   const storedMax = lead.budgetMax && lead.budgetMax > 0 ? lead.budgetMax : null;
 
   const senior = grade !== null && grade >= 11;
-  const floor = !hourly ? (grade !== null && grade <= 5 ? 3600 : 4200) : senior ? 450 : 320;
-  const ceiling = !hourly ? (grade !== null && grade <= 5 ? 4250 : 4800) : senior ? 620 : 400;
-  const maxSpread = !hourly ? 200 : senior ? 40 : 25;
+  const floor = !hourly ? (grade !== null && grade <= 5 ? 4500 : 5200) : senior ? 650 : 450;
+  const ceiling = !hourly ? (grade !== null && grade <= 5 ? 5200 : 6000) : senior ? 850 : 600;
+  const maxSpread = !hourly ? 200 : senior ? 50 : 40;
 
   if (storedMin && storedMax) {
     const spread = storedMax - storedMin;
@@ -299,15 +299,15 @@ export function realisticTightBudget(lead?: {
 
   if (!hourly) {
     const mins = grade !== null && grade <= 5
-      ? [3600, 3750, 3900, 4100]
-      : [4200, 4350, 4500, 4650];
+      ? [4500, 4650, 4800, 5000]
+      : [5200, 5350, 5500, 5700];
     const min = mins[pick % mins.length];
     return { min, max: min + 150 };
   }
 
-  const mins = senior ? [450, 480, 520, 560, 590] : [320, 340, 360, 380];
+  const mins = senior ? [650, 700, 750, 800] : [450, 480, 520, 560];
   const min = mins[pick % mins.length];
-  return { min, max: min + (senior ? 30 : 20) };
+  return { min, max: min + (senior ? 50 : 40) };
 }
 
 /**

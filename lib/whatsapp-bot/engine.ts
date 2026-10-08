@@ -343,8 +343,32 @@ export async function syncUserCredentialsInDb(params: {
         if (params.subjects) updatedFields.push("subjects");
         if (params.classLevels) updatedFields.push("class");
       }
+    } else if (wantsProfileWrite && tutorUser && !["SUPER_ADMIN", "SUB_ADMIN"].includes(tutorUser.role)) {
+      const coords = resolveLocationCoordinates(
+        `${params.area || ""} ${params.city || ""}`.trim()
+      );
+      if (tutorUser.role === "PARENT") {
+        await prisma.user.update({
+          where: { id: tutorUser.id },
+          data: { role: "TUTOR" },
+        });
+      }
+      await prisma.tutorProfile.create({
+        data: {
+          userId: tutorUser.id,
+          address: params.area || null,
+          city: params.city || "Delhi",
+          latitude: coords?.lat ?? null,
+          longitude: coords?.lng ?? null,
+          subjects: params.subjects || [],
+          classLevels: params.classLevels || [],
+        },
+      });
+      if (params.area || params.city) updatedFields.push("area");
+      if (params.subjects) updatedFields.push("subjects");
+      if (params.classLevels) updatedFields.push("class");
     }
-    const profileMissing = wantsProfileWrite && !tutorRow?.tutorProfile;
+    const profileMissing = wantsProfileWrite && !updatedFields.includes("area") && !updatedFields.includes("subjects") && !updatedFields.includes("class") && !tutorRow?.tutorProfile;
 
     // 5. Also update whatsappSession.data if session exists
     try {
@@ -357,13 +381,11 @@ export async function syncUserCredentialsInDb(params: {
         if (params.email) merged.email = params.email.trim().toLowerCase();
         if (params.password) merged.password = params.password.trim();
         if (params.name) merged.name = params.name.trim();
-        if (!profileMissing) {
-          if (params.area) merged.area = params.area.trim();
-          if (params.city) merged.city = params.city.trim();
-          if (params.subjects) merged.subjects = params.subjects;
-          if (params.classLevels) merged.classLevels = params.classLevels;
-          if (params.classLevels?.[0]) merged.classLevel = params.classLevels[0];
-        }
+        if (params.area) merged.area = params.area.trim();
+        if (params.city) merged.city = params.city.trim();
+        if (params.subjects) merged.subjects = params.subjects;
+        if (params.classLevels) merged.classLevels = params.classLevels;
+        if (params.classLevels?.[0]) merged.classLevel = params.classLevels[0];
 
         await prisma.whatsappSession.update({
           where: { id: existingSession.id },
@@ -869,6 +891,24 @@ export async function processMessage(
   }
 
   if (step === "UPDATE_AREA") {
+    if (/\b(password|passwd|email)\b/i.test(rawMessage) && !/\b(nagar|vihar|sector|colony)\b/i.test(rawMessage)) {
+      if (/\bpassword\b/i.test(rawMessage)) {
+        return { reply: "Naya password type karein (kam se kam 6 characters):", nextStep: "UPDATE_PASSWORD", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+      }
+      return { reply: "Naya email type karein:", nextStep: "UPDATE_EMAIL", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+    }
+    if (/\bsubjects?\b/i.test(rawMessage)) {
+      return { reply: "Kaunse subjects padhate ho? Jaise: *Maths, Science* ya Class 1–8 ke liye *All Subjects*.", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0, quickReplies: ["Maths", "All Subjects", "Cancel"] };
+    }
+    if (/\bfees?\b|\bbudget\b|\bkam hai\b/i.test(rawMessage)) {
+      return {
+        reply: "Fee note ho gayi. Ab Class 1–8 monthly *₹4,500+* aur Class 9+ hourly *₹450+* (market se upar) wali classes aayengi — All Subjects sirf 1–8, 9–12 subject-wise.",
+        nextStep: "DONE",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["View Leads 📋", "My Profile 👤"],
+      };
+    }
     const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || "Delhi");
     if (!loc.isValid || !resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
       return {
@@ -1535,6 +1575,28 @@ export async function processMessage(
         userType: "TUTOR",
         retries: 0,
         quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
+      };
+    }
+
+    if (/\b(fees?\s*kam|kam\s*(hai|hain)?\s*(fees?|budget)?|budget\s*kam|fees?\s*(issue|increase|badhao|zyada)|fee\s*kam)\b/i.test(rawMessage)) {
+      return {
+        reply: `Samajh gaya — fees kam lagi. Ab nayi classes market se *upar* hongi:\n• Class 1–8: monthly ₹4,500–₹6,000, *All Subjects*\n• Class 9–12: hourly ₹450–₹850, sirf aapke subjects\n\nLocation wale tutors ko 5 km ke andar. Bina location ke sirf online.\n👉 https://apnatutorhub.com/tutor/leads`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "Update Location 📍"],
+      };
+    }
+
+    if (/\b(subjects?)\s+(update|change|badal)|(?:update|change|badal).{0,16}subjects?\b/i.test(rawMessage)) {
+      return {
+        reply: `Kaunse subjects padhate ho? Jaise: *Maths, Science* ya Class 1–8 ke liye *All Subjects*.`,
+        nextStep: "UPDATE_SUBJECTS",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Maths", "All Subjects", "Physics", "Cancel"],
       };
     }
 

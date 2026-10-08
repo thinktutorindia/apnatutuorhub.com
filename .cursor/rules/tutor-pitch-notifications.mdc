@@ -1,0 +1,29 @@
+---
+description: Hard rules for tutor WhatsApp/dashboard lead notifications. Apply whenever sending or matching tutor pitches — do not wait for the user to restate them.
+alwaysApply: true
+---
+
+# Tutor pitch notifications (do not violate)
+
+When the user says to send / notify tutors (WhatsApp, dashboard, or both), follow this exactly. Do not invent extra leads, fake 5 km, city-only places, or “All Subjects” for 9–12.
+
+## Who gets what
+
+- **Has a real locality + coordinates** (colony/sector, not “Delhi” / “NCR”): send **only a nearby lead within 5 km**. Measured haversine. No city-wide fallback, no “Delhi, Delhi”, no fake km.
+- **No usable location**: send **ONLINE leads only**. Do not invent a colony or attach an offline address.
+- Audience is interested WhatsApp tutors ∪ dashboard tutors. Skip STOP / not-interested / unsubscribed.
+
+## Match the tutor — no junk leads
+
+- Class must be one they actually teach.
+- **Class 1–8 (class 8 tak):** monthly fee only. Subject is always **All Subjects** — never named subjects for 1–8.
+- **Class 9, 10, 11, 12:** **hourly only**. **Subject-specific only** (Maths, Science, Physics, …). Never “All Subjects” for 9–12.
+- Fees always **above market**: Class 1–5 monthly ₹4,500–₹5,200; Class 6–8 monthly ₹5,200–₹6,000; Class 9–10 hourly ₹450–₹600; Class 11–12 hourly ₹650–₹850.
+
+## Reject these location strings
+
+City-only or doubled city (`Delhi`, `Delhi, Delhi`, `Noida`, `India`), landmarks, house numbers, job titles (“Science Tutor Required”), or empty GPS leads shown as 1.2 km.
+
+## Before live send
+
+QC: 0 rows over 5 km (offline), 0 city-only places, 0 Class 9–12 with `/month` or “All Subjects”, 0 Class 1–8 with `/hour` or named subjects (must be All Subjects). Dry-run first unless they say send now. Excel of what actually went.

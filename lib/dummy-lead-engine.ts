@@ -66,6 +66,11 @@ export const GEO_LOCALITIES: GeoLocality[] = [
   { name: "Laxmi Nagar (V3S Mall Area)",  city: "Delhi", lat: 28.6304, lng: 77.2777 },
   { name: "Mayur Vihar Phase 1",          city: "Delhi", lat: 28.6050, lng: 77.2950 },
   { name: "Vasant Kunj (Sector B)",       city: "Delhi", lat: 28.5212, lng: 77.1558 },
+  { name: "Mukundpur",                    city: "Delhi", lat: 28.7376, lng: 77.1853 },
+  { name: "Karawal Nagar",                city: "Delhi", lat: 28.7283, lng: 77.2744 },
+  { name: "Jahangirpuri",                 city: "Delhi", lat: 28.7259, lng: 77.1627 },
+  { name: "Yamuna Vihar",                 city: "Delhi", lat: 28.7012, lng: 77.2724 },
+  { name: "Bhajanpura",                   city: "Delhi", lat: 28.6998, lng: 77.2668 },
 
   // ── MUMBAI ─────────────────────────────────────────────────────────────────
   { name: "Andheri West",       city: "Mumbai", lat: 19.1197, lng: 72.8464 },

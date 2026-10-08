@@ -101,6 +101,10 @@ export const PLACE_INDICATORS = /\b(nagar|vihar|colony|enclave|sector|sec\b|phas
 
 const PROMINENT_LOCALITIES: Array<{ name: string; city: string }> = [
   { name: "mukundpur", city: "Delhi" },
+  { name: "karawal nagar", city: "Delhi" },
+  { name: "jahangirpuri", city: "Delhi" },
+  { name: "yamuna vihar", city: "Delhi" },
+  { name: "bhajanpura", city: "Delhi" },
   { name: "mukherjee nagar", city: "Delhi" },
   { name: "karol bagh", city: "Delhi" },
   { name: "rohini", city: "Delhi" },
@@ -195,7 +199,7 @@ export function validateAndCleanLocality(
   let clean = raw.trim();
 
   // Strip conversational wrappers (Hinglish + English)
-  clean = clean.replace(/^(mai|main|hum|me|i\s*am\s*from|i\s*live\s*in|living\s*in|my\s*area\s*is|near|nearby|opposite|opp|area|location|locality)[:\s-]+/i, "");
+  clean = clean.replace(/^(mai|main|hum|me|i\s*am\s*from|i\s*live\s*in|living\s*in|my\s*(?:new\s+)?(?:area|location|locality)\s+is|mera\s+(?:area|location|locality)|meri\s+(?:location|jagah)|near|nearby|opposite|opp|area|location|locality)[:\s-]+/i, "");
   clean = clean.replace(/\s+(se\s+hu|se\s+hoon|se|mein|me|rehta\s+hu|rehta\s+hoon|area|locality)\b.*$/i, "");
   clean = clean.replace(/^[,.-]+|[,.-]+$/g, "").trim();
 

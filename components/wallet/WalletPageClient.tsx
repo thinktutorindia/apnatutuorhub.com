@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Wallet, ArrowUpRight, ArrowDownLeft, RotateCcw, Gift, ShieldCheck, Plus, Sparkles } from "lucide-react";
 import type { WalletTransactionType } from "@prisma/client";
 import { TopUpModal } from "@/components/wallet/TopUpModal";
@@ -101,6 +102,7 @@ export function WalletPageClient({
   isOldUser?: boolean;
   coinCosts?: { class18: number; class912: number; competitive: number };
 }) {
+  const router = useRouter();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [filter, setFilter] = useState<WalletTransactionType | "ALL">("ALL");
   const [liveBalance, setLiveBalance] = useState(balance);
@@ -117,6 +119,7 @@ export function WalletPageClient({
   const handleTopUpSuccess = (coins: number) => {
     setLiveBalance((prev) => prev + coins);
     setTopUpOpen(false);
+    router.refresh();
   };
 
   return (

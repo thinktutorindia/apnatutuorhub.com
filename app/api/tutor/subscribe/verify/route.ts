@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSubscriptionPlan, getPriceWithGst } from "@/lib/subscription-plans";
 import {
@@ -177,6 +178,11 @@ export async function POST(request: Request) {
       });
     }
   });
+
+  revalidatePath("/tutor/leads");
+  revalidatePath("/tutor/plans");
+  revalidatePath("/tutor/wallet");
+  revalidatePath("/tutor/dashboard");
 
   return NextResponse.json({
     success: true,

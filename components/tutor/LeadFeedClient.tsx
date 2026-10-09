@@ -281,8 +281,9 @@ function LeadCard({
   const remainingPoints =
     subscriptionInfo?.remainingPoints ??
     (subscriptionInfo?.quotaRemaining ?? 0) * 10;
-  const isFreeWithPlan = Boolean(
-    subscriptionInfo?.hasActivePlan && remainingPoints >= planPointCost
+  const hasActiveMembership = Boolean(subscriptionInfo?.hasActivePlan);
+  const unlockViaMembershipPoints = Boolean(
+    hasActiveMembership && remainingPoints >= planPointCost
   );
 
   const timeInfo = formatPostTime(lead.createdAt, lead.id);
@@ -301,7 +302,7 @@ function LeadCard({
             ? "border-emerald-300 ring-2 ring-emerald-500/10 shadow-sm"
             : lead.isShortlisted
             ? "border-amber-300 ring-2 ring-amber-500/10 shadow-sm"
-            : isFreeWithPlan
+            : unlockViaMembershipPoints
             ? "border-amber-200 shadow-2xs hover:border-amber-400"
             : "border-slate-200/90 shadow-2xs hover:border-emerald-400"
         }`}
@@ -365,10 +366,10 @@ function LeadCard({
                   FRESH
                 </span>
               )}
-              {isFreeWithPlan && !lead.isPurchased && (
+              {unlockViaMembershipPoints && !lead.isPurchased && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-bold">
                   <Zap size={11} className="text-emerald-600" />
-                  <span>₹999 Plan: Free Unlock</span>
+                  <span>Membership · {planPointCost} pts</span>
                 </span>
               )}
               {lead.isShortlisted && (
@@ -617,10 +618,12 @@ function LeadCard({
         {/* Card Footer: Coin Cost & Unlock Action */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3.5 border-t border-slate-100 mt-2 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {isFreeWithPlan ? (
+            {unlockViaMembershipPoints ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-xs">
                 <Zap size={13} className="text-emerald-600" />
-                <span>Included in ₹999 Plan</span>
+                <span>
+                  {planPointCost} membership points · {remainingPoints} left
+                </span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-2xs">
@@ -656,14 +659,14 @@ function LeadCard({
               type="button"
               onClick={() => setModalOpen(true)}
               className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer text-center whitespace-normal ${
-                isFreeWithPlan
+                unlockViaMembershipPoints
                   ? "bg-emerald-700 hover:bg-emerald-800 text-white shadow-emerald-700/20"
                   : "bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] hover:from-[#238357] hover:to-[#186843] text-white shadow-emerald-500/20"
               }`}
             >
               <Unlock size={13} className="shrink-0" />
-              {isFreeWithPlan ? (
-                <span>Unlock via ₹999 Plan (Free)</span>
+              {unlockViaMembershipPoints ? (
+                <span>Unlock Lead</span>
               ) : (
                 <>
                   <span className="sm:hidden">Unlock ({planPointCost} Coins)</span>
@@ -891,7 +894,7 @@ export function LeadFeedClient({
       <LeadNotifReminderBanner />
 
       {/* ₹999 Growth Plan Upsell Banner — shown when tutor has no active plan */}
-      {!subscriptionInfo?.hasActivePlan && (
+      {!subscriptionInfo?.hasActivePlan && walletBalance < 10 && (
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-[#0f5c30] p-5 sm:p-6 text-white shadow-lg border border-emerald-600/40">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1.5 max-w-2xl">
@@ -976,6 +979,14 @@ export function LeadFeedClient({
                 Details →
               </Link>
             </div>
+          ) : walletBalance > 0 ? (
+            <Link
+              href="/tutor/leads"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold text-xs shadow-2xs"
+            >
+              <Coins size={14} className="text-emerald-700" />
+              <span>{walletBalance} coins — unlock leads below</span>
+            </Link>
           ) : (
             <Link
               href="/tutor/plans"

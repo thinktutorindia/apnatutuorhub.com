@@ -153,6 +153,8 @@ export async function confirmCoinPaymentAction(
   if (result.success) {
     revalidatePath("/tutor/wallet");
     revalidatePath("/tutor/dashboard");
+    revalidatePath("/tutor/leads");
+    revalidatePath("/tutor/plans");
   }
 
   return result;

@@ -47,6 +47,11 @@ import {
   KNOWN_INDIAN_CITIES,
   PLACE_INDICATORS,
 } from "./subject-rules";
+import {
+  detectLooseIntent,
+  looseIntentClarifyReply,
+  looksLikeUnexpectedNoise,
+} from "./loose-intent";
 
 // Admin WhatsApp numbers — these get lead forwarding + full control
 const ADMIN_PHONES = ["919311459543", "917559563565"];
@@ -415,6 +420,109 @@ export type EngineResult = {
   quickReplies?: string[];
 };
 
+async function tryLooseTutorIntent(
+  session: BotSession,
+  rawMessage: string,
+  data: Record<string, unknown>,
+  step: string,
+  mode: "social" | "done"
+): Promise<EngineResult | null> {
+  const intent = detectLooseIntent(rawMessage);
+  if (!intent) return null;
+
+  const isTutor =
+    session.userType === "TUTOR" ||
+    step.startsWith("T_") ||
+    (step === "DONE" && session.userType !== "PARENT");
+  if (!isTutor) return null;
+
+  if (mode === "social") {
+    if (intent === "LEADS" || intent === "PLANS" || intent === "PROFILE" || intent === "HELP") return null;
+  } else {
+    if (intent !== "LEADS" && intent !== "PLANS" && intent !== "PROFILE" && intent !== "HELP") return null;
+  }
+
+  if (intent === "LEADS") {
+    const area = (data.area as string) || "Delhi";
+    const leads = await getChatbotMatchingLeads(
+      area,
+      (data.city as string) || "Delhi",
+      data.classLevel as string,
+      data.subjects as string[]
+    );
+    return {
+      reply: formatTutorLeadsAndPlansMessage((data.name as string) || "Teacher", area, leads),
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies:
+        leads.length > 0
+          ? [`🔥 Unlock #${leads[0].inquiryNumber}`, "View Plans 💰", "Help 📞"]
+          : ["View All Leads 📋", "Update Area 📍", "Help 📞"],
+    };
+  }
+
+  if (intent === "PLANS") {
+    const bal = await getTutorCoinBalanceByPhone(session.phone);
+    const planReply =
+      bal.found && bal.balance > 0
+        ? `${formatCoinBalanceMessage(bal.balance)}\n\nAur coins chahiye hon tab naya pack:\n\n${formatCoinPlansMessage()}`
+        : formatCoinPlansMessage();
+    return {
+      reply: planReply,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Open Wallet 💳", "Help 📞"],
+    };
+  }
+
+  if (intent === "PROFILE") {
+    const name = (data.name as string) || "Not set";
+    const email = (data.email as string) || "Not set";
+    const area = (data.area as string) || "Not set";
+    const city = (data.city as string) || "";
+    const subjects =
+      Array.isArray(data.subjects) && data.subjects.length > 0
+        ? (data.subjects as string[]).join(", ")
+        : "Not set";
+    const location = city ? `${area}, ${city}` : area;
+    return {
+      reply: `👤 *Aapka Profile:*\n\nNaam: ${name}\nEmail: ${email}\nLocation: ${location}\nSubjects: ${subjects}\nPhone: +91-${session.phone}\n\nUpdate: *UPDATE AREA*, *UPDATE SUBJECTS*, *UPDATE PASSWORD*`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Update Area 📍", "Help 📞"],
+    };
+  }
+
+  if (intent === "HELP") {
+    return {
+      reply: `Main Priya, ApnaTutorHub coordinator. Seedha batayein kya chahiye:\n• Leads — *View Leads* ya area likhein (*Rohini mein class?*)\n• Coins / plan — *wallet* ya *plans*\n• Profile — *my profile*\n\n📞 08062180653 (9am–7pm)`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "View Plans 💰"],
+    };
+  }
+
+  const clarify = looseIntentClarifyReply(intent, true);
+  if (!clarify) return null;
+
+  return {
+    reply: clarify,
+    nextStep: step === "WELCOME" ? "T_CONVO" : step,
+    updatedData: data,
+    userType: session.userType || "TUTOR",
+    retries: 0,
+    quickReplies: ["View Leads 📋", "My Profile 👤", "Help 📞"],
+  };
+}
+
 export type ProcessMessageOptions = {
   useAi?: boolean;
 };
@@ -491,6 +599,11 @@ export async function processMessage(
     };
   }
 
+  if (session.userType === "TUTOR" || step.startsWith("T_")) {
+    const socialLoose = await tryLooseTutorIntent(session, rawMessage, data, step, "social");
+    if (socialLoose) return socialLoose;
+  }
+
   // ── Staff Escalation: complaint / issue / problem / scam ─────────────────
   if (/\b(problem|issue|complaint|cheated|fraud|refund|not working|call me|fake|chor|scam|dhokha|loot|police|court)\b/i.test(rawMessage)) {
     return {
@@ -529,7 +642,7 @@ export async function processMessage(
   }
 
   // ── Profile View ──────────────────────────────────────────────────────────
-  if (/^(my profile|profile|mera profile|meri profile)$/i.test(rawMessage.trim())) {
+  if (/^(my\s*profile|profile|mera profile|meri profile|profil)$/i.test(rawMessage.trim())) {
     const name = (data.name as string) || "Not set";
     const email = (data.email as string) || "Not set";
     const area = (data.area as string) || "Not set";
@@ -1704,10 +1817,131 @@ export async function processMessage(
       };
     }
 
+    // ── Area / locality leads query (e.g. "Uttam Nagar mai koi class hai?", "Rohini mein leads?") ──
+    const areaLeadQuery = rawMessage.match(
+      /\b([A-Za-z][A-Za-z\s]{2,30}?(?:nagar|vihar|pur|ganj|bagh|colony|enclave|sector|sec|kunj|park|town|place|puri|marg|basti|gali|ext|extension|block|phase|market|chowk)?)\b.*?\b(koi\s*(class|tuition|lead|requirement|student)|lead\s*(?:hai|hain|mile|milega)|class\s*(hai|hain|milegi|available)|tuition\s*(hai|hain|available)|koi.*(?:hai|hain)|available\s*(?:hai|hain)?)\b/i
+    ) || rawMessage.match(
+      /\b(koi|kuch)\s+(class|lead|tuition|student|requirement)\s+(hai|hain|milegi|available)\s*(in\s+|mein\s+|ke\s+liye\s+)?([A-Za-z][A-Za-z\s]{2,25})\b/i
+    );
+
+    const hasAreaLeadIntent = areaLeadQuery ||
+      /\b([A-Za-z][A-Za-z\s]{2,20})\s+(mein|me|mai|mai?n|ke\s+aas\s+paas|near|ke\s+pass|ke\s+paas|ke\s+liye)\s+(koi|kuch|class|lead|tuition|student|requirements?)\b/i.test(rawMessage) ||
+      /\b(koi|kuch|any)\s+(class|lead|tuition|student|work|requirement)\s+(?:hai|hain|available|milegi?|milenge?)?\s*(?:in|mein|at|at)?\s*([A-Za-z][A-Za-z\s]{2,25})\b/i.test(rawMessage);
+
+    if (hasAreaLeadIntent) {
+      // Extract the locality name from the message
+      const locMatch =
+        rawMessage.match(/\b([A-Za-z][A-Za-z\s]{2,30}?(?:nagar|vihar|pur|ganj|bagh|colony|enclave|sector|kunj|park|puri|extension|phase)?)\s*(mein|me|mai|ke|near|aas|pass|paas|liye)\b/i) ||
+        rawMessage.match(/\b(in|at)\s+([A-Za-z][A-Za-z\s]{2,25})\b/i) ||
+        rawMessage.match(/([A-Za-z][A-Za-z\s]{2,25}?)\s+(mein|me|mai)\b/i);
+      const rawLoc = locMatch ? (locMatch[2] || locMatch[1]).trim() : rawMessage.replace(/\b(koi|class|hai|hain|mein|me|mai|lead|tuition|student|available|requirement)\b/gi, " ").trim();
+      const loc = validateAndCleanLocality(rawLoc.trim(), (data.city as string) || "Delhi");
+      const searchArea = loc.isValid ? loc.area : rawLoc.trim();
+      const searchCity = loc.isValid ? loc.city : (data.city as string) || "Delhi";
+      const classForSearch = data.classLevel as string | undefined;
+      const subjectsForSearch = Array.isArray(data.subjects) ? (data.subjects as string[]) : [];
+      const leads = await getChatbotMatchingLeads(searchArea, searchCity, classForSearch, subjectsForSearch);
+      const displayName = (data.name as string) || "Teacher";
+      if (leads.length > 0) {
+        const leadLines = leads.slice(0, 3).map((l, i) =>
+          `${i + 1}. *#${l.inquiryNumber}* — ${l.classLevel} (${l.subjects.join(", ")})\n   📍 ${l.area} | ${l.mode} | 💰 ${l.budget}`
+        ).join("\n\n");
+        return {
+          reply: `Ji *${displayName}* ji! *${searchArea}* ke paas *${leads.length} active requirement${leads.length > 1 ? "s" : ""}* hain:\n\n${leadLines}\n\n🔓 Unlock karein: https://apnatutorhub.com/tutor/leads`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: [
+            `🔥 Unlock #${leads[0].inquiryNumber}`,
+            "View All Leads 📋",
+            "My Coins 🪙",
+          ],
+        };
+      } else {
+        return {
+          reply: `*${searchArea}* mein abhi koi matching requirement nahi hai — lekin parent har 15-30 min mein post karte hain. 🔔\n\nApna area update karein taaki jab bhi iss area mein lead aaye, *aapko pehle alert mile*:\nhttps://apnatutorhub.com/tutor/leads`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["Update My Area 📍", "View All Leads 📋", "Online Leads 💻"],
+        };
+      }
+    }
+
+    // ── "Kaise" / "Kya" / very short confused messages → show leads directly ──
+    if (/^(kaise|kya|haan|theek|okay|ok|sure|batao|bta?o|aage|next|aur|ha|huh|hmm|chalega|ho\s*gaya)[\s?!.]*$/i.test(rawMessage.trim())) {
+      const area = (data.area as string) || "Delhi";
+      const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", data.classLevel as string, data.subjects as string[]);
+      const leadsLink = "https://apnatutorhub.com/tutor/leads";
+      if (leads.length > 0) {
+        const top = leads[0];
+        return {
+          reply: `Aapke area *${area}* mein yeh requirement hai abhi:\n\n*#${top.inquiryNumber}* — ${top.classLevel} (${top.subjects.join(", ")})\n📍 ${top.area} | ${top.mode} | 💰 ${top.budget}\n\n🔓 Yahan unlock karein:\n${leadsLink}`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: [`🔥 Unlock #${top.inquiryNumber}`, "View All Leads 📋", "My Coins 🪙"],
+        };
+      }
+      return {
+        reply: `Aapke area ke latest leads aur unlock ka tariqa yahan dekh sakte hain:\n👉 ${leadsLink}\n\nKoi question ho to batayein! 😊`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View All Leads 📋", "Update Area 📍", "My Coins 🪙"],
+      };
+    }
+
+    // ── "Karawal Nagar mein class hai?", "Koi student hai?", "Student chahiye" ──
+    if (/\b(student\s*(chahiye|do|bhejo|dedo|mil\s*sakta|hai|hain|milega)|koi\s*student|need\s*student|padhane\s*ke\s*liye\s*student)\b/i.test(rawMessage)) {
+      const area = (data.area as string) || "Delhi";
+      const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", data.classLevel as string, data.subjects as string[]);
+      const leadsLink = "https://apnatutorhub.com/tutor/leads";
+      if (leads.length > 0) {
+        const top = leads[0];
+        return {
+          reply: `*${area}* mein aapke liye *${top.classLevel}* ki requirement hai — ${top.subjects.join(", ")} | ${top.mode} | ${top.budget}\n\n🔓 Abhi unlock karein: ${leadsLink}`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: [`🔥 Unlock #${top.inquiryNumber}`, "View All 📋", "My Coins 🪙"],
+        };
+      }
+      return {
+        reply: `*${area}* mein abhi nayi requirement nahi hai — jaise hi aata hai, alert aayega. Poore Delhi NCR ke leads yahan hain:\n👉 ${leadsLink}`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View All Leads 📋", "Online Leads 💻", "Update Area 📍"],
+      };
+    }
+
+    const doneLoose = await tryLooseTutorIntent(session, rawMessage, data, step, "done");
+    if (doneLoose) return doneLoose;
+
+    if (looksLikeUnexpectedNoise(rawMessage)) {
+      return {
+        reply: looseIntentClarifyReply("CONFUSED", true),
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "My Profile 👤", "Help 📞"],
+      };
+    }
+
     if (useAi) {
       try {
         const ai = await askGeminiChatbot(rawMessage, session);
         if (ai && ai.reply) {
+          // Strip any fabricated coordinator name that is not Priya
+          ai.reply = ai.reply.replace(/\b(Seema|Anjali|Pooja|Riya|Simran|Neha|Shalini)\b/g, "Priya");
           const mergedData: Record<string, any> = { ...data };
           let credentialsChanged = false;
 

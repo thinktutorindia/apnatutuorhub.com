@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
@@ -185,6 +186,11 @@ export async function POST(request: Request) {
     console.error("[razorpay-webhook] creditCoinsToWallet failed", result);
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
+
+  revalidatePath("/tutor/leads");
+  revalidatePath("/tutor/wallet");
+  revalidatePath("/tutor/plans");
+  revalidatePath("/tutor/dashboard");
 
   // ── 7. Consume the coupon (if any) exactly once ────────────────────────────
   // Enforces per-user (@@unique([couponId, userId])) and global usage limits.

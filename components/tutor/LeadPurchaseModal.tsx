@@ -107,7 +107,7 @@ export function LeadPurchaseModal({
   const remainingPoints =
     subscriptionInfo?.remainingPoints ??
     (subscriptionInfo?.quotaRemaining ?? 0) * 10;
-  const isFreeWithPlan = Boolean(
+  const unlockViaMembershipPoints = Boolean(
     subscriptionInfo?.hasActivePlan && remainingPoints >= planPointCost
   );
 
@@ -150,7 +150,7 @@ export function LeadPurchaseModal({
     router.refresh();
   };
 
-  const canAfford = isFreeWithPlan || walletBalance >= lead.coinCost;
+  const canAfford = unlockViaMembershipPoints || walletBalance >= lead.coinCost;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
@@ -205,7 +205,7 @@ export function LeadPurchaseModal({
         {stage === "confirm" && (
           <div className="space-y-4">
             {/* Subscription Benefit vs Coin Cost Box */}
-            {isFreeWithPlan ? (
+            {unlockViaMembershipPoints ? (
               <div className="rounded-2xl border border-amber-200 bg-[#FFF8E8] p-4.5 text-center space-y-1.5">
                 <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#F5A623] text-[#0F2540] font-extrabold text-[11px]">
                   <Crown size={12} />
@@ -313,15 +313,15 @@ export function LeadPurchaseModal({
                   disabled={isPurchasing}
                   onClick={handleConfirm}
                   className={`flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer ${
-                    isFreeWithPlan
+                    unlockViaMembershipPoints
                       ? "bg-[#0F2540] hover:bg-[#1A3C5E]"
                       : "bg-[#2D9E6B] hover:bg-[#238357] shadow-emerald-500/20"
                   }`}
                 >
                   <Unlock size={14} />
                   <span>
-                    {isFreeWithPlan
-                      ? "Confirm Free Unlock (0 Coins)"
+                    {unlockViaMembershipPoints
+                      ? `Confirm Unlock (${planPointCost} membership pts)`
                       : `Confirm Unlock (${lead.coinCost} Coins)`}
                   </span>
                 </button>

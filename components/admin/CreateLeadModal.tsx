@@ -43,13 +43,21 @@ import { coinCostFromTuitionFee, HOURLY_CLASSES_PER_MONTH, GROWTH_PLAN_COINS, GR
 import type { TeachingMode } from "@prisma/client";
 
 type LeadNotifyChannel = "IN_APP" | "PUSH" | "EMAIL" | "WHATSAPP";
+type TutorAreaAlertVia = "WHATSAPP" | "EMAIL" | "BOTH";
 
-const NOTIFY_CHANNELS: { id: LeadNotifyChannel; label: string }[] = [
-  { id: "IN_APP", label: "In-app" },
-  { id: "PUSH", label: "Push" },
-  { id: "EMAIL", label: "Email" },
-  { id: "WHATSAPP", label: "WhatsApp" },
+const TUTOR_AREA_ALERT_OPTIONS: { id: TutorAreaAlertVia; label: string; hint: string }[] = [
+  { id: "WHATSAPP", label: "WhatsApp", hint: "Area + lead on WhatsApp" },
+  { id: "EMAIL", label: "Email", hint: "Area + lead by email" },
+  { id: "BOTH", label: "Both", hint: "WhatsApp and email" },
 ];
+
+/** In-app + push always; external delivery follows staff choice. */
+function notifyChannelsForTutorAlert(via: TutorAreaAlertVia): LeadNotifyChannel[] {
+  const base: LeadNotifyChannel[] = ["IN_APP", "PUSH"];
+  if (via === "WHATSAPP") return [...base, "WHATSAPP"];
+  if (via === "EMAIL") return [...base, "EMAIL"];
+  return [...base, "EMAIL", "WHATSAPP"];
+}
 
 export type ResolvedLocation = {
   city: string;
@@ -127,12 +135,7 @@ export function CreateLeadModal({
   const [budgetMax, setBudgetMax] = useState("");
   const [radiusKm, setRadiusKm] = useState<string>("10");
   const [notifyMatchingTutors, setNotifyMatchingTutors] = useState(true);
-  const [notifyChannels, setNotifyChannels] = useState<LeadNotifyChannel[]>([
-    "IN_APP",
-    "PUSH",
-    "EMAIL",
-    "WHATSAPP",
-  ]);
+  const [tutorAreaAlertVia, setTutorAreaAlertVia] = useState<TutorAreaAlertVia>("BOTH");
 
   const feeQuote = useMemo(() => {
     const min = Number(budgetMin) || 0;
@@ -373,7 +376,7 @@ export function CreateLeadModal({
       return;
     }
 
-    if (notifyMatchingTutors && notifyChannels.length === 0) {
+    if (notifyMatchingTutors && !tutorAreaAlertVia) {
       setErrorMsg("Choose at least one notification channel, or turn notifications off.");
       return;
     }
@@ -436,7 +439,9 @@ export function CreateLeadModal({
       leadSourceTag: finalSourceTag,
       radiusKm: radiusKm ? parseInt(radiusKm, 10) : 10,
       notifyMatchingTutors,
-      notifyChannels: notifyMatchingTutors ? notifyChannels : [],
+      notifyChannels: notifyMatchingTutors
+        ? notifyChannelsForTutorAlert(tutorAreaAlertVia)
+        : [],
     };
 
     startTransition(async () => {
@@ -1370,7 +1375,7 @@ export function CreateLeadModal({
                       />
                     </div>
 
-                    <div className="space-y-2.5 pt-1">
+                    <div className="space-y-3 pt-2 rounded-2xl border border-slate-200 bg-white p-4">
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -1379,37 +1384,44 @@ export function CreateLeadModal({
                           onChange={(e) => setNotifyMatchingTutors(e.target.checked)}
                           className="h-4 w-4 rounded text-[#2D9E6B] focus:ring-emerald-500 cursor-pointer"
                         />
-                        <label htmlFor="notifyMatchingTutors" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
-                          Notify matching tutors when this enquiry is published
+                        <label htmlFor="notifyMatchingTutors" className="text-xs font-bold text-slate-800 cursor-pointer select-none">
+                          Send this lead (area + class + subjects) to matching tutors within{" "}
+                          <span className="text-emerald-800">{radiusKm || "10"} km</span>
                         </label>
                       </div>
                       {notifyMatchingTutors && (
-                        <div className="flex flex-wrap items-center gap-1.5 pl-6">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Send on</span>
-                          {NOTIFY_CHANNELS.map((channel) => {
-                            const on = notifyChannels.includes(channel.id);
-                            return (
-                              <button
-                                key={channel.id}
-                                type="button"
-                                onClick={() =>
-                                  setNotifyChannels((prev) =>
-                                    prev.includes(channel.id)
-                                      ? prev.filter((item) => item !== channel.id)
-                                      : [...prev, channel.id]
-                                  )
-                                }
-                                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
-                                  on
-                                    ? "bg-[#0F2540] text-white border-[#0F2540]"
-                                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                                }`}
-                              >
-                                {on ? "✓ " : ""}
-                                {channel.label}
-                              </button>
-                            );
-                          })}
+                        <div className="space-y-2 pl-6">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
+                            Deliver alert via
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {TUTOR_AREA_ALERT_OPTIONS.map((opt) => {
+                              const selected = tutorAreaAlertVia === opt.id;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => setTutorAreaAlertVia(opt.id)}
+                                  title={opt.hint}
+                                  className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                                    selected
+                                      ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-sm"
+                                      : "bg-slate-50 text-slate-700 border-slate-200 hover:border-emerald-400"
+                                  }`}
+                                >
+                                  {selected ? "✓ " : ""}
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            {tutorAreaAlertVia === "BOTH"
+                              ? "Tutors get in-app alert plus WhatsApp and email with locality details."
+                              : tutorAreaAlertVia === "WHATSAPP"
+                                ? "Tutors get in-app alert plus WhatsApp with locality details."
+                                : "Tutors get in-app alert plus email with locality details."}
+                          </p>
                         </div>
                       )}
                     </div>

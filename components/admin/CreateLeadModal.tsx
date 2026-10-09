@@ -38,7 +38,7 @@ import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
-import { isTill5thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
+import { isTill5thClass, isTill8thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
 import { coinCostFromTuitionFee, HOURLY_CLASSES_PER_MONTH, GROWTH_PLAN_COINS, GROWTH_PLAN_PRICE_INR } from "@/lib/subscription-plans";
 import type { TeachingMode } from "@prisma/client";
 
@@ -69,6 +69,10 @@ const QUICK_CLASS_GROUPS = [
   { label: "Class 11-12", classes: ["Class 11", "Class 12"] },
   { label: "JEE & NEET", classes: ["IIT-JEE", "NEET"] },
 ];
+
+const JUNIOR_CLASS_QUICK_PICKS = QUICK_CLASS_GROUPS.filter(
+  (g) => g.label === "Class 1-5" || g.label === "Class 6-8"
+).flatMap((g) => g.classes);
 
 export function CreateLeadModal({
   onLeadCreated,
@@ -278,7 +282,29 @@ export function CreateLeadModal({
     ).slice(0, 18);
   }, [allFlattenedSubjects, subjectSearchQuery]);
 
+  const selectClassWithAllSubjects = (cls: string) => {
+    setClassLevel(cls);
+    setSelectedSubjects(["All Subjects"]);
+  };
+
+  const selectAllSubjectsOnly = () => {
+    setSelectedSubjects(["All Subjects"]);
+  };
+
   const toggleSubject = (s: string) => {
+    if (isTill8thClass(classLevel)) {
+      if (s === "All Subjects") {
+        setSelectedSubjects(["All Subjects"]);
+        return;
+      }
+      setSelectedSubjects((prev) => {
+        const withoutAll = prev.filter((item) => item !== "All Subjects");
+        return withoutAll.includes(s)
+          ? withoutAll.filter((item) => item !== s)
+          : [...withoutAll, s];
+      });
+      return;
+    }
     setSelectedSubjects((prev) =>
       prev.includes(s) ? prev.filter((item) => item !== s) : [...prev, s]
     );
@@ -772,7 +798,17 @@ export function CreateLeadModal({
                         </label>
                         <select
                           value={classLevel}
-                          onChange={(e) => setClassLevel(e.target.value)}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setClassLevel(next);
+                            if (isTill8thClass(next)) {
+                              setSelectedSubjects(["All Subjects"]);
+                            } else {
+                              setSelectedSubjects((prev) =>
+                                prev.filter((s) => s !== "All Subjects")
+                              );
+                            }
+                          }}
                           className="w-full rounded-2xl px-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 outline-none focus:border-[#2D9E6B] font-semibold text-xs shadow-2xs"
                         >
                           <option value="">Select Class Level</option>
@@ -780,6 +816,27 @@ export function CreateLeadModal({
                             <option key={cl} value={cl}>{cl}</option>
                           ))}
                         </select>
+                        <div className="mt-2 space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            Class 1–8 quick pick (All Subjects)
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {JUNIOR_CLASS_QUICK_PICKS.map((cls) => (
+                              <button
+                                key={cls}
+                                type="button"
+                                onClick={() => selectClassWithAllSubjects(cls)}
+                                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                                  classLevel === cls && selectedSubjects.includes("All Subjects")
+                                    ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-xs"
+                                    : "bg-white text-slate-700 border-slate-200 hover:border-emerald-400"
+                                }`}
+                              >
+                                {cls} · All Subjects
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
 
                       <div>
@@ -851,6 +908,25 @@ export function CreateLeadModal({
                           ))
                         )}
                       </div>
+
+                      {isTill8thClass(classLevel) && (
+                        <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200">
+                          <button
+                            type="button"
+                            onClick={selectAllSubjectsOnly}
+                            className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                              selectedSubjects.length === 1 && selectedSubjects[0] === "All Subjects"
+                                ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-sm"
+                                : "bg-white text-emerald-900 border-emerald-300 hover:bg-emerald-100"
+                            }`}
+                          >
+                            {selectedSubjects.includes("All Subjects") ? "✓" : "+"} All Subjects
+                          </button>
+                          <span className="text-[11px] font-semibold text-emerald-900">
+                            Class 1–8 home tuition — use All Subjects for {classLevel || "this class"}.
+                          </span>
+                        </div>
+                      )}
 
                       {/* Quick subject chips with streams */}
                       <div className="space-y-1.5 pt-1">

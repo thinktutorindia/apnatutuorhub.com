@@ -565,7 +565,7 @@ export default async function AdminUsersPage({
                           {new Date(u.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                         </p>
                       </td>
-                      <td className="sticky right-0 bg-white px-4 py-4 group-hover:bg-slate-50">
+                      <td className="sticky right-0 bg-white px-2 sm:px-4 py-3 sm:py-4 group-hover:bg-slate-50 min-w-[9.5rem] sm:min-w-[11rem] max-w-[11.5rem] sm:max-w-none align-top">
                         <UserRowActions user={u} isSuperAdmin={isSuperAdmin} />
                       </td>
                     </tr>

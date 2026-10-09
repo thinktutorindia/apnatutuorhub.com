@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useRef } from "react";
+import React, { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -157,6 +157,13 @@ export function AdminEditUserForm({
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#admin-notify") {
+      document.getElementById("admin-notify")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   // User details
   const [role, setRole] = useState<"PARENT" | "TUTOR" | "SUPER_ADMIN" | "SUB_ADMIN">(user.role);
@@ -1469,7 +1476,10 @@ export function AdminEditUserForm({
       </div>
 
       {/* ── CARD 5: SEND & SCHEDULE CUSTOM NOTIFICATION ── */}
-      <div className="rounded-3xl p-6 sm:p-8 space-y-6 bg-white border border-slate-200 shadow-xl shadow-slate-200/50">
+      <div
+        id="admin-notify"
+        className="rounded-3xl p-6 sm:p-8 space-y-6 bg-white border border-slate-200 shadow-xl shadow-slate-200/50 scroll-mt-24"
+      >
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700">

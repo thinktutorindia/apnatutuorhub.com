@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
   Edit3,
-  MoreVertical,
+  Send,
   ChevronDown,
   Lock,
   Unlock,
@@ -87,38 +87,51 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
       )}`
     : null;
 
-  return (
-    <div className="relative inline-flex items-center gap-2" ref={menuRef}>
-      {/* Primary Edit Button */}
-      <Link
-        href={`/admin/users/${user.id}/edit`}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F2540] font-bold text-xs border border-slate-200 transition-colors shadow-2xs"
-      >
-        <Edit3 size={13} className="text-[#2D9E6B]" />
-        <span>Edit</span>
-      </Link>
+  const actionBtnClass =
+    "inline-flex items-center justify-center gap-1 min-h-9 px-2.5 py-2 rounded-xl font-bold text-[11px] sm:text-xs border shadow-2xs transition-colors";
 
-      {/* Actions Dropdown Toggle */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={isPending}
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs border border-slate-200 shadow-2xs transition-colors cursor-pointer"
-        title="More Account Actions"
-      >
-        {isPending ? (
-          <Loader2 size={13} className="animate-spin text-[#2D9E6B]" />
-        ) : (
-          <>
-            <span>Actions</span>
-            <ChevronDown size={13} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
-          </>
-        )}
-      </button>
+  return (
+    <div className="relative w-full sm:w-auto min-w-0" ref={menuRef}>
+      <div className="grid grid-cols-3 gap-1 sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-1.5">
+        <Link
+          href={`/admin/users/${user.id}/edit`}
+          className={`${actionBtnClass} bg-slate-100 hover:bg-slate-200 text-[#0F2540] border-slate-200`}
+        >
+          <Edit3 size={13} className="text-[#2D9E6B] shrink-0" />
+          <span className="truncate">Edit</span>
+        </Link>
+
+        <Link
+          href={`/admin/users/${user.id}/edit#admin-notify`}
+          className={`${actionBtnClass} bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-200`}
+          title="Send custom notification (WhatsApp, email, in-app)"
+        >
+          <Send size={13} className="text-[#2D9E6B] shrink-0" />
+          <span className="truncate">Send</span>
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          disabled={isPending}
+          className={`${actionBtnClass} bg-white hover:bg-slate-50 text-slate-700 border-slate-200 cursor-pointer`}
+          title="More Account Actions"
+        >
+          {isPending ? (
+            <Loader2 size={13} className="animate-spin text-[#2D9E6B]" />
+          ) : (
+            <>
+              <span className="truncate max-sm:hidden">Actions</span>
+              <span className="truncate sm:hidden">More</span>
+              <ChevronDown size={13} className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Floating Actions Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 top-9 z-40 w-56 rounded-2xl bg-white border border-slate-200 shadow-2xl p-1.5 space-y-0.5 text-xs animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+        <div className="absolute right-0 top-full mt-1.5 z-40 w-56 max-w-[calc(100vw-2rem)] rounded-2xl bg-white border border-slate-200 shadow-2xl p-1.5 space-y-0.5 text-xs animate-in fade-in zoom-in-95 duration-150 text-slate-800">
           <div className="px-3 py-1.5 text-[10px] uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-100">
             Account Management
           </div>

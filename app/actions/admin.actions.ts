@@ -1701,7 +1701,8 @@ export async function adminSendLeadNotificationAction(
   leadId: string,
   tutorUserIds: string[],
   customMessage?: string,
-  dispatchVia: LeadDispatchVia = "BOTH"
+  dispatchVia: LeadDispatchVia = "BOTH",
+  notifyAsOnlineUserIds?: string[]
 ): Promise<ActionResult<{ sentCount: number; whatsAppOk: number; whatsAppFailed: number }>> {
   const { error, session } = await requirePermission("leads:manage");
   if (error) return actionError(error);
@@ -1776,19 +1777,25 @@ export async function adminSendLeadNotificationAction(
     schedule: lead.timingPreference || "5 Days a Week",
   };
 
+  const onlinePitchSet = new Set(notifyAsOnlineUserIds ?? []);
+
   let sentCount = 0;
   let whatsAppOk = 0;
   let whatsAppFailed = 0;
 
   for (const userId of tutorUserIds) {
+    const forceOnline = onlinePitchSet.has(userId) && lead.mode !== "ONLINE";
     const result = await notifyTutorForLeadDispatch({
       userId,
       phone: phoneByUserId.get(userId) ?? null,
       leadId: lead.id,
       title,
-      message: notifMsg,
+      message: forceOnline
+        ? `${notifMsg} (Online class — you may teach remotely.)`
+        : notifMsg,
       via: dispatchVia,
       leadForTemplate,
+      forceOnlineInTemplate: forceOnline,
     });
     sentCount++;
     if (result.whatsAppAttempted) {
@@ -1808,6 +1815,7 @@ export async function adminSendLeadNotificationAction(
         dispatchVia,
         whatsAppOk,
         whatsAppFailed,
+        onlinePitchCount: onlinePitchSet.size,
       }),
     },
   });

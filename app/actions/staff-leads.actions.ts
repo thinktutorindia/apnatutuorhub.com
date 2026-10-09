@@ -19,8 +19,17 @@ import bcrypt from "bcryptjs";
 import { applyStaffRecordType, getStaffRecordType, PARENT_TAG, staffNotesFromParsed } from "@/lib/staff-lead-type";
 import { extractPublicLocality, isTill8thClass, normalizeCanonicalClassLevel, realisticTightBudget } from "@/lib/lead-utils";
 import { getLeadPointCost } from "@/lib/subscription-plans";
+import { canExportStaffDatabase } from "@/lib/staff-crm-permissions";
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
+
+const STAFF_DB_EXPORT_FORBIDDEN =
+  "You do not have permission to export CRM data or move leads into the primary database.";
+
+function assertStaffDatabaseExportAllowed(user: { role?: string | null; customPermissions?: string[] | null }) {
+  if (!canExportStaffDatabase(user)) return STAFF_DB_EXPORT_FORBIDDEN;
+  return null;
+}
 
 async function requireAdmin() {
   const session = await auth();
@@ -1330,6 +1339,8 @@ export async function promoteLeadToProfileAction(
 ): Promise<ActionResult<{ userId: string; tutorProfileId: string; isNewUser: boolean; temporaryPassword?: string }>> {
   const { error, session, lead } = await requireAssignedOrCrmOps(leadId);
   if (error || !session?.user || !lead) return actionError(error ?? "Unauthorized");
+  const exportDenied = assertStaffDatabaseExportAllowed(session.user);
+  if (exportDenied) return actionError(exportDenied);
   if (lead.staffNotes?.includes(PARENT_TAG)) {
     return actionError("This row is a parent requirement. Switch it to Tutor first, or post it in Student Leads Feed.");
   }
@@ -1525,6 +1536,8 @@ export async function promoteLeadToStudentRequirementAction(
 ): Promise<ActionResult<{ leadId: string; inquiryNumber: number | null }>> {
   const { error, session, lead } = await requireAssignedOrCrmOps(leadId);
   if (error || !session?.user || !lead) return actionError(error ?? "Unauthorized");
+  const exportDenied = assertStaffDatabaseExportAllowed(session.user);
+  if (exportDenied) return actionError(exportDenied);
 
   const cleanPhone = lead.phone?.replace(/\D/g, "").slice(-10);
   if (!cleanPhone || cleanPhone.length < 10) {
@@ -2418,8 +2431,10 @@ export type BatchDetailedReport = {
 export async function getBatchDetailedReportAction(
   batchId: string
 ): Promise<ActionResult<BatchDetailedReport>> {
-  const { error } = await requireCrmOps();
-  if (error) return actionError(error);
+  const { error, session } = await requireCrmOps();
+  if (error || !session?.user) return actionError(error ?? "Unauthorized");
+  const exportDenied = assertStaffDatabaseExportAllowed(session.user);
+  if (exportDenied) return actionError(exportDenied);
 
   const batch = await prisma.staffLeadBatch.findUnique({
     where: { id: batchId },
@@ -2607,6 +2622,8 @@ export async function bulkPromoteLeadsToProfilesAction(leadIds: string[]): Promi
 }>> {
   const { error, session } = await requireAdmin();
   if (error || !session?.user) return actionError(error ?? "Unauthorized");
+  const exportDenied = assertStaffDatabaseExportAllowed(session.user);
+  if (exportDenied) return actionError(exportDenied);
 
   if (!leadIds || leadIds.length === 0) {
     return actionError("No leads selected for promotion.");

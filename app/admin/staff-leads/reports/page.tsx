@@ -6,6 +6,7 @@ import {
   getStaffLeadBatchesAction,
 } from "@/app/actions/staff-leads.actions";
 import { StaffCrmReportsClient } from "@/components/admin/staff-leads/StaffCrmReportsClient";
+import { canExportStaffDatabase } from "@/lib/staff-crm-permissions";
 
 export const metadata = { title: "Staff Shifts, Timesheets & Live Operations — ApnaTutorHub Admin" };
 export const dynamic = "force-dynamic";
@@ -13,6 +14,9 @@ export const dynamic = "force-dynamic";
 export default async function StaffCrmReportsPage() {
   const session = await auth();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+  const canExportStaffDatabaseFlag = session?.user
+    ? canExportStaffDatabase(session.user)
+    : false;
 
   const [reportsRes, liveStatusRes, activityRes, batchesRes] = await Promise.all([
     getStaffDailyWorkReportsAction().catch(() => ({ success: false, data: null })),
@@ -66,6 +70,7 @@ export default async function StaffCrmReportsPage() {
       initialActivityFeed={activityFeed as any}
       initialBatches={batches}
       isSuperAdmin={isSuperAdmin}
+      canExportStaffDatabase={canExportStaffDatabaseFlag}
     />
   );
 }

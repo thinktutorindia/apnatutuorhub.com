@@ -32,8 +32,13 @@ export async function notifyTutorForLeadDispatch(opts: {
   message: string;
   via: LeadDispatchVia;
   leadForTemplate: LeadTemplateData;
+  /** When set, WhatsApp/email template shows Online Class even if the lead is offline. */
+  forceOnlineInTemplate?: boolean;
 }): Promise<{ whatsAppAttempted: boolean; whatsAppOk: boolean }> {
-  const { userId, phone, leadId, title, message, via, leadForTemplate } = opts;
+  const { userId, phone, leadId, title, message, via, leadForTemplate, forceOnlineInTemplate } = opts;
+  const templateLead: LeadTemplateData = forceOnlineInTemplate
+    ? { ...leadForTemplate, mode: "ONLINE" }
+    : leadForTemplate;
   const selected = channelsForLeadDispatch(via);
 
   const wantsInApp = selected.includes("IN_APP");
@@ -89,7 +94,7 @@ export async function notifyTutorForLeadDispatch(opts: {
     return { whatsAppAttempted: false, whatsAppOk: false };
   }
 
-  const waPlaceholders = buildAquaTuitionEnquiryPlaceholders(leadForTemplate);
+  const waPlaceholders = buildAquaTuitionEnquiryPlaceholders(templateLead);
   const normalizedPhone = phone ? normalizeIndiaWhatsApp(phone) : null;
   if (!normalizedPhone) {
     return { whatsAppAttempted: true, whatsAppOk: false };

@@ -80,6 +80,7 @@ interface Props {
   staff: StaffOption[];
   batches: Array<{ id: string; name: string }>;
   isSuperAdmin: boolean;
+  canExportStaffDatabase?: boolean;
   protectData?: boolean;
   initialBatchFilter?: string;
 }
@@ -158,9 +159,10 @@ function InlineStatusBadge({ status, onChange, disabled }: {
 
 export function LeadsWorkspace({
   initialLeads, initialTotal, pageSize: initialPageSize = 50,
-  staff, batches, isSuperAdmin, protectData = false,
+  staff, batches, isSuperAdmin, canExportStaffDatabase = true, protectData = false,
   initialBatchFilter,
 }: Props) {
+  const allowDbExport = canExportStaffDatabase;
   const [data, setData] = useState<WorkspaceLead[]>(initialLeads);
   const [total, setTotal] = useState(initialTotal);
   const [pageIndex, setPageIndex] = useState(0);
@@ -753,7 +755,7 @@ export function LeadsWorkspace({
             {isPending ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
           </button>
 
-          {isSuperAdmin && (
+          {isSuperAdmin && allowDbExport && (
             <button onClick={handleExportCsv} title="Export CSV"
               className="flex items-center px-2.5 py-2 border border-slate-200 rounded-lg text-slate-600 bg-slate-50 hover:bg-white cursor-pointer">
               <Download size={12} />
@@ -830,11 +832,13 @@ export function LeadsWorkspace({
             <option value="" disabled>Set status…</option>
             {ALL_STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
           </select>
-          <button onClick={handleBulkPromote} disabled={isPending}
-            className="flex items-center gap-1 rounded-lg bg-[#16A34A] px-2.5 py-1.5 text-[10px] font-extrabold hover:bg-[#15803D] disabled:opacity-60 cursor-pointer">
-            <Sparkles size={11} /> Promote
-          </button>
-          {isSuperAdmin && (
+          {allowDbExport && (
+            <button onClick={handleBulkPromote} disabled={isPending}
+              className="flex items-center gap-1 rounded-lg bg-[#16A34A] px-2.5 py-1.5 text-[10px] font-extrabold hover:bg-[#15803D] disabled:opacity-60 cursor-pointer">
+              <Sparkles size={11} /> Promote
+            </button>
+          )}
+          {isSuperAdmin && allowDbExport && (
             <button onClick={handleExportCsv} disabled={isPending}
               className="flex items-center gap-1 rounded-lg bg-white/10 border border-white/20 px-2.5 py-1.5 text-[10px] font-bold hover:bg-white/20 disabled:opacity-60 cursor-pointer">
               <Download size={11} /> Export
@@ -996,6 +1000,7 @@ export function LeadsWorkspace({
         <BatchDetailedReportModal
           batchId={batchReportModalId}
           onClose={() => setBatchReportModalId(null)}
+          canExportStaffDatabase={allowDbExport}
           onBatchUpdated={() => fetchLeads()}
         />
       )}

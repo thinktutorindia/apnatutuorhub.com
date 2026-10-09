@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { auth } from "@/auth";
 import { getMyStaffLeadsAction } from "@/app/actions/staff-leads.actions";
 import { MyStaffLeadsClient } from "@/components/admin/staff-leads/MyStaffLeadsClient";
+import { canExportStaffDatabase } from "@/lib/staff-crm-permissions";
 
 export const metadata = { title: "My Leads — Staff CRM" };
 export const dynamic = "force-dynamic";
@@ -9,6 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function MyStaffLeadsPage() {
   const session = await auth();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+  const canExportStaffDatabaseFlag = session?.user
+    ? canExportStaffDatabase(session.user)
+    : false;
 
   const res = await getMyStaffLeadsAction();
   const rawLeads = res.success && res.data ? res.data.leads : [];
@@ -28,7 +32,11 @@ export default async function MyStaffLeadsPage() {
         </div>
       }
     >
-      <MyStaffLeadsClient leads={leads as any} isSuperAdmin={isSuperAdmin} />
+      <MyStaffLeadsClient
+        leads={leads as any}
+        isSuperAdmin={isSuperAdmin}
+        canExportStaffDatabase={canExportStaffDatabaseFlag}
+      />
     </Suspense>
   );
 }

@@ -163,9 +163,11 @@ const QUICK_NOTE_CHIPS = [
 export function MyStaffLeadsClient({
   leads: initialLeads,
   isSuperAdmin = false,
+  canExportStaffDatabase = true,
 }: {
   leads: Lead[];
   isSuperAdmin?: boolean;
+  canExportStaffDatabase?: boolean;
 }) {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as QueueTab | null;
@@ -599,7 +601,11 @@ export function MyStaffLeadsClient({
         });
 
         // AUTO-PROMOTE TO PRIMARY PLATFORM when marked CONVERTED and not already promoted
-        if ((outcome === "CONVERTED" || nextStatus === "CONVERTED") && !targetLead.isPromoted) {
+        if (
+          canExportStaffDatabase &&
+          (outcome === "CONVERTED" || nextStatus === "CONVERTED") &&
+          !targetLead.isPromoted
+        ) {
           const isParent = getStaffRecordType(targetLead.staffNotes) === "PARENT";
           try {
             if (isParent) {
@@ -644,7 +650,7 @@ export function MyStaffLeadsClient({
         console.error("Failed to sync call log:", err);
       }
     });
-  }, [currentLead, callNotes, followUpDate, currentLeadIndex, filteredLeads, soundEnabled]);
+  }, [currentLead, callNotes, followUpDate, currentLeadIndex, filteredLeads, soundEnabled, canExportStaffDatabase]);
 
   // Undo last quick-logged call
   const handleUndoLastCall = async () => {
@@ -705,7 +711,8 @@ export function MyStaffLeadsClient({
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (e.shiftKey || e.ctrlKey || e.metaKey) {
-          handleMoveToPrimaryAndNext();
+          if (canExportStaffDatabase) handleMoveToPrimaryAndNext();
+          else handleSaveInQueueAndNext();
         } else {
           handleSaveInQueueAndNext();
         }
@@ -780,7 +787,7 @@ export function MyStaffLeadsClient({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentLeadIndex, filteredLeads, consoleTab, soundEnabled, callOutcome, callNotes, followUpDate, fastMode, logCallAndAdvance]);
+  }, [currentLeadIndex, filteredLeads, consoleTab, soundEnabled, callOutcome, callNotes, followUpDate, fastMode, logCallAndAdvance, canExportStaffDatabase]);
 
   // Delete lead
   const handleDeleteLead = async (leadId: string) => {
@@ -1185,17 +1192,19 @@ export function MyStaffLeadsClient({
                 <span>Shortcuts Cheatsheet (?)</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSettingsOpen(false);
-                  handleExportTodayCsv();
-                }}
-                className="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50 text-slate-700 cursor-pointer transition-colors"
-              >
-                <Download size={14} className="text-slate-500" />
-                <span>Export Today's Calls CSV</span>
-              </button>
+              {canExportStaffDatabase && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSettingsOpen(false);
+                    handleExportTodayCsv();
+                  }}
+                  className="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50 text-slate-700 cursor-pointer transition-colors"
+                >
+                  <Download size={14} className="text-slate-500" />
+                  <span>Export Today's Calls CSV</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1554,7 +1563,7 @@ export function MyStaffLeadsClient({
 
                   {/* Quick Action Tools */}
                   <div className="flex items-center gap-1 shrink-0">
-                    {!currentLead.isPromoted ? (
+                    {canExportStaffDatabase && !currentLead.isPromoted ? (
                       <button
                         type="button"
                         onClick={() => handlePromoteLead(currentLead)}
@@ -1573,12 +1582,12 @@ export function MyStaffLeadsClient({
                         )}
                         <span className="hidden sm:inline">Move to Primary</span>
                       </button>
-                    ) : (
+                    ) : currentLead.isPromoted ? (
                       <span className="p-1 sm:px-2.5 sm:py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
                         <CheckCircle2 size={12} className="text-emerald-600" />
                         <span className="hidden sm:inline">Primary ✓</span>
                       </span>
-                    )}
+                    ) : null}
 
                     <button
                       type="button"
@@ -1949,43 +1958,44 @@ export function MyStaffLeadsClient({
                     </span>
                   )}
 
-                  {/* ── BUTTON 1: Move/Save to Primary Database + Advance to Next Lead ── */}
-                  <button
-                    type="button"
-                    disabled={isPending || isPromotingLead}
-                    onClick={handleMoveToPrimaryAndNext}
-                    className={`px-4 py-2.5 rounded-xl font-black text-xs shadow-md flex items-center gap-2.5 cursor-pointer transition-all active:scale-95 disabled:opacity-50 text-left border ${
-                      currentLead.isPromoted
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-emerald-200"
-                        : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-violet-500 shadow-violet-200"
-                    }`}
-                    title="Moves lead to Primary Database (creates live User Directory profile or student requirement) + marks Converted in CRM queue + advances to next lead (Hotkey: Shift+Enter)"
-                  >
-                    {isPromotingLead ? (
-                      <Loader2 size={16} className="animate-spin shrink-0" />
-                    ) : currentLead.isPromoted ? (
-                      <CheckCircle2 size={16} className="text-emerald-200 shrink-0" />
-                    ) : (
-                      <Sparkles size={16} className="text-amber-300 shrink-0" />
-                    )}
-                    <div>
-                      <div className="flex items-center gap-1.5 font-black text-xs">
-                        <span>
+                  {canExportStaffDatabase && (
+                    <button
+                      type="button"
+                      disabled={isPending || isPromotingLead}
+                      onClick={handleMoveToPrimaryAndNext}
+                      className={`px-4 py-2.5 rounded-xl font-black text-xs shadow-md flex items-center gap-2.5 cursor-pointer transition-all active:scale-95 disabled:opacity-50 text-left border ${
+                        currentLead.isPromoted
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-emerald-200"
+                          : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-violet-500 shadow-violet-200"
+                      }`}
+                      title="Moves lead to Primary Database (creates live User Directory profile or student requirement) + marks Converted in CRM queue + advances to next lead (Hotkey: Shift+Enter)"
+                    >
+                      {isPromotingLead ? (
+                        <Loader2 size={16} className="animate-spin shrink-0" />
+                      ) : currentLead.isPromoted ? (
+                        <CheckCircle2 size={16} className="text-emerald-200 shrink-0" />
+                      ) : (
+                        <Sparkles size={16} className="text-amber-300 shrink-0" />
+                      )}
+                      <div>
+                        <div className="flex items-center gap-1.5 font-black text-xs">
+                          <span>
+                            {currentLead.isPromoted
+                              ? "🚀 Primary DB ✓ & Next Lead"
+                              : "🚀 Move to Primary & Next Lead"}
+                          </span>
+                          <kbd className="hidden sm:inline-block text-[9px] font-mono bg-white/20 px-1 py-0.2 rounded text-violet-100">
+                            ⇧ Enter
+                          </kbd>
+                        </div>
+                        <div className="text-[9px] opacity-90 font-medium tracking-tight">
                           {currentLead.isPromoted
-                            ? "🚀 Primary DB ✓ & Next Lead"
-                            : "🚀 Move to Primary & Next Lead"}
-                        </span>
-                        <kbd className="hidden sm:inline-block text-[9px] font-mono bg-white/20 px-1 py-0.2 rounded text-violet-100">
-                          ⇧ Enter
-                        </kbd>
+                            ? "Already in Live Database • Advance"
+                            : "Save in Primary DB + Queue Converted"}
+                        </div>
                       </div>
-                      <div className="text-[9px] opacity-90 font-medium tracking-tight">
-                        {currentLead.isPromoted
-                          ? "Already in Live Database • Advance"
-                          : "Save in Primary DB + Queue Converted"}
-                      </div>
-                    </div>
-                  </button>
+                    </button>
+                  )}
 
                   {/* ── BUTTON 2: Save in CRM Queue Only (No Primary DB) + Advance to Next Lead ── */}
                   <button
@@ -2017,41 +2027,42 @@ export function MyStaffLeadsClient({
 
               {/* Mobile Ergonomic Action Footer (Both full buttons always visible and clearly labeled) */}
               <div className="lg:hidden p-2 bg-white border-t border-slate-200 shrink-0 shadow-lg space-y-1.5">
-                {/* ── BUTTON 1: Move/Save to Primary Database + Advance to Next Lead ── */}
-                <button
-                  type="button"
-                  disabled={isPending || isPromotingLead}
-                  onClick={handleMoveToPrimaryAndNext}
-                  className={`w-full py-2 px-3 rounded-xl font-black text-xs shadow-xs flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 text-left border ${
-                    currentLead.isPromoted
-                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-emerald-100"
-                      : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-violet-500 shadow-violet-100"
-                  }`}
-                  title="Moves lead to Primary Database + marks Converted + advances to next lead"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {isPromotingLead ? (
-                      <Loader2 size={15} className="animate-spin shrink-0" />
-                    ) : currentLead.isPromoted ? (
-                      <CheckCircle2 size={15} className="text-emerald-200 shrink-0" />
-                    ) : (
-                      <Sparkles size={15} className="text-amber-300 shrink-0" />
-                    )}
-                    <div className="min-w-0">
-                      <div className="font-black text-xs truncate">
-                        {currentLead.isPromoted
-                          ? "🚀 Primary DB ✓ & Next Lead"
-                          : "🚀 Move to Primary & Next Lead"}
-                      </div>
-                      <div className="text-[9px] opacity-85 font-medium truncate">
-                        {currentLead.isPromoted
-                          ? "Already in Live Database • Advance"
-                          : "Save in Primary DB + Queue Converted"}
+                {canExportStaffDatabase && (
+                  <button
+                    type="button"
+                    disabled={isPending || isPromotingLead}
+                    onClick={handleMoveToPrimaryAndNext}
+                    className={`w-full py-2 px-3 rounded-xl font-black text-xs shadow-xs flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 text-left border ${
+                      currentLead.isPromoted
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-emerald-100"
+                        : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-violet-500 shadow-violet-100"
+                    }`}
+                    title="Moves lead to Primary Database + marks Converted + advances to next lead"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isPromotingLead ? (
+                        <Loader2 size={15} className="animate-spin shrink-0" />
+                      ) : currentLead.isPromoted ? (
+                        <CheckCircle2 size={15} className="text-emerald-200 shrink-0" />
+                      ) : (
+                        <Sparkles size={15} className="text-amber-300 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-black text-xs truncate">
+                          {currentLead.isPromoted
+                            ? "🚀 Primary DB ✓ & Next Lead"
+                            : "🚀 Move to Primary & Next Lead"}
+                        </div>
+                        <div className="text-[9px] opacity-85 font-medium truncate">
+                          {currentLead.isPromoted
+                            ? "Already in Live Database • Advance"
+                            : "Save in Primary DB + Queue Converted"}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <ArrowRight size={14} className="shrink-0 opacity-80 ml-1" />
-                </button>
+                    <ArrowRight size={14} className="shrink-0 opacity-80 ml-1" />
+                  </button>
+                )}
 
                 {/* ── BUTTON 2: Save in CRM Queue Only (No Primary DB) + Advance to Next Lead ── */}
                 <button
@@ -2124,6 +2135,7 @@ export function MyStaffLeadsClient({
       {isEditLeadModalOpen && currentLead && (
         <EditLeadModalCustom
           lead={currentLead}
+          canExportStaffDatabase={canExportStaffDatabase}
           onClose={() => setIsEditLeadModalOpen(false)}
           onUpdated={(updated) => {
             setLeads((prev) => prev.map((l) => (l.id === updated.id ? { ...l, ...updated } : l)));
@@ -2211,14 +2223,16 @@ export function MyStaffLeadsClient({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleExportTodayCsv}
-                  className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer transition-all flex items-center gap-1 shadow-2xs"
-                >
-                  <Download size={13} />
-                  <span>Export CSV</span>
-                </button>
+                {canExportStaffDatabase && (
+                  <button
+                    type="button"
+                    onClick={handleExportTodayCsv}
+                    className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer transition-all flex items-center gap-1 shadow-2xs"
+                  >
+                    <Download size={13} />
+                    <span>Export CSV</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsProgressModalOpen(false)}
@@ -2719,10 +2733,12 @@ function CreateLeadModalCustom({
 /* ── Custom Edit Modal ── */
 function EditLeadModalCustom({
   lead,
+  canExportStaffDatabase = true,
   onClose,
   onUpdated,
 }: {
   lead: Lead;
+  canExportStaffDatabase?: boolean;
   onClose: () => void;
   onUpdated: (updated: Partial<Lead>) => void;
 }) {
@@ -3301,7 +3317,7 @@ function EditLeadModalCustom({
 
           <div className="flex items-center justify-between gap-2.5 pt-3 border-t border-slate-100 flex-wrap">
             <div>
-              {!lead.isPromoted ? (
+              {canExportStaffDatabase && !lead.isPromoted ? (
                 <button
                   type="button"
                   disabled={isSubmitting || isPromoting}
@@ -3316,7 +3332,7 @@ function EditLeadModalCustom({
                   {isPromoting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                   <span>Move to Primary</span>
                 </button>
-              ) : (
+              ) : lead.isPromoted ? (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
                   <CheckCircle2 size={14} className="text-emerald-600" />
                   <span>On Primary Platform</span>
@@ -3331,7 +3347,7 @@ function EditLeadModalCustom({
                     </a>
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="flex items-center gap-2 ml-auto">

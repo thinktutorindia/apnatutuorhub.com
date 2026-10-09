@@ -21,6 +21,7 @@ interface Props {
   isOpen?: boolean;
   onClose: () => void;
   onBatchUpdated?: () => void;
+  canExportStaffDatabase?: boolean;
 }
 
 export function BatchDetailedReportModal({
@@ -29,6 +30,7 @@ export function BatchDetailedReportModal({
   isOpen = true,
   onClose,
   onBatchUpdated,
+  canExportStaffDatabase = true,
 }: Props) {
   const [currentBatchId, setCurrentBatchId] = useState(batchId);
   const [data, setData] = useState<BatchDetailedReport | null>(null);
@@ -234,7 +236,7 @@ export function BatchDetailedReportModal({
 
           {/* Action Bar */}
           <div className="flex items-center gap-2 shrink-0">
-            {data && (
+            {data && canExportStaffDatabase && (
               <button
                 type="button"
                 onClick={exportToCSV}

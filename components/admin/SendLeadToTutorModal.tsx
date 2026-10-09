@@ -50,6 +50,7 @@ import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
 import { getInquiryDisplayCode, getInquiryHashTag, isGenuineEmail, isSystemGeneratedEmail, isTill5thClass } from "@/lib/lead-utils";
+import { coversClassLevel, hasSubjectOverlap } from "@/lib/matching-engine";
 
 export function SendLeadToTutorModal({
   leadId,
@@ -73,7 +74,15 @@ export function SendLeadToTutorModal({
   // Filters & Sorting
   const [emailCategoryFilter, setEmailCategoryFilter] = useState<"ALL" | "GENUINE_ONLY" | "SYSTEM_ONLY">("GENUINE_ONLY");
   const [filterType, setFilterType] = useState<
-    "ALL" | "TOP_MATCH" | "NEARBY" | "VERIFIED" | "HAS_COINS" | "TOP_RATED" | "UNCLAIMED"
+    | "ALL"
+    | "TOP_MATCH"
+    | "NEARBY"
+    | "SUBJECT_RADIUS"
+    | "SUBJECT_ONLY"
+    | "VERIFIED"
+    | "HAS_COINS"
+    | "TOP_RATED"
+    | "UNCLAIMED"
   >("ALL");
   const [sortType, setSortType] = useState<
     "MATCH_SCORE" | "DISTANCE" | "COINS" | "RATING" | "NAME"
@@ -89,6 +98,11 @@ export function SendLeadToTutorModal({
 
   /** In-app dashboard alert is included for all options except explicit IN_APP-only paths. */
   const [dispatchVia, setDispatchVia] = useState<"WHATSAPP" | "EMAIL" | "BOTH" | "IN_APP">("BOTH");
+
+  /** Offline leads: quick-select radius (km) for nearby + subject-matched tutors. */
+  const [radiusKm, setRadiusKm] = useState<5 | 10>(5);
+  /** When on, tutors outside radius still get the pitch with Online Class in the template. */
+  const [pitchRemoteAsOnline, setPitchRemoteAsOnline] = useState(true);
 
   // Open action dropdown menu per tutor
   const [activeDropdownTutorId, setActiveDropdownTutorId] = useState<string | null>(null);
@@ -157,6 +171,23 @@ export function SendLeadToTutorModal({
   const selectedGenuineCount = useMemo(() => selectedTutors.filter((t) => isGenuineEmail(t.email)).length, [selectedTutors]);
   const selectedSystemCount = useMemo(() => selectedTutors.filter((t) => isSystemGeneratedEmail(t.email)).length, [selectedTutors]);
 
+  const tutorMatchesSubjectAndClass = (t: MatchedTutorSummary) => {
+    if (!lead) return false;
+    return (
+      hasSubjectOverlap(t.subjects, lead.subjects ?? []) &&
+      coversClassLevel(t.classLevels, lead.classLevel ?? "")
+    );
+  };
+
+  const buildOnlinePitchUserIds = (userIds: string[]) => {
+    if (!pitchRemoteAsOnline || !lead || lead.mode === "ONLINE") return [] as string[];
+    return userIds.filter((uid) => {
+      const t = tutors.find((x) => x.userId === uid);
+      if (!t || !tutorMatchesSubjectAndClass(t)) return false;
+      return t.distanceKm === null || t.distanceKm > radiusKm;
+    });
+  };
+
   // Filtered & Sorted Tutors List
   const displayedTutors = useMemo(() => {
     let list = [...tutors];
@@ -185,7 +216,17 @@ export function SendLeadToTutorModal({
     if (filterType === "TOP_MATCH") {
       list = list.filter((t) => t.matchScore >= 40);
     } else if (filterType === "NEARBY") {
-      list = list.filter((t) => t.distanceKm !== null && t.distanceKm <= 5);
+      list = list.filter(
+        (t) => t.distanceKm !== null && t.distanceKm <= radiusKm && tutorMatchesSubjectAndClass(t)
+      );
+    } else if (filterType === "SUBJECT_RADIUS") {
+      list = list.filter(
+        (t) =>
+          tutorMatchesSubjectAndClass(t) &&
+          (lead?.mode === "ONLINE" || (t.distanceKm !== null && t.distanceKm <= radiusKm))
+      );
+    } else if (filterType === "SUBJECT_ONLY") {
+      list = list.filter((t) => tutorMatchesSubjectAndClass(t));
     } else if (filterType === "VERIFIED") {
       list = list.filter((t) => t.kycStatus === "APPROVED");
     } else if (filterType === "HAS_COINS") {
@@ -214,7 +255,24 @@ export function SendLeadToTutorModal({
     });
 
     return list;
-  }, [tutors, emailCategoryFilter, searchQuery, filterType, sortType, lead?.coinCost]);
+  }, [tutors, emailCategoryFilter, searchQuery, filterType, sortType, lead?.coinCost, lead?.subjects, lead?.classLevel, lead?.mode, radiusKm]);
+
+  const selectInRadiusSubjectMatch = (km: 5 | 10) => {
+    setRadiusKm(km);
+    const pool = tutors.filter(
+      (t) =>
+        !t.alreadyPurchased &&
+        tutorMatchesSubjectAndClass(t) &&
+        (lead?.mode === "ONLINE" || (t.distanceKm !== null && t.distanceKm <= km))
+    );
+    setSelectedUserIds(pool.map((t) => t.userId));
+  };
+
+  const selectAllSubjectMatch = () => {
+    const pool = tutors.filter((t) => !t.alreadyPurchased && tutorMatchesSubjectAndClass(t));
+    setSelectedUserIds(pool.map((t) => t.userId));
+    setPitchRemoteAsOnline(true);
+  };
 
   const toggleSelectTutor = (userId: string) => {
     setSelectedUserIds((prev) =>
@@ -309,11 +367,13 @@ export function SendLeadToTutorModal({
     setFeedbackMsg(null);
 
     startTransition(async () => {
+      const onlineIds = buildOnlinePitchUserIds(selectedUserIds);
       const res = await adminSendLeadNotificationAction(
         leadId,
         selectedUserIds,
         customNotificationMsg.trim() || undefined,
-        dispatchVia
+        dispatchVia,
+        onlineIds.length > 0 ? onlineIds : undefined
       );
       if (res.success) {
         const viaLabel =
@@ -328,9 +388,11 @@ export function SendLeadToTutorModal({
           dispatchVia === "WHATSAPP" || dispatchVia === "BOTH"
             ? ` WA ok: ${res.data?.whatsAppOk ?? 0}, failed: ${res.data?.whatsAppFailed ?? 0}.`
             : "";
+        const onlineNote =
+          onlineIds.length > 0 ? ` ${onlineIds.length} pitched as Online Class (outside ${radiusKm} km).` : "";
         setFeedbackMsg({
           type: "success",
-          text: `🎯 Sent ${viaLabel} to ${res.data?.sentCount} tutor(s)!${waNote}`,
+          text: `🎯 Sent ${viaLabel} to ${res.data?.sentCount} tutor(s)!${waNote}${onlineNote}`,
         });
         setSelectedUserIds([]);
       } else {
@@ -428,11 +490,13 @@ export function SendLeadToTutorModal({
     setFeedbackMsg(null);
 
     startTransition(async () => {
+      const onlineIds = buildOnlinePitchUserIds([tutor.userId]);
       const res = await adminSendLeadNotificationAction(
         leadId,
         [tutor.userId],
         customNotificationMsg.trim() || undefined,
-        dispatchVia
+        dispatchVia,
+        onlineIds.length > 0 ? onlineIds : undefined
       );
       if (res.success) {
         setFeedbackMsg({
@@ -714,7 +778,9 @@ export function SendLeadToTutorModal({
                     >
                       <option value="ALL">All Matches ({displayedTutors.length})</option>
                       <option value="TOP_MATCH">🎯 High Match Score (&gt;40)</option>
-                      <option value="NEARBY">📍 Near Location (&lt;15 km)</option>
+                      <option value="NEARBY">📍 Within radius + subject match</option>
+                      <option value="SUBJECT_RADIUS">📍 Subject match in radius only</option>
+                      <option value="SUBJECT_ONLY">📚 All subject + class matches</option>
                       <option value="VERIFIED">🛡️ Verified KYC Only</option>
                       <option value="HAS_COINS">💰 Has Sufficient Coins (&gt;={lead?.coinCost ?? 10})</option>
                       <option value="TOP_RATED">⭐ Top Rated (4.0+ ⭐)</option>
@@ -788,6 +854,55 @@ export function SendLeadToTutorModal({
                   </button>
                 )}
               </div>
+
+              {/* Radius + subject dispatch (offline leads → online pitch beyond radius) */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1 border-t border-slate-100 mt-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0">
+                  Location batch:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <select
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(Number(e.target.value) === 10 ? 10 : 5)}
+                    className="px-2 py-1 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 cursor-pointer"
+                    title="Radius for nearby tutor selection"
+                  >
+                    <option value={5}>Within 5 km</option>
+                    <option value={10}>Within 10 km</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => selectInRadiusSubjectMatch(5)}
+                    className="px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 text-[11px] font-bold cursor-pointer"
+                  >
+                    Select ≤5 km + subject match
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => selectInRadiusSubjectMatch(10)}
+                    className="px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 text-[11px] font-bold cursor-pointer"
+                  >
+                    Select ≤10 km + subject match
+                  </button>
+                  <button
+                    type="button"
+                    onClick={selectAllSubjectMatch}
+                    className="px-2.5 py-1 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-900 border border-violet-200 text-[11px] font-bold cursor-pointer"
+                    title="All tutors who teach this class & subject (use with online pitch below)"
+                  >
+                    Select all subject tutors
+                  </button>
+                  <label className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-amber-50/80 border border-amber-200 text-[11px] font-bold text-amber-950 cursor-pointer ml-auto sm:ml-0">
+                    <input
+                      type="checkbox"
+                      checked={pitchRemoteAsOnline}
+                      onChange={(e) => setPitchRemoteAsOnline(e.target.checked)}
+                      className="rounded border-amber-400 text-amber-600"
+                    />
+                    Pitch outside {radiusKm} km as Online Class
+                  </label>
+                </div>
+              </div>
             </div>
 
             {/* Row 2: Search, Filters & Sorting */}
@@ -815,7 +930,9 @@ export function SendLeadToTutorModal({
                   >
                     <option value="ALL">All Matches ({displayedTutors.length})</option>
                     <option value="TOP_MATCH">🎯 High Match Score (&gt;40)</option>
-                    <option value="NEARBY">📍 Within 5 km Radius (&le;5 km)</option>
+                    <option value="NEARBY">📍 Within {radiusKm} km + subject</option>
+                    <option value="SUBJECT_RADIUS">📍 Subject in {radiusKm} km</option>
+                    <option value="SUBJECT_ONLY">📚 All subject + class matches</option>
                     <option value="VERIFIED">🛡️ Verified KYC Only</option>
                     <option value="HAS_COINS">💰 Has Sufficient Coins (&gt;={lead?.coinCost ?? 10})</option>
                     <option value="TOP_RATED">⭐ Top Rated (4.0+ ⭐)</option>
@@ -941,11 +1058,16 @@ export function SendLeadToTutorModal({
                               </span>
                             ) : tutor.distanceKm !== null ? (
                               <span className={`text-[11px] font-bold px-2 py-0.2 rounded-md border flex items-center gap-0.5 ${
-                                tutor.distanceKm <= 5.0
+                                tutor.distanceKm <= radiusKm
                                   ? "text-emerald-800 bg-emerald-50 border-emerald-300"
                                   : "text-amber-800 bg-amber-50 border-amber-300"
                               }`}>
-                                <MapPin size={11} /> {tutor.distanceKm} km away {tutor.distanceKm <= 5.0 ? "(≤5 km radius)" : "(>5 km)"}
+                                <MapPin size={11} /> {tutor.distanceKm} km away{" "}
+                                {tutor.distanceKm <= radiusKm
+                                  ? `(≤${radiusKm} km)`
+                                  : pitchRemoteAsOnline && tutorMatchesSubjectAndClass(tutor)
+                                    ? "(Online pitch)"
+                                    : `(>${radiusKm} km)`}
                               </span>
                             ) : null}
 

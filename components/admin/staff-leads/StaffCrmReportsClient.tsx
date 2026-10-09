@@ -149,6 +149,7 @@ interface Props {
     convertedCount: number;
   }>;
   isSuperAdmin: boolean;
+  canExportStaffDatabase?: boolean;
 }
 
 function formatMinutes(mins: number | null): string {
@@ -179,6 +180,7 @@ export function StaffCrmReportsClient({
   initialActivityFeed = [],
   initialBatches = [],
   isSuperAdmin,
+  canExportStaffDatabase = true,
 }: Props) {
   const [workSessions, setWorkSessions] = useState(initialWorkSessions);
   const [dailyBreakdown, setDailyBreakdown] = useState(initialDailyBreakdown);
@@ -1819,6 +1821,7 @@ export function StaffCrmReportsClient({
           batchId={selectedBatchReportId}
           isOpen={!!selectedBatchReportId}
           onClose={() => setSelectedBatchReportId(null)}
+          canExportStaffDatabase={canExportStaffDatabase}
         />
       )}
     </div>

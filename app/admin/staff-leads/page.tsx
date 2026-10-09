@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/staff-leads.actions";
 import { StaffLeadsDashboardClient } from "@/components/admin/staff-leads/StaffLeadsDashboardClient";
 import { auth } from "@/auth";
+import { canExportStaffDatabase } from "@/lib/staff-crm-permissions";
 
 export const metadata = { title: "Staff Leads CRM — ApnaTutorHub Admin" };
 export const dynamic = "force-dynamic";
@@ -20,6 +21,9 @@ export default async function StaffLeadsPage({
 }) {
   const session = await auth();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+  const canExportStaffDatabaseFlag = session?.user
+    ? canExportStaffDatabase(session.user)
+    : false;
   const params = searchParams ? await searchParams : {};
   const activeBatchId = params.batchId || undefined;
 
@@ -75,6 +79,7 @@ export default async function StaffLeadsPage({
       liveStatus={liveStatus as any}
       activityFeed={activityFeed as any}
       isSuperAdmin={isSuperAdmin}
+      canExportStaffDatabase={canExportStaffDatabaseFlag}
       initialBatchFilter={activeBatchId}
     />
   );

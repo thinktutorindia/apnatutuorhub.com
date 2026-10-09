@@ -64,6 +64,7 @@ interface Props {
     lead: { id: string; name: string | null; phone: string | null; status: string };
   }>;
   isSuperAdmin?: boolean;
+  canExportStaffDatabase?: boolean;
   initialBatchFilter?: string;
 }
 
@@ -123,6 +124,7 @@ export function StaffLeadsDashboardClient({
   liveStatus,
   activityFeed,
   isSuperAdmin,
+  canExportStaffDatabase = true,
   initialBatchFilter,
 }: Props) {
   const [cockpitMode, setCockpitMode] = useState<"CALLING" | "PIPELINE" | "RADAR">("CALLING");
@@ -294,6 +296,7 @@ export function StaffLeadsDashboardClient({
           staff={staff}
           batches={batches.map((b) => ({ id: b.id, name: b.name }))}
           isSuperAdmin={!!isSuperAdmin}
+          canExportStaffDatabase={canExportStaffDatabase}
           initialBatchFilter={activeBatchFilter}
         />
       )}
@@ -569,6 +572,7 @@ export function StaffLeadsDashboardClient({
         <BatchDetailedReportModal
           batchId={selectedReportBatchId}
           onClose={() => setSelectedReportBatchId(null)}
+          canExportStaffDatabase={canExportStaffDatabase}
         />
       )}
     </div>

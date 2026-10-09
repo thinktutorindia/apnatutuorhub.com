@@ -8,6 +8,7 @@ import {
   type VoiceExtract,
   type VoiceHistoryItem,
   type VoiceRole,
+  type VoiceTurn,
 } from "./agent";
 import { extractFromCallerText, inferVoiceRole, normalizeCallerText, parentReady, callerPrefersHindi } from "./match";
 import { VOICE_GREETING } from "./training-playbook";

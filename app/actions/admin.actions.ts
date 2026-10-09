@@ -23,6 +23,10 @@ import { geocodeAddressWithGemini } from "@/lib/gemini-geocoder";
 import { processReferralRewardOnKyc } from "@/app/actions/referral.actions";
 import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
 import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
+import {
+  notifyTutorForLeadDispatch,
+  type LeadDispatchVia,
+} from "@/lib/lead-dispatch-notify";
 
 // ── Permission Guard Factory ───────────────────────────────────────────────────
 // Each admin action requires only its specific permission, enabling sub-admins
@@ -1696,8 +1700,9 @@ export async function adminGetMatchingTutorsForLeadAction(
 export async function adminSendLeadNotificationAction(
   leadId: string,
   tutorUserIds: string[],
-  customMessage?: string
-): Promise<ActionResult<{ sentCount: number }>> {
+  customMessage?: string,
+  dispatchVia: LeadDispatchVia = "BOTH"
+): Promise<ActionResult<{ sentCount: number; whatsAppOk: number; whatsAppFailed: number }>> {
   const { error, session } = await requirePermission("leads:manage");
   if (error) return actionError(error);
 
@@ -1709,12 +1714,23 @@ export async function adminSendLeadNotificationAction(
     where: { id: leadId },
     select: {
       id: true,
+      inquiryNumber: true,
       subjects: true,
       classLevel: true,
+      board: true,
       mode: true,
       city: true,
       area: true,
+      pincode: true,
+      budgetMin: true,
+      budgetMax: true,
       coinCost: true,
+      tutorGenderPref: true,
+      notes: true,
+      timingPreference: true,
+      parentProfile: {
+        select: { user: { select: { name: true } } },
+      },
     },
   });
 
@@ -1726,29 +1742,59 @@ export async function adminSendLeadNotificationAction(
     );
   }
 
+  const tutors = await prisma.user.findMany({
+    where: { id: { in: tutorUserIds } },
+    select: { id: true, phone: true },
+  });
+  const phoneByUserId = new Map(tutors.map((t) => [t.id, t.phone]));
+
   const subjectLabel = lead.subjects.slice(0, 2).join(", ");
   const locationLabel =
     [lead.area, lead.city].filter(Boolean).join(", ") || "your area";
 
-  let sentCount = 0;
-  for (const userId of tutorUserIds) {
-    const notifMsg =
-      customMessage ||
-      `New verified requirement for ${lead.classLevel} (${subjectLabel}) in ${locationLabel}. Unlock with ${lead.coinCost} coins now!`;
+  const title = "🎯 New Student Tuition Enquiry!";
+  const notifMsg =
+    customMessage?.trim() ||
+    `New verified requirement for ${lead.classLevel} (${subjectLabel}) in ${locationLabel}. Unlock with ${lead.coinCost} coins now!`;
 
-    await createNotification({
+  const leadForTemplate = {
+    id: lead.id,
+    inquiryNumber: lead.inquiryNumber,
+    clientName: lead.parentProfile?.user?.name ?? "Not Specified",
+    subjects: lead.subjects,
+    classLevel: lead.classLevel,
+    board: lead.board,
+    mode: lead.mode,
+    city: lead.city,
+    area: lead.area,
+    pincode: lead.pincode,
+    budgetMin: lead.budgetMin,
+    budgetMax: lead.budgetMax,
+    genderPreference: lead.tutorGenderPref,
+    notes: lead.notes,
+    timingPreference: lead.timingPreference,
+    schedule: lead.timingPreference || "5 Days a Week",
+  };
+
+  let sentCount = 0;
+  let whatsAppOk = 0;
+  let whatsAppFailed = 0;
+
+  for (const userId of tutorUserIds) {
+    const result = await notifyTutorForLeadDispatch({
       userId,
-      type: "LEAD_MATCHED",
-      priority: "HIGH",
-      channel: "WEB",
-      title: "🎯 New Student Tuition Enquiry!",
+      phone: phoneByUserId.get(userId) ?? null,
+      leadId: lead.id,
+      title,
       message: notifMsg,
-      actionUrl: "/tutor/leads",
-      referenceId: lead.id,
-      forceSend: true,
-      sendEmail: true,
+      via: dispatchVia,
+      leadForTemplate,
     });
     sentCount++;
+    if (result.whatsAppAttempted) {
+      if (result.whatsAppOk) whatsAppOk++;
+      else whatsAppFailed++;
+    }
   }
 
   await prisma.auditLog.create({
@@ -1757,11 +1803,16 @@ export async function adminSendLeadNotificationAction(
       action: "ADMIN_DISPATCH_LEAD_NOTIFS",
       entityType: "Lead",
       entityId: lead.id,
-      details: `Sent lead notification to ${sentCount} tutor(s)`,
+      details: JSON.stringify({
+        summary: `Sent lead notification to ${sentCount} tutor(s) via ${dispatchVia}`,
+        dispatchVia,
+        whatsAppOk,
+        whatsAppFailed,
+      }),
     },
   });
 
-  return actionSuccess({ sentCount });
+  return actionSuccess({ sentCount, whatsAppOk, whatsAppFailed });
 }
 
 export async function adminAssignLeadDirectlyAction(

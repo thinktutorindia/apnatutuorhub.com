@@ -87,6 +87,9 @@ export function SendLeadToTutorModal({
   const [copiedLead, setCopiedLead] = useState(false);
   const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
 
+  /** In-app dashboard alert is included for all options except explicit IN_APP-only paths. */
+  const [dispatchVia, setDispatchVia] = useState<"WHATSAPP" | "EMAIL" | "BOTH" | "IN_APP">("BOTH");
+
   // Open action dropdown menu per tutor
   const [activeDropdownTutorId, setActiveDropdownTutorId] = useState<string | null>(null);
 
@@ -309,12 +312,25 @@ export function SendLeadToTutorModal({
       const res = await adminSendLeadNotificationAction(
         leadId,
         selectedUserIds,
-        customNotificationMsg.trim() || undefined
+        customNotificationMsg.trim() || undefined,
+        dispatchVia
       );
       if (res.success) {
+        const viaLabel =
+          dispatchVia === "BOTH"
+            ? "WhatsApp + Email (+ in-app)"
+            : dispatchVia === "WHATSAPP"
+              ? "WhatsApp (+ in-app)"
+              : dispatchVia === "EMAIL"
+                ? "Email (+ in-app)"
+                : "In-app / push only";
+        const waNote =
+          dispatchVia === "WHATSAPP" || dispatchVia === "BOTH"
+            ? ` WA ok: ${res.data?.whatsAppOk ?? 0}, failed: ${res.data?.whatsAppFailed ?? 0}.`
+            : "";
         setFeedbackMsg({
           type: "success",
-          text: `🎯 Successfully dispatched notification to ${res.data?.sentCount} tutor(s)!`,
+          text: `🎯 Sent ${viaLabel} to ${res.data?.sentCount} tutor(s)!${waNote}`,
         });
         setSelectedUserIds([]);
       } else {
@@ -412,11 +428,16 @@ export function SendLeadToTutorModal({
     setFeedbackMsg(null);
 
     startTransition(async () => {
-      const res = await adminSendLeadNotificationAction(leadId, [tutor.userId]);
+      const res = await adminSendLeadNotificationAction(
+        leadId,
+        [tutor.userId],
+        customNotificationMsg.trim() || undefined,
+        dispatchVia
+      );
       if (res.success) {
         setFeedbackMsg({
           type: "success",
-          text: `🔔 In-app & push notification dispatched to ${tutor.name}!`,
+          text: `🔔 Notification (${dispatchVia}) dispatched to ${tutor.name}!`,
         });
       } else {
         setFeedbackMsg({ type: "error", text: res.error ?? "Failed to send notification." });
@@ -1307,6 +1328,48 @@ export function SendLeadToTutorModal({
                 </div>
               )}
 
+              {/* Delivery channel — separate from Send button */}
+              <div className="rounded-2xl border-2 border-[#0F2540]/10 bg-slate-50 p-4 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <BellRing size={15} className="text-[#2D9E6B]" />
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#0F2540]">
+                    Send notification via
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { id: "WHATSAPP" as const, label: "WhatsApp", icon: MessageCircle },
+                      { id: "EMAIL" as const, label: "Email", icon: MailCheck },
+                      { id: "BOTH" as const, label: "Both", icon: CheckCheck },
+                      { id: "IN_APP" as const, label: "In-app / Web only", icon: BellRing },
+                    ] as const
+                  ).map(({ id, label, icon: Icon }) => {
+                    const on = dispatchVia === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setDispatchVia(id)}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-extrabold border-2 transition-all cursor-pointer ${
+                          on
+                            ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-sm"
+                            : "bg-white text-slate-800 border-slate-200 hover:border-emerald-400"
+                        }`}
+                      >
+                        <Icon size={14} />
+                        {on ? "✓ " : ""}
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-slate-600 font-medium">
+                  WhatsApp uses the tuition enquiry template with area &amp; class. Email uses the tutor&apos;s registered address.
+                  In-app alert is included for WhatsApp, Email, and Both.
+                </p>
+              </div>
+
               {/* Action Toolbar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1">
@@ -1366,7 +1429,9 @@ export function SendLeadToTutorModal({
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
                   >
                     <Send size={14} />
-                    <span>Send Notification ({selectedUserIds.length})</span>
+                    <span>
+                      Send via {dispatchVia === "BOTH" ? "WhatsApp + Email" : dispatchVia === "IN_APP" ? "In-app" : dispatchVia === "WHATSAPP" ? "WhatsApp" : "Email"} ({selectedUserIds.length})
+                    </span>
                   </button>
                 </div>
               </div>

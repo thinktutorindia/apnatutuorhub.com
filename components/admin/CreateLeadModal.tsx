@@ -291,6 +291,9 @@ export function CreateLeadModal({
   };
 
   const selectAllSubjectsOnly = () => {
+    if (!classLevel || !isTill8thClass(classLevel)) {
+      setClassLevel((prev) => (isTill8thClass(prev) ? prev : "Class 8"));
+    }
     setSelectedSubjects(["All Subjects"]);
   };
 
@@ -914,24 +917,46 @@ export function CreateLeadModal({
                         )}
                       </div>
 
-                      {isTill8thClass(classLevel) && (
-                        <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200">
+                      {/* Class 1–8: All Subjects — always visible (full width) */}
+                      <div className="space-y-2 p-3.5 rounded-2xl border-2 border-emerald-300 bg-emerald-50/90">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <BookOpen size={14} className="text-emerald-700 shrink-0" />
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-900">
+                            Class 1–8 · All Subjects (required for junior home tuition)
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={selectAllSubjectsOnly}
-                            className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
-                              selectedSubjects.length === 1 && selectedSubjects[0] === "All Subjects"
-                                ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-sm"
-                                : "bg-white text-emerald-900 border-emerald-300 hover:bg-emerald-100"
+                            className={`px-5 py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all cursor-pointer ${
+                              selectedSubjects.includes("All Subjects")
+                                ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-md"
+                                : "bg-white text-emerald-900 border-emerald-400 hover:bg-emerald-100"
                             }`}
                           >
-                            {selectedSubjects.includes("All Subjects") ? "✓" : "+"} All Subjects
+                            {selectedSubjects.includes("All Subjects") ? "✓ " : ""}
+                            All Subjects
                           </button>
-                          <span className="text-[11px] font-semibold text-emerald-900">
-                            Class 1–8 home tuition — use All Subjects for {classLevel || "this class"}.
-                          </span>
+                          {JUNIOR_CLASS_QUICK_PICKS.map((cls) => (
+                            <button
+                              key={`subj-row-${cls}`}
+                              type="button"
+                              onClick={() => selectClassWithAllSubjects(cls)}
+                              className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                                classLevel === cls && selectedSubjects.includes("All Subjects")
+                                  ? "bg-[#0F2540] text-white border-[#0F2540]"
+                                  : "bg-white text-slate-800 border-slate-200 hover:border-emerald-400"
+                              }`}
+                            >
+                              {cls}
+                            </button>
+                          ))}
                         </div>
-                      )}
+                        <p className="text-[11px] font-medium text-emerald-900">
+                          Tap <strong>All Subjects</strong> or any class above — Class 9+ use named subjects below.
+                        </p>
+                      </div>
 
                       {/* Quick subject chips with streams */}
                       <div className="space-y-1.5 pt-1">
@@ -1291,6 +1316,66 @@ export function CreateLeadModal({
                       </div>
                     )}
 
+                    {/* Notify tutors — visible in Step 4 (no scroll to bottom) */}
+                    <div className="space-y-3 pt-3 mt-1 rounded-2xl border-2 border-[#0F2540]/15 bg-white p-4 shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <Send size={15} className="text-[#2D9E6B]" />
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-[#0F2540]">
+                          Send notification to matching tutors
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="notifyMatchingTutorsStep4"
+                          checked={notifyMatchingTutors}
+                          onChange={(e) => setNotifyMatchingTutors(e.target.checked)}
+                          className="h-4 w-4 rounded text-[#2D9E6B] focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <label
+                          htmlFor="notifyMatchingTutorsStep4"
+                          className="text-xs font-bold text-slate-800 cursor-pointer select-none"
+                        >
+                          Alert tutors in this area (within {radiusKm || "10"} km) with class, subjects &amp; locality
+                        </label>
+                      </div>
+                      {notifyMatchingTutors && (
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
+                            Send via
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {TUTOR_AREA_ALERT_OPTIONS.map((opt) => {
+                              const selected = tutorAreaAlertVia === opt.id;
+                              return (
+                                <button
+                                  key={`step4-${opt.id}`}
+                                  type="button"
+                                  onClick={() => setTutorAreaAlertVia(opt.id)}
+                                  title={opt.hint}
+                                  className={`min-w-[100px] px-4 py-2.5 rounded-xl text-xs font-extrabold border-2 transition-all cursor-pointer ${
+                                    selected
+                                      ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-sm"
+                                      : "bg-slate-50 text-slate-800 border-slate-200 hover:border-emerald-400"
+                                  }`}
+                                >
+                                  {selected ? "✓ " : ""}
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[11px] text-slate-600 font-semibold">
+                            {tutorAreaAlertVia === "BOTH"
+                              ? "WhatsApp + Email (+ in-app alert)"
+                              : tutorAreaAlertVia === "WHATSAPP"
+                                ? "WhatsApp only (+ in-app alert)"
+                                : "Email only (+ in-app alert)"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                       <div>
                         <label className="mb-1 block font-bold text-slate-700 text-xs">Tutor Gender Preference</label>
@@ -1375,56 +1460,6 @@ export function CreateLeadModal({
                       />
                     </div>
 
-                    <div className="space-y-3 pt-2 rounded-2xl border border-slate-200 bg-white p-4">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="notifyMatchingTutors"
-                          checked={notifyMatchingTutors}
-                          onChange={(e) => setNotifyMatchingTutors(e.target.checked)}
-                          className="h-4 w-4 rounded text-[#2D9E6B] focus:ring-emerald-500 cursor-pointer"
-                        />
-                        <label htmlFor="notifyMatchingTutors" className="text-xs font-bold text-slate-800 cursor-pointer select-none">
-                          Send this lead (area + class + subjects) to matching tutors within{" "}
-                          <span className="text-emerald-800">{radiusKm || "10"} km</span>
-                        </label>
-                      </div>
-                      {notifyMatchingTutors && (
-                        <div className="space-y-2 pl-6">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
-                            Deliver alert via
-                          </span>
-                          <div className="flex flex-wrap gap-2">
-                            {TUTOR_AREA_ALERT_OPTIONS.map((opt) => {
-                              const selected = tutorAreaAlertVia === opt.id;
-                              return (
-                                <button
-                                  key={opt.id}
-                                  type="button"
-                                  onClick={() => setTutorAreaAlertVia(opt.id)}
-                                  title={opt.hint}
-                                  className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
-                                    selected
-                                      ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-sm"
-                                      : "bg-slate-50 text-slate-700 border-slate-200 hover:border-emerald-400"
-                                  }`}
-                                >
-                                  {selected ? "✓ " : ""}
-                                  {opt.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <p className="text-[11px] text-slate-500 font-medium">
-                            {tutorAreaAlertVia === "BOTH"
-                              ? "Tutors get in-app alert plus WhatsApp and email with locality details."
-                              : tutorAreaAlertVia === "WHATSAPP"
-                                ? "Tutors get in-app alert plus WhatsApp with locality details."
-                                : "Tutors get in-app alert plus email with locality details."}
-                          </p>
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* Live Requirement Summary Preview Card */}

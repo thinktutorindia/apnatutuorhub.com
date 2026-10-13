@@ -6,7 +6,7 @@ import {
   Check, ShieldCheck, Zap, Crown, ArrowLeft, Loader2, Award, Sparkles,
   Phone, MessageSquare, Star, ChevronDown, ChevronUp, Lock, RefreshCw,
   Users, UserCheck, CheckCircle2, AlertCircle, ArrowRight, BookOpen,
-  GraduationCap, Layers, Tag, Ticket, X, Wallet, Clock
+  GraduationCap, Layers, Tag, Ticket, X, Wallet, Clock, Handshake
 } from "lucide-react";
 import {
   SUBSCRIPTION_PLANS,
@@ -29,24 +29,28 @@ interface Props {
 
 const FAQ_ITEMS = [
   {
-    q: "How does the tuition fee structure lead allocation work on the ₹999 Plan?",
-    a: "On the ₹999 Growth Plan, leads are dynamically unlocked based on the universal fee structure using your 60 plan points: Class 1–8 leads (Monthly billing ₹4,000–₹8,000/mo) cost 10 points each (up to 6 leads); Class 9–10 board leads (Hourly billing ₹550–₹850/hr) cost 20 points each (up to 3 leads); Class 11–12 & competitive entrance leads (Hourly billing ₹850–₹1,400+/hr) cost 30 points each (up to 2 leads). You can mix and match freely across classes!",
+    q: "How does the ₹1,257 Commission Based Plan work?",
+    a: "The Commission Based Plan requires a one-time registration fee of ₹1,257 with 6 Months validity. You get to unlock 5 verified parent leads. Our platform commission is 50% on the first month's student fee, and 5% recurring platform commission every month from the 2nd month onwards.",
   },
   {
-    q: "Is there any platform commission on the ₹999 Growth Plan?",
-    a: "Zero commission! On the ₹999 Growth Plan, there is 0% platform commission. You keep 100% of all tuition fees you collect from students and parents directly.",
+    q: "How does the ₹2,999 Silver Plan work?",
+    a: "The ₹2,999 Silver Plan gives you 15 Verified Leads with 30 Days validity. Lead unlock cost is 0% platform commission, meaning you keep 100% of all tuition fees you collect from students directly.",
   },
   {
-    q: "Can I unlock leads for any class or subject?",
-    a: "Yes, 100%! The ₹999 Growth Membership allows you to unlock leads across all classes (Class 1–12, Entrance exams like JEE/NEET, Boards, and all subjects) in your chosen localities or online.",
+    q: "Is there any platform commission on the ₹2,999 Silver Plan?",
+    a: "Zero commission! On the ₹2,999 Silver Plan, there is 0% platform commission. You keep 100% of all tuition fees you collect from students and parents directly.",
   },
   {
-    q: "What is the validity period of the ₹999 Growth Plan?",
-    a: "The ₹999 Growth Plan is valid for 30 Days from activation, giving you full access to unlock students throughout the month.",
+    q: "Can I unlock leads for any class or subject on the Silver Plan?",
+    a: "Yes, 100%! The ₹2,999 Silver Membership allows you to unlock leads across all classes (Class 1–12, Entrance exams like JEE/NEET, Boards, and all subjects) in your chosen localities or online.",
   },
   {
-    q: "How does the tutor competition cap work?",
-    a: "To ensure high conversion and genuine parent response, the ₹999 Growth Plan leads are limited to a maximum of 3 verified tutors only (low competition).",
+    q: "What is the validity period of the ₹2,999 Silver Plan?",
+    a: "The ₹2,999 Silver Plan is valid for 30 Days from activation, giving you full access to unlock students throughout the month.",
+  },
+  {
+    q: "How does the tutor competition cap work on the Silver Plan?",
+    a: "To ensure high conversion and genuine parent response, Silver Plan leads are limited to a maximum of 3 verified tutors only (low competition).",
   },
   {
     q: "Are parent phone numbers and addresses verified?",
@@ -229,7 +233,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </h1>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-3xl mx-auto leading-relaxed" style={{fontFamily: "'Inter', sans-serif"}}>
-            Unlock premium verified tuition leads with our <span className="text-emerald-300 font-bold">₹999 Growth Membership</span> — 60 Points, 0% platform commission, and leads delivered by student fee structure!
+            Unlock premium verified tuition leads with our <span className="text-emerald-300 font-bold">₹2,999 Silver Membership</span> — 15 Verified Leads, 0% platform commission, and direct parent contacts!
           </p>
 
           {activePlanConfig && (
@@ -257,205 +261,246 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </div>
         )}
 
-        {/* ⏰ Special Retargeting ₹99 Trial Pass — only shown via special deal link or if currently on STARTER */}
-        {false && (
-          <div className="rounded-3xl border-2 border-amber-400/80 bg-gradient-to-r from-amber-500/10 via-white to-orange-500/10 p-6 sm:p-8 mb-8 shadow-md">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-              {/* Left content */}
-              <div className="flex-1 space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black text-white bg-amber-600 shadow-2xs">
-                    ⏰ LIMITED TIME DEAL
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-amber-950 bg-amber-100 border border-amber-300">
-                    🎯 Exclusive Retargeting Offer
-                  </span>
-                </div>
+        {/* 🤝 Official Commission Based Plan (₹1,257 Registration Fee · 6 Months Validity · 5 Leads) */}
+        <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-400/90 bg-gradient-to-br from-white via-emerald-50/40 to-teal-50/30 p-6 sm:p-9 mb-10 shadow-xl shadow-emerald-950/5 transition-all duration-300 hover:shadow-2xl hover:border-emerald-500">
+          {/* Subtle decorative glow & pattern */}
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-teal-400/20 rounded-full blur-3xl pointer-events-none" />
 
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-[#0F2540] leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                    Get 1 Verified Trial Lead for{" "}
-                    <span className="text-amber-600">₹99</span>{" "}
-                    <span className="text-sm font-semibold text-slate-400 line-through">₹999</span>
-                  </h2>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600 mt-1">
-                    One verified lead of ANY class, ANY location · <strong>50% Commission</strong> on 1st month tuition fee.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {[
-                    { icon: '✅', text: '1 Verified Lead' },
-                    { icon: '📚', text: 'Any Class (1–12 & Entrance)' },
-                    { icon: '📍', text: 'Any Location' },
-                    { icon: '🤝', text: '50% Commission on 1st Month Fee' },
-                  ].map(item => (
-                    <span key={item.text} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 shadow-2xs">
-                      <span>{item.icon}</span>
-                      <span>{item.text}</span>
-                    </span>
-                  ))}
-                </div>
-                <p className="text-[11px] text-slate-500 font-medium">*Limited-Time Retargeting Deal: 50% commission applies on the first month tuition fee collected from the parent.</p>
+          <div className="relative z-10 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-8">
+            {/* Left Content Column */}
+            <div className="flex-1 space-y-4">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-600 shadow-md shadow-emerald-700/20">
+                  <Handshake size={14} className="text-emerald-100" />
+                  <span>COMMISSION BASED PLAN</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold text-emerald-950 bg-white/90 border border-emerald-300 shadow-2xs">
+                  <Clock size={13} className="text-emerald-700" />
+                  <span>6 Months Long Validity</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black text-amber-900 bg-amber-100/90 border border-amber-300">
+                  ⚡ 50% OFF REGISTRATION
+                </span>
               </div>
 
-              {/* Right CTA */}
-              <div className="flex flex-col items-center sm:items-end gap-3 shrink-0 w-full sm:w-auto text-center sm:text-right">
-                <div>
-                  <div className="text-4xl sm:text-5xl font-black text-[#0F2540]" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                    ₹99
-                  </div>
-                  <div className="text-xs font-black text-amber-600 uppercase tracking-wider mt-0.5">
-                    Limited Deal · 50% Commission
-                  </div>
-                  <div className="text-xs text-slate-400 line-through font-medium">Regular ₹999</div>
-                  <div className="text-xs text-emerald-600 font-bold mt-0.5">✅ No GST on ₹99 Plan</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleOpenCheckout('STARTER')}
-                  disabled={isLoading || ['STARTER','BRONZE','SILVER','GOLD','PLATINUM'].includes(currentPlan.toUpperCase())}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-black text-sm bg-[#0F2540] hover:bg-[#1A3C5E] text-white shadow-md cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {['STARTER','BRONZE','SILVER','GOLD','PLATINUM'].includes(currentPlan.toUpperCase()) ? '✅ Plan Active' : '🎉 Grab ₹99 Deal'}
-                </button>
-                <p className="text-[10px] text-slate-400">Exclusive retargeting pass · Instant activation</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── ₹999 Growth Membership Plan Card (Primary Active Plan) ── */}
-        <div className="max-w-3xl mx-auto w-full rounded-3xl bg-white border-2 border-emerald-400 shadow-xl p-6 sm:p-9 relative ring-4 ring-emerald-400/15 transition-all">
-          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-black tracking-wide text-white bg-[#0F2540] shadow-md flex items-center gap-1.5 whitespace-nowrap">
-            <Sparkles size={13} className="text-amber-400" />
-            <span>PRIMARY TUTOR MEMBERSHIP · 67% OFF</span>
-          </div>
-
-          <div className="space-y-6 pt-2">
-            {/* Header & Pricing */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-950 border border-emerald-300">
-                    🚀 Growth Plan
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
-                    67% OFF
-                  </span>
-                </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-[#0F2540] mt-2" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                  ₹999 Plan — Leads by Fee Structure
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-500 font-semibold mt-1">
-                  Dynamic lead allocation tailored around parent tuition fees
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#0F2540] leading-tight tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  Commission Based Plan —{" "}
+                  <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">₹1,257</span>{" "}
+                  <span className="text-base sm:text-lg font-bold text-slate-400 line-through">₹2,500</span>
+                </h2>
+                <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-1.5 max-w-2xl leading-relaxed">
+                  Start with a low upfront fee of <strong className="text-emerald-900">₹1,257</strong> for <strong className="text-slate-900">6 Months validity</strong> to unlock <strong className="text-emerald-900">5 verified student leads</strong>.
+                  <br className="hidden sm:inline" /> Platform commission: <strong>50% of 1st month tuition fee</strong>, and <strong>5% recurring commission every month from 2nd month onwards</strong>.
                 </p>
               </div>
 
-              <div className="text-left sm:text-right shrink-0">
-                <div className="flex items-baseline gap-2 sm:justify-end">
-                  <span className="text-4xl sm:text-5xl font-black text-[#0F2540]" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                    ₹999
-                  </span>
-                  <span className="text-sm font-semibold text-slate-400 line-through">₹2,999</span>
-                </div>
-                <div className="text-[11px] font-semibold text-slate-500 mt-0.5">
-                  + ₹{getGstAmount(999).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(999).toLocaleString('en-IN')} total
-                </div>
-                <div className="text-xs font-black text-emerald-700 mt-0.5">
-                  🎉 0% Platform Commission
-                </div>
-              </div>
-            </div>
-
-            {/* Fee Structure Quota Allocation Box */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
-                  <Layers size={14} className="text-emerald-600" />
-                  Lead Allocation by Universal Fee Structure
-                </span>
-                <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                  Total 60 Plan Points
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {FEE_STRUCTURE_DISTRIBUTION.map((band, idx) => (
-                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5 hover:bg-emerald-50/40 hover:border-emerald-300 transition-all">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase text-slate-500">Tier {idx + 1}</span>
-                      <span className="text-xs font-black text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200 shadow-2xs">
-                        {band.badge}
-                      </span>
-                    </div>
-                    <div className="font-extrabold text-xs text-[#0F2540]">{band.monthlyRange}</div>
-                    <p className="text-[11px] text-slate-600 font-medium leading-snug">{band.feeBand}</p>
+              {/* Feature Pills Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
+                {[
+                  { icon: '✅', text: '5 Verified Leads Unlock', color: 'bg-emerald-500/10 border-emerald-300 text-emerald-950' },
+                  { icon: '📅', text: '6 Months (180 Days)', color: 'bg-blue-500/10 border-blue-300 text-blue-950' },
+                  { icon: '🤝', text: '50% 1st Month Fee', color: 'bg-amber-500/10 border-amber-300 text-amber-950' },
+                  { icon: '🔄', text: '5% Monthly from 2nd Mo', color: 'bg-teal-500/10 border-teal-300 text-teal-950' },
+                  { icon: '📍', text: '5km Nearby or Online', color: 'bg-sky-500/10 border-sky-300 text-sky-950' },
+                  { icon: '📞', text: 'Direct Parent Contact', color: 'bg-purple-500/10 border-purple-300 text-purple-950' },
+                ].map(item => (
+                  <div key={item.text} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border shadow-2xs backdrop-blur-xs ${item.color}`}>
+                    <span className="text-sm shrink-0">{item.icon}</span>
+                    <span className="truncate">{item.text}</span>
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-500 font-medium">
-                *Class 1–8 leads cost 10 points (up to 6 leads), Class 9–10 leads cost 20 points (up to 3 leads), Class 11–12 &amp; competitive exam leads cost 30 points (up to 2 leads). Mix &amp; match freely!
+
+              <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                *Commission Terms: One-time ₹1,257 registration fee valid for 6 months. Unlocks 5 verified leads. Platform charges 50% commission from the 1st month student fee collected, and 5% monthly commission from 2nd month onwards.
               </p>
             </div>
 
-            {/* Key Badges & Exclusivity */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-bold">
-                <UserCheck size={14} className="text-blue-600 shrink-0" />
-                <span>👥 Low Competition (Max 3 Tutors per Lead)</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">
-                <Clock size={14} className="text-slate-500 shrink-0" />
-                <span>📅 Valid for 30 Days</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
-                <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                <span>Full Phone &amp; Locality Unlocked</span>
-              </span>
-            </div>
-
-            {/* Features List */}
-            <div className="pt-2 border-t border-slate-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-semibold text-slate-700">
-                {[
-                  'Up to 6 Verified Leads by fee structure',
-                  'Low Competition: Max 3 Tutors per Lead',
-                  '0% Commission — Keep 100% of Student Fees',
-                  'Unlock across any class, subject, or location',
-                  'Direct Parent WhatsApp & Phone Number',
-                  'Expanded Matching Radius (up to 15 km)',
-                  'Verified Tutor Badge on Profile',
-                  '24/7 Dedicated Support Desk',
-                ].map(f => (
-                  <div key={f} className="flex items-center gap-2">
-                    <Check size={14} className="text-emerald-600 shrink-0" />
-                    <span>{f}</span>
-                  </div>
-                ))}
+            {/* Right Pricing & CTA Card */}
+            <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/95 border-2 border-emerald-400/80 shadow-lg text-center shrink-0 w-full lg:w-72 space-y-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                  Special Registration
+                </span>
+                <div className="text-4xl sm:text-5xl font-black text-[#0F2540] mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  ₹1,257
+                </div>
+                <div className="text-xs font-bold text-slate-400 line-through">Regular ₹2,500</div>
+                <div className="text-xs font-black text-emerald-700 mt-0.5">Save ₹1,243 (50% OFF)</div>
               </div>
-            </div>
 
-            {/* CTA */}
-            <div className="pt-4">
+              <div className="w-full text-xs text-slate-600 font-semibold space-y-1 py-1 border-y border-slate-100">
+                <div className="flex items-center justify-between">
+                  <span>Validity:</span>
+                  <span className="font-black text-slate-900">6 Months</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Leads:</span>
+                  <span className="font-black text-emerald-700">5 Student Leads</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Competition:</span>
+                  <span className="font-black text-slate-900">Max 3 Tutors</span>
+                </div>
+              </div>
+
               <button
                 type="button"
-                disabled={isLoading || currentPlan === 'BRONZE'}
-                onClick={() => handleOpenCheckout('BRONZE')}
-                className="w-full py-4 rounded-2xl text-base font-black transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#0F2540] hover:bg-[#1A3C5E] text-white shadow-lg active:scale-98 flex items-center justify-center gap-2"
+                onClick={() => handleOpenCheckout('STARTER')}
+                disabled={isLoading}
+                className="w-full py-3.5 px-6 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xl shadow-emerald-600/30 cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {currentPlan === 'BRONZE' ? '✅ Plan Active (Growth Plan)' : '🎉 Select Growth Plan — ₹999'}
+                <span>{activePlanKey === 'STARTER' ? '✅ Plan Active' : '🤝 Select Commission Plan'}</span>
+                <ArrowRight size={16} />
               </button>
-              <p className="text-center text-[11px] text-slate-400 mt-2 font-medium">
-                Instant activation upon payment verification · Low competition guarantee
-              </p>
+              <p className="text-[10px] text-slate-400 font-semibold">Instant unlock for 5 verified student leads</p>
             </div>
           </div>
         </div>
 
-        {/* Asterisk Footnote */}
-        <div className="text-center pt-6 text-xs font-semibold text-slate-500 max-w-3xl mx-auto">
-          *Lead quota on the ₹999 Growth Plan dynamically adapts based on universal fee structure: <strong>Class 1–8 Monthly tuition (up to 6 leads)</strong>, <strong>Class 9–10 Board prep (up to 3 leads)</strong>, and <strong>Class 11–12 / Competitive (up to 2 leads)</strong>. Lead cost represents a fair ~5% of one month&apos;s student fee. You can mix and match classes freely using your 60 plan points.
+        {/* ── SUBSCRIPTION MEMBERSHIP PLANS (0% COMMISSION) ── */}
+        <div className="space-y-8">
+          <div className="text-center max-w-3xl mx-auto space-y-2.5">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-teal-500/10 border border-blue-400/40 text-blue-900 text-xs font-black shadow-2xs">
+              <Sparkles size={14} className="text-blue-600 animate-pulse" />
+              <span>ZERO COMMISSION MEMBERSHIP PLANS (KEEP 100% OF TUITION FEES)</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black text-[#0F2540] tracking-tight">
+              Subscription Membership Plans
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 font-semibold max-w-xl mx-auto">
+              Never share monthly commissions with the platform. Keep 100% of all student tuition fees. Choose Silver, Gold, or Platinum VIP based on your target lead volume.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+            {(['SILVER', 'GOLD', 'PLATINUM'] as SubscriptionPlanId[]).map((tierKey) => {
+              const tier = SUBSCRIPTION_PLANS[tierKey];
+              const isCurrent = currentPlan === tierKey;
+              const isPlatinum = tierKey === 'PLATINUM';
+              const isGold = tierKey === 'GOLD';
+
+              return (
+                <div
+                  key={tierKey}
+                  className={`rounded-3xl flex flex-col justify-between transition-all duration-300 relative overflow-hidden ${
+                    isGold
+                      ? 'bg-gradient-to-b from-amber-500/10 via-yellow-500/5 to-white border-2 border-amber-400 ring-4 ring-amber-400/20 shadow-2xl shadow-amber-500/15 md:-translate-y-2'
+                      : isPlatinum
+                      ? 'bg-gradient-to-b from-purple-500/10 via-indigo-500/5 to-white border-2 border-purple-400 shadow-xl shadow-purple-500/10 hover:shadow-2xl hover:border-purple-500 hover:-translate-y-1.5'
+                      : 'bg-gradient-to-b from-sky-500/10 via-slate-50/60 to-white border-2 border-sky-300/90 shadow-xl shadow-sky-500/10 hover:shadow-2xl hover:border-sky-400 hover:-translate-y-1.5'
+                  }`}
+                >
+                  {/* Popular Floating Badge for Gold */}
+                  {isGold && (
+                    <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 text-white text-[11px] font-black uppercase tracking-wider py-1.5 text-center shadow-sm flex items-center justify-center gap-1.5">
+                      <Sparkles size={12} />
+                      <span>MOST POPULAR &amp; BEST VALUE</span>
+                    </div>
+                  )}
+
+                  {/* Platinum Solo Lock Ribbon */}
+                  {isPlatinum && (
+                    <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-700 text-white text-[11px] font-black uppercase tracking-wider py-1.5 text-center shadow-sm flex items-center justify-center gap-1.5">
+                      <Crown size={12} />
+                      <span>👑 100% EXCLUSIVE SOLO LOCK</span>
+                    </div>
+                  )}
+
+                  <div className={`p-6 sm:p-7 space-y-6 flex flex-col flex-1`}>
+                    {/* Top Row: Tier Tag & Validity */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${tier.badgeBg} ${tier.badgeText}`}>
+                        {tier.badge}
+                      </span>
+                      <span className="text-xs font-extrabold text-slate-700 bg-white/90 border border-slate-200 px-3 py-1 rounded-full shadow-2xs">
+                        {tier.validityText}
+                      </span>
+                    </div>
+
+                    {/* Title & Pricing */}
+                    <div className="space-y-1.5">
+                      <h3 className="text-2xl font-black text-[#0F2540] tracking-tight">{tier.name}</h3>
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="text-4xl font-black text-[#0F2540]" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                          ₹{tier.priceInr.toLocaleString('en-IN')}
+                        </span>
+                        {tier.originalPriceInr && (
+                          <span className="text-sm font-bold text-slate-400 line-through">
+                            ₹{tier.originalPriceInr.toLocaleString('en-IN')}
+                          </span>
+                        )}
+                        <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                          {tier.festivalBadge}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        + ₹{getGstAmount(tier.priceInr).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(tier.priceInr).toLocaleString('en-IN')} all-inclusive
+                      </p>
+                    </div>
+
+                    {/* Leads Quota & Exclusivity Showcase Box */}
+                    <div className={`p-4 rounded-2xl border space-y-2 backdrop-blur-xs ${
+                      isGold
+                        ? 'bg-amber-500/10 border-amber-300'
+                        : isPlatinum
+                        ? 'bg-purple-500/10 border-purple-300'
+                        : 'bg-sky-500/10 border-sky-300'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-slate-800">Verified Leads Unlock:</span>
+                        <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg text-white ${
+                          isGold ? 'bg-amber-600' : isPlatinum ? 'bg-purple-700' : 'bg-sky-700'
+                        }`}>
+                          {tier.totalLeads} Leads
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 pt-1 border-t border-slate-200/60">
+                        <span>Lead Exclusivity:</span>
+                        <span className="font-extrabold text-[#0F2540]">{tier.competitionLabel}</span>
+                      </div>
+                    </div>
+
+                    {/* Features list */}
+                    <div className="space-y-2.5 flex-1 pt-2 border-t border-slate-100">
+                      <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Included Perks:</p>
+                      {tier.features.slice(0, 6).map((feat, fIdx) => (
+                        <div key={fIdx} className="flex items-start gap-2.5 text-xs font-semibold text-slate-700">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-white ${
+                            isGold ? 'bg-amber-500' : isPlatinum ? 'bg-purple-600' : 'bg-emerald-600'
+                          }`}>
+                            <Check size={10} strokeWidth={3} />
+                          </div>
+                          <span className="leading-tight">{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* CTA Button */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        disabled={isLoading || isCurrent}
+                        onClick={() => handleOpenCheckout(tierKey)}
+                        className={`w-full py-4 px-5 rounded-2xl font-black text-sm transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-98 ${
+                          isPlatinum
+                            ? 'bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 hover:from-purple-800 hover:to-indigo-700 text-white shadow-purple-600/30'
+                            : isGold
+                            ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white shadow-amber-500/30'
+                            : 'bg-gradient-to-r from-sky-600 via-blue-600 to-sky-700 hover:from-sky-700 hover:to-blue-700 text-white shadow-blue-500/25'
+                        }`}
+                      >
+                        <span>{isCurrent ? '✅ Active Plan' : `Activate ${tier.name}`}</span>
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* ── TUITION FEE STRUCTURE LEAD SCHEDULE SECTION ── */}
@@ -472,7 +517,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               Tuition Fee Structure Lead Delivery Schedule
             </h2>
             <p className="text-xs sm:text-sm font-medium text-slate-300 leading-relaxed">
-              On the ₹999 Growth Plan, leads are dynamically unlocked based on universal class &amp; tuition fee structure. Lead unlock costs represent a fair ~5% of one month&apos;s student tuition fee across all grades &amp; subjects.
+              On the ₹2,999 Silver Plan, leads are dynamically unlocked based on universal class &amp; tuition fee structure. Lead unlock costs represent a fair ~5% of one month&apos;s student tuition fee across all grades &amp; subjects.
             </p>
           </div>
 
@@ -547,103 +592,88 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
         <div className="mt-14 bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
           <div className="text-center space-y-2">
             <h2 className="text-2xl font-black text-[#0F2540]">
-              {showSpecialOffer ? "Plan Feature Matrix Comparison" : "₹999 Growth Membership Details & Benefits"}
+              {showSpecialOffer ? "Plan Feature Matrix Comparison" : "₹2,999 Silver Membership Details & Benefits"}
             </h2>
             <p className="text-xs font-semibold text-slate-500">
-              {showSpecialOffer ? "Compare our Limited-Time Trial Deal and the Flagship Growth Membership" : "Complete specifications and verified lead guarantee of the ₹999 Growth Plan"}
+              {showSpecialOffer ? "Compare our Commission Deal and the Flagship Silver Membership" : "Complete specifications and verified lead guarantee of the ₹2,999 Silver Plan (Zero Commission)"}
             </p>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-slate-700 border-collapse">
+            <table className="w-full text-xs text-left text-slate-700 border-collapse min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-[#0F2540] font-black">
-                  <th className="py-3.5 px-4">Feature / Benefit</th>
-                  {showSpecialOffer && (
-                    <th className="py-3.5 px-4 text-center">Trial Pass <span className="text-orange-600 font-black">₹99</span> <span className="text-slate-400 line-through text-[10px]">₹999</span></th>
-                  )}
-                  <th className="py-3.5 px-4 text-center bg-emerald-50/60 text-emerald-950 font-black">Growth Plan <span className="text-emerald-700 font-black">₹999</span> <span className="text-slate-400 line-through text-[10px]">₹2,999</span></th>
+                  <th className="py-3.5 px-3">Feature / Benefit</th>
+                  <th className="py-3.5 px-3 text-center bg-emerald-50/50 text-emerald-950 font-black">
+                    Commission Plan<br />
+                    <span className="text-emerald-700 font-extrabold text-sm">₹1,257</span>
+                  </th>
+                  <th className="py-3.5 px-3 text-center bg-blue-50/60 text-blue-950 font-black ring-1 ring-blue-300/40">
+                    Silver Plan (0%)<br />
+                    <span className="text-emerald-700 font-extrabold text-sm">₹2,999</span>{" "}
+                    <span className="text-slate-400 line-through text-[10px]">₹5,999</span>
+                  </th>
+                  <th className="py-3.5 px-3 text-center bg-yellow-50/60 text-yellow-950 font-black">
+                    Gold Plan<br />
+                    <span className="text-yellow-900 font-extrabold text-sm">₹9,000</span>{" "}
+                    <span className="text-slate-400 line-through text-[10px]">₹12,000</span>
+                  </th>
+                  <th className="py-3.5 px-3 text-center bg-purple-50/70 text-purple-950 font-black">
+                    Platinum VIP 👑<br />
+                    <span className="text-purple-900 font-extrabold text-sm">₹18,000</span>{" "}
+                    <span className="text-slate-400 line-through text-[10px]">₹24,000</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold">
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Total Lead Allocation</td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-900">1 Verified Lead (Any class)</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center font-bold text-emerald-800 bg-emerald-50/20">Up to 6 Leads* (Total 60 Plan Points)</td>
+                  <td className="py-3.5 px-3 font-bold text-slate-900">Total Lead Allocation</td>
+                  <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/30">5 Verified Leads</td>
+                  <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-blue-50/20">15 Verified Leads</td>
+                  <td className="py-3.5 px-3 text-center font-black text-yellow-900 bg-yellow-50/20">20 Leads</td>
+                  <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">30 High-Value Leads</td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">
-                    <div>Class 1–8 Leads</div>
-                    <div className="text-[11px] font-normal text-slate-500">Monthly Tuition · ₹4,000–₹8,000 / mo</div>
-                  </td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">1 Lead</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center font-black text-emerald-700 bg-emerald-50/20">Up to 6 Leads (10 pts/lead)</td>
+                  <td className="py-3.5 px-3 font-bold text-slate-900">Platform Commission</td>
+                  <td className="py-3.5 px-3 text-center font-black text-amber-700 bg-emerald-50/30">50% 1st Mo + 5% Recurring</td>
+                  <td className="py-3.5 px-3 text-center font-black text-emerald-600 bg-blue-50/20">🎉 0% (Keep 100% Fees)</td>
+                  <td className="py-3.5 px-3 text-center font-black text-emerald-600 bg-yellow-50/20">🎉 0% (Keep 100% Fees)</td>
+                  <td className="py-3.5 px-3 text-center font-black text-emerald-600 bg-purple-50/30">🎉 0% (Keep 100% Fees)</td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">
-                    <div>Class 9–10 Leads</div>
-                    <div className="text-[11px] font-normal text-slate-500">Hourly Rate · ₹550–₹850 / hr</div>
-                  </td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">1 Lead</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center font-black text-emerald-700 bg-emerald-50/20">Up to 3 Leads (20 pts/lead)</td>
+                  <td className="py-3.5 px-3 font-bold text-slate-900">Competition Level</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-emerald-900 bg-emerald-50/30">Max 3 Tutors</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-blue-900 bg-blue-50/20">Max 3 Tutors</td>
+                  <td className="py-3.5 px-3 text-center font-black text-amber-900 bg-yellow-50/20">🔒 Semi-Exclusive (Max 2)</td>
+                  <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">👑 100% Solo Lock (1 Tutor Only)</td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">
-                    <div>Class 11–12 &amp; Entrance Leads</div>
-                    <div className="text-[11px] font-normal text-slate-500">Hourly Rate · ₹850–₹1,400+ / hr</div>
-                  </td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">1 Lead</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center font-black text-emerald-700 bg-emerald-50/20">Up to 2 Leads (30 pts/lead)</td>
+                  <td className="py-3.5 px-3 font-bold text-slate-900">Plan Validity</td>
+                  <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/30">6 Months (180 Days)</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-blue-50/20">30 Days (1 Month)</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-yellow-50/20">60 Days (2 Months)</td>
+                  <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">90 Days (3 Months)</td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Platform Commission</td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center font-black text-amber-700">🤝 50% Commission</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center font-black text-emerald-600 bg-emerald-50/20">🎉 0% (Keep 100% Fees)</td>
+                  <td className="py-3.5 px-3 font-bold text-slate-900">Direct Parent Phone &amp; Locality</td>
+                  <td className="py-3.5 px-3 text-center bg-emerald-50/30"><Check size={16} className="mx-auto text-emerald-600" /></td>
+                  <td className="py-3.5 px-3 text-center bg-blue-50/20"><Check size={16} className="mx-auto text-emerald-600" /></td>
+                  <td className="py-3.5 px-3 text-center bg-yellow-50/20"><Check size={16} className="mx-auto text-emerald-600" /></td>
+                  <td className="py-3.5 px-3 text-center bg-purple-50/30"><Check size={16} className="mx-auto text-emerald-600" /></td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Lead Competition Cap</td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center text-slate-600 font-bold">👥 Max 5 Tutors</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center text-blue-700 font-bold bg-emerald-50/20">👥 Low Competition (Max 3 Tutors)</td>
+                  <td className="py-3.5 px-3 font-bold text-slate-900">Matching Radius</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-emerald-50/30">5 km / Online</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-blue-50/20">15 km</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-yellow-50/20">25 km</td>
+                  <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">Unlimited City / Pan-India</td>
                 </tr>
                 <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Plan Validity</td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">30 Days</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center font-bold text-slate-700 bg-emerald-50/20">30 Days</td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Parent Phone &amp; Locality</td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center"><Check size={16} className="mx-auto text-emerald-600" /></td>
-                  )}
-                  <td className="py-3.5 px-4 text-center bg-emerald-50/20"><Check size={16} className="mx-auto text-emerald-600" /></td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Matching Radius</td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">10 km</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center font-bold text-slate-700 bg-emerald-50/20">15 km</td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">Support Assistance</td>
-                  {showSpecialOffer && (
-                    <td className="py-3.5 px-4 text-center text-slate-600">Standard Support</td>
-                  )}
-                  <td className="py-3.5 px-4 text-center text-emerald-700 font-bold bg-emerald-50/20">Dedicated 24/7 Support Desk</td>
+                  <td className="py-3.5 px-3 font-bold text-slate-900">Placement &amp; Support</td>
+                  <td className="py-3.5 px-3 text-center text-slate-600 bg-emerald-50/30">Demo Booking Support</td>
+                  <td className="py-3.5 px-3 text-center text-slate-600 bg-blue-50/20">24/7 Support Desk + Verified Badge</td>
+                  <td className="py-3.5 px-3 text-center text-yellow-900 font-bold bg-yellow-50/20">+3,000 Boost + WhatsApp Alerts</td>
+                  <td className="py-3.5 px-3 text-center text-purple-900 font-black bg-purple-50/30">+10,000 VIP Boost + Dedicated RM</td>
                 </tr>
               </tbody>
             </table>
@@ -658,7 +688,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               <span>Transparent Terms &amp; Verified Lead Guarantee</span>
             </h4>
             <p className="text-xs font-medium text-slate-600 max-w-2xl leading-relaxed">
-              All lead allowances (<strong>Growth Plan: up to 6 leads across Class 1–8 monthly, Class 9–10 hourly, and Class 11–12 hourly</strong>), 0% platform commission terms, validity (30 days), and the low-competition tutor cap (max 3 tutors) are governed by our platform terms.
+              All lead allowances (<strong>Silver Plan: 15 verified leads unlocked across all classes &amp; subjects</strong>), 0% platform commission terms, validity (30 days), and the low-competition tutor cap (max 3 tutors) are governed by our platform terms.
             </p>
           </div>
           <Link

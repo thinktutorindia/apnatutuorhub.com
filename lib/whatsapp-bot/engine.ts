@@ -22,6 +22,9 @@ import {
   getTutorCoinBalanceByPhone,
   formatParentDemoMessage,
   formatSingleLeadInquiry,
+  formatOfferEnded999Message,
+  formatCommissionPlanDetailMessage,
+  formatGrowthPlanDetailMessage,
 } from "./leads-helper";
 import {
   registerTutorFromWhatsapp,
@@ -620,7 +623,7 @@ export async function processMessage(
     /(?:bina\s*(?:paise|reg|payment)|free\s*(?:lead|enquiry|tuition|demo)|pehle\s*demo\s*(?:fir|phir|baad)|payment\s*baad|ek\s*(?:lead|enquiry)\s*(?:free|dedo))/i.test(rawMessage)
   ) {
     return {
-      reply: `Sir hum samajhte hain, par parents ke direct verified phone number aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹999 plan se shuru kar sakte hain jisme 100% fees aapki rehti hai (0% commission)!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
+      reply: `Sir hum samajhte hain, par parents ke direct verified phone number aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹2,999 Growth plan (0% commission) ya ₹1,257 Commission plan se shuru kar sakte hain!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
@@ -1015,7 +1018,7 @@ export async function processMessage(
     }
     if (/\bfees?\b|\bbudget\b|\bkam hai\b/i.test(rawMessage)) {
       return {
-        reply: "Fee note ho gayi. Ab Class 1–8 monthly *₹4,500+* aur Class 9+ hourly *₹450+* (market se upar) wali classes aayengi — All Subjects sirf 1–8, 9–12 subject-wise.",
+        reply: "Fee note ho gayi. Ab Class 1–8 monthly *₹6,000+* aur Class 9+ hourly *₹700+* (market se upar) wali classes aayengi — All Subjects sirf 1–8, 9–12 subject-wise.",
         nextStep: "DONE",
         updatedData: data,
         retries: 0,
@@ -1355,6 +1358,42 @@ export async function processMessage(
     };
   }
 
+  // ── ₹999 Legacy Query Handler (Offer Ended Notice) ──────────────────────────
+  if (/(?:^|\D)999(?!\d)|999\s*wala|999\s*plan|999\s*offer|999\s*ka/i.test(rawMessage)) {
+    return {
+      reply: formatOfferEnded999Message(),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Silver Plan ₹2,999 🚀", "Commission Plan ₹1,257 🤝", "Talk to Support 📞"],
+    };
+  }
+
+  // ── Commission Plan Interest Handler (₹1,257) ──────────────────────────────
+  if (/(?:commission\s*(?:wala|plan|based|system|deal|pe)|1257|50\s*%\s*commission|commission\s*kya\s*hai)/i.test(rawMessage)) {
+    return {
+      reply: formatCommissionPlanDetailMessage(),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View Plans 💰", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  // ── Zero Commission / Silver Plan Interest Handler (₹2,999) ─────────────────
+  if (/(?:no\s*commission|zero\s*commission|0\s*%\s*commission|bina\s*commission|silver\s*plan|growth\s*plan|silver|2999|full\s*fee|100\s*%\s*fee)/i.test(rawMessage)) {
+    return {
+      reply: formatGrowthPlanDetailMessage(),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, interestedPlanType: "SILVER_2999" },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View Plans 💰", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
   // ── Global Leads & Plans shortcuts ──────────────────────────────────────────
   if (/plan|coin|pack|pricing|membership|buy coins|recharge|wallet/i.test(msg)) {
     const bal = await getTutorCoinBalanceByPhone(session.phone);
@@ -1641,7 +1680,7 @@ export async function processMessage(
     // Conversational fallbacks for tutors asking about free leads, bargaining, or delayed payment:
     if (/bina\s*reg|free\s*lead|paise\s*nahi|payment\s*baad|ek\s*enquiry|enquiry\s*dedo|pehle\s*demo|yaar\b/i.test(rawMessage)) {
       return {
-        reply: `Sir hum samajhte hain, par parents ke direct contact details aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹999 plan se shuru kar sakte hain jisme 100% fees aapki rehti hai (0% commission)!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
+        reply: `Sir hum samajhte hain, par parents ke direct contact details aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹2,999 Growth plan (0% commission) ya ₹1,257 Commission plan se shuru kar sakte hain!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
         nextStep: "DONE",
         updatedData: data,
         userType: "TUTOR",
@@ -1693,7 +1732,7 @@ export async function processMessage(
 
     if (/\b(fees?\s*kam|kam\s*(hai|hain)?\s*(fees?|budget)?|budget\s*kam|fees?\s*(issue|increase|badhao|zyada)|fee\s*kam)\b/i.test(rawMessage)) {
       return {
-        reply: `Samajh gaya — fees kam lagi. Ab nayi classes market se *upar* hongi:\n• Class 1–8: monthly ₹4,500–₹6,000, *All Subjects*\n• Class 9–12: hourly ₹450–₹850, sirf aapke subjects\n\nLocation wale tutors ko 5 km ke andar. Bina location ke sirf online.\n👉 https://apnatutorhub.com/tutor/leads`,
+        reply: `Samajh gaya — fees kam lagi. Ab nayi classes market se *upar* hongi:\n• Class 1–8: monthly ₹6,000–₹7,600, *All Subjects*\n• Class 9–12: hourly ₹700–₹1,050, sirf aapke subjects\n\nLocation wale tutors ko 5 km ke andar. Bina location ke sirf online.\n👉 https://apnatutorhub.com/tutor/leads`,
         nextStep: "DONE",
         updatedData: data,
         userType: "TUTOR",

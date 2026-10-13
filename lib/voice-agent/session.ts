@@ -207,7 +207,7 @@ export async function handleCallerTurn(input: {
       const code = lead.inquiryNumber ? `#${lead.inquiryNumber}` : "";
       await sendBotMessage(
         phone,
-        `Priya (call): ${lead.area}, ${lead.classLevel} ${code}, fee ${lead.budget}. Unlock ~10 coins class 1-8. Forgot Password → Tutor Leads. Plan 999 + GST.`
+        `Priya (call): ${lead.area}, ${lead.classLevel} ${code}, fee ${lead.budget}. Unlock ~10 coins class 1-8. Forgot Password → Tutor Leads. Plan 2,999 + GST.`
       ).catch(() => false);
     } else {
       turn.say = callerPrefersHindi(callerText)

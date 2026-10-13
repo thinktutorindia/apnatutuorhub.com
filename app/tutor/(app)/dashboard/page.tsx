@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import {
   ArrowRight, Search, Wallet, ShieldCheck, ShieldAlert, Star, UserCog,
   BookOpen, CheckCircle2, MapPin, MessageSquare, ChevronRight, UserCheck,
-  Navigation, Globe,
+  Navigation, Globe, Crown,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -282,55 +282,63 @@ export default async function TutorDashboardPage() {
     <div className="space-y-6 pb-8 text-slate-900">
       <EnablePushBanner userId={session.user.id} />
 
-      <div className="relative overflow-hidden rounded-3xl bg-[#0F2540] p-6 sm:p-8 text-white">
-        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2 max-w-xl min-w-0">
+      {/* ── Modern Attractive Hero Banner ── */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#07131F] via-[#0B1E33] to-[#0D253A] p-6 sm:p-9 text-white border border-white/10 shadow-2xl shadow-slate-900/10">
+        {/* Ambient Glowing Orbs */}
+        <div className="absolute -top-24 -right-24 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3 max-w-xl min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               {isKycApproved ? (
-                <span className="ath-verified bg-white/10 text-emerald-200 border-emerald-400/40">
-                  <ShieldCheck size={14} /> Verified Teacher
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-2xs">
+                  <ShieldCheck size={14} className="text-emerald-400" /> Verified Teacher
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-700 bg-amber-500/20 text-amber-200 border border-amber-400/40">
-                  <ShieldAlert size={14} /> Verification (Optional)
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow-2xs">
+                  <ShieldAlert size={14} className="text-amber-400" /> Identity Verification (Optional)
                 </span>
               )}
               {tutorProfile?.isFeatured && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-800 bg-[#F5A623] text-[#0F2540]">
-                  <Star size={12} fill="#0F2540" /> Featured
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 to-orange-400 text-[#0F2540] shadow-sm">
+                  <Star size={12} fill="#0F2540" /> Featured Tutor
                 </span>
               )}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-800 tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
-              Namaste {firstName}! Welcome back.
+
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
+              Namaste {firstName}! 🎓
             </h1>
-            <p className="text-[15px] text-slate-200 font-500 leading-relaxed">
+
+            <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed">
               {isKycApproved
-                ? "Parents near you are posting tuition requirements. Unlock a lead when you are ready to take the class."
-                : "Unlock leads immediately with coins or a plan. Finish verification anytime to earn your Verified Teacher badge."}
+                ? "Verified student inquiries are live near you. Unlock a lead whenever you're ready to start a tuition demo."
+                : "Explore instant student leads below. You can start unlocking immediately with wallet coins or an active membership plan!"}
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full lg:w-auto">
             <Link
               href="/tutor/leads"
-              className="min-h-12 px-5 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-[15px] font-800 inline-flex items-center justify-center gap-2"
+              className="min-h-12 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-black inline-flex items-center justify-center gap-2 shadow-xl shadow-emerald-700/25 hover:scale-[1.02] active:scale-98 transition-all"
             >
               <Search size={16} />
-              View Student Leads
+              <span>Explore Student Leads</span>
             </Link>
             <Link
               href="/tutor/wallet"
-              className="min-h-12 px-5 py-3 rounded-2xl bg-[#F5A623] hover:bg-[#e69512] text-[#0F2540] text-[15px] font-800 inline-flex items-center justify-center gap-2"
+              className="min-h-12 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-sm font-black inline-flex items-center justify-center gap-2 shadow-lg shadow-amber-600/25 hover:scale-[1.02] active:scale-98 transition-all"
             >
               <Wallet size={16} />
-              {walletBalance} Coins
+              <span>{walletBalance} Coins</span>
             </Link>
             <Link
               href="/tutor/plans"
-              className="min-h-12 px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-[15px] font-800 inline-flex items-center justify-center border border-white/20"
+              className="min-h-12 px-5 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-black inline-flex items-center justify-center gap-1.5 border border-white/20 backdrop-blur-md hover:scale-[1.02] active:scale-98 transition-all"
             >
-              Membership
+              <Crown size={15} className="text-amber-300" />
+              <span>Membership</span>
             </Link>
           </div>
         </div>
@@ -338,32 +346,32 @@ export default async function TutorDashboardPage() {
 
       {!isKycApproved && (
         <div
-          className={`ath-panel p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-            kycStatus === "REJECTED" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
+          className={`ath-panel p-5.5 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-2 shadow-xs transition-all ${
+            kycStatus === "REJECTED" ? "border-red-200 bg-red-50/70" : "border-amber-200/80 bg-amber-50/60"
           }`}
         >
           <div className="flex items-start gap-3.5 min-w-0">
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
                 kycStatus === "REJECTED" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"
               }`}
             >
-              {kycStatus === "REJECTED" ? <ShieldAlert size={20} /> : <ShieldCheck size={20} />}
+              {kycStatus === "REJECTED" ? <ShieldAlert size={22} /> : <ShieldCheck size={22} />}
             </div>
             <div className="min-w-0">
-              <h3 className="text-[15px] font-800 text-[#0F2540]">
+              <h3 className="text-base font-black text-[#0F2540]">
                 {kycStatus === "PENDING"
                   ? "Documents under review"
                   : kycStatus === "REJECTED"
                     ? "Please re-upload your documents"
                     : "Identity verification (Optional)"}
               </h3>
-              <p className="text-sm text-slate-700 mt-0.5 leading-relaxed font-500">
+              <p className="text-xs sm:text-sm text-slate-700 mt-0.5 leading-relaxed font-medium">
                 {kycStatus === "PENDING"
-                  ? "Our team usually finishes this within 24 hours. You will get a message when it is done."
+                  ? "Our team usually finishes this within 24 hours. You will receive an instant WhatsApp update when approved."
                   : kycStatus === "REJECTED"
-                    ? "Your last upload could not be verified. Please upload a clearer Aadhaar and selfie."
-                    : "Upload Aadhaar and a selfie anytime to earn your Verified Teacher badge and build trust with parents. You can still unlock leads right now with coins or a plan!"}
+                    ? "Your last upload could not be verified. Please upload a clear photo of your Aadhaar card and selfie."
+                    : "Upload Aadhaar and a selfie anytime to earn your Verified Teacher badge. You can still unlock leads right now with coins or a plan!"}
               </p>
             </div>
           </div>
@@ -371,75 +379,93 @@ export default async function TutorDashboardPage() {
           {kycStatus !== "PENDING" && (
             <Link
               href="/tutor/profile"
-              className="min-h-12 px-5 py-2.5 rounded-xl bg-[#0F2540] text-white text-sm font-800 shrink-0 text-center"
+              className="min-h-11 px-5 py-2.5 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white text-xs font-black shrink-0 text-center shadow-md transition-all"
             >
-              {kycStatus === "REJECTED" ? "Re-upload documents" : "Upload documents"}
+              {kycStatus === "REJECTED" ? "Re-upload Documents" : "Upload Documents"}
             </Link>
           )}
         </div>
       )}
 
+      {/* ── 4 Quick Stat Cards ── */}
       <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/tutor/wallet" className="ath-panel p-5 flex flex-col justify-between min-w-0">
+        <Link
+          href="/tutor/wallet"
+          className="rounded-3xl p-5 bg-gradient-to-br from-amber-50/60 via-white to-amber-50/30 border-2 border-amber-200/90 shadow-md hover:shadow-xl hover:border-amber-300 hover:-translate-y-1 transition-all flex flex-col justify-between min-w-0 group"
+        >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-800 uppercase tracking-wider text-[#64748B]">Coin balance</span>
-            <Wallet size={18} className="text-[#F5A623]" />
+            <span className="text-xs font-black uppercase tracking-wider text-amber-900">Wallet Coins</span>
+            <div className="w-10 h-10 rounded-2xl bg-amber-100 group-hover:bg-amber-200 text-amber-700 flex items-center justify-center transition-colors shadow-2xs">
+              <Wallet size={18} />
+            </div>
           </div>
           <div>
-            <div className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight">{walletBalance}</div>
-            <p className="text-xs text-[#2D9E6B] font-700 mt-1 inline-flex items-center gap-1">
+            <div className="text-3xl font-black text-[#0F2540] tracking-tight">{walletBalance}</div>
+            <p className="text-xs text-amber-700 font-bold mt-1 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
               Top up coins <ChevronRight size={13} />
             </p>
           </div>
         </Link>
 
-        <Link href="/tutor/leads" className="ath-panel p-5 flex flex-col justify-between min-w-0">
+        <Link
+          href="/tutor/leads"
+          className="rounded-3xl p-5 bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/30 border-2 border-emerald-200/90 shadow-md hover:shadow-xl hover:border-emerald-300 hover:-translate-y-1 transition-all flex flex-col justify-between min-w-0 group"
+        >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-800 uppercase tracking-wider text-[#64748B]">Leads unlocked</span>
-            <UserCog size={18} className="text-[#2D9E6B]" />
+            <span className="text-xs font-black uppercase tracking-wider text-emerald-900">Leads Unlocked</span>
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 group-hover:bg-emerald-200 text-emerald-700 flex items-center justify-center transition-colors shadow-2xs">
+              <UserCog size={18} />
+            </div>
           </div>
           <div>
-            <div className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight">
+            <div className="text-3xl font-black text-[#0F2540] tracking-tight">
               {tutorProfile?._count.purchases ?? 0}
             </div>
-            <p className="text-xs text-[#1A3C5E] font-700 mt-1 inline-flex items-center gap-1">
+            <p className="text-xs text-emerald-700 font-bold mt-1 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
               View leads <ChevronRight size={13} />
             </p>
           </div>
         </Link>
 
-        <Link href="/tutor/bookings" className="ath-panel p-5 flex flex-col justify-between min-w-0">
+        <Link
+          href="/tutor/bookings"
+          className="rounded-3xl p-5 bg-gradient-to-br from-sky-50/60 via-white to-sky-50/30 border-2 border-sky-200/90 shadow-md hover:shadow-xl hover:border-sky-300 hover:-translate-y-1 transition-all flex flex-col justify-between min-w-0 group"
+        >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-800 uppercase tracking-wider text-[#64748B]">Classes booked</span>
-            <BookOpen size={18} className="text-[#0F2540]" />
+            <span className="text-xs font-black uppercase tracking-wider text-sky-900">Classes Booked</span>
+            <div className="w-10 h-10 rounded-2xl bg-sky-100 group-hover:bg-sky-200 text-sky-700 flex items-center justify-center transition-colors shadow-2xs">
+              <BookOpen size={18} />
+            </div>
           </div>
           <div>
-            <div className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight">
+            <div className="text-3xl font-black text-[#0F2540] tracking-tight">
               {tutorProfile?._count.bookings ?? 0}
             </div>
-            <p className="text-xs text-[#2D9E6B] font-700 mt-1 inline-flex items-center gap-1">
+            <p className="text-xs text-sky-700 font-bold mt-1 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
               Manage classes <ChevronRight size={13} />
             </p>
           </div>
         </Link>
 
-        <div className="ath-panel p-5 flex flex-col justify-between min-w-0">
+        <div className="rounded-3xl p-5 bg-gradient-to-br from-purple-50/60 via-white to-purple-50/30 border-2 border-purple-200/90 shadow-md hover:shadow-xl hover:border-purple-300 transition-all flex flex-col justify-between min-w-0">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-800 uppercase tracking-wider text-[#64748B]">Parent reviews</span>
-            <Star size={18} className="text-[#F5A623]" fill="#F5A623" />
+            <span className="text-xs font-black uppercase tracking-wider text-purple-900">Parent Rating</span>
+            <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-2xs">
+              <Star size={18} fill="#A855F7" className="text-purple-600" />
+            </div>
           </div>
           <div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight">
+              <span className="text-3xl font-black text-[#0F2540] tracking-tight">
                 {tutorProfile?.totalReviews && tutorProfile.totalReviews > 0
                   ? tutorProfile.averageRating.toFixed(1)
-                  : "New"}
+                  : "5.0 ★"}
               </span>
               {tutorProfile?.totalReviews && tutorProfile.totalReviews > 0 && (
-                <span className="text-xs text-[#92400E] font-700">({tutorProfile.totalReviews})</span>
+                <span className="text-xs text-purple-900 font-bold">({tutorProfile.totalReviews} reviews)</span>
               )}
             </div>
-            <p className="text-xs text-[#64748B] font-500 mt-1">From verified parents</p>
+            <p className="text-xs text-slate-500 font-medium mt-1">Verified Parent Reviews</p>
           </div>
         </div>
       </div>
@@ -509,50 +535,53 @@ export default async function TutorDashboardPage() {
         </div>
 
         {recentLeads.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {recentLeads.map((lead) => {
               const inquiryCode = getInquiryDisplayCode(lead);
               const spotsLeft = publicTutorSlots(lead.purchaseCount).left;
               return (
-                <div key={lead.id} className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#2D9E6B]/50 transition-all space-y-3 flex flex-col justify-between min-w-0 shadow-2xs">
-                  <div className="space-y-2">
+                <div
+                  key={lead.id}
+                  className="p-5 rounded-3xl bg-gradient-to-b from-white to-slate-50/80 border-2 border-slate-200/90 hover:border-emerald-400/80 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 space-y-3.5 flex flex-col justify-between min-w-0"
+                >
+                  <div className="space-y-2.5">
                     {/* Inquiry Number & Mode / Distance */}
                     <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                      <span className="font-mono font-extrabold text-[11px] text-[#0F2540] bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                      <span className="font-mono font-black text-[11px] text-[#0F2540] bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
                         #{inquiryCode}
                       </span>
                       <div className="flex items-center gap-1 flex-wrap">
                         {lead.distanceKm !== null && lead.distanceKm <= 5 ? (
-                          <span className="text-[11px] font-800 px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">
-                            <Navigation size={10} className="text-[#238357]" /> {lead.distanceKm.toFixed(1)} km
+                          <span className="text-[11px] font-black px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                            <Navigation size={10} className="text-[#238357]" /> {lead.distanceKm.toFixed(1)} km nearby
                           </span>
                         ) : lead.isOnline ? (
-                          <span className="text-[11px] font-800 px-2 py-0.5 rounded-lg bg-sky-100 text-sky-800 border border-sky-200 inline-flex items-center gap-1">
-                            <Globe size={10} className="text-sky-600" /> Online
+                          <span className="text-[11px] font-black px-2.5 py-0.5 rounded-lg bg-sky-100 text-sky-900 border border-sky-300 inline-flex items-center gap-1 shadow-2xs">
+                            <Globe size={10} className="text-sky-600" /> Online Mode
                           </span>
                         ) : (
-                          <span className="text-[11px] font-700 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
-                            {lead.city || "Uploaded"}
+                          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200">
+                            {lead.city || "Delhi"}
                           </span>
                         )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs font-800 px-2.5 py-0.5 rounded-full bg-[#0F2540] text-white">
+                      <span className="text-xs font-black px-3 py-1 rounded-full bg-[#0F2540] text-white shadow-2xs">
                         {cleanClassLevelDisplay(lead.classLevel) || "Tuition"}
                       </span>
-                      <span className="text-[11px] font-700 text-[#64748B] bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                        {lead.mode === "ONLINE" ? "Online Class" : "Home Tuition"}
+                      <span className="text-[11px] font-bold text-slate-700 bg-white px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs">
+                        {lead.mode === "ONLINE" ? "💻 Online Class" : "🏡 Home Tuition"}
                       </span>
                       {spotsLeft > 0 && (
-                        <span className="text-[10px] font-800 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                          {spotsLeft} slot{spotsLeft > 1 ? "s" : ""} left
+                        <span className="text-[10px] font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          ⚡ {spotsLeft} slot{spotsLeft > 1 ? "s" : ""} left
                         </span>
                       )}
                     </div>
 
-                    <h3 className="text-sm font-800 text-[#0F2540] leading-snug">
+                    <h3 className="text-base font-black text-[#0F2540] leading-snug tracking-tight">
                       {(lead.subjects &&
                         sanitizeSubjectsForClassLevel(lead.subjects, lead.classLevel)
                           .slice(0, 3)
@@ -560,19 +589,23 @@ export default async function TutorDashboardPage() {
                         "Multiple subjects"}
                     </h3>
 
-                    <p className="text-xs text-[#64748B] flex items-center gap-1 min-w-0">
-                      <MapPin size={13} className="text-[#2D9E6B] shrink-0" />
+                    <p className="text-xs text-slate-600 font-medium flex items-center gap-1.5 min-w-0">
+                      <MapPin size={14} className="text-emerald-600 shrink-0" />
                       <span className="truncate">{lead.area ? `${lead.area}, ${lead.city}` : lead.city || "Student Area"}</span>
                     </p>
                   </div>
 
-                  <div className="pt-2.5 border-t border-[#E2E8F0] flex items-center justify-between gap-2">
-                    <span className="text-xs font-800 text-[#0F2540]">{formatLeadBudget(lead)}</span>
+                  <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tuition Budget</span>
+                      <span className="text-sm font-black text-[#0F2540]">{formatLeadBudget(lead)}</span>
+                    </div>
                     <Link
                       href={purchasedLeadIds.has(lead.id) ? "/tutor/leads?tab=unlocked" : "/tutor/leads"}
-                      className="px-3 py-1.5 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] text-white text-xs font-800 transition-colors inline-flex items-center gap-1 shadow-2xs"
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black transition-all inline-flex items-center gap-1.5 shadow-md shadow-emerald-700/20 hover:scale-[1.02] active:scale-98"
                     >
-                      {purchasedLeadIds.has(lead.id) ? "Open Unlocked" : "Unlock Lead"}
+                      <span>{purchasedLeadIds.has(lead.id) ? "View Unlocked" : "Unlock Lead"}</span>
+                      <ArrowRight size={13} />
                     </Link>
                   </div>
                 </div>

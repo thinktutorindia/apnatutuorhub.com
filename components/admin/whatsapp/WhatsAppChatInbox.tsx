@@ -25,10 +25,12 @@ import {
   getWhatsAppChatThreadsAction,
   getWhatsAppChatMessagesAction,
   sendStaffWhatsAppReplyAction,
+  markWhatsAppContactAsInterestedAction,
   type WhatsAppConversationSummary,
   type WhatsAppChatMessageItem,
   type WhatsAppChatContactDetails,
 } from "@/app/actions/whatsapp-chat.actions";
+import Link from "next/link";
 
 const QUICK_TEMPLATES = [
   {
@@ -72,6 +74,12 @@ export function WhatsAppChatInbox() {
 
   const [mobileViewChat, setMobileViewChat] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [markingInterested, setMarkingInterested] = useState(false);
+  const [interestedFeedback, setInterestedFeedback] = useState<{
+    type: "success" | "error" | "already";
+    text: string;
+    leadId?: string;
+  } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -209,6 +217,42 @@ export function WhatsAppChatInbox() {
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  // Mark current contact as an INTERESTED lead in Staff CRM
+  const handleMarkInterested = async () => {
+    if (!selectedPhone || markingInterested) return;
+    setMarkingInterested(true);
+    setInterestedFeedback(null);
+
+    // Grab last inbound message as context note
+    const lastInbound = [...messages].reverse().find((m) => m.direction === "INBOUND");
+    const note = lastInbound ? lastInbound.body.slice(0, 200) : undefined;
+
+    const res = await markWhatsAppContactAsInterestedAction({
+      phone: selectedPhone,
+      name:     contact?.name     ?? activeThread?.name     ?? null,
+      email:    contact?.email    ?? null,
+      location: contact?.location ?? activeThread?.location ?? null,
+      subjects: contact?.subjects ?? activeThread?.subjects ?? [],
+      note,
+    });
+
+    setMarkingInterested(false);
+
+    if (res.success && res.data) {
+      setInterestedFeedback({
+        type: res.data.isNew ? "success" : "already",
+        text: res.data.isNew
+          ? `✅ Marked as Interested! Lead saved in CRM.`
+          : `⭐ Already in CRM — status upgraded to Interested.`,
+        leadId: res.data.leadId,
+      });
+      setTimeout(() => setInterestedFeedback(null), 5000);
+    } else {
+      setInterestedFeedback({ type: "error", text: res.error ?? "Failed to mark as interested." });
+      setTimeout(() => setInterestedFeedback(null), 5000);
     }
   };
 
@@ -519,16 +563,45 @@ export function WhatsAppChatInbox() {
                 </div>
 
                 {/* Header Actions */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                  {/* ⭐ Mark as Interested */}
+                  <button
+                    type="button"
+                    onClick={handleMarkInterested}
+                    disabled={markingInterested || !selectedPhone}
+                    title="Mark this contact as an Interested Lead in Staff CRM"
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {markingInterested ? (
+                      <RefreshCw size={13} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={13} />
+                    )}
+                    <span className="hidden sm:inline">
+                      {markingInterested ? "Saving…" : "Mark Interested"}
+                    </span>
+                  </button>
+
+                  {/* 🚀 Go to campaign panel */}
+                  <Link
+                    href="/admin/staff-leads/interested-leads"
+                    target="_blank"
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
+                    title="Open Interested Leads Campaign Panel"
+                  >
+                    <Send size={13} />
+                    <span className="hidden sm:inline">Campaign</span>
+                  </Link>
+
                   <a
                     href={`https://wa.me/${selectedPhone}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
                     title="Open in WhatsApp Web"
                   >
-                    <MessageSquare size={14} />
-                    <span className="hidden sm:inline">WhatsApp</span>
+                    <MessageSquare size={13} />
+                    <span className="hidden sm:inline">WA Web</span>
                   </a>
 
                   <a
@@ -555,6 +628,29 @@ export function WhatsAppChatInbox() {
                 </div>
               </div>
 
+              {/* ⭐ Interested Feedback Banner */}
+              {interestedFeedback && (
+                <div
+                  className={`flex items-center justify-between gap-3 px-4 py-2 text-xs font-semibold border-b ${
+                    interestedFeedback.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : interestedFeedback.type === "already"
+                      ? "bg-amber-50 text-amber-800 border-amber-200"
+                      : "bg-rose-50 text-rose-800 border-rose-200"
+                  }`}
+                >
+                  <span>{interestedFeedback.text}</span>
+                  {interestedFeedback.leadId && (
+                    <Link
+                      href="/admin/staff-leads/interested-leads"
+                      target="_blank"
+                      className="underline font-bold whitespace-nowrap hover:opacity-80 transition-opacity"
+                    >
+                      Send Campaign →
+                    </Link>
+                  )}
+                </div>
+              )}
               {/* Chat Message Stream */}
               <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3.5">
                 {/* Contact info pill badge banner */}

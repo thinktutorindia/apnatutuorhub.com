@@ -147,6 +147,16 @@ export default function TermsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                <tr className="bg-emerald-50/60">
+                  <td className="py-3 px-4 font-bold text-emerald-950">
+                    🤝 Commission Based Plan
+                    <div className="text-[10px] text-emerald-700 font-medium">50% 1st month + 5% recurring from 2nd month</div>
+                  </td>
+                  <td className="py-3 px-4 font-bold text-emerald-900">₹1,257 (Registration Fee)</td>
+                  <td className="py-3 px-4 text-center font-bold text-slate-900">5 Verified Leads</td>
+                  <td className="py-3 px-4 text-center text-emerald-700 font-bold">6 Months</td>
+                  <td className="py-3 px-4 text-emerald-900 font-bold">Low Competition (Max 3 tutors)</td>
+                </tr>
                 <tr>
                   <td className="py-3 px-4 font-bold text-amber-950">Bronze Plan</td>
                   <td className="py-3 px-4 font-bold">₹6,000</td>

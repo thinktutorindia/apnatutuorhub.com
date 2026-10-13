@@ -453,3 +453,118 @@ export async function sendStaffWhatsAppReplyAction(params: {
     return actionError(err instanceof Error ? err.message : "Failed to send WhatsApp message.");
   }
 }
+
+/**
+ * Mark a WhatsApp chat contact as an INTERESTED lead in the Staff CRM.
+ *
+ * - If a StaffLead already exists for this phone, upserts it to INTERESTED.
+ * - Otherwise creates a new StaffLead with status=INTERESTED and source from WhatsApp.
+ * - Adds optional staff note with the last inbound message snippet for context.
+ */
+export async function markWhatsAppContactAsInterestedAction(params: {
+  phone: string;
+  name?: string | null;
+  email?: string | null;
+  location?: string | null;
+  subjects?: string[];
+  note?: string | null;
+}): Promise<ActionResult<{ leadId: string; isNew: boolean }>> {
+  const guard = await requireStaffOrAdmin();
+  if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
+
+  const normalized = normalizeIndiaWhatsApp(params.phone) || params.phone.replace(/\D/g, "");
+  if (!normalized) return actionError("Invalid phone number.");
+
+  try {
+    // Check if this phone already exists in staff_leads
+    const existing = await prisma.staffLead.findFirst({
+      where: {
+        OR: [
+          { phone: normalized },
+          { whatsapp: normalized },
+        ],
+      },
+      select: { id: true, status: true },
+    });
+
+    const staffNote = [
+      "📱 Marked as INTERESTED from WhatsApp Live Chat inbox.",
+      params.note ? `\n💬 Context: ${params.note}` : "",
+    ]
+      .filter(Boolean)
+      .join("")
+      .trim();
+
+    if (existing) {
+      // Upsert: upgrade to INTERESTED if not already converted/rejected
+      const dontOverwrite = ["CONVERTED", "REJECTED", "DUPLICATE", "NOT_INTERESTED"];
+      const newStatus = dontOverwrite.includes(existing.status) ? existing.status : "INTERESTED";
+
+      await prisma.staffLead.update({
+        where: { id: existing.id },
+        data: {
+          status: newStatus as any,
+          whatsapp: normalized,
+          ...(params.name    && { name:     params.name }),
+          ...(params.email   && { email:    params.email }),
+          ...(params.location && { location: params.location }),
+          ...(params.subjects?.length && { subjects: params.subjects }),
+          staffNotes: staffNote,
+          lastContactedAt: new Date(),
+        },
+      });
+
+      revalidatePath("/admin/staff-leads/interested-leads");
+      return actionSuccess({ leadId: existing.id, isNew: false });
+    }
+
+    // Find or create a "WhatsApp Live Chat" batch
+    let batch = await prisma.staffLeadBatch.findFirst({
+      where: { name: { contains: "WhatsApp Live Chat", mode: "insensitive" } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+
+    if (!batch) {
+      batch = await prisma.staffLeadBatch.create({
+        data: {
+          name: "WhatsApp Live Chat Leads",
+          rawText: "WhatsApp Live Chat Leads",
+          totalParsed: 0,
+          totalJunk: 0,
+          createdById: guard.session.user.id,
+        },
+        select: { id: true },
+      });
+    }
+
+    const lead = await prisma.staffLead.create({
+      data: {
+        batchId: batch.id,
+        name:     params.name     ?? null,
+        phone:    normalized,
+        whatsapp: normalized,
+        email:    params.email    ?? null,
+        location: params.location ?? null,
+        subjects: params.subjects ?? [],
+        status:   "INTERESTED",
+        staffNotes: staffNote,
+        createdById: guard.session.user.id,
+        lastContactedAt: new Date(),
+      },
+      select: { id: true },
+    });
+
+    // Update batch totals
+    await prisma.staffLeadBatch.update({
+      where: { id: batch.id },
+      data: { totalParsed: { increment: 1 } },
+    }).catch(() => null);
+
+    revalidatePath("/admin/staff-leads/interested-leads");
+    return actionSuccess({ leadId: lead.id, isNew: true });
+  } catch (err) {
+    console.error("[markWhatsAppContactAsInterestedAction] Error:", err);
+    return actionError(err instanceof Error ? err.message : "Failed to mark as interested.");
+  }
+}

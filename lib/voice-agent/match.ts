@@ -239,8 +239,8 @@ export function nextMissingAsk(
         : `${extracted.area} — till which class do you teach?`;
     }
     return hindi
-      ? `${extracted.area} में ${extracted.classLevel} की ताज़ी लीड अभी नहीं है। आते ही WhatsApp अलर्ट जाएगा। प्लान नौ सौ निन्यानवे प्लस जीएसटी, लगभग साठ कॉइन।`
-      : `No fresh ${extracted.classLevel} lead in ${extracted.area} right now. WhatsApp alert goes out when one comes. Plan is 999 plus GST, about 60 coins.`;
+      ? `${extracted.area} में ${extracted.classLevel} की ताज़ी लीड अभी नहीं है। आते ही WhatsApp अलर्ट जाएगा। प्लान दो हज़ार नौ सौ निन्यानवे प्लस जीएसटी, लगभग साठ कॉइन।`
+      : `No fresh ${extracted.classLevel} lead in ${extracted.area} right now. WhatsApp alert goes out when one comes. Plan is 2,999 plus GST, about 60 coins.`;
   }
   if (!extracted.classLevel) {
     return hindi ? "बच्चा कौनसी क्लास में है?" : "Which class is the child in?";

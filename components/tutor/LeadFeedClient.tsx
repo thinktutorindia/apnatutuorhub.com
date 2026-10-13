@@ -893,20 +893,20 @@ export function LeadFeedClient({
       {/* Push Notification Setup Banner */}
       <LeadNotifReminderBanner />
 
-      {/* ₹999 Growth Plan Upsell Banner — shown when tutor has no active plan */}
+      {/* ₹2,999 Silver Plan Upsell Banner — shown when tutor has no active plan */}
       {!subscriptionInfo?.hasActivePlan && walletBalance < 10 && (
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-800 via-emerald-700 to-[#0f5c30] p-5 sm:p-6 text-white shadow-lg border border-emerald-600/40">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1.5 max-w-2xl">
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/15 text-white border border-white/20 text-xs font-bold">
                 <Zap size={13} />
-                <span>₹999 / month &nbsp;•&nbsp; 0% Commission &nbsp;•&nbsp; Max 3 tutors per lead</span>
+                <span>₹2,999 / month &nbsp;•&nbsp; 0% Commission &nbsp;•&nbsp; Max 3 tutors per lead</span>
               </div>
               <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-                Get the ₹999 Growth Plan — Unlock Verified Student Leads
+                Get the ₹2,999 Silver Plan — Unlock Verified Student Leads
               </h2>
               <p className="text-xs sm:text-sm text-emerald-100 leading-relaxed">
-                Get 2–6 verified student inquiries near your area. You keep 100% of the tuition fee — zero commission, ever.
+                Unlock verified student inquiries near your area. You keep 100% of the tuition fee — zero commission, ever.
                 Low competition: each lead shared with max 3 tutors only.
               </p>
             </div>
@@ -916,7 +916,7 @@ export function LeadFeedClient({
                 className="inline-flex items-center justify-center gap-1.5 px-5 py-3 rounded-xl bg-white text-emerald-800 font-extrabold text-sm shadow-md transition-all active:scale-95 hover:bg-emerald-50"
               >
                 <Zap size={15} />
-                <span>Activate ₹999 Plan</span>
+                <span>Activate ₹2,999 Silver Plan</span>
               </Link>
               <Link
                 href="/tutor/wallet"
@@ -947,7 +947,7 @@ export function LeadFeedClient({
             Find Student Requirements
           </h1>
           <p className="text-xs text-slate-600 font-medium">
-            Matched with your subjects, teaching mode, and locality radius. ₹999 Growth Plan: Max 3 tutors per lead &amp; 0% commission.
+            Matched with your subjects, teaching mode, and locality radius. ₹2,999 Silver Plan: Max 3 tutors per lead &amp; 0% commission.
           </p>
         </div>
 
@@ -962,7 +962,7 @@ export function LeadFeedClient({
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-bold text-emerald-900">
-                    ₹999 Growth Plan Active
+                    ₹2,999 Silver Plan Active
                   </span>
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-700 text-white">
                     0% Commission
@@ -993,7 +993,7 @@ export function LeadFeedClient({
               className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md"
             >
               <Zap size={14} />
-              <span>Get ₹999 Growth Plan</span>
+              <span>Get ₹2,999 Silver Plan</span>
             </Link>
           )}
 

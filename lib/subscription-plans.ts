@@ -24,7 +24,7 @@ export const TOTAL_PLAN_LEAD_POINTS = 60; // Default fallback for Growth Plan
 export function getPlanTotalPoints(planId?: string | null): number {
   if (!planId) return 60;
   const key = planId.toUpperCase();
-  if (key === "STARTER") return 30;   // 1 lead of any class (max 30 pts for Class 11-12/Entrance)
+  if (key === "STARTER") return 50;   // 5 leads (10 pts each, 5 leads total)
   if (key === "BRONZE") return 60;    // Up to 6 leads (<₹3k: 6 leads, ₹3k-5k: 3 leads, >₹5k: 2 leads)
   if (key === "PLATINUM") return 360; // Legacy 30 Class 1-5 leads
   if (key === "GOLD") return 240;     // Legacy 20 Class 1-5 leads
@@ -72,13 +72,13 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
 ];
 
 /**
- * Dynamic Lead Quota Breakdown by Tuition Fee Structure for ₹999 Growth Plan (60 pts total)
+ * Dynamic Lead Quota Breakdown by Tuition Fee Structure for ₹2,999 Growth Plan (60 pts total)
  * Lead unlock cost corresponds to fair ~5% of one month's student fee.
  */
 export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   {
     feeBand: "Class 1–8 (Primary & Middle)",
-    monthlyRange: "Monthly Tuition · about ₹3,600 – ₹4,800 / mo",
+    monthlyRange: "Monthly Tuition · about ₹6,000 – ₹7,600 / mo",
     leadsCount: 6,
     pointCost: 10,
     description: "Unlock up to 6 foundation & middle school leads (Class 1–8 all subjects, monthly billing)",
@@ -87,7 +87,7 @@ export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   },
   {
     feeBand: "Class 9–10 (Secondary & Board)",
-    monthlyRange: "Hourly Rate · about ₹320 – ₹400 / hr",
+    monthlyRange: "Hourly Rate · about ₹700 – ₹850 / hr",
     leadsCount: 3,
     pointCost: 20,
     description: "Unlock up to 3 board exam preparation leads (Class 9 & 10 Maths, Science, English)",
@@ -96,7 +96,7 @@ export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   },
   {
     feeBand: "Class 11–12 & Competitive",
-    monthlyRange: "Hourly Rate · about ₹450 – ₹620 / hr",
+    monthlyRange: "Hourly Rate · about ₹850 – ₹1,050 / hr",
     leadsCount: 2,
     pointCost: 30,
     description: "Unlock up to 2 high-ticket senior secondary & entrance leads (Class 11–12 PCB/PCM, JEE, NEET, Coding)",
@@ -107,12 +107,12 @@ export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
 
 /** Hourly quotes are turned into one month before the 5% coin charge. */
 export const HOURLY_CLASSES_PER_MONTH = 12;
-/** ₹999 Growth Plan wallet. 5% of the fee is priced in these coins, never above the whole plan. */
-export const GROWTH_PLAN_PRICE_INR = 999;
+/** ₹2,999 Growth Plan (No Commission) wallet. 5% of the fee is priced in these coins, never above the whole plan. */
+export const GROWTH_PLAN_PRICE_INR = 2999;
 export const GROWTH_PLAN_COINS = 60;
 
 /**
- * Unlock coins are 5% of the tuition fee, priced inside the ₹999 plan (60 coins).
+ * Unlock coins are 5% of the tuition fee, priced inside the ₹2,999 plan (60 coins).
  * Hourly fees become a month first (rate × 12). One lead never costs more than 60 coins.
  * Class is used only when no fee amount is present.
  */
@@ -228,50 +228,51 @@ export interface SubscriptionPlanConfig {
 export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConfig> = {
   STARTER: {
     id: "STARTER",
-    name: "Limited-Time Trial Pass",
-    priceInr: 99,
-    originalPriceInr: 999,
-    festivalDiscountPct: 90,
-    festivalBadge: "SPECIAL DEAL",
-    totalLeads: 1,
-    totalPoints: 30,
-    monthlyLeads: 1,
-    validityDays: 30,
-    validityText: "Valid for 30 Days",
-    maxTutorsPerLead: 5,
-    competitionLabel: "Shared Lead (max 5 tutors)",
-    exclusivityType: "SHARED_5",
-    exclusivityBadge: "👥 Shared (Max 5 Tutors)",
-    priorityLabel: "Standard",
-    badge: "⏰ Limited-Time Retargeting Deal",
-    badgeBg: "bg-orange-100 border-orange-300",
-    badgeText: "text-orange-950",
-    cardBorder: "border-orange-400 shadow-xl ring-2 ring-orange-400/30",
-    isStarterPass: true,
+    name: "Commission Based Plan",
+    priceInr: 1257,
+    originalPriceInr: 2500,
+    festivalDiscountPct: 50,
+    festivalBadge: "COMMISSION PLAN",
+    totalLeads: 5,
+    totalPoints: 50,
+    monthlyLeads: 5,
+    validityDays: 180,
+    validityText: "Valid for 6 Months",
+    maxTutorsPerLead: 3,
+    competitionLabel: "Low Competition (Shared with max 3 tutors)",
+    exclusivityType: "SHARED_3",
+    exclusivityBadge: "👥 Low Competition (Max 3 Tutors)",
+    priorityLabel: "Verified Priority",
+    badge: "🤝 Commission Based Plan",
+    badgeBg: "bg-emerald-100 border-emerald-300",
+    badgeText: "text-emerald-950 font-black",
+    cardBorder: "border-emerald-500 shadow-xl ring-2 ring-emerald-500/25",
+    isStarterPass: false,
     noGst: true,
-    isHidden: true,
-    isSpecialRetargetingOffer: true,
-    commissionNote: "50% Commission from 1st Month Tuition Fee",
+    isHidden: false,
+    isSpecialRetargetingOffer: false,
+    commissionNote: "50% Commission of 1st Month + 5% Every Month from 2nd Month onwards",
     features: [
-      "✅ 1 Verified Lead of Your Choice",
-      "📚 ANY class: 1–12, Boards, Entrance",
-      "📍 ANY location or Online",
-      "Full Parent Contact Info (Phone & Address)",
-      "🤝 50% Commission on 1st Month Fee",
-      "Valid for 30 Days",
-      "24/7 Support Desk",
+      "✅ 5 Verified Leads Unlock",
+      "📅 6 Months Validity (180 Days)",
+      "🤝 50% Commission on 1st Month Tuition Fee",
+      "🔄 5% Commission Every Month (from 2nd month onwards)",
+      "📍 5km In-Person Nearby or Online Mode",
+      "Full Parent Contact Info (Direct Phone & Address)",
+      "Instant Demo Booking Support",
+      "24/7 Dedicated Support Desk",
     ],
     classBreakdown: CLASS_LEAD_DISTRIBUTION,
     feeBreakdown: FEE_STRUCTURE_DISTRIBUTION,
-    termsNote: "1 Verified Lead for ANY class. 50% platform commission on 1st month tuition fee. Valid for 30 days.",
+    termsNote: "₹1,257 registration fee. Valid for 6 months. Unlocks 5 verified leads. Platform commission: 50% on 1st month tuition fee, and 5% commission every month from 2nd month onwards.",
   },
   BRONZE: {
     id: "BRONZE",
-    name: "Growth Plan",
-    priceInr: 999,
-    originalPriceInr: 2999,
-    festivalDiscountPct: 67,
-    festivalBadge: "67% OFF",
+    name: "Growth Plan (0% Commission)",
+    priceInr: 2999,
+    originalPriceInr: 5999,
+    festivalDiscountPct: 50,
+    festivalBadge: "50% OFF",
     totalLeads: 6,
     totalPoints: 60,
     monthlyLeads: 6,
@@ -282,18 +283,16 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     exclusivityType: "SHARED_3",
     exclusivityBadge: "👥 Low Competition (Max 3 Tutors)",
     priorityLabel: "Standard Priority",
-    badge: "Best Value Growth 🚀",
+    badge: "Zero Commission Plan 🚀",
     badgeBg: "bg-blue-100 border-blue-300",
     badgeText: "text-blue-950 font-bold",
     cardBorder: "border-blue-400 shadow-xl ring-2 ring-blue-400/25",
-    popular: true,
-    termsNote: "Up to 6 Verified Leads allocated by universal fee structure (Class 1–8: 10 pts / up to 6 leads, Class 9–10: 20 pts / up to 3 leads, Class 11–12 & Competitive: 30 pts / up to 2 leads). Valid for 30 days. Shared with max 3 tutors.",
+    popular: false,
+    isHidden: true,
+    termsNote: "Up to 6 Verified Leads allocated by universal fee structure. Valid for 30 days. Shared with max 3 tutors. 0% platform commission.",
     features: [
       "✅ Up to 6 Verified Leads by fee structure",
-      "📚 Class 1–8 (about ₹3,600–₹4,800/mo): 10 coins (Up to 6 Leads)",
-      "📈 Class 9–10 (about ₹320–₹400/hr): 20 coins (Up to 3 Leads)",
-      "⭐ Class 11–12 / JEE / NEET (about ₹450–₹620/hr): 30 coins (Up to 2 Leads)",
-      "🎉 0% Platform Commission (Keep 100% of student fees!)",
+      "🎉 0% Platform Commission (No commission — keep 100% of student fees!)",
       "👥 Low Competition: Max 3 tutors per lead",
       "Full Parent Contact Info (Direct Phone & Address)",
       "Expanded Matching Radius (up to 15 km)",
@@ -304,39 +303,42 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
   },
   SILVER: {
     id: "SILVER",
-    name: "Silver Plan",
-    priceInr: 6750,
-    originalPriceInr: 9000,
-    festivalDiscountPct: 25,
-    festivalBadge: "25% OFF",
+    name: "Silver Plan (0% Commission)",
+    priceInr: 2999,
+    originalPriceInr: 5999,
+    festivalDiscountPct: 50,
+    festivalBadge: "50% OFF",
     totalLeads: 15,
-    totalPoints: 180,
+    totalPoints: 60,
     monthlyLeads: 15,
-    validityDays: 60,
-    validityText: "Valid for 2 Months",
+    validityDays: 30,
+    validityText: "Valid for 30 Days",
     maxTutorsPerLead: 3,
     competitionLabel: "Low Competition (Shared with max 3 tutors)",
     exclusivityType: "SHARED_3",
     exclusivityBadge: "👥 Low Competition (Max 3 Tutors)",
     priorityLabel: "Standard Priority",
-    badge: "Silver Tier",
-    badgeBg: "bg-slate-200 border-slate-400",
-    badgeText: "text-slate-900",
-    cardBorder: "border-slate-300",
-    isHidden: true,
-    termsNote: "15 Verified Leads* (Class 1–5: 15, 6–8: 12, 9–10: 9, 11–12: 6, or mix). Valid for 2 months. Shared with max 3 tutors.",
+    badge: "Zero Commission Tier 🚀",
+    badgeBg: "bg-blue-100 border-blue-400",
+    badgeText: "text-blue-950 font-black",
+    cardBorder: "border-blue-400 shadow-xl ring-2 ring-blue-400/25",
+    popular: true,
+    isHidden: false,
+    termsNote: "15 Verified Leads* unlocked with 0% platform commission. Valid for 30 days. Shared with max 3 tutors.",
     features: [
-      "15 Verified Leads*",
-      "Valid for 2 Months",
+      "✅ 15 Verified Leads Unlock*",
+      "🎉 0% Platform Commission (Keep 100% of student fees!)",
       "👥 Low Competition: Max 3 tutors per lead",
+      "📅 Valid for 30 Days",
       "Unlock across all classes & subjects",
       "Full Parent Contact Info (Direct Phone & Address)",
       "Expanded Matching Radius (up to 15 km)",
       "Direct Parent Chat & Call Option",
       "Verified Tutor Badge on Profile",
-      "Priority Feed Placement (+1,500 Ranking Boost)",
+      "24/7 Dedicated Support Desk",
     ],
     classBreakdown: CLASS_LEAD_DISTRIBUTION,
+    feeBreakdown: FEE_STRUCTURE_DISTRIBUTION,
   },
   GOLD: {
     id: "GOLD",
@@ -359,7 +361,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     badgeBg: "bg-yellow-100 border-yellow-400",
     badgeText: "text-yellow-950 font-black",
     cardBorder: "border-yellow-400 shadow-lg ring-2 ring-yellow-400/20",
-    isHidden: true,
+    isHidden: false,
     termsNote: "20 Verified Leads* (Class 1–5: 20, 6–8: 16, 9–10: 12, 11–12: 8, or mix). Valid for 2 months. Semi-exclusive: Max 2 tutors.",
     features: [
       "20 Verified Leads*",
@@ -396,7 +398,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     badgeBg: "bg-purple-100 border-purple-400",
     badgeText: "text-purple-950 font-black",
     cardBorder: "border-purple-500 shadow-xl ring-2 ring-purple-500/30",
-    isHidden: true,
+    isHidden: false,
     termsNote: "30 High-Value Leads* (Class 1–5: 30, 6–8: 24, 9–10: 18, 11–12: 12, or mix). Valid for 3 months. 100% Exclusive Solo Lead Lock: Once unlocked by a Platinum VIP tutor, the lead is immediately closed and locked. No other tutor can contact the parent.",
     features: [
       "30 High-Value Leads*",

@@ -791,6 +791,31 @@ export async function resolveCampaignTargets(campaign: {
     where.tutorProfile = { subscriptionPlan: "NONE" };
   } else if (campaign.targetGroup === "CUSTOM") {
     where.id = { in: campaign.customUserIds };
+  } else if (campaign.targetGroup === "WHATSAPP_INTERESTED") {
+    // Target all tutors who expressed interest on WhatsApp or are marked INTERESTED in CRM
+    const interestedLeads = await prisma.staffLead.findMany({
+      where: { status: "INTERESTED" },
+      select: { phone: true, whatsapp: true },
+    });
+    const phoneSet = new Set<string>();
+    interestedLeads.forEach((l) => {
+      if (l.phone) {
+        phoneSet.add(l.phone);
+        phoneSet.add(l.phone.slice(-10));
+        phoneSet.add(`+91${l.phone.slice(-10)}`);
+      }
+      if (l.whatsapp) {
+        phoneSet.add(l.whatsapp);
+        phoneSet.add(l.whatsapp.slice(-10));
+        phoneSet.add(`+91${l.whatsapp.slice(-10)}`);
+      }
+    });
+
+    const candidatePhones = Array.from(phoneSet).filter(Boolean);
+    where.OR = [
+      { phone: { in: candidatePhones } },
+      { signupSource: "WHATSAPP" },
+    ];
   }
 
   // If autoEnrollNewTutors is explicitly FALSE, lock target list to only tutors existing at campaign creation

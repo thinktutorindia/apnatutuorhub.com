@@ -24,8 +24,9 @@ const TARGET_LABELS: Record<string, string> = {
   VERIFIED:   "Verified Tutors",
   UNVERIFIED: "Unverified Tutors",
   SUBSCRIBED: "Subscribed (Paid)",
-  FREE_TIER:  "Free Tier",
-  CUSTOM:     "Custom Selection",
+  FREE_TIER:           "Free Tier",
+  CUSTOM:              "Custom Selection",
+  WHATSAPP_INTERESTED: "WhatsApp Interested Leads",
 };
 
 export default async function DummyCampaignDetailPage({

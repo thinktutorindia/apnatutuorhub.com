@@ -30,7 +30,7 @@ export default function MembershipPolicyPage() {
 
       <LegalSection title="3. Coins and membership plans">
         <p>
-          Wallet coins can be used one lead at a time. Membership plans (Bronze, Silver, Gold, Platinum) include a lead allowance, a validity period, and a competition cap (how many tutors may unlock the same enquiry). Current prices, lead counts, and exclusivity rules are listed on the{" "}
+          Wallet coins can be used one lead at a time. Membership plans (Growth Plan, Bronze, Silver, Gold, Platinum) include a lead allowance, a validity period, and a competition cap. We also provide an official <strong>Commission Based Plan</strong> (₹1,257 registration fee, 6 months validity, 5 verified leads unlock; platform commission is 50% on the 1st month tuition fee, and 5% recurring commission every month from the 2nd month onwards). Current prices, lead counts, and exclusivity rules are listed on the{" "}
           <Link href="/terms" className="font-700 text-[#2D9E6B] hover:underline">
             Terms of Service
           </Link>{" "}

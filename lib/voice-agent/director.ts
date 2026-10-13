@@ -29,7 +29,7 @@ export function faqKind(
 ): "plan" | "unlock" | "handoff" | "commission" | null {
   if (/\b(insaan|manager|human|refund|dhokha|fraud|complaint)\b/i.test(text)) return "handoff";
   if (/\b(commission|percent|%|kat(ta|te)|pehle mahine)\b/i.test(text)) return "commission";
-  if (/\b(999|plan|membership|coins?|wallet|kitne)\b/i.test(text)) return "plan";
+  if (/\b(2999|999|plan|membership|coins?|wallet|kitne)\b/i.test(text)) return "plan";
   if (/\b(unlock|login|password|forgot|dashboard|kaise le)\b/i.test(text)) return "unlock";
   return null;
 }
@@ -47,8 +47,8 @@ function faqSay(kind: NonNullable<ReturnType<typeof faqKind>>, hindi: boolean): 
   }
   if (kind === "plan") {
     return hindi
-      ? "ग्रोथ प्लान नौ सौ निन्यानवे प्लस जीएसटी, लगभग साठ कॉइन। क्लास एक से आठ की लीड करीब दस कॉइन।"
-      : "Growth plan is 999 plus GST, about 60 coins. Class 1 to 8 unlock is about 10 coins.";
+      ? "ग्रोथ प्लान दो हज़ार नौ सौ निन्यानवे प्लस जीएसटी, लगभग साठ कॉइन। क्लास एक से आठ की लीड करीब दस कॉइन।"
+      : "Growth plan is 2,999 plus GST, about 60 coins. Class 1 to 8 unlock is about 10 coins.";
   }
   return hindi
     ? "पहले ईमेल से Forgot Password कीजिए, फिर ट्यूटर लीड्स में unlock। डिफ़ॉल्ट पासवर्ड नहीं होता।"
@@ -80,8 +80,8 @@ export function directVoiceTurn(input: {
   if (role === "TUTOR" && input.offeredLead && isAffirmative(input.callerText)) {
     return {
       say: hindi
-        ? "जी, WhatsApp पर भेज रही हूँ। Unlock करीब दस कॉइन, प्लान नौ सौ निन्यानवे प्लस जीएसटी। पहले Forgot Password।"
-        : "Sending it on WhatsApp. Unlock is about 10 coins. Plan 999 plus GST. First login: Forgot Password.",
+        ? "जी, WhatsApp पर भेज रही हूँ। Unlock करीब दस कॉइन, प्लान दो हज़ार नौ सौ निन्यानवे प्लस जीएसटी। पहले Forgot Password।"
+        : "Sending it on WhatsApp. Unlock is about 10 coins. Plan 2,999 plus GST. First login: Forgot Password.",
       role,
       extracted,
       handoff: false,

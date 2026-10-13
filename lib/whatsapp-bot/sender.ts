@@ -7,15 +7,15 @@
 import { sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
 import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 
-/** Drop the hidden ₹99 starter offer. ₹999 is left as-is. */
+/** Drop legacy ₹99 or ₹999 starter offers; replace with ₹2,999 Growth Membership */
 export function omitStarterPlan(text: string): string {
   let out = text.replace(
-    /(?:₹|rs\.?|inr)\s*99(?!\d)\s*starter\s*offer\s*(?:ya|or|and|\/)\s*/gi,
+    /(?:₹|rs\.?|inr)\s*(?:99|999)(?!\d)\s*(?:starter|trial)?\s*offer\s*(?:ya|or|and|\/)\s*/gi,
     ""
   );
   out = out.replace(
-    /(?:₹|rs\.?|inr)\s*99(?!\d)(\s*(?:starter|trial|festival))?\s*(offer|plan|pass|deal|membership)/gi,
-    "₹999 $2"
+    /(?:₹|rs\.?|inr)\s*(?:99|999)(?!\d)(\s*(?:starter|trial|festival))?\s*(offer|plan|pass|deal|membership)/gi,
+    "₹2,999 $2"
   );
   return out.replace(/[ \t]{2,}/g, " ").trim();
 }

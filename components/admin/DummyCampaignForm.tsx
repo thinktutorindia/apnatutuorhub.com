@@ -83,7 +83,6 @@ export function DummyCampaignForm({ onSuccess, onCancel }: Props) {
   const [isFetchingTutors, setIsFetchingTutors] = useState(false);
   const [manualUserIdsText, setManualUserIdsText] = useState("");
   const [showManualIdInput, setShowManualIdInput] = useState(false);
-
   // Audience Preview
   const [preview, setPreview] = useState<{ count: number; genuineCount?: number; dummyCount?: number; sample: Array<{ id: string; name: string | null; email: string }> } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);

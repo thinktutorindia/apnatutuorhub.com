@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const { planId } = body;
   const plan = getSubscriptionPlan(planId);
 
-  if (!plan || plan.id === "STARTER") {
+  if (!plan) {
     return NextResponse.json({ error: "This plan is not available." }, { status: 400 });
   }
 

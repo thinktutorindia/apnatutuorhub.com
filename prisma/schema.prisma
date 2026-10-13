@@ -134,6 +134,7 @@ enum DummyTargetGroup {
   SUBSCRIBED
   FREE_TIER
   CUSTOM
+  WHATSAPP_INTERESTED
 }
 
 enum StaffLeadStatus {

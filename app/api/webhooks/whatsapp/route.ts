@@ -15,6 +15,7 @@ import { processMessage } from "@/lib/whatsapp-bot/engine";
 import { sendBotMessage } from "@/lib/whatsapp-bot/sender";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 import { updateWhatsAppChatMessageStatus, upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
+import { isPositiveInterest, autoTagWhatsAppInterest } from "@/lib/whatsapp-interest-sync";
 
 export const runtime = "nodejs";
 
@@ -310,6 +311,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       });
     } catch (err) {
       console.warn("[chat-log] Failed to save inbound message:", err);
+    }
+
+    // Auto-detect & tag positive interest in CRM StaffLeads & Dummy Campaign targets
+    if (isPositiveInterest(text)) {
+      autoTagWhatsAppInterest({ phone, text, contactName }).catch((err) => {
+        console.warn("[whatsapp-webhook] Auto interest tagging error:", err);
+      });
     }
   }
 

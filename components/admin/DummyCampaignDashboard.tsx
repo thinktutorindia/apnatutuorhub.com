@@ -25,6 +25,7 @@ import {
 import { DummyCampaignForm } from "./DummyCampaignForm";
 import { DummyCampaignLogs } from "./DummyCampaignLogs";
 import { OneClickAiCampaignModal } from "./OneClickAiCampaignModal";
+import { WhatsAppBlastModal } from "./whatsapp-blast/WhatsAppBlastModal";
 import type { DummyLead } from "@/lib/dummy-campaign-types";
 import { stripCampaignCfg, parseCampaignCfg } from "@/lib/dummy-campaign-types";
 
@@ -630,6 +631,7 @@ interface DispatchState {
 export function DummyCampaignDashboard(props: Props) {
   const [showForm, setShowForm] = useState(false);
   const [showAiDispatcher, setShowAiDispatcher] = useState(false);
+  const [showWhatsAppBlast, setShowWhatsAppBlast] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -770,6 +772,12 @@ export function DummyCampaignDashboard(props: Props) {
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => setShowWhatsAppBlast(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-800 text-xs cursor-pointer shadow-xs transition-all"
+          >
+            <MessageCircle size={15} /> 💬 WhatsApp Blast (Interested)
+          </button>
           <button
             onClick={() => setShowAiDispatcher(true)}
             className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-[#2D9E6B] hover:opacity-95 text-white rounded-full font-800 text-xs cursor-pointer shadow-xs transition-all"
@@ -1179,6 +1187,13 @@ export function DummyCampaignDashboard(props: Props) {
         isOpen={showAiDispatcher}
         onClose={() => setShowAiDispatcher(false)}
         onDispatched={onRefresh}
+      />
+
+      {/* ── Standalone WhatsApp Blast for Interested Leads Modal ── */}
+      <WhatsAppBlastModal
+        isOpen={showWhatsAppBlast}
+        onClose={() => setShowWhatsAppBlast(false)}
+        onRefresh={onRefresh}
       />
     </div>
   );

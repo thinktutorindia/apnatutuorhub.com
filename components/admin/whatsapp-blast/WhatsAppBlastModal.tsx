@@ -171,8 +171,34 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     );
   };
 
+  const displayedLeads = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return leads;
+    const qDigits = q.replace(/\D/g, "");
+    return leads.filter((lead) => {
+      const phoneDigits = `${lead.phone || ""}${lead.whatsapp || ""}`.replace(/\D/g, "");
+      if (qDigits.length >= 3 && phoneDigits.includes(qDigits)) return true;
+      const haystack = [
+        lead.name,
+        lead.phone,
+        lead.whatsapp,
+        lead.location,
+        lead.email,
+        lead.recommendedSubject,
+        lead.classLabel,
+        lead.batchName,
+        ...(lead.subjects || []),
+        ...(lead.classes || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [leads, search]);
+
   const handleSelectAll = () => {
-    setSelectedIds(leads.map((l) => l.id));
+    setSelectedIds(displayedLeads.map((l) => l.id));
   };
 
   const handleClearAll = () => {
@@ -442,7 +468,10 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-slate-800">Target Audience List</p>
-                <p className="text-[11px] text-slate-500 font-semibold">{selectedIds.length} of {leads.length} selected</p>
+                <p className="text-[11px] text-slate-500 font-semibold">
+                  {selectedIds.length} of {displayedLeads.length} shown
+                  {search.trim() ? ` (filtered from ${leads.length})` : ` selected`}
+                </p>
               </div>
 
               <div className="flex items-center gap-1 text-[11px] font-bold">
@@ -549,8 +578,12 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                     ⚡ Sync All 717 Replies Now
                   </button>
                 </div>
+              ) : displayedLeads.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs font-semibold">
+                  No leads match &quot;{search.trim()}&quot;. Try name, phone, locality, or subject.
+                </div>
               ) : (
-                leads.map((lead) => {
+                displayedLeads.map((lead) => {
                   const isChecked = selectedIds.includes(lead.id);
                   const isFocused = focusedLeadId === lead.id;
                   const is5Km = lead.deliveryMode === "OFFLINE_5KM";

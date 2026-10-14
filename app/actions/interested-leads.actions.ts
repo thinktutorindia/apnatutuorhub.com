@@ -22,6 +22,7 @@ import { revalidatePath } from "next/cache";
 
 import { haversineDistanceKm } from "@/lib/haversine";
 import { formatRichNearbyLocation } from "@/lib/format-rich-nearby-location";
+import { getWhatsAppReachability, waitForWhatsAppDeliveryStatus } from "@/lib/whatsapp-blast-phone";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,9 @@ export type InterestedLead = {
   deliveryMode: "OFFLINE_5KM" | "ONLINE";
   /** Where this row came from in the blast picker */
   sourceType?: "STAFF_LEAD" | "USER_DIRECTORY";
+  whatsAppReachable?: boolean;
+  lastWhatsAppInboundAt?: string | null;
+  within24hSession?: boolean;
 };
 
 export type NotifDeliveryResult = {
@@ -395,6 +399,7 @@ export async function getInterestedLeadsAction(opts?: {
   });
 
   serialized = applyBlastListFilters(serialized, opts);
+  serialized = await attachWhatsAppReachability(serialized);
 
   return actionSuccess({
     leads: serialized,
@@ -519,6 +524,7 @@ export async function getUserDirectoryBlastTargetsAction(opts?: {
   });
 
   serialized = applyBlastListFilters(serialized, opts);
+  serialized = await attachWhatsAppReachability(serialized);
 
   return actionSuccess({
     leads: serialized,
@@ -532,6 +538,36 @@ type BlastListOpts = {
   filterMode?: "ALL" | "WITHIN_5KM" | "ONLINE_ONLY";
   classFilter?: "ALL" | "CLASS_1_8" | "CLASS_9_12";
 };
+
+async function attachWhatsAppReachability(serialized: InterestedLead[]): Promise<InterestedLead[]> {
+  const phones = [
+    ...new Set(
+      serialized
+        .map((l) => normalizeIndiaWhatsApp(l.phone || l.whatsapp || ""))
+        .filter(Boolean) as string[]
+    ),
+  ];
+  if (!phones.length) return serialized;
+
+  const grouped = await prisma.whatsappChatMessage.groupBy({
+    by: ["phone"],
+    where: { phone: { in: phones }, direction: "INBOUND" },
+    _max: { createdAt: true },
+  });
+  const lastInboundByPhone = new Map(grouped.map((g) => [g.phone, g._max.createdAt]));
+
+  return serialized.map((l) => {
+    const p = normalizeIndiaWhatsApp(l.phone || l.whatsapp || "");
+    const last = p ? lastInboundByPhone.get(p) : null;
+    const within24h = last ? Date.now() - last.getTime() < 23 * 60 * 60 * 1000 : false;
+    return {
+      ...l,
+      whatsAppReachable: Boolean(last),
+      lastWhatsAppInboundAt: last?.toISOString() ?? null,
+      within24hSession: within24h,
+    };
+  });
+}
 
 function applyBlastListFilters(leads: InterestedLead[], opts?: BlastListOpts): InterestedLead[] {
   let serialized = leads;
@@ -587,8 +623,9 @@ async function dispatchBlastWhatsAppMessage(opts: {
   locationLine: string;
   feeLine: string;
   preferSessionText: boolean;
+  hasWhatsAppInbound: boolean;
 }): Promise<AquaSendResult & { deliveryChannel: "session_text" | "approved_template" }> {
-  if (opts.preferSessionText) {
+  if (opts.preferSessionText && opts.hasWhatsAppInbound) {
     const textRes = await sendAquaWhatsAppMessage({
       to: opts.to,
       mode: "text",
@@ -802,6 +839,20 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
           continue;
         }
 
+        const reach = await getWhatsAppReachability(normalized);
+        if (!reach.hasInbound) {
+          results.push({
+            leadId: lead.id,
+            name: lead.name,
+            channel,
+            status: "SKIPPED",
+            reason:
+              "This number never messaged Apna Tutor Hub on WhatsApp — Meta blocks outbound. Pick a lead with green “WhatsApp active” or chat from your number (9311459543) first.",
+            personalizedPreview: personalized,
+          });
+          continue;
+        }
+
         const inquiryCode = lead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
         const waResult = await dispatchBlastWhatsAppMessage({
           to: normalized,
@@ -812,7 +863,8 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
           modeLine: is5Km ? "Home Tuition (Offline)" : "Online Class",
           locationLine: loc,
           feeLine: meta.recommendedFee,
-          preferSessionText: lead.kind === "STAFF_LEAD",
+          preferSessionText: lead.kind === "STAFF_LEAD" || reach.within24h,
+          hasWhatsAppInbound: reach.hasInbound,
         });
 
         if (waResult.ok) {
@@ -834,16 +886,34 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
             },
           }).catch(() => {});
 
+          const deliveryStatus = await waitForWhatsAppDeliveryStatus(
+            waResult.providerMessageId || "",
+            4500
+          );
+          if (deliveryStatus?.toUpperCase() === "FAILED") {
+            results.push({
+              leadId: lead.id,
+              name: lead.name,
+              channel,
+              status: "FAILED",
+              reason:
+                "Meta rejected delivery (often wrong number or 24h window). Your WhatsApp chat is on a different number than User Directory — use Interested Leads or fix phone.",
+              personalizedPreview: personalized,
+            });
+            failed++;
+            continue;
+          }
+
           const channelNote =
             waResult.deliveryChannel === "approved_template"
-              ? " (approved WhatsApp template — outside 24h session)"
-              : "";
+              ? "Approved WhatsApp template"
+              : "Session text (24h window)";
           results.push({
             leadId: lead.id,
             name: lead.name,
             channel,
-            status: "SENT",
-            reason: channelNote.trim() || undefined,
+            status: deliveryStatus?.toUpperCase() === "DELIVERED" ? "SENT" : "SENT",
+            reason: `${channelNote}${deliveryStatus ? ` · ${deliveryStatus}` : " · queued"}`,
             personalizedPreview: personalized,
           });
           sent++;

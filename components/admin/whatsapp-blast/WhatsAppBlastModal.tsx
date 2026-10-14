@@ -713,6 +713,18 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                         <p className="text-[10px] text-slate-500 font-mono mt-0.5">
                           {lead.phone || lead.whatsapp} · {is5Km ? lead.location : "No Location (Online)"}
                         </p>
+                        <p className="text-[9px] mt-0.5 font-bold">
+                          {lead.whatsAppReachable ? (
+                            <span className="text-emerald-700">
+                              ● WhatsApp active
+                              {lead.within24hSession ? " · 24h session open (custom text OK)" : " · template only"}
+                            </span>
+                          ) : (
+                            <span className="text-rose-600">
+                              ● No WhatsApp chat on this number — will skip send
+                            </span>
+                          )}
+                        </p>
 
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <span className="text-[9px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded">

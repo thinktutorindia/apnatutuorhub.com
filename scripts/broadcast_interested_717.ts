@@ -20,7 +20,7 @@
 
 import { prisma } from "../lib/prisma";
 import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "../lib/aqua-whatsapp";
-import { formatRichNearbyLocation } from "../app/actions/interested-leads.actions";
+import { formatRichNearbyLocation } from "../lib/format-rich-nearby-location";
 
 function isCityOnlyLocation(loc: string | null): boolean {
   if (!loc) return true;

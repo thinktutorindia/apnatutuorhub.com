@@ -23,6 +23,7 @@ export interface WhatsAppConversationSummary {
   } | null;
   unreadCount: number;
   totalMessages: number;
+  isInterestedLead: boolean;
 }
 
 export interface WhatsAppChatMessageItem {
@@ -64,6 +65,29 @@ async function requireStaffOrAdmin() {
   return { error: null, session };
 }
 
+function phoneLast10(phone: string): string {
+  return phone.replace(/\D/g, "").slice(-10);
+}
+
+async function loadInterestedPhoneKeys(): Promise<Set<string>> {
+  const leads = await prisma.staffLead.findMany({
+    where: {
+      status: "INTERESTED",
+      OR: [{ phone: { not: null } }, { whatsapp: { not: null } }],
+    },
+    select: { phone: true, whatsapp: true },
+  });
+  const keys = new Set<string>();
+  for (const lead of leads) {
+    for (const raw of [lead.phone, lead.whatsapp]) {
+      if (!raw) continue;
+      const k = phoneLast10(raw);
+      if (k.length >= 10) keys.add(k);
+    }
+  }
+  return keys;
+}
+
 /**
  * Fetch all WhatsApp chat threads for staff/admin inbox.
  * Groups by phone number, joins with user profiles, and orders by latest message.
@@ -72,7 +96,10 @@ export async function getWhatsAppChatThreadsAction(params?: {
   search?: string;
   roleFilter?: string;
   unreadOnly?: boolean;
-}): Promise<ActionResult<{ threads: WhatsAppConversationSummary[]; totalUnread: number }>> {
+  interestedOnly?: boolean;
+}): Promise<
+  ActionResult<{ threads: WhatsAppConversationSummary[]; totalUnread: number; interestedCount: number }>
+> {
   const guard = await requireStaffOrAdmin();
   if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
 
@@ -80,52 +107,67 @@ export async function getWhatsAppChatThreadsAction(params?: {
     const search = params?.search?.trim().toLowerCase();
     const roleFilter = params?.roleFilter;
     const unreadOnly = Boolean(params?.unreadOnly);
+    const interestedOnly = Boolean(params?.interestedOnly);
 
-    // 1. Get distinct phones with their latest messages using raw query for maximum speed and accuracy
-    const rawLatestMessages = await prisma.$queryRaw<
-      Array<{
-        id: string;
-        phone: string;
-        direction: string;
-        senderName: string | null;
-        contactName: string | null;
-        body: string;
-        step: string | null;
-        messageId: string | null;
-        isRead: boolean;
-        createdAt: Date;
-      }>
-    >`
-      SELECT DISTINCT ON (phone) 
-        id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt"
-      FROM whatsapp_chat_messages
-      ORDER BY phone, "createdAt" DESC
-    `;
+    type LatestRow = {
+      id: string;
+      phone: string;
+      direction: string;
+      senderName: string | null;
+      contactName: string | null;
+      body: string;
+      step: string | null;
+      messageId: string | null;
+      isRead: boolean;
+      createdAt: Date;
+    };
 
-    // 2. Also get any sessions that may not have chat messages yet
-    const sessions = await prisma.whatsappSession.findMany({
-      orderBy: { lastMessageAt: "desc" },
-    });
+    const [rawLatestMessages, unreadCounts, sessions, interestedKeys] = await Promise.all([
+      prisma.$queryRaw<LatestRow[]>`
+        SELECT id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt"
+        FROM (
+          SELECT
+            id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt",
+            ROW_NUMBER() OVER (PARTITION BY phone ORDER BY "createdAt" DESC) AS rn
+          FROM whatsapp_chat_messages
+        ) latest
+        WHERE rn = 1
+      `,
+      prisma.whatsappChatMessage.groupBy({
+        by: ["phone"],
+        where: {
+          direction: "INBOUND",
+          isRead: false,
+        },
+        _count: { id: true },
+      }),
+      prisma.whatsappSession.findMany({
+        orderBy: { lastMessageAt: "desc" },
+        take: 300,
+        select: {
+          phone: true,
+          step: true,
+          lastMessageAt: true,
+          data: true,
+          userType: true,
+        },
+      }),
+      loadInterestedPhoneKeys(),
+    ]);
 
-    const phoneSet = new Set<string>();
-    rawLatestMessages.forEach((m) => phoneSet.add(m.phone));
-    sessions.forEach((s) => phoneSet.add(s.phone));
+    const latestMsgMap = new Map<string, LatestRow>();
+    rawLatestMessages.forEach((m) => latestMsgMap.set(m.phone, m));
+
+    const phoneSet = new Set<string>(latestMsgMap.keys());
+    for (const s of sessions) {
+      if (!latestMsgMap.has(s.phone)) phoneSet.add(s.phone);
+    }
 
     const phones = Array.from(phoneSet);
     if (phones.length === 0) {
-      return actionSuccess({ threads: [], totalUnread: 0 });
+      return actionSuccess({ threads: [], totalUnread: 0, interestedCount: interestedKeys.size });
     }
 
-    // 3. Count unreads and total messages per phone in batch
-    const unreadCounts = await prisma.whatsappChatMessage.groupBy({
-      by: ["phone"],
-      where: {
-        phone: { in: phones },
-        direction: "INBOUND",
-        isRead: false,
-      },
-      _count: { id: true },
-    });
     const unreadMap = new Map<string, number>();
     let totalUnreadAll = 0;
     unreadCounts.forEach((u) => {
@@ -133,15 +175,7 @@ export async function getWhatsAppChatThreadsAction(params?: {
       totalUnreadAll += u._count.id;
     });
 
-    const totalCounts = await prisma.whatsappChatMessage.groupBy({
-      by: ["phone"],
-      where: { phone: { in: phones } },
-      _count: { id: true },
-    });
-    const totalMap = new Map<string, number>();
-    totalCounts.forEach((t) => totalMap.set(t.phone, t._count.id));
-
-    // 4. Batch query Users by phone (checking both 10-digit and full 12-digit)
+    // Batch query Users by phone (checking both 10-digit and full 12-digit)
     const phoneVariants: string[] = [];
     phones.forEach((p) => {
       phoneVariants.push(p);
@@ -187,23 +221,19 @@ export async function getWhatsAppChatThreadsAction(params?: {
     const sessionMap = new Map<string, (typeof sessions)[0]>();
     sessions.forEach((s) => sessionMap.set(s.phone, s));
 
-    const latestMsgMap = new Map<string, (typeof rawLatestMessages)[0]>();
-    rawLatestMessages.forEach((m) => latestMsgMap.set(m.phone, m));
-
-    // 5. Construct thread summaries
     const threads: WhatsAppConversationSummary[] = [];
 
     for (const phone of phones) {
-      const d10 = phone.replace(/\D/g, "").slice(-10);
+      const d10 = phoneLast10(phone);
+      const isInterestedLead = d10.length >= 10 && interestedKeys.has(d10);
       const matchedUser = userMap.get(phone) || (d10 ? userMap.get(d10) : undefined);
       const matchedSession = sessionMap.get(phone);
       const sessionData = (matchedSession?.data as Record<string, any>) || {};
       const latestMsg = latestMsgMap.get(phone);
 
       const unread = unreadMap.get(phone) || 0;
-      const total = totalMap.get(phone) || (latestMsg ? 1 : 0);
 
-      // Filtering by unread
+      if (interestedOnly && !isInterestedLead) continue;
       if (unreadOnly && unread === 0) continue;
 
       const name =
@@ -263,18 +293,22 @@ export async function getWhatsAppChatThreadsAction(params?: {
               }
             : null,
         unreadCount: unread,
-        totalMessages: total,
+        totalMessages: 0,
+        isInterestedLead,
       });
     }
 
-    // Sort threads: most recent message or session first
     threads.sort((a, b) => {
       const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
       const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
       return timeB - timeA;
     });
 
-    return actionSuccess({ threads, totalUnread: totalUnreadAll });
+    return actionSuccess({
+      threads,
+      totalUnread: totalUnreadAll,
+      interestedCount: interestedKeys.size,
+    });
   } catch (err) {
     console.error("[getWhatsAppChatThreadsAction] Error:", err);
     return actionError(err instanceof Error ? err.message : "Failed to load WhatsApp chat threads.");
@@ -286,40 +320,68 @@ export async function getWhatsAppChatThreadsAction(params?: {
  * Automatically marks all unread inbound messages for this phone as read.
  */
 export async function getWhatsAppChatMessagesAction(
-  phone: string
-): Promise<ActionResult<{ messages: WhatsAppChatMessageItem[]; contact: WhatsAppChatContactDetails }>> {
+  phone: string,
+  options?: {
+    /** Max messages when loading history (default 350). Ignored when `since` is set. */
+    limit?: number;
+    /** ISO timestamp — return only messages after this (for lightweight polling). */
+    since?: string;
+    /** Mark inbound messages read (default true on full load, false on incremental poll). */
+    markRead?: boolean;
+  }
+): Promise<ActionResult<{ messages: WhatsAppChatMessageItem[]; contact: WhatsAppChatContactDetails | null }>> {
   const guard = await requireStaffOrAdmin();
   if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
 
   const normalized = normalizeIndiaWhatsApp(phone) || phone.replace(/\D/g, "");
   if (!normalized) return actionError("Invalid phone number");
 
-  try {
-    // 1. Mark unread inbound messages as read
-    await prisma.whatsappChatMessage.updateMany({
-      where: {
-        phone: normalized,
-        direction: "INBOUND",
-        isRead: false,
-      },
-      data: { isRead: true },
-    });
+  const sinceIso = options?.since?.trim();
+  const incremental = Boolean(sinceIso);
+  const markRead = options?.markRead ?? !incremental;
+  const limit = Math.min(Math.max(options?.limit ?? 350, 50), 1500);
 
-    // 2. Fetch the full local thread. History does not depend on Aqua still having it.
-    const rawMessages = [];
-    const pageSize = 1000;
-    let cursor: string | undefined;
-    for (;;) {
-      const batch = await prisma.whatsappChatMessage.findMany({
-        where: { phone: normalized },
+  try {
+    let rawMessages: Awaited<ReturnType<typeof prisma.whatsappChatMessage.findMany>>;
+
+    if (incremental && sinceIso) {
+      const sinceDate = new Date(sinceIso);
+      if (Number.isNaN(sinceDate.getTime())) {
+        return actionError("Invalid since timestamp");
+      }
+      rawMessages = await prisma.whatsappChatMessage.findMany({
+        where: { phone: normalized, createdAt: { gt: sinceDate } },
         orderBy: { createdAt: "asc" },
-        take: pageSize,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        take: 150,
       });
-      rawMessages.push(...batch);
-      if (batch.length < pageSize || rawMessages.length >= 20000) break;
-      cursor = batch[batch.length - 1]?.id;
-      if (!cursor) break;
+    } else {
+      const latestBatch = await prisma.whatsappChatMessage.findMany({
+        where: { phone: normalized },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      });
+      rawMessages = latestBatch.reverse();
+    }
+
+    if (markRead && rawMessages.length > 0) {
+      const unreadInboundIds = rawMessages
+        .filter((m) => m.direction === "INBOUND" && !m.isRead)
+        .map((m) => m.id);
+      if (unreadInboundIds.length > 0) {
+        await prisma.whatsappChatMessage.updateMany({
+          where: { id: { in: unreadInboundIds } },
+          data: { isRead: true },
+        });
+      } else if (!incremental) {
+        await prisma.whatsappChatMessage.updateMany({
+          where: {
+            phone: normalized,
+            direction: "INBOUND",
+            isRead: false,
+          },
+          data: { isRead: true },
+        });
+      }
     }
 
     const messages: WhatsAppChatMessageItem[] = rawMessages.map((m) => ({
@@ -333,53 +395,59 @@ export async function getWhatsAppChatMessagesAction(
       createdAt: m.createdAt.toISOString(),
     }));
 
-    // 3. Find User & Session info for rich sidebar details
-    const d10 = normalized.slice(-10);
-    const [user, session] = await Promise.all([
-      prisma.user.findFirst({
-        where: {
-          OR: [{ phone: normalized }, { phone: d10 }],
-        },
-        include: {
-          tutorProfile: {
-            include: {
-              wallet: true,
-            },
+    let contact: WhatsAppChatContactDetails | null = null;
+    if (!incremental) {
+      const d10 = normalized.slice(-10);
+      const [user, session] = await Promise.all([
+        prisma.user.findFirst({
+          where: {
+            OR: [{ phone: normalized }, { phone: d10 }],
           },
-          parentProfile: true,
-        },
-      }),
-      prisma.whatsappSession.findUnique({
-        where: { phone: normalized },
-      }),
-    ]);
+          include: {
+            tutorProfile: {
+              include: {
+                wallet: true,
+              },
+            },
+            parentProfile: true,
+          },
+        }),
+        prisma.whatsappSession.findUnique({
+          where: { phone: normalized },
+        }),
+      ]);
 
-    const sessionData = (session?.data as Record<string, any>) || {};
+      const sessionData = (session?.data as Record<string, any>) || {};
 
-    const contact: WhatsAppChatContactDetails = {
-      phone: normalized,
-      name: user?.name || rawMessages.find((m) => m.contactName)?.contactName || sessionData.name || `User ${normalized.slice(-4)}`,
-      email: user?.email || sessionData.email || null,
-      role: user?.role || session?.userType || "LEAD",
-      location:
-        user?.tutorProfile?.city ||
-        user?.tutorProfile?.address ||
-        user?.parentProfile?.city ||
-        user?.parentProfile?.address ||
-        sessionData.area ||
-        sessionData.city ||
-        null,
-      subjects:
-        user?.tutorProfile?.subjects ||
-        (Array.isArray(sessionData.subjects) ? sessionData.subjects : undefined),
-      isRegistered: Boolean(user),
-      userId: user?.id || null,
-      tutorProfileId: user?.tutorProfile?.id || null,
-      walletBalance: user?.tutorProfile?.wallet?.balance ?? null,
-      coinsBalance: user?.tutorProfile?.wallet?.balance ?? null,
-      sessionStep: session?.step || null,
-      sessionData,
-    };
+      contact = {
+        phone: normalized,
+        name:
+          user?.name ||
+          rawMessages.find((m) => m.contactName)?.contactName ||
+          sessionData.name ||
+          `User ${normalized.slice(-4)}`,
+        email: user?.email || sessionData.email || null,
+        role: user?.role || session?.userType || "LEAD",
+        location:
+          user?.tutorProfile?.city ||
+          user?.tutorProfile?.address ||
+          user?.parentProfile?.city ||
+          user?.parentProfile?.address ||
+          sessionData.area ||
+          sessionData.city ||
+          null,
+        subjects:
+          user?.tutorProfile?.subjects ||
+          (Array.isArray(sessionData.subjects) ? sessionData.subjects : undefined),
+        isRegistered: Boolean(user),
+        userId: user?.id || null,
+        tutorProfileId: user?.tutorProfile?.id || null,
+        walletBalance: user?.tutorProfile?.wallet?.balance ?? null,
+        coinsBalance: user?.tutorProfile?.wallet?.balance ?? null,
+        sessionStep: session?.step || null,
+        sessionData,
+      };
+    }
 
     return actionSuccess({ messages, contact });
   } catch (err) {

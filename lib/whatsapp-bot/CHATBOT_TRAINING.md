@@ -149,6 +149,9 @@ Coordinator se baat karni hai? Type karo: CALL
 | "profile update" | Poocho kya update karna hai |
 | "leads dikhao" | Matching leads dikhao |
 | "coins kharidna hai" | Coin pack options dikhao |
+| "without commission plan" / "bina commission" | **Silver ₹2,999 (0% commission)** — kabhi ₹1,257 commission plan mat bhejo |
+| "commission wala plan" / "1257" | **Commission Based ₹1,257** — features + ACTIVATE 1257 |
+| "payment kaise" / "QR" / "scan" / PAY | Plans link + QR JPG links (Hindi + English) chat mein |
 
 ---
 

@@ -25,7 +25,14 @@ import {
   formatOfferEnded999Message,
   formatCommissionPlanDetailMessage,
   formatGrowthPlanDetailMessage,
+  formatPlanPaymentQrMessage,
 } from "./leads-helper";
+import {
+  asksCommissionPlan,
+  asksPlanPaymentOrQr,
+  asksZeroCommissionPlan,
+  paymentPlanHint,
+} from "./plan-intent";
 import {
   registerTutorFromWhatsapp,
   registerParentFromWhatsapp,
@@ -1370,27 +1377,48 @@ export async function processMessage(
     };
   }
 
-  // ── Commission Plan Interest Handler (₹1,257) ──────────────────────────────
-  if (/(?:commission\s*(?:wala|plan|based|system|deal|pe)|1257|50\s*%\s*commission|commission\s*kya\s*hai)/i.test(rawMessage)) {
+  // ── Payment / QR / how to pay ───────────────────────────────────────────────
+  if (
+    asksPlanPaymentOrQr(rawMessage) ||
+    /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim())
+  ) {
+    const hint =
+      typeof data.interestedPlanType === "string" && data.interestedPlanType === "COMMISSION_1257"
+        ? "1257"
+        : typeof data.interestedPlanType === "string" && data.interestedPlanType === "SILVER_2999"
+          ? "2999"
+          : paymentPlanHint(rawMessage);
     return {
-      reply: formatCommissionPlanDetailMessage(),
+      reply: formatPlanPaymentQrMessage(hint),
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
+      updatedData: data,
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["View Plans 💰", "View Leads 📋", "Talk to Support 📞"],
+      quickReplies: ["Commission Plan ₹1,257 🤝", "Silver Plan ₹2,999 🚀", "Talk to Support 📞"],
     };
   }
 
-  // ── Zero Commission / Silver Plan Interest Handler (₹2,999) ─────────────────
-  if (/(?:no\s*commission|zero\s*commission|0\s*%\s*commission|bina\s*commission|silver\s*plan|growth\s*plan|silver|2999|full\s*fee|100\s*%\s*fee)/i.test(rawMessage)) {
+  // ── Zero Commission BEFORE commission (avoid "without commission plan" mismatch) ──
+  if (asksZeroCommissionPlan(rawMessage)) {
     return {
       reply: formatGrowthPlanDetailMessage(),
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: { ...data, interestedPlanType: "SILVER_2999" },
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["View Plans 💰", "View Leads 📋", "Talk to Support 📞"],
+      quickReplies: ["PAY / QR 💳", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  // ── Commission Plan Interest Handler (₹1,257) ──────────────────────────────
+  if (asksCommissionPlan(rawMessage)) {
+    return {
+      reply: formatCommissionPlanDetailMessage(),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["PAY / QR 💳", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 

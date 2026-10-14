@@ -626,6 +626,7 @@ export function formatCommissionPlanDetailMessage(): string {
     `• 5km Nearby Home Tuition ya Online Classes\n\n` +
     `👉 *Abhi Plan Activate Karein:*\n` +
     `https://apnatutorhub.com/tutor/plans\n\n` +
+    `Payment / QR ke liye reply karein *PAY* ya *QR*.\n` +
     `Reply *ACTIVATE 1257* ya *HELP* agar aapko activate karne mein koi sawaal ho.`;
 }
 
@@ -645,7 +646,35 @@ export function formatGrowthPlanDetailMessage(): string {
     `• Unlock across all classes & subjects\n\n` +
     `👉 *Abhi Plan Activate Karein:*\n` +
     `https://apnatutorhub.com/tutor/plans\n\n` +
+    `Payment / QR ke liye reply karein *PAY* ya *QR*.\n` +
     `Reply *ACTIVATE 2999* ya *HELP* agar aapko koi madad chahiye ho.`;
+}
+
+const PUBLIC_SITE = "https://apnatutorhub.com";
+
+/** Payment steps + QR image links (WhatsApp shows image preview from URL). */
+export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "any"): string {
+  const hindiQr = `${PUBLIC_SITE}/tutor_plan_hindi_qr.jpg`;
+  const engQr = `${PUBLIC_SITE}/tutor_plan_english_qr.jpg`;
+  const plansUrl = `${PUBLIC_SITE}/tutor/plans`;
+
+  const planLine =
+    planHint === "1257"
+      ? "Commission Based Plan *₹1,257*"
+      : planHint === "2999"
+        ? "Silver Plan *₹2,999* (0% commission)"
+        : "ApnaTutorHub membership plan";
+
+  return (
+    `💳 *${planLine} — payment steps*\n\n` +
+    `1️⃣ Open: ${plansUrl}\n` +
+    `2️⃣ Apna plan select karein → *Pay Now* (UPI / Card / Netbanking)\n` +
+    `3️⃣ Ya QR scan karein:\n` +
+    `📱 Hindi: ${hindiQr}\n` +
+    `📱 English: ${engQr}\n\n` +
+    `Payment confirm hote hi leads unlock ho jati hain. ✅\n` +
+    `Madad: *HELP* ya WhatsApp +91 93191 93109 (9am–7pm)`
+  );
 }
 
 /**

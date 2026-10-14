@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   MessageSquare,
   Search,
@@ -55,6 +56,101 @@ const QUICK_TEMPLATES = [
   },
 ];
 
+const THREAD_ROW_ESTIMATE_PX = 92;
+
+function mergeMessages(
+  prev: WhatsAppChatMessageItem[],
+  incoming: WhatsAppChatMessageItem[]
+): WhatsAppChatMessageItem[] {
+  if (incoming.length === 0) return prev;
+  const byId = new Map(prev.map((m) => [m.id, m]));
+  for (const m of incoming) byId.set(m.id, m);
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+}
+
+const WhatsAppChatComposer = memo(function WhatsAppChatComposer({
+  phone,
+  disabled,
+  onSend,
+}: {
+  phone: string;
+  disabled: boolean;
+  onSend: (text: string) => Promise<void>;
+}) {
+  const [inputText, setInputText] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(() => {
+    setInputText("");
+    setIsSending(false);
+  }, [phone]);
+
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const messageText = inputText.trim();
+    if (!messageText || isSending || disabled) return;
+    setIsSending(true);
+    setInputText("");
+    try {
+      await onSend(messageText);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="bg-white/95 backdrop-blur-md px-4 py-2 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0 mr-1 flex items-center gap-1">
+          <Sparkles size={11} className="text-amber-500" /> Quick:
+        </span>
+        {QUICK_TEMPLATES.map((tmpl, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => setInputText(tmpl.text)}
+            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs"
+          >
+            {tmpl.label}
+          </button>
+        ))}
+      </div>
+
+      <form
+        onSubmit={handleSend}
+        className="p-3 bg-white border-t border-slate-200 flex items-end gap-2 shrink-0"
+      >
+        <div className="flex-1 relative">
+          <textarea
+            rows={2}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void handleSend();
+              }
+            }}
+            placeholder={`Reply to +${phone} on WhatsApp... (Press Enter to send)`}
+            className="w-full resize-none px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={!inputText.trim() || isSending || disabled}
+          className="h-10 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
+        >
+          {isSending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+          <span>Send</span>
+        </button>
+      </form>
+    </>
+  );
+});
+
 export function WhatsAppChatInbox() {
   const [threads, setThreads] = useState<WhatsAppConversationSummary[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
@@ -62,18 +158,17 @@ export function WhatsAppChatInbox() {
   const [contact, setContact] = useState<WhatsAppChatContactDetails | null>(null);
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [interestedOnly, setInterestedOnly] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
-
-  const [inputText, setInputText] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  const [interestedCount, setInterestedCount] = useState(0);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [mobileViewChat, setMobileViewChat] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const [markingInterested, setMarkingInterested] = useState(false);
   const [interestedFeedback, setInterestedFeedback] = useState<{
     type: "success" | "error" | "already";
@@ -82,48 +177,54 @@ export function WhatsAppChatInbox() {
   } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
+  const threadListRef = useRef<HTMLDivElement | null>(null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
-  // Auto-scroll to bottom of chat
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Load threads
-  const loadThreads = async (silent = false) => {
-    if (!silent) setLoadingThreads(true);
-    const res = await getWhatsAppChatThreadsAction({
-      search: search || undefined,
-      roleFilter: roleFilter !== "ALL" ? roleFilter : undefined,
-      unreadOnly,
-    });
-    if (res.success && res.data) {
-      setThreads(res.data.threads);
-      setTotalUnread(res.data.totalUnread);
-      // Auto-select first thread on initial load if none selected
-      if (!selectedPhone && res.data.threads.length > 0 && !mobileViewChat) {
-        setSelectedPhone(res.data.threads[0].phone);
-      }
-    }
-    setLoadingThreads(false);
-  };
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
 
   useEffect(() => {
-    loadThreads();
-  }, [roleFilter, unreadOnly]);
-
-  // Handle search debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadThreads(true);
-    }, 350);
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Load messages when selectedPhone changes
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    scrollToBottom(messages.length <= 1 ? "auto" : "smooth");
+  }, [messages, selectedPhone, scrollToBottom]);
+
+  const loadThreads = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoadingThreads(true);
+      const res = await getWhatsAppChatThreadsAction({
+        search: debouncedSearch || undefined,
+        roleFilter: roleFilter !== "ALL" ? roleFilter : undefined,
+        unreadOnly,
+        interestedOnly,
+      });
+      if (res.success && res.data) {
+        setThreads(res.data.threads);
+        setTotalUnread(res.data.totalUnread);
+        setInterestedCount(res.data.interestedCount);
+        setSelectedPhone((current) => {
+          if (current && res.data!.threads.some((t) => t.phone === current)) return current;
+          if (res.data!.threads.length > 0 && !mobileViewChat) return res.data!.threads[0].phone;
+          return current;
+        });
+      }
+      setLoadingThreads(false);
+    },
+    [debouncedSearch, roleFilter, unreadOnly, interestedOnly, mobileViewChat]
+  );
+
+  useEffect(() => {
+    void loadThreads();
+  }, [loadThreads]);
+
   useEffect(() => {
     if (!selectedPhone) {
       setMessages([]);
@@ -132,14 +233,14 @@ export function WhatsAppChatInbox() {
     }
 
     let active = true;
+    stickToBottomRef.current = true;
     setLoadingMessages(true);
 
-    getWhatsAppChatMessagesAction(selectedPhone).then((res) => {
+    getWhatsAppChatMessagesAction(selectedPhone, { limit: 350 }).then((res) => {
       if (!active) return;
       if (res.success && res.data) {
         setMessages(res.data.messages);
-        setContact(res.data.contact);
-        // Decrease unread count locally
+        if (res.data.contact) setContact(res.data.contact);
         setThreads((prev) =>
           prev.map((t) => (t.phone === selectedPhone ? { ...t, unreadCount: 0 } : t))
         );
@@ -152,73 +253,79 @@ export function WhatsAppChatInbox() {
     };
   }, [selectedPhone]);
 
-  // Poll for new messages every 8 seconds silently
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadThreads(true);
-      if (selectedPhone) {
-        getWhatsAppChatMessagesAction(selectedPhone).then((res) => {
-          if (res.success && res.data) {
-            setMessages(res.data.messages);
-            setContact(res.data.contact);
-          }
-        });
-      }
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [selectedPhone]);
+    if (!selectedPhone) return;
 
-  // Send manual staff reply
-  const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!selectedPhone || !inputText.trim() || isSending) return;
-
-    const messageText = inputText.trim();
-    setIsSending(true);
-    setFeedback(null);
-
-    // Optimistic message
-    const tempMsg: WhatsAppChatMessageItem = {
-      id: "temp-" + Date.now(),
-      phone: selectedPhone,
-      direction: "OUTBOUND",
-      senderName: "Staff (You)",
-      body: messageText,
-      step: "STAFF_REPLY",
-      isRead: true,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, tempMsg]);
-    setInputText("");
-
-    try {
-      const res = await sendStaffWhatsAppReplyAction({
-        phone: selectedPhone,
-        text: messageText,
+    const poll = () => {
+      void loadThreads(true);
+      const list = messagesRef.current;
+      const since = list[list.length - 1]?.createdAt;
+      getWhatsAppChatMessagesAction(selectedPhone, {
+        since,
+        markRead: true,
+      }).then((res) => {
+        if (!res.success || !res.data || res.data.messages.length === 0) return;
+        setMessages((prev) => mergeMessages(prev, res.data!.messages));
+        if (stickToBottomRef.current) scrollToBottom("smooth");
       });
+    };
 
-      if (res.success && res.data) {
-        // Replace temp message with saved message
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempMsg.id ? res.data!.message : m))
-        );
-        setFeedback({ type: "success", text: "WhatsApp message delivered!" });
-        setTimeout(() => setFeedback(null), 3000);
-      } else {
+    const interval = setInterval(poll, 12000);
+    return () => clearInterval(interval);
+  }, [selectedPhone, loadThreads, scrollToBottom]);
+
+  const handleMessagesScroll = () => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 140;
+  };
+
+  const handleSendMessage = useCallback(
+    async (messageText: string) => {
+      if (!selectedPhone) return;
+      setFeedback(null);
+      stickToBottomRef.current = true;
+
+      const tempMsg: WhatsAppChatMessageItem = {
+        id: "temp-" + Date.now(),
+        phone: selectedPhone,
+        direction: "OUTBOUND",
+        senderName: "Staff (You)",
+        body: messageText,
+        step: "STAFF_REPLY",
+        isRead: true,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, tempMsg]);
+
+      try {
+        const res = await sendStaffWhatsAppReplyAction({
+          phone: selectedPhone,
+          text: messageText,
+        });
+
+        if (res.success && res.data) {
+          setMessages((prev) => prev.map((m) => (m.id === tempMsg.id ? res.data!.message : m)));
+          setFeedback({ type: "success", text: "WhatsApp message delivered!" });
+          setTimeout(() => setFeedback(null), 3000);
+        } else {
+          setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
+          setFeedback({
+            type: "error",
+            text: res.error || "Failed to send WhatsApp message.",
+          });
+        }
+      } catch (err) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
         setFeedback({
           type: "error",
-          text: res.error || "Failed to send WhatsApp message.",
+          text: err instanceof Error ? err.message : "Error sending message.",
         });
       }
-    } catch (err) {
-      setFeedback({
-        type: "error",
-        text: err instanceof Error ? err.message : "Error sending message.",
-      });
-    } finally {
-      setIsSending(false);
-    }
-  };
+    },
+    [selectedPhone]
+  );
 
   // Mark current contact as an INTERESTED lead in Staff CRM
   const handleMarkInterested = async () => {
@@ -242,6 +349,10 @@ export function WhatsAppChatInbox() {
     setMarkingInterested(false);
 
     if (res.success && res.data) {
+      setThreads((prev) =>
+        prev.map((t) => (t.phone === selectedPhone ? { ...t, isInterestedLead: true } : t))
+      );
+      setInterestedCount((c) => (res.data!.isNew ? c + 1 : c));
       setInterestedFeedback({
         type: res.data.isNew ? "success" : "already",
         text: res.data.isNew
@@ -257,6 +368,13 @@ export function WhatsAppChatInbox() {
   };
 
   const activeThread = threads.find((t) => t.phone === selectedPhone);
+
+  const threadVirtualizer = useVirtualizer({
+    count: threads.length,
+    getScrollElement: () => threadListRef.current,
+    estimateSize: () => THREAD_ROW_ESTIMATE_PX,
+    overscan: 10,
+  });
 
   const formatMessageTime = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -377,8 +495,20 @@ export function WhatsAppChatInbox() {
 
               <button
                 type="button"
+                onClick={() => setInterestedOnly(!interestedOnly)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 ${
+                  interestedOnly
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Interested ({interestedCount})
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setUnreadOnly(!unreadOnly)}
-                className={`ml-auto px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 ${
                   unreadOnly
                     ? "bg-rose-600 text-white shadow-xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -390,7 +520,7 @@ export function WhatsAppChatInbox() {
           </div>
 
           {/* Thread List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          <div ref={threadListRef} className="flex-1 overflow-y-auto divide-y divide-slate-100">
             {loadingThreads && threads.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
                 <RefreshCw size={24} className="animate-spin text-emerald-500 mb-2" />
@@ -405,7 +535,12 @@ export function WhatsAppChatInbox() {
                 </p>
               </div>
             ) : (
-              threads.map((thread) => {
+              <div
+                style={{ height: `${threadVirtualizer.getTotalSize()}px`, position: "relative" }}
+              >
+                {threadVirtualizer.getVirtualItems().map((virtualRow) => {
+                const thread = threads[virtualRow.index];
+                if (!thread) return null;
                 const isSelected = thread.phone === selectedPhone;
                 const isTutor = thread.role.toUpperCase() === "TUTOR";
                 const isParent = thread.role.toUpperCase() === "PARENT";
@@ -418,7 +553,14 @@ export function WhatsAppChatInbox() {
                       setSelectedPhone(thread.phone);
                       setMobileViewChat(true);
                     }}
-                    className={`w-full text-left p-3.5 transition-all flex items-start gap-3 relative ${
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                    className={`w-full text-left p-3.5 transition-all flex items-start gap-3 relative border-b border-slate-100 ${
                       isSelected
                         ? "bg-emerald-50/70 border-l-4 border-l-emerald-600"
                         : "hover:bg-white bg-transparent"
@@ -440,7 +582,10 @@ export function WhatsAppChatInbox() {
                     {/* Meta info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <span className="font-extrabold text-xs text-slate-900 truncate">
+                        <span className="font-extrabold text-xs text-slate-900 truncate flex items-center gap-1">
+                          {thread.isInterestedLead && (
+                            <Sparkles size={11} className="text-amber-500 shrink-0" aria-hidden />
+                          )}
                           {thread.name}
                         </span>
                         <span className="text-[10px] text-slate-400 font-semibold shrink-0">
@@ -489,7 +634,8 @@ export function WhatsAppChatInbox() {
                     )}
                   </button>
                 );
-              })
+              })}
+              </div>
             )}
           </div>
         </aside>
@@ -578,7 +724,11 @@ export function WhatsAppChatInbox() {
                       <Sparkles size={13} />
                     )}
                     <span className="hidden sm:inline">
-                      {markingInterested ? "Saving…" : "Mark Interested"}
+                      {markingInterested
+                        ? "Saving…"
+                        : activeThread?.isInterestedLead
+                          ? "Interested ✓"
+                          : "Mark Interested"}
                     </span>
                   </button>
 
@@ -652,7 +802,11 @@ export function WhatsAppChatInbox() {
                 </div>
               )}
               {/* Chat Message Stream */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3.5">
+              <div
+                ref={messagesScrollRef}
+                onScroll={handleMessagesScroll}
+                className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3.5"
+              >
                 {/* Contact info pill badge banner */}
                 {contact && (
                   <div className="max-w-md mx-auto p-3 rounded-2xl bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-xs text-xs text-slate-700 space-y-1">
@@ -777,57 +931,11 @@ export function WhatsAppChatInbox() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Quick Reply Template Chips */}
-              <div className="bg-white/95 backdrop-blur-md px-4 py-2 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0 mr-1 flex items-center gap-1">
-                  <Sparkles size={11} className="text-amber-500" /> Quick:
-                </span>
-                {QUICK_TEMPLATES.map((tmpl, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setInputText(tmpl.text)}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs"
-                  >
-                    {tmpl.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Message Composer */}
-              <form
-                onSubmit={handleSend}
-                className="p-3 bg-white border-t border-slate-200 flex items-end gap-2 shrink-0"
-              >
-                <div className="flex-1 relative">
-                  <textarea
-                    rows={2}
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                    placeholder={`Reply to +${selectedPhone} on WhatsApp... (Press Enter to send)`}
-                    className="w-full resize-none px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={!inputText.trim() || isSending}
-                  className="h-10 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
-                >
-                  {isSending ? (
-                    <RefreshCw size={14} className="animate-spin" />
-                  ) : (
-                    <Send size={14} />
-                  )}
-                  <span>Send</span>
-                </button>
-              </form>
+              <WhatsAppChatComposer
+                phone={selectedPhone}
+                disabled={loadingMessages}
+                onSend={handleSendMessage}
+              />
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">

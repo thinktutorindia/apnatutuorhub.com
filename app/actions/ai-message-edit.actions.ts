@@ -154,6 +154,52 @@ function applyLocalInstructionEdits(
   return null;
 }
 
+function parseInstructionPercent(instruction: string, fallback: number): number {
+  const m = instruction.match(/(\d+(?:\.\d+)?)\s*%/);
+  return m ? Number(m[1]) / 100 : fallback;
+}
+
+/** Templates use {{fee}} — adjust fee line with a visible premium/discount note. */
+function applyFeePlaceholderInstruction(
+  template: string,
+  instruction: string,
+  priceAdjustment?: "INCREASE" | "DECREASE" | "NONE"
+): { template: string; explanation: string } | null {
+  if (!/\{\{\s*fee\s*\}\}/i.test(template)) return null;
+
+  const lower = instruction.toLowerCase();
+  const shouldIncrease =
+    priceAdjustment === "INCREASE" ||
+    /\b(increase|badha|bada|high|zyada|price)\b/i.test(lower);
+  const shouldDecrease =
+    priceAdjustment === "DECREASE" ||
+    /\b(decrease|kam|ghata|lower)\b/i.test(lower);
+
+  if (!shouldIncrease && !shouldDecrease) return null;
+  if (shouldIncrease && shouldDecrease) return null;
+
+  const pct = parseInstructionPercent(instruction, shouldIncrease ? 0.15 : 0.1);
+  const label = shouldIncrease
+    ? `*(premium +${Math.round(pct * 100)}% on quoted fee)*`
+    : `*(${Math.round(pct * 100)}% softer quote)*`;
+
+  let updated = template.replace(/\s*\*\(coordinator[^*]*\*\)/gi, "").replace(/\s*\*\(premium[^*]*\*\)/gi, "");
+
+  if (/💰[^\n]*\{\{\s*fee\s*\}\}/i.test(updated)) {
+    updated = updated.replace(/(💰[^\n]*?\{\{\s*fee\s*\}\})/i, `$1 ${label}`);
+  } else {
+    updated = updated.replace(/\{\{\s*fee\s*\}\}/i, `{{fee}} ${label}`);
+  }
+
+  if (updated.trim() === template.trim()) return null;
+  return {
+    template: updated.trim(),
+    explanation: shouldIncrease
+      ? `Applied ~${Math.round(pct * 100)}% premium marker on {{fee}} (each lead still personalizes fee at send).`
+      : `Applied ~${Math.round(pct * 100)}% softer fee marker on {{fee}}.`,
+  };
+}
+
 /**
  * Deterministic fallback updater if Gemini API is offline or key missing
  */
@@ -167,8 +213,18 @@ function deterministicTemplateUpdate(
   const lower = instruction.toLowerCase();
 
   // Price adjustment logic
-  const shouldIncrease = priceAdjustment === "INCREASE" || lower.includes("high") || lower.includes("increase") || lower.includes("bada") || lower.includes("badha");
-  const shouldDecrease = priceAdjustment === "DECREASE" || lower.includes("low") || lower.includes("decrease") || lower.includes("kam") || lower.includes("ghata");
+  const shouldIncrease =
+    priceAdjustment === "INCREASE" ||
+    /\b(increase|badha|bada|high|zyada)\b/i.test(lower) ||
+    (/\bprice\b/i.test(lower) && !/\b(decrease|kam|ghata|lower)\b/i.test(lower));
+  const shouldDecrease =
+    priceAdjustment === "DECREASE" ||
+    /\b(decrease|kam|ghata|lower)\b/i.test(lower);
+
+  const feePlaceholderEdit = applyFeePlaceholderInstruction(currentTemplate, instruction, priceAdjustment);
+  if (feePlaceholderEdit) {
+    return feePlaceholderEdit;
+  }
 
   if (shouldIncrease) {
     // Increase monthly rates
@@ -247,6 +303,36 @@ function parseGeminiJsonPayload(rawText: string): { template?: string; explanati
       return null;
     }
   }
+}
+
+async function callGeminiViaSdk(
+  prompt: string,
+  apiKey: string
+): Promise<string | null> {
+  try {
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+    for (const model of models) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            temperature: 0.3,
+            responseMimeType: "application/json",
+          },
+        });
+        const text = response.text?.trim();
+        if (text) return text;
+      } catch {
+        // try next model
+      }
+    }
+  } catch (err) {
+    console.warn("[editWhatsAppPitchWithAI] @google/genai failed:", err);
+  }
+  return null;
 }
 
 /**
@@ -328,6 +414,17 @@ Respond with ONLY valid JSON with keys:
 }
 `;
 
+  const sdkRaw = await callGeminiViaSdk(systemInstructions, apiKey);
+  if (sdkRaw) {
+    const parsed = parseGeminiJsonPayload(sdkRaw);
+    if (parsed?.template) {
+      return {
+        template: String(parsed.template).trim(),
+        explanation: String(parsed.explanation || "Updated via Gemini AI").trim(),
+      };
+    }
+  }
+
   const models = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
@@ -342,7 +439,10 @@ Respond with ONLY valid JSON with keys:
 
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
         signal: controller.signal,
         body: JSON.stringify({
           contents: [{ parts: [{ text: systemInstructions }] }],
@@ -391,6 +491,20 @@ export async function editWhatsAppPitchWithAIAction(
   }
 
   try {
+    const feeEdit = applyFeePlaceholderInstruction(
+      input.currentTemplate,
+      input.instruction,
+      input.priceAdjustment
+    );
+    if (feeEdit) {
+      const validationReport = validateTemplateAgainstRules(feeEdit.template);
+      return actionSuccess({
+        revisedTemplate: feeEdit.template,
+        aiExplanation: feeEdit.explanation,
+        validationReport,
+      });
+    }
+
     const localEdit = applyLocalInstructionEdits(input.currentTemplate, input.instruction);
     if (localEdit) {
       let validationReport = validateTemplateAgainstRules(localEdit.template);
@@ -400,6 +514,10 @@ export async function editWhatsAppPitchWithAIAction(
         validationReport,
       });
     }
+
+    const hasGeminiKey = Boolean(
+      process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY
+    );
 
     // 1. Try Gemini AI first
     let result = await callGeminiForTemplate(
@@ -417,11 +535,28 @@ export async function editWhatsAppPitchWithAIAction(
         input.priceAdjustment
       );
       if (result.template.trim() === input.currentTemplate.trim()) {
+        const retryFee = applyFeePlaceholderInstruction(
+          input.currentTemplate,
+          input.instruction,
+          input.priceAdjustment
+        );
+        if (retryFee) {
+          const validationReport = validateTemplateAgainstRules(retryFee.template);
+          return actionSuccess({
+            revisedTemplate: retryFee.template,
+            aiExplanation: retryFee.explanation,
+            validationReport,
+          });
+        }
         return actionError(
-          "Could not apply that edit automatically. Try a specific instruction (e.g. remove dash before Coordinator) or set GEMINI_API_KEY for full AI chat."
+          hasGeminiKey
+            ? "Could not apply that edit. Try: “increase price 5%”, “remove dash before Coordinator”, or “add commission plan”."
+            : "Could not apply that edit automatically. Add GEMINI_API_KEY on the live Vercel project (Production) and redeploy — CLI must target the same project as apnatutorhub.com."
         );
       }
-      result.explanation = `${result.explanation} (Rule-based editor — add GEMINI_API_KEY for full AI chat.)`;
+      result.explanation = hasGeminiKey
+        ? `${result.explanation} (Rule-based editor — Gemini did not return a change.)`
+        : `${result.explanation} (Rule-based editor — GEMINI_API_KEY missing on this server.)`;
     }
 
     // 3. Post-generation guardrails validation

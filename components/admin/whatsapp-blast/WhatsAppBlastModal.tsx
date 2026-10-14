@@ -47,8 +47,9 @@ Agar aap yeh tuition lene ke liye interested hain, toh abhi *YES* ya *1* reply k
 
 function inferPriceAdjustment(prompt: string): "INCREASE" | "DECREASE" | "NONE" {
   const lower = prompt.toLowerCase();
-  if (/\b(increase|badha|bada|high|zyada)\b/i.test(lower)) return "INCREASE";
   if (/\b(decrease|kam|ghata|lower)\b/i.test(lower)) return "DECREASE";
+  if (/\b(increase|badha|bada|high|zyada)\b/i.test(lower)) return "INCREASE";
+  if (/\bprice\b/i.test(lower) && /\d+\s*%/.test(lower)) return "INCREASE";
   return "NONE";
 }
 

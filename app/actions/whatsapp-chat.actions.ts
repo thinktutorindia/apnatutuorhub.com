@@ -24,7 +24,26 @@ export interface WhatsAppConversationSummary {
   unreadCount: number;
   totalMessages: number;
   isInterestedLead: boolean;
+  /** Last message from user and/or unread — staff should reply */
+  needsStaffReply: boolean;
 }
+
+export type WhatsAppReplyFilter = "ALL" | "NEEDS_REPLY" | "AWAITING_USER";
+
+export interface WhatsAppChatThreadsPage {
+  threads: WhatsAppConversationSummary[];
+  page: number;
+  pageSize: number;
+  totalThreads: number;
+  totalPages: number;
+  totalUnread: number;
+  interestedCount: number;
+  needsReplyCount: number;
+  awaitingUserCount: number;
+}
+
+const DEFAULT_THREAD_PAGE_SIZE = 50;
+const MAX_THREAD_PAGE_SIZE = 100;
 
 export interface WhatsAppChatMessageItem {
   id: string;
@@ -97,17 +116,26 @@ export async function getWhatsAppChatThreadsAction(params?: {
   roleFilter?: string;
   unreadOnly?: boolean;
   interestedOnly?: boolean;
-}): Promise<
-  ActionResult<{ threads: WhatsAppConversationSummary[]; totalUnread: number; interestedCount: number }>
-> {
+  replyFilter?: WhatsAppReplyFilter;
+  page?: number;
+  pageSize?: number;
+}): Promise<ActionResult<WhatsAppChatThreadsPage>> {
   const guard = await requireStaffOrAdmin();
   if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
 
   try {
-    const search = params?.search?.trim().toLowerCase();
-    const roleFilter = params?.roleFilter;
+    const searchRaw = params?.search?.trim() ?? "";
+    const search = searchRaw.toLowerCase();
+    const roleFilter = params?.roleFilter?.toUpperCase();
     const unreadOnly = Boolean(params?.unreadOnly);
     const interestedOnly = Boolean(params?.interestedOnly);
+    const replyFilter: WhatsAppReplyFilter = params?.replyFilter ?? "ALL";
+    const page = Math.max(1, Math.floor(params?.page ?? 1));
+    const pageSize = Math.min(
+      MAX_THREAD_PAGE_SIZE,
+      Math.max(10, Math.floor(params?.pageSize ?? DEFAULT_THREAD_PAGE_SIZE))
+    );
+    const offset = (page - 1) * pageSize;
 
     type LatestRow = {
       id: string;
@@ -120,100 +148,216 @@ export async function getWhatsAppChatThreadsAction(params?: {
       messageId: string | null;
       isRead: boolean;
       createdAt: Date;
+      unread_count: number;
     };
 
-    const [rawLatestMessages, unreadCounts, sessions, interestedKeys] = await Promise.all([
-      prisma.$queryRaw<LatestRow[]>`
+    type StatsRow = {
+      total_threads: number;
+      needs_reply_count: number;
+      awaiting_user_count: number;
+      total_unread: number;
+    };
+
+    const interestedKeys = await loadInterestedPhoneKeys();
+
+    if (interestedOnly && interestedKeys.size === 0) {
+      return actionSuccess({
+        threads: [],
+        page,
+        pageSize,
+        totalThreads: 0,
+        totalPages: 0,
+        totalUnread: 0,
+        interestedCount: 0,
+        needsReplyCount: 0,
+        awaitingUserCount: 0,
+      });
+    }
+
+    const interestedList = interestedOnly ? Array.from(interestedKeys) : [];
+
+    const searchPattern = search ? `%${search}%` : null;
+
+    const statsRows = await prisma.$queryRaw<StatsRow[]>`
+      WITH latest AS (
         SELECT id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt"
         FROM (
           SELECT
             id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt",
             ROW_NUMBER() OVER (PARTITION BY phone ORDER BY "createdAt" DESC) AS rn
           FROM whatsapp_chat_messages
-        ) latest
+        ) x
         WHERE rn = 1
-      `,
-      prisma.whatsappChatMessage.groupBy({
-        by: ["phone"],
-        where: {
-          direction: "INBOUND",
-          isRead: false,
-        },
-        _count: { id: true },
-      }),
-      prisma.whatsappSession.findMany({
-        orderBy: { lastMessageAt: "desc" },
-        take: 300,
-        select: {
-          phone: true,
-          step: true,
-          lastMessageAt: true,
-          data: true,
-          userType: true,
-        },
-      }),
-      loadInterestedPhoneKeys(),
-    ]);
+      ),
+      unread AS (
+        SELECT phone, COUNT(*)::bigint AS unread_count
+        FROM whatsapp_chat_messages
+        WHERE direction = 'INBOUND' AND "isRead" = false
+        GROUP BY phone
+      ),
+      base AS (
+        SELECT
+          l.*,
+          COALESCE(u.unread_count, 0)::int AS unread_count
+        FROM latest l
+        LEFT JOIN unread u ON u.phone = l.phone
+      )
+      SELECT
+        COUNT(*)::int AS total_threads,
+        COUNT(*) FILTER (
+          WHERE direction = 'INBOUND' OR unread_count > 0
+        )::int AS needs_reply_count,
+        COUNT(*) FILTER (
+          WHERE direction = 'OUTBOUND' AND unread_count = 0
+        )::int AS awaiting_user_count,
+        COALESCE(SUM(unread_count), 0)::int AS total_unread
+      FROM base
+      WHERE
+        (${unreadOnly}::boolean = false OR unread_count > 0)
+        AND (
+          ${replyFilter}::text = 'ALL'
+          OR (${replyFilter}::text = 'NEEDS_REPLY' AND (direction = 'INBOUND' OR unread_count > 0))
+          OR (${replyFilter}::text = 'AWAITING_USER' AND direction = 'OUTBOUND' AND unread_count = 0)
+        )
+        AND (
+          ${searchPattern}::text IS NULL
+          OR phone ILIKE ${searchPattern}
+          OR body ILIKE ${searchPattern}
+          OR COALESCE("contactName", '') ILIKE ${searchPattern}
+        )
+        AND (
+          ${interestedOnly}::boolean = false
+          OR RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = ANY(${interestedList}::text[])
+        )
+    `;
 
-    const latestMsgMap = new Map<string, LatestRow>();
-    rawLatestMessages.forEach((m) => latestMsgMap.set(m.phone, m));
+    const stats = statsRows[0] ?? {
+      total_threads: 0,
+      needs_reply_count: 0,
+      awaiting_user_count: 0,
+      total_unread: 0,
+    };
 
-    const phoneSet = new Set<string>(latestMsgMap.keys());
-    for (const s of sessions) {
-      if (!latestMsgMap.has(s.phone)) phoneSet.add(s.phone);
+    const totalThreads = stats.total_threads;
+    const totalPages = totalThreads === 0 ? 0 : Math.ceil(totalThreads / pageSize);
+
+    if (totalThreads === 0) {
+      return actionSuccess({
+        threads: [],
+        page,
+        pageSize,
+        totalThreads: 0,
+        totalPages: 0,
+        totalUnread: stats.total_unread,
+        interestedCount: interestedKeys.size,
+        needsReplyCount: stats.needs_reply_count,
+        awaitingUserCount: stats.awaiting_user_count,
+      });
     }
 
-    const phones = Array.from(phoneSet);
-    if (phones.length === 0) {
-      return actionSuccess({ threads: [], totalUnread: 0, interestedCount: interestedKeys.size });
-    }
+    const pageRows = await prisma.$queryRaw<LatestRow[]>`
+      WITH latest AS (
+        SELECT id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt"
+        FROM (
+          SELECT
+            id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt",
+            ROW_NUMBER() OVER (PARTITION BY phone ORDER BY "createdAt" DESC) AS rn
+          FROM whatsapp_chat_messages
+        ) x
+        WHERE rn = 1
+      ),
+      unread AS (
+        SELECT phone, COUNT(*)::bigint AS unread_count
+        FROM whatsapp_chat_messages
+        WHERE direction = 'INBOUND' AND "isRead" = false
+        GROUP BY phone
+      ),
+      base AS (
+        SELECT
+          l.*,
+          COALESCE(u.unread_count, 0)::int AS unread_count
+        FROM latest l
+        LEFT JOIN unread u ON u.phone = l.phone
+      )
+      SELECT *
+      FROM base
+      WHERE
+        (${unreadOnly}::boolean = false OR unread_count > 0)
+        AND (
+          ${replyFilter}::text = 'ALL'
+          OR (${replyFilter}::text = 'NEEDS_REPLY' AND (direction = 'INBOUND' OR unread_count > 0))
+          OR (${replyFilter}::text = 'AWAITING_USER' AND direction = 'OUTBOUND' AND unread_count = 0)
+        )
+        AND (
+          ${searchPattern}::text IS NULL
+          OR phone ILIKE ${searchPattern}
+          OR body ILIKE ${searchPattern}
+          OR COALESCE("contactName", '') ILIKE ${searchPattern}
+        )
+        AND (
+          ${interestedOnly}::boolean = false
+          OR RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = ANY(${interestedList}::text[])
+        )
+      ORDER BY "createdAt" DESC
+      LIMIT ${pageSize}
+      OFFSET ${offset}
+    `;
 
-    const unreadMap = new Map<string, number>();
-    let totalUnreadAll = 0;
-    unreadCounts.forEach((u) => {
-      unreadMap.set(u.phone, u._count.id);
-      totalUnreadAll += u._count.id;
-    });
-
-    // Batch query Users by phone (checking both 10-digit and full 12-digit)
+    const phones = pageRows.map((r) => r.phone);
     const phoneVariants: string[] = [];
     phones.forEach((p) => {
       phoneVariants.push(p);
-      const digits10 = p.replace(/\D/g, "").slice(-10);
+      const digits10 = phoneLast10(p);
       if (digits10 && digits10 !== p) phoneVariants.push(digits10);
     });
 
-    const users = await prisma.user.findMany({
-      where: { phone: { in: phoneVariants } },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        role: true,
-        tutorProfile: {
-          select: {
-            id: true,
-            subjects: true,
-            address: true,
-            city: true,
-          },
-        },
-        parentProfile: {
-          select: {
-            id: true,
-            address: true,
-            city: true,
-          },
-        },
-      },
-    });
+    const [users, sessions] = await Promise.all([
+      phoneVariants.length === 0
+        ? Promise.resolve([])
+        : prisma.user.findMany({
+            where: { phone: { in: phoneVariants } },
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+              role: true,
+              tutorProfile: {
+                select: {
+                  id: true,
+                  subjects: true,
+                  address: true,
+                  city: true,
+                },
+              },
+              parentProfile: {
+                select: {
+                  id: true,
+                  address: true,
+                  city: true,
+                },
+              },
+            },
+          }),
+      phones.length === 0
+        ? Promise.resolve([])
+        : prisma.whatsappSession.findMany({
+            where: { phone: { in: phones } },
+            select: {
+              phone: true,
+              step: true,
+              lastMessageAt: true,
+              data: true,
+              userType: true,
+            },
+          }),
+    ]);
 
     const userMap = new Map<string, (typeof users)[0]>();
     users.forEach((u) => {
       if (u.phone) {
         userMap.set(u.phone, u);
-        const d10 = u.phone.replace(/\D/g, "").slice(-10);
+        const d10 = phoneLast10(u.phone);
         if (d10) userMap.set(d10, u);
       }
     });
@@ -223,30 +367,31 @@ export async function getWhatsAppChatThreadsAction(params?: {
 
     const threads: WhatsAppConversationSummary[] = [];
 
-    for (const phone of phones) {
+    for (const latestMsg of pageRows) {
+      const phone = latestMsg.phone;
       const d10 = phoneLast10(phone);
       const isInterestedLead = d10.length >= 10 && interestedKeys.has(d10);
       const matchedUser = userMap.get(phone) || (d10 ? userMap.get(d10) : undefined);
       const matchedSession = sessionMap.get(phone);
-      const sessionData = (matchedSession?.data as Record<string, any>) || {};
-      const latestMsg = latestMsgMap.get(phone);
-
-      const unread = unreadMap.get(phone) || 0;
-
-      if (interestedOnly && !isInterestedLead) continue;
-      if (unreadOnly && unread === 0) continue;
+      const sessionData = (matchedSession?.data as Record<string, unknown>) || {};
+      const unread = latestMsg.unread_count;
+      const needsStaffReply = latestMsg.direction === "INBOUND" || unread > 0;
 
       const name =
         matchedUser?.name ||
-        latestMsg?.contactName ||
-        sessionData.name ||
-        (matchedSession?.userType ? `${matchedSession.userType} (${phone.slice(-4)})` : `User ${phone.slice(-4)}`);
+        latestMsg.contactName ||
+        (typeof sessionData.name === "string" ? sessionData.name : null) ||
+        (matchedSession?.userType
+          ? `${matchedSession.userType} (${phone.slice(-4)})`
+          : `User ${phone.slice(-4)}`);
 
-      const email = matchedUser?.email || sessionData.email || null;
+      const email =
+        matchedUser?.email ||
+        (typeof sessionData.email === "string" ? sessionData.email : null) ||
+        null;
       const role = matchedUser?.role || matchedSession?.userType || "LEAD";
 
-      // Filter by role
-      if (roleFilter && roleFilter !== "ALL" && role.toUpperCase() !== roleFilter.toUpperCase()) {
+      if (roleFilter && roleFilter !== "ALL" && role.toUpperCase() !== roleFilter) {
         continue;
       }
 
@@ -255,17 +400,16 @@ export async function getWhatsAppChatThreadsAction(params?: {
         matchedUser?.tutorProfile?.address ||
         matchedUser?.parentProfile?.city ||
         matchedUser?.parentProfile?.address ||
-        sessionData.area ||
-        sessionData.city ||
+        (typeof sessionData.area === "string" ? sessionData.area : null) ||
+        (typeof sessionData.city === "string" ? sessionData.city : null) ||
         null;
 
       const subjects =
         matchedUser?.tutorProfile?.subjects ||
-        (Array.isArray(sessionData.subjects) ? sessionData.subjects : undefined);
+        (Array.isArray(sessionData.subjects) ? (sessionData.subjects as string[]) : undefined);
 
-      // Search filter across name, phone, email, location, last message
       if (search) {
-        const hay = `${phone} ${name} ${email || ""} ${location || ""} ${latestMsg?.body || ""}`.toLowerCase();
+        const hay = `${phone} ${name} ${email || ""} ${location || ""} ${latestMsg.body || ""}`.toLowerCase();
         if (!hay.includes(search)) continue;
       }
 
@@ -276,38 +420,30 @@ export async function getWhatsAppChatThreadsAction(params?: {
         role,
         location,
         subjects,
-        sessionStep: matchedSession?.step || latestMsg?.step || null,
-        lastMessage: latestMsg
-          ? {
-              body: latestMsg.body,
-              direction: latestMsg.direction as "INBOUND" | "OUTBOUND",
-              senderName: latestMsg.senderName,
-              createdAt: latestMsg.createdAt.toISOString(),
-            }
-          : matchedSession
-            ? {
-                body: `Session step: ${matchedSession.step}`,
-                direction: "OUTBOUND",
-                senderName: "Bot",
-                createdAt: matchedSession.lastMessageAt.toISOString(),
-              }
-            : null,
+        sessionStep: matchedSession?.step || latestMsg.step || null,
+        lastMessage: {
+          body: latestMsg.body,
+          direction: latestMsg.direction as "INBOUND" | "OUTBOUND",
+          senderName: latestMsg.senderName,
+          createdAt: latestMsg.createdAt.toISOString(),
+        },
         unreadCount: unread,
         totalMessages: 0,
         isInterestedLead,
+        needsStaffReply,
       });
     }
 
-    threads.sort((a, b) => {
-      const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
-      const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
-      return timeB - timeA;
-    });
-
     return actionSuccess({
       threads,
-      totalUnread: totalUnreadAll,
+      page,
+      pageSize,
+      totalThreads,
+      totalPages,
+      totalUnread: stats.total_unread,
       interestedCount: interestedKeys.size,
+      needsReplyCount: stats.needs_reply_count,
+      awaitingUserCount: stats.awaiting_user_count,
     });
   } catch (err) {
     console.error("[getWhatsAppChatThreadsAction] Error:", err);

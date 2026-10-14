@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, memo } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import {
   MessageSquare,
   Search,
@@ -30,6 +29,7 @@ import {
   type WhatsAppConversationSummary,
   type WhatsAppChatMessageItem,
   type WhatsAppChatContactDetails,
+  type WhatsAppReplyFilter,
 } from "@/app/actions/whatsapp-chat.actions";
 import Link from "next/link";
 
@@ -56,7 +56,7 @@ const QUICK_TEMPLATES = [
   },
 ];
 
-const THREAD_ROW_ESTIMATE_PX = 92;
+const THREADS_PAGE_SIZE = 50;
 
 function mergeMessages(
   prev: WhatsAppChatMessageItem[],
@@ -162,8 +162,14 @@ export function WhatsAppChatInbox() {
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [interestedOnly, setInterestedOnly] = useState(false);
+  const [replyFilter, setReplyFilter] = useState<WhatsAppReplyFilter>("ALL");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalThreads, setTotalThreads] = useState(0);
   const [totalUnread, setTotalUnread] = useState(0);
   const [interestedCount, setInterestedCount] = useState(0);
+  const [needsReplyCount, setNeedsReplyCount] = useState(0);
+  const [awaitingUserCount, setAwaitingUserCount] = useState(0);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -197,33 +203,55 @@ export function WhatsAppChatInbox() {
     scrollToBottom(messages.length <= 1 ? "auto" : "smooth");
   }, [messages, selectedPhone, scrollToBottom]);
 
+  const filterSignature = useMemo(
+    () =>
+      [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter].join("|"),
+    [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter]
+  );
+
   const loadThreads = useCallback(
-    async (silent = false) => {
+    async (silent = false, pageOverride?: number) => {
       if (!silent) setLoadingThreads(true);
+      const activePage = pageOverride ?? page;
       const res = await getWhatsAppChatThreadsAction({
         search: debouncedSearch || undefined,
         roleFilter: roleFilter !== "ALL" ? roleFilter : undefined,
         unreadOnly,
         interestedOnly,
+        replyFilter,
+        page: activePage,
+        pageSize: THREADS_PAGE_SIZE,
       });
       if (res.success && res.data) {
         setThreads(res.data.threads);
         setTotalUnread(res.data.totalUnread);
         setInterestedCount(res.data.interestedCount);
+        setNeedsReplyCount(res.data.needsReplyCount);
+        setAwaitingUserCount(res.data.awaitingUserCount);
+        setTotalThreads(res.data.totalThreads);
+        setTotalPages(res.data.totalPages);
         setSelectedPhone((current) => {
           if (current && res.data!.threads.some((t) => t.phone === current)) return current;
-          if (res.data!.threads.length > 0 && !mobileViewChat) return res.data!.threads[0].phone;
+          if (res.data!.threads.length > 0 && !mobileViewChat && activePage === 1 && !current) {
+            return res.data!.threads[0].phone;
+          }
           return current;
         });
       }
       setLoadingThreads(false);
     },
-    [debouncedSearch, roleFilter, unreadOnly, interestedOnly, mobileViewChat]
+    [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter, page, mobileViewChat]
   );
 
   useEffect(() => {
+    setPage(1);
+    void loadThreads(false, 1);
+  }, [filterSignature]);
+
+  useEffect(() => {
+    if (page === 1) return;
     void loadThreads();
-  }, [loadThreads]);
+  }, [page]);
 
   useEffect(() => {
     if (!selectedPhone) {
@@ -307,6 +335,23 @@ export function WhatsAppChatInbox() {
 
         if (res.success && res.data) {
           setMessages((prev) => prev.map((m) => (m.id === tempMsg.id ? res.data!.message : m)));
+          setThreads((prev) =>
+            prev.map((t) =>
+              t.phone === selectedPhone
+                ? {
+                    ...t,
+                    needsStaffReply: false,
+                    unreadCount: 0,
+                    lastMessage: {
+                      body: messageText,
+                      direction: "OUTBOUND",
+                      senderName: "Staff (You)",
+                      createdAt: res.data!.message.createdAt,
+                    },
+                  }
+                : t
+            )
+          );
           setFeedback({ type: "success", text: "WhatsApp message delivered!" });
           setTimeout(() => setFeedback(null), 3000);
         } else {
@@ -368,13 +413,6 @@ export function WhatsAppChatInbox() {
   };
 
   const activeThread = threads.find((t) => t.phone === selectedPhone);
-
-  const threadVirtualizer = useVirtualizer({
-    count: threads.length,
-    getScrollElement: () => threadListRef.current,
-    estimateSize: () => THREAD_ROW_ESTIMATE_PX,
-    overscan: 10,
-  });
 
   const formatMessageTime = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -517,10 +555,39 @@ export function WhatsAppChatInbox() {
                 Unread ({totalUnread})
               </button>
             </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setReplyFilter(replyFilter === "NEEDS_REPLY" ? "ALL" : "NEEDS_REPLY")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 ${
+                  replyFilter === "NEEDS_REPLY"
+                    ? "bg-orange-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+                title="Last message from user — we have not replied yet"
+              >
+                Need reply ({needsReplyCount})
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setReplyFilter(replyFilter === "AWAITING_USER" ? "ALL" : "AWAITING_USER")
+                }
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 ${
+                  replyFilter === "AWAITING_USER"
+                    ? "bg-sky-700 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+                title="We or bot replied last — waiting on them"
+              >
+                We replied ({awaitingUserCount})
+              </button>
+            </div>
           </div>
 
           {/* Thread List */}
-          <div ref={threadListRef} className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          <div ref={threadListRef} className="flex-1 overflow-y-auto divide-y divide-slate-100 min-h-0">
             {loadingThreads && threads.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
                 <RefreshCw size={24} className="animate-spin text-emerald-500 mb-2" />
@@ -535,12 +602,7 @@ export function WhatsAppChatInbox() {
                 </p>
               </div>
             ) : (
-              <div
-                style={{ height: `${threadVirtualizer.getTotalSize()}px`, position: "relative" }}
-              >
-                {threadVirtualizer.getVirtualItems().map((virtualRow) => {
-                const thread = threads[virtualRow.index];
-                if (!thread) return null;
+              threads.map((thread) => {
                 const isSelected = thread.phone === selectedPhone;
                 const isTutor = thread.role.toUpperCase() === "TUTOR";
                 const isParent = thread.role.toUpperCase() === "PARENT";
@@ -553,17 +615,12 @@ export function WhatsAppChatInbox() {
                       setSelectedPhone(thread.phone);
                       setMobileViewChat(true);
                     }}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
                     className={`w-full text-left p-3.5 transition-all flex items-start gap-3 relative border-b border-slate-100 ${
                       isSelected
                         ? "bg-emerald-50/70 border-l-4 border-l-emerald-600"
-                        : "hover:bg-white bg-transparent"
+                        : thread.needsStaffReply
+                          ? "bg-orange-50/40 hover:bg-orange-50/70"
+                          : "hover:bg-white bg-transparent"
                     }`}
                   >
                     {/* Avatar */}
@@ -585,6 +642,14 @@ export function WhatsAppChatInbox() {
                         <span className="font-extrabold text-xs text-slate-900 truncate flex items-center gap-1">
                           {thread.isInterestedLead && (
                             <Sparkles size={11} className="text-amber-500 shrink-0" aria-hidden />
+                          )}
+                          {thread.needsStaffReply && (
+                            <span
+                              className="text-[9px] font-black uppercase text-orange-700 bg-orange-100 px-1 py-0.5 rounded shrink-0"
+                              title="Needs staff reply"
+                            >
+                              Reply
+                            </span>
                           )}
                           {thread.name}
                         </span>
@@ -634,10 +699,35 @@ export function WhatsAppChatInbox() {
                     )}
                   </button>
                 );
-              })}
-              </div>
+              })
             )}
           </div>
+
+          {totalPages > 1 && (
+            <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-2 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                disabled={page <= 1 || loadingThreads}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 disabled:opacity-40 hover:bg-slate-200"
+              >
+                ← Prev
+              </button>
+              <p className="text-[10px] font-semibold text-slate-500 text-center leading-tight">
+                Page {page} of {totalPages}
+                <br />
+                <span className="text-slate-400">{totalThreads.toLocaleString()} chats</span>
+              </p>
+              <button
+                type="button"
+                disabled={page >= totalPages || loadingThreads}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 disabled:opacity-40 hover:bg-slate-200"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </aside>
 
         {/* ── Main Chat Window ─────────────────────────────────────────────────── */}

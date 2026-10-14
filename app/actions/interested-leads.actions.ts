@@ -16,6 +16,7 @@ import {
   sendAquaWhatsAppMessage,
   normalizeIndiaWhatsApp,
   getAquaWhatsAppConfig,
+  type AquaSendResult,
 } from "@/lib/aqua-whatsapp";
 import { revalidatePath } from "next/cache";
 
@@ -533,12 +534,12 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
           continue;
         }
 
-        const waResult = await sendAquaWhatsAppMessage({
+        const waResult: AquaSendResult = await sendAquaWhatsAppMessage({
           to: normalized,
           mode: "text",
           text: personalized,
           bypassDailyCap: true,
-        }).catch((e) => ({ ok: false, error: String(e) }));
+        }).catch((e): AquaSendResult => ({ ok: false, error: String(e) }));
 
         if (waResult.ok) {
           await prisma.whatsappChatMessage.create({

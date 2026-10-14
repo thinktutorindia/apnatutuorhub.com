@@ -362,8 +362,28 @@ export async function sendAquaWhatsAppMessage(input: {
       };
     }
 
+    if (json?.error?.message || json?.error?.error_user_msg) {
+      return {
+        ok: false,
+        rawStatus: String(json?.error?.code ?? "API_ERROR"),
+        error: String(json?.error?.message || json?.error?.error_user_msg),
+        billedEstimateInr,
+      };
+    }
+
     const providerMessageId = json?.messages?.[0]?.id;
     const rawStatus = json?.messages?.[0]?.message_status || "accepted";
+
+    if (!providerMessageId) {
+      return {
+        ok: false,
+        rawStatus: rawStatus || "NO_MESSAGE_ID",
+        error:
+          json?.message ||
+          "WhatsApp API accepted the request but did not return a message ID — message was not queued for delivery.",
+        billedEstimateInr,
+      };
+    }
 
     return {
       ok: true,

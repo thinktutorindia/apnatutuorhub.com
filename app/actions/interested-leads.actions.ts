@@ -562,6 +562,67 @@ function deriveSource(batchName: string | null): string {
 
 // ─── 2. Send dummy notifications ──────────────────────────────────────────────
 
+function isWhatsAppSessionOrDeliveryError(error?: string): boolean {
+  const err = (error || "").toLowerCase();
+  return (
+    err.includes("24") ||
+    err.includes("session") ||
+    err.includes("window") ||
+    err.includes("re-engagement") ||
+    err.includes("template") ||
+    err.includes("131026") ||
+    err.includes("message id") ||
+    err.includes("not queued") ||
+    err.includes("outside")
+  );
+}
+
+async function dispatchBlastWhatsAppMessage(opts: {
+  to: string;
+  personalizedText: string;
+  inquiryCode: string;
+  clientName: string;
+  classLine: string;
+  modeLine: string;
+  locationLine: string;
+  feeLine: string;
+  preferSessionText: boolean;
+}): Promise<AquaSendResult & { deliveryChannel: "session_text" | "approved_template" }> {
+  if (opts.preferSessionText) {
+    const textRes = await sendAquaWhatsAppMessage({
+      to: opts.to,
+      mode: "text",
+      text: opts.personalizedText,
+      bypassDailyCap: true,
+    }).catch((e): AquaSendResult => ({ ok: false, error: String(e) }));
+
+    if (textRes.ok) {
+      return { ...textRes, deliveryChannel: "session_text" };
+    }
+    if (!isWhatsAppSessionOrDeliveryError(textRes.error)) {
+      return { ...textRes, deliveryChannel: "session_text" };
+    }
+  }
+
+  const templateRes = await sendAquaWhatsAppMessage({
+    to: opts.to,
+    mode: "template",
+    templateId: "tuition_enquiry_direct",
+    placeholders: [
+      opts.inquiryCode,
+      opts.clientName,
+      opts.classLine,
+      opts.modeLine,
+      opts.locationLine,
+      opts.feeLine,
+      "Any (Male or Female Tutor)",
+    ],
+    bypassDailyCap: true,
+  }).catch((e): AquaSendResult => ({ ok: false, error: String(e) }));
+
+  return { ...templateRes, deliveryChannel: "approved_template" };
+}
+
 export type SendDummyNotifInput = {
   leadIds?: string[];
   directoryUserIds?: string[];
@@ -741,27 +802,50 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
           continue;
         }
 
-        const waResult: AquaSendResult = await sendAquaWhatsAppMessage({
+        const inquiryCode = lead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
+        const waResult = await dispatchBlastWhatsAppMessage({
           to: normalized,
-          mode: "text",
-          text: personalized,
-          bypassDailyCap: true,
-        }).catch((e): AquaSendResult => ({ ok: false, error: String(e) }));
+          personalizedText: personalized,
+          inquiryCode,
+          clientName: cleanFirstName || lead.name || "Tutor",
+          classLine: `${safeClass} (${meta.recommendedSubject})`,
+          modeLine: is5Km ? "Home Tuition (Offline)" : "Online Class",
+          locationLine: loc,
+          feeLine: meta.recommendedFee,
+          preferSessionText: lead.kind === "STAFF_LEAD",
+        });
 
         if (waResult.ok) {
+          const logBody =
+            waResult.deliveryChannel === "approved_template"
+              ? `[Approved template: tuition_enquiry_direct]\n${personalized}`
+              : personalized;
           await prisma.whatsappChatMessage.create({
             data: {
               phone: normalized,
               direction: "OUTBOUND",
               senderName: "Coordinator Broadcast",
-              body: personalized,
+              body: logBody,
               step: "INTERESTED_BLAST",
               messageId: waResult.providerMessageId || null,
+              messageType: waResult.deliveryChannel === "approved_template" ? "template" : "text",
+              status: waResult.rawStatus || "accepted",
               isRead: true,
             },
           }).catch(() => {});
 
-          results.push({ leadId: lead.id, name: lead.name, channel, status: "SENT", personalizedPreview: personalized });
+          const channelNote =
+            waResult.deliveryChannel === "approved_template"
+              ? " (approved WhatsApp template — outside 24h session)"
+              : "";
+          results.push({
+            leadId: lead.id,
+            name: lead.name,
+            channel,
+            status: "SENT",
+            reason: channelNote.trim() || undefined,
+            personalizedPreview: personalized,
+          });
           sent++;
         } else {
           const isNotConfigured = !aquaConfig.enabled || !aquaConfig.systemToken;

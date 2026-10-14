@@ -117,6 +117,43 @@ function validateTemplateAgainstRules(template: string): {
   };
 }
 
+/** Fast local edits for common coordinator requests (no API key needed). */
+function applyLocalInstructionEdits(
+  currentTemplate: string,
+  instruction: string
+): { template: string; explanation: string } | null {
+  let updated = currentTemplate;
+  const notes: string[] = [];
+  const lower = instruction.toLowerCase();
+
+  if (
+    /(remove|delete|hata|hatao|hata do|drop).*(—|–|-|dash|hyphen)/i.test(instruction) ||
+    /(—|–|-)\s*(coordinator|signature|last line|end)/i.test(instruction) ||
+    (lower.includes("remove") && (lower.includes("'-'") || lower.includes('"-"') || lower.includes("dash")))
+  ) {
+    updated = updated
+      .replace(/\n[ \t]*[—–-][ \t]*(?=Coordinator)/gi, "\n")
+      .replace(/[—–-]\s*Coordinator,\s*Apna Tutor Hub\s*🎓/gi, "Coordinator, Apna Tutor Hub 🎓")
+      .replace(/[—–-]\s*Apna Tutor Hub/gi, "Apna Tutor Hub")
+      .replace(/\n[ \t]*[—–-][ \t]*\n/g, "\n");
+    notes.push("Removed em dash / hyphen from the closing line.");
+  }
+
+  const replaceMatch = instruction.match(/replace\s+["'](.+?)["']\s+with\s+["'](.+?)["']/i);
+  if (replaceMatch) {
+    const [, from, to] = replaceMatch;
+    if (updated.includes(from)) {
+      updated = updated.split(from).join(to);
+      notes.push(`Replaced "${from}" with "${to}".`);
+    }
+  }
+
+  if (updated !== currentTemplate) {
+    return { template: updated.trim(), explanation: notes.join(" ") || "Applied your edit to the template." };
+  }
+  return null;
+}
+
 /**
  * Deterministic fallback updater if Gemini API is offline or key missing
  */
@@ -354,6 +391,16 @@ export async function editWhatsAppPitchWithAIAction(
   }
 
   try {
+    const localEdit = applyLocalInstructionEdits(input.currentTemplate, input.instruction);
+    if (localEdit) {
+      let validationReport = validateTemplateAgainstRules(localEdit.template);
+      return actionSuccess({
+        revisedTemplate: localEdit.template,
+        aiExplanation: localEdit.explanation,
+        validationReport,
+      });
+    }
+
     // 1. Try Gemini AI first
     let result = await callGeminiForTemplate(
       input.currentTemplate,
@@ -369,6 +416,11 @@ export async function editWhatsAppPitchWithAIAction(
         input.instruction,
         input.priceAdjustment
       );
+      if (result.template.trim() === input.currentTemplate.trim()) {
+        return actionError(
+          "Could not apply that edit automatically. Try a specific instruction (e.g. remove dash before Coordinator) or set GEMINI_API_KEY for full AI chat."
+        );
+      }
       result.explanation = `${result.explanation} (Rule-based editor — add GEMINI_API_KEY for full AI chat.)`;
     }
 

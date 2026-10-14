@@ -45,6 +45,13 @@ Agar aap yeh tuition lene ke liye interested hain, toh abhi *YES* ya *1* reply k
 
 — Coordinator, Apna Tutor Hub 🎓`;
 
+function inferPriceAdjustment(prompt: string): "INCREASE" | "DECREASE" | "NONE" {
+  const lower = prompt.toLowerCase();
+  if (/\b(increase|badha|bada|high|zyada)\b/i.test(lower)) return "INCREASE";
+  if (/\b(decrease|kam|ghata|lower)\b/i.test(lower)) return "DECREASE";
+  return "NONE";
+}
+
 const DEFAULT_ONLINE_TEMPLATE = `Namaste {{name}} ji 🙏
 
 Apna Tutor Hub se verified 1-on-1 Online Tuition requirement aayi hai:
@@ -231,7 +238,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
         instruction: promptToUse,
         categoryHint,
         chatHistory: aiChatLog,
-        priceAdjustment: priceAdjustment || (promptToUse.toLowerCase().includes("high") || promptToUse.toLowerCase().includes("increase") ? "INCREASE" : promptToUse.toLowerCase().includes("low") || promptToUse.toLowerCase().includes("decrease") ? "DECREASE" : "NONE"),
+        priceAdjustment: priceAdjustment || inferPriceAdjustment(promptToUse),
       });
 
       if (res.success && res.data) {
@@ -996,9 +1003,11 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                   <span>Dispatch Complete! {sendResult.sent} Sent · {sendResult.simulated} Simulated · {sendResult.failed} Failed</span>
                 </p>
                 <p className="text-[11px] text-emerald-800">
-                  {sendResult.simulated > 0
+                  {sendResult.failed > 0
+                    ? `${sendResult.failed} failed — usually 24h session expired (User Directory) or invalid number. Retried with approved template where possible.`
+                    : sendResult.simulated > 0
                     ? "Aqua WhatsApp API is in test/simulation mode. Messages were validated and CRM interaction logged."
-                    : "WhatsApp messages dispatched directly to recipients' phone numbers."}
+                    : "WhatsApp messages dispatched with Aqua (session text or approved template fallback)."}
                 </p>
               </div>
             )}

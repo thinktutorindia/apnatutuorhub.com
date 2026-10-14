@@ -50,6 +50,8 @@ export type InterestedLead = {
   recommendedRateType: "MONTHLY" | "HOURLY";
   recommendedSubject: string;
   deliveryMode: "OFFLINE_5KM" | "ONLINE";
+  /** Where this row came from in the blast picker */
+  sourceType?: "STAFF_LEAD" | "USER_DIRECTORY";
 };
 
 export type NotifDeliveryResult = {
@@ -388,21 +390,11 @@ export async function getInterestedLeadsAction(opts?: {
       recommendedRateType: meta.recommendedRateType,
       recommendedSubject: meta.recommendedSubject,
       deliveryMode: meta.deliveryMode,
+      sourceType: "STAFF_LEAD" as const,
     };
   });
 
-  // Apply optional filtering
-  if (opts?.filterMode === "WITHIN_5KM") {
-    serialized = serialized.filter((l) => l.isWithin5Km);
-  } else if (opts?.filterMode === "ONLINE_ONLY") {
-    serialized = serialized.filter((l) => l.deliveryMode === "ONLINE" || !l.isWithin5Km);
-  }
-
-  if (opts?.classFilter === "CLASS_1_8") {
-    serialized = serialized.filter((l) => l.classCategory === "CLASS_1_8");
-  } else if (opts?.classFilter === "CLASS_9_12") {
-    serialized = serialized.filter((l) => l.classCategory === "CLASS_9_12");
-  }
+  serialized = applyBlastListFilters(serialized, opts);
 
   return actionSuccess({
     leads: serialized,
@@ -410,6 +402,150 @@ export async function getInterestedLeadsAction(opts?: {
     within5KmCount,
     onlineCount,
   });
+}
+
+// ─── 1b. User Directory tutors (optional blast audience) ─────────────────────
+
+export async function getUserDirectoryBlastTargetsAction(opts?: {
+  limit?: number;
+  search?: string;
+  referenceLat?: number;
+  referenceLng?: number;
+  radiusKm?: number;
+  filterMode?: "ALL" | "WITHIN_5KM" | "ONLINE_ONLY";
+  classFilter?: "ALL" | "CLASS_1_8" | "CLASS_9_12";
+}): Promise<ActionResult<{ leads: InterestedLead[]; total: number; within5KmCount: number; onlineCount: number }>> {
+  const { error } = await requireAdmin();
+  if (error) return actionError(error);
+
+  const limit = opts?.limit ?? 1500;
+  const search = opts?.search?.trim() ?? "";
+  const radiusKm = opts?.radiusKm ?? 5;
+  const refCoords = opts?.referenceLat && opts?.referenceLng
+    ? { lat: opts.referenceLat, lng: opts.referenceLng }
+    : { lat: 28.5355, lng: 77.2410 };
+
+  const and: any[] = [
+    { role: "TUTOR" as const },
+    { isActive: true },
+    { phone: { not: null } },
+    { NOT: { phone: "" } },
+  ];
+
+  if (search) {
+    and.push({
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search } },
+        { tutorProfile: { city: { contains: search, mode: "insensitive" } } },
+        { tutorProfile: { address: { contains: search, mode: "insensitive" } } },
+      ],
+    });
+  }
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where: { AND: and },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        createdAt: true,
+        tutorProfile: {
+          select: {
+            latitude: true,
+            longitude: true,
+            city: true,
+            address: true,
+            subjects: true,
+            classLevels: true,
+          },
+        },
+      },
+    }),
+    prisma.user.count({ where: { AND: and } }),
+  ]);
+
+  let within5KmCount = 0;
+  let onlineCount = 0;
+
+  let serialized: InterestedLead[] = users.map((u) => {
+    const tp = u.tutorProfile;
+    const locRaw = tp?.address?.trim() || tp?.city?.trim() || null;
+    const leadRow = {
+      id: u.id,
+      name: u.name,
+      phone: u.phone,
+      whatsapp: u.phone,
+      email: u.email,
+      location: locRaw,
+      subjects: tp?.subjects ?? [],
+      classes: tp?.classLevels ?? [],
+    };
+    const meta = enrichLeadWithBusinessRules(leadRow, tp, refCoords, radiusKm);
+    if (meta.isWithin5Km) within5KmCount++;
+    else onlineCount++;
+
+    return {
+      id: u.id,
+      name: u.name,
+      phone: u.phone,
+      whatsapp: u.phone,
+      email: u.email,
+      location: meta.locationLabel,
+      subjects: leadRow.subjects,
+      classes: leadRow.classes,
+      staffNotes: null,
+      batchName: null,
+      source: "User Directory",
+      createdAt: u.createdAt.toISOString(),
+      lastContactedAt: null,
+      latitude: meta.latitude,
+      longitude: meta.longitude,
+      distanceKm: meta.distanceKm,
+      isWithin5Km: meta.isWithin5Km,
+      classCategory: meta.classCategory,
+      classLabel: meta.classLabel,
+      recommendedFee: meta.recommendedFee,
+      recommendedRateType: meta.recommendedRateType,
+      recommendedSubject: meta.recommendedSubject,
+      deliveryMode: meta.deliveryMode,
+      sourceType: "USER_DIRECTORY" as const,
+    };
+  });
+
+  serialized = applyBlastListFilters(serialized, opts);
+
+  return actionSuccess({
+    leads: serialized,
+    total,
+    within5KmCount,
+    onlineCount,
+  });
+}
+
+type BlastListOpts = {
+  filterMode?: "ALL" | "WITHIN_5KM" | "ONLINE_ONLY";
+  classFilter?: "ALL" | "CLASS_1_8" | "CLASS_9_12";
+};
+
+function applyBlastListFilters(leads: InterestedLead[], opts?: BlastListOpts): InterestedLead[] {
+  let serialized = leads;
+  if (opts?.filterMode === "WITHIN_5KM") {
+    serialized = serialized.filter((l) => l.isWithin5Km);
+  } else if (opts?.filterMode === "ONLINE_ONLY") {
+    serialized = serialized.filter((l) => l.deliveryMode === "ONLINE" || !l.isWithin5Km);
+  }
+  if (opts?.classFilter === "CLASS_1_8") {
+    serialized = serialized.filter((l) => l.classCategory === "CLASS_1_8");
+  } else if (opts?.classFilter === "CLASS_9_12") {
+    serialized = serialized.filter((l) => l.classCategory === "CLASS_9_12");
+  }
+  return serialized;
 }
 
 function deriveSource(batchName: string | null): string {
@@ -427,7 +563,8 @@ function deriveSource(batchName: string | null): string {
 // ─── 2. Send dummy notifications ──────────────────────────────────────────────
 
 export type SendDummyNotifInput = {
-  leadIds: string[];
+  leadIds?: string[];
+  directoryUserIds?: string[];
   messageTemplate?: string;   // Default / fallback template
   offlineTemplate?: string;   // Template strictly for 5km within radius leads
   onlineTemplate?: string;    // Template strictly for leads without location (online mode)
@@ -440,28 +577,98 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
   const { error, user } = await requireAdmin();
   if (error || !user) return actionError(error ?? "Unauthorized");
 
-  if (!input.leadIds?.length) return actionError("No leads selected");
+  const staffIds = (input.leadIds ?? []).slice(0, 1000);
+  const directoryIds = (input.directoryUserIds ?? []).slice(0, 1000);
+  if (!staffIds.length && !directoryIds.length) return actionError("No recipients selected");
   if (!input.messageTemplate?.trim() && !input.offlineTemplate?.trim() && !input.onlineTemplate?.trim()) {
     return actionError("Message template cannot be empty");
   }
   if (!input.channels?.length) return actionError("Select at least one channel");
 
-  // Allow up to 1000 leads per call
-  const ids = input.leadIds.slice(0, 1000);
+  const staffLeads = staffIds.length
+    ? await prisma.staffLead.findMany({
+        where: { id: { in: staffIds }, status: "INTERESTED" },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          whatsapp: true,
+          email: true,
+          location: true,
+          subjects: true,
+          classes: true,
+        },
+      })
+    : [];
 
-  const leads = await prisma.staffLead.findMany({
-    where: { id: { in: ids }, status: "INTERESTED" },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      whatsapp: true,
-      email: true,
-      location: true,
-      subjects: true,
-      classes: true,
-    },
-  });
+  const directoryUsers = directoryIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: directoryIds }, role: "TUTOR", isActive: true },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          tutorProfile: {
+            select: {
+              latitude: true,
+              longitude: true,
+              city: true,
+              address: true,
+              subjects: true,
+              classLevels: true,
+            },
+          },
+        },
+      })
+    : [];
+
+  type BlastRecipient = {
+    kind: "STAFF_LEAD" | "USER_DIRECTORY";
+    id: string;
+    name: string | null;
+    phone: string | null;
+    whatsapp: string | null;
+    email: string | null;
+    location: string | null;
+    subjects: string[];
+    classes: string[];
+    tutorProfile?: {
+      latitude: number | null;
+      longitude: number | null;
+      city: string | null;
+      address: string | null;
+      subjects: string[];
+      classLevels: string[];
+    } | null;
+  };
+
+  const leads: BlastRecipient[] = [
+    ...staffLeads.map((l) => ({
+      kind: "STAFF_LEAD" as const,
+      id: l.id,
+      name: l.name,
+      phone: l.phone,
+      whatsapp: l.whatsapp,
+      email: l.email,
+      location: l.location,
+      subjects: l.subjects,
+      classes: l.classes,
+      tutorProfile: null,
+    })),
+    ...directoryUsers.map((u) => ({
+      kind: "USER_DIRECTORY" as const,
+      id: u.id,
+      name: u.name,
+      phone: u.phone,
+      whatsapp: u.phone,
+      email: u.email,
+      location: u.tutorProfile?.address?.trim() || u.tutorProfile?.city?.trim() || null,
+      subjects: u.tutorProfile?.subjects ?? [],
+      classes: u.tutorProfile?.classLevels ?? [],
+      tutorProfile: u.tutorProfile,
+    })),
+  ];
 
   const aquaConfig = getAquaWhatsAppConfig();
   const results: NotifDeliveryResult[] = [];
@@ -470,7 +677,7 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
   let failed = 0;
 
   for (const lead of leads) {
-    const meta = enrichLeadWithBusinessRules(lead);
+    const meta = enrichLeadWithBusinessRules(lead, lead.tutorProfile ?? null);
 
     // Rule: If tutor is 5km nearby -> use offlineTemplate; If tutor has no location -> use onlineTemplate
     const rawTemplate = meta.deliveryMode === "OFFLINE_5KM"
@@ -600,10 +807,12 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
       }
     }
 
-    await prisma.staffLead.update({
-      where: { id: lead.id },
-      data: { lastContactedAt: new Date() },
-    }).catch(() => null);
+    if (lead.kind === "STAFF_LEAD") {
+      await prisma.staffLead.update({
+        where: { id: lead.id },
+        data: { lastContactedAt: new Date() },
+      }).catch(() => null);
+    }
   }
 
   revalidatePath("/admin/staff-leads/interested-leads");

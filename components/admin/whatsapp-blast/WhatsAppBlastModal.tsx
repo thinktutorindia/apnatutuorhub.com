@@ -7,8 +7,10 @@ import {
   Filter, ArrowRight, Bot, IndianRupee, Clock, ChevronRight, ShieldCheck,
   TrendingUp, TrendingDown, Flame, Check, HelpCircle, Globe, Home
 } from "lucide-react";
+import Link from "next/link";
 import {
   getInterestedLeadsAction,
+  getUserDirectoryBlastTargetsAction,
   sendDummyNotificationsToInterestedLeadsAction,
   autoSyncWhatsAppInterestedLeadsAction,
   type InterestedLead,
@@ -78,6 +80,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
   const [filterMode, setFilterMode] = useState<"ALL" | "WITHIN_5KM" | "ONLINE_ONLY">("ALL");
   const [classFilter, setClassFilter] = useState<"ALL" | "CLASS_1_8" | "CLASS_9_12">("ALL");
   const [focusedLeadId, setFocusedLeadId] = useState<string | null>(null);
+  const [audienceSource, setAudienceSource] = useState<"INTERESTED" | "USER_DIRECTORY">("INTERESTED");
 
   // Dual Templates state (5km In-Person vs Online Mode)
   const [offlineTemplate, setOfflineTemplate] = useState<string>(DEFAULT_OFFLINE_TEMPLATE);
@@ -93,6 +96,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     warnings: string[];
     isValid: boolean;
   } | null>(null);
+  const [aiChatLog, setAiChatLog] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
 
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
@@ -111,23 +115,23 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const res = await getInterestedLeadsAction({
+      const opts = {
         limit: 1500,
-        search,
         filterMode,
         classFilter,
         radiusKm: 5,
-      });
+      };
+      const res =
+        audienceSource === "USER_DIRECTORY"
+          ? await getUserDirectoryBlastTargetsAction(opts)
+          : await getInterestedLeadsAction(opts);
       if (res.success && res.data) {
         setLeads(res.data.leads);
         setTotalCount(res.data.total);
         setWithin5KmCount(res.data.within5KmCount);
         setOnlineCount(res.data.onlineCount);
-        // By default, select all fetched leads
         setSelectedIds(res.data.leads.map((l) => l.id));
-        if (res.data.leads.length > 0 && !focusedLeadId) {
-          setFocusedLeadId(res.data.leads[0].id);
-        }
+        setFocusedLeadId(res.data.leads[0]?.id ?? null);
       }
     } catch (e) {
       console.error(e);
@@ -140,7 +144,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     if (isOpen) {
       fetchLeads();
     }
-  }, [isOpen, filterMode, classFilter]);
+  }, [isOpen, filterMode, classFilter, audienceSource]);
 
   // Sync inbound WhatsApp replies
   const handleSyncInbound = async () => {
@@ -187,6 +191,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
         lead.recommendedSubject,
         lead.classLabel,
         lead.batchName,
+        lead.source,
         ...(lead.subjects || []),
         ...(lead.classes || []),
       ]
@@ -225,11 +230,25 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
         currentTemplate: activeTemplate,
         instruction: promptToUse,
         categoryHint,
+        chatHistory: aiChatLog,
         priceAdjustment: priceAdjustment || (promptToUse.toLowerCase().includes("high") || promptToUse.toLowerCase().includes("increase") ? "INCREASE" : promptToUse.toLowerCase().includes("low") || promptToUse.toLowerCase().includes("decrease") ? "DECREASE" : "NONE"),
       });
 
       if (res.success && res.data) {
         setActiveTemplate(res.data.revisedTemplate);
+        const assistantText = [
+          res.data.aiExplanation,
+          res.data.validationReport.warnings.length
+            ? `Notes: ${res.data.validationReport.warnings.join(" ")}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+        setAiChatLog((prev) => [
+          ...prev,
+          { role: "user", text: promptToUse },
+          { role: "assistant", text: assistantText },
+        ]);
         setAiFeedback({
           explanation: res.data.aiExplanation,
           warnings: res.data.validationReport.warnings,
@@ -237,8 +256,10 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
         });
         setAiInstruction("");
       } else {
+        const errText = res.error || "Failed to update template";
+        setAiChatLog((prev) => [...prev, { role: "user", text: promptToUse }, { role: "assistant", text: errText }]);
         setAiFeedback({
-          explanation: res.error || "Failed to update template",
+          explanation: errText,
           warnings: [],
           isValid: false,
         });
@@ -366,8 +387,13 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     setSendResult(null);
 
     try {
+      const selected = leads.filter((l) => selectedIds.includes(l.id));
+      const leadIds = selected.filter((l) => l.sourceType !== "USER_DIRECTORY").map((l) => l.id);
+      const directoryUserIds = selected.filter((l) => l.sourceType === "USER_DIRECTORY").map((l) => l.id);
+
       const res = await sendDummyNotificationsToInterestedLeadsAction({
-        leadIds: selectedIds,
+        leadIds,
+        directoryUserIds,
         offlineTemplate,
         onlineTemplate,
         channels: ["WHATSAPP"],
@@ -412,15 +438,17 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleSyncInbound}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-black transition-all cursor-pointer disabled:opacity-50"
-              title="Sync all 717 inbound WhatsApp chat replies into CRM"
-            >
-              <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
-              <span>{isSyncing ? "Syncing 717..." : "⚡ Sync All 717 Replies"}</span>
-            </button>
+            {audienceSource === "INTERESTED" && (
+              <button
+                onClick={handleSyncInbound}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-black transition-all cursor-pointer disabled:opacity-50"
+                title="Sync all 717 inbound WhatsApp chat replies into CRM"
+              >
+                <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
+                <span>{isSyncing ? "Syncing 717..." : "⚡ Sync All 717 Replies"}</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
@@ -465,7 +493,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
           
           {/* ── Left Column: Audience Selection & 5km Filter (5 cols) ── */}
           <div className="lg:col-span-5 p-4 sm:p-5 flex flex-col min-h-0 space-y-3 bg-slate-50/50">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-slate-800">Target Audience List</p>
                 <p className="text-[11px] text-slate-500 font-semibold">
@@ -488,6 +516,50 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                   className="px-2 py-1 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 cursor-pointer transition-all"
                 >
                   Clear
+                </button>
+              </div>
+            </div>
+
+            {/* Audience source: WhatsApp replies vs User Directory */}
+            <div className="p-2.5 bg-white rounded-2xl border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Audience source</span>
+                <Link
+                  href="/admin/users?role=TUTOR"
+                  target="_blank"
+                  className="text-[10px] font-bold text-blue-700 hover:underline"
+                >
+                  Open User Directory ↗
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAudienceSource("INTERESTED");
+                    setSearch("");
+                  }}
+                  className={`p-2 rounded-xl border text-[11px] font-black transition-all cursor-pointer ${
+                    audienceSource === "INTERESTED"
+                      ? "bg-emerald-50 border-emerald-500 text-emerald-950 ring-1 ring-emerald-500/30"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  📱 WhatsApp Interested Leads
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAudienceSource("USER_DIRECTORY");
+                    setSearch("");
+                  }}
+                  className={`p-2 rounded-xl border text-[11px] font-black transition-all cursor-pointer ${
+                    audienceSource === "USER_DIRECTORY"
+                      ? "bg-blue-50 border-blue-500 text-blue-950 ring-1 ring-blue-500/30"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  👥 User Directory (Tutors)
                 </button>
               </div>
             </div>
@@ -615,13 +687,20 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                           <p className="text-xs font-black text-slate-900 truncate">
                             {lead.name || "WhatsApp Tutor"}
                           </p>
-                          <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-md ${
-                            is5Km
-                              ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
-                              : "bg-blue-100 text-blue-900 border border-blue-300"
-                          }`}>
-                            {is5Km ? "📍 5km In-Person" : "🌐 Online Mode"}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {lead.sourceType === "USER_DIRECTORY" && (
+                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md bg-indigo-100 text-indigo-900 border border-indigo-300">
+                                Directory
+                              </span>
+                            )}
+                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-md ${
+                              is5Km
+                                ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                                : "bg-blue-100 text-blue-900 border border-blue-300"
+                            }`}>
+                              {is5Km ? "📍 5km In-Person" : "🌐 Online Mode"}
+                            </span>
+                          </div>
                         </div>
 
                         <p className="text-[10px] text-slate-500 font-mono mt-0.5">
@@ -743,6 +822,26 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                     Guardrails: 5km Localities Only · No Junk City
                   </span>
                 </div>
+
+                {aiChatLog.length > 0 && (
+                  <div className="max-h-36 overflow-y-auto rounded-xl bg-white/80 border border-purple-100 p-2 space-y-1.5">
+                    {aiChatLog.slice(-12).map((msg, i) => (
+                      <div
+                        key={`${msg.role}-${i}`}
+                        className={`text-[11px] leading-snug rounded-lg px-2 py-1.5 ${
+                          msg.role === "user"
+                            ? "bg-purple-100 text-purple-950 font-semibold"
+                            : "bg-slate-50 text-slate-800 font-medium border border-slate-100"
+                        }`}
+                      >
+                        <span className="font-black text-[9px] uppercase tracking-wide block mb-0.5">
+                          {msg.role === "user" ? "You" : "AI"}
+                        </span>
+                        {msg.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Quick Action Chips */}
                 <div className="flex items-center gap-1.5 flex-wrap">

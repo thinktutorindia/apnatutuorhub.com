@@ -21,6 +21,7 @@ export interface EditPitchInput {
   instruction: string;
   categoryHint?: "CLASS_1_8" | "CLASS_9_12" | "ONLINE" | "GENERAL";
   priceAdjustment?: "INCREASE" | "DECREASE" | "NONE";
+  chatHistory?: Array<{ role: "user" | "assistant"; text: string }>;
 }
 
 export interface EditPitchOutput {
@@ -196,13 +197,29 @@ function deterministicTemplateUpdate(
   return { template: updated, explanation };
 }
 
+function parseGeminiJsonPayload(rawText: string): { template?: string; explanation?: string } | null {
+  const trimmed = rawText.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+  try {
+    return JSON.parse(trimmed) as { template?: string; explanation?: string };
+  } catch {
+    const match = trimmed.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]) as { template?: string; explanation?: string };
+    } catch {
+      return null;
+    }
+  }
+}
+
 /**
  * Call Gemini AI to edit and refine the template
  */
 async function callGeminiForTemplate(
   currentTemplate: string,
   instruction: string,
-  categoryHint?: string
+  categoryHint?: string,
+  chatHistory?: Array<{ role: "user" | "assistant"; text: string }>
 ): Promise<{ template: string; explanation: string } | null> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
   if (!apiKey) return null;
@@ -255,6 +272,12 @@ CRITICAL BUSINESS RULES (YOU MUST STRICTLY FOLLOW THESE, NEVER VIOLATE):
 USER INSTRUCTION: "${instruction}"
 CATEGORY CONTEXT: "${categoryHint || "GENERAL"}"
 
+RECENT CHAT (for continuity):
+${(chatHistory ?? [])
+  .slice(-8)
+  .map((m) => `${m.role === "user" ? "Admin" : "AI"}: ${m.text}`)
+  .join("\n") || "(none)"}
+
 CURRENT MESSAGE TEMPLATE:
 """
 ${currentTemplate}
@@ -268,11 +291,16 @@ Respond with ONLY valid JSON with keys:
 }
 `;
 
-  const models = ["gemini-2.0-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
+  const models = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
+  ];
   for (const model of models) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
+      const timer = setTimeout(() => controller.abort(), 22000);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       const res = await fetch(url, {
@@ -294,8 +322,8 @@ Respond with ONLY valid JSON with keys:
       const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!rawText) continue;
 
-      const parsed = JSON.parse(rawText);
-      if (parsed.template) {
+      const parsed = parseGeminiJsonPayload(rawText);
+      if (parsed?.template) {
         return {
           template: String(parsed.template).trim(),
           explanation: String(parsed.explanation || "Updated via Gemini AI").trim(),
@@ -330,7 +358,8 @@ export async function editWhatsAppPitchWithAIAction(
     let result = await callGeminiForTemplate(
       input.currentTemplate,
       input.instruction,
-      input.categoryHint
+      input.categoryHint,
+      input.chatHistory
     );
 
     // 2. If Gemini fails or key missing, use deterministic engine
@@ -340,6 +369,7 @@ export async function editWhatsAppPitchWithAIAction(
         input.instruction,
         input.priceAdjustment
       );
+      result.explanation = `${result.explanation} (Rule-based editor — add GEMINI_API_KEY for full AI chat.)`;
     }
 
     // 3. Post-generation guardrails validation

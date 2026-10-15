@@ -31,7 +31,10 @@ export function asksCommissionPlan(raw: string): boolean {
   if (!t || asksZeroCommissionPlan(t)) return false;
 
   if (COMMISSION_PLAN.test(t)) return true;
-  if (/commission/i.test(t) && /(?:bata|bataye|batao|detail|info|kya\s*hai|explain|samjha|plan)/i.test(t)) {
+  if (
+    /commission/i.test(t) &&
+    /(?:bata|bataye|batao|detail|info|kya\s*hai|explain|samjha|plan|lete|leta|kitna|kay|kya\s*lete)/i.test(t)
+  ) {
     return true;
   }
   return false;
@@ -41,13 +44,16 @@ export function asksCommissionPlan(raw: string): boolean {
 export function asksPlanPaymentOrQr(raw: string): boolean {
   const t = raw.trim();
   if (!t) return false;
+  if (/\b(?:will not|won't|wont|do not|don't|dont)\s+pay\b/i.test(t)) return false;
 
   return (
     /\b(qr|qrcode|scan\s*qr|upi|razorpay|payment\s*link|pay\s*link)\b/i.test(t) ||
     /(?:kaise\s*(?:pay|kare|karein|payment|kharid)|payment\s*kaise|pay\s*kaise|plan\s*(?:kaise|activate|kharid)|kharid\s*(?:karu|karna|kaise)|activate\s*(?:1257|2999|plan)|1257\s*(?:pay|payment|kaise)|2999\s*(?:pay|payment|kaise))/i.test(
       t
     ) ||
-    /^\s*activate\s*(1257|2999)\s*$/i.test(t)
+    /^\s*activate\s*(1257|2999)\s*$/i.test(t) ||
+    /\bi\s*(?:want|will|would like|gonna|going)\s+to\s+pay\b/i.test(t) ||
+    /\b(?:ready|want)\s+to\s+pay\b/i.test(t)
   );
 }
 

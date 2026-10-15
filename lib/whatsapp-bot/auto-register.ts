@@ -439,8 +439,10 @@ export async function registerTutorFromWhatsapp(
   phone: string,
   data: TutorBotData
 ): Promise<TutorRegistrationResult> {
-  const rawTargetPhone = (data.phone || phone).replace(/\D/g, "");
-  const normalizedPhone = canonicalIndiaPhone(data.phone || phone) ?? rawTargetPhone;
+  const normalizedPhone = canonicalIndiaPhone(data.phone || phone);
+  if (!normalizedPhone) {
+    return { ok: false, error: "Valid WhatsApp mobile is required to register as a tutor." };
+  }
   const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(phone);
 
   // Locality only — never store a chat sentence or door address as the teaching area.
@@ -495,7 +497,7 @@ export async function registerTutorFromWhatsapp(
               : user.role === "SUB_ADMIN"
               ? "SUB_ADMIN"
               : user.role || "TUTOR",
-          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+          phone: normalizedPhone,
           ...(emailToUpdate ? { email: emailToUpdate } : {}),
           ...(passwordHash ? { passwordHash } : {}),
           // Mark as WHATSAPP
@@ -508,7 +510,7 @@ export async function registerTutorFromWhatsapp(
         data: {
           name: data.name || "Tutor",
           email,
-          phone: normalizedPhone || null,
+          phone: normalizedPhone,
           passwordHash: passwordHash || null,
           role: "TUTOR",
           isActive: true,

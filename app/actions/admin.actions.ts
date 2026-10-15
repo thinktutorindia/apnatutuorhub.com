@@ -212,6 +212,17 @@ export async function adminCreateUserAction(
     phoneToStore = canon;
   }
 
+  if (input.role === "TUTOR" && !phoneToStore) {
+    return actionError(
+      "Mobile number is mandatory for tutor accounts — no User Directory entry without a valid 10-digit phone."
+    );
+  }
+  if (!phoneToStore && !input.isIncompleteUser && input.role === "PARENT") {
+    return actionError(
+      "Mobile number is required for parent accounts (or mark as Incomplete User if phone is not available yet)."
+    );
+  }
+
   // Auto-generate sequential fallback email if not provided
   if (!emailClean) {
     if (phoneToStore) {
@@ -2748,6 +2759,32 @@ export async function adminDeleteReviewAction(
 
 // ── Additional Comprehensive Admin CRUD Actions ──────────────────────────────────
 
+/** Phone in FormData only when the editor may change it; omit field to leave DB value unchanged. */
+async function resolveUserPhoneFromForm(
+  formData: FormData,
+  userId: string
+): Promise<ActionResult<{ phone?: string | null }>> {
+  if (!formData.has("phone")) {
+    return actionSuccess({});
+  }
+  const raw = formData.get("phone")?.toString().trim() || "";
+  if (!raw || raw === "—") {
+    return actionSuccess({ phone: null });
+  }
+  const { canonicalIndiaPhone, findPrimaryUserForWhatsApp } = await import("@/lib/india-phone");
+  const canon = canonicalIndiaPhone(raw);
+  if (!canon) {
+    return actionError("Mobile number must be a valid 10-digit Indian number (e.g. 9876543210).");
+  }
+  const existingPhone = await findPrimaryUserForWhatsApp(prisma, raw);
+  if (existingPhone && existingPhone.id !== userId) {
+    return actionError(
+      `This mobile is already linked to ${existingPhone.role} (${existingPhone.name || existingPhone.email}).`
+    );
+  }
+  return actionSuccess({ phone: canon });
+}
+
 export async function adminEditUserAction(
   formData: FormData
 ): Promise<ActionResult<{ updated: true }>> {
@@ -2757,7 +2794,10 @@ export async function adminEditUserAction(
   const userId = formData.get("userId")?.toString();
   const name = formData.get("name")?.toString().trim();
   const email = formData.get("email")?.toString().trim().toLowerCase();
-  const phone = formData.get("phone")?.toString().trim() || null;
+  const phoneRes: ActionResult<{ phone?: string | null }> = userId
+    ? await resolveUserPhoneFromForm(formData, userId)
+    : actionSuccess({});
+  if (!phoneRes.success) return phoneRes as ActionResult<{ updated: true }>;
   const role = formData.get("role")?.toString() as "PARENT" | "TUTOR" | "SUPER_ADMIN" | "SUB_ADMIN";
   const subAdminRole = formData.get("subAdminRole")?.toString() as any;
 
@@ -2769,7 +2809,7 @@ export async function adminEditUserAction(
   // that is already an admin, requires SUPER_ADMIN.
   const targetBefore = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true },
+    select: { role: true, phone: true },
   });
   if (
     (PRIVILEGED_ROLES.has(role) || (targetBefore && PRIVILEGED_ROLES.has(targetBefore.role))) &&
@@ -2778,13 +2818,23 @@ export async function adminEditUserAction(
     return actionError("Forbidden: only a Super Admin can modify admin accounts or roles.");
   }
 
+  if (role === "TUTOR") {
+    const nextPhone =
+      phoneRes.data?.phone !== undefined ? phoneRes.data.phone : targetBefore?.phone;
+    if (!nextPhone) {
+      return actionError(
+        "Tutor accounts must have a valid 10-digit mobile number — add phone before saving."
+      );
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
       data: {
         name,
         email,
-        phone,
+        ...(phoneRes.data?.phone !== undefined ? { phone: phoneRes.data.phone } : {}),
         role,
         subAdminRole: role === "SUB_ADMIN" ? subAdminRole : null,
       },
@@ -2907,7 +2957,10 @@ export async function adminUpdateFullUserAction(
   const userId = formData.get("userId")?.toString();
   const name = formData.get("name")?.toString().trim();
   const email = formData.get("email")?.toString().trim().toLowerCase();
-  const phone = formData.get("phone")?.toString().trim() || null;
+  const phoneRes: ActionResult<{ phone?: string | null }> = userId
+    ? await resolveUserPhoneFromForm(formData, userId)
+    : actionSuccess({});
+  if (!phoneRes.success) return phoneRes as ActionResult<{ updated: true }>;
   const role = formData.get("role")?.toString() as any;
   const subAdminRole = formData.get("subAdminRole")?.toString() as any;
   const isActive = formData.get("isActive") === "true";
@@ -3000,7 +3053,7 @@ export async function adminUpdateFullUserAction(
   // Prevent privilege escalation via the full-edit form.
   const fullTargetBefore = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true },
+    select: { role: true, phone: true },
   });
   if (
     (PRIVILEGED_ROLES.has(role) ||
@@ -3010,13 +3063,23 @@ export async function adminUpdateFullUserAction(
     return actionError("Forbidden: only a Super Admin can modify admin accounts or roles.");
   }
 
+  if (role === "TUTOR") {
+    const nextPhone =
+      phoneRes.data?.phone !== undefined ? phoneRes.data.phone : fullTargetBefore?.phone;
+    if (!nextPhone) {
+      return actionError(
+        "Tutor accounts must have a valid 10-digit mobile number — add phone before saving."
+      );
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
       data: {
         name,
         email,
-        phone,
+        ...(phoneRes.data?.phone !== undefined ? { phone: phoneRes.data.phone } : {}),
         role,
         subAdminRole: role === "SUB_ADMIN" ? subAdminRole : null,
         isActive,

@@ -34,6 +34,19 @@ import {
   paymentPlanHint,
 } from "./plan-intent";
 import {
+  isAckOnly,
+  isBareNo,
+  isOffScriptTutorTalk,
+  isSubjectNegation,
+  outsideNcrCity,
+  refusesAdvancePayment,
+  refusesRegistration,
+  rejectedSubjectKeys,
+  stripRejectedSubjects,
+  wantsLeadsOnWhatsApp,
+  wantsToPayNow,
+} from "./conversation-intents";
+import {
   registerTutorFromWhatsapp,
   registerParentFromWhatsapp,
 } from "./auto-register";
@@ -97,6 +110,10 @@ function classSignalInMessage(rawMessage: string): boolean {
 }
 
 function keepClassLevel(current: unknown, rawMessage: string, previous: unknown): string | undefined {
+  if (/\b(jee|neet|mains?|advanced?)\b/i.test(rawMessage) && !/\bclass\s*([1-8])\b/i.test(rawMessage)) {
+    if (/\bneet\b/i.test(rawMessage)) return "NEET";
+    if (/\b(jee|mains?|advanced?)\b/i.test(rawMessage)) return "JEE";
+  }
   const fromMsg = normalizeCanonicalClassLevel(rawMessage);
   if (fromMsg) return fromMsg;
   const prev = normalizeCanonicalClassLevel(typeof previous === "string" ? previous : "");
@@ -196,14 +213,14 @@ function formatHumanTeachingContext(
 
   let humanAreaPrompt = "";
   if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
-    humanAreaPrompt = `Ji bilkul! ${cleanClass || "Class 1-5"} Science ke liye Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
+    humanAreaPrompt = `Ji bilkul! ${cleanClass || "Class 1-5"} Science ke liye aapka teaching area / city kaunsa hai? 📍`;
   } else if (cleanClass && cleanSubs.length > 0) {
     const mainSub = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s))[0] || cleanSubs[0];
-    humanAreaPrompt = `Ji bilkul! ${cleanClass} ${mainSub} ke liye Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
+    humanAreaPrompt = `Ji bilkul! ${cleanClass} ${mainSub} ke liye aapka teaching area / city kaunsa hai? 📍`;
   } else if (cleanClass) {
-    humanAreaPrompt = `Ji bilkul! ${cleanClass} ke liye Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
+    humanAreaPrompt = `Ji bilkul! ${cleanClass} ke liye aapka teaching area / city kaunsa hai? 📍`;
   } else {
-    humanAreaPrompt = `Delhi NCR mein aapka teaching area kaunsa hai? 📍`;
+    humanAreaPrompt = `Aapka teaching area / city kaunsa hai? 📍`;
   }
 
   const cleanArea = area || "Delhi";
@@ -533,6 +550,190 @@ async function tryLooseTutorIntent(
   };
 }
 
+function classAskOrBreak(
+  data: Record<string, unknown>,
+  prompt: string,
+  quickReplies: string[]
+): EngineResult {
+  const last = String(data.lastBotAsk || "");
+  const count = last === prompt ? Number(data.sameAskCount || 0) + 1 : 1;
+  if (count >= 2) {
+    return {
+      reply:
+        `Theek hai — same sawaal dubara nahi poochungi. 😊\n\nAap *kaunse subjects* padhate ho? Maths, Science, English, Physics…\nPayment / QR ke liye *PAY* likhein, ya coordinator: +91 93191 93109`,
+      nextStep: "T_SUBJECTS",
+      updatedData: {
+        ...data,
+        subjects: [],
+        classLevel: undefined,
+        classLevels: undefined,
+        lastBotAsk: "break",
+        sameAskCount: 0,
+      },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Maths, Science", "All Subjects (Class 1-8)", "PAY / QR 💳", "Talk to Support 📞"],
+    };
+  }
+  return {
+    reply: prompt,
+    nextStep: "T_CLASS",
+    updatedData: { ...data, lastBotAsk: prompt, sameAskCount: count },
+    userType: "TUTOR",
+    retries: 0,
+    quickReplies,
+  };
+}
+
+function tryTutorOffScriptReply(
+  session: BotSession,
+  rawMessage: string,
+  data: Record<string, unknown>,
+  step: string
+): EngineResult | null {
+  const nextStep = step === "WELCOME" ? "T_CONVO" : step;
+
+  if (wantsToPayNow(rawMessage) || asksPlanPaymentOrQr(rawMessage)) {
+    const hint =
+      typeof data.interestedPlanType === "string" && data.interestedPlanType === "COMMISSION_1257"
+        ? "1257"
+        : typeof data.interestedPlanType === "string" && data.interestedPlanType === "SILVER_2999"
+          ? "2999"
+          : paymentPlanHint(rawMessage);
+    return {
+      reply: formatPlanPaymentQrMessage(hint),
+      nextStep,
+      updatedData: { ...data, lastBotAsk: "pay", sameAskCount: 0 },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Commission Plan ₹1,257 🤝", "Silver Plan ₹2,999 🚀", "Talk to Support 📞"],
+    };
+  }
+
+  if (asksCommissionPlan(rawMessage)) {
+    return {
+      reply: formatCommissionPlanDetailMessage(),
+      nextStep,
+      updatedData: { ...data, interestedPlanType: "COMMISSION_1257", lastBotAsk: "commission", sameAskCount: 0 },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["PAY / QR 💳", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  if (refusesRegistration(rawMessage) || wantsLeadsOnWhatsApp(rawMessage)) {
+    return {
+      reply:
+        `Theek hai — pehle leads dekh lijiye, registration baad mein ho sakti hai.\n\n` +
+        `👉 Leads: https://apnatutorhub.com/tutor/leads\n` +
+        `👉 Plans: https://apnatutorhub.com/tutor/plans\n\n` +
+        `WhatsApp par specific lead chahiye ho to *Lead ID* (jaise #32042) bhejein.`,
+      nextStep: "DONE",
+      updatedData: { ...data, lastBotAsk: "skip-reg", sameAskCount: 0 },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
+    };
+  }
+
+  if (/password/i.test(rawMessage) && /(?:own|already|using|change|reset|update|purana)/i.test(rawMessage)) {
+    return {
+      reply: `Apna password yahin type karein (kam se kam 6 characters) ya *default* likhein: 🔐`,
+      nextStep: "T_PASSWORD",
+      updatedData: { ...data, lastBotAsk: "password", sameAskCount: 0 },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["default", "12345678"],
+    };
+  }
+
+  const elsewhere = outsideNcrCity(rawMessage);
+  if (elsewhere && /(?:nahi|not in delhi|ncr me nahi|stay|staying|hu|hoon|rehta|rehti|rahata)/i.test(rawMessage)) {
+    return {
+      reply:
+        `Samajh gayi — aap *${elsewhere}* se hain. Travel ki zaroorat nahi.\n\n` +
+        `All-India *online* tuitions available hain:\n` +
+        `👉 https://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n` +
+        `Aapka area/city *${elsewhere}* save kar deti hoon. Kaunse subjects online padhate ho?`,
+      nextStep: "T_SUBJECTS",
+      updatedData: { ...data, city: elsewhere, area: elsewhere, mode: "ONLINE", lastBotAsk: "outside-ncr", sameAskCount: 0 },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Online Leads 💻", "Physics / Chem", "Maths", "All Subjects (Class 1-8)"],
+    };
+  }
+
+  if (refusesAdvancePayment(rawMessage)) {
+    return {
+      reply:
+        `Koi baat nahi — parent ko *advance tuition fee* nahi deni. 🙏\n\n` +
+        `Membership sirf *leads unlock* ke liye optional hai:\n` +
+        `• ₹1,257 Commission plan (6 months, 5 leads)\n` +
+        `• ₹2,999 Silver — *0% commission* (15 leads)\n\n` +
+        `Abhi pay nahi karna to leads dekh sakte hain. Ready hon to *PAY* likhein.\n` +
+        `👉 https://apnatutorhub.com/tutor/plans`,
+      nextStep,
+      updatedData: { ...data, lastBotAsk: "refuse-pay", sameAskCount: 0 },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "PAY / QR 💳", "Talk to Support 📞"],
+    };
+  }
+
+  const tutorish = session.userType === "TUTOR" || step.startsWith("T_");
+  if (!tutorish) return null;
+
+  const lastAsk = String(data.lastBotAsk || "");
+  const classAskPending =
+    step === "T_CLASS" ||
+    step === "T_SUBJECTS" ||
+    /kaunsi class|commerce|account|padhate/i.test(lastAsk);
+
+  if (isBareNo(rawMessage) && !classAskPending) return null;
+
+  const rejecting = isSubjectNegation(rawMessage) || isBareNo(rawMessage);
+  if (!rejecting) return null;
+
+  const keys = rejectedSubjectKeys(rawMessage);
+  const currentSubs = Array.isArray(data.subjects) ? (data.subjects as string[]) : [];
+  const looksCommerce = currentSubs.some((s) =>
+    /commerce|account|business\s*studies|\bbst\b/i.test(s)
+  );
+  const stripKeys =
+    keys.length > 0
+      ? keys
+      : looksCommerce || /commerce|account/i.test(String(data.lastBotAsk || ""))
+        ? ["commerce", "account", "business studies", "bst"]
+        : currentSubs.length > 0 && (isBareNo(rawMessage) || step === "T_CLASS")
+          ? currentSubs.map((s) => s.toLowerCase().slice(0, 8))
+          : [];
+
+  if (stripKeys.length === 0 && !isBareNo(rawMessage)) return null;
+
+  const remaining = stripRejectedSubjects(currentSubs, stripKeys.length ? stripKeys : ["commerce"]);
+  return {
+    reply:
+      remaining.length > 0
+        ? `Theek hai, woh subject hata diya. Ab *${remaining.join(", ")}* kaunsi class ko padhate ho? 📚`
+        : `Theek hai, Commerce / Accounts note nahi karungi.\n\nAap *kaunse subjects* padhate ho? Jaise Maths, Science, English, Physics.`,
+    nextStep: remaining.length > 0 ? "T_CLASS" : "T_SUBJECTS",
+    updatedData: {
+      ...data,
+      subjects: remaining,
+      classLevel: remaining.length > 0 ? data.classLevel : undefined,
+      classLevels: remaining.length > 0 ? data.classLevels : undefined,
+      lastBotAsk: remaining.length > 0 ? "class" : "subjects",
+      sameAskCount: 0,
+    },
+    userType: "TUTOR",
+    retries: 0,
+    quickReplies:
+      remaining.length > 0
+        ? ["Class 9-10", "Class 11-12", "Class 1-8"]
+        : ["Maths, Science", "All Subjects (Class 1-8)", "Physics / Chem (11-12)", "English / Hindi"],
+  };
+}
+
 export type ProcessMessageOptions = {
   useAi?: boolean;
 };
@@ -608,6 +809,9 @@ export async function processMessage(
       quickReplies: ["View Leads 📋", "View Plans 💰", "MENU 🏠"],
     };
   }
+
+  const offScript = tryTutorOffScriptReply(session, rawMessage, data, step);
+  if (offScript) return offScript;
 
   if (session.userType === "TUTOR" || step.startsWith("T_")) {
     const socialLoose = await tryLooseTutorIntent(session, rawMessage, data, step, "social");
@@ -885,6 +1089,16 @@ export async function processMessage(
     return { reply: "Kaunse subjects padhate ho? (comma separated):", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
   }
 
+  if (/^(?:change|update|reset)\s+(?:my\s+)?password$/i.test(rawMessage.trim())) {
+    return {
+      reply: "Apna naya password type karein (kam se kam 6 characters): 🔑",
+      nextStep: "UPDATE_PASSWORD",
+      updatedData: data,
+      retries: 0,
+      quickReplies: ["Cancel"],
+    };
+  }
+
   if (/^(?:update|change|set)\s*(?:my\s*)?phone$/i.test(rawMessage.trim())) {
     return { reply: "Apna naya phone number type karo (10 digits):", nextStep: "UPDATE_PHONE", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
   }
@@ -1124,13 +1338,16 @@ export async function processMessage(
   }
 
   // 2. Online Class Preference (e.g. tutors outside Delhi or preferring remote)
+  // Do not steal plan / interested / Facebook-parent messages.
   if (
-    /(?:\bonline\b.*?\b(?:class|classes|tuition|tutor|available|teach|padhana|student|work)\b|\b(?:class|classes|tuition|tutor|teach|padhana)\b.*?\bonline\b|^online\s*(?:only)?$)/i.test(rawMessage)
+    /(?:\bonline\b.*?\b(?:class|classes|tuition|tutor|available|teach|padhana|student|work)\b|\b(?:class|classes|tuition|tutor|teach|padhana)\b.*?\bonline\b|^online\s*(?:only)?$)/i.test(rawMessage) &&
+    !/\b(plan|plans|subscription|membership|pricing|coins?|wallet|kharid|interested|facebook|requirement for)\b/i.test(rawMessage) &&
+    data.lastBotAsk !== "online-generic"
   ) {
     return {
       reply: `Ji bilkul! Hamare platform par All-India Online Home Tuitions bhi available hain. 💻\n\nAap pure India ke students ko ghar baithe online classes (Google Meet / Zoom) de sakte hain:\n\n👉 *Online Leads dekhein:*\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n👉 *0% Commission Plans:*\nhttps://apnatutorhub.com/tutor/plans\n\nAap kaunse subjects aur classes online padhana chahte hain? Humein reply karein taaki hum aapke liye matching online leads bhej sakein!`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: { ...data, mode: "ONLINE" },
+      updatedData: { ...data, mode: "ONLINE", lastBotAsk: "online-generic", sameAskCount: 0 },
       userType: "TUTOR",
       retries: 0,
       quickReplies: ["View Online Leads 💻", "Buy Plans 💰", "Update Subjects 📚"],
@@ -2246,7 +2463,9 @@ export async function processMessage(
 
         // Align subjects to canonical taxonomy, strictly filtering out unsupported subjects & Class 1-8 senior science
         const targetCls = (mergedData.classLevel as string) || (data.classLevel as string) || undefined;
-        const shouldCheckRawForSubs = Boolean(mergedData.subjects) || session.step === "T_SUBJECTS" || session.step === "P_SUBJECTS";
+        const shouldCheckRawForSubs =
+          !isOffScriptTutorTalk(rawMessage) &&
+          (Boolean(mergedData.subjects) || session.step === "T_SUBJECTS" || session.step === "P_SUBJECTS");
         if (shouldCheckRawForSubs) {
           const rawSubsCandidate = mergedData.subjects || rawMessage;
           const subAlign = validateAndAlignSubjects(rawSubsCandidate, targetCls);
@@ -2371,10 +2590,15 @@ export async function processMessage(
 
         // ── TUTOR Onboarding ──────────────────────────────────────────────────
         if (role === "TUTOR") {
+          const midOnboardOff = tryTutorOffScriptReply(session, rawMessage, mergedData, session.step);
+          if (midOnboardOff) return midOnboardOff;
+
           // Case A: Missing all teaching details
           if (!hasSubjects && !hasClass && !hasArea) {
             // Check if user typed something that failed subject validation (hobby/unknown word)
-            const caseASubCheck = validateAndAlignSubjects(rawMessage.trim(), undefined);
+            const caseASubCheck = isOffScriptTutorTalk(rawMessage)
+              ? { isValid: false as const, errorPrompt: "" }
+              : validateAndAlignSubjects(rawMessage.trim(), undefined);
             if (!caseASubCheck.isValid && caseASubCheck.errorPrompt && rawMessage.trim().length > 2) {
               return {
                 reply: caseASubCheck.errorPrompt,
@@ -2399,28 +2623,18 @@ export async function processMessage(
           if (hasSubjects && !hasClass && !hasArea) {
             const sFirst = subsArray[0] || "Subjects";
             const suggestions = getSubjectClassSuggestions(sFirst);
-            return {
-              reply: suggestions.prompt,
-              nextStep: "T_CLASS",
-              updatedData: mergedData,
-              userType: "TUTOR",
-              retries: 0,
-              quickReplies: suggestions.quickReplies,
-            };
+            return classAskOrBreak(mergedData, suggestions.prompt, suggestions.quickReplies);
           }
 
           // Case C: Has subjects and area, but missing class (e.g. "Sangam Vihar" then "Maths & Science")
           if (hasSubjects && hasArea && !hasClass) {
             const subsText = subsArray.filter((s) => !/all subjects \(class 1-8\)/i.test(s)).join(", ");
             const suggestions = getSubjectClassSuggestions(subsArray[0] || "Subjects");
-            return {
-              reply: `${rawArea} mein *${subsText}* kaunsi classes ko padhate ho? 🎓`,
-              nextStep: "T_CLASS",
-              updatedData: mergedData,
-              userType: "TUTOR",
-              retries: 0,
-              quickReplies: suggestions.quickReplies,
-            };
+            return classAskOrBreak(
+              mergedData,
+              `${rawArea} mein *${subsText}* kaunsi classes ko padhate ho? 🎓`,
+              suggestions.quickReplies
+            );
           }
 
           // Common-Sense Subject-Grade Compatibility Validation:
@@ -2538,14 +2752,12 @@ export async function processMessage(
 
           // Case E5: Missing class
           if (!hasClass) {
-            return {
-              reply: `Kaunsi class tak padhate ho? 🎓`,
-              nextStep: "T_CLASS",
-              updatedData: mergedData,
-              userType: "TUTOR",
-              retries: 0,
-              quickReplies: ["Class 1-8 (All Subjects)", "Class 9-10", "Class 11-12", "All Classes (1 to 12)"],
-            };
+            return classAskOrBreak(mergedData, `Kaunsi class tak padhate ho? 🎓`, [
+              "Class 1-8 (All Subjects)",
+              "Class 9-10",
+              "Class 11-12",
+              "All Classes (1 to 12)",
+            ]);
           }
 
           // Case E6: Missing area
@@ -2651,11 +2863,34 @@ export async function processMessage(
 
           // 1. Email is STRICTLY MANDATORY — NO SKIP ALLOWED
           if (!hasValidEmail && session.step !== "T_PASSWORD") {
+            const emailRepeats =
+              String(mergedData.lastBotAsk || "") === "email"
+                ? Number(mergedData.sameAskCount || 0) + 1
+                : 1;
+            const giveUpEmail =
+              refusesRegistration(rawMessage) ||
+              wantsLeadsOnWhatsApp(rawMessage) ||
+              (emailRepeats >= 2 && (isAckOnly(rawMessage) || isBareNo(rawMessage))) ||
+              emailRepeats >= 3;
+
+            if (giveUpEmail) {
+              return {
+                reply:
+                  `Email baad mein bhej dena (jaise name@gmail.com) — login alerts ke liye chahiye.\n\n` +
+                  `Abhi leads dekh sakte hain:\n👉 https://apnatutorhub.com/tutor/leads\n👉 Plans: https://apnatutorhub.com/tutor/plans`,
+                nextStep: "DONE",
+                updatedData: { ...mergedData, lastBotAsk: "email-skip", sameAskCount: 0 },
+                userType: "TUTOR",
+                retries: 0,
+                quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
+              };
+            }
+
             if (session.step === "T_EMAIL") {
               return {
                 reply: `⚠️ Email ID zaroori hai! Student lead alerts aur profile account ke liye valid email chahiye.\n\n📧 Kripya apna Email ID bhejiye (jaise: yourname@gmail.com):`,
                 nextStep: "T_EMAIL",
-                updatedData: mergedData,
+                updatedData: { ...mergedData, lastBotAsk: "email", sameAskCount: emailRepeats },
                 userType: "TUTOR",
                 retries: 0,
                 quickReplies: [],
@@ -2665,7 +2900,7 @@ export async function processMessage(
             return {
               reply: `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\nStudent lead alerts aur login ke liye apna Email ID share karein: 📧`,
               nextStep: "T_EMAIL",
-              updatedData: mergedData,
+              updatedData: { ...mergedData, lastBotAsk: "email", sameAskCount: 1 },
               userType: "TUTOR",
               retries: 0,
               quickReplies: [],
@@ -3088,6 +3323,8 @@ export async function processMessage(
   // TUTOR conversational fallback: Require subject, class, area, email, and password before registering
   if (step === "T_CONVO" || step === "T_SUBJECTS" || step === "T_CLASS" || step === "T_AREA" || step === "T_EMAIL" || step === "T_PASSWORD" || step === "DONE") {
     const trimmed = rawMessage.trim();
+    const fallbackOff = tryTutorOffScriptReply(session, rawMessage, data, step);
+    if (fallbackOff) return fallbackOff;
     const updated: Record<string, any> = { ...data };
 
     const emailMatch = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
@@ -3111,11 +3348,18 @@ export async function processMessage(
     if (keptTutorClass) {
       updated.classLevel = keptTutorClass;
       updated.classLevels = [keptTutorClass];
-    } else if (step === "T_CLASS") {
-      delete updated.classLevel;
-      delete updated.classLevels;
+    } else {
+      const prevCls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
+      if (prevCls) {
+        updated.classLevel = prevCls;
+        updated.classLevels = [prevCls];
+      } else {
+        delete updated.classLevel;
+        delete updated.classLevels;
+      }
     }
 
+    if (!isAckOnly(trimmed) && !isOffScriptTutorTalk(trimmed)) {
     const locResFallback = validateAndCleanLocality(trimmed, (updated.city as string) || "Delhi");
     const pubArea = extractPublicLocality(
       locResFallback.isValid ? locResFallback.area : trimmed,
@@ -3125,7 +3369,9 @@ export async function processMessage(
       updated.area = pubArea;
       if (locResFallback.isValid) updated.city = locResFallback.city;
     }
+    }
 
+    if (!isOffScriptTutorTalk(trimmed)) {
     const subAlignFallback = validateAndAlignSubjects(trimmed, updated.classLevel as string);
     if (subAlignFallback.isValid && subAlignFallback.subjects.length > 0) {
       updated.subjects = subAlignFallback.subjects;
@@ -3135,6 +3381,7 @@ export async function processMessage(
       if (subResStep.isValid) {
         updated.subjects = subResStep.subjects;
       }
+    }
     }
 
     if (/all\s*subjects?|combo/i.test(trimmed)) {
@@ -3178,27 +3425,17 @@ export async function processMessage(
     if (hasSubs && !hasCls && !hasAr) {
       const sFirst = subsArr[0] || "Subjects";
       const suggestions = getSubjectClassSuggestions(sFirst);
-      return {
-        reply: suggestions.prompt,
-        nextStep: "T_CLASS",
-        updatedData: updated,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: suggestions.quickReplies,
-      };
+      return classAskOrBreak(updated, suggestions.prompt, suggestions.quickReplies);
     }
 
     if (hasAr && hasSubs && !hasCls) {
       const subsStr = subsArr.filter((s) => !/all subjects \(class 1-8\)/i.test(s)).join(", ");
       const suggestions = getSubjectClassSuggestions(subsArr[0] || "Subjects");
-      return {
-        reply: `${areaStr} mein *${subsStr}* kaunsi classes ko padhate ho? 🎓`,
-        nextStep: "T_CLASS",
-        updatedData: updated,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: suggestions.quickReplies,
-      };
+      return classAskOrBreak(
+        updated,
+        `${areaStr} mein *${subsStr}* kaunsi classes ko padhate ho? 🎓`,
+        suggestions.quickReplies
+      );
     }
 
     // Common-Sense Subject-Grade Compatibility Validation:
@@ -3282,14 +3519,12 @@ export async function processMessage(
     }
 
     if (!hasCls) {
-      return {
-        reply: `Kaunsi class tak padhate ho? 🎓`,
-        nextStep: "T_CLASS",
-        updatedData: updated,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["Class 1-8 (All Subjects)", "Class 9-10", "Class 11-12", "All Classes (1 to 12)"],
-      };
+      return classAskOrBreak(updated, `Kaunsi class tak padhate ho? 🎓`, [
+        "Class 1-8 (All Subjects)",
+        "Class 9-10",
+        "Class 11-12",
+        "All Classes (1 to 12)",
+      ]);
     }
 
     if (!hasAr) {
@@ -3360,10 +3595,31 @@ export async function processMessage(
 
     // 1. Check Email (MANDATORY — NO SKIP)
     if (!hasValidEmail && step !== "T_PASSWORD") {
+      const emailRepeats =
+        String(updated.lastBotAsk || "") === "email" ? Number(updated.sameAskCount || 0) + 1 : 1;
+      if (
+        refusesRegistration(trimmed) ||
+        wantsLeadsOnWhatsApp(trimmed) ||
+        (emailRepeats >= 2 && (isAckOnly(trimmed) || isBareNo(trimmed))) ||
+        emailRepeats >= 3
+      ) {
+        return {
+          reply:
+            `Email baad mein bhej dena (jaise name@gmail.com).\n\nAbhi leads:\n👉 https://apnatutorhub.com/tutor/leads\n👉 https://apnatutorhub.com/tutor/plans`,
+          nextStep: "DONE",
+          updatedData: { ...updated, lastBotAsk: "email-skip", sameAskCount: 0 },
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
+        };
+      }
       return {
-        reply: `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\nStudent lead alerts aur login ke liye apna Email ID share karein: 📧`,
+        reply:
+          step === "T_EMAIL"
+            ? `⚠️ Email ID zaroori hai! Student lead alerts aur profile account ke liye valid email chahiye.\n\n📧 Kripya apna Email ID bhejiye (jaise: yourname@gmail.com):`
+            : `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\nStudent lead alerts aur login ke liye apna Email ID share karein: 📧`,
         nextStep: "T_EMAIL",
-        updatedData: updated,
+        updatedData: { ...updated, lastBotAsk: "email", sameAskCount: emailRepeats },
         userType: "TUTOR",
         retries: 0,
         quickReplies: [],

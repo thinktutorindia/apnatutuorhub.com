@@ -1356,6 +1356,11 @@ export async function promoteLeadToProfileAction(
   const cleanPhone = lead.phone ? lead.phone.replace(/\D/g, "").slice(-10) : null;
   const email = lead.email?.trim().toLowerCase() || (cleanPhone ? `tutor_${cleanPhone}@apnatutorhub.com` : null);
 
+  if (!cleanPhone || cleanPhone.length < 10) {
+    return actionError(
+      "Valid 10-digit mobile number required before promoting to User Directory (email-only rows cannot become tutor accounts)."
+    );
+  }
   if (!email && !phone) {
     return actionError("Lead must have at least a phone number or email address to create a primary Tutor account.");
   }

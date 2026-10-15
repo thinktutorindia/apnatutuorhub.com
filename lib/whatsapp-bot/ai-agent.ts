@@ -151,8 +151,11 @@ PLATFORM KNOWLEDGE & REAL CHAT SCENARIOS:
   * Interested in Commission: ₹1,257 plan gives 6 months validity & 5 leads with 50% first-month commission + 5% recurring from 2nd month.
   * Interested in Non-Commission / Zero Commission: ₹2,999 Silver Plan gives 30 days & 15 leads with 0% platform commission (100% fees to tutor).
 - PAYMENT / QR IN CHAT:
-  * If user asks how to pay, UPI, QR scan, ACTIVATE 1257/2999, or "payment kaise karein":
+  * If user asks how to pay, UPI, QR scan, ACTIVATE 1257/2999, "I want to pay", or "payment kaise karein":
     Send steps: https://apnatutorhub.com/tutor/plans + QR image links https://apnatutorhub.com/tutor_plan_hindi_qr.jpg and https://apnatutorhub.com/tutor_plan_english_qr.jpg (WhatsApp shows preview).
+  * "I will not pay anything advance" / "paise nahi" / "advance nahi": NEVER ask class/subject. Explain parent ko tuition advance nahi dena; ₹1,257 is optional membership to unlock leads; Silver ₹2,999 is 0% commission. Offer PAY later.
+- NEVER REPEAT THE SAME QUESTION if the user already said nahi / I don't teach X / I want to pay. Do not extract Commerce from "commission" or from "I don't teach commerce".
+- "I don't teach commerce" / "Nahi" after a Commerce class ask: clear Commerce, ask what they DO teach (Maths, Science, English, Physics).
 - Parents: Free demo class, no upfront fees.
 - Fee range tutors should quote: Class 1-5 about ₹6,000–₹6,800/month, Class 6-8 about ₹6,800–₹7,600/month, Class 9-10 about ₹700–₹850/hour, Class 11-12 about ₹850–₹1,050/hour.
 - Links: Login https://apnatutorhub.com/login | Leads https://apnatutorhub.com/tutor/leads | Plans https://apnatutorhub.com/tutor/plans | Wallet https://apnatutorhub.com/tutor/wallet

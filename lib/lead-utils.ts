@@ -131,6 +131,12 @@ export function normalizeCanonicalClassLevel(raw?: string | null): string | null
   const s = raw.trim().replace(/\s+/g, " ");
   if (!s || s.length > 80) return null;
   if (/not specified|mention it|please call|attending the class/i.test(s)) return null;
+  if (
+    /\b(graduation|post[\s-]*graduation|postgraduate|undergrad|b\.?\s*ed|b\.?\s*tech|m\.?\s*tech|mba|phd|degree)\b/i.test(s) &&
+    !/\bclass\s*([1-9]|1[0-2])\b/i.test(s)
+  ) {
+    return null;
+  }
 
   if (/\b(iit[\s-]*)?jee\b/i.test(s) && !CLASS_RANGE_RE.test(s) && !/\bclass\s*([1-9]|1[0-2])\b/i.test(s)) {
     return "JEE";

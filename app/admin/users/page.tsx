@@ -281,10 +281,7 @@ export default async function AdminUsersPage({
         existing.createdBy = staffInfo;
       } else if (
         !existing.lastEditedBy &&
-        (log.action.includes("EDIT") ||
-          log.action.includes("UPDATE") ||
-          log.action.includes("KYC") ||
-          log.action.includes("SUSPEND"))
+        (log.action === "EDIT_USER" || log.action === "EDIT_USER_FULL")
       ) {
         existing.lastEditedBy = { ...staffInfo, action: log.action.replace(/_/g, " ") };
       }
@@ -490,7 +487,14 @@ export default async function AdminUsersPage({
                                   {maskPhoneNumber(u.phone)}
                                 </p>
                               )
-                            ) : null}
+                            ) : (
+                              <p
+                                className="mt-0.5 text-[10px] font-800 text-amber-900 bg-amber-50 inline-flex px-1.5 py-0.5 rounded border border-amber-200"
+                                title="Add mobile from Edit — staff can fill it when missing."
+                              >
+                                No mobile on file
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>

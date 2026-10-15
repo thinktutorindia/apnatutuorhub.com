@@ -686,6 +686,11 @@ export function CreateUserModal({
       normalizedPhone = digits;
     }
 
+    if (role === "TUTOR" && !normalizedPhone) {
+      setErrorMsg("Mobile number is mandatory for tutor accounts — no entry without phone.");
+      return;
+    }
+
     const roleLabel = role === "TUTOR" ? "Tutor" : role === "PARENT" ? "Parent" : "User";
     const displayName = rawName || (normalizedPhone ? `${roleLabel} (${normalizedPhone.slice(-4)})` : roleLabel);
 
@@ -1178,7 +1183,10 @@ export function CreateUserModal({
                       {/* Tutor */}
                       <button
                         type="button"
-                        onClick={() => setRole("TUTOR")}
+                        onClick={() => {
+                          setRole("TUTOR");
+                          setIsIncompleteUser(false);
+                        }}
                         className={`group relative flex flex-col items-center justify-center p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
                           role === "TUTOR"
                             ? "bg-purple-50/80 border-purple-400 text-purple-950 shadow-sm shadow-purple-500/10 ring-2 ring-purple-400/30 font-bold"
@@ -1337,7 +1345,12 @@ export function CreateUserModal({
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
                           <label className="block font-bold text-slate-700">
-                            Mobile Number <span className="text-slate-400 font-normal text-[11px]">(WhatsApp)</span>
+                            Mobile Number{" "}
+                            {role === "TUTOR" ? (
+                              <span className="text-red-600 font-extrabold">*</span>
+                            ) : (
+                              <span className="text-slate-400 font-normal text-[11px]">(WhatsApp)</span>
+                            )}
                           </label>
                           {phone.trim() && (
                             <span
@@ -1365,6 +1378,7 @@ export function CreateUserModal({
                               setPhone(digitsOnly);
                             }}
                             placeholder="98765 43210"
+                            required={role === "TUTOR"}
                             className="w-full rounded-2xl pl-16 pr-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] focus:ring-4 focus:ring-emerald-500/10 font-bold font-mono tracking-wide transition-all shadow-2xs"
                           />
                         </div>
@@ -1921,7 +1935,8 @@ export function CreateUserModal({
                     </div>
                   )}
 
-                  {/* Incomplete User Tagging Section */}
+                  {/* Incomplete User Tagging Section (parents / staff only — tutors require phone) */}
+                  {role !== "TUTOR" && (
                   <div
                     className={`rounded-2xl p-4 transition-all border ${
                       isIncompleteUser
@@ -2022,6 +2037,7 @@ export function CreateUserModal({
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* Submit Footer */}
                   <div className="flex items-center gap-3 pt-3 border-t border-slate-100">

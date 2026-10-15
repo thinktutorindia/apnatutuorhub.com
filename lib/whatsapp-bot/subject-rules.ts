@@ -466,10 +466,22 @@ export function validateAndAlignSubjects(
   let hasUnsupportedHobby = false;
 
   for (const token of cleanTokens) {
-    const t = token.toLowerCase();
+    let t = token.toLowerCase();
 
     // Ignore pure conversational greetings or non-subject filler
-    if (/^(hi|hello|hey|namaste|sir|madam|ji|ok|okay|yes|haan|theek|thik|batao|karo|plz|please|call|number)$/i.test(t)) {
+    if (/^(hi|hello|hey|namaste|sir|madam|ji|ok|okay|yes|haan|theek|thik|batao|karo|plz|please|call|number|no|nahi)$/i.test(t)) {
+      continue;
+    }
+    const strippedAck = t.replace(/^(yes|ok|okay|no|nahi)\s+/i, "").trim();
+    if (strippedAck && strippedAck !== t) {
+      t = strippedAck;
+    }
+
+    if (
+      /\b(acoustical|chess|engineering|mechanical|civil\s*eng|electrical\s*eng)\b/i.test(t) &&
+      !/computer|software/i.test(t)
+    ) {
+      hasUnsupportedHobby = true;
       continue;
     }
 
@@ -868,8 +880,11 @@ export function getSubjectClassSuggestions(subject: string): { prompt: string; q
     };
   }
 
-  // Commerce & Management
-  if (/account|b\.?com|commerce|business\s*studies|bst|ca\s*foundation|cma|cs/i.test(s)) {
+  // Commerce & Management — never match Computer Science / "cs" substring / Economics-as-cs
+  if (
+    /\b(accounts?|accountancy|b\.?\s*com|commerce|business\s*studies|\bbst\b|ca\s*foundation|\bcma\b)\b/i.test(s) &&
+    !/computer|coding|python|programming/i.test(s)
+  ) {
     return {
       prompt: `Commerce / Accounts kaunsi classes ko padhate ho? 📚`,
       quickReplies: ["Class 11-12", "B.Com / College", "CA Foundation", "CUET"],
@@ -1079,6 +1094,12 @@ export function validateSubjectClassCompatibility(
   // ── 3. Humanities Senior Electives ──────────────────────────────────────────
   const isHumanitiesSenior = subjects.some((s) => /political\s*science|pol\s*science|sociology|psychology|legal\s*studies/i.test(s));
   if (isHumanitiesSenior && isBelow11) {
+    if (userType === "TUTOR") {
+      return {
+        isValid: true,
+        switchedSubject: ["Social Studies", "Social Science", "SST"],
+      };
+    }
     const subName = subjects.find((s) => /political|sociology|psychology|legal/i.test(s)) || "Humanities";
     return {
       isValid: false,

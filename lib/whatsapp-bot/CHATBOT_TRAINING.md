@@ -151,7 +151,16 @@ Coordinator se baat karni hai? Type karo: CALL
 | "coins kharidna hai" | Coin pack options dikhao |
 | "without commission plan" / "bina commission" | **Silver ₹2,999 (0% commission)** — kabhi ₹1,257 commission plan mat bhejo |
 | "commission wala plan" / "1257" | **Commission Based ₹1,257** — features + ACTIVATE 1257 |
-| "payment kaise" / "QR" / "scan" / PAY | Plans link + QR JPG links (Hindi + English) chat mein |
+| "payment kaise" / "QR" / "scan" / PAY / "I want to pay" | Plans link + QR JPG links (Hindi + English) chat mein |
+| "I will not pay anything advance" | Parent ko tuition advance nahi; membership optional; PAY later. Class/subject loop mat chalao |
+| "I don't teach commerce" / "Nahi" after Commerce class ask | Commerce hatao, poocho kya padhate ho. Same sawaal 2 baar se zyada mat poocho |
+| "Ok" / "Okay" / "Yes" during email or class ask | Acknowledgement — same slot 2–3 baar se zyada mat dohrao; email skip karke leads dikhao |
+| "looking for plans / subscriptions" + online | **Plans** dikhao, generic Online essay mat dohrao |
+| "Commission kay lete ho" | Commission plan explain karo, Commerce class mat poocho |
+| "Mai Bihar/Chennai me hu" | Delhi NCR area mat poocho; online leads + unka city save |
+| "PHYSICS CBSE MAINS ADVANCE NEET" | Class = JEE/NEET, dubara physics class mat poocho |
+| "Registration nahi karwaunga" / WhatsApp pe lead bhejo | Email loop band; leads link do |
+| Graduation / Chess / Acoustical Engineering as class/area | Reject — real class 1–12 / JEE / NEET hi save |
 
 ---
 

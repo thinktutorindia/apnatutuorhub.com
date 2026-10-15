@@ -645,19 +645,27 @@ export function AdminEditUserForm({
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-extrabold text-slate-700">Phone Number</label>
+                <label className="block text-xs font-extrabold text-slate-700">
+                  Phone Number {isTutor ? <span className="text-red-600">*</span> : null}
+                </label>
                 {!isSuperAdmin && (
                   <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                     🔒 Masked for Staff
                   </span>
                 )}
               </div>
-              {isSuperAdmin ? (
+              {isSuperAdmin || !user.phone ? (
                 <input
                   name="phone"
                   defaultValue={user.phone || ""}
-                  placeholder="+91 9876543210"
+                  required={isTutor}
+                  placeholder="9876543210 (mandatory for tutors)"
                   className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 transition-all font-bold"
+                  title={
+                    !user.phone && !isSuperAdmin
+                      ? "Add the tutor/parent mobile here — it was missing when the account was created."
+                      : undefined
+                  }
                 />
               ) : (
                 <input
@@ -666,7 +674,7 @@ export function AdminEditUserForm({
                   disabled
                   value={user.phone ? maskPhoneNumber(user.phone) || "—" : "—"}
                   className="w-full rounded-2xl px-4 py-3 text-sm text-slate-500 bg-slate-100 border border-slate-200 cursor-not-allowed font-mono font-bold"
-                  title="Phone number is masked for staff. Only Super Admin can view or modify raw phone numbers."
+                  title="Phone is on file (masked). Only Super Admin can change an existing number."
                 />
               )}
             </div>

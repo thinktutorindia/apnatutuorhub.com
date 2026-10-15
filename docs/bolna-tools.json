@@ -1,0 +1,133 @@
+{
+  "inbound_caller_api": {
+    "url": "https://apnatutorhub.com/api/webhooks/bolna",
+    "method": "GET",
+    "auth": "Bearer PASTE_BOLNA_WEBHOOK_SECRET",
+    "notes": "Calling tab → Inbound → Use your internal APIs. Do NOT enable 'only numbers in database'."
+  },
+  "tools": [
+    {
+      "name": "lookup_caller",
+      "description": "Fetch this caller from ApnaTutorHub by phone. Call at the start if prompt variables are empty, or when you need current saved location/classes.",
+      "pre_call_message": "एक सेकंड, आपका प्रोफाइल देख रही हूँ।",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_number": {
+            "type": "string",
+            "description": "Caller phone with country code"
+          }
+        },
+        "required": ["from_number"]
+      },
+      "key": "custom_task",
+      "value": {
+        "method": "GET",
+        "url": "https://apnatutorhub.com/api/webhooks/bolna",
+        "api_token": "Bearer PASTE_BOLNA_WEBHOOK_SECRET",
+        "param": {
+          "contact_number": "%(from_number)s",
+          "action": "lookup"
+        },
+        "headers": {}
+      }
+    },
+    {
+      "name": "save_tutor_profile",
+      "description": "Save tutor name, classes, subjects, colony location, nearest metro, and online/offline mode to ApnaTutorHub. Call immediately after the tutor gives location or metro. Do not claim the profile is updated unless this returns ok true.",
+      "pre_call_message": "एक सेकंड, सिस्टम में अपडेट कर रही हूँ।",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_number": { "type": "string", "description": "Caller phone" },
+          "name": { "type": "string", "description": "Tutor full name" },
+          "classes": { "type": "string", "description": "Classes taught, e.g. Class 11 Class 12 or sixth to eighth" },
+          "subjects": { "type": "string", "description": "Subjects, e.g. English Psychology or All Subjects" },
+          "location": { "type": "string", "description": "Colony only, e.g. Old Rajendra Nagar or Model Town" },
+          "city": { "type": "string", "description": "City e.g. Delhi Himachal Noida" },
+          "nearest_metro": { "type": "string", "description": "Nearest Delhi metro station if they teach offline in Delhi" },
+          "teaching_mode": { "type": "string", "description": "ONLINE, OFFLINE, or EITHER" },
+          "email": { "type": "string", "description": "Email if they gave one" }
+        },
+        "required": ["from_number"]
+      },
+      "key": "custom_task",
+      "value": {
+        "method": "POST",
+        "url": "https://apnatutorhub.com/api/webhooks/bolna",
+        "api_token": "Bearer PASTE_BOLNA_WEBHOOK_SECRET",
+        "param": {
+          "action": "update",
+          "role": "TUTOR",
+          "from_number": "%(from_number)s",
+          "name": "%(name)s",
+          "classes": "%(classes)s",
+          "subjects": "%(subjects)s",
+          "location": "%(location)s",
+          "city": "%(city)s",
+          "nearest_metro": "%(nearest_metro)s",
+          "teaching_mode": "%(teaching_mode)s",
+          "email": "%(email)s"
+        },
+        "headers": { "Content-Type": "application/json" }
+      }
+    },
+    {
+      "name": "get_matching_leads",
+      "description": "Fetch real nearby parent classes for this tutor. Call when they ask if any student/class is available. Speak only the returned agent_say. Never invent leads or distances.",
+      "pre_call_message": "देखती हूँ आपके area की classes।",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_number": { "type": "string", "description": "Caller phone" }
+        },
+        "required": ["from_number"]
+      },
+      "key": "custom_task",
+      "value": {
+        "method": "POST",
+        "url": "https://apnatutorhub.com/api/webhooks/bolna",
+        "api_token": "Bearer PASTE_BOLNA_WEBHOOK_SECRET",
+        "param": {
+          "action": "leads",
+          "from_number": "%(from_number)s"
+        },
+        "headers": { "Content-Type": "application/json" }
+      }
+    },
+    {
+      "name": "save_parent_enquiry",
+      "description": "Save a parent tuition enquiry (class, subject, area, name) and notify matching tutors. Only for PARENT callers after class and locality are collected.",
+      "pre_call_message": "एक सेकंड, इन्क्वायरी सेव कर रही हूँ।",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from_number": { "type": "string", "description": "Caller phone" },
+          "name": { "type": "string", "description": "Parent name" },
+          "classes": { "type": "string", "description": "Child class e.g. Class 10" },
+          "subjects": { "type": "string", "description": "Subject; All Subjects if class 1-8" },
+          "location": { "type": "string", "description": "Colony" },
+          "city": { "type": "string", "description": "City" }
+        },
+        "required": ["from_number", "classes", "location"]
+      },
+      "key": "custom_task",
+      "value": {
+        "method": "POST",
+        "url": "https://apnatutorhub.com/api/webhooks/bolna",
+        "api_token": "Bearer PASTE_BOLNA_WEBHOOK_SECRET",
+        "param": {
+          "action": "parent_enquiry",
+          "role": "PARENT",
+          "from_number": "%(from_number)s",
+          "name": "%(name)s",
+          "classes": "%(classes)s",
+          "subjects": "%(subjects)s",
+          "location": "%(location)s",
+          "city": "%(city)s"
+        },
+        "headers": { "Content-Type": "application/json" }
+      }
+    }
+  ]
+}

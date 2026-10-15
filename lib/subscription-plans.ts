@@ -26,9 +26,9 @@ export function getPlanTotalPoints(planId?: string | null): number {
   const key = planId.toUpperCase();
   if (key === "STARTER") return 50;   // 5 leads (10 pts each, 5 leads total)
   if (key === "BRONZE") return 60;    // Up to 6 leads (<₹3k: 6 leads, ₹3k-5k: 3 leads, >₹5k: 2 leads)
-  if (key === "PLATINUM") return 360; // Legacy 30 Class 1-5 leads
-  if (key === "GOLD") return 240;     // Legacy 20 Class 1-5 leads
-  if (key === "SILVER") return 180;   // Legacy 15 Class 1-5 leads
+  if (key === "PLATINUM") return 1200; // 100 leads @ ~12 pts (Class 1–5 baseline)
+  if (key === "GOLD") return 480;     // 40 leads @ ~12 pts
+  if (key === "SILVER") return 120;   // 10 leads @ ~12 pts
   return 60;
 }
 
@@ -308,11 +308,11 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     originalPriceInr: 5999,
     festivalDiscountPct: 50,
     festivalBadge: "50% OFF",
-    totalLeads: 15,
-    totalPoints: 60,
-    monthlyLeads: 15,
-    validityDays: 30,
-    validityText: "Valid for 30 Days",
+    totalLeads: 10,
+    totalPoints: 120,
+    monthlyLeads: 10,
+    validityDays: 90,
+    validityText: "Valid for 90 Days",
     maxTutorsPerLead: 3,
     competitionLabel: "Low Competition (Shared with max 3 tutors)",
     exclusivityType: "SHARED_3",
@@ -324,12 +324,12 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     cardBorder: "border-blue-400 shadow-xl ring-2 ring-blue-400/25",
     popular: true,
     isHidden: false,
-    termsNote: "15 Verified Leads* unlocked with 0% platform commission. Valid for 30 days. Shared with max 3 tutors.",
+    termsNote: "10 Verified Leads* unlocked with 0% platform commission. Valid for 90 days. Shared with max 3 tutors.",
     features: [
-      "✅ 15 Verified Leads Unlock*",
+      "✅ 10 Verified Leads Unlock*",
       "🎉 0% Platform Commission (Keep 100% of student fees!)",
       "👥 Low Competition: Max 3 tutors per lead",
-      "📅 Valid for 30 Days",
+      "📅 Valid for 90 Days",
       "Unlock across all classes & subjects",
       "Full Parent Contact Info (Direct Phone & Address)",
       "Expanded Matching Radius (up to 15 km)",
@@ -347,11 +347,11 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     originalPriceInr: 12000,
     festivalDiscountPct: 25,
     festivalBadge: "25% OFF",
-    totalLeads: 20,
-    totalPoints: 240,
-    monthlyLeads: 20,
-    validityDays: 60,
-    validityText: "Valid for 2 Months",
+    totalLeads: 40,
+    totalPoints: 480,
+    monthlyLeads: 40,
+    validityDays: 120,
+    validityText: "Valid for 120 Days",
     maxTutorsPerLead: 2,
     competitionLabel: "Semi-Exclusive (Max 2 tutors per lead)",
     exclusivityType: "SEMI_EXCLUSIVE_2",
@@ -362,10 +362,10 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     badgeText: "text-yellow-950 font-black",
     cardBorder: "border-yellow-400 shadow-lg ring-2 ring-yellow-400/20",
     isHidden: false,
-    termsNote: "20 Verified Leads* (Class 1–5: 20, 6–8: 16, 9–10: 12, 11–12: 8, or mix). Valid for 2 months. Semi-exclusive: Max 2 tutors.",
+    termsNote: "40 Verified Leads* (Class 1–5: 40, 6–8: 32, 9–10: 24, 11–12: 16, or mix). Valid for 120 days. Semi-exclusive: Max 2 tutors.",
     features: [
-      "20 Verified Leads*",
-      "Valid for 2 Months",
+      "40 Verified Leads*",
+      "Valid for 120 Days",
       "🔒 Semi-Exclusive: Max 2 tutors per lead",
       "Unlock across all classes & subjects",
       "High Priority Candidate Feed (+3,000 Ranking Boost)",
@@ -384,11 +384,11 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     originalPriceInr: 24000,
     festivalDiscountPct: 25,
     festivalBadge: "25% OFF",
-    totalLeads: 30,
-    totalPoints: 360,
-    monthlyLeads: 30,
-    validityDays: 90,
-    validityText: "Valid for 3 Months",
+    totalLeads: 100,
+    totalPoints: 1200,
+    monthlyLeads: 100,
+    validityDays: 180,
+    validityText: "Valid for 180 Days",
     maxTutorsPerLead: 1,
     competitionLabel: "👑 100% Exclusive Solo Lead (1 Tutor Only — Closes Instantly)",
     exclusivityType: "EXCLUSIVE_1",
@@ -399,10 +399,10 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     badgeText: "text-purple-950 font-black",
     cardBorder: "border-purple-500 shadow-xl ring-2 ring-purple-500/30",
     isHidden: false,
-    termsNote: "30 High-Value Leads* (Class 1–5: 30, 6–8: 24, 9–10: 18, 11–12: 12, or mix). Valid for 3 months. 100% Exclusive Solo Lead Lock: Once unlocked by a Platinum VIP tutor, the lead is immediately closed and locked. No other tutor can contact the parent.",
+    termsNote: "100 High-Value Leads* (Class 1–5: 100, 6–8: 80, 9–10: 60, 11–12: 40, or mix). Valid for 180 days. 100% Exclusive Solo Lead Lock: Once unlocked by a Platinum VIP tutor, the lead is immediately closed and locked. No other tutor can contact the parent.",
     features: [
-      "30 High-Value Leads*",
-      "Valid for 3 Months",
+      "100 High-Value Leads*",
+      "Valid for 180 Days",
       "👑 100% Exclusive Solo Lead (1 Tutor Only — Closes instantly upon unlock)",
       "Unlock across all classes, boards & entrance tests",
       "🥇 First Priority Access on All Client Leads (+10,000 Ranking Boost)",

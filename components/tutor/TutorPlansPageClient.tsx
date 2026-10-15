@@ -34,7 +34,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How does the ₹2,999 Silver Plan work?",
-    a: "The ₹2,999 Silver Plan gives you 15 Verified Leads with 30 Days validity. Lead unlock cost is 0% platform commission, meaning you keep 100% of all tuition fees you collect from students directly.",
+    a: "The ₹2,999 Silver Plan gives you 10 Verified Leads with 90 Days validity. Lead unlock cost is 0% platform commission, meaning you keep 100% of all tuition fees you collect from students directly.",
   },
   {
     q: "Is there any platform commission on the ₹2,999 Silver Plan?",
@@ -46,7 +46,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What is the validity period of the ₹2,999 Silver Plan?",
-    a: "The ₹2,999 Silver Plan is valid for 30 Days from activation, giving you full access to unlock students throughout the month.",
+    a: "The ₹2,999 Silver Plan is valid for 90 Days from activation, giving you full access to unlock students throughout the period.",
   },
   {
     q: "How does the tutor competition cap work on the Silver Plan?",
@@ -233,7 +233,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </h1>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-3xl mx-auto leading-relaxed" style={{fontFamily: "'Inter', sans-serif"}}>
-            Unlock premium verified tuition leads with our <span className="text-emerald-300 font-bold">₹2,999 Silver Membership</span> — 15 Verified Leads, 0% platform commission, and direct parent contacts!
+            Unlock premium verified tuition leads with our <span className="text-emerald-300 font-bold">₹2,999 Silver Membership</span> — 10 Verified Leads, 90 days validity, 0% platform commission, and direct parent contacts!
           </p>
 
           {activePlanConfig && (
@@ -629,9 +629,9 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 <tr>
                   <td className="py-3.5 px-3 font-bold text-slate-900">Total Lead Allocation</td>
                   <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/30">5 Verified Leads</td>
-                  <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-blue-50/20">15 Verified Leads</td>
-                  <td className="py-3.5 px-3 text-center font-black text-yellow-900 bg-yellow-50/20">20 Leads</td>
-                  <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">30 High-Value Leads</td>
+                  <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-blue-50/20">10 Verified Leads</td>
+                  <td className="py-3.5 px-3 text-center font-black text-yellow-900 bg-yellow-50/20">40 Leads</td>
+                  <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">100 High-Value Leads</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-3 font-bold text-slate-900">Platform Commission</td>
@@ -650,9 +650,9 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 <tr>
                   <td className="py-3.5 px-3 font-bold text-slate-900">Plan Validity</td>
                   <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/30">6 Months (180 Days)</td>
-                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-blue-50/20">30 Days (1 Month)</td>
-                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-yellow-50/20">60 Days (2 Months)</td>
-                  <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">90 Days (3 Months)</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-blue-50/20">90 Days</td>
+                  <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-yellow-50/20">120 Days</td>
+                  <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">180 Days</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-3 font-bold text-slate-900">Direct Parent Phone &amp; Locality</td>

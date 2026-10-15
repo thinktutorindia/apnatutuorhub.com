@@ -140,10 +140,10 @@ export function WalletPageClient({
                     <span className="text-[11px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">50% OFF</span>
                   </p>
                   <p className="text-xs text-slate-600 font-semibold mt-1">
-                    <strong>15 Leads Unlock</strong> • <strong className="text-emerald-700">0% Platform Commission</strong> (Keep 100% of student fees!)
+                    <strong>10 Leads Unlock</strong> • <strong className="text-emerald-700">0% Platform Commission</strong> (Keep 100% of student fees!)
                   </p>
                   <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
-                    Verified leads delivered by student fee structure (15 leads • Low competition: max 3 tutors)
+                    Verified leads • 90 days validity • Low competition: max 3 tutors
                   </p>
                 </div>
               </div>

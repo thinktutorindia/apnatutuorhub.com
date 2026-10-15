@@ -669,7 +669,7 @@ function tryTutorOffScriptReply(
         `Koi baat nahi — parent ko *advance tuition fee* nahi deni. 🙏\n\n` +
         `Membership sirf *leads unlock* ke liye optional hai:\n` +
         `• ₹1,257 Commission plan (6 months, 5 leads)\n` +
-        `• ₹2,999 Silver — *0% commission* (15 leads)\n\n` +
+        `• ₹2,999 Silver — *0% commission* (10 leads · 90 days)\n\n` +
         `Abhi pay nahi karna to leads dekh sakte hain. Ready hon to *PAY* likhein.\n` +
         `👉 https://apnatutorhub.com/tutor/plans`,
       nextStep,

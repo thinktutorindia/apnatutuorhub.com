@@ -197,10 +197,13 @@ Coordinator se baat karni hai? Type karo: CALL
 
 ## 5. Payment from WhatsApp
 
-### Active Membership Plan for Tutors (Single Plan Currently Active):
-| Plan | Leads / Points | Price | Key Features |
-|------|----------------|-------|--------------|
-| **₹999 Growth Membership** | Up to 6 Leads (60 Points) | ₹999 *(was ₹2,999)* | 0% Platform Commission · Max 3 Tutors/Lead · 30 Days Validity |
+### Active Membership Plans for Tutors (always use these numbers):
+| Plan | Leads | Price | Validity | Key Features |
+|------|-------|-------|----------|--------------|
+| **Silver (0% commission)** | **10 Verified Leads** | **₹2,999** | **90 Days** | 0% commission · Max 3 tutors/lead |
+| **Commission Based** | 5 Leads | **₹1,257** | 6 Months | 50% 1st month + 5% recurring |
+| **Gold** | **40 Leads** | **₹9,000** | **120 Days** | Semi-exclusive (max 2 tutors) |
+| **Platinum VIP** | **100 Leads** | **₹18,000** | **180 Days** | Solo lock (1 tutor only) |
 
 #### Lead Allocation by Fee Structure:
 - **Fees < ₹3,000 / month**: Up to 6 Leads (10 pts each)

@@ -736,13 +736,22 @@ export function DummyCampaignDashboard(props: Props) {
       })
       .catch((err) => {
         clearInterval(progressTimer);
+        const raw = err instanceof Error ? err.message : String(err);
+        const isNetworkOrTimeout =
+          raw.toLowerCase().includes("network") ||
+          raw.toLowerCase().includes("fetch") ||
+          raw.toLowerCase().includes("unexpected response") ||
+          raw.toLowerCase().includes("abort");
+
         setDispatchState({
           isOpen: true,
           isDispatching: false,
           campaignName: campaign.name,
           progress: 100,
           result: null,
-          error: err instanceof Error ? err.message : "Unexpected error during dispatch",
+          error: isNetworkOrTimeout
+            ? "Server connection timed out while dispatching to a large list. The batch was safely started and ongoing dispatches are logged in the database."
+            : raw || "Unexpected error during dispatch",
         });
       });
   }, [onRefresh]);

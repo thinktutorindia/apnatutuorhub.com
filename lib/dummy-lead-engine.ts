@@ -866,12 +866,13 @@ export async function resolveCampaignTargets(campaign: {
 
 export async function runCampaignPass(
   campaignId: string,
-  options?: { forceAllAtOnce?: boolean }
+  options?: { forceAllAtOnce?: boolean; maxExecutionMs?: number }
 ): Promise<{
   sent: number;
   failed: number;
   usersProcessed: number;
   timeTakenMs?: number;
+  isPartial?: boolean;
 }> {
   const campaign = await prisma.dummyCampaign.findUnique({ where: { id: campaignId } });
   if (!campaign || campaign.status !== "ACTIVE") return { sent: 0, failed: 0, usersProcessed: 0, timeTakenMs: 0 };
@@ -905,11 +906,17 @@ export async function runCampaignPass(
 
   let totalSent = 0;
   let totalFailed = 0;
+  let processedCount = 0;
 
   // Process targets in concurrent batches of 15 for high speed without overwhelming DB connection pool
   const BATCH_SIZE = 15;
   for (let b = 0; b < targets.length; b += BATCH_SIZE) {
+    if (options?.maxExecutionMs && Date.now() - startTime >= options.maxExecutionMs) {
+      console.warn(`[dummy-lead-engine] Time safeguard reached (${options.maxExecutionMs}ms). Finishing pass safely.`);
+      break;
+    }
     const batch = targets.slice(b, b + BATCH_SIZE);
+    processedCount += batch.length;
 
     const batchResults = await Promise.all(
       batch.map(async (user) => {
@@ -1000,7 +1007,8 @@ export async function runCampaignPass(
   return {
     sent: totalSent,
     failed: totalFailed,
-    usersProcessed: targets.length,
+    usersProcessed: processedCount || targets.length,
     timeTakenMs,
+    isPartial: processedCount < targets.length,
   };
 }

@@ -127,16 +127,22 @@ function applyLocalInstructionEdits(
   const lower = instruction.toLowerCase();
 
   if (
-    /(remove|delete|hata|hatao|hata do|drop).*(—|–|-|dash|hyphen)/i.test(instruction) ||
+    /(remove|delete|hata|hatao|hata do|drop).*(—|–|-|dash|hyphen|coordinator|signature)/i.test(instruction) ||
     /(—|–|-)\s*(coordinator|signature|last line|end)/i.test(instruction) ||
-    (lower.includes("remove") && (lower.includes("'-'") || lower.includes('"-"') || lower.includes("dash")))
+    (lower.includes("remove") &&
+      (lower.includes("'-'") ||
+        lower.includes('"-"') ||
+        lower.includes("dash") ||
+        lower.includes("coordinator") ||
+        lower.includes("signature")))
   ) {
     updated = updated
-      .replace(/\n[ \t]*[—–-][ \t]*(?=Coordinator)/gi, "\n")
-      .replace(/[—–-]\s*Coordinator,\s*Apna Tutor Hub\s*🎓/gi, "Coordinator, Apna Tutor Hub 🎓")
-      .replace(/[—–-]\s*Apna Tutor Hub/gi, "Apna Tutor Hub")
-      .replace(/\n[ \t]*[—–-][ \t]*\n/g, "\n");
-    notes.push("Removed em dash / hyphen from the closing line.");
+      .replace(/\n[ \t]*[—–-]?\s*Coordinator,\s*Apna Tutor Hub\s*🎓\s*/gi, "\n")
+      .replace(/[—–-]\s*Apna Tutor Hub(?:\s*Team)?\s*/gi, "")
+      .replace(/\n[ \t]*[—–-][ \t]*\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trimEnd();
+    notes.push("Removed closing Coordinator signature line.");
   }
 
   const replaceMatch = instruction.match(/replace\s+["'](.+?)["']\s+with\s+["'](.+?)["']/i);
@@ -283,7 +289,8 @@ function deterministicTemplateUpdate(
       .replace(/Parents are looking for immediate start with a demo class tomorrow\.?/gi, "Student ke parent demo class schedule karna chahte hain.")
       .replace(/Reply \*YES\* to claim this lead immediately!?/gi, "Agar aap yeh tuition lene ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko parent se direct connect kara degi.")
       .replace(/Reply \*YES\* to schedule student demo!?/gi, "Agar aap yeh online tuition accept karne ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko student details share kar degi.")
-      .replace(/— Apna Tutor Hub Team/gi, "— Coordinator, Apna Tutor Hub 🎓");
+      .replace(/\n?[—–-]?\s*Apna Tutor Hub Team\s*/gi, "")
+      .replace(/\n?[—–-]?\s*Coordinator,\s*Apna Tutor Hub\s*🎓\s*/gi, "");
     explanation += " Converted to authentic Delhi-NCR tuition coordinator Hinglish.";
   }
 
@@ -386,7 +393,7 @@ CRITICAL BUSINESS RULES (YOU MUST STRICTLY FOLLOW THESE, NEVER VIOLATE):
      "Apna Tutor Hub se aapke area ke liye ek verified tuition student requirement aayi hai:"
      "Student ke parent demo class schedule karna chahte hain."
      "Agar aap yeh tuition lene ke liye interested hain, toh abhi *YES* ya *1* reply kijiye."
-     "— Coordinator, Apna Tutor Hub 🎓"
+   - Do NOT add a closing signature like "— Coordinator, Apna Tutor Hub 🎓".
 
 7. PLACEHOLDERS:
    - Preserve dynamic template variables if present: {{name}}, {{class}}, {{subject}}, {{fee}}, {{location}}, {{mode}}, {{distance}}.

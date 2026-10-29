@@ -166,7 +166,8 @@ export async function triggerCampaignNowAction(id: string): Promise<ActionResult
   await prisma.dummyCampaign.update({ where: { id }, data: { status: "ACTIVE" } });
 
   try {
-    const result = await runCampaignPass(id);
+    // Cap execution to 7.5 seconds so synchronous server action always responds before Vercel timeout
+    const result = await runCampaignPass(id, { maxExecutionMs: 7500 });
 
     // Restore status if it was PAUSED
     if (prevStatus === "PAUSED" || prevStatus === "DRAFT") {
@@ -179,6 +180,7 @@ export async function triggerCampaignNowAction(id: string): Promise<ActionResult
       failed: result.failed,
       usersProcessed: result.usersProcessed,
       timeTakenMs: result.timeTakenMs ?? 0,
+      isPartial: result.isPartial,
     });
   } catch (err) {
     await prisma.dummyCampaign.update({ where: { id }, data: { status: prevStatus } });

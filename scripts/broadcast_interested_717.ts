@@ -93,9 +93,7 @@ Student ke parent demo class schedule karna chahte hain.
 • 5 Verified Student Leads Unlock
 • Platform Commission: 1st month fee ka 50%, aur 2nd month se sirf 5% monthly commission
 
-Agar aap yeh tuition lene ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko parent se direct connect kara degi.
-
-— Coordinator, Apna Tutor Hub 🎓`;
+Agar aap yeh tuition lene ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko parent se direct connect kara degi.`;
 }
 
 function buildOnlinePitch(lead: {
@@ -129,9 +127,7 @@ Student ke parent demo class arrange karwana chahte hain.
 • 5 Verified Student Leads Unlock
 • Platform Commission: 1st month fee ka 50%, aur 2nd month se sirf 5% monthly commission
 
-Agar aap yeh online tuition accept karne ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko student details share kar degi.
-
-— Coordinator, Apna Tutor Hub 🎓`;
+Agar aap yeh online tuition accept karne ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko student details share kar degi.`;
 }
 
 async function main() {

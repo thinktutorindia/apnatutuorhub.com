@@ -8,7 +8,7 @@
  * we normalise all known variants into { phone, text }.
  */
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { claimReplyTurn, getOrCreateSession, updateSession, resetSession } from "@/lib/whatsapp-bot/session";
 import { processMessage } from "@/lib/whatsapp-bot/engine";
@@ -295,89 +295,90 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
   }
 
-  if (!duplicate || messageId) {
-    try {
-      await upsertWhatsAppChatMessage({
-        phone,
-        direction: "INBOUND",
-        senderName: contactName || "User",
-        contactName,
-        body: text,
-        messageId: messageId ?? null,
-        messageType: messageType ?? "text",
-        status: "received",
-        isRead: false,
-        createdAt: sentAt,
-      });
-    } catch (err) {
-      console.warn("[chat-log] Failed to save inbound message:", err);
+  after(async () => {
+    if (!duplicate || messageId) {
+      try {
+        await upsertWhatsAppChatMessage({
+          phone,
+          direction: "INBOUND",
+          senderName: contactName || "User",
+          contactName,
+          body: text,
+          messageId: messageId ?? null,
+          messageType: messageType ?? "text",
+          status: "received",
+          isRead: false,
+          createdAt: sentAt,
+        });
+      } catch (err) {
+        console.warn("[chat-log] Failed to save inbound message:", err);
+      }
+
+      // Auto-detect & tag positive interest in CRM StaffLeads & Dummy Campaign targets
+      if (isPositiveInterest(text)) {
+        autoTagWhatsAppInterest({ phone, text, contactName }).catch((err) => {
+          console.warn("[whatsapp-webhook] Auto interest tagging error:", err);
+        });
+      }
     }
 
-    // Auto-detect & tag positive interest in CRM StaffLeads & Dummy Campaign targets
-    if (isPositiveInterest(text)) {
-      autoTagWhatsAppInterest({ phone, text, contactName }).catch((err) => {
-        console.warn("[whatsapp-webhook] Auto interest tagging error:", err);
-      });
-    }
-  }
-
-  if (duplicate && !retryAfterMissedReply) {
-    return smartPingSuccess();
-  }
-
-  // ── Automatic WhatsApp Reply Active ──────────────────────────────────────
-  const isAutoReplyOn = AUTO_REPLY_ENABLED;
-
-  if (!isAutoReplyOn) {
-    console.log(
-      "[whatsapp-bot] Auto-reply is OFF. Inbound message stored without an automated reply."
-    );
-    return smartPingSuccess();
-  }
-
-  console.log(`[whatsapp-bot] Inbound from ${phone}: "${text.slice(0, 80)}"`);
-
-  try {
-    // 1. Load or create session
-    const session = await getOrCreateSession(phone);
-    const ownsTurn = await claimReplyTurn(session);
-    if (!ownsTurn) {
-      return smartPingSuccess();
+    if (duplicate && !retryAfterMissedReply) {
+      return;
     }
 
-    // 2. Process through state machine
-    const result = await processMessage(session, text);
+    // ── Automatic WhatsApp Reply Active ──────────────────────────────────────
+    const isAutoReplyOn = AUTO_REPLY_ENABLED;
 
-    // 3. Persist state
-    await updateSession(
-      phone,
-      result.nextStep,
-      result.updatedData,
-      result.userType,
-      result.retries
-    );
-
-    // 4. Send reply (free within 24-hr service window)
-    const sent = await sendBotMessage(phone, result.reply, {
-      step: result.nextStep,
-      senderName: "Bot",
-    });
-    console.log(`[whatsapp-webhook] Automated reply sent to ${phone}: ${sent ? "SUCCESS" : "FAILED"}`);
-
-    return smartPingSuccess();
-  } catch (err) {
-    console.error("[whatsapp-webhook] Unhandled error:", err);
-    // Try to send an error message to the user
-    try {
-      await sendBotMessage(
-        phone,
-        "Kuch gadbad ho gayi. *MENU* type karo phir se try karne ke liye."
+    if (!isAutoReplyOn) {
+      console.log(
+        "[whatsapp-bot] Auto-reply is OFF. Inbound message stored without an automated reply."
       );
-    } catch {
-      // Best-effort
+      return;
     }
-    return smartPingSuccess();
-  }
+
+    console.log(`[whatsapp-bot] Inbound from ${phone}: "${text.slice(0, 80)}"`);
+
+    try {
+      // 1. Load or create session
+      const session = await getOrCreateSession(phone);
+      const ownsTurn = await claimReplyTurn(session);
+      if (!ownsTurn) {
+        return;
+      }
+
+      // 2. Process through state machine
+      const result = await processMessage(session, text);
+
+      // 3. Persist state
+      await updateSession(
+        phone,
+        result.nextStep,
+        result.updatedData,
+        result.userType,
+        result.retries
+      );
+
+      // 4. Send reply (free within 24-hr service window)
+      const sent = await sendBotMessage(phone, result.reply, {
+        step: result.nextStep,
+        senderName: "Bot",
+      });
+      console.log(`[whatsapp-webhook] Automated reply sent to ${phone}: ${sent ? "SUCCESS" : "FAILED"}`);
+    } catch (err) {
+      console.error("[whatsapp-webhook] Unhandled error:", err);
+      // Try to send an error message to the user
+      try {
+        await sendBotMessage(
+          phone,
+          "Kuch gadbad ho gayi. *MENU* type karo phir se try karne ke liye."
+        );
+      } catch {
+        // Best-effort
+      }
+    }
+  });
+
+  return smartPingSuccess();
 }
 
 // ── SmartPing Outbound Status Tracking (per aquadocssms.pdf) ──────────────────

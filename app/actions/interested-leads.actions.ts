@@ -667,6 +667,8 @@ export type SendDummyNotifInput = {
   offlineTemplate?: string;   // Template strictly for 5km within radius leads
   onlineTemplate?: string;    // Template strictly for leads without location (online mode)
   channels: Array<"WHATSAPP" | "IN_APP">;
+  /** When true, never attempt freeform session text — always use tuition_enquiry_direct */
+  forceApprovedTemplate?: boolean;
 };
 
 export async function sendDummyNotificationsToInterestedLeadsAction(
@@ -774,199 +776,211 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
   let simulated = 0;
   let failed = 0;
 
-  for (const lead of leads) {
-    const meta = enrichLeadWithBusinessRules(lead, lead.tutorProfile ?? null);
+  // Process leads concurrently in small chunks (concurrency 5) to ensure high throughput
+  // without exceeding DB pool or hitting serverless HTTP timeouts
+  const CONCURRENCY = 5;
+  for (let idx = 0; idx < leads.length; idx += CONCURRENCY) {
+    const chunk = leads.slice(idx, idx + CONCURRENCY);
+    await Promise.all(
+      chunk.map(async (lead) => {
+        const meta = enrichLeadWithBusinessRules(lead, lead.tutorProfile ?? null);
 
-    // Rule: If tutor is 5km nearby -> use offlineTemplate; If tutor has no location -> use onlineTemplate
-    const rawTemplate = meta.deliveryMode === "OFFLINE_5KM"
-      ? (input.offlineTemplate || input.messageTemplate || "")
-      : (input.onlineTemplate || input.messageTemplate || "");
+        // Rule: If tutor is 5km nearby -> use offlineTemplate; If tutor has no location -> use onlineTemplate
+        const rawTemplate = meta.deliveryMode === "OFFLINE_5KM"
+          ? (input.offlineTemplate || input.messageTemplate || "")
+          : (input.onlineTemplate || input.messageTemplate || "");
 
-    for (const channel of input.channels) {
-      // Dynamic personalization with business rule invariants and smart name/greeting handling
-      const rawName = (lead.name || "").trim();
-      const isJunkOrMissingName =
-        !rawName ||
-        /^\+?\d+$/.test(rawName) ||
-        /^(tutor|teacher|user|student|lead|parent|sir|madam|ji|whatsapp\s*user|unknown|test)$/i.test(rawName);
-      const cleanFirstName = isJunkOrMissingName ? "" : rawName.split(" ")[0].trim();
+        for (const channel of input.channels) {
+          // Dynamic personalization with business rule invariants and smart name/greeting handling
+          const rawName = (lead.name || "").trim();
+          const isJunkOrMissingName =
+            !rawName ||
+            /^\+?\d+$/.test(rawName) ||
+            /^(tutor|teacher|user|student|lead|parent|sir|madam|ji|whatsapp\s*user|unknown|test)$/i.test(rawName);
+          const cleanFirstName = isJunkOrMissingName ? "" : rawName.split(" ")[0].trim();
 
-      let personalized = rawTemplate;
-      if (cleanFirstName) {
-        personalized = personalized
-          .replace(/Namaste\s*\{\{name\}\}\s*ji(?:\s*🙏)?/gi, `Namaste ${cleanFirstName} ji 🙏`)
-          .replace(/Namaste\s*\{\{name\}\}/gi, `Namaste ${cleanFirstName} ji 🙏`)
-          .replace(/\{\{name\}\}/gi, cleanFirstName);
-      } else {
-        personalized = personalized
-          .replace(/Namaste\s*\{\{name\}\}\s*ji(?:\s*🙏)?/gi, "Namaste ji 🙏")
-          .replace(/Namaste\s*\{\{name\}\}/gi, "Namaste ji 🙏")
-          .replace(/\{\{name\}\}/gi, "Sir/Ma'am");
-      }
-
-      const is5Km = meta.deliveryMode === "OFFLINE_5KM";
-      const loc = is5Km ? meta.locationLabel : "Online (Remote Pan-India)";
-      const dist = is5Km ? (meta.distanceKm ? `~${meta.distanceKm} km nearby` : "Within 5 km") : "";
-      const mode = is5Km ? "Home Tuition (In-Person Nearby)" : "1-on-1 Online Class (Zoom / Google Meet)";
-
-      if (!is5Km) {
-        personalized = personalized
-          .replace(/\s*\(\s*\{\{distance\}\}\s*\)/gi, "")
-          .replace(/\{\{distance\}\}/gi, "");
-      } else {
-        personalized = personalized.replace(/\{\{distance\}\}/gi, dist);
-      }
-
-      let safeClass = meta.classLabel || "Class 5";
-      if (safeClass.includes("-") || safeClass.includes("–") || safeClass.toLowerCase().includes("1 to 8")) {
-        safeClass = "Class 5";
-      }
-
-      personalized = personalized
-        .replace(/\{\{phone\}\}/gi, lead.phone || lead.whatsapp || "")
-        .replace(/\{\{class\}\}/gi, safeClass)
-        .replace(/\{\{subject\}\}/gi, meta.recommendedSubject)
-        .replace(/\{\{fee\}\}/gi, meta.recommendedFee)
-        .replace(/\{\{location\}\}/gi, loc)
-        .replace(/\{\{mode\}\}/gi, mode);
-
-      if (channel === "WHATSAPP") {
-        const rawPhone = lead.whatsapp || lead.phone;
-        const normalized = rawPhone ? normalizeIndiaWhatsApp(rawPhone) : null;
-
-        if (!normalized) {
-          results.push({ leadId: lead.id, name: lead.name, channel, status: "SKIPPED", reason: "No phone/WhatsApp number", personalizedPreview: personalized });
-          continue;
-        }
-
-        const reach = await getWhatsAppReachability(normalized);
-        if (!reach.hasInbound) {
-          results.push({
-            leadId: lead.id,
-            name: lead.name,
-            channel,
-            status: "SKIPPED",
-            reason:
-              "This number never messaged Apna Tutor Hub on WhatsApp — Meta blocks outbound. Pick a lead with green “WhatsApp active” or chat from your number (9311459543) first.",
-            personalizedPreview: personalized,
-          });
-          continue;
-        }
-
-        const inquiryCode = lead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
-        const waResult = await dispatchBlastWhatsAppMessage({
-          to: normalized,
-          personalizedText: personalized,
-          inquiryCode,
-          clientName: cleanFirstName || lead.name || "Tutor",
-          classLine: `${safeClass} (${meta.recommendedSubject})`,
-          modeLine: is5Km ? "Home Tuition (Offline)" : "Online Class",
-          locationLine: loc,
-          feeLine: meta.recommendedFee,
-          preferSessionText: lead.kind === "STAFF_LEAD" || reach.within24h,
-          hasWhatsAppInbound: reach.hasInbound,
-        });
-
-        if (waResult.ok) {
-          const logBody =
-            waResult.deliveryChannel === "approved_template"
-              ? `[Approved template: tuition_enquiry_direct]\n${personalized}`
-              : personalized;
-          await prisma.whatsappChatMessage.create({
-            data: {
-              phone: normalized,
-              direction: "OUTBOUND",
-              senderName: "Coordinator Broadcast",
-              body: logBody,
-              step: "INTERESTED_BLAST",
-              messageId: waResult.providerMessageId || null,
-              messageType: waResult.deliveryChannel === "approved_template" ? "template" : "text",
-              status: waResult.rawStatus || "accepted",
-              isRead: true,
-            },
-          }).catch(() => {});
-
-          const deliveryStatus = await waitForWhatsAppDeliveryStatus(
-            waResult.providerMessageId || "",
-            4500
-          );
-          if (deliveryStatus?.toUpperCase() === "FAILED") {
-            results.push({
-              leadId: lead.id,
-              name: lead.name,
-              channel,
-              status: "FAILED",
-              reason:
-                "Meta rejected delivery (often wrong number or 24h window). Your WhatsApp chat is on a different number than User Directory — use Interested Leads or fix phone.",
-              personalizedPreview: personalized,
-            });
-            failed++;
-            continue;
-          }
-
-          const channelNote =
-            waResult.deliveryChannel === "approved_template"
-              ? "Approved WhatsApp template"
-              : "Session text (24h window)";
-          results.push({
-            leadId: lead.id,
-            name: lead.name,
-            channel,
-            status: deliveryStatus?.toUpperCase() === "DELIVERED" ? "SENT" : "SENT",
-            reason: `${channelNote}${deliveryStatus ? ` · ${deliveryStatus}` : " · queued"}`,
-            personalizedPreview: personalized,
-          });
-          sent++;
-        } else {
-          const isNotConfigured = !aquaConfig.enabled || !aquaConfig.systemToken;
-          if (isNotConfigured) {
-            results.push({ leadId: lead.id, name: lead.name, channel, status: "SIMULATED", reason: "Aqua not configured — simulated", personalizedPreview: personalized });
-            simulated++;
+          let personalized = rawTemplate;
+          if (cleanFirstName) {
+            personalized = personalized
+              .replace(/Namaste\s*\{\{name\}\}\s*ji(?:\s*🙏)?/gi, `Namaste ${cleanFirstName} ji 🙏`)
+              .replace(/Namaste\s*\{\{name\}\}/gi, `Namaste ${cleanFirstName} ji 🙏`)
+              .replace(/\{\{name\}\}/gi, cleanFirstName);
           } else {
-            results.push({ leadId: lead.id, name: lead.name, channel, status: "FAILED", reason: waResult.error, personalizedPreview: personalized });
-            failed++;
+            personalized = personalized
+              .replace(/Namaste\s*\{\{name\}\}\s*ji(?:\s*🙏)?/gi, "Namaste ji 🙏")
+              .replace(/Namaste\s*\{\{name\}\}/gi, "Namaste ji 🙏")
+              .replace(/\{\{name\}\}/gi, "Sir/Ma'am");
+          }
+
+          const is5Km = meta.deliveryMode === "OFFLINE_5KM";
+          const loc = is5Km ? meta.locationLabel : "Online (Remote Pan-India)";
+          const dist = is5Km ? (meta.distanceKm ? `~${meta.distanceKm} km nearby` : "Within 5 km") : "";
+          const mode = is5Km ? "Home Tuition (In-Person Nearby)" : "1-on-1 Online Class (Zoom / Google Meet)";
+
+          if (!is5Km) {
+            personalized = personalized
+              .replace(/\s*\(\s*\{\{distance\}\}\s*\)/gi, "")
+              .replace(/\{\{distance\}\}/gi, "");
+          } else {
+            personalized = personalized.replace(/\{\{distance\}\}/gi, dist);
+          }
+
+          let safeClass = meta.classLabel || "Class 5";
+          if (safeClass.includes("-") || safeClass.includes("–") || safeClass.toLowerCase().includes("1 to 8")) {
+            safeClass = "Class 5";
+          }
+
+          personalized = personalized
+            .replace(/\{\{phone\}\}/gi, lead.phone || lead.whatsapp || "")
+            .replace(/\{\{class\}\}/gi, safeClass)
+            .replace(/\{\{subject\}\}/gi, meta.recommendedSubject)
+            .replace(/\{\{fee\}\}/gi, meta.recommendedFee)
+            .replace(/\{\{location\}\}/gi, loc)
+            .replace(/\{\{mode\}\}/gi, mode);
+
+          if (channel === "WHATSAPP") {
+            const rawPhone = lead.whatsapp || lead.phone;
+            const normalized = rawPhone ? normalizeIndiaWhatsApp(rawPhone) : null;
+
+            if (!normalized) {
+              results.push({ leadId: lead.id, name: lead.name, channel, status: "SKIPPED", reason: "No phone/WhatsApp number", personalizedPreview: personalized });
+              continue;
+            }
+
+            const reach = await getWhatsAppReachability(normalized);
+            if (!reach.hasInbound) {
+              results.push({
+                leadId: lead.id,
+                name: lead.name,
+                channel,
+                status: "SKIPPED",
+                reason:
+                  "This number never messaged Apna Tutor Hub on WhatsApp — Meta blocks outbound. Pick a lead with green “WhatsApp active” or chat from your number (9311459543) first.",
+                personalizedPreview: personalized,
+              });
+              continue;
+            }
+
+            const inquiryCode = lead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
+            const forceTemplate = Boolean(input.forceApprovedTemplate) || !reach.within24h;
+            const waResult = await dispatchBlastWhatsAppMessage({
+              to: normalized,
+              personalizedText: personalized,
+              inquiryCode,
+              clientName: cleanFirstName || lead.name || "Tutor",
+              classLine: `${safeClass} (${meta.recommendedSubject})`,
+              modeLine: is5Km ? "Home Tuition (Offline)" : "Online Class",
+              locationLine: loc,
+              feeLine: meta.recommendedFee,
+              // Freeform Hinglish pitch only inside Meta 24h window; otherwise approved template
+              preferSessionText: !forceTemplate && reach.within24h,
+              hasWhatsAppInbound: reach.hasInbound,
+            });
+
+            if (waResult.ok) {
+              const logBody =
+                waResult.deliveryChannel === "approved_template"
+                  ? `[Approved template: tuition_enquiry_direct]\n${personalized}`
+                  : personalized;
+              await prisma.whatsappChatMessage.create({
+                data: {
+                  phone: normalized,
+                  direction: "OUTBOUND",
+                  senderName: "Coordinator Broadcast",
+                  body: logBody,
+                  step: "INTERESTED_BLAST",
+                  messageId: waResult.providerMessageId || null,
+                  messageType: waResult.deliveryChannel === "approved_template" ? "template" : "text",
+                  status: waResult.rawStatus || "accepted",
+                  isRead: true,
+                },
+              }).catch(() => {});
+
+              // For single manual tests, briefly check delivery status (max 600ms);
+              // For bulk blast (>1 lead), NEVER block synchronously — Meta webhooks update status asynchronously.
+              const deliveryStatus = leads.length === 1 && waResult.providerMessageId
+                ? await waitForWhatsAppDeliveryStatus(waResult.providerMessageId, 600).catch(() => null)
+                : null;
+
+              if (deliveryStatus?.toUpperCase() === "FAILED") {
+                results.push({
+                  leadId: lead.id,
+                  name: lead.name,
+                  channel,
+                  status: "FAILED",
+                  reason:
+                    "Meta rejected delivery (often wrong number or 24h window). Your WhatsApp chat is on a different number than User Directory — use Interested Leads or fix phone.",
+                  personalizedPreview: personalized,
+                });
+                failed++;
+                continue;
+              }
+
+              const channelNote =
+                waResult.deliveryChannel === "approved_template"
+                  ? "Approved WhatsApp template"
+                  : "Session text (24h window)";
+              results.push({
+                leadId: lead.id,
+                name: lead.name,
+                channel,
+                status: "SENT",
+                reason: `${channelNote}${deliveryStatus ? ` · ${deliveryStatus}` : " · queued"}`,
+                personalizedPreview: personalized,
+              });
+              sent++;
+            } else {
+              const isNotConfigured = !aquaConfig.enabled || !aquaConfig.systemToken;
+              if (isNotConfigured) {
+                results.push({ leadId: lead.id, name: lead.name, channel, status: "SIMULATED", reason: "Aqua not configured — simulated", personalizedPreview: personalized });
+                simulated++;
+              } else {
+                results.push({ leadId: lead.id, name: lead.name, channel, status: "FAILED", reason: waResult.error, personalizedPreview: personalized });
+                failed++;
+              }
+            }
+          } else if (channel === "IN_APP") {
+            const registeredUser = (lead.phone || lead.email)
+              ? await prisma.user.findFirst({
+                  where: {
+                    OR: [
+                      lead.phone  ? { phone: lead.phone }                              : undefined,
+                      lead.email  ? { email: { equals: lead.email, mode: "insensitive" } } : undefined,
+                    ].filter(Boolean) as any[],
+                  },
+                  select: { id: true },
+                }).catch(() => null)
+              : null;
+
+            if (registeredUser) {
+              await prisma.notification.create({
+                data: {
+                  userId: registeredUser.id,
+                  type: "FOLLOW_UP",
+                  priority: "HIGH",
+                  title: "📣 We noticed your interest!",
+                  message: personalized,
+                  actionUrl: "/tutor/leads",
+                  isRead: false,
+                },
+              }).catch(() => null);
+              results.push({ leadId: lead.id, name: lead.name, channel, status: "SENT", personalizedPreview: personalized });
+              sent++;
+            } else {
+              results.push({ leadId: lead.id, name: lead.name, channel, status: "SIMULATED", reason: "Lead not yet registered — in-app simulated", personalizedPreview: personalized });
+              simulated++;
+            }
           }
         }
-      } else if (channel === "IN_APP") {
-        const registeredUser = (lead.phone || lead.email)
-          ? await prisma.user.findFirst({
-              where: {
-                OR: [
-                  lead.phone  ? { phone: lead.phone }                              : undefined,
-                  lead.email  ? { email: { equals: lead.email, mode: "insensitive" } } : undefined,
-                ].filter(Boolean) as any[],
-              },
-              select: { id: true },
-            }).catch(() => null)
-          : null;
 
-        if (registeredUser) {
-          await prisma.notification.create({
-            data: {
-              userId: registeredUser.id,
-              type: "FOLLOW_UP",
-              priority: "HIGH",
-              title: "📣 We noticed your interest!",
-              message: personalized,
-              actionUrl: "/tutor/leads",
-              isRead: false,
-            },
+        if (lead.kind === "STAFF_LEAD") {
+          await prisma.staffLead.update({
+            where: { id: lead.id },
+            data: { lastContactedAt: new Date() },
           }).catch(() => null);
-          results.push({ leadId: lead.id, name: lead.name, channel, status: "SENT", personalizedPreview: personalized });
-          sent++;
-        } else {
-          results.push({ leadId: lead.id, name: lead.name, channel, status: "SIMULATED", reason: "Lead not yet registered — in-app simulated", personalizedPreview: personalized });
-          simulated++;
         }
-      }
-    }
-
-    if (lead.kind === "STAFF_LEAD") {
-      await prisma.staffLead.update({
-        where: { id: lead.id },
-        data: { lastContactedAt: new Date() },
-      }).catch(() => null);
-    }
+      })
+    );
   }
 
   revalidatePath("/admin/staff-leads/interested-leads");

@@ -90,7 +90,7 @@ export async function handleParentStep(
     }
 
     case "P_TIMING": {
-      if (r.length < 3) return null;
+      if (r.length < 2) return null;
       return {
         reply: MSG.P_MODE,
         nextStep: "P_MODE",

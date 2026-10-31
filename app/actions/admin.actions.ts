@@ -24,6 +24,11 @@ import { processReferralRewardOnKyc } from "@/app/actions/referral.actions";
 import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
 import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
 import {
+  buildIndiaPhoneOrFilter,
+  canonicalIndiaPhone,
+  indiaPhoneLast10,
+} from "@/lib/india-phone";
+import {
   notifyTutorForLeadDispatch,
   type LeadDispatchVia,
 } from "@/lib/lead-dispatch-notify";
@@ -220,6 +225,11 @@ export async function adminCreateUserAction(
   if (!phoneToStore && !input.isIncompleteUser && input.role === "PARENT") {
     return actionError(
       "Mobile number is required for parent accounts (or mark as Incomplete User if phone is not available yet)."
+    );
+  }
+  if (input.createLead && input.role === "PARENT" && !phoneToStore) {
+    return actionError(
+      "A mobile number is required before creating a lead — no lead without a contactable phone."
     );
   }
 
@@ -1068,11 +1078,43 @@ export async function adminCreateLeadAction(
     return actionError("Enter the tuition fee. Unlock coins are 5% of that amount.");
   }
 
-  // 1. Resolve Parent Profile ID
+  // 1. Resolve Parent Profile ID — every lead must be tied to a contactable parent.
+  const rawParentPhone = input.parentPhone?.trim() ?? "";
+  const cleanPhone = rawParentPhone ? canonicalIndiaPhone(rawParentPhone) : null;
+  const phoneLast10 = rawParentPhone ? indiaPhoneLast10(rawParentPhone) : null;
+
+  if (rawParentPhone && (!cleanPhone || !phoneLast10)) {
+    return actionError(
+      "Parent mobile number must be a valid 10-digit Indian number starting with 6, 7, 8, or 9."
+    );
+  }
+
   let targetParentProfileId = input.parentProfileId;
 
-  if (!targetParentProfileId) {
-    const cleanPhone = input.parentPhone ? input.parentPhone.trim() : null;
+  if (targetParentProfileId) {
+    const selectedParent = await prisma.parentProfile.findUnique({
+      where: { id: targetParentProfileId },
+      select: { user: { select: { id: true, phone: true } } },
+    });
+    if (!selectedParent) {
+      return actionError("Selected parent profile not found.");
+    }
+    if (
+      !selectedParent.user.phone ||
+      !canonicalIndiaPhone(selectedParent.user.phone) ||
+      !indiaPhoneLast10(selectedParent.user.phone)
+    ) {
+      return actionError(
+        "This parent has no valid mobile number on file. Add a mobile number in the User Directory before creating a lead."
+      );
+    }
+  } else {
+    if (!cleanPhone || !phoneLast10) {
+      return actionError(
+        "Parent mobile number is required — no lead can be created without a valid 10-digit phone."
+      );
+    }
+
     const cleanEmail = input.parentEmail ? input.parentEmail.trim().toLowerCase() : null;
     const cleanName = input.parentName ? input.parentName.trim() : "";
 
@@ -1082,15 +1124,29 @@ export async function adminCreateLeadAction(
         where: { email: cleanEmail },
         include: { parentProfile: true },
       });
-    } else if (cleanPhone) {
-      existingUser = await prisma.user.findFirst({
-        where: { phone: cleanPhone },
-        include: { parentProfile: true },
-      });
+    }
+
+    const phoneOwner = await prisma.user.findFirst({
+      where: { OR: buildIndiaPhoneOrFilter(cleanPhone) as never },
+      include: { parentProfile: true },
+    });
+    if (existingUser && phoneOwner && phoneOwner.id !== existingUser.id) {
+      return actionError(
+        `This mobile number is already linked to another account (${phoneOwner.name || phoneOwner.email}).`
+      );
+    }
+    if (!existingUser) {
+      existingUser = phoneOwner;
     }
 
     if (existingUser?.parentProfile) {
       targetParentProfileId = existingUser.parentProfile.id;
+      if (!existingUser.phone) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { phone: cleanPhone },
+        });
+      }
     } else if (existingUser && !existingUser.parentProfile) {
       const newParent = await prisma.parentProfile.create({
         data: {
@@ -1102,16 +1158,16 @@ export async function adminCreateLeadAction(
         },
       });
       targetParentProfileId = newParent.id;
+      if (!existingUser.phone) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { phone: cleanPhone },
+        });
+      }
     } else {
       // Auto-create parent user with default 12345678 credentials
-      const finalEmail =
-        cleanEmail ||
-        (cleanPhone
-          ? `parent${cleanPhone.replace(/\D/g, "")}@apnatutorhub.com`
-          : `parent${Date.now().toString().slice(-6)}@apnatutorhub.com`);
-      const finalName =
-        cleanName ||
-        (cleanPhone ? `Parent (${cleanPhone.slice(-4)})` : "Parent User");
+      const finalEmail = cleanEmail || `parent${phoneLast10}@apnatutorhub.com`;
+      const finalName = cleanName || `Parent (${phoneLast10.slice(-4)})`;
       const defaultPasswordHash = await bcrypt.hash("12345678", 10);
 
       const newUser = await prisma.user.create({

@@ -389,7 +389,9 @@ export function getLeadRateType(lead?: {
 
 /**
  * Formats lead budget range nicely with proper unit (/mo or /hr).
- * Automatically normalizes any mismatched legacy values.
+ * Stored fee values are authoritative — we never rewrite a real lead's budget
+ * at display/notification time. A synthetic band is only used for legacy rows
+ * that have no stored fee at all.
  */
 export function formatLeadBudget(
   lead?: {
@@ -408,15 +410,21 @@ export function formatLeadBudget(
   }
 
   const isHourly = getLeadRateType(lead) === "HOURLY";
-  const unit = style === "full" ? (isHourly ? " / hour" : " / month") : (isHourly ? "/hr" : "/mo");
+  const unit = style === "full" ? (isHourly ? "/ hour" : "/ month") : (isHourly ? "/hr" : "/mo");
 
-  const tight = realisticTightBudget(lead);
-  let bMin = tight?.min ?? lead.budgetMin;
-  let bMax = tight?.max ?? lead.budgetMax;
+  let bMin = lead.budgetMin && lead.budgetMin > 0 ? lead.budgetMin : null;
+  let bMax = lead.budgetMax && lead.budgetMax > 0 ? lead.budgetMax : null;
+
+  // Legacy rows without any fee: fall back to a realistic band.
+  if (!bMin && !bMax) {
+    const tight = realisticTightBudget(lead);
+    bMin = tight?.min ?? null;
+    bMax = tight?.max ?? null;
+  }
 
   if (bMin && bMax) {
     if (bMin === bMax) {
-      return `₹${bMin.toLocaleString("en-IN")}${unit}`;
+      return `₹${bMin.toLocaleString("en-IN")} ${unit}`;
     }
     return `₹${bMin.toLocaleString("en-IN")} – ₹${bMax.toLocaleString("en-IN")} ${unit}`;
   }

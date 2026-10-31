@@ -40,8 +40,8 @@ function isValidCity(v: string): boolean {
   if (/\d/.test(clean)) return false;
   // Reject very long strings (URL/email-like)
   if (clean.length < 2 || clean.length > 40) return false;
-  // City names always have vowels
-  if (!/[aeiou]/i.test(clean)) return false;
+  // Common valid abbreviations or standard vowel check
+  if (!/[aeiouy]/i.test(clean) && !/^(ncr|dl|up|mp|hr|pb|uk)$/i.test(clean)) return false;
   return true;
 }
 function isValidClasses(v: string) {
@@ -158,8 +158,8 @@ export async function handleTutorStep(
     }
 
     case "T_TIMING": {
-      // Minimum 5 chars — rejects "ok", "1", single tokens that aren't real timings
-      if (r.length < 5) return null;
+      // Accepts short timings like "5pm", "6-8", "any", "all"
+      if (r.length < 2) return null;
       return {
         reply: MSG.T_EXPERIENCE,
         nextStep: "T_EXPERIENCE",

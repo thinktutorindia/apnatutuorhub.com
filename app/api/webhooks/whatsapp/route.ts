@@ -346,8 +346,17 @@ export async function POST(request: Request): Promise<NextResponse> {
         return;
       }
 
-      // 2. Process through state machine
-      const result = await processMessage(session, text);
+      // 1b. Fetch recent conversation history so bot never has amnesia
+      const recentChatMessages = await prisma.whatsappChatMessage.findMany({
+        where: { phone },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: { direction: true, body: true, createdAt: true, senderName: true },
+      });
+      const chatHistory = recentChatMessages.reverse();
+
+      // 2. Process through state machine with full chat history
+      const result = await processMessage(session, text, { chatHistory });
 
       // 3. Persist state
       await updateSession(

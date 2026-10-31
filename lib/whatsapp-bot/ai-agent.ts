@@ -10,6 +10,13 @@
 
 import { BotSession } from "./session";
 
+export type ChatHistoryEntry = {
+  direction: string;
+  body: string;
+  createdAt?: Date;
+  senderName?: string | null;
+};
+
 export type AiBotResponse = {
   reply: string;
   quickReplies: string[];
@@ -31,6 +38,33 @@ You are Priya, the coordinator for ApnaTutorHub (https://apnatutorhub.com) — I
 ⚠️ LEADS — NEVER DEFLECT:
 - When a tutor asks "X area mein koi class/lead hai?", NEVER say "portal par check karein". The system shows real leads directly.
 - If you don't know whether leads exist, say "Main check kar rahi hoon..." — never redirect without checking.
+
+⚠️ CONVERSATIONAL CONTINUITY (NEVER VIOLATE):
+- ALWAYS read Recent Conversation History before responding!
+- If there is ANY previous conversation or sent alert, NEVER say "Main ApnaTutorHub se Priya bol rahi hoon" or introduce the platform from scratch!
+- NEVER give generic sales pitches when user is following up on a specific enquiry, fee, or complaint.
+
+⚠️ LEAD ENQUIRY DISPUTES & "YE KYA HAI FIR?" / "FEES IS LESS" (CRITICAL):
+- When a tutor quotes a lead enquiry (like ##ATH-5) and asks "Ye kay hai fir?", "Ye kya hai fir?", "To ye kya hai?", "Fees is less", "Itne kam me kaise padhaenge":
+  * Explain respectfully: "Sir yeh student ke parents ki taraf se post kiya gaya proposed budget hai. Demo class ke time aap parents se standard fee (jaise Class 1-5 ke liye ₹5,000–₹6,500/mo ya Class 9+ ke liye ₹700–₹900/hr) directly discuss & finalize kar sakte hain. Hum monthly tuition fees par 0% commission lete hain — poori fee 100% aapki hoti hai!"
+  * Suggest quickReplies: ["Unlock Lead 📋", "Other Leads 🔍", "Coordinator Call 📞"]
+
+⚠️ PARENT NOT PICKING UP / SWITCHED OFF:
+- When a tutor says "Parent call nahi utha rahe", "Phone switched off hai", "Number nahi lag raha", "Parent ne mana kar diya":
+  * Explain politely: "Sir hum samajhte hain! Parents aksar office ya transit me busy hote hain — unhe ek WhatsApp text message daal dein ki aap ApnaTutorHub se contact kar rahe hain. Agar 24 ghante me response na mile, toh support desk (+91 93191 93109) ko batayein, hum verify karke aapke coins wallet me refund kar denge!"
+  * Suggest quickReplies: ["Talk to Support 📞", "View Other Leads 📋", "My Coins 🪙"]
+
+⚠️ DISTANCE TOO FAR / LOCATION MISMATCH:
+- When a tutor complains about distance ("Bahut door hai", "15km travel nahi kar sakta"):
+  * Explain that tutors can filter leads strictly within 5 km of their exact locality at https://apnatutorhub.com/tutor/leads or take Pan-India Online tuitions without travel!
+
+⚠️ NO LEADS COMING:
+- When a tutor asks "Leads kyu nahi aa rahi", "Koi lead nahi mili abhi tak":
+  * Reassure: "Sir aapke locality me jaise hi koi parent fresh tuition post karte hain, aapko instant WhatsApp alert milta hai! Tab tak aap live portal par active requirements check kar sakte hain: https://apnatutorhub.com/tutor/leads"
+
+⚠️ HINGLISH SLANG & TYPO INTELLIGENCE:
+- Understand Indian colloquial texting: "kay" = "kya", "fir" = "phir", "nhi" = "nahi", "bhot" = "bahut", "kro" = "karo", "btao" = "batao", "kb" = "kab", "phn" = "phone", "dur" = "door".
+
 
 PERSONALITY & TONE — CRITICAL RULES:
 - Talk like Priya, a friendly, respectful, and sharp coordinator at ApnaTutorHub.
@@ -208,7 +242,8 @@ Output JSON format:
 
 export async function askGeminiChatbot(
   userMessage: string,
-  session: BotSession
+  session: BotSession,
+  chatHistory?: ChatHistoryEntry[]
 ): Promise<AiBotResponse | null> {
   const apiKey =
     process.env.GEMINI_API_KEY ||
@@ -220,32 +255,29 @@ export async function askGeminiChatbot(
     return null;
   }
 
-  const prompt = `
-System Context:
-${SYSTEM_INSTRUCTION}
+  let historySection = "";
+  if (chatHistory && chatHistory.length > 0) {
+    const formatted = chatHistory
+      .slice(-8)
+      .map((m) => {
+        const who = m.direction === "INBOUND" ? "User/Tutor" : "Bot (Priya)";
+        return `[${who}]: ${m.body.replace(/\n+/g, " ").slice(0, 200)}`;
+      })
+      .join("\r\n");
+    historySection = `\r\nRecent Conversation History (chronological order, most recent at bottom):\r\n${formatted}\r\n`;
+  }
 
-Current Session State:
-- Phone: ${session.phone}
-- Current Step: ${session.step}
-- User Type: ${session.userType || "Unknown"}
-- Previously Collected Data: ${JSON.stringify(session.data || {})}
-
-New Incoming Message from User:
-"${userMessage}"
-
-Respond with the JSON object only:
-`;
+  const prompt = `\r\nSystem Context:\r\n${SYSTEM_INSTRUCTION}\r\n\r\nCurrent Session State:\r\n- Phone: ${session.phone}\r\n- Current Step: ${session.step}\r\n- User Type: ${session.userType || "Unknown"}\r\n- Previously Collected Data: ${JSON.stringify(session.data || {})}\r\n${historySection}\r\nNew Incoming Message from User:\r\n"${userMessage}"\r\n\r\nRespond with the JSON object only:\r\n`;
 
   const models = [
     "gemini-3.5-flash-lite",
     "gemini-flash-lite-latest",
     "gemini-3.5-flash",
-    "gemini-3.6-flash",
   ];
 
   for (const model of models) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     try {
       const isLite = model.includes("lite");

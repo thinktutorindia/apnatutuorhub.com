@@ -110,6 +110,12 @@ export function CreateLeadModal({
   // Parent Selection Mode: "NEW" | "EXISTING"
   const [parentMode, setParentMode] = useState<"NEW" | "EXISTING">("NEW");
   const [selectedParentId, setSelectedParentId] = useState<string>("");
+  const [selectedParent, setSelectedParent] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+  } | null>(null);
   const [parentSearchQuery, setParentSearchQuery] = useState("");
   const [parentSearchResults, setParentSearchResults] = useState<any[]>([]);
   const [isSearchingParents, setIsSearchingParents] = useState(false);
@@ -393,8 +399,26 @@ export function CreateLeadModal({
     const effectiveArea = manualArea.trim() || selectedLocation?.area || undefined;
     const effectivePincode = manualPincode.trim() || selectedLocation?.pincode || undefined;
 
+    if (parentMode === "EXISTING") {
+      if (!selectedParentId) {
+        setErrorMsg("Select an existing parent, or switch to New Parent Lead.");
+        return;
+      }
+      if (!selectedParent?.phone) {
+        setErrorMsg(
+          "This parent has no mobile number on file. Add a mobile number in the User Directory before creating a lead."
+        );
+        return;
+      }
+    }
+
     let normalizedParentPhone: string | undefined = undefined;
-    if (parentMode === "NEW" && parentPhone.trim()) {
+    if (parentMode === "NEW") {
+      if (!parentPhone.trim()) {
+        setErrorMsg("Parent mobile number is required. A lead cannot be created without a valid 10-digit phone.");
+        return;
+      }
+
       let digits = parentPhone.trim().replace(/\D/g, "");
       if (digits.startsWith("91") && digits.length === 12) digits = digits.slice(2);
       else if (digits.startsWith("0") && digits.length === 11) digits = digits.slice(1);
@@ -471,7 +495,11 @@ export function CreateLeadModal({
   const handleCopyWhatsAppText = () => {
     const text = formatLeadNotifyTemplate({
       id: createdLeadId !== "created" ? createdLeadId : undefined,
-      clientName: parentName || "Not Specified",
+      clientName:
+        parentName.trim() ||
+        (parentPhone.replace(/\D/g, "").slice(-4)
+          ? `Parent (${parentPhone.replace(/\D/g, "").slice(-4)})`
+          : "Not Specified"),
       subjects: selectedSubjects,
       classLevel,
       board,
@@ -696,20 +724,35 @@ export function CreateLeadModal({
                           {parentSearchResults.map((p) => (
                             <div
                               key={p.id}
-                              onClick={() => setSelectedParentId(p.id)}
-                              className={`p-3 rounded-2xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-                                selectedParentId === p.id
-                                  ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold"
-                                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                              onClick={() => {
+                                if (!p.phone) return;
+                                setSelectedParentId(p.id);
+                                setSelectedParent(p);
+                              }}
+                              title={
+                                p.phone
+                                  ? undefined
+                                  : "No mobile on file — add a mobile number in the User Directory first."
+                              }
+                              className={`p-3 rounded-2xl border text-xs transition-all flex items-center justify-between ${
+                                !p.phone
+                                  ? "bg-slate-50 border-slate-200 text-slate-500 opacity-70 cursor-not-allowed"
+                                  : selectedParentId === p.id
+                                    ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold cursor-pointer"
+                                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
                               }`}
                             >
                               <div>
                                 <span className="font-bold text-[#0F2540]">{p.name}</span>
-                                <span className="text-slate-500 font-medium ml-2">
-                                  {p.phone || p.email}
-                                </span>
+                                {p.phone ? (
+                                  <span className="text-slate-500 font-medium ml-2">{p.phone}</span>
+                                ) : (
+                                  <span className="ml-2 inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                                    No mobile on file
+                                  </span>
+                                )}
                               </div>
-                              {selectedParentId === p.id && (
+                              {selectedParentId === p.id && p.phone && (
                                 <span className="flex items-center gap-1 text-[#2D9E6B] font-bold text-[11px]">
                                   <Check size={14} /> Selected
                                 </span>
@@ -739,7 +782,8 @@ export function CreateLeadModal({
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <label className="block font-bold text-slate-700 text-xs">
-                              Parent Mobile Number <span className="text-emerald-700 font-bold text-[10px]">(WhatsApp)</span>
+                              Parent Mobile Number <span className="text-rose-500">*</span>{" "}
+                              <span className="text-emerald-700 font-bold text-[10px]">(WhatsApp)</span>
                             </label>
                             {parentPhone.trim() && (
                               <span
@@ -761,6 +805,7 @@ export function CreateLeadModal({
                             <input
                               type="tel"
                               value={parentPhone}
+                              required
                               maxLength={10}
                               onChange={(e) => {
                                 const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
@@ -770,6 +815,9 @@ export function CreateLeadModal({
                               className="w-full rounded-2xl pl-16 pr-3.5 py-2.5 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-bold font-mono tracking-wide text-xs shadow-2xs"
                             />
                           </div>
+                          <p className="mt-1 text-[10px] font-semibold text-slate-500">
+                            Required — no lead can be created without a valid mobile number.
+                          </p>
                         </div>
 
                         <div>

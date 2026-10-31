@@ -15,7 +15,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { extractPublicLocality, isGenuineEmail, isTill8thClass, leadSubjectsForClass, realisticTightBudget } from "@/lib/lead-utils";
+import { extractPublicLocality, formatLeadBudget, isGenuineEmail, isTill8thClass, leadSubjectsForClass, realisticTightBudget } from "@/lib/lead-utils";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { renderNewMatchedLeadEmail } from "@/emails/NewMatchedLeadEmail";
 import { sendAquaWhatsAppMessage, normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
@@ -206,7 +206,7 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
           : pickTutorSubjects(tutorSubjects, rawClass, idx)
       );
 
-      const budget = getHealthyBudget(rawClass, mode === "OFFLINE");
+      const budgetFormatted = formatLeadBudget(matchedRealLead, "full");
       const timing = matchedRealLead.timingPreference || pickTiming(idx);
       const location =
         extractPublicLocality([matchedRealLead.area, matchedRealLead.city].filter(Boolean).join(", "), tCity) ||
@@ -228,7 +228,7 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
         subjects,
         mode,
         location,
-        budgetFormatted: budget.label,
+        budgetFormatted,
         timing,
         preference: matchedRealLead.tutorGenderPref || "Any (Male or Female Tutor)",
         actionUrl: `https://apnatutorhub.com/tutor/leads`,

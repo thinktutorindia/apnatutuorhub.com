@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApnaTutorHub — WhatsApp Blast & 24h Meta Rule Video Explainer (Hinglish)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #131b2e;
+      --card-border: #1e293b;
+      --accent-green: #10b981;
+      --accent-blue: #38bdf8;
+      --accent-amber: #f59e0b;
+      --accent-purple: #a855f7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      line-height: 1.6;
+      padding: 32px 20px 80px;
+    }
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      background: #dc2626;
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .video-wrapper {
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      border: 1px solid #334155;
+      margin-bottom: 28px;
+    }
+    video {
+      width: 100%;
+      height: auto;
+      max-height: 720px;
+      display: block;
+      outline: none;
+    }
+    .chapters-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+    .chapter-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 14px 16px;
+      border-radius: 12px;
+      color: var(--text-main);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .chapter-btn:hover {
+      border-color: var(--accent-blue);
+      transform: translateY(-2px);
+      background: #1e293b;
+    }
+    .chapter-btn.active {
+      border-color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.12);
+    }
+    .chapter-time {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-green);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .chapter-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .deep-dive {
+      margin-top: 40px;
+    }
+    .section-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 880px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .comparison-card {
+      border-radius: 16px;
+      padding: 28px;
+      border: 2px solid;
+    }
+    .card-inside {
+      background: rgba(16, 185, 129, 0.04);
+      border-color: var(--accent-green);
+    }
+    .card-outside {
+      background: rgba(245, 158, 11, 0.04);
+      border-color: var(--accent-amber);
+    }
+    .card-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .badge-inside {
+      background: var(--accent-green);
+      color: #000;
+    }
+    .badge-outside {
+      background: var(--accent-amber);
+      color: #000;
+    }
+    .rule-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .rule-list li {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+    .rule-list strong {
+      color: #fff;
+    }
+    .code-box {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 14px;
+      border-radius: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #38bdf8;
+      margin-top: 12px;
+      white-space: pre-wrap;
+    }
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 16px;
+    }
+    .feature-header {
+      font-weight: 700;
+      font-size: 16px;
+      color: #38bdf8;
+      margin-bottom: 8px;
+    }
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-blue);
+      color: #04101e;
+      font-weight: 700;
+      padding: 10px 20px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .dl-btn:hover {
+      background: #7dd3fc;
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="badge">HINGLISH AUDIO • HINDI ACCENT</div>
+        <h1>ApnaTutorHub — Operations & WhatsApp Blast Explainer</h1>
+      </div>
+      <div>
+        <a href="apnatutorhub-whatsapp-operations-explainer.mp4" download class="dl-btn">
+          ⬇ Download MP4 Video (7m 48s • Hinglish Voiceover)
+        </a>
+      </div>
+    </header>
+
+    <!-- Main Video Player -->
+    <div class="video-wrapper">
+      <video id="explainerVideo" controls poster="scene1.png">
+        <source src="apnatutorhub-whatsapp-operations-explainer.mp4" type="video/mp4">
+        Your browser does not support HTML5 video playback.
+      </video>
+    </div>
+
+    <!-- Chapter Navigation -->
+    <div class="chapters-bar">
+      <button class="chapter-btn active" onclick="jumpTo(0)">
+        <span class="chapter-time">00:00 • SCENE 1</span>
+        <span class="chapter-title">Operations Dashboard</span>
+      </button>
+      <button class="chapter-btn" onclick="jumpTo(87)">
+        <span class="chapter-time">01:27 • SCENE 2</span>
+        <span class="chapter-title">WhatsApp Blast Hub</span>
+      </button>
+      <button class="chapter-btn" onclick="jumpTo(159)">
+        <span class="chapter-time">02:39 • SCENE 3</span>
+        <span class="chapter-title">The Meta 24h Rule</span>
+      </button>
+      <button class="chapter-btn" onclick="jumpTo(328)">
+        <span class="chapter-time">05:28 • SCENE 4</span>
+        <span class="chapter-title">Dual Templates & AI</span>
+      </button>
+      <button class="chapter-btn" onclick="jumpTo(402)">
+        <span class="chapter-time">06:42 • SCENE 5</span>
+        <span class="chapter-title">1-Click Dispatch & Sync</span>
+      </button>
+    </div>
+
+    <!-- Deep Dive: The 24-Hour Rule -->
+    <div class="deep-dive">
+      <div class="section-title">
+        <span>⚡</span> Deep Dive: Meta Ka 24-Hour WhatsApp Session Rule Explained
+      </div>
+      <p style="color: var(--text-muted); font-size: 15px; margin-bottom: 24px;">
+        Modal me <span style="color: var(--accent-green); font-weight: 700;">2 inside 24h</span> aur <span style="color: var(--accent-amber); font-weight: 700;">728 outside 24h</span> kyun dikh raha hai? Meta WhatsApp Cloud API ka technical rule:
+      </p>
+
+      <div class="grid-2">
+        <!-- Inside 24h -->
+        <div class="comparison-card card-inside">
+          <div class="card-badge badge-inside">INSIDE 24-HOUR SESSION (2 LEADS)</div>
+          <ul class="rule-list">
+            <li><strong>Kab apply hota hai:</strong> Jab tutor ne pichhle 24 ghante ke andar hamare business WhatsApp par message bheja ho.</li>
+            <li><strong>Meta Channel:</strong> <code>mode: "text"</code> (Customer Care Session Text).</li>
+            <li><strong>Puri Azaadi (Freedom):</strong> <strong>100% Unrestricted Freedom</strong>. Aap custom Hinglish pitch, detailed commission plan (₹1,257 registration fee + 50% 1st month), emojis, coordinator details aur pricing freely bhej sakte hain.</li>
+            <li><strong>Template Approval:</strong> <strong>Meta se koi pre-approval nahi chahiye</strong>. Aap text ko Gemini AI se live edit kar sakte hain.</li>
+            <li><strong>Cost:</strong> Free customer care tier / standard session pricing me cover hota hai.</li>
+          </ul>
+          <div class="code-box">Channel: Aqua session text (24h)
+Length: 756 chars
+Status: Full Hinglish pitch OK</div>
+        </div>
+
+        <!-- Outside 24h -->
+        <div class="comparison-card card-outside">
+          <div class="card-badge badge-outside">OUTSIDE 24-HOUR WINDOW (728 LEADS)</div>
+          <ul class="rule-list">
+            <li><strong>Kab apply hota hai:</strong> Jab tutor ke aakhiri inbound message ko 24 ghante se zyada ho chuke hon.</li>
+            <li><strong>Meta Policy:</strong> <strong>STRICT BLOCK</strong>. Meta Cloud API kisi bhi custom freeform message ko drop kar deta hai (HTTP 400 error return hota hai).</li>
+            <li><strong>ApnaTutorHub Solution:</strong> System automatically Meta-Approved template par switch ho jaata hai: <code>tuition_enquiry_direct</code>.</li>
+            <li><strong>Dynamic Variables:</strong> 7 approved variables inject hote hain: <code>{{1}}</code> Code, <code>{{2}}</code> Name, <code>{{3}}</code> Class & Subject, <code>{{4}}</code> Mode, <code>{{5}}</code> Location, <code>{{6}}</code> Fee, <code>{{7}}</code> Preference.</li>
+            <li><strong>100% Delivery:</strong> Spam block nahi lagta aur WABA phone number safe rehta hai.</li>
+          </ul>
+          <div class="code-box">Approved Meta Template: tuition_enquiry_direct
+Variables: {{code}}, {{name}}, {{class}}, {{mode}}, {{loc}}, {{fee}}
+Re-Opening: Tutor replying 'YES' opens fresh 24h session!</div>
+        </div>
+      </div>
+
+      <!-- Additional Core Features -->
+      <div class="section-title">
+        <span>📍</span> Dual-Mode Routing & Class Fee Rules
+      </div>
+      <div class="grid-2">
+        <div class="feature-card">
+          <div class="feature-header">5km Radius vs Online Mode Routing</div>
+          <p style="font-size: 14px; color: #cbd5e1; margin-bottom: 12px;">
+            Zero junk leads rule strictly enforced:
+          </p>
+          <ul style="padding-left: 20px; font-size: 13px; color: #94a3b8; line-height: 1.8;">
+            <li><strong style="color: #fff;">53 Tutors within 5km:</strong> Routed to Home Tuition (In-Person). Verified locality, landmark tags, aur walking distance included.</li>
+            <li><strong style="color: #fff;">677 Tutors without location:</strong> Routed to 1-on-1 Online Mode (Pan-India remote via Zoom / Google Meet).</li>
+          </ul>
+        </div>
+        <div class="feature-card">
+          <div class="feature-header">Automated Fee Benchmarks & Gemini AI</div>
+          <p style="font-size: 14px; color: #cbd5e1; margin-bottom: 12px;">
+            Class-level pricing formula:
+          </p>
+          <ul style="padding-left: 20px; font-size: 13px; color: #94a3b8; line-height: 1.8;">
+            <li><strong style="color: #fff;">Class 1–8:</strong> Monthly fee (₹6,200/month) + All Subjects.</li>
+            <li><strong style="color: #fff;">Class 9–12:</strong> Hourly fee (₹500–₹600/hr) + Specific subject.</li>
+            <li><strong style="color: #fff;">Gemini AI Editor:</strong> "Chat with AI" dabakar natural Hinglish prompt se pitch edit karein.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const vid = document.getElementById('explainerVideo');
+    const btns = document.querySelectorAll('.chapter-btn');
+
+    function jumpTo(sec) {
+      vid.currentTime = sec;
+      vid.play();
+    }
+
+    vid.addEventListener('timeupdate', () => {
+      const cur = vid.currentTime;
+      let activeIdx = 0;
+      if (cur >= 402) activeIdx = 4;
+      else if (cur >= 328) activeIdx = 3;
+      else if (cur >= 159) activeIdx = 2;
+      else if (cur >= 87) activeIdx = 1;
+      else activeIdx = 0;
+
+      btns.forEach((b, idx) => {
+        if (idx === activeIdx) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+    });
+  </script>
+</body>
+</html>

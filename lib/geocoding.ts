@@ -47,6 +47,33 @@ export const INDIAN_CITY_COORDINATES: Record<string, { lat: number; lng: number 
   "vasant vihar": { lat: 28.5583, lng: 77.1583 },
   "munirka": { lat: 28.5540, lng: 77.1720 },
   "mehrauli": { lat: 28.5170, lng: 77.1840 },
+  "khanpur": { lat: 28.5140, lng: 77.2340 },
+  "khanpur extension": { lat: 28.5140, lng: 77.2340 },
+  "batra": { lat: 28.5110, lng: 77.2480 },
+  "batra hospital": { lat: 28.5110, lng: 77.2480 },
+  "govindpuri": { lat: 28.5320, lng: 77.2650 },
+  "okhla": { lat: 28.5280, lng: 77.2750 },
+  "okhla phase 1": { lat: 28.5280, lng: 77.2750 },
+  "okhla phase 2": { lat: 28.5350, lng: 77.2780 },
+  "okhla phase 3": { lat: 28.5420, lng: 77.2720 },
+  "badarpur": { lat: 28.5020, lng: 77.3000 },
+  "sarita vihar": { lat: 28.5310, lng: 77.2950 },
+  "jasola": { lat: 28.5410, lng: 77.2880 },
+  "cr park": { lat: 28.5390, lng: 77.2510 },
+  "chittaranjan park": { lat: 28.5390, lng: 77.2510 },
+  "alaknanda": { lat: 28.5320, lng: 77.2510 },
+  "tughlakabad": { lat: 28.5120, lng: 77.2680 },
+  "tughlakabad extension": { lat: 28.5120, lng: 77.2680 },
+  "sainik farm": { lat: 28.5090, lng: 77.2060 },
+  "neb sarai": { lat: 28.5120, lng: 77.2050 },
+  "chhatarpur": { lat: 28.5040, lng: 77.1770 },
+  "chattarpur": { lat: 28.5040, lng: 77.1770 },
+  "mahipalpur": { lat: 28.5440, lng: 77.1260 },
+  "palam": { lat: 28.5910, lng: 77.0870 },
+  "najafgarh": { lat: 28.6090, lng: 76.9850 },
+  "nangloi": { lat: 28.6830, lng: 77.0650 },
+  "narela": { lat: 28.8520, lng: 77.0930 },
+  "shastri nagar": { lat: 28.6690, lng: 77.1810 },
 
   // Delhi NCR (West & Central Delhi)
   "dwarka": { lat: 28.5921, lng: 77.0460 },
@@ -144,7 +171,7 @@ export function resolveLocationCoordinates(query?: string | null): { lat: number
   }
 
   // 4. Check individual tokens
-  const tokens = clean.split(/\s+/).filter((t) => t.length >= 4);
+  const tokens = clean.split(/\s+/).filter((t) => t.length >= 2);
   for (const t of tokens) {
     if (INDIAN_CITY_COORDINATES[t]) {
       return INDIAN_CITY_COORDINATES[t];

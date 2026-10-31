@@ -1,0 +1,7 @@
+file 'C:/Users/coder/Desktop/apnatutorhub/docs/explainer_video/chunks_scene2/chunk_000.mp3'
+file 'C:/Users/coder/Desktop/apnatutorhub/docs/explainer_video/chunks_scene2/chunk_001.mp3'
+file 'C:/Users/coder/Desktop/apnatutorhub/docs/explainer_video/chunks_scene2/chunk_002.mp3'
+file 'C:/Users/coder/Desktop/apnatutorhub/docs/explainer_video/chunks_scene2/chunk_003.mp3'
+file 'C:/Users/coder/Desktop/apnatutorhub/docs/explainer_video/chunks_scene2/chunk_004.mp3'
+file 'C:/Users/coder/Desktop/apnatutorhub/docs/explainer_video/chunks_scene2/chunk_005.mp3'
+file 'C:/Users/coder/Desktop/apnatutorhub/docs/explainer_video/chunks_scene2/chunk_006.mp3'

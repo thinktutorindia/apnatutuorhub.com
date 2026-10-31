@@ -465,8 +465,62 @@ async function tryLooseTutorIntent(
 
   if (mode === "social") {
     if (intent === "LEADS" || intent === "PLANS" || intent === "PROFILE" || intent === "HELP") return null;
-  } else {
-    if (intent !== "LEADS" && intent !== "PLANS" && intent !== "PROFILE" && intent !== "HELP") return null;
+  }
+
+  if (intent === "DECLINE") {
+    return {
+      reply: looseIntentClarifyReply("DECLINE", true),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "Main Menu 🏠"],
+    };
+  }
+
+  if (intent === "WRONG_INFO") {
+    return {
+      reply: looseIntentClarifyReply("WRONG_INFO", true),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Talk to Support 📞", "View Other Leads 📋", "My Coins 🪙"],
+    };
+  }
+
+  if (intent === "PING") {
+    return {
+      reply: looseIntentClarifyReply("PING", true),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
+    };
+  }
+
+  if (intent === "GREETING") {
+    const tutorName = (data.name as string) || "Teacher";
+    return {
+      reply: `Namaste ${tutorName} ji! 🙏 Main Priya, ApnaTutorHub coordinator. Batayein, matching leads dekhni hain ya profile/plans ki info?`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "View Plans 💰"],
+    };
+  }
+
+  if (intent === "THANKS") {
+    return {
+      reply: "Aapka bahut dhanyavaad! 🙏 Kuch aur help chahiye ho toh bas likh dein — *leads*, *plans*, *profile*, ya *help*.",
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "Help 📞"],
+    };
   }
 
   if (intent === "LEADS") {
@@ -736,6 +790,12 @@ function tryTutorOffScriptReply(
 
 export type ProcessMessageOptions = {
   useAi?: boolean;
+  chatHistory?: Array<{
+    direction: string;
+    body: string;
+    createdAt?: Date;
+    senderName?: string | null;
+  }>;
 };
 
 export async function processMessage(
@@ -746,6 +806,14 @@ export async function processMessage(
   const msg = rawMessage.trim().toUpperCase();
   const { step, data, retries } = session;
   const useAi = options?.useAi !== false;
+  const chatHistory = options?.chatHistory ?? (
+    await prisma.whatsappChatMessage.findMany({
+      where: { phone: session.phone },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { direction: true, body: true, createdAt: true, senderName: true },
+    }).then((msgs) => msgs.reverse()).catch(() => [])
+  );
 
   // ── Unsubscribe / Stop Commands (AquaSMS chat log pattern) ─────────────────
   if (/\b(?:unsubscribe|unsub|stop\s*messages?|stop\s*messaging|dont\s*message|don't\s*message|mat\s*bhejo|msg\s*mat\s*karo)\b|^stop$/i.test(rawMessage.trim())) {
@@ -813,6 +881,70 @@ export async function processMessage(
   const offScript = tryTutorOffScriptReply(session, rawMessage, data, step);
   if (offScript) return offScript;
 
+  // ── Enquiry Follow-up / Discrepancy Query (e.g. "Ye kay hai fir?", "ye kya hai fir", "to fir ye kya hai") ──
+  const isEnquiryFollowUp =
+    /(?:ye|yeh|to|toh)?\s*(?:kay|kya|kyu)\s*(?:hai\s*)?(?:fir|phir)\b|\b(?:ye|yeh)\s*(?:kay|kya)\s*hai\b|\bwhat\s*is\s*this\b|\biska\s*kya\s*(?:matlab|karu|karein)\b|\bkya\s*hai\s*ye\b|\bkyu\s*bheja\b/i.test(rawMessage);
+
+  if (isEnquiryFollowUp) {
+    const hasRecentEnquiryOrFees = chatHistory.some((m) =>
+      /tuition enquiry|enquiry assigned|fees is|budget|ath-\d+|\#\d{4,7}/i.test(m.body)
+    ) || /tuition enquiry|enquiry assigned|##ath/i.test(rawMessage);
+
+    if (hasRecentEnquiryOrFees) {
+      return {
+        reply: `Sir yeh student ke parents ki taraf se post kiya gaya initial proposed budget hai. 📋\n\nDemo class ke time aap parent se standard market fees (jaise Class 1–5: ₹5,000–₹6,500/month ya Class 9+: ₹700–₹900/hour) directly discuss & negotiate kar sakte hain — hamare platform par fee negotiation direct rehti hai aur monthly fees par 0% commission hota hai! 🎯\n\nAapko is enquiry ke client se connect hona hai?`,
+        nextStep: step === "WELCOME" ? "T_CONVO" : step,
+        updatedData: data,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["Unlock Lead 📋", "Other Leads 🔍", "Talk to Coordinator 📞"],
+      };
+    }
+  }
+
+  // ── Fees is Low / Less / Budget Complaint ─────────────────────────────────
+  if (
+    /\b(?:fees?|budget)\s*(?:is\s*)?(?:less|low|kam|chhota|bhot\s*kam|bahut\s*kam|zyada\s*kam|too\s*low)\b|\b(?:less|low|kam)\s*(?:fees?|budget)\b|\b(?:itne\s*me\s*kaise|fees\s*badhao)\b/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Ji bilkul sir! Yeh student ke parents ka starting proposed budget hota hai. Lekin demo class ke baad aap parent se standard fees (Class 1–5: ₹5,000–₹6,800/mo, Class 9+: ₹700–₹900/hr) directly finalize kar sakte hain. 📚\n\nHum monthly tuition fees par 0% commission lete hain — poori fee 100% aapki hoti hai!\n\nAapko kis class ya area ke fresh leads dekhne hain?`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Online Tuitions 💻", "Update Area 📍"],
+    };
+  }
+
+  // ── Parent Not Picking / Switched Off / Lead Dispute ──────────────────────
+  if (
+    /(?:call\s*(?:nahi|ni)\s*(?:uth|lag|mil)|phone\s*(?:nahi|ni)\s*(?:uth|lag|mil)|switched\s*off|not\s*reachable|not\s*picking|invalid\s*number|tutor\s*(?:mil\s*gaya|final|ho\s*gaya)|parent\s*mana\s*kar)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Sir hum samajhte hain! Kabhi parents office ya transit mein busy hote hain:\n\n1️⃣ Unhe ek polite WhatsApp message bhej dein ki aap ApnaTutorHub se unki tuition requirement ke liye reach out kar rahe hain.\n2️⃣ Agar 24 ghante mein response na aaye ya parent bole ki pehle hi tutor mil gaya hai, toh aap hamare support desk par batayein — hamari team verify karke aapke coins wallet mein refund kar degi! 🪙\n\n📞 Support Desk: +91 93191 93109 (9am–7pm)`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Talk to Support 📞", "View Other Leads 📋", "My Coins 🪙"],
+    };
+  }
+
+  // ── No Leads Coming / Lead Delay Query ───────────────────────────────────
+  if (
+    /(?:leads?\s*(?:nahi|ni)\s*(?:aayi|aa\s*rahi|aati|aate|mil\s*rahi)|leads?\s*kyu\s*nahi|koi\s*leads?\s*(?:nahi|ni)|leads?\s*kab\s*aayegi|not\s*getting\s*leads?)/i.test(rawMessage)
+  ) {
+    const tutorArea = (data.area as string) || "aapke area";
+    return {
+      reply: `Sir *${tutorArea}* mein jaise hi koi parent fresh tuition post karte hain, aapko instant WhatsApp alert milta hai! 🔔\n\nTab tak aap hamare live portal par saari available requirements dekh aur unlock kar sakte hain:\n👉 https://apnatutorhub.com/tutor/leads\n\nApna area aur subjects check ya update karne ke liye reply karein *MY PROFILE*.`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "Update Area 📍"],
+    };
+  }
+
   if (session.userType === "TUTOR" || step.startsWith("T_")) {
     const socialLoose = await tryLooseTutorIntent(session, rawMessage, data, step, "social");
     if (socialLoose) return socialLoose;
@@ -821,11 +953,11 @@ export async function processMessage(
   // ── Staff Escalation: complaint / issue / problem / scam ─────────────────
   if (/\b(problem|issue|complaint|cheated|fraud|refund|not working|call me|fake|chor|scam|dhokha|loot|police|court)\b/i.test(rawMessage)) {
     return {
-      reply: `Aapka issue register kar liya gaya hai. Hamare senior coordinator isi chat par aapki madad karenge.\n\n📞 Direct Helpline: 08062180653\nTime: 9am–7pm (Mon–Sat)\n\nKripya apna registered phone number aur issue ka detail yahan likhein.`,
+      reply: `Aapka issue register kar liya gaya hai. Aapka registered WhatsApp (+91-${session.phone}) note ho gaya hai — hamare senior coordinator isi chat par aapki madad karenge.\n\n📞 Direct Helpline: 08062180653\n⏰ Time: 9:00 AM – 7:00 PM (Mon–Sat)\n\nAap apna specific issue yahan likhein — hum turant resolve karenge!`,
       nextStep: step,
       updatedData: data,
       retries: 0,
-      quickReplies: ["MENU", "View Leads", "Buy Coins"],
+      quickReplies: ["View Leads 📋", "Buy Coins 🪙", "MENU 🏠"],
     };
   }
 
@@ -1057,7 +1189,7 @@ export async function processMessage(
   );
   if (directAreaMatch) {
     const loc = validateAndCleanLocality(directAreaMatch[1].trim(), (data.city as string) || "Delhi");
-    if (!loc.isValid || !resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
+    if (!loc.isValid) {
       return {
         reply: "Sirf locality likhein — jaise *Rohini*, *Saket*, ya *Sector 45*. Ghar number ya poora message area nahi hai. 📍",
         nextStep: "UPDATE_AREA",
@@ -1247,7 +1379,7 @@ export async function processMessage(
       };
     }
     const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || "Delhi");
-    if (!loc.isValid || !resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
+    if (!loc.isValid) {
       return {
         reply: loc.errorPrompt || "Sirf locality likhein — jaise *Saket*, *Rohini*, ya *Dwarka*. 📍",
         nextStep: "UPDATE_AREA",
@@ -1356,7 +1488,7 @@ export async function processMessage(
 
   // 3. Distance Too Far / Location Mismatch
   if (
-    /\b(?:distance\s*(?:is\s*)?(?:too\s*|so\s*|very\s*)?far|too\s*far|so\s*far|very\s*far|bahut\s*door|kafi\s*door|dur\s*hai|door\s*hai|location\s*is\s*far|not\s*in\s*delhi|mere\s*ghar\s*se\s*door|travel\s*nahi\s*kar\s*sakta)\b/i.test(rawMessage)
+    /\b(?:distance\s*(?:is\s*)?(?:too\s*|so\s*|very\s*)?far|too\s*far|so\s*far|very\s*far|(?:bahut|bhot|bohot|bahot|kafi|zyada)\s*(?:door|dur)|(?:dur|door)\s*(?:hai|padega|h)|itni?\s*(?:door|dur)|location\s*is\s*far|not\s*in\s*delhi|mere\s*ghar\s*se\s*door|travel\s*nahi\s*kar\s*sakta)\b/i.test(rawMessage)
   ) {
     return {
       reply: `Samajh gaya sir! Agar ye location aapse door hai toh koi pareshani nahi:\n\n1️⃣ *Apne Area Ke Leads Filter Karein:*\nWebsite par jaakar aap apne exact locality ya city ke according leads dekh sakte hain:\nhttps://apnatutorhub.com/tutor/leads\n\n2️⃣ *Online Classes:*\nAap Online tuitions bhi le sakte hain jisme koi travel distance nahi hota:\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\nApna exact locality aur city batayein (jaise: 'Bandra Mumbai' ya 'Rohini Delhi'), hum aapko aapke area ke tuitions dikhayenge! 📍`,
@@ -1469,6 +1601,16 @@ export async function processMessage(
 
   // One clear reply when the person says the bot is not following them.
   if (/\b(samajh|samjh)\s*nahi\b|\bbaat\s*samajh\b|\bkya\s*bol\s*rahe\b|\bconfus/i.test(rawMessage)) {
+    if (session.userType === "TUTOR" || step === "DONE" || data._registered === true) {
+      return {
+        reply: `Samajh gaya sir, koi baat nahi! 😊 Seedha batayein hum aapki kya madad karein:\n\n• Matching student leads dekhni hain? Type: *LEADS*\n• Profile ya teaching area update karna hai? Type: *MY PROFILE*\n• Direct coordinator se baat karni hai? Call: 08062180653 / WhatsApp: +91 93191 93109`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "My Profile 👤", "Talk to Support 📞"],
+      };
+    }
     const cls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
     return {
       reply: cls
@@ -1859,6 +2001,32 @@ export async function processMessage(
     "P_MODE", "P_BUDGET", "P_PHONE", "P_EMAIL",
     "UPDATE_NAME", "UPDATE_EMAIL", "UPDATE_PASSWORD", "UPDATE_SUBJECTS", "UPDATE_CLASS", "UPDATE_AREA", "UPDATE_PHONE",
   ]);
+  // CRITICAL: If the user is already registered (DONE state or _registered is true),
+  // NEVER demote them to WELCOME/LANG_SELECT with userType: null when they send Hi/Hello/Menu!
+  const isRegisteredUser = step === "DONE" || data._registered === true;
+  if (isRegisteredUser && SPECIAL_COMMANDS.includes(msg)) {
+    const isParent = session.userType === "PARENT" || data.userType === "PARENT" || Boolean(data.studentName || data.parentProfileId);
+    if (isParent) {
+      return {
+        reply: `Namaste! 🙏 Aapki tuition enquiry hamare coordinators ke paas active hai.\n\nAapko trial demo schedule karwana hai ya fee details ke baare mein sawaal hai?`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "PARENT",
+        retries: 0,
+        quickReplies: ["Trial Demo Status", "Fee Info", "Talk to Coordinator 📞"],
+      };
+    }
+    const tutorName = (data.name as string) || "Teacher";
+    return {
+      reply: `Namaste ${tutorName} ji! 🙏 Main Priya, ApnaTutorHub coordinator.\n\nBatayein, matching leads dekhna chahte hain ya wallet/plans ki details?`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "View Plans 💰", "Help 📞"],
+    };
+  }
+
   const isMidFlow = !session.isIdle && MID_FLOW_STEPS.has(step);
   if (SPECIAL_COMMANDS.includes(msg) && !isMidFlow) {
 
@@ -1898,7 +2066,7 @@ export async function processMessage(
     if (isParent) {
       if (useAi) {
         try {
-          const ai = await askGeminiChatbot(rawMessage, session);
+          const ai = await askGeminiChatbot(rawMessage, session, chatHistory);
           if (ai && ai.reply) {
             return {
               reply: ai.reply,
@@ -1964,7 +2132,67 @@ export async function processMessage(
       };
     }
 
-    if (/^(hi|hello|hey|namaste|ha|haan|theek|thik|ok|okay|yes|done)$/i.test(rawTrimmed)) {
+    // 1. Reply to broadcast / enquiry interest ("1", "interested", "accept", etc.)
+    if (
+      /^(?:1|1\.|one|interested|i(?:'m|\s+am)?\s+interested|accept|haan\s+interested|padhana\s+hai|mujhe\s+padhana\s+hai|lead\s+(?:dedo|bhejo|chahiye|connect|unlock)|हाँ|पढ़ाना\s*है|पढाना\s*है|रुचि\s*है)$/iu.test(
+        rawTrimmed
+      )
+    ) {
+      return {
+        reply: `Zabardast! 🎉 Humne aapka response note kar liya hai.\n\nAap turant https://apnatutorhub.com/tutor/leads par jaakar is requirement ki complete details aur parent contact unlock kar sakte hain.\n\nKisi bhi madad ke liye WhatsApp Coordinator: +91 93191 93109`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "My Coins 🪙", "Talk to Coordinator 📞"],
+      };
+    }
+
+    // 2. Reply "2" in DONE state -> Plans / Pricing
+    if (/^(?:2|2\.|two|plans?|pricing|membership|recharge|प्लान)$/iu.test(rawTrimmed)) {
+      const bal = await getTutorCoinBalanceByPhone(session.phone);
+      const planReply =
+        bal.found && bal.balance > 0
+          ? `${formatCoinBalanceMessage(bal.balance)}\n\nAur coins chahiye hon tab naya pack:\n\n${formatCoinPlansMessage()}`
+          : formatCoinPlansMessage();
+      return {
+        reply: planReply,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "Open Wallet 💳", "Help 📞"],
+      };
+    }
+
+    // 3. Reply "3" in DONE state -> Support / Coordinator
+    if (/^(?:3|3\.|three|help|support|coordinator|मदद|सहायता)$/iu.test(rawTrimmed)) {
+      return {
+        reply: `Main Priya, ApnaTutorHub coordinator. Seedha batayein kya chahiye:\n• Leads — *View Leads* ya area likhein (*Rohini mein class?*)\n• Coins / plan — *wallet* ya *plans*\n• Profile — *my profile*\n\n📞 Direct Support: +91 93191 93109\nHelpline: 08062180653 (9am–7pm)`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "My Profile 👤", "View Plans 💰"],
+      };
+    }
+
+    // 4. Account Deactivation / Data Deletion request
+    if (
+      /(?:account|profile|data|number)\s*(?:delete|hatao|remove|band|cancel|close)/i.test(rawMessage) ||
+      /(?:delete|hatao|remove|band|cancel)\s*(?:mera\s*)?(?:account|profile|data|number)/i.test(rawMessage)
+    ) {
+      return {
+        reply: `Agar aap WhatsApp alerts pause karna chahte hain, toh yahan *STOP* likhein. 🙏\n\nApna account ya data completely delete / deactivate karne ke liye aap https://apnatutorhub.com/tutor/profile par ja sakte hain ya hamare compliance coordinator (+91 93191 93109) se request kar sakte hain. Hum turant process kar denge.`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["STOP 🛑", "My Profile 👤", "Help 📞"],
+      };
+    }
+
+    if (/^(hi|hello|hey|namaste|ha|haan|theek|thik|ok|okay|yes|done|हाँ|जी|ठीक|नमस्ते)$/iu.test(rawTrimmed)) {
       return {
         reply: `Ji batayein, hum aapki kya madad kar sakte hain? Aap matching student leads dekhna chahte hain ya plans ki jankari chahiye? 😊`,
         nextStep: "DONE",
@@ -2003,7 +2231,7 @@ export async function processMessage(
       const loc = tail
         ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || "Delhi")
         : null;
-      if (loc?.isValid && resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
+      if (loc?.isValid) {
         const saved = await syncUserCredentialsInDb({
           phone: session.phone,
           area: loc.area,
@@ -2222,7 +2450,7 @@ export async function processMessage(
 
     if (useAi) {
       try {
-        const ai = await askGeminiChatbot(rawMessage, session);
+        const ai = await askGeminiChatbot(rawMessage, session, chatHistory);
         if (ai && ai.reply) {
           // Strip any fabricated coordinator name that is not Priya
           ai.reply = ai.reply.replace(/\b(Seema|Anjali|Pooja|Riya|Simran|Neha|Shalini)\b/g, "Priya");
@@ -2249,7 +2477,7 @@ export async function processMessage(
           let cityToSave: string | undefined;
           if (updateIntent && typeof ai.extractedData?.area === "string") {
             const loc = validateAndCleanLocality(ai.extractedData.area, (data.city as string) || "Delhi");
-            if (loc.isValid && resolveLocationCoordinates(`${loc.area} ${loc.city}`)) {
+            if (loc.isValid) {
               areaToSave = loc.area;
               cityToSave = loc.city;
             }
@@ -2405,7 +2633,7 @@ export async function processMessage(
 
   if (useAi) {
     try {
-      const ai = await askGeminiChatbot(rawMessage, session);
+      const ai = await askGeminiChatbot(rawMessage, session, chatHistory);
       if (ai && ai.reply) {
         // Clean and merge extracted data
         const mergedData: Record<string, any> = { ...data };
@@ -3908,6 +4136,16 @@ function handleInvalid(
   const nextRetries = session.retries + 1;
 
   if (nextRetries >= MAX_RETRIES) {
+    if (session.step === "DONE" || (session.data as Record<string, unknown>)?._registered === true) {
+      return {
+        reply: `Thoda clear nahi hua. Koi baat nahi! 😊\n\nAap direct options chun sakte hain ya yahan apna sawaal likhein:\n• *Leads* — matching requirements\n• *Plans* — coins & membership\n• *Help* — direct coordinator`,
+        nextStep: "DONE",
+        updatedData: session.data,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+      };
+    }
     return {
       reply: `Kuch zyada confusion ho gaya. 😅 Chaliye fresh start karte hain.\n\nType *MENU* to restart.`,
       nextStep: "WELCOME",

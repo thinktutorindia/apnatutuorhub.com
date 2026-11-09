@@ -37,7 +37,7 @@ export type TonePreset =
 
 export interface LeadContextData {
   id?: string | null;
-  inquiryNumber?: string | number | null;
+  inquiryNumber?: number | null;
   clientName?: string | null;
   classLevel?: string | null;
   subjects?: string[] | null;
@@ -125,7 +125,7 @@ async function requireStaff() {
  * Strict Guardrail Verification & Auto-Correction Engine.
  * Guarantees zero wrong numbers, zero corrupted enquiry IDs, and zero rule violations.
  */
-export function verifyAndEnforceAccuracy(
+function verifyAndEnforceAccuracy(
   message: string,
   context?: LeadContextData,
   kind: MessageKind = "LEAD_NOTIFICATION"
@@ -155,7 +155,7 @@ export function verifyAndEnforceAccuracy(
   if (context) {
     // A. Enquiry ID Enforcement
     if (context.inquiryNumber !== undefined && context.inquiryNumber !== null) {
-      const displayCode = getInquiryDisplayCode(context);
+      const displayCode = getInquiryDisplayCode({ id: context.id, inquiryNumber: context.inquiryNumber });
       const hashPattern = new RegExp(`(?:#|##ATH-|Enquiry ID\\s*:\\s*#?)\\s*0*${context.inquiryNumber}`, "i");
       const hasCorrectId = hashPattern.test(text) || text.includes(`#${displayCode}`);
 
@@ -321,7 +321,7 @@ function applyLocalToneEdits(
 
     case "CONCISE":
       if (kind === "LEAD_NOTIFICATION" && context) {
-        const displayCode = getInquiryDisplayCode(context);
+        const displayCode = getInquiryDisplayCode({ id: context.id, inquiryNumber: context.inquiryNumber });
         const fees = formatLeadBudget(context as any, "full");
         const loc = [context.area, context.city].filter(Boolean).join(", ") || "Delhi NCR";
         text = `🎯 *Enquiry #${displayCode}:* ${context.classLevel || ""} (${context.subjects?.join(", ") || "All Subjects"}) in ${loc} · Budget: ${fees} · Mode: ${context.mode || "Offline"} · WhatsApp: 93191 93109\nUnlock: https://apnatutorhub.com/tutor/leads`;

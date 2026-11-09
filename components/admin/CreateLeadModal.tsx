@@ -28,17 +28,25 @@ import {
   DollarSign,
   Clock,
   Layers,
+  ShieldCheck,
+  Wand2,
+  RefreshCw,
+  MessageCircle,
 } from "lucide-react";
 import {
   adminCreateLeadAction,
   adminSearchParentsForLeadAction,
   type AdminCreateLeadInput,
 } from "@/app/actions/admin.actions";
+import {
+  polishMessageWithAIAction,
+  type TonePreset,
+} from "@/app/actions/ai-message-edit.actions";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE } from "@/components/tutor/onboarding/steps/Step3Subjects";
 import { formatLeadNotifyTemplate } from "@/lib/lead-notify-template";
-import { isTill5thClass, isTill8thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
+import { isTill5thClass, isTill8thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS, realisticTightBudget } from "@/lib/lead-utils";
 import { coinCostFromTuitionFee, HOURLY_CLASSES_PER_MONTH, GROWTH_PLAN_COINS, GROWTH_PLAN_PRICE_INR } from "@/lib/subscription-plans";
 import type { TeachingMode } from "@prisma/client";
 
@@ -164,12 +172,25 @@ export function CreateLeadModal({
     };
   }, [budgetMin, budgetMax, budgetRateType, classLevel]);
 
+  const benchmarkRate = useMemo(() => {
+    return realisticTightBudget({ classLevel });
+  }, [classLevel]);
+
   const [publishedQuote, setPublishedQuote] = useState<{
+    inquiryNumber?: number | null;
     budgetMin: number;
     budgetMax: number;
     coinCost: number;
     rateType: "MONTHLY" | "HOURLY";
   } | null>(null);
+
+  // Sender Message Control & AI Customizer states
+  const [customNotificationMsg, setCustomNotificationMsg] = useState("");
+  const [isMsgCustomizedByUser, setIsMsgCustomizedByUser] = useState(false);
+  const [showMsgPreview, setShowMsgPreview] = useState(true);
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [isPolishingWithAI, setIsPolishingWithAI] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState<string | null>(null);
 
   // Location search state
   const [locationQuery, setLocationQuery] = useState("");
@@ -188,6 +209,96 @@ export function CreateLeadModal({
   const [notes, setNotes] = useState("");
   const [leadSourceTag, setLeadSourceTag] = useState("WhatsApp Inquiries (Direct / Chat)");
   const [customLeadSource, setCustomLeadSource] = useState("");
+
+  const computedDefaultMessage = useMemo(() => {
+    const parentDisplayName =
+      parentName.trim() ||
+      (selectedParent?.name && selectedParent.name.trim() !== "" ? selectedParent.name.trim() : "") ||
+      (parentPhone.replace(/\D/g, "").slice(-4)
+        ? `Parent (${parentPhone.replace(/\D/g, "").slice(-4)})`
+        : "Parent");
+
+    return formatLeadNotifyTemplate({
+      inquiryNumber: publishedQuote?.inquiryNumber ?? 994000,
+      clientName: parentDisplayName,
+      subjects: selectedSubjects,
+      classLevel: classLevel || "5th Std",
+      board: board || "CBSE",
+      mode: mode,
+      area: selectedLocation?.area || manualArea || undefined,
+      city: selectedLocation?.city || manualCity || "Delhi NCR",
+      state: selectedLocation?.state ?? undefined,
+      pincode: selectedLocation?.pincode ?? undefined,
+      budgetMin: publishedQuote?.budgetMin ?? (Number(budgetMin) || feeQuote?.budgetMin || 4000),
+      budgetMax: publishedQuote?.budgetMax ?? (Number(budgetMax) || feeQuote?.budgetMax || 5000),
+      genderPreference: tutorGenderPref || "Any",
+      notes,
+      timingPreference,
+      schedule: timingPreference || "5 Days a Week",
+      contactWhatsApp: "93191 93109",
+    });
+  }, [
+    parentName,
+    selectedParent,
+    parentPhone,
+    publishedQuote?.inquiryNumber,
+    publishedQuote?.budgetMin,
+    publishedQuote?.budgetMax,
+    selectedSubjects,
+    classLevel,
+    board,
+    mode,
+    selectedLocation,
+    manualArea,
+    manualCity,
+    budgetMin,
+    budgetMax,
+    feeQuote,
+    tutorGenderPref,
+    notes,
+    timingPreference,
+  ]);
+
+  const handlePolishWithAI = async (preset: TonePreset, customPrompt?: string) => {
+    setIsPolishingWithAI(true);
+    setAiFeedback(null);
+    try {
+      const currentDraft = (isMsgCustomizedByUser && customNotificationMsg.trim())
+        ? customNotificationMsg.trim()
+        : computedDefaultMessage;
+
+      const res = await polishMessageWithAIAction({
+        currentMessage: currentDraft,
+        instruction: customPrompt || undefined,
+        messageKind: "LEAD_NOTIFICATION",
+        tonePreset: preset,
+        leadContext: {
+          clientName: parentName || (selectedParent?.name ? selectedParent.name : "Parent"),
+          classLevel,
+          subjects: selectedSubjects,
+          budgetMin: publishedQuote?.budgetMin ?? (Number(budgetMin) || feeQuote?.budgetMin),
+          budgetMax: publishedQuote?.budgetMax ?? (Number(budgetMax) || feeQuote?.budgetMax),
+          rateType: publishedQuote?.rateType ?? feeQuote?.rateType,
+          mode: mode,
+          area: selectedLocation?.area || manualArea,
+          city: selectedLocation?.city || manualCity,
+        },
+      });
+
+      if (res.success && res.data) {
+        setIsMsgCustomizedByUser(true);
+        setCustomNotificationMsg(res.data.revisedMessage);
+        setAiFeedback(res.data.aiExplanation);
+        if (customPrompt) setAiInstruction("");
+      } else {
+        setErrorMsg(res.error || "Could not polish message with AI.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to customize message with AI.");
+    } finally {
+      setIsPolishingWithAI(false);
+    }
+  };
 
   // Result state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -469,6 +580,9 @@ export function CreateLeadModal({
       notifyChannels: notifyMatchingTutors
         ? notifyChannelsForTutorAlert(tutorAreaAlertVia)
         : [],
+      customNotificationMsg: isMsgCustomizedByUser && customNotificationMsg.trim()
+        ? customNotificationMsg.trim()
+        : undefined,
     };
 
     startTransition(async () => {
@@ -478,6 +592,7 @@ export function CreateLeadModal({
       } else {
         if (res.data) {
           setPublishedQuote({
+            inquiryNumber: res.data.inquiryNumber,
             budgetMin: res.data.budgetMin,
             budgetMax: res.data.budgetMax,
             coinCost: res.data.coinCost,
@@ -493,13 +608,26 @@ export function CreateLeadModal({
   };
 
   const handleCopyWhatsAppText = () => {
+    if (isMsgCustomizedByUser && customNotificationMsg.trim()) {
+      navigator.clipboard.writeText(customNotificationMsg.trim());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      return;
+    }
+
+    const parentDisplayName =
+      parentName.trim() ||
+      (selectedParent?.name && selectedParent.name.trim() !== "" ? selectedParent.name.trim() : "") ||
+      (parentPhone.replace(/\D/g, "").slice(-4)
+        ? `Parent (${parentPhone.replace(/\D/g, "").slice(-4)})`
+        : selectedParent?.phone?.replace(/\D/g, "").slice(-4)
+          ? `Parent (${selectedParent.phone.replace(/\D/g, "").slice(-4)})`
+          : "Not Specified");
+
     const text = formatLeadNotifyTemplate({
       id: createdLeadId !== "created" ? createdLeadId : undefined,
-      clientName:
-        parentName.trim() ||
-        (parentPhone.replace(/\D/g, "").slice(-4)
-          ? `Parent (${parentPhone.replace(/\D/g, "").slice(-4)})`
-          : "Not Specified"),
+      inquiryNumber: publishedQuote?.inquiryNumber ?? undefined,
+      clientName: parentDisplayName,
       subjects: selectedSubjects,
       classLevel,
       board,
@@ -508,8 +636,8 @@ export function CreateLeadModal({
       city: selectedLocation?.city || manualCity || undefined,
       state: selectedLocation?.state ?? undefined,
       pincode: selectedLocation?.pincode ?? undefined,
-      budgetMin: publishedQuote?.budgetMin ?? feeQuote?.budgetMin ?? null,
-      budgetMax: publishedQuote?.budgetMax ?? feeQuote?.budgetMax ?? null,
+      budgetMin: publishedQuote?.budgetMin ?? (Number(budgetMin) || feeQuote?.budgetMin || null),
+      budgetMax: publishedQuote?.budgetMax ?? (Number(budgetMax) || feeQuote?.budgetMax || null),
       genderPreference: "Any",
       notes,
       timingPreference,
@@ -613,6 +741,12 @@ export function CreateLeadModal({
 
                   {/* Summary Box */}
                   <div className="space-y-3 rounded-2xl bg-white p-5 text-xs border border-emerald-200/60 shadow-xs text-slate-800">
+                    {publishedQuote?.inquiryNumber && (
+                      <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl px-3.5 py-2 flex items-center justify-between">
+                        <span className="text-emerald-950 font-bold text-xs">Assigned Enquiry ID:</span>
+                        <span className="font-extrabold text-emerald-800 text-sm tracking-wide">#{String(publishedQuote.inquiryNumber).padStart(6, "0")}</span>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <span className="text-slate-500 font-semibold block text-[11px]">Class &amp; Board</span>
@@ -1286,6 +1420,24 @@ export function CreateLeadModal({
                       </button>
                     </div>
 
+                    {benchmarkRate && (
+                      <div className="flex items-center justify-between text-xs bg-amber-50/80 border border-amber-200/90 rounded-2xl px-3.5 py-2 text-amber-950">
+                        <span>
+                          Standard pitch rate: <strong>₹{benchmarkRate.min}–₹{benchmarkRate.max} {budgetRateType === "HOURLY" ? "/hr" : "/mo"}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBudgetMin(String(benchmarkRate.min));
+                            setBudgetMax(String(benchmarkRate.max));
+                          }}
+                          className="font-bold text-emerald-700 hover:text-emerald-800 underline ml-2 cursor-pointer text-xs"
+                        >
+                          Apply benchmark
+                        </button>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block font-bold text-slate-700 text-xs">
@@ -1295,7 +1447,7 @@ export function CreateLeadModal({
                           type="number"
                           value={budgetMin}
                           onChange={(e) => setBudgetMin(e.target.value)}
-                          placeholder={budgetRateType === "HOURLY" ? "400" : "4500"}
+                          placeholder={benchmarkRate ? String(benchmarkRate.min) : (budgetRateType === "HOURLY" ? "700" : "6000")}
                           className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
                         />
                       </div>
@@ -1307,7 +1459,7 @@ export function CreateLeadModal({
                           type="number"
                           value={budgetMax}
                           onChange={(e) => setBudgetMax(e.target.value)}
-                          placeholder={budgetRateType === "HOURLY" ? "500" : "5000"}
+                          placeholder={benchmarkRate ? String(benchmarkRate.max) : (budgetRateType === "HOURLY" ? "750" : "6800")}
                           className="w-full rounded-2xl px-3.5 py-2 bg-white border border-slate-200 text-slate-900 font-semibold text-xs outline-none focus:border-[#2D9E6B] shadow-2xs"
                         />
                       </div>
@@ -1420,6 +1572,133 @@ export function CreateLeadModal({
                                 ? "WhatsApp only (+ in-app alert)"
                                 : "Email only (+ in-app alert)"}
                           </p>
+
+                          {/* Sender Notification Preview & AI Customizer */}
+                          <div className="mt-3 pt-3 border-t border-slate-200 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Sparkles size={14} className="text-emerald-600" />
+                                <span className="text-xs font-black text-[#0F2540]">
+                                  Sender Message Control &amp; AI Customizer
+                                </span>
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  100% Editable by Sender
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setShowMsgPreview(!showMsgPreview)}
+                                className="text-[11px] font-extrabold text-[#2D9E6B] hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                {showMsgPreview ? "Hide Preview" : "Show Preview & Edit"}
+                                {showMsgPreview ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                              </button>
+                            </div>
+
+                            {showMsgPreview && (
+                              <div className="space-y-2.5 bg-slate-50 rounded-2xl p-3.5 border border-slate-200">
+                                {/* Accuracy Guarantee Shield */}
+                                <div className="flex items-center justify-between bg-emerald-50/90 border border-emerald-200 rounded-xl px-3 py-1.5 text-[11px] text-emerald-950 font-bold">
+                                  <div className="flex items-center gap-1.5">
+                                    <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+                                    <span>
+                                      Budget Protected: <strong>₹{feeQuote?.budgetMin ?? 0}–₹{feeQuote?.budgetMax ?? 0}{feeQuote?.rateType === "HOURLY" ? "/hr" : "/mo"}</strong> (Guaranteed no wrong fees or hallucinations)
+                                    </span>
+                                  </div>
+                                  {isMsgCustomizedByUser && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsMsgCustomizedByUser(false);
+                                        setCustomNotificationMsg(computedDefaultMessage);
+                                        setAiFeedback(null);
+                                      }}
+                                      className="text-[10px] font-black text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                                    >
+                                      Reset to Default
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* AI Quick Tone Chips */}
+                                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                                  <span className="text-[10px] font-extrabold uppercase text-slate-400 shrink-0">
+                                    AI Polish:
+                                  </span>
+                                  {(
+                                    [
+                                      { id: "POLISH" as const, label: "✨ Polish Draft", hint: "Clean grammar and spacing" },
+                                      { id: "URGENT" as const, label: "🔥 Make Urgent", hint: "Highlight immediate demo class" },
+                                      { id: "HINGLISH" as const, label: "🙏 Delhi-NCR Hinglish", hint: "Natural, polite coordinator tone" },
+                                      { id: "PROFESSIONAL_ENGLISH" as const, label: "💼 Professional", hint: "Formal English" },
+                                      { id: "CONCISE" as const, label: "⚡ Compact 1-Block", hint: "Short punchy summary" },
+                                    ] as const
+                                  ).map((preset) => (
+                                    <button
+                                      key={preset.id}
+                                      type="button"
+                                      disabled={isPolishingWithAI}
+                                      onClick={() => handlePolishWithAI(preset.id)}
+                                      title={preset.hint}
+                                      className="px-2.5 py-1 rounded-xl bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-[11px] font-bold border border-slate-200 hover:border-emerald-300 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                                    >
+                                      {preset.label}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                {/* Custom AI Instruction Row */}
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={aiInstruction}
+                                    onChange={(e) => setAiInstruction(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        handlePolishWithAI("CUSTOM", aiInstruction);
+                                      }
+                                    }}
+                                    placeholder="Type custom AI instruction (e.g. 'Add exam prep note', 'Mention demo tomorrow 5 PM')..."
+                                    className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={!aiInstruction.trim() || isPolishingWithAI}
+                                    onClick={() => handlePolishWithAI("CUSTOM", aiInstruction)}
+                                    className="px-3 py-1.5 rounded-xl bg-[#0F2540] hover:bg-[#1a3a60] text-white text-xs font-black flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all shrink-0"
+                                  >
+                                    {isPolishingWithAI ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                                    <span>Apply AI Edit</span>
+                                  </button>
+                                </div>
+
+                                {aiFeedback && (
+                                  <p className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                                    💡 {aiFeedback}
+                                  </p>
+                                )}
+
+                                {/* Editable Textarea with live character count */}
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                    <span>Notification Text (Sender has full edit control):</span>
+                                    <span>{(isMsgCustomizedByUser ? customNotificationMsg : computedDefaultMessage).length} characters</span>
+                                  </div>
+                                  <textarea
+                                    rows={5}
+                                    value={isMsgCustomizedByUser ? customNotificationMsg : computedDefaultMessage}
+                                    onChange={(e) => {
+                                      setIsMsgCustomizedByUser(true);
+                                      setCustomNotificationMsg(e.target.value);
+                                    }}
+                                    placeholder="Tutor notification message..."
+                                    className="w-full rounded-xl p-3 bg-white border border-slate-200 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B] transition-all resize-y font-mono leading-relaxed"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

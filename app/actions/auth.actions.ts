@@ -557,10 +557,10 @@ export async function verifyEmailOtpAction(
   // If user already has profile details (subjects, city, address, or completed onboarding), go to dashboard
   const isExistingProfile = Boolean(
     user?.tutorProfile &&
-      ((user.tutorProfile.onboardingStep ?? 1) >= 7 ||
-        (user.tutorProfile.subjects && user.tutorProfile.subjects.length > 0) ||
-        user.tutorProfile.city ||
-        user.tutorProfile.address)
+    ((user.tutorProfile.onboardingStep ?? 1) >= 7 ||
+      (user.tutorProfile.subjects && user.tutorProfile.subjects.length > 0) ||
+      user.tutorProfile.city ||
+      user.tutorProfile.address)
   );
 
   const dest = isExistingProfile ? "/tutor/dashboard" : "/tutor/onboarding";
@@ -580,5 +580,97 @@ export async function resendEmailOtpAction(
   });
 
   return await sendEmailOtp(email, user?.name);
+}
+
+// ────────────────────────────────────────────────
+// Mandatory Phone Gate Action ("No Phone No Entry")
+// ────────────────────────────────────────────────
+
+export async function completePhoneNumberAction(
+  rawPhone: string
+): Promise<{ success: boolean; error?: string; redirectTo?: string }> {
+  const { auth: getAuth } = await import("@/auth");
+  const session = await getAuth();
+
+  if (!session?.user?.id) {
+    return { success: false, error: "Please log in first." };
+  }
+
+  const digits = rawPhone.replace(/\D/g, "");
+  const phone10 = digits.slice(-10);
+
+  if (!/^[6-9]\d{9}$/.test(phone10)) {
+    return {
+      success: false,
+      error: "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.",
+    };
+  }
+
+  // Check if another active user already owns this phone (check both 10-digit and 91-prefixed)
+  const phoneVariants = [phone10, `91${phone10}`, `+91${phone10}`];
+  const existing = await prisma.user.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      id: { not: session.user.id },
+    },
+    select: { id: true, email: true },
+  });
+
+  if (existing) {
+    return {
+      success: false,
+      error: "This mobile number is already linked to another ApnaTutorHub account.",
+    };
+  }
+
+  // Update user with phone and clear incomplete tag
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { customPermissions: true },
+  });
+  const cleanedPerms = (currentUser?.customPermissions ?? []).filter((p) => p !== "tag:incomplete");
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: {
+      phone: phone10,
+      customPermissions: cleanedPerms,
+    },
+  });
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      role: true,
+      tutorProfile: { select: { id: true, onboardingStep: true } },
+      parentProfile: { select: { id: true } },
+    },
+  });
+
+  // Ensure role-specific profile exists
+  if (dbUser?.role === "TUTOR" && !dbUser.tutorProfile) {
+    const newTutorProfile = await prisma.tutorProfile.create({
+      data: { userId: session.user.id, onboardingStep: 1 },
+      select: { id: true },
+    });
+    await prisma.wallet.upsert({
+      where: { tutorProfileId: newTutorProfile.id },
+      create: { tutorProfileId: newTutorProfile.id },
+      update: {},
+    });
+  } else if (dbUser?.role === "PARENT" && !dbUser.parentProfile) {
+    await prisma.parentProfile.create({
+      data: { userId: session.user.id },
+    });
+  }
+
+  let dest = "/parent/dashboard";
+  if (dbUser?.role === "TUTOR") {
+    dest = (dbUser.tutorProfile?.onboardingStep ?? 1) >= 7 ? "/tutor/dashboard" : "/tutor/onboarding";
+  } else if (dbUser?.role === "SUPER_ADMIN" || dbUser?.role === "SUB_ADMIN") {
+    dest = "/admin/dashboard";
+  }
+
+  return { success: true, redirectTo: dest };
 }
 

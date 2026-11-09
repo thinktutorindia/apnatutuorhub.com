@@ -286,34 +286,42 @@ export function realisticTightBudget(lead?: {
   const storedMin = lead.budgetMin && lead.budgetMin > 0 ? lead.budgetMin : null;
   const storedMax = lead.budgetMax && lead.budgetMax > 0 ? lead.budgetMax : null;
 
-  const senior = grade !== null && grade >= 11;
-  const floor = !hourly ? (grade !== null && grade <= 5 ? 6000 : 6800) : senior ? 850 : 700;
-  const ceiling = !hourly ? (grade !== null && grade <= 5 ? 6800 : 7600) : senior ? 1050 : 850;
-  const maxSpread = !hourly ? 200 : senior ? 50 : 40;
-
+  // 1. Authoritative check: If the lead or requirement already has an entered fee,
+  // NEVER rewrite or distort it with synthetic formulas.
   if (storedMin && storedMax) {
-    const spread = storedMax - storedMin;
-    if (spread > 0 && spread <= maxSpread && storedMin >= floor && storedMax <= ceiling) {
-      return { min: storedMin, max: storedMax };
-    }
+    return {
+      min: Math.min(storedMin, storedMax),
+      max: Math.max(storedMin, storedMax),
+    };
+  }
+  if (storedMin && !storedMax) {
+    return { min: storedMin, max: storedMin };
+  }
+  if (!storedMin && storedMax) {
+    return { min: storedMax, max: storedMax };
   }
 
-  if (!lead.classLevel && !storedMin && !storedMax) return null;
+  if (!lead.classLevel) return null;
 
+  // 2. Synthetic benchmark rates for legacy leads missing fee data entirely:
+  // Reflects authentic Indian market benchmark rates.
+  const senior = grade !== null && grade >= 11;
   const seed = String(lead.inquiryNumber || lead.id || lead.classLevel || "lead");
   const pick = hashSeed(seed);
 
   if (!hourly) {
+    // Junior monthly tuition benchmarks
     const mins = grade !== null && grade <= 5
-      ? [6000, 6150, 6300, 6450]
-      : [6800, 6950, 7100, 7250];
+      ? [4000, 4500, 5000, 5500]
+      : [5000, 5500, 6000, 6500];
     const min = mins[pick % mins.length];
-    return { min, max: min + 150 };
+    return { min, max: min + 500 };
   }
 
-  const mins = senior ? [850, 900, 950, 1000] : [700, 740, 780, 820];
+  // Senior / secondary hourly tuition benchmarks (₹350–₹500 for 9-10, ₹600–₹900 for 11-12)
+  const mins = senior ? [650, 750, 850, 950] : [350, 400, 450, 500];
   const min = mins[pick % mins.length];
-  return { min, max: min + (senior ? 50 : 40) };
+  return { min, max: min + (senior ? 100 : 50) };
 }
 
 /**

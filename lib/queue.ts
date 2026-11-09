@@ -11,7 +11,11 @@ import type { Queue as BullQueue } from "bullmq";
 // ── Job payload types ────────────────────────────────────────────────────────
 
 export type LeadNotifyChannel = "IN_APP" | "PUSH" | "EMAIL" | "WHATSAPP";
-export type LeadMatchingJob = { leadId: string; channels?: LeadNotifyChannel[] };
+export type LeadMatchingJob = {
+  leadId: string;
+  channels?: LeadNotifyChannel[];
+  customMessage?: string;
+};
 export type RadiusExpansionJob = { leadId: string };
 export type LeadExpiryJob = Record<string, never>; // no payload needed
 

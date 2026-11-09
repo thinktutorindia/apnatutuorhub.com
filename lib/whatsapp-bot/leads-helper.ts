@@ -451,8 +451,11 @@ export async function getChatbotMatchingLeads(
       const combo = `${leadArea} ${leadCity}`;
 
       // 1. Direct locality match
+      const userCity = (city || "").toLowerCase().trim();
       if (searchArea && (combo.includes(searchArea) || (leadArea && searchArea.includes(leadArea)))) {
         score += 80;
+      } else if (userCity && leadCity.includes(userCity)) {
+        score += 60;
       } else if (isSouthDelhi && /sangam|saket|kalkaji|malviya|anand|lodhi|south|hauz|mehrauli|nehru|khanpur|lajpat|okhla/i.test(combo)) {
         score += 50;
       } else if (isWestDelhi && /dwarka|janakpuri|uttam|vikaspuri|punjabi|west|paschim|rajouri/i.test(combo)) {
@@ -461,7 +464,7 @@ export async function getChatbotMatchingLeads(
         score += 50;
       } else if (isEastDelhi && /geeta|east|mayur|laxmi|preet|anand vihar/i.test(combo)) {
         score += 50;
-      } else if (leadCity.includes("delhi")) {
+      } else if (!userCity && leadCity.includes("delhi")) {
         score += 20;
       }
 
@@ -570,7 +573,7 @@ export function formatTutorLeadsAndPlansMessage(
         )
         .join("\n\n");
   } else {
-    leadsSection = `\n\n📋 *Matching Leads Alert:*\nAbhi ${locationLabel} mein aapki selected class aur subjects ke liye koi open requirement pending nahi hai.\nJaise hi parent nayi requirement post karenge, aapko sabse pehle instant WhatsApp alert aayega! 🔔\n\nDelhi NCR aur Online ke sabhi 600+ leads explore karne ke liye website login karein: https://apnatutorhub.com/tutor/leads`;
+    leadsSection = `\n\n📋 *Matching Leads Alert:*\nAbhi ${locationLabel} mein aapki selected class aur subjects ke liye koi open requirement pending nahi hai.\nJaise hi parent nayi requirement post karenge, aapko sabse pehle instant WhatsApp alert aayega! 🔔\n\nApne city aur Online ke sabhi 600+ leads explore karne ke liye website login karein: https://apnatutorhub.com/tutor/leads`;
   }
 
   const plansSection = `\n\n──────────────────────────\n` +
@@ -805,7 +808,7 @@ export async function formatSingleLeadInquiry(
 
   if (!lead) {
     return {
-      reply: `❌ Requirement *#${inquiryNumber}* nahi mili ya expire ho chuki hai.\n\nDelhi NCR ki active tuition requirements dekhne ke liye reply karein *LEADS* ya dashboard check karein:\n👉 https://apnatutorhub.com/tutor/leads`,
+      reply: `❌ Requirement *#${inquiryNumber}* nahi mili ya expire ho chuki hai.\n\nActive tuition requirements dekhne ke liye reply karein *LEADS* ya dashboard check karein:\n👉 https://apnatutorhub.com/tutor/leads`,
       quickReplies: ["View All Leads 📋", "💎 Membership Plans", "Help / Support 📞"],
     };
   }

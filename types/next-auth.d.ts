@@ -6,6 +6,7 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      phone: string | null;
       subAdminRole: string | null;
       customPermissions?: string[];
       isActive: boolean;
@@ -14,6 +15,7 @@ declare module "next-auth" {
 
   interface User extends DefaultUser {
     role?: string;
+    phone?: string | null;
     subAdminRole?: string | null;
     customPermissions?: string[];
     isActive?: boolean;
@@ -24,6 +26,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id?: string;
     role?: string;
+    phone?: string | null;
     subAdminRole?: string | null;
     customPermissions?: string[];
     isActive?: boolean;

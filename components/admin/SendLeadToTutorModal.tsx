@@ -36,7 +36,12 @@ import {
   Zap,
   CheckCheck,
   ShieldAlert,
+  Wand2,
 } from "lucide-react";
+import {
+  polishMessageWithAIAction,
+  type TonePreset,
+} from "@/app/actions/ai-message-edit.actions";
 import {
   adminGetMatchingTutorsForLeadAction,
   adminSendLeadNotificationAction,
@@ -118,6 +123,7 @@ export function SendLeadToTutorModal({
         const parentContact = res.data.lead?.parentProfile?.user;
         const initialTemplate = formatLeadNotifyTemplate({
           id: res.data.lead.id,
+          inquiryNumber: res.data.lead.inquiryNumber,
           clientName: parentContact?.name || "Not Specified",
           subjects: res.data.lead.subjects,
           classLevel: res.data.lead.classLevel,
@@ -316,6 +322,7 @@ export function SendLeadToTutorModal({
     const greeting = tutorName ? `Hello ${tutorName} Sir/Mam! 👋\n\n` : "";
     const formatted = formatLeadNotifyTemplate({
       id: lead.id,
+      inquiryNumber: lead.inquiryNumber,
       clientName: parentContact?.name || "Not Specified",
       subjects: lead.subjects,
       classLevel: lead.classLevel,
@@ -334,6 +341,51 @@ export function SendLeadToTutorModal({
       contactWhatsApp: "93191 93109",
     });
     return `${greeting}${formatted}`;
+  };
+
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [isPolishingWithAI, setIsPolishingWithAI] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState<string | null>(null);
+
+  const handlePolishWithAI = async (preset: TonePreset, customPrompt?: string) => {
+    setIsPolishingWithAI(true);
+    setAiFeedback(null);
+    try {
+      const currentDraft = customNotificationMsg.trim() || generateWhatsAppText();
+      const res = await polishMessageWithAIAction({
+        currentMessage: currentDraft,
+        instruction: customPrompt || undefined,
+        messageKind: "LEAD_NOTIFICATION",
+        tonePreset: preset,
+        leadContext: lead
+          ? {
+            id: lead.id,
+            inquiryNumber: lead.inquiryNumber,
+            clientName: lead.parentProfile?.user?.name || "Parent",
+            classLevel: lead.classLevel,
+            subjects: lead.subjects,
+            budgetMin: lead.budgetMin,
+            budgetMax: lead.budgetMax,
+            rateType: lead.rateType,
+            mode: lead.mode,
+            area: lead.area,
+            city: lead.city,
+          }
+          : undefined,
+      });
+
+      if (res.success && res.data) {
+        setCustomNotificationMsg(res.data.revisedMessage);
+        setAiFeedback(res.data.aiExplanation);
+        if (customPrompt) setAiInstruction("");
+      } else {
+        setFeedbackMsg({ type: "error", text: res.error || "Could not customize message with AI." });
+      }
+    } catch (err: any) {
+      setFeedbackMsg({ type: "error", text: err.message || "Failed to customize message with AI." });
+    } finally {
+      setIsPolishingWithAI(false);
+    }
   };
 
   const buildSafeWhatsAppUrl = (phone: string, text: string) => {
@@ -641,11 +693,10 @@ export function SendLeadToTutorModal({
 
             {feedbackMsg && (
               <div
-                className={`mx-6 mt-3.5 flex items-center justify-between rounded-2xl p-3.5 text-xs font-bold shrink-0 border ${
-                  feedbackMsg.type === "success"
+                className={`mx-6 mt-3.5 flex items-center justify-between rounded-2xl p-3.5 text-xs font-bold shrink-0 border ${feedbackMsg.type === "success"
                     ? "bg-emerald-50 border-emerald-200 text-emerald-900"
                     : "bg-rose-50 border-rose-200 text-rose-900"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2.5">
                   {feedbackMsg.type === "success" ? (
@@ -673,21 +724,19 @@ export function SendLeadToTutorModal({
                   <button
                     type="button"
                     onClick={() => setEmailCategoryFilter("GENUINE_ONLY")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                      emailCategoryFilter === "GENUINE_ONLY"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${emailCategoryFilter === "GENUINE_ONLY"
                         ? "bg-emerald-600 text-white shadow-xs"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-                    }`}
+                      }`}
                     title="Real, verified user emails (Safe to notify, protects sending credits)"
                   >
                     <MailCheck size={13} />
                     <span>🌟 Genuine Real Emails</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        emailCategoryFilter === "GENUINE_ONLY"
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${emailCategoryFilter === "GENUINE_ONLY"
                           ? "bg-emerald-800 text-emerald-100"
                           : "bg-slate-200 text-slate-700"
-                      }`}
+                        }`}
                     >
                       {genuineCount}
                     </span>
@@ -696,21 +745,19 @@ export function SendLeadToTutorModal({
                   <button
                     type="button"
                     onClick={() => setEmailCategoryFilter("SYSTEM_ONLY")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                      emailCategoryFilter === "SYSTEM_ONLY"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${emailCategoryFilter === "SYSTEM_ONLY"
                         ? "bg-amber-600 text-white shadow-xs"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-                    }`}
+                      }`}
                     title="Auto-generated placeholder emails (@apnatutorhub.com test accounts)"
                   >
                     <MailX size={13} />
                     <span>🤖 System Accounts</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        emailCategoryFilter === "SYSTEM_ONLY"
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${emailCategoryFilter === "SYSTEM_ONLY"
                           ? "bg-amber-800 text-amber-100"
                           : "bg-slate-200 text-slate-700"
-                      }`}
+                        }`}
                     >
                       {systemCount}
                     </span>
@@ -719,21 +766,19 @@ export function SendLeadToTutorModal({
                   <button
                     type="button"
                     onClick={() => setEmailCategoryFilter("ALL")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                      emailCategoryFilter === "ALL"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${emailCategoryFilter === "ALL"
                         ? "bg-slate-800 text-white shadow-xs"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-                    }`}
+                      }`}
                     title="Show all matched accounts (Genuine + System)"
                   >
                     <Users size={13} />
                     <span>👥 All Accounts</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        emailCategoryFilter === "ALL"
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${emailCategoryFilter === "ALL"
                           ? "bg-slate-950 text-slate-200"
                           : "bg-slate-200 text-slate-700"
-                      }`}
+                        }`}
                     >
                       {tutors.length}
                     </span>
@@ -988,13 +1033,12 @@ export function SendLeadToTutorModal({
                   return (
                     <div
                       key={tutor.tutorProfileId}
-                      className={`relative p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3.5 ${
-                        tutor.alreadyPurchased
+                      className={`relative p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3.5 ${tutor.alreadyPurchased
                           ? "bg-slate-50/80 border-slate-200 opacity-80"
                           : isSelected
-                          ? "bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-400/20"
-                          : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
-                      }`}
+                            ? "bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-400/20"
+                            : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+                        }`}
                     >
                       {/* Tutor Left Column */}
                       <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -1042,11 +1086,10 @@ export function SendLeadToTutorModal({
                             )}
 
                             {tutor.gender && (
-                              <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded-md border ${
-                                tutor.genderMatches === false
+                              <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded-md border ${tutor.genderMatches === false
                                   ? "bg-red-50 text-red-700 border-red-200"
                                   : "bg-slate-100 text-slate-700 border-slate-200"
-                              }`}>
+                                }`}>
                                 {tutor.gender === "FEMALE" ? "♀️ Female" : tutor.gender === "MALE" ? "♂️ Male" : tutor.gender}
                                 {tutor.genderMatches === false && " (Gender Mismatch)"}
                               </span>
@@ -1057,11 +1100,10 @@ export function SendLeadToTutorModal({
                                 <Sparkles size={11} className="text-teal-600" /> Online (Pan-India)
                               </span>
                             ) : tutor.distanceKm !== null ? (
-                              <span className={`text-[11px] font-bold px-2 py-0.2 rounded-md border flex items-center gap-0.5 ${
-                                tutor.distanceKm <= radiusKm
+                              <span className={`text-[11px] font-bold px-2 py-0.2 rounded-md border flex items-center gap-0.5 ${tutor.distanceKm <= radiusKm
                                   ? "text-emerald-800 bg-emerald-50 border-emerald-300"
                                   : "text-amber-800 bg-amber-50 border-amber-300"
-                              }`}>
+                                }`}>
                                 <MapPin size={11} /> {tutor.distanceKm} km away{" "}
                                 {tutor.distanceKm <= radiusKm
                                   ? `(≤${radiusKm} km)`
@@ -1128,9 +1170,8 @@ export function SendLeadToTutorModal({
                         <div className="text-right mr-1.5 hidden sm:block">
                           <span className="text-[10px] text-slate-400 block font-semibold">Wallet Coins</span>
                           <span
-                            className={`font-mono font-bold text-xs ${
-                              hasEnoughCoins ? "text-emerald-700" : "text-amber-700"
-                            }`}
+                            className={`font-mono font-bold text-xs ${hasEnoughCoins ? "text-emerald-700" : "text-amber-700"
+                              }`}
                           >
                             {tutor.walletBalance} coins
                           </span>
@@ -1353,6 +1394,94 @@ export function SendLeadToTutorModal({
                     </div>
                   </div>
 
+                  {/* Commercial Accuracy Shield Badge */}
+                  <div className="flex items-center justify-between bg-emerald-50/90 border border-emerald-200 rounded-xl px-3.5 py-2 text-[11px] text-emerald-950 font-bold">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldAlert size={14} className="text-emerald-600 shrink-0" />
+                      <span>
+                        Budget Protected: <strong>₹{lead?.budgetMin ?? 0}–₹{lead?.budgetMax ?? 0}{lead?.rateType === "HOURLY" ? "/hr" : "/mo"}</strong> · Enquiry <strong>#{lead?.inquiryNumber ? String(lead.inquiryNumber).padStart(6, "0") : getInquiryDisplayCode(lead)}</strong>
+                      </span>
+                    </div>
+                    {customNotificationMsg && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomNotificationMsg(generateWhatsAppText());
+                          setAiFeedback(null);
+                        }}
+                        className="text-[10px] font-black text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                      >
+                        Reset to Default
+                      </button>
+                    )}
+                  </div>
+
+                  {/* AI Message Assistant Toolbar */}
+                  <div className="space-y-1.5 bg-emerald-50/40 rounded-2xl p-3 border border-emerald-100">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                        <Sparkles size={11} className="text-amber-500" />
+                        AI Message Assistant &amp; Tone Customizer
+                      </p>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200">
+                        100% Controlled by Sender
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                      {(
+                        [
+                          { id: "POLISH" as const, label: "✨ Polish Draft", hint: "Clean formatting and tone" },
+                          { id: "URGENT" as const, label: "🔥 Make Urgent", hint: "Immediate demo requirement" },
+                          { id: "HINGLISH" as const, label: "🙏 Delhi-NCR Hinglish", hint: "Natural, polite coordinator tone" },
+                          { id: "PROFESSIONAL_ENGLISH" as const, label: "💼 Professional", hint: "Formal English" },
+                          { id: "CONCISE" as const, label: "⚡ Compact 1-Block", hint: "Short punchy format" },
+                        ] as const
+                      ).map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          disabled={isPolishingWithAI}
+                          onClick={() => handlePolishWithAI(preset.id)}
+                          title={preset.hint}
+                          className="px-2.5 py-1 rounded-xl bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-[11px] font-bold border border-slate-200 hover:border-emerald-300 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={aiInstruction}
+                        onChange={(e) => setAiInstruction(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handlePolishWithAI("CUSTOM", aiInstruction);
+                          }
+                        }}
+                        placeholder="Type custom AI instruction (e.g. 'Add exam preparation note', 'Mention demo at 5 PM')..."
+                        className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        disabled={!aiInstruction.trim() || isPolishingWithAI}
+                        onClick={() => handlePolishWithAI("CUSTOM", aiInstruction)}
+                        className="px-3 py-1.5 rounded-xl bg-[#0F2540] hover:bg-[#1a3a60] text-white text-xs font-black flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all shrink-0"
+                      >
+                        {isPolishingWithAI ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                        <span>Apply AI Edit</span>
+                      </button>
+                    </div>
+
+                    {aiFeedback && (
+                      <p className="text-[11px] text-emerald-800 font-semibold bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
+                        💡 {aiFeedback}
+                      </p>
+                    )}
+                  </div>
+
                   {/* 1-Click Variable Insert Chips */}
                   <div className="space-y-1.5">
                     <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -1473,11 +1602,10 @@ export function SendLeadToTutorModal({
                         key={id}
                         type="button"
                         onClick={() => setDispatchVia(id)}
-                        className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-extrabold border-2 transition-all cursor-pointer ${
-                          on
+                        className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-extrabold border-2 transition-all cursor-pointer ${on
                             ? "bg-[#2D9E6B] text-white border-[#2D9E6B] shadow-sm"
                             : "bg-white text-slate-800 border-slate-200 hover:border-emerald-400"
-                        }`}
+                          }`}
                       >
                         <Icon size={14} />
                         {on ? "✓ " : ""}
@@ -1558,9 +1686,9 @@ export function SendLeadToTutorModal({
                 </div>
               </div>
             </div>
+          </div>
         </div>
-      </div>
-    )}
-  </>
-);
+      )}
+    </>
+  );
 }

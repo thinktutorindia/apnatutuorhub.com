@@ -80,7 +80,7 @@ export async function handleParentStep(
     }
 
     case "P_AREA": {
-      const loc = validateAndCleanLocality(r, (data.city as string) || "Delhi");
+      const loc = validateAndCleanLocality(r, (data.city as string) || undefined);
       if (!loc.isValid) return null;
       return {
         reply: MSG.P_TIMING,

@@ -703,9 +703,11 @@ export async function deliverDummyLeadToTutor(opts: {
             `📅 *Schedule:* ${lead.days}, ${lead.timing}\n\n` +
             `👉 *Tap to view & unlock requirement:*\n${absoluteLeadUrl}`;
 
+          const inqId = String(30000 + (Math.abs(userId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) * 17) % 65000));
+
           const placeholders = [
-            `#ATH-${lead.distanceKm || "NEW"}`,
-            userName || "Teacher",
+            inqId,
+            lead.studentName || "Parent",
             classLine,
             modeLabel[lead.mode] || lead.mode,
             `${lead.locality}, ${lead.city}`,

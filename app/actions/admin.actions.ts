@@ -1046,6 +1046,8 @@ export type AdminCreateLeadInput = {
   notifyMatchingTutors?: boolean;
   /** Channels used when matching tutors are notified. Ignored when notify is off. */
   notifyChannels?: LeadNotifyChannel[];
+  /** Sender customized message for WhatsApp, In-App, and Email notifications. */
+  customNotificationMsg?: string;
 };
 
 export async function adminCreateLeadAction(
@@ -1053,6 +1055,7 @@ export async function adminCreateLeadAction(
 ): Promise<
   ActionResult<{
     leadId: string;
+    inquiryNumber?: number | null;
     coinCost: number;
     budgetMin: number;
     budgetMax: number;
@@ -1303,7 +1306,10 @@ export async function adminCreateLeadAction(
       try {
         await dispatchLeadMatching(
           newLead.id,
-          notifyChannels.length > 0 ? { channels: notifyChannels } : undefined
+          {
+            channels: notifyChannels.length > 0 ? notifyChannels : undefined,
+            customMessage: input.customNotificationMsg?.trim() || undefined,
+          }
         );
       } catch (err) {
         console.error("[adminCreateLeadAction] Error dispatching matching:", err);
@@ -1314,6 +1320,7 @@ export async function adminCreateLeadAction(
   revalidatePath("/admin/leads");
   return actionSuccess({
     leadId: newLead.id,
+    inquiryNumber: newLead.inquiryNumber,
     coinCost,
     budgetMin: budgetMin ?? budgetMax ?? 0,
     budgetMax: budgetMax ?? budgetMin ?? 0,

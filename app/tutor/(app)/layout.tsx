@@ -21,6 +21,15 @@ export default async function TutorAppLayout({
     redirect("/login");
   }
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { phone: true },
+  });
+
+  if (!dbUser?.phone || dbUser.phone.trim().length < 10) {
+    redirect("/complete-phone");
+  }
+
   const [tutorProfile, unreadMessages, unreadNotifications] = await Promise.all([
     prisma.tutorProfile.findUnique({
       where: { userId: session.user.id },
@@ -52,7 +61,7 @@ export default async function TutorAppLayout({
       prisma.tutorProfile.update({
         where: { id: tutorProfile.id },
         data: { onboardingStep: 7 },
-      }).catch(() => {});
+      }).catch(() => { });
     } else {
       redirect("/tutor/onboarding");
     }

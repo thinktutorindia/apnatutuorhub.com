@@ -22,8 +22,12 @@ export default async function ParentLayout({
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { name: true, email: true, image: true },
+    select: { name: true, email: true, image: true, phone: true },
   });
+
+  if (!user?.phone || user.phone.trim().length < 10) {
+    redirect("/complete-phone");
+  }
 
   const [unreadNotifications, unreadMessages] = await Promise.all([
     prisma.notification.count({

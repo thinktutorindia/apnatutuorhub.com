@@ -4,12 +4,13 @@
  * class, subjects, and a public locality are all valid.
  */
 import { isTill8thClass, extractPublicLocality, leadSubjectsForClass, normalizeCanonicalClassLevel } from "@/lib/lead-utils";
-import { validateAndAlignSubjects, validateSubjectClassCompatibility } from "@/lib/whatsapp-bot/subject-rules";
+import { validateAndAlignSubjects, validateSubjectClassCompatibility, validateAndCleanLocality } from "@/lib/whatsapp-bot/subject-rules";
 
 export type IntakeDraft = {
   classLevel?: string;
   subjects?: string[];
   area?: string;
+  city?: string;
   mode?: "ONLINE" | "OFFLINE";
   /** Set when we corrected something and still need a yes before saving. */
   confirm?: "junior-offline" | "junior-subjects" | "senior-subject" | null;
@@ -36,15 +37,24 @@ function titleCase(value: string): string {
     .replace(/\bSector\s*/i, "Sector ");
 }
 
-function localityFrom(text: string): string | null {
+function locationFrom(text: string, fallbackCity?: string): { area: string; city: string } | null {
   if (YES.test(text)) return null;
+  const locRes = validateAndCleanLocality(text, fallbackCity || "Delhi");
+  if (locRes.isValid && locRes.area) {
+    return { area: locRes.area, city: locRes.city };
+  }
   const sector = text.match(/\bsector\s*-?\s*(\d{1,3}[a-z]?)\b/i);
-  if (sector) return `Sector ${sector[1].toUpperCase()}`;
+  if (sector) return { area: `Sector ${sector[1].toUpperCase()}`, city: locRes.city || fallbackCity || "Delhi" };
   const place = text.match(PLACE_RE);
-  if (place) return titleCase(place[1]);
-  const cleaned = extractPublicLocality(text, "Delhi");
+  if (place) return { area: titleCase(place[1]), city: locRes.city || fallbackCity || "Delhi" };
+  const cleaned = extractPublicLocality(text, fallbackCity || "Delhi");
   if (!cleaned || /^class\b/i.test(cleaned) || YES.test(cleaned)) return null;
-  return cleaned;
+  return { area: cleaned, city: locRes.city || fallbackCity || "Delhi" };
+}
+
+function localityFrom(text: string, fallbackCity?: string): string | null {
+  const loc = locationFrom(text, fallbackCity);
+  return loc?.area ?? null;
 }
 
 function classFrom(text: string): string | null {
@@ -75,6 +85,7 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
     classLevel: previous.classLevel,
     subjects: previous.subjects ? [...previous.subjects] : undefined,
     area: previous.area,
+    city: previous.city,
     mode: previous.mode,
     confirm: previous.confirm ?? null,
   };
@@ -103,8 +114,11 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
   if (wantsOnline) draft.mode = "ONLINE";
   if (wantsOffline) draft.mode = "OFFLINE";
 
-  const area = localityFrom(text);
-  if (area) draft.area = area;
+  const loc = locationFrom(text, draft.city);
+  if (loc) {
+    draft.area = loc.area;
+    draft.city = loc.city;
+  }
 
   const subjectText = text.replace(/\bgeneral science\b/gi, "Science");
   const sub = validateAndAlignSubjects(subjectText, draft.classLevel);
@@ -228,7 +242,7 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
 
 /** Last gate before any lead row is written. Invalid class, subject, or address never passes. */
 export function sealLeadEntry(draft: IntakeDraft):
-  | { ok: true; classLevel: string; subjects: string[]; area: string; mode: "ONLINE" | "OFFLINE" }
+  | { ok: true; classLevel: string; subjects: string[]; area: string; city?: string; mode: "ONLINE" | "OFFLINE" }
   | { ok: false; reason: string } {
   const classLevel = normalizeCanonicalClassLevel(draft.classLevel || "");
   if (!classLevel || !/^(Class ([1-9]|1[0-2])(-([1-9]|1[0-2]))?|Nursery|LKG|UKG|KG|JEE|NEET|CUET)$/.test(classLevel)) {
@@ -248,7 +262,7 @@ export function sealLeadEntry(draft: IntakeDraft):
     if (specific.some((s) => /physic|chem|bio|account|commerce/i.test(s))) {
       return { ok: false, reason: `${classLevel} mein Physics ya Accounts save nahi hota. Is class par All Subjects aur home tuition hota hai.` };
     }
-    return { ok: true, classLevel, subjects: ["All Subjects"], area, mode: "OFFLINE" };
+    return { ok: true, classLevel, subjects: ["All Subjects"], area, city: draft.city, mode: "OFFLINE" };
   }
   if (subjects.length === 0 || subjects.every((s) => /^all subjects$/i.test(s))) {
     return { ok: false, reason: `${classLevel} ke liye Maths, Science, Physics ya Accounts jaisa subject chahiye. All Subjects sirf Class 1–8 par hai.` };
@@ -260,5 +274,5 @@ export function sealLeadEntry(draft: IntakeDraft):
   if (!compat.isValid) {
     return { ok: false, reason: compat.reason || "Yeh subject is class ke saath save nahi ho sakta." };
   }
-  return { ok: true, classLevel, subjects, area, mode: draft.mode === "ONLINE" ? "ONLINE" : "OFFLINE" };
+  return { ok: true, classLevel, subjects, area, city: draft.city, mode: draft.mode === "ONLINE" ? "ONLINE" : "OFFLINE" };
 }

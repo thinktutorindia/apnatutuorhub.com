@@ -17,9 +17,16 @@
  */
 export async function dispatchLeadMatching(
   leadId: string,
-  options?: { channels?: import("@/lib/queue").LeadNotifyChannel[] }
+  options?: {
+    channels?: import("@/lib/queue").LeadNotifyChannel[];
+    customMessage?: string;
+  }
 ): Promise<void> {
-  const job = { leadId, channels: options?.channels };
+  const job = {
+    leadId,
+    channels: options?.channels,
+    customMessage: options?.customMessage,
+  };
   try {
     if (process.env.REDIS_URL) {
       try {

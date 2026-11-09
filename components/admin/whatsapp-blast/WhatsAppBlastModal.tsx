@@ -363,8 +363,8 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     // Outside 24h → preview the Meta Utility template tutors actually receive
     if (usesApprovedTemplate) {
       const inquiryCode = focusedLead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
-      const displayName = cleanFirstName || focusedLead.name || "Tutor";
-      return `*Approved template: tuition_enquiry_direct*\n\nWe recently received an Enquiry for you with following details:\n\n🆕 Enquiry ID : #${inquiryCode}\n💬 Name : ${displayName}\n📝 Class : ${safeClass} (${focusedLead.recommendedSubject})\n📚 Subject : ${modeLine}\n📍 Area : ${loc}\n💵 Budget : ${focusedLead.recommendedFee}\n📌 Mode : Any (Male or Female Tutor)\n\nPlease check this and Respond\nContact 08062180653\nApnaTutorHub (Reply STOP to Unsubscribe)`;
+      const clientDisplayName = "Parent";
+      return `*Approved template: tuition_enquiry_direct*\n\nWe recently received an Enquiry for you with following details:\n\n🆕 Enquiry ID : #${inquiryCode}\n💬 Name : ${clientDisplayName}\n📝 Class : ${safeClass} (${focusedLead.recommendedSubject})\n📚 Subject : ${modeLine}\n📍 Area : ${loc}\n💵 Budget : ${focusedLead.recommendedFee}\n📌 Mode : Any (Male or Female Tutor)\n\nPlease check this and Respond\nContact 08062180653\nApnaTutorHub (Reply STOP to Unsubscribe)`;
     }
 
     // Use offlineTemplate if lead is within 5km, else onlineTemplate

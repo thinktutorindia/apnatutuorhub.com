@@ -867,7 +867,7 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
               to: normalized,
               personalizedText: personalized,
               inquiryCode,
-              clientName: cleanFirstName || lead.name || "Tutor",
+              clientName: "Parent",
               classLine: `${safeClass} (${meta.recommendedSubject})`,
               modeLine: is5Km ? "Home Tuition (Offline)" : "Online Class",
               locationLine: loc,

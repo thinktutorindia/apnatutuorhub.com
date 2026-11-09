@@ -110,7 +110,7 @@ export async function handleTutorStep(
           updatedData: data,
         };
       }
-      const loc = validateAndCleanLocality(r, (data.city as string) || "Delhi");
+      const loc = validateAndCleanLocality(r, (data.city as string) || undefined);
       if (!loc.isValid) {
         return {
           reply: loc.errorPrompt || `🏠 Apna *mohalla / locality* likhein (jaise: *Rohini Delhi*, *Bandra Mumbai*, *Sector 62 Noida*):`,

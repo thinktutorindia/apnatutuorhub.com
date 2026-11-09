@@ -289,7 +289,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (targetUserId) {
           const dbUser = await prisma.user.findUnique({
             where: { id: targetUserId },
-            select: { id: true, role: true, subAdminRole: true, customPermissions: true, isActive: true },
+            select: { id: true, role: true, phone: true, subAdminRole: true, customPermissions: true, isActive: true },
           });
 
           if (!dbUser || !dbUser.isActive) {
@@ -298,6 +298,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           token.id = dbUser.id;
           token.role = dbUser.role;
+          token.phone = dbUser.phone ?? null;
           token.subAdminRole = dbUser.subAdminRole ?? null;
           token.customPermissions = dbUser.customPermissions ?? [];
           token.isActive = dbUser.isActive;
@@ -305,8 +306,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         // If it's an explicit update with a role field, override
+        // If it's an explicit update with a role field or phone field, override
         if (isUpdate && session?.role) {
           token.role = session.role;
+        }
+        if (isUpdate && session?.phone) {
+          token.phone = session.phone;
         }
       }
 
@@ -321,6 +326,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Expose only what the client strictly needs
       session.user.id = token.id as string;
       session.user.role = token.role as string;
+      session.user.phone = (token.phone as string | null) ?? null;
       session.user.subAdminRole = (token.subAdminRole as string | null) ?? null;
       session.user.customPermissions = (token.customPermissions as string[]) ?? [];
       session.user.isActive = token.isActive as boolean;
@@ -337,7 +343,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { id: true, email: true, isActive: true, role: true, tutorProfile: { select: { id: true } } },
+          select: { id: true, email: true, phone: true, customPermissions: true, isActive: true, role: true, tutorProfile: { select: { id: true } } },
         });
         if (dbUser) {
           if (!dbUser.isActive) return false;
@@ -345,6 +351,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (user.email && dbUser.email.toLowerCase() !== user.email.toLowerCase()) {
             console.error(`[OAuth Guard] Mismatched OAuth email (${user.email}) for DB user (${dbUser.email})`);
             return false;
+          }
+
+          // If no phone on file, tag as incomplete so it never pollutes verified user directories
+          if (!dbUser.phone && !dbUser.customPermissions.includes("tag:incomplete")) {
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: {
+                customPermissions: [...dbUser.customPermissions, "tag:incomplete"],
+              },
+            });
           }
 
           // Check if user registered with intent to be a TUTOR

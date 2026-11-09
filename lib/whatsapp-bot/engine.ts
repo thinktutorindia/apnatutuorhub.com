@@ -105,6 +105,25 @@ export function cleanExtractedArea(raw: unknown, defaultCity = "Delhi"): string 
   return extractPublicLocality(res.isValid ? res.area : typeof raw === "string" ? raw : "", res.city || defaultCity) || "";
 }
 
+export function getLocalitiesQuickReplies(city?: string): string[] {
+  if (!city) {
+    return ["Delhi NCR", "Mumbai", "Bangalore / Pune", "Other City"];
+  }
+  const cleanCity = city.trim();
+  const cNorm = cleanCity.toLowerCase();
+  if (cNorm.includes("delhi")) return ["South Delhi", "Dwarka", "Rohini", "Noida / Gurgaon"];
+  if (cNorm.includes("mumbai")) return ["Andheri", "Bandra", "Borivali", "Navi Mumbai / Thane"];
+  if (cNorm.includes("bangalore") || cNorm.includes("bengaluru")) return ["Koramangala", "Whitefield", "HSR Layout", "Indiranagar"];
+  if (cNorm.includes("pune")) return ["Kothrud", "Wakad", "Hinjewadi", "Baner"];
+  if (cNorm.includes("hyderabad")) return ["Madhapur", "Gachibowli", "Kukatpally", "Banjara Hills"];
+  if (cNorm.includes("lucknow")) return ["Gomti Nagar", "Hazratganj", "Aliganj", "Indira Nagar"];
+  if (cNorm.includes("jaipur")) return ["Mansarovar", "Vaishali Nagar", "Malviya Nagar", "Raja Park"];
+  if (cNorm.includes("kolkata")) return ["Salt Lake", "New Town", "Ballygunge", "Jadavpur"];
+  if (cNorm.includes("patna")) return ["Kankarbagh", "Boring Road", "Bailey Road", "Danapur"];
+  if (cNorm.includes("chandigarh")) return ["Sector 17", "Sector 35", "Mohali", "Panchkula"];
+  return [`Central ${cleanCity}`, `Sector 1 ${cleanCity}`, "Main Area", "Online Only"];
+}
+
 function classSignalInMessage(rawMessage: string): boolean {
   return /\b(class|grade|std|standard|nursery|lkg|ukg|jee|neet|cuet|\d{1,2}\s*(?:st|nd|rd|th))\b/i.test(rawMessage);
 }
@@ -886,20 +905,14 @@ export async function processMessage(
     /(?:ye|yeh|to|toh)?\s*(?:kay|kya|kyu)\s*(?:hai\s*)?(?:fir|phir)\b|\b(?:ye|yeh)\s*(?:kay|kya)\s*hai\b|\bwhat\s*is\s*this\b|\biska\s*kya\s*(?:matlab|karu|karein)\b|\bkya\s*hai\s*ye\b|\bkyu\s*bheja\b/i.test(rawMessage);
 
   if (isEnquiryFollowUp) {
-    const hasRecentEnquiryOrFees = chatHistory.some((m) =>
-      /tuition enquiry|enquiry assigned|fees is|budget|ath-\d+|\#\d{4,7}/i.test(m.body)
-    ) || /tuition enquiry|enquiry assigned|##ath/i.test(rawMessage);
-
-    if (hasRecentEnquiryOrFees) {
-      return {
-        reply: `Sir yeh student ke parents ki taraf se post kiya gaya initial proposed budget hai. 📋\n\nDemo class ke time aap parent se standard market fees (jaise Class 1–5: ₹5,000–₹6,500/month ya Class 9+: ₹700–₹900/hour) directly discuss & negotiate kar sakte hain — hamare platform par fee negotiation direct rehti hai aur monthly fees par 0% commission hota hai! 🎯\n\nAapko is enquiry ke client se connect hona hai?`,
-        nextStep: step === "WELCOME" ? "T_CONVO" : step,
-        updatedData: data,
-        userType: session.userType || "TUTOR",
-        retries: 0,
-        quickReplies: ["Unlock Lead 📋", "Other Leads 🔍", "Talk to Coordinator 📞"],
-      };
-    }
+    return {
+      reply: `Sir yeh student ke parents ki taraf se post kiya gaya initial proposed budget hai. 📋\n\nDemo class ke time aap parent se standard market fees (jaise Class 1–5: ₹6,000–₹6,800/month ya Class 9+: ₹700–₹900/hour) directly discuss & negotiate kar sakte hain — hamare platform par fee negotiation direct rehti hai aur monthly fees par 0% commission hota hai! 🎯\n\nAapko is enquiry ke client se connect hona hai?`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Unlock Lead 📋", "Other Leads 🔍", "Talk to Coordinator 📞"],
+    };
   }
 
   // ── Fees is Low / Less / Budget Complaint ─────────────────────────────────
@@ -1378,14 +1391,15 @@ export async function processMessage(
         quickReplies: ["View Leads 📋", "My Profile 👤"],
       };
     }
-    const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || "Delhi");
+    const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || undefined);
     if (!loc.isValid) {
       return {
-        reply: loc.errorPrompt || "Sirf locality likhein — jaise *Saket*, *Rohini*, ya *Dwarka*. 📍",
+        reply: loc.errorPrompt || "Sirf locality likhein — jaise *Saket*, *Indirapuram*, *Bandra*, ya *HSR Layout*. 📍",
         nextStep: "UPDATE_AREA",
         updatedData: data,
+        userType: "TUTOR",
         retries: 0,
-        quickReplies: ["Saket", "Rohini", "Dwarka", "Cancel"],
+        quickReplies: [...getLocalitiesQuickReplies((data.city as string) || undefined), "Cancel"],
       };
     }
     const saved = await syncUserCredentialsInDb({
@@ -1858,24 +1872,31 @@ export async function processMessage(
         retries: 0,
       };
 
-      const localityPattern = new RegExp(`\\b(${DELHI_NCR_LOCALITIES.join("|")})\\b`, "i");
-      const areaMatch = rawMessage.match(localityPattern);
-      if (areaMatch) {
-        sArea = areaMatch[0].charAt(0).toUpperCase() + areaMatch[0].slice(1).toLowerCase();
-      } else if (lines.length >= 2) {
-        sArea = lines[lines.length - 1];
+      let adminCity = "Delhi";
+      const locClean = validateAndCleanLocality(lines.length >= 2 ? lines[lines.length - 1] : rawMessage);
+      if (locClean.isValid) {
+        sArea = locClean.area;
+        adminCity = locClean.city;
+      } else {
+        const localityPattern = new RegExp(`\\b(${DELHI_NCR_LOCALITIES.join("|")})\\b`, "i");
+        const areaMatch = rawMessage.match(localityPattern);
+        if (areaMatch) {
+          sArea = areaMatch[0].charAt(0).toUpperCase() + areaMatch[0].slice(1).toLowerCase();
+        } else if (lines.length >= 2) {
+          sArea = lines[lines.length - 1];
+        }
+        const publicArea = extractPublicLocality(sArea, adminCity) || extractPublicLocality(rawMessage, adminCity);
+        if (!publicArea) {
+          return {
+            reply: `Locality clear nahi hai. Ghar number mat likhein.\nJaise: *Class 8, All Subjects, Rohini* ya *Bandra Mumbai*`,
+            nextStep: "DONE",
+            updatedData: data,
+            userType: session.userType,
+            retries: 0,
+          };
+        }
+        sArea = publicArea;
       }
-      const publicArea = extractPublicLocality(sArea, "Delhi") || extractPublicLocality(rawMessage, "Delhi");
-      if (!publicArea) {
-        return {
-          reply: `Locality clear nahi hai. Ghar number mat likhein.\nJaise: *Class 8, All Subjects, Rohini*`,
-          nextStep: "DONE",
-          updatedData: data,
-          userType: session.userType,
-          retries: 0,
-        };
-      }
-      sArea = publicArea;
       const adminSubjects = leadSubjectsForClass(
         sClass,
         validateAndAlignSubjects(rawMessage, sClass).subjects
@@ -1926,7 +1947,7 @@ export async function processMessage(
                 classLevel: adminSealed.classLevel,
                 mode: adminSealed.mode,
                 area: adminSealed.area,
-                city: "Delhi",
+                city: adminCity,
                 status: "ACTIVE",
                 notes: `Direct Admin Entry: ${sName}, Phone: +91-${pNum}`,
               },
@@ -1934,7 +1955,7 @@ export async function processMessage(
           : { inquiryNumber: nextInq };
 
         return {
-          reply: `✅ *Lead Successfully Created via WhatsApp!*\n\n📋 Ref: *#ATH-${newLead.inquiryNumber}*\n👤 Student: *${sName}*\n📱 Phone: *+91 ${pNum}*\n🎓 Class: *${sClass}*\n📍 Area: *${sArea}*\n\nMatching tutors will now receive instant alerts.`,
+          reply: `✅ *Lead Successfully Created via WhatsApp!*\n\n📋 Ref: *#ATH-${newLead.inquiryNumber}*\n👤 Student: *${sName}*\n📱 Phone: *+91 ${pNum}*\n🎓 Class: *${sClass}*\n📍 Area: *${sArea}, ${adminCity}*\n\nMatching tutors will now receive instant alerts.`,
           nextStep: "DONE",
           updatedData: data,
           userType: "ADMIN",
@@ -2226,10 +2247,10 @@ export async function processMessage(
     }
 
     const wantsProfileChange = /\b(update|change|set|changed|badal|naya|new)\b/i.test(rawMessage);
-    if (wantsProfileChange && /\b(location|area|locality|jagah)\b/i.test(rawMessage)) {
-      const tail = rawMessage.match(/\b(?:location|area|locality|jagah)\s+(?:to\s+|as\s+|is\s+|hai\s+|ko\s+)?([a-zA-Z][a-zA-Z\s-]{1,40})$/i);
+    if (wantsProfileChange && /\b(location|area|locality|jagah|address)\b/i.test(rawMessage)) {
+      const tail = rawMessage.match(/\b(?:location|area|locality|jagah|address)\s+(?:to\s+|as\s+|is\s+|hai\s+|ko\s+)?([a-zA-Z0-9][a-zA-Z0-9\s.,\/-]{1,50})$/i);
       const loc = tail
-        ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || "Delhi")
+        ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || undefined)
         : null;
       if (loc?.isValid) {
         const saved = await syncUserCredentialsInDb({
@@ -2249,12 +2270,12 @@ export async function processMessage(
         };
       }
       return {
-        reply: `Naya teaching area kaunsa hai? Sirf locality likhein — jaise *Saket*, *Rohini*, ya *Dwarka*. 📍`,
+        reply: `Naya teaching area kaunsa hai? Sirf locality likhein — jaise *Saket*, *Indirapuram*, *Bandra*, ya *HSR Layout*. 📍`,
         nextStep: "UPDATE_AREA",
         updatedData: data,
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["Saket", "Rohini", "Dwarka", "Cancel"],
+        quickReplies: [...getLocalitiesQuickReplies((data.city as string) || undefined), "Cancel"],
       };
     }
     if (wantsProfileChange && /\bsubjects?\b/i.test(rawMessage)) {
@@ -2472,29 +2493,31 @@ export async function processMessage(
             credentialsChanged = true;
           }
 
-          const updateIntent = /\b(update|change|set|changed|badal|naya|new)\b/i.test(rawMessage);
           let areaToSave: string | undefined;
           let cityToSave: string | undefined;
-          if (updateIntent && typeof ai.extractedData?.area === "string") {
-            const loc = validateAndCleanLocality(ai.extractedData.area, (data.city as string) || "Delhi");
+          if (typeof ai.extractedData?.area === "string") {
+            const loc = validateAndCleanLocality(ai.extractedData.area, (data.city as string) || undefined);
             if (loc.isValid) {
               areaToSave = loc.area;
               cityToSave = loc.city;
             }
           }
+
           let subjectsToSave: string[] | undefined;
-          if (updateIntent && Array.isArray(ai.extractedData?.subjects) && ai.extractedData.subjects.length > 0) {
+          if (Array.isArray(ai.extractedData?.subjects) && ai.extractedData.subjects.length > 0) {
             const aligned = validateAndAlignSubjects(ai.extractedData.subjects, data.classLevel as string | undefined);
-            if (aligned.isValid) subjectsToSave = aligned.subjects;
+            if (aligned.isValid && aligned.subjects.length > 0) subjectsToSave = aligned.subjects;
           }
-          const classRaw = updateIntent
-            ? (ai.extractedData?.classLevel as string) ||
-              (Array.isArray(ai.extractedData?.classLevels) ? String(ai.extractedData.classLevels[0] || "") : "")
-            : "";
+
+          const classRaw =
+            (ai.extractedData?.classLevel as string) ||
+            (Array.isArray(ai.extractedData?.classLevels) ? String(ai.extractedData.classLevels[0] || "") : "");
           const classToSave = classRaw ? normalizeCanonicalClassLevel(classRaw) : null;
-          const nameToSave = updateIntent && typeof ai.extractedData?.name === "string" && isValidName(ai.extractedData.name)
-            ? ai.extractedData.name.trim()
-            : undefined;
+
+          const nameToSave =
+            typeof ai.extractedData?.name === "string" && isValidName(ai.extractedData.name)
+              ? String(ai.extractedData.name).trim()
+              : undefined;
 
           const hasPatch = Boolean(
             credentialsChanged || nameToSave || areaToSave || subjectsToSave || classToSave
@@ -2529,18 +2552,9 @@ export async function processMessage(
             saved.updatedFields.includes("class") ? `class *${classToSave}*` : "",
             saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
           ].filter(Boolean);
-          const profileTopic = /\b(name|naam|location|area|locality|subject|class|email|gmail|password)\b/i.test(rawMessage);
-          const aiClaimsSaved = /\b(updated|save ho gay|note ho gay|kar diya|changed your|location has been)\b/i.test(
-            ai.reply
-          );
           let reply = ai.reply;
-          if (updateIntent && profileTopic) {
-            reply =
-              savedBits.length > 0
-                ? `Save ho gaya: ${savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`
-                : profileNotSavedReply();
-          } else if (aiClaimsSaved && savedBits.length === 0 && hasPatch) {
-            reply = profileNotSavedReply();
+          if (savedBits.length > 0) {
+            reply = `Save ho gaya: ${savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`;
           }
 
           return {
@@ -2578,6 +2592,7 @@ export async function processMessage(
       classLevel: typeof data.classLevel === "string" ? data.classLevel : undefined,
       subjects: Array.isArray(data.subjects) ? (data.subjects as string[]) : undefined,
       area: typeof data.area === "string" ? data.area : undefined,
+      city: typeof data.city === "string" ? data.city : undefined,
       mode: data.mode === "ONLINE" || data.mode === "OFFLINE" ? data.mode : undefined,
       confirm: (data.intakeConfirm as IntakeDraft["confirm"]) ?? null,
     };
@@ -2587,6 +2602,7 @@ export async function processMessage(
       classLevel: assessed.draft.classLevel,
       subjects: assessed.draft.subjects,
       area: assessed.draft.area,
+      city: assessed.draft.city || data.city,
       mode: assessed.draft.mode,
       intakeConfirm: assessed.draft.confirm ?? null,
       userType: "PARENT",
@@ -2606,7 +2622,7 @@ export async function processMessage(
       parentName: (data.parentName as string) || (data.name as string) || "Parent",
       email: (data.email as string) || undefined,
       phone: (data.phone as string) || session.phone,
-      city: (data.city as string) || "Delhi",
+      city: assessed.draft.city || (data.city as string) || "Delhi",
       area: assessed.draft.area,
       classLevel: assessed.draft.classLevel,
       subjects: assessed.draft.subjects,
@@ -2804,14 +2820,14 @@ export async function processMessage(
           const isHi = data.lang === "hi";
           return {
             reply: isTutor
-              ? (isHi ? `बढ़िया! कौन से subject, कौन सी class और दिल्ली NCR में कहाँ से हो? 📚` : `Great! Which subjects, which class, and which area in Delhi NCR do you teach? 📚`)
-              : (isHi ? `नमस्ते! बच्चे के लिए कौन सी class, subject और किस area में ट्यूटर चाहिए? 🎓📍` : `Welcome! For which class, subjects, and locality do you need a tutor? 🎓📍`),
+              ? (isHi ? `बढ़िया! कौन से subject, कौन सी class aur kaunse city/area se hain? 📚` : `Great! Which subjects, which class, and which city / locality do you teach in? 📚`)
+              : (isHi ? `नमस्ते! बच्चे के लिए कौन सी class, subject और किस city/area में ट्यूटर चाहिए? 🎓📍` : `Welcome! For which class, subjects, and which city / locality do you need a tutor? 🎓📍`),
             nextStep: isTutor ? "T_CONVO" : "P_CONVO",
             updatedData: { ...data, ...(isTutor ? { userType: "TUTOR" } : { userType: "PARENT" }) },
             userType: isTutor ? "TUTOR" : "PARENT",
             retries: 0,
             quickReplies: isTutor
-              ? ["All Subjects, Class 1-8", "Maths, Class 9-10, Dwarka", "Physics, Class 11-12, Rohini"]
+              ? ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"]
               : ["Class 9-10 Maths & Sci", "Class 1-5 All Subjects", "Class 11-12"],
           };
         }
@@ -2908,7 +2924,7 @@ export async function processMessage(
                   updatedData: mergedData,
                   userType: "TUTOR",
                   retries: 0,
-                  quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+                  quickReplies: getLocalitiesQuickReplies((mergedData.city || data.city) as string),
                 };
               }
             }
@@ -2920,7 +2936,7 @@ export async function processMessage(
               updatedData: mergedData,
               userType: "TUTOR",
               retries: 0,
-              quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+              quickReplies: getLocalitiesQuickReplies((mergedData.city || data.city) as string),
             };
           }
 
@@ -2996,7 +3012,7 @@ export async function processMessage(
               updatedData: mergedData,
               userType: "TUTOR",
               retries: 0,
-              quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+              quickReplies: getLocalitiesQuickReplies((mergedData.city || data.city) as string),
             };
           }
 
@@ -3102,12 +3118,27 @@ export async function processMessage(
               emailRepeats >= 3;
 
             if (giveUpEmail) {
+              try {
+                await registerTutorFromWhatsapp(session.phone, {
+                  name: resolvedTutorName || "Tutor",
+                  email: waPlaceholderEmail(session.phone),
+                  phone: session.phone,
+                  password: "defaultPassword123",
+                  city: cityName,
+                  area: areaName,
+                  subjects: ctx.cleanSubs,
+                  classLevels: classLevelsArray,
+                  classLevel: rawCls,
+                });
+              } catch (regErr) {
+                console.warn("[engine] Fallback tutor registration on email skip error:", regErr);
+              }
               return {
                 reply:
                   `Email baad mein bhej dena (jaise name@gmail.com) — login alerts ke liye chahiye.\n\n` +
-                  `Abhi leads dekh sakte hain:\n👉 https://apnatutorhub.com/tutor/leads\n👉 Plans: https://apnatutorhub.com/tutor/plans`,
+                  `Aapki profile note ho gayi hai! Abhi matching leads dekh sakte hain:\n👉 https://apnatutorhub.com/tutor/leads\n👉 Plans: https://apnatutorhub.com/tutor/plans`,
                 nextStep: "DONE",
-                updatedData: { ...mergedData, lastBotAsk: "email-skip", sameAskCount: 0 },
+                updatedData: { ...mergedData, _registered: true, lastBotAsk: "email-skip", sameAskCount: 0 },
                 userType: "TUTOR",
                 retries: 0,
                 quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
@@ -3704,7 +3735,7 @@ export async function processMessage(
             updatedData: updated,
             userType: "TUTOR",
             retries: 0,
-            quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+            quickReplies: getLocalitiesQuickReplies((updated.city || data.city) as string),
           };
         }
       }
@@ -3716,7 +3747,7 @@ export async function processMessage(
         updatedData: updated,
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+        quickReplies: getLocalitiesQuickReplies((updated.city || data.city) as string),
       };
     }
 
@@ -3762,7 +3793,7 @@ export async function processMessage(
         updatedData: updated,
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["South Delhi", "West Delhi (Dwarka)", "North Delhi (Rohini)", "Noida / Gurgaon"],
+        quickReplies: getLocalitiesQuickReplies((updated.city || data.city) as string),
       };
     }
 
@@ -4167,7 +4198,7 @@ function handleInvalid(
     stepHint = `📍 Apna city batayein — jaise *Delhi*, *Mumbai*, *Noida*, *Bangalore*, *Lucknow*.`;
   } else if (step === "T_AREA") {
     stepHint = `🏠 Apna specific *mohalla / locality* likhein.\nJaise: *Rohini*, *Dwarka*, *Sector 62 Noida*, *Andheri West*.`;
-    stepQuickReplies = ["Rohini, Delhi", "Dwarka, Delhi", "Noida / Gurgaon", "South Delhi"];
+    stepQuickReplies = getLocalitiesQuickReplies((session.data.city as string) || (session.data.area as string));
   } else if (step === "T_SUBJECTS") {
     stepHint = `📚 Kaunse subjects padhate hain? Comma se alag karke likhein:\nJaise: *Maths, Science* ya *Physics, Chemistry* ya *All Subjects*.`;
     stepQuickReplies = ["Maths, Science", "Physics, Chemistry", "English, Hindi", "All Subjects"];
@@ -4195,16 +4226,16 @@ function handleInvalid(
     stepHint = `📚 Kaunse subjects mein help chahiye? Jaise: *Maths, Science* ya *All Subjects*.`;
     stepQuickReplies = ["Maths & Science", "All Subjects", "English", "Physics, Chemistry"];
   } else if (step === "P_CITY") {
-    stepHint = `📍 Apna city batayein — jaise *Delhi*, *Noida*, *Mumbai*, *Gurgaon*.`;
+    stepHint = `📍 Apna city batayein — jaise *Delhi*, *Noida*, *Mumbai*, *Gurgaon*, *Lucknow*, *Patna*.`;
   } else if (step === "P_AREA") {
     stepHint = `🏠 Bachche ka *area / locality* batayein.\nJaise: *Rohini Delhi*, *Bandra Mumbai*, *Sector 62 Noida*.`;
-    stepQuickReplies = ["Rohini Delhi", "Dwarka Delhi", "Noida / Gurgaon", "South Delhi"];
+    stepQuickReplies = getLocalitiesQuickReplies((session.data.city as string) || (session.data.area as string));
   } else if (step === "P_MODE") {
     stepHint = `🏡 Sirf *1*, *2*, ya *3* reply karein:\n1 → Home Tutor (tutor ghar aaye)\n2 → Online\n3 → Either is fine`;
     stepQuickReplies = ["1", "2", "3"];
   } else if (step === "P_BUDGET") {
-    stepHint = `💰 Sirf *1 se 4* reply karein:\n1 → Under ₹2,000/month\n2 → ₹2,000–5,000/month\n3 → ₹5,000–10,000/month\n4 → Above ₹10,000/month`;
-    stepQuickReplies = ["1", "2", "3", "4"];
+    stepHint = `💰 Budget select karein:\n1 → ₹6,000–₹6,800/month (Class 1-5)\n2 → ₹6,800–₹7,600/month (Class 6-8)\n3 → ₹700–₹850/hr (Class 9-10)\n4 → ₹850–₹1,050/hr (Class 11-12)`;
+    stepQuickReplies = ["1 (Class 1-5)", "2 (Class 6-8)", "3 (Class 9-10)", "4 (Class 11-12)"];
   } else if (step === "LANG_SELECT") {
     stepHint = `Sirf *1* (English) ya *2* (Hindi) type karein.`;
     stepQuickReplies = ["1 - English", "2 - हिंदी"];

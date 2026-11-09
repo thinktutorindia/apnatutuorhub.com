@@ -196,12 +196,13 @@ export async function ensureTutorUserForPhone(phone: string, name?: string | nul
       await prisma.tutorProfile.create({
         data: {
           userId: existingUser.id,
-          city: "Delhi",
-          address: "Delhi NCR",
-          subjects: ["All Subjects", "Mathematics", "Science"],
-          classLevels: ["Class 1–5", "Class 6–8", "Class 9–10"],
+          city: null,
+          address: null,
+          subjects: ["All Subjects"],
+          classLevels: ["Class 1-10"],
           isVerified: false,
           marketingNotifsEnabled: true,
+          onboardingStep: 0,
         },
       }).catch(() => null);
     }
@@ -222,12 +223,13 @@ export async function ensureTutorUserForPhone(phone: string, name?: string | nul
       signupSource: "WHATSAPP",
       tutorProfile: {
         create: {
-          city: "Delhi",
-          address: "Delhi NCR",
-          subjects: ["All Subjects", "Mathematics", "Science"],
-          classLevels: ["Class 1–5", "Class 6–8", "Class 9–10"],
+          city: null,
+          address: null,
+          subjects: ["All Subjects"],
+          classLevels: ["Class 1-10"],
           isVerified: false,
           marketingNotifsEnabled: true,
+          onboardingStep: 0,
         },
       },
     },

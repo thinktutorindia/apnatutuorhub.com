@@ -8,34 +8,34 @@
 export const CLASS_FEE_RATES = {
   "1-5": {
     label: "Class 1 to 5 (Primary)",
-    hourlyMin: 280,
-    hourlyMax: 360,
-    monthlyMin: 4500,
-    monthlyMax: 5200,
+    hourlyMin: 400,
+    hourlyMax: 500,
+    monthlyMin: 6000,
+    monthlyMax: 6800,
     classes: ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Nursery", "KG", "LKG", "UKG", "Primary"],
   },
   "6-8": {
     label: "Class 6 to 8 (Middle)",
-    hourlyMin: 320,
-    hourlyMax: 400,
-    monthlyMin: 5200,
-    monthlyMax: 6000,
+    hourlyMin: 450,
+    hourlyMax: 550,
+    monthlyMin: 6800,
+    monthlyMax: 7600,
     classes: ["Class 6", "Class 7", "Class 8", "Middle School"],
   },
   "9-10": {
     label: "Class 9 to 10 (Secondary)",
-    hourlyMin: 450,
-    hourlyMax: 600,
-    monthlyMin: 4500,
-    monthlyMax: 5600,
+    hourlyMin: 700,
+    hourlyMax: 850,
+    monthlyMin: 7500,
+    monthlyMax: 9000,
     classes: ["Class 9", "Class 10", "Secondary"],
   },
   "11-12": {
     label: "Class 11 to 12 & Entrance",
-    hourlyMin: 650,
-    hourlyMax: 850,
-    monthlyMin: 6000,
-    monthlyMax: 8000,
+    hourlyMin: 850,
+    hourlyMax: 1050,
+    monthlyMin: 9000,
+    monthlyMax: 12000,
     classes: ["Class 11", "Class 12", "Senior Secondary", "JEE", "NEET", "IIT-JEE"],
   },
 };
@@ -318,9 +318,13 @@ export function averageBudgetForLead(opts: {
   avg *= Math.min(areaFeeMultiplier(opts.city), 1.04);
 
   const step = isHourly ? 10 : 50;
-  const spread = isHourly ? (classNum !== null && classNum >= 11 ? 30 : 20) : 150;
-  const ceiling = isHourly ? (classNum !== null && classNum >= 11 ? 620 : 400) : (classNum !== null && classNum <= 5 ? 4250 : 4800);
-  const floor = isHourly ? (classNum !== null && classNum >= 11 ? 450 : 320) : (classNum !== null && classNum <= 5 ? 3600 : 4200);
+  const spread = isHourly ? (classNum !== null && classNum >= 11 ? 50 : 40) : 150;
+  const ceiling = isHourly
+    ? (classNum !== null && classNum >= 11 ? 1050 : 850)
+    : (classNum !== null && classNum <= 5 ? 6800 : 7600);
+  const floor = isHourly
+    ? (classNum !== null && classNum >= 11 ? 850 : 700)
+    : (classNum !== null && classNum <= 5 ? 6000 : 6800);
   let min = Math.round(avg / step) * step;
   min = Math.max(floor, Math.min(min, ceiling - spread));
   const max = min + spread;

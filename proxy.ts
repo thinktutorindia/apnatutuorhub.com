@@ -35,6 +35,7 @@ const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/select-role",
+  "/complete-phone",
   "/tutor-wizard",
   "/inquiry",
   "/api/auth",
@@ -136,6 +137,30 @@ export const proxy = auth((req: NextRequest & { auth: any }) => {
       res.cookies.delete(name);
     });
     return res;
+  }
+
+  // ── 5b. Mandatory Mobile Phone Gate ("Without Phone Number No Entry") ─────
+  // Every non-admin user MUST have a valid mobile phone on file to access any feature.
+  if (
+    session?.user?.id &&
+    session.user.role !== "SUPER_ADMIN" &&
+    !session.user.phone
+  ) {
+    const isExempt =
+      pathname.startsWith("/complete-phone") ||
+      pathname.startsWith("/api/auth") ||
+      pathname.startsWith("/api/webhooks") ||
+      pathname === "/login" ||
+      pathname === "/register";
+
+    if (!isExempt) {
+      return NextResponse.redirect(new URL("/complete-phone", req.nextUrl.origin));
+    }
+  }
+
+  if (session?.user?.phone && pathname.startsWith("/complete-phone")) {
+    const dest = session.user.role === "TUTOR" ? "/tutor/dashboard" : "/parent/dashboard";
+    return NextResponse.redirect(new URL(dest, req.nextUrl.origin));
   }
 
   // ── 6. Role-Level & Sub-Admin Route Guard ────────────────────────────────

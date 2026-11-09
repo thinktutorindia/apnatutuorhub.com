@@ -17,6 +17,15 @@ export default async function TutorOnboardingPage() {
     redirect("/login?callbackUrl=/tutor/onboarding");
   }
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { phone: true },
+  });
+
+  if (!dbUser?.phone || dbUser.phone.trim().length < 10) {
+    redirect("/complete-phone");
+  }
+
   let tutorProfile = await prisma.tutorProfile.findUnique({
     where: { userId: session.user.id },
     select: {

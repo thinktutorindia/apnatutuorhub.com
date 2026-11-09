@@ -20,7 +20,12 @@ import {
   Filter,
   AlertCircle,
   CheckCircle2,
+  Wand2,
 } from "lucide-react";
+import {
+  polishMessageWithAIAction,
+  type TonePreset,
+} from "@/app/actions/ai-message-edit.actions";
 import {
   getWhatsAppChatThreadsAction,
   getWhatsAppChatMessagesAction,
@@ -74,17 +79,27 @@ const WhatsAppChatComposer = memo(function WhatsAppChatComposer({
   phone,
   disabled,
   onSend,
+  incomingMessage,
+  recipientName,
 }: {
   phone: string;
   disabled: boolean;
   onSend: (text: string) => Promise<void>;
+  incomingMessage?: string;
+  recipientName?: string;
 }) {
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [showAiToolbar, setShowAiToolbar] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [isPolishingWithAI, setIsPolishingWithAI] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     setInputText("");
     setIsSending(false);
+    setShowAiToolbar(false);
+    setAiFeedback(null);
   }, [phone]);
 
   const handleSend = async (e?: React.FormEvent) => {
@@ -93,6 +108,7 @@ const WhatsAppChatComposer = memo(function WhatsAppChatComposer({
     if (!messageText || isSending || disabled) return;
     setIsSending(true);
     setInputText("");
+    setAiFeedback(null);
     try {
       await onSend(messageText);
     } finally {
@@ -100,23 +116,146 @@ const WhatsAppChatComposer = memo(function WhatsAppChatComposer({
     }
   };
 
+  const handlePolishWithAI = async (preset: TonePreset, customPrompt?: string) => {
+    setIsPolishingWithAI(true);
+    setAiFeedback(null);
+    try {
+      const res = await polishMessageWithAIAction({
+        currentMessage: inputText.trim(),
+        instruction: customPrompt || undefined,
+        messageKind: "CHAT_REPLY",
+        tonePreset: preset,
+        incomingCustomerMessage: incomingMessage,
+        recipientName,
+      });
+
+      if (res.success && res.data) {
+        setInputText(res.data.revisedMessage);
+        setAiFeedback(res.data.aiExplanation);
+        if (customPrompt) setAiInstruction("");
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsPolishingWithAI(false);
+    }
+  };
+
   return (
     <>
-      <div className="bg-white/95 backdrop-blur-md px-4 py-2 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0 mr-1 flex items-center gap-1">
-          <Sparkles size={11} className="text-amber-500" /> Quick:
-        </span>
-        {QUICK_TEMPLATES.map((tmpl, idx) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={() => setInputText(tmpl.text)}
-            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs"
-          >
-            {tmpl.label}
-          </button>
-        ))}
+      <div className="bg-white/95 backdrop-blur-md px-4 py-2 border-t border-slate-200 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0 mr-1 flex items-center gap-1">
+            <Sparkles size={11} className="text-amber-500" /> Quick:
+          </span>
+          {QUICK_TEMPLATES.map((tmpl, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setInputText(tmpl.text)}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs cursor-pointer"
+            >
+              {tmpl.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAiToolbar(!showAiToolbar)}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-black flex items-center gap-1 transition-all shrink-0 cursor-pointer ${
+            showAiToolbar
+              ? "bg-[#0F2540] text-white"
+              : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+          }`}
+        >
+          <Sparkles size={12} className={showAiToolbar ? "text-amber-400" : "text-emerald-600"} />
+          <span>{showAiToolbar ? "Hide AI" : "AI Assistant"}</span>
+        </button>
       </div>
+
+      {showAiToolbar && (
+        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 space-y-2 text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <span className="text-[10px] font-extrabold uppercase text-slate-500 shrink-0">
+              Sender AI:
+            </span>
+            {incomingMessage && (
+              <button
+                type="button"
+                disabled={isPolishingWithAI}
+                onClick={() => handlePolishWithAI("SUGGEST_REPLY")}
+                className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] transition-all cursor-pointer shadow-2xs shrink-0 disabled:opacity-50 flex items-center gap-1"
+              >
+                <span>💡 Auto-Suggest Reply</span>
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={!inputText.trim() || isPolishingWithAI}
+              onClick={() => handlePolishWithAI("POLISH")}
+              className="px-2.5 py-1 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              ✨ Polish Draft
+            </button>
+            <button
+              type="button"
+              disabled={isPolishingWithAI}
+              onClick={() => handlePolishWithAI("HINGLISH")}
+              className="px-2.5 py-1 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              🙏 Delhi-NCR Hinglish
+            </button>
+            <button
+              type="button"
+              disabled={!inputText.trim() || isPolishingWithAI}
+              onClick={() => handlePolishWithAI("CONCISE")}
+              className="px-2.5 py-1 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              ⚡ Short &amp; Direct
+            </button>
+            <button
+              type="button"
+              disabled={!inputText.trim() || isPolishingWithAI}
+              onClick={() => handlePolishWithAI("PROFESSIONAL_ENGLISH")}
+              className="px-2.5 py-1 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              💼 Formal English
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={aiInstruction}
+              onChange={(e) => setAiInstruction(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handlePolishWithAI("CUSTOM", aiInstruction);
+                }
+              }}
+              placeholder="Custom AI prompt (e.g. 'Politely ask student grade and board', 'Clarify tuition fees')..."
+              className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-500"
+            />
+            <button
+              type="button"
+              disabled={!aiInstruction.trim() || isPolishingWithAI}
+              onClick={() => handlePolishWithAI("CUSTOM", aiInstruction)}
+              className="px-3 py-1.5 rounded-xl bg-[#0F2540] hover:bg-[#1a3a60] text-white text-xs font-black flex items-center gap-1 cursor-pointer disabled:opacity-50 transition-all shrink-0"
+            >
+              {isPolishingWithAI ? <RefreshCw size={12} className="animate-spin" /> : <Wand2 size={12} />}
+              <span>Draft</span>
+            </button>
+          </div>
+
+          {aiFeedback && (
+            <p className="text-[11px] text-emerald-800 font-semibold bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
+              💡 {aiFeedback}
+            </p>
+          )}
+        </div>
+      )}
 
       <form
         onSubmit={handleSend}
@@ -141,7 +280,7 @@ const WhatsAppChatComposer = memo(function WhatsAppChatComposer({
         <button
           type="submit"
           disabled={!inputText.trim() || isSending || disabled}
-          className="h-10 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
+          className="h-10 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0 cursor-pointer"
         >
           {isSending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
           <span>Send</span>
@@ -156,6 +295,11 @@ export function WhatsAppChatInbox() {
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<WhatsAppChatMessageItem[]>([]);
   const [contact, setContact] = useState<WhatsAppChatContactDetails | null>(null);
+
+  const lastIncomingMessage = useMemo(() => {
+    const inbound = [...messages].reverse().find((m) => m.direction === "INBOUND");
+    return inbound?.body || "";
+  }, [messages]);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -1025,6 +1169,8 @@ export function WhatsAppChatInbox() {
                 phone={selectedPhone}
                 disabled={loadingMessages}
                 onSend={handleSendMessage}
+                incomingMessage={lastIncomingMessage}
+                recipientName={contact?.name}
               />
             </>
           ) : (

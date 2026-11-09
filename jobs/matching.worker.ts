@@ -109,9 +109,12 @@ export async function processLeadMatching(
 
   const channels = job.channels;
   const title = isOnline ? "🌐 New Online Tuition Lead Matched!" : "🎯 New Tuition Lead Matched!";
-  const message = isOnline
-    ? `A parent is looking for an online ${lead.classLevel} (${subjectLabel}) tutor (Pan-India). Unlock now to start classes.`
-    : `A parent is looking for a ${lead.classLevel} ${subjectLabel} tutor in ${locationLabel}. Unlock now to claim contact details.`;
+  const customMessage = job.customMessage?.trim();
+  const message =
+    customMessage ||
+    (isOnline
+      ? `A parent is looking for an online ${lead.classLevel} (${subjectLabel}) tutor (Pan-India). Unlock now to start classes.`
+      : `A parent is looking for a ${lead.classLevel} ${subjectLabel} tutor in ${locationLabel}. Unlock now to claim contact details.`);
 
   const wantsWhatsApp = channels?.includes("WHATSAPP") ?? false;
   const phoneByUserId = new Map<string, string | null>();

@@ -96,15 +96,27 @@ export default async function AdminUsersPage({
   }
 
   // ── Account Tag / Incomplete User Filter ──
+  // Rule: "Without phone number no entry"
+  // Default directory view only displays accounts with valid phone numbers.
+  // Incomplete accounts (e.g. Google OAuth drop-offs with no mobile) appear under `tag=INCOMPLETE`
+  // or when explicitly searching by email/name/phone.
   if (tagFilter === "INCOMPLETE") {
     andConditions.push({
-      customPermissions: { has: "tag:incomplete" },
+      OR: [
+        { customPermissions: { has: "tag:incomplete" } },
+        { phone: null },
+        { phone: "" },
+      ],
     });
-  } else if (tagFilter === "COMPLETE") {
+  } else if (!q && tagFilter !== "ALL_RAW") {
     andConditions.push({
       NOT: {
         customPermissions: { has: "tag:incomplete" },
       },
+      AND: [
+        { phone: { not: null } },
+        { phone: { not: "" } },
+      ],
     });
   }
 
@@ -208,7 +220,11 @@ export default async function AdminUsersPage({
     }),
     prisma.user.count({
       where: {
-        customPermissions: { has: "tag:incomplete" },
+        OR: [
+          { customPermissions: { has: "tag:incomplete" } },
+          { phone: null },
+          { phone: "" },
+        ],
       },
     }),
   ]);

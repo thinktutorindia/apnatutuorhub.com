@@ -476,7 +476,7 @@ function formatEmailBody(message: string): string {
   return formatted;
 }
 
-function buildEmailHtml(title: string, message: string, actionUrl?: string): string {
+export function buildEmailHtml(title: string, message: string, actionUrl?: string): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://apnatutorhub.com";
   const fullUrl = actionUrl
     ? actionUrl.startsWith("http")

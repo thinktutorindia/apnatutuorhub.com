@@ -43,6 +43,8 @@ import {
   Tag,
   Trash2,
   Edit3,
+  Mail,
+  Smartphone,
   X as CloseIcon,
 } from "lucide-react";
 import { TutorOnboardingWizard } from "@/components/tutor/onboarding/TutorOnboardingWizard";
@@ -412,11 +414,28 @@ export function AdminEditUserForm({
   const [isAddingNote, setIsAddingNote] = useState(false);
 
   // Custom Notification State
+  const initialChannel: "ALL" | "WEB" | "EMAIL" | "SMS" | "WHATSAPP" | "PUSH" =
+    user.phone && user.phone.replace(/\D/g, "").length >= 10
+      ? "WHATSAPP"
+      : user.email && !user.email.includes("@apnatutorhub")
+        ? "EMAIL"
+        : "WEB";
   const [notifTitle, setNotifTitle] = useState("");
   const [notifMessage, setNotifMessage] = useState("");
-  const [notifChannel, setNotifChannel] = useState<"WEB" | "EMAIL" | "SMS" | "WHATSAPP" | "PUSH">("WEB");
+  const [notifChannel, setNotifChannel] = useState<"ALL" | "WEB" | "EMAIL" | "SMS" | "WHATSAPP" | "PUSH">(initialChannel);
+  const [notifDeliveryReport, setNotifDeliveryReport] = useState<{ summary: string; success: boolean } | null>(null);
   const [isScheduleMode, setIsScheduleMode] = useState(false);
   const [scheduledAtDate, setScheduledAtDate] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const ch = params.get("channel")?.toUpperCase();
+      if (ch && ["ALL", "WHATSAPP", "EMAIL", "SMS", "WEB", "PUSH"].includes(ch)) {
+        setNotifChannel(ch as any);
+      }
+    }
+  }, []);
 
   const isTutor = role === "TUTOR";
 
@@ -476,6 +495,7 @@ export function AdminEditUserForm({
       return;
     }
 
+    setNotifDeliveryReport(null);
     startTransition(async () => {
       const res = await sendAdminCustomNotificationAction({
         targetUserId: user.id,
@@ -486,13 +506,13 @@ export function AdminEditUserForm({
       });
 
       if (!res.success) {
-        alert(res.error || "Failed to send notification.");
+        const errText = res.error || "Failed to send notification.";
+        setNotifDeliveryReport({ summary: errText, success: false });
+        alert(`❌ ${errText}`);
       } else {
-        alert(
-          isScheduleMode && scheduledAtDate
-            ? `🗓️ Custom notification scheduled for ${new Date(scheduledAtDate).toLocaleString("en-IN")}!`
-            : "🚀 Instant notification sent to user successfully!"
-        );
+        const summaryText = res.data?.summary || "🚀 Notification sent to user successfully!";
+        setNotifDeliveryReport({ summary: summaryText, success: true });
+        alert(summaryText);
         setNotifTitle("");
         setNotifMessage("");
         setScheduledAtDate("");
@@ -1488,17 +1508,17 @@ export function AdminEditUserForm({
         id="admin-notify"
         className="rounded-3xl p-6 sm:p-8 space-y-6 bg-white border border-slate-200 shadow-xl shadow-slate-200/50 scroll-mt-24"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-[#2D9E6B]">
               <Bell size={20} />
             </div>
             <div>
               <h2 className="text-lg font-black text-[#0F2540]">
-                Send or Schedule Custom User Notification / Alert
+                Send Custom Notification (WhatsApp, Email &amp; In-App)
               </h2>
               <p className="text-xs text-slate-500 font-semibold">
-                Dispatch an instant push/email alert or schedule a custom reminder for later.
+                Direct dispatch via Aqua SMS (WhatsApp) and Resend (Email), or schedule for later.
               </p>
             </div>
           </div>
@@ -1511,42 +1531,185 @@ export function AdminEditUserForm({
                 : "bg-blue-100 text-blue-900 border border-blue-300"
             }`}
           >
-            {isScheduleMode ? "🗓️ Schedule Mode Active" : "⚡ Instant Mode (Click to Schedule)"}
+            {isScheduleMode ? "🗓️ Schedule Mode Active" : "⚡ Instant Dispatch"}
           </button>
         </div>
 
+        {/* Recipient Contact Status Preview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold">
+          <div className="flex items-center gap-2.5">
+            <Smartphone size={16} className={user.phone ? "text-emerald-600" : "text-amber-500"} />
+            <div>
+              <span className="text-slate-500 block text-[10px] uppercase font-extrabold tracking-wider">Mobile / WhatsApp</span>
+              <span className="text-slate-900 font-black">
+                {user.phone ? `+91 ${user.phone}` : "No mobile on file (WhatsApp disabled)"}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <Mail size={16} className={user.email && !user.email.includes("@apnatutorhub") ? "text-blue-600" : "text-slate-400"} />
+            <div>
+              <span className="text-slate-500 block text-[10px] uppercase font-extrabold tracking-wider">Email (Resend)</span>
+              <span className="text-slate-900 font-black truncate max-w-[200px] block">
+                {user.email || "No email on file"}
+                {user.email?.includes("@apnatutorhub") && " (Auto-assigned)"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Delivery Report Banner */}
+        {notifDeliveryReport && (
+          <div
+            className={`p-4 rounded-2xl border text-xs font-bold whitespace-pre-line animate-in fade-in ${
+              notifDeliveryReport.success
+                ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                : "bg-rose-50 border-rose-300 text-rose-950"
+            }`}
+          >
+            <div className="flex items-center gap-2 font-black mb-1">
+              {notifDeliveryReport.success ? <CheckCircle2 size={16} className="text-emerald-600" /> : <AlertCircle size={16} className="text-rose-600" />}
+              <span>{notifDeliveryReport.success ? "Dispatch Summary" : "Dispatch Error"}</span>
+            </div>
+            <div>{notifDeliveryReport.summary}</div>
+          </div>
+        )}
+
+        {/* Quick Message Templates */}
+        <div>
+          <label className="mb-2 block text-xs font-extrabold text-slate-700">Quick Template Fill</label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setNotifTitle("Action Required: Complete Your KYC Verification");
+                setNotifMessage(
+                  `Hello ${user.name || "Tutor"},\n\nPlease upload your pending KYC documents (Aadhaar/ID proof & photo) in your ApnaTutorHub account so our team can approve your profile and grant you access to student enquiries.`
+                );
+              }}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer"
+            >
+              📋 KYC Verification Alert
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNotifTitle("New Tuition Enquiries Available in Your Area");
+                setNotifMessage(
+                  `Hello ${user.name || "Tutor"},\n\nNew tuition enquiries matching your subjects have just been posted in your locality. Log in to your ApnaTutorHub account to review details and apply before the slots fill up.`
+                );
+              }}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer"
+            >
+              🎯 New Student Lead Alert
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNotifTitle("Message from ApnaTutorHub Admin Team");
+                setNotifMessage(
+                  `Hello ${user.name || "User"},\n\nWe are following up regarding your ApnaTutorHub account. Please feel free to reply directly or contact our support if you have any questions or require assistance.`
+                );
+              }}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer"
+            >
+              💬 General Support Notice
+            </button>
+          </div>
+        </div>
+
         <form onSubmit={handleSendNotification} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div>
-              <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Notification Title *</label>
-              <input
-                value={notifTitle}
-                onChange={(e) => setNotifTitle(e.target.value)}
-                placeholder="e.g. Document Update Required or Lead Matched!"
-                required
-                className="w-full rounded-2xl px-4 py-3 text-xs text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Delivery Channel</label>
-              <select
-                value={notifChannel}
-                onChange={(e) => setNotifChannel(e.target.value as any)}
-                className="w-full rounded-2xl px-3.5 py-3 text-xs text-slate-900 outline-none bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-extrabold cursor-pointer"
+          {/* Channel Selector Cards */}
+          <div>
+            <label className="mb-2 block text-xs font-extrabold text-slate-700">
+              Select Delivery Channel *
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setNotifChannel("WHATSAPP")}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  notifChannel === "WHATSAPP"
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-950 shadow-sm ring-2 ring-emerald-500/20"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
               >
-                <option value="WEB" className="text-slate-900 font-bold">WEB (In-App Notification Bell)</option>
-                <option value="EMAIL" className="text-slate-900 font-bold">EMAIL (Direct Email Alert)</option>
-                <option value="SMS" className="text-slate-900 font-bold">SMS (Phone SMS Alert)</option>
-                <option value="WHATSAPP" className="text-slate-900 font-bold">WHATSAPP (Message Alert)</option>
-                <option value="PUSH" className="text-slate-900 font-bold">PUSH (Mobile / Web Push Alert)</option>
-              </select>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-base">🟢</span>
+                  <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Aqua</span>
+                </div>
+                <div className="font-extrabold text-xs">WhatsApp Direct</div>
+                <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Phone message</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNotifChannel("EMAIL")}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  notifChannel === "EMAIL"
+                    ? "bg-blue-50 border-blue-500 text-blue-950 shadow-sm ring-2 ring-blue-500/20"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-base">✉️</span>
+                  <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">Resend</span>
+                </div>
+                <div className="font-extrabold text-xs">Direct Email</div>
+                <div className="text-[10px] text-slate-500 font-semibold mt-0.5">HTML via Resend</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNotifChannel("ALL")}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  notifChannel === "ALL"
+                    ? "bg-purple-50 border-purple-500 text-purple-950 shadow-sm ring-2 ring-purple-500/20"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-base">🚀</span>
+                  <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">Multi</span>
+                </div>
+                <div className="font-extrabold text-xs">All Channels</div>
+                <div className="text-[10px] text-slate-500 font-semibold mt-0.5">WA + Email + Bell</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNotifChannel("WEB")}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  notifChannel === "WEB"
+                    ? "bg-slate-100 border-slate-400 text-slate-900 shadow-sm ring-2 ring-slate-400/20"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-base">🔔</span>
+                  <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">In-App</span>
+                </div>
+                <div className="font-extrabold text-xs">Dashboard Bell</div>
+                <div className="text-[10px] text-slate-500 font-semibold mt-0.5">Bell only (no SMS)</div>
+              </button>
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Notification Title *</label>
+            <input
+              value={notifTitle}
+              onChange={(e) => setNotifTitle(e.target.value)}
+              placeholder="e.g. Document Update Required or Lead Matched!"
+              required
+              className="w-full rounded-2xl px-4 py-3 text-xs text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] font-bold"
+            />
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-extrabold text-slate-700">Notification Message Body *</label>
             <textarea
-              rows={3}
+              rows={4}
               value={notifMessage}
               onChange={(e) => setNotifMessage(e.target.value)}
               placeholder="Enter custom message to send to user..."
@@ -1574,10 +1737,20 @@ export function AdminEditUserForm({
           <button
             type="submit"
             disabled={isPending || !notifTitle.trim() || !notifMessage.trim()}
-            className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs sm:text-sm transition-all cursor-pointer shadow-lg shadow-blue-500/20 active:scale-98 disabled:opacity-50"
+            className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white font-black text-xs sm:text-sm transition-all cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-98 disabled:opacity-50"
           >
             {isScheduleMode ? <Clock size={18} /> : <Send size={18} />}
-            <span>{isScheduleMode ? "Schedule Notification for Later" : "Send Instant Custom Notification"}</span>
+            <span>
+              {isScheduleMode
+                ? "Schedule Notification for Later"
+                : notifChannel === "ALL"
+                  ? "🚀 Send Instant Broadcast (WhatsApp + Email + In-App)"
+                  : notifChannel === "WHATSAPP"
+                    ? "🟢 Send Instant WhatsApp Message via Aqua"
+                    : notifChannel === "EMAIL"
+                      ? "✉️ Send Instant Email via Resend"
+                      : "🔔 Post In-App Notification Bell"}
+            </span>
           </button>
         </form>
       </div>

@@ -102,7 +102,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
         </Link>
 
         <Link
-          href={`/admin/users/${user.id}/edit#admin-notify`}
+          href={`/admin/users/${user.id}/edit?channel=WHATSAPP#admin-notify`}
           className={`${actionBtnClass} bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-200`}
           title="Send custom notification (WhatsApp, email, in-app)"
         >

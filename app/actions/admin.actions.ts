@@ -21,8 +21,9 @@ import { maskPhoneNumber } from "@/lib/mask-utils";
 import { hasSubjectOverlap, coversClassLevel, isGenderCompatible } from "@/lib/matching-engine";
 import { geocodeAddressWithGemini } from "@/lib/gemini-geocoder";
 import { processReferralRewardOnKyc } from "@/app/actions/referral.actions";
-import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS } from "@/lib/lead-utils";
-import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
+import { getNextInquiryNumber, getInquiryDisplayCode, isTill5thClass, getLeadRateType, PUBLIC_TUTOR_SLOTS, isGenuineEmail } from "@/lib/lead-utils";
+import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage, getAquaWhatsAppConfig } from "@/lib/aqua-whatsapp";
+import { dispatchEmail, buildEmailHtml } from "@/lib/aws-notification";
 import {
   buildIndiaPhoneOrFilter,
   canonicalIndiaPhone,
@@ -1304,13 +1305,10 @@ export async function adminCreateLeadAction(
     const skipped = Array.isArray(requested) && notifyChannels.length === 0;
     if (!skipped) {
       try {
-        await dispatchLeadMatching(
-          newLead.id,
-          {
-            channels: notifyChannels.length > 0 ? notifyChannels : undefined,
-            customMessage: input.customNotificationMsg?.trim() || undefined,
-          }
-        );
+        await dispatchLeadMatching(newLead.id, {
+          channels: notifyChannels.length > 0 ? notifyChannels : undefined,
+          customMessage: input.customNotificationMsg?.trim() || undefined,
+        });
       } catch (err) {
         console.error("[adminCreateLeadAction] Error dispatching matching:", err);
       }
@@ -3525,8 +3523,13 @@ export async function sendAdminCustomNotificationAction(data: {
   title: string;
   message: string;
   scheduledAt?: string;
-  channel?: "WEB" | "EMAIL" | "SMS" | "WHATSAPP" | "PUSH";
-}): Promise<ActionResult<{ id: string }>> {
+  channel?: "ALL" | "WEB" | "EMAIL" | "SMS" | "WHATSAPP" | "PUSH";
+}): Promise<ActionResult<{
+  id: string;
+  summary: string;
+  whatsappResult?: { ok: boolean; messageId?: string; error?: string };
+  emailResult?: { ok: boolean; error?: string };
+}>> {
   const session = await auth();
   if (!session?.user || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "SUB_ADMIN")) {
     return actionError("Unauthorized: Admin access required.");
@@ -3536,56 +3539,142 @@ export async function sendAdminCustomNotificationAction(data: {
     return actionError("Title and message are required.");
   }
 
-  const schedDate = data.scheduledAt ? new Date(data.scheduledAt) : new Date();
+  const target = await prisma.user.findUnique({
+    where: { id: data.targetUserId },
+    select: { id: true, name: true, email: true, phone: true },
+  });
 
-  const channel = data.channel || "WEB";
-  if (channel === "WHATSAPP" && !data.scheduledAt) {
-    const target = await prisma.user.findUnique({
-      where: { id: data.targetUserId },
-      select: { phone: true },
-    });
-    const to = normalizeIndiaWhatsApp(target?.phone || "");
-    if (!to) {
-      return actionError("This user has no valid WhatsApp number.");
-    }
-    const body = `*${data.title.trim()}*\n\n${data.message.trim()}`;
-    const waRes = await sendAquaWhatsAppMessage({
-      to,
-      mode: "text",
-      text: body,
-      bypassDailyCap: true,
-    });
-    if (!waRes.ok) {
-      return actionError(waRes.error || "WhatsApp did not send. User may be outside the 24-hour chat window.");
-    }
-    await prisma.whatsappChatMessage.create({
-      data: {
-        phone: to,
-        direction: "OUTBOUND",
-        senderName: "Admin",
-        body,
-        step: "ADMIN_CUSTOM",
-        messageId: waRes.providerMessageId || null,
-        isRead: true,
-      },
-    }).catch(() => {});
+  if (!target) {
+    return actionError("Target user not found.");
   }
 
+  const schedDate = data.scheduledAt ? new Date(data.scheduledAt) : new Date();
+  const channel = data.channel || "WHATSAPP";
+  const resultsReport: string[] = [];
+  let whatsappResult: { ok: boolean; messageId?: string; error?: string } | undefined;
+  let emailResult: { ok: boolean; error?: string } | undefined;
+
+  // 1. WhatsApp Dispatch (if channel is WHATSAPP, ALL, or SMS)
+  if ((channel === "WHATSAPP" || channel === "ALL" || channel === "SMS") && !data.scheduledAt) {
+    const to = normalizeIndiaWhatsApp(target.phone || "");
+    if (!to) {
+      if (channel === "WHATSAPP" || channel === "SMS") {
+        return actionError("This user has no valid mobile/WhatsApp number on file.");
+      }
+      resultsReport.push("⚠️ WhatsApp skipped: No phone on file.");
+    } else {
+      const body = `*${data.title.trim()}*\n\n${data.message.trim()}`;
+      let waRes = await sendAquaWhatsAppMessage({
+        to,
+        mode: "text",
+        text: body,
+        bypassDailyCap: true,
+      });
+
+      // If freeform text mode fails (e.g. 24-hour Meta window closed), attempt with approved utility template
+      if (
+        !waRes.ok &&
+        (waRes.error?.includes("24") ||
+          waRes.rawStatus?.includes("131047") ||
+          waRes.error?.toLowerCase().includes("template"))
+      ) {
+        const aquaCfg = getAquaWhatsAppConfig();
+        const templateId = aquaCfg.defaultTemplateId || "information2";
+        const fallbackRes = await sendAquaWhatsAppMessage({
+          to,
+          mode: "template",
+          templateId,
+          placeholders: [data.title.trim(), data.message.trim()],
+          bypassDailyCap: true,
+        });
+        if (fallbackRes.ok) {
+          waRes = fallbackRes;
+        }
+      }
+
+      if (waRes.ok) {
+        whatsappResult = { ok: true, messageId: waRes.providerMessageId };
+        resultsReport.push(
+          `✅ WhatsApp delivered to +${to}${waRes.providerMessageId ? ` (ID: ${waRes.providerMessageId})` : ""}`
+        );
+
+        await prisma.whatsappChatMessage.create({
+          data: {
+            phone: to,
+            direction: "OUTBOUND",
+            senderName: "Admin",
+            body,
+            step: "ADMIN_CUSTOM",
+            messageId: waRes.providerMessageId || null,
+            isRead: true,
+          },
+        }).catch(() => {});
+      } else {
+        whatsappResult = { ok: false, error: waRes.error };
+        resultsReport.push(`❌ WhatsApp error: ${waRes.error || "Provider delivery failed"}`);
+        if (channel === "WHATSAPP") {
+          return actionError(waRes.error || "WhatsApp delivery failed via Aqua SMS.");
+        }
+      }
+    }
+  }
+
+  // 2. Email Dispatch via Resend (if channel is EMAIL or ALL)
+  if ((channel === "EMAIL" || channel === "ALL") && !data.scheduledAt) {
+    if (!target.email || !isGenuineEmail(target.email)) {
+      if (channel === "EMAIL") {
+        return actionError("This user does not have a genuine email address (e.g. auto-assigned or missing).");
+      }
+      resultsReport.push("⚠️ Email skipped: User has an auto-generated or missing email.");
+    } else {
+      const emailHtml = buildEmailHtml(data.title.trim(), data.message.trim());
+      const emailRes = await dispatchEmail(
+        target.email,
+        data.title.trim(),
+        emailHtml,
+        data.message.trim()
+      );
+
+      if (emailRes.success) {
+        emailResult = { ok: true };
+        resultsReport.push(`✅ Email delivered via Resend to ${target.email}`);
+      } else {
+        emailResult = { ok: false, error: emailRes.error };
+        resultsReport.push(`❌ Email error: ${emailRes.error || "Resend send failed"}`);
+        if (channel === "EMAIL") {
+          return actionError(emailRes.error || "Email delivery failed via Resend.");
+        }
+      }
+    }
+  }
+
+  // 3. In-App Notification (Always recorded in DB)
   const notif = await prisma.notification.create({
     data: {
       userId: data.targetUserId,
       title: data.title.trim(),
       message: data.message.trim(),
       type: "ADMIN_ALERT",
-      channel: channel as any,
+      channel: (channel === "ALL" ? "WEB" : channel) as any,
       scheduledAt: schedDate,
       status: data.scheduledAt ? "PENDING" : "SENT",
     },
   });
+  resultsReport.push("🔔 In-App notification recorded in user dashboard.");
 
   revalidatePath(`/admin/users/${data.targetUserId}/edit`);
   revalidatePath("/notifications");
-  return actionSuccess({ id: notif.id });
+
+  const summary = data.scheduledAt
+    ? `🗓️ Custom notification scheduled for ${schedDate.toLocaleString("en-IN")}`
+    : resultsReport.join("\n");
+
+  return actionSuccess({
+    id: notif.id,
+    summary,
+    whatsappResult,
+    emailResult,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@
 import { auth } from "@/auth";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
 import { formatLeadBudget, getInquiryDisplayCode, getInquiryHashTag, isTill8thClass } from "@/lib/lead-utils";
+import { GEMINI_TEXT_MODEL_CASCADE } from "@/lib/gemini-models";
 
 export type MessageKind = "LEAD_NOTIFICATION" | "CHAT_REPLY" | "BLAST_PITCH" | "GENERAL";
 
@@ -389,8 +390,7 @@ async function callGeminiViaSdk(prompt: string, apiKey: string): Promise<string 
   try {
     const { GoogleGenAI } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey });
-    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
-    for (const model of models) {
+    for (const model of GEMINI_TEXT_MODEL_CASCADE) {
       try {
         const response = await ai.models.generateContent({
           model,
@@ -517,9 +517,8 @@ Respond with strictly valid JSON:
     }
   }
 
-  // REST Fallback for resilient hosting
-  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
-  for (const model of models) {
+  // REST Fallback for resilient hosting — current model cascade (see lib/gemini-models.ts)
+  for (const model of GEMINI_TEXT_MODEL_CASCADE) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 18000);

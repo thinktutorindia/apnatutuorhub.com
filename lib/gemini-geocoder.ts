@@ -16,6 +16,8 @@ export interface GeocodedLocation {
   pincode?: string;
 }
 
+import { GEMINI_TEXT_MODEL_CASCADE } from "@/lib/gemini-models";
+
 const geocodeCache = new Map<string, GeocodedLocation>();
 
 function normalizeKey(address: string, city?: string | null, pincode?: string | null): string {
@@ -70,7 +72,7 @@ export async function geocodeAddressWithGemini(opts: {
     process.env.GOOGLE_GENAI_API_KEY;
 
   if (apiKey) {
-    const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
+    const models = GEMINI_TEXT_MODEL_CASCADE;
     const query = [address, city, opts.state, pincode, "India"].filter(Boolean).join(", ");
 
     const prompt = `Return the approximate GPS coordinates (latitude and longitude) for this location in India: "${query}".

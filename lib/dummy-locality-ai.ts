@@ -10,6 +10,8 @@
 
 export type NearbyLocality = { name: string; city: string; distanceKm: number };
 
+import { GEMINI_TEXT_MODEL_CASCADE } from "@/lib/gemini-models";
+
 const cache = new Map<string, NearbyLocality[]>();
 
 // ─── Known High-Density Micro Clusters ────────────────────────────────────────
@@ -220,7 +222,7 @@ async function callGeminiLocalities(prompt: string): Promise<NearbyLocality[] | 
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
   if (!apiKey) return null;
 
-  const models = ["gemini-2.0-flash", "gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
+  const models = GEMINI_TEXT_MODEL_CASCADE;
 
   for (const model of models) {
     const controller = new AbortController();

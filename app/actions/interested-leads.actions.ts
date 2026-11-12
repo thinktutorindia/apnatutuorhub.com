@@ -23,6 +23,11 @@ import { revalidatePath } from "next/cache";
 import { haversineDistanceKm } from "@/lib/haversine";
 import { formatRichNearbyLocation } from "@/lib/format-rich-nearby-location";
 import { getWhatsAppReachability, waitForWhatsAppDeliveryStatus } from "@/lib/whatsapp-blast-phone";
+import {
+  resolveBlastFee,
+  sanitizeBlastFeeOverrides,
+  type BlastFeeOverrides,
+} from "@/lib/whatsapp-blast-fees";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -669,6 +674,18 @@ export type SendDummyNotifInput = {
   channels: Array<"WHATSAPP" | "IN_APP">;
   /** When true, never attempt freeform session text — always use tuition_enquiry_direct */
   forceApprovedTemplate?: boolean;
+  /**
+   * Admin-controlled fees per class band (e.g. "₹6,500/month"). Substituted into
+   * {{fee}} and the approved-template Budget line. Empty/missing = system default.
+   */
+  feeOverrides?: BlastFeeOverrides;
+  /**
+   * Geo reference for 5km classification. Defaults to the SAME Delhi center the
+   * lead list uses, so the live preview and the dispatch classify identically.
+   */
+  referenceLat?: number;
+  referenceLng?: number;
+  radiusKm?: number;
 };
 
 export async function sendDummyNotificationsToInterestedLeadsAction(
@@ -723,6 +740,45 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
       })
     : [];
 
+  // Match registered tutor profiles by phone for STAFF leads too — exactly like
+  // getInterestedLeadsAction() does when building the preview list. Without this,
+  // dispatch would classify leads without tutor coords (fake "2.4 km" branch) and
+  // send a DIFFERENT template than the one shown in the live preview.
+  const blastPhones = staffLeads
+    .map((l) => l.phone || l.whatsapp)
+    .filter(Boolean) as string[];
+  const blastPhone10s = blastPhones.map((p) => p.slice(-10));
+  const blastProfiles = blastPhones.length
+    ? await prisma.user.findMany({
+        where: {
+          OR: [
+            { phone: { in: blastPhones } },
+            { phone: { in: blastPhone10s } },
+          ],
+        },
+        select: {
+          phone: true,
+          tutorProfile: {
+            select: {
+              latitude: true,
+              longitude: true,
+              city: true,
+              address: true,
+              subjects: true,
+              classLevels: true,
+            },
+          },
+        },
+      })
+    : [];
+  const profileByPhone = new Map<string, any>();
+  for (const u of blastProfiles) {
+    if (u.phone) {
+      profileByPhone.set(u.phone, u.tutorProfile);
+      profileByPhone.set(u.phone.slice(-10), u.tutorProfile);
+    }
+  }
+
   type BlastRecipient = {
     kind: "STAFF_LEAD" | "USER_DIRECTORY";
     id: string;
@@ -744,18 +800,23 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
   };
 
   const leads: BlastRecipient[] = [
-    ...staffLeads.map((l) => ({
-      kind: "STAFF_LEAD" as const,
-      id: l.id,
-      name: l.name,
-      phone: l.phone,
-      whatsapp: l.whatsapp,
-      email: l.email,
-      location: l.location,
-      subjects: l.subjects,
-      classes: l.classes,
-      tutorProfile: null,
-    })),
+    ...staffLeads.map((l) => {
+      const rawP = l.phone || l.whatsapp || "";
+      return {
+        kind: "STAFF_LEAD" as const,
+        id: l.id,
+        name: l.name,
+        phone: l.phone,
+        whatsapp: l.whatsapp,
+        email: l.email,
+        location: l.location,
+        subjects: l.subjects,
+        classes: l.classes,
+        tutorProfile: rawP
+          ? profileByPhone.get(rawP) || profileByPhone.get(rawP.slice(-10)) || null
+          : null,
+      };
+    }),
     ...directoryUsers.map((u) => ({
       kind: "USER_DIRECTORY" as const,
       id: u.id,
@@ -776,6 +837,14 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
   let simulated = 0;
   let failed = 0;
 
+  // Same reference coords + radius the preview list used → identical deliveryMode,
+  // distance and location label between preview and actual dispatch.
+  const refCoords = input.referenceLat && input.referenceLng
+    ? { lat: input.referenceLat, lng: input.referenceLng }
+    : { lat: 28.5355, lng: 77.2410 };
+  const radiusKm = input.radiusKm ?? 5;
+  const feeOverrides = sanitizeBlastFeeOverrides(input.feeOverrides);
+
   // Process leads concurrently in small chunks (concurrency 5) to ensure high throughput
   // without exceeding DB pool or hitting serverless HTTP timeouts
   const CONCURRENCY = 5;
@@ -783,7 +852,16 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
     const chunk = leads.slice(idx, idx + CONCURRENCY);
     await Promise.all(
       chunk.map(async (lead) => {
-        const meta = enrichLeadWithBusinessRules(lead, lead.tutorProfile ?? null);
+        const meta = enrichLeadWithBusinessRules(lead, lead.tutorProfile ?? null, refCoords, radiusKm);
+        // Admin-controlled fee per class band — same resolver the live preview uses
+        const effectiveFee = resolveBlastFee(
+          {
+            classCategory: meta.classCategory,
+            classLabel: meta.classLabel,
+            recommendedFee: meta.recommendedFee,
+          },
+          feeOverrides
+        );
 
         // Rule: If tutor is 5km nearby -> use offlineTemplate; If tutor has no location -> use onlineTemplate
         const rawTemplate = meta.deliveryMode === "OFFLINE_5KM"
@@ -834,7 +912,7 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
             .replace(/\{\{phone\}\}/gi, lead.phone || lead.whatsapp || "")
             .replace(/\{\{class\}\}/gi, safeClass)
             .replace(/\{\{subject\}\}/gi, meta.recommendedSubject)
-            .replace(/\{\{fee\}\}/gi, meta.recommendedFee)
+            .replace(/\{\{fee\}\}/gi, effectiveFee)
             .replace(/\{\{location\}\}/gi, loc)
             .replace(/\{\{mode\}\}/gi, mode);
 
@@ -871,7 +949,7 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
               classLine: `${safeClass} (${meta.recommendedSubject})`,
               modeLine: is5Km ? "Home Tuition (Offline)" : "Online Class",
               locationLine: loc,
-              feeLine: meta.recommendedFee,
+              feeLine: effectiveFee,
               // Freeform Hinglish pitch only inside Meta 24h window; otherwise approved template
               preferSessionText: !forceTemplate && reach.within24h,
               hasWhatsAppInbound: reach.hasInbound,

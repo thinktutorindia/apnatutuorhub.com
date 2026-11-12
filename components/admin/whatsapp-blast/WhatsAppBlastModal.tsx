@@ -4,7 +4,7 @@ import React, { useState, useEffect, useTransition, useMemo } from "react";
 import {
   X, MessageCircle, Sparkles, Send, MapPin, Users, Loader2,
   CheckCircle2, AlertCircle, RefreshCw, Search, CheckSquare, Square,
-  Filter, ArrowRight, Bot, IndianRupee, Clock, ChevronRight, ShieldCheck,
+  Filter, ArrowRight, Bot, IndianRupee, Clock, ChevronRight, ChevronLeft, ShieldCheck,
   TrendingUp, TrendingDown, Flame, Check, HelpCircle, Globe, Home
 } from "lucide-react";
 import Link from "next/link";
@@ -17,6 +17,14 @@ import {
   type NotifDeliveryResult,
 } from "@/app/actions/interested-leads.actions";
 import { editWhatsAppPitchWithAIAction } from "@/app/actions/ai-message-edit.actions";
+import {
+  resolveBlastFee,
+  blastFeeBandForLead,
+  BLAST_FEE_BAND_DEFAULTS,
+  BLAST_FEE_BAND_LABELS,
+  type BlastFeeBandKey,
+  type BlastFeeOverrides,
+} from "@/lib/whatsapp-blast-fees";
 
 interface Props {
   isOpen: boolean;
@@ -87,6 +95,11 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
   const [audienceSource, setAudienceSource] = useState<"INTERESTED" | "USER_DIRECTORY">("INTERESTED");
   /** ALL = mixed · SESSION_OPEN = freeform OK · TEMPLATE_ONLY = outside 24h → approved Meta template */
   const [sessionFilter, setSessionFilter] = useState<"ALL" | "SESSION_OPEN" | "TEMPLATE_ONLY">("ALL");
+
+  // Admin-controlled fees per class band — substituted into {{fee}} for both the
+  // live preview AND the actual dispatch (passed to the server action on send).
+  const [feeOverrides, setFeeOverrides] = useState<BlastFeeOverrides>({ ...BLAST_FEE_BAND_DEFAULTS });
+  const [showFeeControl, setShowFeeControl] = useState(false);
 
   // Dual Templates state (5km In-Person vs Online Mode)
   const [offlineTemplate, setOfflineTemplate] = useState<string>(DEFAULT_OFFLINE_TEMPLATE);
@@ -333,6 +346,32 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     return leads[0] || null;
   }, [leads, focusedLeadId, selectedIds]);
 
+  // Which fee bands exist in the selected audience (badges in the Fee Control panel)
+  const selectedBandCounts = useMemo(() => {
+    const counts: Record<BlastFeeBandKey, number> = { "1-5": 0, "6-8": 0, "9-10": 0, "11-12": 0 };
+    for (const l of leads) {
+      if (!selectedIds.includes(l.id)) continue;
+      const band = blastFeeBandForLead(l);
+      if (band) counts[band] += 1;
+    }
+    return counts;
+  }, [leads, selectedIds]);
+
+  // Selected (displayed) leads in list order — used to cycle the live preview
+  const previewCycle = useMemo(
+    () => displayedLeads.filter((l) => selectedIds.includes(l.id)),
+    [displayedLeads, selectedIds]
+  );
+
+  const cyclePreview = (dir: 1 | -1) => {
+    if (!previewCycle.length) return;
+    const idx = previewCycle.findIndex((l) => l.id === focusedLead?.id);
+    const nextIdx = idx === -1 ? 0 : (idx + dir + previewCycle.length) % previewCycle.length;
+    const nextLead = previewCycle[nextIdx];
+    setFocusedLeadId(nextLead.id);
+    setActiveTemplateTab(nextLead.deliveryMode === "OFFLINE_5KM" ? "OFFLINE" : "ONLINE");
+  };
+
   // Lead preview text
   const forceApprovedTemplate = sessionFilter === "TEMPLATE_ONLY";
 
@@ -357,6 +396,10 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
       safeClass = "Class 5";
     }
 
+    // Admin-controlled fee per class band — the exact same resolver the server
+    // dispatch uses, so what the admin sees here is what the tutor receives.
+    const effectiveFee = resolveBlastFee(focusedLead, feeOverrides);
+
     const usesApprovedTemplate =
       forceApprovedTemplate || (Boolean(focusedLead.whatsAppReachable) && !focusedLead.within24hSession);
 
@@ -364,7 +407,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     if (usesApprovedTemplate) {
       const inquiryCode = focusedLead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
       const clientDisplayName = "Parent";
-      return `*Approved template: tuition_enquiry_direct*\n\nWe recently received an Enquiry for you with following details:\n\n🆕 Enquiry ID : #${inquiryCode}\n💬 Name : ${clientDisplayName}\n📝 Class : ${safeClass} (${focusedLead.recommendedSubject})\n📚 Subject : ${modeLine}\n📍 Area : ${loc}\n💵 Budget : ${focusedLead.recommendedFee}\n📌 Mode : Any (Male or Female Tutor)\n\nPlease check this and Respond\nContact 08062180653\nApnaTutorHub (Reply STOP to Unsubscribe)`;
+      return `*Approved template: tuition_enquiry_direct*\n\nWe recently received an Enquiry for you with following details:\n\n🆕 Enquiry ID : #${inquiryCode}\n💬 Name : ${clientDisplayName}\n📝 Class : ${safeClass} (${focusedLead.recommendedSubject})\n📚 Subject : ${modeLine}\n📍 Area : ${loc}\n💵 Budget : ${effectiveFee}\n📌 Mode : Any (Male or Female Tutor)\n\nPlease check this and Respond\nContact 08062180653\nApnaTutorHub (Reply STOP to Unsubscribe)`;
     }
 
     // Use offlineTemplate if lead is within 5km, else onlineTemplate
@@ -394,10 +437,10 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
       .replace(/\{\{phone\}\}/gi, focusedLead.phone || focusedLead.whatsapp || "")
       .replace(/\{\{class\}\}/gi, safeClass)
       .replace(/\{\{subject\}\}/gi, focusedLead.recommendedSubject)
-      .replace(/\{\{fee\}\}/gi, focusedLead.recommendedFee)
+      .replace(/\{\{fee\}\}/gi, effectiveFee)
       .replace(/\{\{location\}\}/gi, loc)
       .replace(/\{\{mode\}\}/gi, mode);
-  }, [focusedLead, offlineTemplate, onlineTemplate, activeTemplate, forceApprovedTemplate]);
+  }, [focusedLead, offlineTemplate, onlineTemplate, activeTemplate, forceApprovedTemplate, feeOverrides]);
 
   // Selected leads breakdown
   const selectedBreakdown = useMemo(() => {
@@ -438,8 +481,8 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     if (selectedIds.length === 0) return;
 
     const confirmMsg = forceApprovedTemplate
-      ? `Dispatch APPROVED TEMPLATE (tuition_enquiry_direct) to ${selectedIds.length} tutors outside the 24h session?\n\n• Meta blocks freeform Hinglish outside 24h — only the approved Utility template will be sent.\n• ${selectedBreakdown.offlineCount} nearby (5km) + ${selectedBreakdown.onlineCount} online mapped into template fields.`
-      : `Are you sure you want to dispatch WhatsApp notifications to ${selectedIds.length} tutors?\n\n• ${selectedBreakdown.offlineCount} tutors with 5km location will receive the 5km In-Person pitch.\n• ${selectedBreakdown.onlineCount} tutors without location will receive the Online Mode pitch.\n• Tutors outside 24h auto-fallback to approved template.`;
+      ? `Dispatch APPROVED TEMPLATE (tuition_enquiry_direct) to ${selectedIds.length} tutors outside the 24h session?\n\n• Meta blocks freeform Hinglish outside 24h — only the approved Utility template will be sent.\n• ${selectedBreakdown.offlineCount} nearby (5km) + ${selectedBreakdown.onlineCount} online mapped into template fields.\n• Fees per class: 1–5 ${feeOverrides["1-5"] || BLAST_FEE_BAND_DEFAULTS["1-5"]} · 6–8 ${feeOverrides["6-8"] || BLAST_FEE_BAND_DEFAULTS["6-8"]} · 9–10 ${feeOverrides["9-10"] || BLAST_FEE_BAND_DEFAULTS["9-10"]} · 11–12 ${feeOverrides["11-12"] || BLAST_FEE_BAND_DEFAULTS["11-12"]}`
+      : `Are you sure you want to dispatch WhatsApp notifications to ${selectedIds.length} tutors?\n\n• ${selectedBreakdown.offlineCount} tutors with 5km location will receive the 5km In-Person pitch.\n• ${selectedBreakdown.onlineCount} tutors without location will receive the Online Mode pitch.\n• Tutors outside 24h auto-fallback to approved template.\n• Fees per class: 1–5 ${feeOverrides["1-5"] || BLAST_FEE_BAND_DEFAULTS["1-5"]} · 6–8 ${feeOverrides["6-8"] || BLAST_FEE_BAND_DEFAULTS["6-8"]} · 9–10 ${feeOverrides["9-10"] || BLAST_FEE_BAND_DEFAULTS["9-10"]} · 11–12 ${feeOverrides["11-12"] || BLAST_FEE_BAND_DEFAULTS["11-12"]}`;
 
     if (!confirm(confirmMsg)) {
       return;
@@ -485,6 +528,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
             onlineTemplate,
             channels: ["WHATSAPP"],
             forceApprovedTemplate,
+            feeOverrides,
           });
 
           if (res.success && res.data) {
@@ -919,7 +963,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                             {lead.classLabel}
                           </span>
                           <span className="text-[9px] font-black text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                            {lead.recommendedFee}
+                            {resolveBlastFee(lead, feeOverrides)}
                           </span>
                           <span className="text-[9px] font-semibold text-slate-500 truncate max-w-[130px]">
                             {lead.recommendedSubject}
@@ -1013,6 +1057,63 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
               <span className="font-bold text-slate-800">
                 {activeTemplateTab === "OFFLINE" ? "Class 1–8: Monthly · Class 9–12: Hourly" : "Online Class: Hourly/Monthly"}
               </span>
+            </div>
+
+            {/* ── Fee Control (per class band) — admin overrides for {{fee}} ── */}
+            <div className="p-2.5 rounded-2xl bg-amber-50/70 border border-amber-200">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowFeeControl(!showFeeControl)}
+                  className="flex items-center gap-1.5 cursor-pointer"
+                >
+                  <IndianRupee size={13} className="text-amber-700" />
+                  <span className="text-[11px] font-black text-amber-950">
+                    Fee Control — {"{{fee}}"} per Class Band
+                  </span>
+                  <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-md border border-amber-300">
+                    {showFeeControl ? "Hide ▲" : "Edit Fees ▼"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFeeOverrides({ ...BLAST_FEE_BAND_DEFAULTS })}
+                  title="Reset all fees to system defaults"
+                  className="text-[10px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer shrink-0"
+                >
+                  ↺ Defaults
+                </button>
+              </div>
+              <p className="text-[10px] text-amber-900/80 font-semibold mt-1">
+                You control the fee quoted to each tutor, by their class. Applies to {"{{fee}}"} in both
+                templates AND the approved-template Budget line — preview updates live.
+              </p>
+              {showFeeControl && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2">
+                  {(Object.keys(BLAST_FEE_BAND_DEFAULTS) as BlastFeeBandKey[]).map((band) => (
+                    <div key={band} className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-black text-slate-700 shrink-0 w-[112px]">
+                        {BLAST_FEE_BAND_LABELS[band]}
+                      </span>
+                      <input
+                        type="text"
+                        value={feeOverrides[band] ?? ""}
+                        onChange={(e) =>
+                          setFeeOverrides((prev) => ({ ...prev, [band]: e.target.value }))
+                        }
+                        placeholder={BLAST_FEE_BAND_DEFAULTS[band]}
+                        className="flex-1 min-w-0 px-2 py-1 rounded-lg border border-amber-300 bg-white text-[11px] font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <span
+                        className="text-[9px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0"
+                        title={`${selectedBandCounts[band]} selected tutors in this class band`}
+                      >
+                        {selectedBandCounts[band]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* ── Interactive AI Chat Drawer ── */}
@@ -1166,21 +1267,49 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
               {/* Box 2: Live WhatsApp Message Preview */}
               <div className="flex flex-col min-h-0 bg-[#EFEAE2] rounded-2xl p-3 border border-slate-300 shadow-2xs">
                 <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-black/10">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 truncate">
                       Live Preview for: <strong className="text-slate-900">{focusedLead?.name || "Tutor"}</strong>
                     </span>
                   </div>
-                  {focusedLead && (
-                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-md ${
-                      focusedLead.deliveryMode === "OFFLINE_5KM"
-                        ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
-                        : "bg-blue-100 text-blue-900 border border-blue-300"
-                    }`}>
-                      {focusedLead.deliveryMode === "OFFLINE_5KM" ? "📍 5km In-Person" : "🌐 Online Mode"}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {focusedLead && (
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-md ${
+                        focusedLead.deliveryMode === "OFFLINE_5KM"
+                          ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                          : "bg-blue-100 text-blue-900 border border-blue-300"
+                      }`}>
+                        {focusedLead.deliveryMode === "OFFLINE_5KM" ? "📍 5km In-Person" : "🌐 Online Mode"}
+                      </span>
+                    )}
+                    {/* Cycle through every selected recipient — verify each exact message */}
+                    <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg px-1 py-0.5 border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => cyclePreview(-1)}
+                        disabled={!previewCycle.length}
+                        title="Previous selected recipient"
+                        className="p-0.5 rounded text-slate-600 hover:bg-white hover:text-slate-900 cursor-pointer disabled:opacity-40"
+                      >
+                        <ChevronLeft size={12} />
+                      </button>
+                      <span className="text-[9px] font-black text-slate-600 min-w-[34px] text-center">
+                        {previewCycle.length
+                          ? `${Math.max(0, previewCycle.findIndex((l) => l.id === focusedLead?.id)) + 1} / ${previewCycle.length}`
+                          : "0 / 0"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => cyclePreview(1)}
+                        disabled={!previewCycle.length}
+                        title="Next selected recipient"
+                        className="p-0.5 rounded text-slate-600 hover:bg-white hover:text-slate-900 cursor-pointer disabled:opacity-40"
+                      >
+                        <ChevronRight size={12} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* WhatsApp Chat Bubble */}
@@ -1200,6 +1329,11 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                   </span>
                   <span>Length: {livePreviewText.length} chars</span>
                 </div>
+                <p className="text-[9px] text-slate-400 font-semibold">
+                  ✓ Preview uses the exact dispatch logic (same fee resolver, same 5km routing). Dispatch
+                  re-checks the 24h session live — if it opens/closes after load, the channel switches
+                  automatically. Use ◀ ▶ to verify every selected tutor.
+                </p>
               </div>
             </div>
 

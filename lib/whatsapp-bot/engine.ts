@@ -144,7 +144,14 @@ function keepClassLevel(current: unknown, rawMessage: string, previous: unknown)
 }
 
 function keepArea(current: unknown, rawMessage: string, previous: unknown, city?: string): string | undefined {
-  const fromMsg = extractPublicLocality(rawMessage, city);
+  const trimmed = rawMessage.trim();
+  // Never extract an area from passwords, defaults, emails, or bot commands
+  const isIgnoredText =
+    /^(default|skip|password|pwd|pass|reply\s*default|leads|plans|coins|help|menu|stop|cancel)$/i.test(trimmed) ||
+    trimmed.includes("@") ||
+    /\b[a-zA-Z]+[0-9]{2,}\b/i.test(trimmed);
+
+  const fromMsg = isIgnoredText ? null : extractPublicLocality(rawMessage, city);
   if (fromMsg) return fromMsg;
   const next = extractPublicLocality(typeof current === "string" ? current : "", city);
   const prev = extractPublicLocality(typeof previous === "string" ? previous : "", city);
@@ -2901,7 +2908,16 @@ export async function processMessage(
         }
 
         // Additional entity extractors from message text — Universal Indian Locality Validation
-        const shouldCheckRawForArea = Boolean(mergedData.area) || Boolean(mergedData.city) || session.step === "T_AREA" || session.step === "P_AREA" || PLACE_INDICATORS.test(rawMessage);
+        const isPasswordOrEmailStep = session.step === "T_PASSWORD" || session.step === "T_EMAIL" || session.step === "T_NAME";
+        const isMsgSensitive =
+          /^(default|skip|password|pwd|pass|reply\s*default|leads|plans|coins|help|menu|stop|cancel)$/i.test(rawMessage.trim()) ||
+          rawMessage.includes("@") ||
+          /\b[a-zA-Z]+[0-9]{2,}\b/i.test(rawMessage);
+
+        const shouldCheckRawForArea =
+          !isPasswordOrEmailStep &&
+          !isMsgSensitive &&
+          (Boolean(mergedData.area) || Boolean(mergedData.city) || session.step === "T_AREA" || session.step === "P_AREA" || PLACE_INDICATORS.test(rawMessage));
         if (shouldCheckRawForArea) {
           const aiAreaStr = typeof mergedData.area === "string" ? mergedData.area.trim() : "";
           const aiCityStr = typeof mergedData.city === "string" ? mergedData.city.trim() : "";
@@ -3852,16 +3868,25 @@ export async function processMessage(
       }
     }
 
-    if (!isAckOnly(trimmed) && !isOffScriptTutorTalk(trimmed)) {
-    const locResFallback = validateAndCleanLocality(trimmed, (updated.city as string) || "Delhi");
-    const pubArea = extractPublicLocality(
-      locResFallback.isValid ? locResFallback.area : trimmed,
-      locResFallback.city || (updated.city as string) || "Delhi"
-    );
-    if (pubArea) {
-      updated.area = pubArea;
-      if (locResFallback.isValid) updated.city = locResFallback.city;
-    }
+    const isSpecialStep = step === "T_PASSWORD" || step === "T_EMAIL" || step === "T_NAME";
+    const isSensitiveInput =
+      Boolean(emailMatch) ||
+      Boolean(pwdMatch) ||
+      /^(default|skip|password|pwd|pass|reply\s*default|leads|plans|coins|help|menu|stop|cancel)$/i.test(trimmed) ||
+      /\b[a-zA-Z]+[0-9]{2,}\b/i.test(trimmed);
+
+    if (!isSpecialStep && !isSensitiveInput && !isAckOnly(trimmed) && !isOffScriptTutorTalk(trimmed)) {
+      const locResFallback = validateAndCleanLocality(trimmed, (updated.city as string) || "Delhi");
+      if (locResFallback.isValid && locResFallback.area && locResFallback.area.toLowerCase() !== "delhi") {
+        const pubArea = extractPublicLocality(
+          locResFallback.area,
+          locResFallback.city || (updated.city as string) || "Delhi"
+        );
+        if (pubArea) {
+          updated.area = pubArea;
+          if (locResFallback.city) updated.city = locResFallback.city;
+        }
+      }
     }
 
     if (!isOffScriptTutorTalk(trimmed)) {

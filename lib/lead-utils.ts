@@ -226,6 +226,12 @@ export function extractPublicLocality(raw?: string | null, fallbackCity?: string
   if (/^(nursery|lkg|ukg|kg|jee|neet|cuet|all subjects|hindi|english|maths|science|physics|please call)$/i.test(s)) {
     return null;
   }
+  if (/^(default|skip|password|pwd|pass|login|admin|reply\s*default|test|none|null|undefined)$/i.test(s)) {
+    return null;
+  }
+  if (!/\b(sector|sec|block|pocket|phase)\b/i.test(s) && (/\b[a-zA-Z]+[0-9]{2,}\b/i.test(s) || /\b[0-9]{2,}[a-zA-Z]+\b/i.test(s))) {
+    return null;
+  }
 
   const sentence = /[?]|\b(mai|main|mein|hu|hoon|i am|i'm|from|padhta|padhti|padhate|padtha|tuition|tution|kya|please|call|skti|sakti|sakta|message|msg|near by|nearby|medium)\b/i.test(s);
 
@@ -251,6 +257,8 @@ export function extractPublicLocality(raw?: string | null, fallbackCity?: string
   for (const part of parts) {
     if (!part || part.length < 2) continue;
     if (/^\d+[a-z]?$/i.test(part)) continue;
+    if (/^(default|skip|password|pwd|pass|login|admin|reply\s*default)$/i.test(part)) continue;
+    if (!/\b(sector|sec|block|pocket|phase)\b/i.test(part) && (/\b[a-zA-Z]+[0-9]{2,}\b/i.test(part) || /\b[0-9]{2,}[a-zA-Z]+\b/i.test(part))) continue;
     if (LOCALITY_DROP.test(part) || HOUSE_PART.test(part)) continue;
     if (/^(delhi ncr|ncr|online)$/i.test(part)) continue;
     if (/main market/i.test(part) && !/\bsector\s*\d/i.test(part)) continue;

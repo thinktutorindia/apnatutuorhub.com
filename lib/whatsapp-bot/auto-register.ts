@@ -447,10 +447,19 @@ export async function registerTutorFromWhatsapp(
   }
   const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(phone);
 
-  // Locality only — never store a chat sentence or door address as the teaching area.
-  const locRes = validateAndCleanLocality(data.area || data.city, data.city, true);
+  // Locality only — never store a password, default, chat sentence, or door address as the teaching area.
+  let safeAreaInput = data.area;
+  if (
+    typeof safeAreaInput === "string" &&
+    (/^(default|skip|password|pwd|pass|reply\s*default|none|null|undefined)$/i.test(safeAreaInput.trim()) ||
+      (data.password && safeAreaInput.trim().toLowerCase() === data.password.trim().toLowerCase()) ||
+      (!PLACE_INDICATORS.test(safeAreaInput) && /\b[a-zA-Z]+[0-9]{2,}\b/i.test(safeAreaInput)))
+  ) {
+    safeAreaInput = undefined;
+  }
+  const locRes = validateAndCleanLocality(safeAreaInput || data.city, data.city, true);
   const city = locRes.isValid ? locRes.city : (locRes.city || data.city || "Delhi");
-  const area = extractPublicLocality(locRes.isValid ? locRes.area : data.area, city) || (locRes.isValid ? locRes.area : city);
+  const area = extractPublicLocality(locRes.isValid ? locRes.area : safeAreaInput, city) || (locRes.isValid ? locRes.area : city);
 
   // Validate and align subjects to canonical taxonomy (enforces Class 1-8 rules)
   const subRes = validateAndAlignSubjects(data.subjects, data.classLevel || (data.classLevels ? data.classLevels[0] : undefined));

@@ -173,14 +173,14 @@ export const CITY_SAMPLE_LOCALITIES: Record<string, string> = {
 
 const NON_LOCALITY_WORDS = new Set([
   "hi", "hello", "hey", "namaste", "halo", "salaam", "pranam",
-  "ok", "okay", "ha", "haan", "theek", "thik", "yes", "no", "nahi", "done", "skip",
+  "ok", "okay", "ha", "haan", "theek", "thik", "yes", "no", "nahi", "done", "skip", "default", "reply",
   "hai", "hain", "ho", "hoon", "tha", "thi", "the", "ka", "ki", "ke", "ko", "se", "me", "mein", "par", "pe", "aur", "ya", "to", "bhi", "kuch", "ji",
   "kya", "kyun", "kaise", "kab", "kahan", "kitna", "kitne", "fees", "rate", "charge",
   "price", "cost", "payment", "free", "demo", "lead", "leads", "rules", "rule",
   "bhai", "yaar", "sir", "madam", "acha", "achha", "batayein", "bolo", "bol",
   "call", "help", "support", "please", "tutor", "teacher", "student", "parent",
   "bachcha", "child", "sirji", "mam", "padhana", "chahiye", "padhna", "sikhna",
-  "contact", "number", "phone", "pass", "password", "email", "registration",
+  "contact", "number", "phone", "pass", "password", "pwd", "email", "registration", "login", "account", "profile", "test", "admin", "user", "username",
   "koi", "batao", "bhejo", "karo", "dekh", "update", "cancel", "stop", "menu", "start",
   "mere", "paas", "pass", "job", "kr", "kro", "lo", "mai", "main", "mera", "meri", "aap", "aapka", "aapki", "tum", "tumhara", "tumhari", "hum", "humara",
   "mujhe", "mujhko", "bola", "boli", "raha", "rahi", "rahe", "pagal", "salary", "paisa", "paise", "de", "do", "dena", "lena", "provide", "karta", "karti", "karte",
@@ -486,6 +486,20 @@ export function validateAndCleanLocality(
   clean = clean.replace(/\b(?:se\s+hu|se\s+hoon|se\s+hai|rehta\s+hu|rehti\s+hu)\b/gi, " ");
   clean = clean.replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
 
+  // Reject passwords, bot commands, defaults, or tokens with letters+numbers directly attached (e.g. Meenu123, Priya123, Default, 12345678)
+  if (
+    /^(default|skip|password|pwd|pass|reply\s*default|none|null|undefined|test|admin|login)$/i.test(clean) ||
+    (!PLACE_INDICATORS.test(clean) && /\b[a-zA-Z]+[0-9]{2,}\b/i.test(clean)) ||
+    (!PLACE_INDICATORS.test(clean) && /\b[0-9]{2,}[a-zA-Z]+\b/i.test(clean))
+  ) {
+    return {
+      isValid: false,
+      area: "",
+      city: defaultCity,
+      errorPrompt: `📍 Yeh area samajh nahi aaya. Apna *mohalla ya locality* likhein — jaise:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*`,
+    };
+  }
+
   // Foreign / International Locations -> Route to Online Classes
   const FOREIGN_PLACES = /\b(dubai|uae|sharjah|abu\s*dhabi|london|uk|united\s*kingdom|usa|united\s*states|america|canada|toronto|vancouver|australia|sydney|melbourne|singapore|germany|qatar|doha|kuwait|oman|muscat|saudi|riyadh|jeddah|abroad|overseas|foreign)\b/i;
   if (FOREIGN_PLACES.test(clean)) {
@@ -696,7 +710,9 @@ export function validateAndCleanLocality(
   const hasConsonantJam = /[^aeiouy\s]{5,}/i.test(clean);
   const isGibberish = !hasVowels || hasConsonantJam;
 
-  const isValidProperName = !isGibberish && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
+  // Words with numbers attached (e.g. Meenu123, test99) are never valid standalone proper names for localities
+  const hasEmbeddedDigits = words.some((w) => /[a-zA-Z]/.test(w) && /\d/.test(w) && !/^(b|c|d|e|f|g|h|p|q|s|m|l)\d{1,3}$/i.test(w));
+  const isValidProperName = !isGibberish && !hasEmbeddedDigits && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
 
   if (hasPlaceKeyword || isValidProperName) {
     const formatted = clean

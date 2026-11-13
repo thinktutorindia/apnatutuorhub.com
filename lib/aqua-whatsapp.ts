@@ -294,6 +294,29 @@ export async function sendAquaWhatsAppMessage(input: {
   const billedEstimateInr = input.estimatedInr ?? AQUA_INDIA_UTILITY_INR;
   const templateName = (input.templateId || cfg.defaultTemplateId || "information2").trim();
 
+  const templateComponents =
+    input.placeholders && input.placeholders.length > 0
+      ? [
+          {
+            type: "body",
+            parameters: input.placeholders.map((p) => ({
+              type: "text",
+              text: String(p),
+            })),
+          },
+        ]
+      : input.placeholders === undefined && templateName === "information2"
+        ? [
+            {
+              type: "body",
+              parameters: ["000000", "Student", "Tuition", "Home", "Delhi", "5000", "Any", "Immediate"].map((p) => ({
+                type: "text",
+                text: String(p),
+              })),
+            },
+          ]
+        : [];
+
   // Pinbot / Meta Cloud API v3 payload format
   const body: Record<string, unknown> =
     input.mode === "template"
@@ -305,18 +328,7 @@ export async function sendAquaWhatsAppMessage(input: {
           template: {
             name: templateName,
             language: { code: "en" },
-            components: [
-              {
-                type: "body",
-                parameters: (input.placeholders && input.placeholders.length > 0
-                  ? input.placeholders
-                  : ["000000", "Student", "Tuition", "Home", "Delhi", "5000", "Any", "Immediate"]
-                ).map((p) => ({
-                  type: "text",
-                  text: String(p),
-                })),
-              },
-            ],
+            ...(templateComponents.length > 0 ? { components: templateComponents } : {}),
           },
         }
       : {

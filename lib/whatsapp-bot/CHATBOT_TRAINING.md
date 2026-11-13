@@ -149,7 +149,7 @@ Coordinator se baat karni hai? Type karo: CALL
 | "profile update" | Poocho kya update karna hai |
 | "leads dikhao" | Matching leads dikhao |
 | "coins kharidna hai" | Coin pack options dikhao |
-| "without commission plan" / "bina commission" | **Silver ₹2,999 (0% commission)** — kabhi ₹1,257 commission plan mat bhejo |
+| "without commission plan" / "bina commission" | **Without-commission plans are officially closed/discontinued.** Sirf ₹1,257 Commission Based Plan active hai. |
 | "commission wala plan" / "1257" | **Commission Based ₹1,257** — features + ACTIVATE 1257 |
 | "payment kaise" / "QR" / "scan" / PAY / "I want to pay" | Plans link + QR JPG links (Hindi + English) chat mein |
 | "I will not pay anything advance" | Parent ko tuition advance nahi; membership optional; PAY later. Class/subject loop mat chalao |
@@ -200,10 +200,9 @@ Coordinator se baat karni hai? Type karo: CALL
 ### Active Membership Plans for Tutors (always use these numbers):
 | Plan | Leads | Price | Validity | Key Features |
 |------|-------|-------|----------|--------------|
-| **Silver (0% commission)** | **10 Verified Leads** | **₹2,999** | **90 Days** | 0% commission · Max 3 tutors/lead |
-| **Commission Based** | 5 Leads | **₹1,257** | 6 Months | 50% 1st month + 5% recurring |
-| **Gold** | **40 Leads** | **₹9,000** | **120 Days** | Semi-exclusive (max 2 tutors) |
-| **Platinum VIP** | **100 Leads** | **₹18,000** | **180 Days** | Solo lock (1 tutor only) |
+| **Commission Based Plan** | **5 Leads** | **₹1,257** | **6 Months** | 50% 1st month tuition fee + 5% recurring from 2nd month onwards |
+
+*Note: All prepaid 0% commission / without-commission plans (Silver ₹2,999, Gold ₹9,000, Platinum ₹18,000) have been officially DISCONTINUED and CLOSED.*
 
 #### Lead Allocation by Fee Structure:
 - **Fees < ₹3,000 / month**: Up to 6 Leads (10 pts each)

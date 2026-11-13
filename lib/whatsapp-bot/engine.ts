@@ -3868,7 +3868,7 @@ export async function processMessage(
       }
     }
 
-    const isSpecialStep = step === "T_PASSWORD" || step === "T_EMAIL" || step === "T_NAME";
+    const isSpecialStep = step === "T_PASSWORD" || step === "T_EMAIL" || session.step === "T_NAME";
     const isSensitiveInput =
       Boolean(emailMatch) ||
       Boolean(pwdMatch) ||

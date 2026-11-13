@@ -7,6 +7,7 @@ import { AuthError } from "next-auth";
 import { registerSchema, loginSchema } from "@/lib/validations";
 import { checkRateLimit } from "@/lib/security-audit";
 import { sendEmailOtp, verifyEmailOtp } from "@/lib/email-otp";
+import { canonicalIndiaPhone, buildIndiaUserLookupOr } from "@/lib/india-phone";
 
 // ────────────────────────────────────────────────
 // Types
@@ -76,8 +77,9 @@ export async function registerAction(
     };
   }
 
+  const canonPhone = canonicalIndiaPhone(phone) || phone;
   const existingPhone = await prisma.user.findFirst({
-    where: { phone },
+    where: { OR: buildIndiaUserLookupOr(phone) as never },
   });
 
   if (existingPhone) {
@@ -105,7 +107,7 @@ export async function registerAction(
     data: {
       name,
       email,
-      phone,
+      phone: canonPhone,
       passwordHash,
       role: role as "PARENT" | "TUTOR",
     },

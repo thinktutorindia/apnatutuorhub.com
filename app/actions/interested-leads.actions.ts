@@ -629,6 +629,7 @@ async function dispatchBlastWhatsAppMessage(opts: {
   feeLine: string;
   preferSessionText: boolean;
   hasWhatsAppInbound: boolean;
+  approvedTemplateId?: "tuition_enquiry_direct" | "tutor_location_details";
 }): Promise<AquaSendResult & { deliveryChannel: "session_text" | "approved_template" }> {
   if (opts.preferSessionText && opts.hasWhatsAppInbound) {
     const textRes = await sendAquaWhatsAppMessage({
@@ -646,19 +647,25 @@ async function dispatchBlastWhatsAppMessage(opts: {
     }
   }
 
+  const isLocationTemplate = opts.approvedTemplateId === "tutor_location_details";
+  const templateId = isLocationTemplate ? "tutor_location_details" : "tuition_enquiry_direct";
+  const placeholders = isLocationTemplate
+    ? []
+    : [
+        opts.inquiryCode,
+        opts.clientName,
+        opts.classLine,
+        opts.modeLine,
+        opts.locationLine,
+        opts.feeLine,
+        "Any (Male or Female Tutor)",
+      ];
+
   const templateRes = await sendAquaWhatsAppMessage({
     to: opts.to,
     mode: "template",
-    templateId: "tuition_enquiry_direct",
-    placeholders: [
-      opts.inquiryCode,
-      opts.clientName,
-      opts.classLine,
-      opts.modeLine,
-      opts.locationLine,
-      opts.feeLine,
-      "Any (Male or Female Tutor)",
-    ],
+    templateId,
+    placeholders,
     bypassDailyCap: true,
   }).catch((e): AquaSendResult => ({ ok: false, error: String(e) }));
 
@@ -672,8 +679,10 @@ export type SendDummyNotifInput = {
   offlineTemplate?: string;   // Template strictly for 5km within radius leads
   onlineTemplate?: string;    // Template strictly for leads without location (online mode)
   channels: Array<"WHATSAPP" | "IN_APP">;
-  /** When true, never attempt freeform session text — always use tuition_enquiry_direct */
+  /** When true, never attempt freeform session text — always use approved Meta template */
   forceApprovedTemplate?: boolean;
+  /** Which approved Meta template to use for outside-24h recipients: "tuition_enquiry_direct" | "tutor_location_details" */
+  approvedTemplateId?: "tuition_enquiry_direct" | "tutor_location_details";
   /**
    * Admin-controlled fees per class band (e.g. "₹6,500/month"). Substituted into
    * {{fee}} and the approved-template Budget line. Empty/missing = system default.
@@ -953,12 +962,20 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
               // Freeform Hinglish pitch only inside Meta 24h window; otherwise approved template
               preferSessionText: !forceTemplate && reach.within24h,
               hasWhatsAppInbound: reach.hasInbound,
+              approvedTemplateId: input.approvedTemplateId,
             });
 
             if (waResult.ok) {
+              const templateLabel = input.approvedTemplateId === "tutor_location_details"
+                ? "tutor_location_details"
+                : "tuition_enquiry_direct";
               const logBody =
                 waResult.deliveryChannel === "approved_template"
-                  ? `[Approved template: tuition_enquiry_direct]\n${personalized}`
+                  ? `[Approved template: ${templateLabel}]\n${
+                      input.approvedTemplateId === "tutor_location_details"
+                        ? "Hello! 👋 Thank you for connecting apnatutorhub.com\nPlease share your Location, Subjects and Classes."
+                        : personalized
+                    }`
                   : personalized;
               await prisma.whatsappChatMessage.create({
                 data: {

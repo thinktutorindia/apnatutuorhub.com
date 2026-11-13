@@ -578,13 +578,12 @@ export function formatTutorLeadsAndPlansMessage(
 
   const plansSection = `\n\n──────────────────────────\n` +
     `🔓 *Lead unlock karne ke liye:*\n` +
-    `\n🔥 *₹2,999 Silver Membership* (10 Leads · 0% Commission)\n` +
-    `• 10 Verified Student Leads Unlock\n` +
-    `• 0% Platform Commission (100% Fees Aapki!)\n` +
+    `\n💼 *₹1,257 Commission Based Plan* (5 Leads · 6 Months Validity)\n` +
+    `• 5 Verified Student Leads Unlock\n` +
     `• Low Competition (Max 3 Tutors per Lead)\n` +
     `• Direct Parent Phone + Full Address\n` +
-    `• 90 Days Validity\n` +
-    `\n💼 *₹1,257 Commission Based Plan* (5 Leads · 6 Months Validity · 50% 1st Month + 5% Recurring)\n` +
+    `• 6 Months Validity (180 Days)\n` +
+    `• 50% 1st Month + 5% Recurring Platform Commission\n` +
     `\n👉 *Abhi plan activate karein:* https://apnatutorhub.com/tutor/plans\n` +
     `👉 *Saari leads dekho:* https://apnatutorhub.com/tutor/leads\n` +
     `\nReply karo *PLANS* ya *LEADS* kabhi bhi!`;
@@ -598,19 +597,16 @@ export function formatTutorLeadsAndPlansMessage(
 export function formatOfferEnded999Message(): string {
   return `⚠️ *Notice: ₹999 Offer Has Ended*\n\n` +
     `Sir/Ma'am, ₹999 wala introductory / limited-time festival offer ab *officially end (khatam)* ho chuka hai. 🙏\n\n` +
-    `Filhaal hamare paas active verified plans available hain:\n\n` +
-    `🚀 *1. Silver Plan — ₹2,999 (0% Commission)*\n` +
-    `• 50% OFF (Was ₹5,999) · 90 Days Validity\n` +
-    `• 10 Verified Student Leads Unlock\n` +
-    `• *0% Platform Commission* — 100% student tuition fees aapki!\n` +
-    `• Low Competition: Max 3 teachers per lead.\n\n` +
-    `💼 *2. Commission Based Plan — ₹1,257*\n` +
+    `Filhaal hamara official verified plan available hai:\n\n` +
+    `💼 *Commission Based Plan — ₹1,257*\n` +
     `• Registration Fee: ₹1,257 (Validity: 6 Months)\n` +
     `• 5 Verified Leads Unlock\n` +
-    `• 50% commission on 1st month tuition fee + 5% recurring every month from 2nd month onwards.\n\n` +
-    `👉 *Plans dekhein aur activate karein:*\n` +
+    `• Low Competition: Max 3 teachers per lead\n` +
+    `• Direct Parent Phone & Full Address\n` +
+    `• Terms: 50% commission on 1st month tuition fee + 5% recurring every month from 2nd month onwards.\n\n` +
+    `👉 *Plan dekhein aur activate karein:*\n` +
     `https://apnatutorhub.com/tutor/plans\n\n` +
-    `Aap kaunse plan se start karna chahte hain?`;
+    `Aap start karne ke liye reply karein *ACTIVATE 1257* ya *LEADS*!`;
 }
 
 /**
@@ -634,44 +630,38 @@ export function formatCommissionPlanDetailMessage(): string {
 }
 
 /**
- * Detailed breakdown when tutor expresses interest in Zero Commission / Silver Plan.
+ * Detailed explanation when tutor expresses interest in Zero Commission / Silver Plan (Discontinued).
  */
 export function formatGrowthPlanDetailMessage(): string {
-  return `🚀 *ApnaTutorHub Silver Plan — ₹2,999 (0% Commission)*\n\n` +
-    `Aapne Zero Commission Silver Plan choose kiya hai! Isme platform ka koi commission nahi hota — 100% student fees aapki rehti hai!\n\n` +
-    `📋 *Plan Features:*\n` +
-    `• Price: *₹2,999* (+ GST) [50% OFF · Regular ₹5,999]\n` +
-    `• Validity: *90 Days*\n` +
-    `• Total Leads: *10 Verified Student Leads Unlock*\n` +
-    `• *0% Platform Commission* — Keep 100% of all tuition fees\n` +
+  return `⚠️ *Notice: Without-Commission Plan Closed*\n\n` +
+    `Sir/Ma'am, without-commission (0% Commission / Silver ₹2,999) wale prepaid plans ab *officially close / band* ho chuke hain. 🙏\n\n` +
+    `Filhaal platform par sirf official *Commission Based Plan* active hai jisme kam upfront payment se start kar sakte hain:\n\n` +
+    `💼 *ApnaTutorHub Commission Based Plan (₹1,257)*\n` +
+    `• Registration Fee: *₹1,257* only\n` +
+    `• Validity: *6 Months* (180 Days)\n` +
+    `• Total Leads: *5 Verified Student Leads Unlock*\n` +
+    `• Terms: *50% on 1st month tuition fee*, aur 2nd month se *5% recurring commission*\n` +
     `• Low Competition: Max 3 teachers per lead\n` +
-    `• Direct Parent Contact (Phone + Full Address)\n` +
-    `• Unlock across all classes & subjects\n\n` +
+    `• Direct Parent Phone & Address Unlocked\n\n` +
     `👉 *Abhi Plan Activate Karein:*\n` +
     `https://apnatutorhub.com/tutor/plans\n\n` +
-    `Payment / QR ke liye reply karein *PAY* ya *QR*.\n` +
-    `Reply *ACTIVATE 2999* ya *HELP* agar aapko koi madad chahiye ho.`;
+    `Payment ke liye reply karein *PAY* ya *ACTIVATE 1257*!`;
 }
 
 const PUBLIC_SITE = "https://apnatutorhub.com";
 
 /** Payment steps + QR image links (WhatsApp shows image preview from URL). */
-export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "any"): string {
+export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "1257"): string {
   const hindiQr = `${PUBLIC_SITE}/tutor_plan_hindi_qr.jpg`;
   const engQr = `${PUBLIC_SITE}/tutor_plan_english_qr.jpg`;
   const plansUrl = `${PUBLIC_SITE}/tutor/plans`;
 
-  const planLine =
-    planHint === "1257"
-      ? "Commission Based Plan *₹1,257*"
-      : planHint === "2999"
-        ? "Silver Plan *₹2,999* (0% commission)"
-        : "ApnaTutorHub membership plan";
+  const planLine = "Commission Based Plan *₹1,257*";
 
   return (
     `💳 *${planLine} — payment steps*\n\n` +
     `1️⃣ Open: ${plansUrl}\n` +
-    `2️⃣ Apna plan select karein → *Pay Now* (UPI / Card / Netbanking)\n` +
+    `2️⃣ *Commission Based Plan (₹1,257)* select karein → *Pay Now* (UPI / Card / Netbanking)\n` +
     `3️⃣ Ya QR scan karein:\n` +
     `📱 Hindi: ${hindiQr}\n` +
     `📱 English: ${engQr}\n\n` +
@@ -684,24 +674,17 @@ export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "
  * Format the Membership detail message when user asks about plans.
  */
 export function formatCoinPlansMessage(): string {
-  return `💎 *ApnaTutorHub Membership Plans*
+  return `💎 *ApnaTutorHub Membership Plan*
 
-🔥 *1. Silver Plan — ₹2,999 (0% Commission)*
-• 50% OFF (Was ₹5,999) · 90 Days Validity
-• *10 Verified Student Leads Unlock*
-• *0% Platform Commission* — Keep 100% of student tuition fees!
+💼 *Commission Based Plan — ₹1,257 (6 Months Validity)*
+• Registration Fee: *₹1,257*
+• *5 Verified Student Leads Unlock*
 • *Low Competition* — Max 3 tutors per lead
 • *Direct Parent Contact* — Phone number + address
+• Validity: 6 Months (180 Days)
+• Terms: 50% commission on 1st month tuition fee + 5% recurring every month from 2nd month onwards.
 
-💼 *2. Commission Based Plan — ₹1,257 (6 Months Validity)*
-• 5 Verified Leads Unlock
-• 50% commission on 1st month tuition fee
-• 5% commission every month from 2nd month onwards
-• Low Competition: Max 3 tutors per lead
-
-🌟 *Higher Volume Tiers Available on Website:*
-• *Gold Plan:* ₹9,000 (40 Leads · 120 Days · Semi-Exclusive: Max 2 tutors)
-• *Platinum VIP:* ₹18,000 (100 Leads · 180 Days · 👑 100% Solo Lock: 1 Tutor Only)
+ℹ️ *Note:* Without-commission (0% commission) prepaid plans ab officially band ho chuke hain. Platform par sirf verified Commission Based Plan active hai.
 
 👉 *Abhi Plan Activate Karein:*
 https://apnatutorhub.com/tutor/plans
@@ -869,7 +852,7 @@ export async function formatSingleLeadInquiry(
     : `💎 *Unlock Karne Ke Tarike:*\n` +
       `1. Website par link open karein aur Unlock par click karein.\n` +
       `2. Is lead ki cost *${coinCost} coins* hai (~5% of one month's fee).\n` +
-      `3. ₹2,999 Silver Membership (15 leads, 30 days, 0% commission) se bhi unlock hota hai.\n\n` +
+      `3. ₹1,257 Commission Plan (5 leads, 6 months validity) se bhi unlock hota hai.\n\n` +
       `👉 *Membership Plans:*\nhttps://apnatutorhub.com/tutor/plans`;
 
   const message =

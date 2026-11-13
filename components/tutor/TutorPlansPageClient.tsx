@@ -33,28 +33,24 @@ const FAQ_ITEMS = [
     a: "The Commission Based Plan requires a one-time registration fee of ₹1,257 with 6 Months validity. You get to unlock 5 verified parent leads. Our platform commission is 50% on the first month's student fee, and 5% recurring platform commission every month from the 2nd month onwards.",
   },
   {
-    q: "How does the ₹2,999 Silver Plan work?",
-    a: "The ₹2,999 Silver Plan gives you 10 Verified Leads with 90 Days validity. Lead unlock cost is 0% platform commission, meaning you keep 100% of all tuition fees you collect from students directly.",
+    q: "Is the ₹2,999 Without-Commission / 0% Commission Plan still available?",
+    a: "No. The without-commission (0% commission) plans have been officially closed and discontinued. All verified tutors join through the official Commission Based Plan (₹1,257), ensuring low upfront risk and long 6-month validity.",
   },
   {
-    q: "Is there any platform commission on the ₹2,999 Silver Plan?",
-    a: "Zero commission! On the ₹2,999 Silver Plan, there is 0% platform commission. You keep 100% of all tuition fees you collect from students and parents directly.",
+    q: "Can I unlock leads for any class or subject on the Commission Plan?",
+    a: "Yes, 100%! The ₹1,257 Commission Plan allows you to unlock leads across all classes (Class 1–12, Entrance exams like JEE/NEET, Boards, and all subjects) in your chosen localities or online.",
   },
   {
-    q: "Can I unlock leads for any class or subject on the Silver Plan?",
-    a: "Yes, 100%! The ₹2,999 Silver Membership allows you to unlock leads across all classes (Class 1–12, Entrance exams like JEE/NEET, Boards, and all subjects) in your chosen localities or online.",
+    q: "What is the validity period of the ₹1,257 Commission Plan?",
+    a: "The Commission Based Plan is valid for a full 6 Months (180 Days) from activation, giving you ample time to connect with students and parents.",
   },
   {
-    q: "What is the validity period of the ₹2,999 Silver Plan?",
-    a: "The ₹2,999 Silver Plan is valid for 90 Days from activation, giving you full access to unlock students throughout the period.",
-  },
-  {
-    q: "How does the tutor competition cap work on the Silver Plan?",
-    a: "To ensure high conversion and genuine parent response, Silver Plan leads are limited to a maximum of 3 verified tutors only (low competition).",
+    q: "How does the tutor competition cap work on leads?",
+    a: "To ensure high conversion and genuine parent response, leads are limited to a maximum of 3 verified tutors only (low competition).",
   },
   {
     q: "Are parent phone numbers and addresses verified?",
-    a: "Parent inquiries are posted by verified accounts with a registered mobile number. If a number is found unreachable, full coin refund protection applies under our platform terms.",
+    a: "Parent inquiries are posted by verified accounts with a registered mobile number. If a number is found unreachable, full lead credit protection applies under our platform terms.",
   },
 ];
 
@@ -233,7 +229,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </h1>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-3xl mx-auto leading-relaxed" style={{fontFamily: "'Inter', sans-serif"}}>
-            Unlock premium verified tuition leads with our <span className="text-emerald-300 font-bold">₹2,999 Silver Membership</span> — 10 Verified Leads, 90 days validity, 0% platform commission, and direct parent contacts!
+            Start unlocking verified student leads with our official <span className="text-emerald-300 font-bold">Commission Based Plan</span> — 5 Verified Leads, 6 Months validity, low ₹1,257 registration, and direct parent contacts!
           </p>
 
           {activePlanConfig && (
@@ -360,147 +356,15 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </div>
         </div>
 
-        {/* ── SUBSCRIPTION MEMBERSHIP PLANS (0% COMMISSION) ── */}
-        <div className="space-y-8">
-          <div className="text-center max-w-3xl mx-auto space-y-2.5">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-teal-500/10 border border-blue-400/40 text-blue-900 text-xs font-black shadow-2xs">
-              <Sparkles size={14} className="text-blue-600 animate-pulse" />
-              <span>ZERO COMMISSION MEMBERSHIP PLANS (KEEP 100% OF TUITION FEES)</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-black text-[#0F2540] tracking-tight">
-              Subscription Membership Plans
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 font-semibold max-w-xl mx-auto">
-              Never share monthly commissions with the platform. Keep 100% of all student tuition fees. Choose Silver, Gold, or Platinum VIP based on your target lead volume.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
-            {(['SILVER', 'GOLD', 'PLATINUM'] as SubscriptionPlanId[]).map((tierKey) => {
-              const tier = SUBSCRIPTION_PLANS[tierKey];
-              const isCurrent = currentPlan === tierKey;
-              const isPlatinum = tierKey === 'PLATINUM';
-              const isGold = tierKey === 'GOLD';
-
-              return (
-                <div
-                  key={tierKey}
-                  className={`rounded-3xl flex flex-col justify-between transition-all duration-300 relative overflow-hidden ${
-                    isGold
-                      ? 'bg-gradient-to-b from-amber-500/10 via-yellow-500/5 to-white border-2 border-amber-400 ring-4 ring-amber-400/20 shadow-2xl shadow-amber-500/15 md:-translate-y-2'
-                      : isPlatinum
-                      ? 'bg-gradient-to-b from-purple-500/10 via-indigo-500/5 to-white border-2 border-purple-400 shadow-xl shadow-purple-500/10 hover:shadow-2xl hover:border-purple-500 hover:-translate-y-1.5'
-                      : 'bg-gradient-to-b from-sky-500/10 via-slate-50/60 to-white border-2 border-sky-300/90 shadow-xl shadow-sky-500/10 hover:shadow-2xl hover:border-sky-400 hover:-translate-y-1.5'
-                  }`}
-                >
-                  {/* Popular Floating Badge for Gold */}
-                  {isGold && (
-                    <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 text-white text-[11px] font-black uppercase tracking-wider py-1.5 text-center shadow-sm flex items-center justify-center gap-1.5">
-                      <Sparkles size={12} />
-                      <span>MOST POPULAR &amp; BEST VALUE</span>
-                    </div>
-                  )}
-
-                  {/* Platinum Solo Lock Ribbon */}
-                  {isPlatinum && (
-                    <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-700 text-white text-[11px] font-black uppercase tracking-wider py-1.5 text-center shadow-sm flex items-center justify-center gap-1.5">
-                      <Crown size={12} />
-                      <span>👑 100% EXCLUSIVE SOLO LOCK</span>
-                    </div>
-                  )}
-
-                  <div className={`p-6 sm:p-7 space-y-6 flex flex-col flex-1`}>
-                    {/* Top Row: Tier Tag & Validity */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${tier.badgeBg} ${tier.badgeText}`}>
-                        {tier.badge}
-                      </span>
-                      <span className="text-xs font-extrabold text-slate-700 bg-white/90 border border-slate-200 px-3 py-1 rounded-full shadow-2xs">
-                        {tier.validityText}
-                      </span>
-                    </div>
-
-                    {/* Title & Pricing */}
-                    <div className="space-y-1.5">
-                      <h3 className="text-2xl font-black text-[#0F2540] tracking-tight">{tier.name}</h3>
-                      <div className="flex items-baseline gap-2.5">
-                        <span className="text-4xl font-black text-[#0F2540]" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                          ₹{tier.priceInr.toLocaleString('en-IN')}
-                        </span>
-                        {tier.originalPriceInr && (
-                          <span className="text-sm font-bold text-slate-400 line-through">
-                            ₹{tier.originalPriceInr.toLocaleString('en-IN')}
-                          </span>
-                        )}
-                        <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-                          {tier.festivalBadge}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        + ₹{getGstAmount(tier.priceInr).toLocaleString('en-IN')} GST = ₹{getPriceWithGst(tier.priceInr).toLocaleString('en-IN')} all-inclusive
-                      </p>
-                    </div>
-
-                    {/* Leads Quota & Exclusivity Showcase Box */}
-                    <div className={`p-4 rounded-2xl border space-y-2 backdrop-blur-xs ${
-                      isGold
-                        ? 'bg-amber-500/10 border-amber-300'
-                        : isPlatinum
-                        ? 'bg-purple-500/10 border-purple-300'
-                        : 'bg-sky-500/10 border-sky-300'
-                    }`}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-black text-slate-800">Verified Leads Unlock:</span>
-                        <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg text-white ${
-                          isGold ? 'bg-amber-600' : isPlatinum ? 'bg-purple-700' : 'bg-sky-700'
-                        }`}>
-                          {tier.totalLeads} Leads
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 pt-1 border-t border-slate-200/60">
-                        <span>Lead Exclusivity:</span>
-                        <span className="font-extrabold text-[#0F2540]">{tier.competitionLabel}</span>
-                      </div>
-                    </div>
-
-                    {/* Features list */}
-                    <div className="space-y-2.5 flex-1 pt-2 border-t border-slate-100">
-                      <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Included Perks:</p>
-                      {tier.features.slice(0, 6).map((feat, fIdx) => (
-                        <div key={fIdx} className="flex items-start gap-2.5 text-xs font-semibold text-slate-700">
-                          <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-white ${
-                            isGold ? 'bg-amber-500' : isPlatinum ? 'bg-purple-600' : 'bg-emerald-600'
-                          }`}>
-                            <Check size={10} strokeWidth={3} />
-                          </div>
-                          <span className="leading-tight">{feat}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* CTA Button */}
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        disabled={isLoading || isCurrent}
-                        onClick={() => handleOpenCheckout(tierKey)}
-                        className={`w-full py-4 px-5 rounded-2xl font-black text-sm transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-98 ${
-                          isPlatinum
-                            ? 'bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 hover:from-purple-800 hover:to-indigo-700 text-white shadow-purple-600/30'
-                            : isGold
-                            ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white shadow-amber-500/30'
-                            : 'bg-gradient-to-r from-sky-600 via-blue-600 to-sky-700 hover:from-sky-700 hover:to-blue-700 text-white shadow-blue-500/25'
-                        }`}
-                      >
-                        <span>{isCurrent ? '✅ Active Plan' : `Activate ${tier.name}`}</span>
-                        <ArrowRight size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        {/* ── NOTICE REGARDING ZERO-COMMISSION PLANS (DISCONTINUED) ── */}
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-6 text-center text-xs text-slate-600 max-w-xl mx-auto mb-10 shadow-xs">
+          <p className="font-extrabold text-[#0F2540] flex items-center justify-center gap-1.5 text-sm">
+            <span>🔒</span>
+            <span>Prepaid Zero-Commission Plans are Closed</span>
+          </p>
+          <p className="mt-2 leading-relaxed text-slate-500">
+            Platform par bina commission wale prepaid tiers band kar diye gaye hain. Sabhi verified teachers exclusively official <strong>Commission Based Plan (₹1,257)</strong> se start kar sakte hain jisme 6 Months validity aur 5 verified student leads milti hain.
+          </p>
         </div>
 
         {/* ── TUITION FEE STRUCTURE LEAD SCHEDULE SECTION ── */}

@@ -78,9 +78,7 @@ export async function findPrimaryUserForWhatsApp(
   input: string,
   opts?: { includeProfiles?: boolean }
 ): Promise<UserWithProfiles | null> {
-  const include = opts?.includeProfiles
-    ? { tutorProfile: { select: { id: true } }, parentProfile: { select: { id: true } } }
-    : undefined;
+  const include = { tutorProfile: { select: { id: true } }, parentProfile: { select: { id: true } } };
 
   const users = await prisma.user.findMany({
     where: { OR: buildIndiaUserLookupOr(input) as never },

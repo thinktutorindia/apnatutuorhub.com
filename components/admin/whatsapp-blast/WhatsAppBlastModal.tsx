@@ -95,6 +95,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
   const [audienceSource, setAudienceSource] = useState<"INTERESTED" | "USER_DIRECTORY">("INTERESTED");
   /** ALL = mixed · SESSION_OPEN = freeform OK · TEMPLATE_ONLY = outside 24h → approved Meta template */
   const [sessionFilter, setSessionFilter] = useState<"ALL" | "SESSION_OPEN" | "TEMPLATE_ONLY">("ALL");
+  const [approvedTemplateChoice, setApprovedTemplateChoice] = useState<"tuition_enquiry_direct" | "tutor_location_details">("tuition_enquiry_direct");
 
   // Admin-controlled fees per class band — substituted into {{fee}} for both the
   // live preview AND the actual dispatch (passed to the server action on send).
@@ -403,11 +404,14 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
     const usesApprovedTemplate =
       forceApprovedTemplate || (Boolean(focusedLead.whatsAppReachable) && !focusedLead.within24hSession);
 
-    // Outside 24h → preview the Meta Utility template tutors actually receive
+    // Outside 24h → preview the Meta template tutors actually receive
     if (usesApprovedTemplate) {
+      if (approvedTemplateChoice === "tutor_location_details") {
+        return `*Approved template: tutor_location_details (Marketing)*\n\nHello! 👋\n\nThank you for connecting apnatutorhub.com\n\nPlease share the following details so we can assign suitable tuition:\n\n1️⃣ Your Location / Area\n2️⃣ Subjects you want to teach\n3️⃣ Classes you want to teach (e.g., Nursery–5th, 6th–8th, 9th–10th, 11th–12th)\n\n*(Meta Approved ID: 39080956 · Dispatched strictly to 24h-closed recipients)*`;
+      }
       const inquiryCode = focusedLead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
       const clientDisplayName = "Parent";
-      return `*Approved template: tuition_enquiry_direct*\n\nWe recently received an Enquiry for you with following details:\n\n🆕 Enquiry ID : #${inquiryCode}\n💬 Name : ${clientDisplayName}\n📝 Class : ${safeClass} (${focusedLead.recommendedSubject})\n📚 Subject : ${modeLine}\n📍 Area : ${loc}\n💵 Budget : ${effectiveFee}\n📌 Mode : Any (Male or Female Tutor)\n\nPlease check this and Respond\nContact 08062180653\nApnaTutorHub (Reply STOP to Unsubscribe)`;
+      return `*Approved template: tuition_enquiry_direct (Utility)*\n\nWe recently received an Enquiry for you with following details:\n\n🆕 Enquiry ID : #${inquiryCode}\n💬 Name : ${clientDisplayName}\n📝 Class : ${safeClass} (${focusedLead.recommendedSubject})\n📚 Subject : ${modeLine}\n📍 Area : ${loc}\n💵 Budget : ${effectiveFee}\n📌 Mode : Any (Male or Female Tutor)\n\nPlease check this and Respond\nContact 08062180653\nApnaTutorHub (Reply STOP to Unsubscribe)`;
     }
 
     // Use offlineTemplate if lead is within 5km, else onlineTemplate
@@ -480,9 +484,12 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
   const handleSendBlast = async () => {
     if (selectedIds.length === 0) return;
 
+    const tplName = approvedTemplateChoice === "tutor_location_details"
+      ? "tutor_location_details (Location Intake)"
+      : "tuition_enquiry_direct (Tuition Enquiry)";
     const confirmMsg = forceApprovedTemplate
-      ? `Dispatch APPROVED TEMPLATE (tuition_enquiry_direct) to ${selectedIds.length} tutors outside the 24h session?\n\n• Meta blocks freeform Hinglish outside 24h — only the approved Utility template will be sent.\n• ${selectedBreakdown.offlineCount} nearby (5km) + ${selectedBreakdown.onlineCount} online mapped into template fields.\n• Fees per class: 1–5 ${feeOverrides["1-5"] || BLAST_FEE_BAND_DEFAULTS["1-5"]} · 6–8 ${feeOverrides["6-8"] || BLAST_FEE_BAND_DEFAULTS["6-8"]} · 9–10 ${feeOverrides["9-10"] || BLAST_FEE_BAND_DEFAULTS["9-10"]} · 11–12 ${feeOverrides["11-12"] || BLAST_FEE_BAND_DEFAULTS["11-12"]}`
-      : `Are you sure you want to dispatch WhatsApp notifications to ${selectedIds.length} tutors?\n\n• ${selectedBreakdown.offlineCount} tutors with 5km location will receive the 5km In-Person pitch.\n• ${selectedBreakdown.onlineCount} tutors without location will receive the Online Mode pitch.\n• Tutors outside 24h auto-fallback to approved template.\n• Fees per class: 1–5 ${feeOverrides["1-5"] || BLAST_FEE_BAND_DEFAULTS["1-5"]} · 6–8 ${feeOverrides["6-8"] || BLAST_FEE_BAND_DEFAULTS["6-8"]} · 9–10 ${feeOverrides["9-10"] || BLAST_FEE_BAND_DEFAULTS["9-10"]} · 11–12 ${feeOverrides["11-12"] || BLAST_FEE_BAND_DEFAULTS["11-12"]}`;
+      ? `Dispatch APPROVED TEMPLATE [${tplName}] to ${selectedIds.length} tutors outside the 24h session?\n\n• Meta blocks freeform text outside 24h — strictly the approved template will be sent.\n• Template: ${approvedTemplateChoice}`
+      : `Are you sure you want to dispatch WhatsApp notifications to ${selectedIds.length} tutors?\n\n• ${selectedBreakdown.offlineCount} tutors with 5km location will receive the 5km In-Person pitch.\n• ${selectedBreakdown.onlineCount} tutors without location will receive the Online Mode pitch.\n• Tutors outside 24h auto-fallback to approved template [${tplName}].\n• Fees per class: 1–5 ${feeOverrides["1-5"] || BLAST_FEE_BAND_DEFAULTS["1-5"]} · 6–8 ${feeOverrides["6-8"] || BLAST_FEE_BAND_DEFAULTS["6-8"]} · 9–10 ${feeOverrides["9-10"] || BLAST_FEE_BAND_DEFAULTS["9-10"]} · 11–12 ${feeOverrides["11-12"] || BLAST_FEE_BAND_DEFAULTS["11-12"]}`;
 
     if (!confirm(confirmMsg)) {
       return;
@@ -528,6 +535,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
             onlineTemplate,
             channels: ["WHATSAPP"],
             forceApprovedTemplate,
+            approvedTemplateId: approvedTemplateChoice,
             feeOverrides,
           });
 
@@ -629,27 +637,83 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
 
         {/* ── Summary Distribution Strip ── */}
         <div className="px-6 py-2.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-700 flex-wrap gap-2">
-          <div className="flex items-center gap-4 flex-wrap">
-            <span className="flex items-center gap-1.5 text-slate-900 font-black">
-              <Users size={14} className="text-emerald-600" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setSessionFilter("ALL");
+                setFilterMode("ALL");
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer ${
+                sessionFilter === "ALL" && filterMode === "ALL"
+                  ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                  : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+              }`}
+              title="Show all active leads"
+            >
+              <Users size={13} className={sessionFilter === "ALL" && filterMode === "ALL" ? "text-emerald-400" : "text-emerald-600"} />
               <span>{leads.length} Active Leads</span>
-            </span>
-            <span className="flex items-center gap-1 text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full font-black border border-emerald-300">
-              <Home size={12} className="text-emerald-700" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterMode((prev) => (prev === "WITHIN_5KM" ? "ALL" : "WITHIN_5KM"));
+              }}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer ${
+                filterMode === "WITHIN_5KM"
+                  ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
+                  : "bg-emerald-100/80 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
+              }`}
+              title="Filter to tutors with verified location within 5km"
+            >
+              <Home size={12} className={filterMode === "WITHIN_5KM" ? "text-white" : "text-emerald-700"} />
               <span>{within5KmCount} within 5km radius (Home Tuition)</span>
-            </span>
-            <span className="flex items-center gap-1 text-blue-800 bg-blue-100/80 px-2.5 py-0.5 rounded-full font-black border border-blue-300">
-              <Globe size={12} className="text-blue-700" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterMode((prev) => (prev === "ONLINE_ONLY" ? "ALL" : "ONLINE_ONLY"));
+              }}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer ${
+                filterMode === "ONLINE_ONLY"
+                  ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                  : "bg-blue-100/80 text-blue-800 border-blue-300 hover:bg-blue-200"
+              }`}
+              title="Filter to tutors without exact location (Online Mode)"
+            >
+              <Globe size={12} className={filterMode === "ONLINE_ONLY" ? "text-white" : "text-blue-700"} />
               <span>{onlineCount} without location (Online Mode)</span>
-            </span>
-            <span className="flex items-center gap-1 text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-full font-black border border-amber-300">
-              <Clock size={12} className="text-amber-700" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSessionFilter((prev) => (prev === "TEMPLATE_ONLY" ? "ALL" : "TEMPLATE_ONLY"));
+              }}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer ${
+                sessionFilter === "TEMPLATE_ONLY"
+                  ? "bg-amber-600 text-white border-amber-700 shadow-sm ring-2 ring-amber-400/40"
+                  : "bg-amber-100/90 text-amber-900 border-amber-300 hover:bg-amber-200"
+              }`}
+              title="Filter strictly to tutors outside 24h Meta session (approved template only)"
+            >
+              <Clock size={12} className={sessionFilter === "TEMPLATE_ONLY" ? "text-white" : "text-amber-700"} />
               <span>{sessionCounts.templateOnly} outside 24h (approved template)</span>
-            </span>
-            <span className="flex items-center gap-1 text-teal-900 bg-teal-100/90 px-2.5 py-0.5 rounded-full font-black border border-teal-300">
-              <MessageCircle size={12} className="text-teal-700" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSessionFilter((prev) => (prev === "SESSION_OPEN" ? "ALL" : "SESSION_OPEN"));
+              }}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer ${
+                sessionFilter === "SESSION_OPEN"
+                  ? "bg-teal-600 text-white border-teal-700 shadow-sm ring-2 ring-teal-400/40"
+                  : "bg-teal-100/90 text-teal-900 border-teal-300 hover:bg-teal-200"
+              }`}
+              title="Filter to tutors with open 24h session (custom text allowed)"
+            >
+              <MessageCircle size={12} className={sessionFilter === "SESSION_OPEN" ? "text-white" : "text-teal-700"} />
               <span>{sessionCounts.sessionOpen} inside 24h (custom text OK)</span>
-            </span>
+            </button>
           </div>
 
           <div className="text-[11px] font-black text-slate-500">
@@ -744,29 +808,83 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                     ? "bg-amber-50 border-amber-500 text-amber-950 ring-1 ring-amber-500/40"
                     : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-amber-50/60 hover:border-amber-300"
                 }`}
-                title="Tutors who messaged before but Meta 24h window is closed — send approved Utility template only"
+                title="Tutors whose Meta 24h session is closed — send approved Meta template only"
               >
-                <p className="text-[11px] font-black flex items-center gap-1.5">
-                  <Clock size={12} className="text-amber-700" />
-                  Outside 24h · Approved Template
+                <p className="text-[11px] font-black flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={12} className="text-amber-700" />
+                    Outside 24h · Approved Template
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200/80 text-amber-900">
+                    {sessionCounts.templateOnly} tutors
+                  </span>
                 </p>
-                <p className="text-[9px] font-semibold text-slate-500 mt-0.5">
-                  {sessionCounts.templateOnly} tutors · freeform blocked by Meta · uses tuition_enquiry_direct
+                <p className="text-[9px] font-semibold text-slate-500 mt-1">
+                  Freeform text is blocked by Meta · Uses approved Meta template
                 </p>
               </button>
+
               {sessionFilter === "TEMPLATE_ONLY" && (
-                <div className="rounded-xl bg-amber-50/80 border border-amber-200 px-2.5 py-2 text-[10px] font-semibold text-amber-950 space-y-1">
-                  <p>
-                    Meta only allows freeform Hinglish inside 24h of the tutor&apos;s last reply. These leads get the
-                    approved <strong>tuition_enquiry_direct</strong> Utility template (same card you tested).
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setSessionFilter("SESSION_OPEN")}
-                    className="text-[10px] font-black text-teal-800 underline cursor-pointer"
-                  >
-                    Show {sessionCounts.sessionOpen} inside 24h (custom text) →
-                  </button>
+                <div className="rounded-xl bg-amber-50/90 border border-amber-300 p-3 text-[11px] font-semibold text-amber-950 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-900">Select Approved Template</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      ✓ Meta Approved
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className={`flex items-start gap-2.5 p-2 rounded-xl border cursor-pointer transition-all ${
+                      approvedTemplateChoice === "tuition_enquiry_direct"
+                        ? "bg-white border-amber-500 shadow-xs ring-1 ring-amber-500/30 text-amber-950 font-bold"
+                        : "bg-white/60 border-amber-200/80 text-amber-900 hover:bg-white"
+                    }`}>
+                      <input
+                        type="radio"
+                        name="approvedTplChoice"
+                        checked={approvedTemplateChoice === "tuition_enquiry_direct"}
+                        onChange={() => setApprovedTemplateChoice("tuition_enquiry_direct")}
+                        className="mt-0.5 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <div className="text-left">
+                        <p className="text-[11px] font-black">🎓 Tuition Enquiry (Utility)</p>
+                        <p className="text-[10px] font-normal text-amber-800">
+                          <code>tuition_enquiry_direct</code> · Sends matched lead with parent, class, subject & fee.
+                        </p>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-start gap-2.5 p-2 rounded-xl border cursor-pointer transition-all ${
+                      approvedTemplateChoice === "tutor_location_details"
+                        ? "bg-white border-amber-500 shadow-xs ring-1 ring-amber-500/30 text-amber-950 font-bold"
+                        : "bg-white/60 border-amber-200/80 text-amber-900 hover:bg-white"
+                    }`}>
+                      <input
+                        type="radio"
+                        name="approvedTplChoice"
+                        checked={approvedTemplateChoice === "tutor_location_details"}
+                        onChange={() => setApprovedTemplateChoice("tutor_location_details")}
+                        className="mt-0.5 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <div className="text-left">
+                        <p className="text-[11px] font-black">📍 Location & Class Intake (Marketing)</p>
+                        <p className="text-[10px] font-normal text-amber-800">
+                          <code>tutor_location_details</code> · Asks tutors to share Location, Subjects & Classes.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="pt-1 flex items-center justify-between border-t border-amber-200 text-[10px]">
+                    <span className="text-amber-800 font-medium">Meta Delivery: 100% compliant</span>
+                    <button
+                      type="button"
+                      onClick={() => setSessionFilter("SESSION_OPEN")}
+                      className="font-black text-teal-800 underline hover:text-teal-900 cursor-pointer"
+                    >
+                      Show {sessionCounts.sessionOpen} inside 24h →
+                    </button>
+                  </div>
                 </div>
               )}
               {sessionFilter === "SESSION_OPEN" && (

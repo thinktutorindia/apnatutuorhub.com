@@ -384,8 +384,8 @@ export default async function AdminUsersPage({
                 {["User", "Entered via", "Role", "KYC", "Location", "Status", "Joined", "Actions"].map((h) => (
                   <th
                     key={h}
-                    className={`px-4 py-3.5 text-left text-[11px] font-800 uppercase tracking-wider text-[#64748B] ${
-                      h === "Actions" ? "sticky right-0 bg-[#F8FAFC]" : ""
+                    className={`px-3 sm:px-4 py-3.5 text-left text-[11px] font-800 uppercase tracking-wider text-[#64748B] ${
+                      h === "Actions" ? "sticky right-0 bg-[#F8FAFC] shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.05)] min-w-[7.5rem] sm:min-w-[11rem]" : ""
                     }`}
                   >
                     {h}
@@ -585,7 +585,7 @@ export default async function AdminUsersPage({
                           {new Date(u.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                         </p>
                       </td>
-                      <td className="sticky right-0 bg-white px-2 sm:px-4 py-3 sm:py-4 group-hover:bg-slate-50 min-w-[9.5rem] sm:min-w-[11rem] max-w-[11.5rem] sm:max-w-none align-top">
+                      <td className="sticky right-0 bg-white px-2 sm:px-4 py-3 sm:py-4 group-hover:bg-slate-50 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.05)] min-w-[7.5rem] sm:min-w-[11rem] align-top">
                         <UserRowActions user={u} isSuperAdmin={isSuperAdmin} />
                       </td>
                     </tr>

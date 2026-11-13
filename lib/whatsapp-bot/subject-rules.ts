@@ -506,21 +506,21 @@ export function validateAndCleanLocality(
       const prefix3 = pin.slice(0, 3);
       let pinCity = defaultCity;
 
-    if (prefix2 === "11") pinCity = "Delhi";
-    else if (prefix3.startsWith("121")) pinCity = "Faridabad";
-    else if (prefix3.startsWith("122")) pinCity = "Gurgaon";
-    else if (prefix3.startsWith("201")) pinCity = "Noida";
-    else if (prefix2 === "40") pinCity = "Mumbai";
-    else if (prefix3.startsWith("411")) pinCity = "Pune";
-    else if (prefix3.startsWith("560")) pinCity = "Bangalore";
-    else if (prefix3.startsWith("700")) pinCity = "Kolkata";
-    else if (prefix3.startsWith("500")) pinCity = "Hyderabad";
-    else if (prefix3.startsWith("600")) pinCity = "Chennai";
-    else if (prefix3.startsWith("302")) pinCity = "Jaipur";
-    else if (prefix3.startsWith("226")) pinCity = "Lucknow";
-    else if (prefix3.startsWith("800")) pinCity = "Patna";
-    else if (prefix3.startsWith("380")) pinCity = "Ahmedabad";
-    else if (prefix3.startsWith("160")) pinCity = "Chandigarh";
+      if (prefix2 === "11") pinCity = "Delhi";
+      else if (prefix3.startsWith("121")) pinCity = "Faridabad";
+      else if (prefix3.startsWith("122")) pinCity = "Gurgaon";
+      else if (prefix3.startsWith("201")) pinCity = "Noida";
+      else if (prefix2 === "40") pinCity = "Mumbai";
+      else if (prefix3.startsWith("411")) pinCity = "Pune";
+      else if (prefix3.startsWith("560")) pinCity = "Bangalore";
+      else if (prefix3.startsWith("700")) pinCity = "Kolkata";
+      else if (prefix3.startsWith("500")) pinCity = "Hyderabad";
+      else if (prefix3.startsWith("600")) pinCity = "Chennai";
+      else if (prefix3.startsWith("302")) pinCity = "Jaipur";
+      else if (prefix3.startsWith("226")) pinCity = "Lucknow";
+      else if (prefix3.startsWith("800")) pinCity = "Patna";
+      else if (prefix3.startsWith("380")) pinCity = "Ahmedabad";
+      else if (prefix3.startsWith("160")) pinCity = "Chandigarh";
 
       return {
         isValid: true,
@@ -1221,40 +1221,39 @@ export function deduplicateAndNormalizeSubjects(
   let list = [...unique];
 
   // If Class 1-8 is taught and no 9-12 is taught, collapse generic school subjects into "All Subjects (Class 1-8)"
+  const elementaryDupes = new Set([
+    "all subjects",
+    "science",
+    "general science",
+    "science & maths",
+    "mathematics",
+    "maths",
+    "english",
+    "hindi",
+    "social studies",
+    "social science",
+    "physics",
+    "chemistry",
+    "biology",
+    "evs",
+    "environmental studies(evs)",
+  ]);
+
   if (hasJunior && !hasSenior) {
-    const hasAll18 = list.some((s) => /^all subjects/i.test(s));
-    if (hasAll18) {
-      const elementaryDupes = new Set([
-        "all subjects",
-        "science",
-        "general science",
-        "science & maths",
-        "mathematics",
-        "maths",
-        "english",
-        "hindi",
-        "social studies",
-        "social science",
-        "physics",
-        "chemistry",
-        "biology",
-      ]);
-      list = list.filter((s) => !elementaryDupes.has(s.toLowerCase()));
-      if (!list.some((s) => /^all subjects \(class 1-8\)$/i.test(s))) {
-        list.unshift("All Subjects (Class 1-8)");
-      }
-    }
+    const nonElementary = list.filter((s) => !elementaryDupes.has(s.toLowerCase()));
+    list = ["All Subjects (Class 1-8)", ...nonElementary];
   } else if (hasSenior && !hasJunior) {
     // Class 9-12 must NEVER carry "All Subjects" combo tags
     const filtered = list.filter((s) => !/^all subjects/i.test(s));
     if (filtered.length > 0) list = filtered;
   } else if (hasJunior && hasSenior) {
-    // Mixed (e.g. Class 8 + Class 11): keep "All Subjects (Class 1-8)" cleanly without bare "All Subjects"
-    if (list.some((s) => /^all subjects \(class 1-8\)$/i.test(s))) {
-      list = list.filter((s) => s.toLowerCase() !== "all subjects");
-    }
+    // Mixed (e.g. Class 8 + Class 11): ensure "All Subjects (Class 1-8)" is present for junior, and senior subjects are retained
+    list = list.filter((s) => s.toLowerCase() !== "all subjects");
     if (!hasNineTen) {
       list = list.filter((s) => !/^(science|general science)$/i.test(s));
+    }
+    if (!list.some((s) => /^all subjects \(class 1-8\)$/i.test(s))) {
+      list.unshift("All Subjects (Class 1-8)");
     }
   }
 
@@ -1272,12 +1271,12 @@ export function deduplicateAndNormalizeSubjects(
   return list.filter((s) => {
     const l = s.toLowerCase();
     if (l === "maths" && (hasMathsForClass || lowerSet.has("mathematics"))) return false;
-    if (l === "mathematics" && hasMathsForClass) return false;
-    if (l === "physics" && hasPhysicsForClass) return false;
-    if (l === "chemistry" && hasChemForClass) return false;
-    if (l === "biology" && hasBioForClass) return false;
+    if (l === "mathematics" && (hasMathsForClass || lowerSet.has("maths for class xi") || lowerSet.has("maths for class xii"))) return false;
+    if (l === "physics" && (hasPhysicsForClass || lowerSet.has("physics for class xi") || lowerSet.has("physics for class xii"))) return false;
+    if (l === "chemistry" && (hasChemForClass || lowerSet.has("chemistry for class xi") || lowerSet.has("chemistry for class xii"))) return false;
+    if (l === "biology" && (hasBioForClass || lowerSet.has("biology for class xi") || lowerSet.has("biology for class xii"))) return false;
     if (l === "general science" && (hasSciForClass || lowerSet.has("science") || lowerSet.has("all subjects (class 1-8)"))) return false;
-    if (l === "science" && hasSciForClass) return false;
+    if (l === "science" && (hasSciForClass || (hasSenior && !hasNineTen))) return false;
     if (l === "accounts" && (hasAccForClass || lowerSet.has("accountancy"))) return false;
     if (l === "accountancy" && hasAccForClass) return false;
     if (l === "social science" && (hasSstForClass || lowerSet.has("social studies"))) return false;

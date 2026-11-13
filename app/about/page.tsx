@@ -26,14 +26,14 @@ import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 export const metadata: Metadata = {
   title: "About Us | ApnaTutorHub — Bangalore-Based Home Tutoring Marketplace",
   description:
-    "Learn about ApnaTutorHub, India's leading AI-powered home tuition platform headquartered in Bengaluru. Connecting 50,000+ parents and verified tutors across India with 0% commission.",
+    "Learn about ApnaTutorHub, India's leading AI-powered home tuition platform headquartered in Bengaluru. Connecting 50,000+ parents and verified tutors across India with transparent pricing and verified leads.",
   alternates: { canonical: "/about" },
 };
 
 const STATS = [
   { value: "10,000+", label: "Verified Home Tutors", sub: "KYC & Background Checked" },
   { value: "50,000+", label: "Happy Students", sub: "CBSE, ICSE, State & IB" },
-  { value: "0%", label: "Platform Commission", sub: "100% Fees Go To Educators" },
+  { value: "100%", label: "Verified Leads", sub: "Genuine Parent Enquiries" },
   { value: "4.9 / 5", label: "Parent Rating", sub: "Based on 12,000+ Reviews" },
 ];
 
@@ -47,8 +47,8 @@ const CORE_PILLARS = [
   },
   {
     icon: Award,
-    title: "0% Commission Guarantee",
-    desc: "Unlike traditional tutoring agencies that take 40-50% of a tutor's monthly salary, ApnaTutorHub charges zero commission. Teachers keep 100% of their earnings.",
+    title: "Transparent Commission Structure",
+    desc: "Unlike traditional tutoring agencies with hidden charges, ApnaTutorHub offers transparent, upfront terms with low registration fees and fair platform terms.",
     tag: "Tutor Empowerment",
     color: "from-blue-500/20 to-indigo-500/10 text-blue-700 border-blue-200",
   },
@@ -136,7 +136,7 @@ export default async function AboutPage() {
 
             <p className="text-base sm:text-xl text-slate-200 font-medium max-w-3xl mx-auto leading-relaxed">
               Headquartered in Bangalore, ApnaTutorHub is India&apos;s fastest-growing tutoring platform.
-              We empower students with verified home and online teachers while ensuring educators keep 100% of their hard-earned fees.
+              We empower students with verified home and online teachers while ensuring educators receive verified, quality opportunities.
             </p>
 
             {/* Quick CTAs */}
@@ -151,7 +151,7 @@ export default async function AboutPage() {
                 href="/register?role=tutor"
                 className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-extrabold text-sm sm:text-base transition-all flex items-center gap-2 cursor-pointer backdrop-blur-md"
               >
-                Teach With Us (0% Commission)
+                Teach With Us
               </Link>
             </div>
           </div>
@@ -304,7 +304,7 @@ export default async function AboutPage() {
                 className="text-2xl sm:text-4xl font-black text-[#0F2540]"
                 style={{ fontFamily: "Poppins, sans-serif" }}
               >
-                Built on Integrity, Verified Safety &amp; Zero Commission
+                Built on Integrity, Verified Safety &amp; Transparent Terms
               </h2>
               <p className="text-sm sm:text-base text-slate-600 font-medium">
                 Everything we build is designed to protect students, empower parents with choice, and give teachers the dignity and full earnings they deserve.
@@ -591,7 +591,7 @@ export default async function AboutPage() {
             </h2>
 
             <p className="text-xs sm:text-base text-slate-300 font-medium max-w-xl mx-auto">
-              Whether you are a parent looking for a patient home tutor or a teacher wanting full respect and zero commissions &mdash; ApnaTutorHub is your partner.
+              Whether you are a parent looking for a patient home tutor or a teacher wanting full respect and verified tuition opportunities &mdash; ApnaTutorHub is your partner.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">

@@ -133,17 +133,17 @@ export function WalletPageClient({
               <div className="flex items-start gap-3">
                 <span className="text-3xl shrink-0 mt-0.5">🚀</span>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-emerald-800 mb-0.5">🌟 Flagship Membership — Limited Time 50% OFF</p>
+                  <p className="text-xs font-black uppercase tracking-wider text-emerald-800 mb-0.5">🤝 Official Membership Plan</p>
                   <p className="text-base font-black text-[#0F2540] leading-tight">
-                    Upgrade to <span className="text-emerald-700">₹2,999 Silver Plan</span>{" "}
-                    <span className="text-xs font-bold text-slate-500 line-through">₹5,999</span>{" "}
+                    Start with <span className="text-emerald-700">Commission Based Plan (₹1,257)</span>{" "}
+                    <span className="text-xs font-bold text-slate-500 line-through">₹2,500</span>{" "}
                     <span className="text-[11px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">50% OFF</span>
                   </p>
                   <p className="text-xs text-slate-600 font-semibold mt-1">
-                    <strong>10 Leads Unlock</strong> • <strong className="text-emerald-700">0% Platform Commission</strong> (Keep 100% of student fees!)
+                    <strong>5 Verified Leads Unlock</strong> • <strong>6 Months Validity</strong> (180 Days)
                   </p>
                   <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
-                    Verified leads • 90 days validity • Low competition: max 3 tutors
+                    Verified parent contacts • Direct call &amp; WhatsApp • Low competition: max 3 tutors
                   </p>
                 </div>
               </div>
@@ -152,7 +152,7 @@ export function WalletPageClient({
                 className="shrink-0 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 !text-white text-xs font-black shadow-lg transition-all hover:scale-105 inline-flex items-center gap-1.5"
               >
                 <Sparkles size={14} />
-                <span>View ₹2,999 Silver Plan →</span>
+                <span>View ₹1,257 Commission Plan →</span>
               </Link>
             </div>
           </div>
@@ -320,14 +320,14 @@ export function WalletPageClient({
               </div>
               <p className="text-sm font-700 text-gray-800">No transactions recorded yet</p>
               <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                Choose the ₹2,999 Silver Plan to unlock verified student leads.
+                Choose the ₹1,257 Commission Based Plan to unlock verified student leads.
               </p>
               <Link
                 href="/tutor/plans"
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 !text-white text-xs font-800 inline-flex items-center gap-1.5 mt-2"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 !text-white text-xs font-800 inline-flex items-center gap-1.5 mt-2"
               >
                 <Sparkles size={14} />
-                <span className="!text-white font-800">View ₹2,999 Silver Plan →</span>
+                <span className="!text-white font-800">View ₹1,257 Commission Plan →</span>
               </Link>
             </div>
           ) : (

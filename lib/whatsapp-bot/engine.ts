@@ -796,16 +796,14 @@ function tryTutorOffScriptReply(
     const hint =
       typeof data.interestedPlanType === "string" && data.interestedPlanType === "COMMISSION_1257"
         ? "1257"
-        : typeof data.interestedPlanType === "string" && data.interestedPlanType === "SILVER_2999"
-          ? "2999"
-          : paymentPlanHint(rawMessage);
+        : "1257";
     return {
       reply: formatPlanPaymentQrMessage(hint),
       nextStep,
       updatedData: { ...data, lastBotAsk: "pay", sameAskCount: 0 },
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["Commission Plan ₹1,257 🤝", "Silver Plan ₹2,999 🚀", "Talk to Support 📞"],
+      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -866,9 +864,8 @@ function tryTutorOffScriptReply(
     return {
       reply:
         `Koi baat nahi — parent ko *advance tuition fee* nahi deni. 🙏\n\n` +
-        `Membership sirf *leads unlock* ke liye optional hai:\n` +
-        `• ₹1,257 Commission plan (6 months, 5 leads)\n` +
-        `• ₹2,999 Silver — *0% commission* (10 leads · 90 days)\n\n` +
+        `Membership sirf *leads unlock* ke liye hoti hai:\n` +
+        `• ₹1,257 Commission Plan (6 months validity, 5 leads)\n\n` +
         `Abhi pay nahi karna to leads dekh sakte hain. Ready hon to *PAY* likhein.\n` +
         `👉 https://apnatutorhub.com/tutor/plans`,
       nextStep,
@@ -1032,7 +1029,7 @@ export async function processMessage(
 
   if (isEnquiryFollowUp) {
     return {
-      reply: `Sir yeh student ke parents ki taraf se post kiya gaya initial proposed budget hai. 📋\n\nDemo class ke time aap parent se standard market fees (jaise Class 1–5: ₹6,000–₹6,800/month ya Class 9+: ₹700–₹900/hour) directly discuss & negotiate kar sakte hain — hamare platform par fee negotiation direct rehti hai aur monthly fees par 0% commission hota hai! 🎯\n\nAapko is enquiry ke client se connect hona hai?`,
+      reply: `Sir yeh student ke parents ki taraf se post kiya gaya initial proposed budget hai. 📋\n\nDemo class ke time aap parent se standard market fees (jaise Class 1–5: ₹6,000–₹6,800/month ya Class 9+: ₹700–₹900/hour) directly discuss & negotiate kar sakte hain — hamare platform par fee negotiation direct rehti hai! 🎯\n\nAapko is enquiry ke client se connect hona hai?`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: session.userType || "TUTOR",
@@ -1046,7 +1043,7 @@ export async function processMessage(
     /\b(?:fees?|budget)\s*(?:is\s*)?(?:less|low|kam|chhota|bhot\s*kam|bahut\s*kam|zyada\s*kam|too\s*low)\b|\b(?:less|low|kam)\s*(?:fees?|budget)\b|\b(?:itne\s*me\s*kaise|fees\s*badhao)\b/i.test(rawMessage)
   ) {
     return {
-      reply: `Ji bilkul sir! Yeh student ke parents ka starting proposed budget hota hai. Lekin demo class ke baad aap parent se standard fees (Class 1–5: ₹5,000–₹6,800/mo, Class 9+: ₹700–₹900/hr) directly finalize kar sakte hain. 📚\n\nHum monthly tuition fees par 0% commission lete hain — poori fee 100% aapki hoti hai!\n\nAapko kis class ya area ke fresh leads dekhne hain?`,
+      reply: `Ji bilkul sir! Yeh student ke parents ka starting proposed budget hota hai. Lekin demo class ke baad aap parent se standard fees (Class 1–5: ₹5,000–₹6,800/mo, Class 9+: ₹700–₹900/hr) directly finalize kar sakte hain. 📚\n\nAapko kis class ya area ke fresh leads dekhne hain?`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: session.userType || "TUTOR",
@@ -1105,12 +1102,12 @@ export async function processMessage(
     /(?:bina\s*(?:paise|reg|payment)|free\s*(?:lead|enquiry|tuition|demo)|pehle\s*demo\s*(?:fir|phir|baad)|payment\s*baad|ek\s*(?:lead|enquiry)\s*(?:free|dedo))/i.test(rawMessage)
   ) {
     return {
-      reply: `Sir hum samajhte hain, par parents ke direct verified phone number aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹2,999 Growth plan (0% commission) ya ₹1,257 Commission plan se shuru kar sakte hain!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
+      reply: `Sir hum samajhte hain, par parents ke direct verified phone number aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹1,257 Commission Based Plan (6 months validity, 5 leads) se shuru kar sakte hain!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
       retries: 0,
-      quickReplies: ["View Plans 💰", "View Leads 📋", "Talk to Support 📞"],
+      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -1617,12 +1614,12 @@ export async function processMessage(
     /contact\s*no\s*(?:do|bhejo|dedo|de\s*do)/i.test(rawMessage)
   ) {
     return {
-      reply: `Sir, student aur parent ka direct verified mobile number aur address dekhne ke liye lead ko website par unlock karna hota hai:\n\n1️⃣ Website open karein: https://apnatutorhub.com/tutor/leads\n2️⃣ Lead select karke *Unlock Lead* par click karein.\n3️⃣ Parent ka direct call number & WhatsApp turant display ho jayega!\n\n💡 *ApnaTutorHub Benefit:* Hum monthly tuition fees mein se 0% commission lete hain — parent jo bhi fees denge, 100% aapki hogi!\n\nDirect Support WhatsApp: +91 93191 93109`,
+      reply: `Sir, student aur parent ka direct verified mobile number aur address dekhne ke liye lead ko website par unlock karna hota hai:\n\n1️⃣ Website open karein: https://apnatutorhub.com/tutor/leads\n2️⃣ Lead select karke *Unlock Lead* par click karein.\n3️⃣ Parent ka direct call number & WhatsApp turant display ho jayega!\n\n💡 *ApnaTutorHub Advantage:* Verified genuine student leads direct parent connect ke saath!\n\nDirect Support WhatsApp: +91 93191 93109`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
       retries: 0,
-      quickReplies: ["View All Leads 📋", "Buy Coins / Plans 💰", "Help 📞"],
+      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Help 📞"],
     };
   }
 
@@ -1634,12 +1631,12 @@ export async function processMessage(
     data.lastBotAsk !== "online-generic"
   ) {
     return {
-      reply: `Ji bilkul! Hamare platform par All-India Online Home Tuitions bhi available hain. 💻\n\nAap pure India ke students ko ghar baithe online classes (Google Meet / Zoom) de sakte hain:\n\n👉 *Online Leads dekhein:*\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n👉 *0% Commission Plans:*\nhttps://apnatutorhub.com/tutor/plans\n\nAap kaunse subjects aur classes online padhana chahte hain? Humein reply karein taaki hum aapke liye matching online leads bhej sakein!`,
+      reply: `Ji bilkul! Hamare platform par All-India Online Home Tuitions bhi available hain. 💻\n\nAap pure India ke students ko ghar baithe online classes (Google Meet / Zoom) de sakte hain:\n\n👉 *Online Leads dekhein:*\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n👉 *Commission Based Plan (₹1,257):*\nhttps://apnatutorhub.com/tutor/plans\n\nAap kaunse subjects aur classes online padhana chahte hain? Humein reply karein taaki hum aapke liye matching online leads bhej sakein!`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: { ...data, mode: "ONLINE", lastBotAsk: "online-generic", sameAskCount: 0 },
       userType: "TUTOR",
       retries: 0,
-      quickReplies: ["View Online Leads 💻", "Buy Plans 💰", "Update Subjects 📚"],
+      quickReplies: ["View Online Leads 💻", "Commission Plan 🤝", "Update Subjects 📚"],
     };
   }
 
@@ -1690,12 +1687,12 @@ export async function processMessage(
     /(?:demo\s*class\s*kaise|demo\s*ka\s*rule|demo\s*ke\s*baad|trial\s*class|how\s*does\s*demo\s*work|first\s*class\s*free|pehle\s*demo)/i.test(rawMessage)
   ) {
     return {
-      reply: `*Demo Class Rule & Process:* 🎓\n\n1️⃣ *Tutors ke liye:*\nLead unlock karne ke baad parent se call karke convenient time par 30-45 minutes ki trial/demo class schedule karein. Demo pasand aane par parent aapse monthly fees aur schedule final karenge.\n\n2️⃣ *Zero Commission:*\nApna Tutor Hub monthly tuition fees mein se 0% commission leta hai — parent ki poori fees seedha aapke paas rehti hai!\n\n3️⃣ *Parents ke liye:*\nAap verified home tutor se 1 free trial demo le sakte hain. Jab student aur aap fully satisfied hon, tabhi classes continue karein.`,
+      reply: `*Demo Class Rule & Process:* 🎓\n\n1️⃣ *Tutors ke liye:*\nLead unlock karne ke baad parent se call karke convenient time par 30-45 minutes ki trial/demo class schedule karein. Demo pasand aane par parent aapse monthly fees aur schedule final karenge.\n\n2️⃣ *Platform Terms:*\nTuition confirm hone par standard platform terms apply hote hain (50% on 1st month tuition fee + 5% recurring platform commission from 2nd month onwards).\n\n3️⃣ *Parents ke liye:*\nAap verified home tutor se 1 free trial demo le sakte hain. Jab student aur aap fully satisfied hon, tabhi classes continue karein.`,
       nextStep: step,
       updatedData: data,
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["View All Leads 📋", "Buy Coins 💰", "Help 📞"],
+      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Help 📞"],
     };
   }
 
@@ -1704,12 +1701,12 @@ export async function processMessage(
     /(?:mere\s*pa?ss\s*job|kuch\s*kaam\s*hai|job\s*chahiye|teaching\s*job|salary\s*kitni\s*milegi|interview\s*kab\s*hoga)/i.test(rawMessage)
   ) {
     return {
-      reply: `Apna Tutor Hub par hazaron verified home tuitions aur teaching opportunities available hain! 📚\n\nAap student leads unlock karke direct parents se connect kar sakte hain aur apni manchahi fees le sakte hain (0% Commission).\n\n👉 Available Tuitions dekhein: https://apnatutorhub.com/tutor/leads\nAap kaunse subjects aur classes padhate hain? Humein batayein!`,
+      reply: `Apna Tutor Hub par hazaron verified home tuitions aur teaching opportunities available hain! 📚\n\nAap student leads unlock karke direct parents se connect kar sakte hain aur tuition start kar sakte hain.\n\n👉 Available Tuitions dekhein: https://apnatutorhub.com/tutor/leads\nAap kaunse subjects aur classes padhate hain? Humein batayein!`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
       retries: 0,
-      quickReplies: ["View Leads 📋", "0% Commission Plans 💰", "Help 📞"],
+      quickReplies: ["View Leads 📋", "Commission Plan 🤝", "Help 📞"],
     };
   }
 
@@ -1719,12 +1716,12 @@ export async function processMessage(
     !/#\d{4,7}/.test(rawMessage)
   ) {
     return {
-      reply: `Bahut badhiya! 🎉 Hamare platform par 100% genuine verified tuitions available hain aur hum teachers se *0% Commission* lete hain (poori monthly fees aapki)!\n\n👉 *Leads dekhein aur unlock karein:*\nhttps://apnatutorhub.com/tutor/leads\n\n👉 *0% Commission Plans / Coins:*\nhttps://apnatutorhub.com/tutor/plans\n\nAgar aapne kisi specific tuition alert ka message dekha hai, toh uska *Lead ID* (jaise: *#32042*) yahan reply karein!`,
+      reply: `Bahut badhiya! 🎉 Hamare platform par 100% genuine verified tuitions available hain!\n\n👉 *Leads dekhein aur unlock karein:*\nhttps://apnatutorhub.com/tutor/leads\n\n👉 *Commission Based Plan (₹1,257):*\nhttps://apnatutorhub.com/tutor/plans\n\nAgar aapne kisi specific tuition alert ka message dekha hai, toh uska *Lead ID* (jaise: *#32042*) yahan reply karein!`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
       retries: 0,
-      quickReplies: ["View All Leads 📋", "View Coin Plans 💰", "Talk to Coordinator 📞"],
+      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Talk to Coordinator 📞"],
     };
   }
 
@@ -1784,12 +1781,12 @@ export async function processMessage(
   // Agreeing, asking for a free class, or asking about charges is not a new lead.
   if (/\b(agree to take|free\s+(?:one\s+)?class|registration fees?|charges?\s+(?:bhi\s+)?lage|koi charges)\b/i.test(rawMessage)) {
     return {
-      reply: `Lead unlock ke alawa koi registration fee nahi hai. Parent tutor ko fees seedha dete hain, aur us par *0% commission* hai.\n\nClass 1–8 = 10 coins, Class 9–10 = 20, Class 11–12 = 30. Coins pehle se hain to naya pack mat lijiye.\n👉 https://apnatutorhub.com/tutor/leads`,
+      reply: `Parents se fees trial demo ke baad finalize hoti hai. Leads unlock karne ke liye Commission Based Plan (₹1,257) active hai jisme 5 verified leads milti hain.\n\n👉 https://apnatutorhub.com/tutor/leads`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["My Coins 🪙", "View Leads 📋", "View Plans 💰"],
+      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -1833,12 +1830,12 @@ export async function processMessage(
   // Fee is paid to the tutor by the parent, not a class name.
   if (/\b(payment|fees?)\b.*\b(pehle|before|class)\b|\bclass(?:es)?\s+milne\s+se\s+pehle\b/i.test(rawMessage)) {
     return {
-      reply: `Tutor ko parent fees seedha dete hain. ApnaTutorHub monthly fees par *0% commission* leta hai.\n\nLead unlock karne ke liye coins lagte hain (Class 1–8: 10, Class 9–10: 20, Class 11–12: 30). Coins pehle se hain to naya pack lene ki zaroorat nahi.\n\n👉 https://apnatutorhub.com/tutor/wallet`,
+      reply: `Tutor ko parent demo ke baad monthly fees finalize karte hain. Lead unlock karne ke liye Commission Based Plan (₹1,257) use hota hai.\n\n👉 https://apnatutorhub.com/tutor/wallet`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["My Coins 🪙", "View Leads 📋", "View Plans 💰"],
+      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -1889,7 +1886,7 @@ export async function processMessage(
       updatedData: data,
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["Silver Plan ₹2,999 🚀", "Commission Plan ₹1,257 🤝", "Talk to Support 📞"],
+      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -1901,16 +1898,14 @@ export async function processMessage(
     const hint =
       typeof data.interestedPlanType === "string" && data.interestedPlanType === "COMMISSION_1257"
         ? "1257"
-        : typeof data.interestedPlanType === "string" && data.interestedPlanType === "SILVER_2999"
-          ? "2999"
-          : paymentPlanHint(rawMessage);
+        : "1257";
     return {
       reply: formatPlanPaymentQrMessage(hint),
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["Commission Plan ₹1,257 🤝", "Silver Plan ₹2,999 🚀", "Talk to Support 📞"],
+      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -1919,10 +1914,10 @@ export async function processMessage(
     return {
       reply: formatGrowthPlanDetailMessage(),
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: { ...data, interestedPlanType: "SILVER_2999" },
+      updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["PAY / QR 💳", "View Leads 📋", "Talk to Support 📞"],
+      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -2257,12 +2252,12 @@ export async function processMessage(
     // Conversational fallbacks for tutors asking about free leads, bargaining, or delayed payment:
     if (/bina\s*reg|free\s*lead|paise\s*nahi|payment\s*baad|ek\s*enquiry|enquiry\s*dedo|pehle\s*demo|yaar\b/i.test(rawMessage)) {
       return {
-        reply: `Sir hum samajhte hain, par parents ke direct contact details aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹2,999 Growth plan (0% commission) ya ₹1,257 Commission plan se shuru kar sakte hain!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
+        reply: `Sir hum samajhte hain, par parents ke direct contact details aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹1,257 Commission Based Plan (6 months validity, 5 leads) se shuru kar sakte hain!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
         nextStep: "DONE",
         updatedData: data,
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["View Plans 💰", "View Leads 📋", "Talk to Support 📞"],
+        quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
       };
     }
 

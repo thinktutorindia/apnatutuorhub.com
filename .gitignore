@@ -48,6 +48,7 @@ next-env.d.ts
 
 # CSV and Tabular Data Dumps (Calling sheets, customer PII)
 *.csv
+/audit_exports/
 mitali_*
 staff_performance_*
 

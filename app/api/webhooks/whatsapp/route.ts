@@ -393,12 +393,14 @@ export async function POST(request: Request): Promise<NextResponse> {
         result.retries
       );
 
-      // 4. Send reply (free within 24-hr service window)
-      const sent = await sendBotMessage(phone, result.reply, {
-        step: result.nextStep,
-        senderName: "Bot",
-      });
-      console.log(`[whatsapp-webhook] Automated reply sent to ${phone}: ${sent ? "SUCCESS" : "FAILED"}`);
+      // 4. Send reply (free within 24-hr service window) — skip if reply is empty
+      if (result.reply && result.reply.trim().length > 0) {
+        const sent = await sendBotMessage(phone, result.reply, {
+          step: result.nextStep,
+          senderName: "Bot",
+        });
+        console.log(`[whatsapp-webhook] Automated reply sent to ${phone}: ${sent ? "SUCCESS" : "FAILED"}`);
+      }
     } catch (err) {
       console.error("[whatsapp-webhook] Unhandled error:", err);
       // Try to send an error message to the user

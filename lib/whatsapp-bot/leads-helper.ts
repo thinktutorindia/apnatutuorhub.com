@@ -418,6 +418,8 @@ export async function getChatbotMatchingLeads(
 
     const hasSpecificClass = Boolean(classLevel && !/all|any|general/i.test(classLevel));
 
+    const userCity = (city || "").toLowerCase().trim();
+
     // Hard Constraint Filtering: class compatibility + subject compatibility + gender compatibility
     const candidatePool = rawLeads.filter((lead) => {
       if (hasSpecificClass && !isClassCompatible(classLevel, lead.classLevel)) {
@@ -428,6 +430,17 @@ export async function getChatbotMatchingLeads(
       }
       if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) {
         return false;
+      }
+      // Strict city isolation for offline / home visit leads:
+      const isOnline = lead.mode === "ONLINE";
+      if (!isOnline && userCity && userCity !== "delhi ncr") {
+        const leadCity = (lead.city || "").toLowerCase().trim();
+        const matchesCity = leadCity.includes(userCity) || userCity.includes(leadCity);
+        const isNcrTutor = /delhi|noida|gurgaon|gurugram|ghaziabad|faridabad/i.test(userCity);
+        const isNcrLead = /delhi|noida|gurgaon|gurugram|ghaziabad|faridabad/i.test(leadCity);
+        if (!(isNcrTutor && isNcrLead) && !matchesCity) {
+          return false; // Reject cross-city offline home visits completely
+        }
       }
       return true;
     });

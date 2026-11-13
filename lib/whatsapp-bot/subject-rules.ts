@@ -182,6 +182,7 @@ const NON_LOCALITY_WORDS = new Set([
   "bachcha", "child", "sirji", "mam", "padhana", "chahiye", "padhna", "sikhna",
   "contact", "number", "phone", "pass", "password", "pwd", "email", "registration", "login", "account", "profile", "test", "admin", "user", "username",
   "koi", "batao", "bhejo", "karo", "dekh", "update", "cancel", "stop", "menu", "start",
+  "kindly", "send", "english", "hindi", "none", "null", "non", "pata", "dont", "know", "forgot", "bhool",
   "mere", "paas", "pass", "job", "kr", "kro", "lo", "mai", "main", "mera", "meri", "aap", "aapka", "aapki", "tum", "tumhara", "tumhari", "hum", "humara",
   "mujhe", "mujhko", "bola", "boli", "raha", "rahi", "rahe", "pagal", "salary", "paisa", "paise", "de", "do", "dena", "lena", "provide", "karta", "karti", "karte",
   "who", "what", "where", "how", "why", "when", "can", "could", "will", "would", "is", "am", "are", "have", "has", "give", "send", "tell", "teach", "work", "looking", "interested",
@@ -484,11 +485,14 @@ export function validateAndCleanLocality(
     ""
   );
   clean = clean.replace(/\b(?:se\s+hu|se\s+hoon|se\s+hai|rehta\s+hu|rehti\s+hu)\b/gi, " ");
+  // Strip leading prepositions/conjunctions like "and Dwarka" -> "Dwarka"
+  clean = clean.replace(/^(?:and|or|aur|ya|in|at)\s+/i, "");
   clean = clean.replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
 
-  // Reject passwords, bot commands, defaults, or tokens with letters+numbers directly attached (e.g. Meenu123, Priya123, Default, 12345678)
+  // Reject passwords, bot commands, defaults, conversational sentences, or tokens with letters+numbers directly attached (e.g. Meenu123, Priya123, Default, 12345678)
   if (
-    /^(default|skip|password|pwd|pass|reply\s*default|none|null|undefined|test|admin|login)$/i.test(clean) ||
+    /^(default|skip|password|pwd|pass|reply\s*default|none|null|undefined|test|admin|login|non\s*of|none\s*of|dont\s*know|pata\s*nahi|no\s*idea)$/i.test(clean) ||
+    /\b(kindly|send|in\s+english|in\s+hindi|please|call\s+me)\b/i.test(clean) ||
     (!PLACE_INDICATORS.test(clean) && /\b[a-zA-Z]+[0-9]{2,}\b/i.test(clean)) ||
     (!PLACE_INDICATORS.test(clean) && /\b[0-9]{2,}[a-zA-Z]+\b/i.test(clean))
   ) {
@@ -712,7 +716,11 @@ export function validateAndCleanLocality(
 
   // Words with numbers attached (e.g. Meenu123, test99) are never valid standalone proper names for localities
   const hasEmbeddedDigits = words.some((w) => /[a-zA-Z]/.test(w) && /\d/.test(w) && !/^(b|c|d|e|f|g|h|p|q|s|m|l)\d{1,3}$/i.test(w));
-  const isValidProperName = !isGibberish && !hasEmbeddedDigits && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
+  // Reject person names when no place indicator is present (e.g. "Afzal Alam", "Priya Sharma")
+  const hasPersonSurname = !hasPlaceKeyword && words.some((w) =>
+    /^(sharma|verma|gupta|singh|kumar|chauhan|mishra|alam|khan|yadav|tiwari|tripathi|pandey|shukla|bhatnagar|chadha|chawla|lalwani|lakshmi|bhatia|kaur|saxena|mathur|joshi|agarwal|agrawal|jain|dubey|malhotra|kapoor|khanna|arora|sethi|sood|mehta|shah|patel|reddy|nair|rao|das|banerjee|mukherjee)$/i.test(w)
+  );
+  const isValidProperName = !isGibberish && !hasEmbeddedDigits && !hasPersonSurname && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
 
   if (hasPlaceKeyword || isValidProperName) {
     const formatted = clean
@@ -798,8 +806,9 @@ export function validateAndAlignSubjects(
   const grade = parseGrade(classLevel);
   const isPrimary = (grade !== null && grade <= 5) || /primary|kg|nursery|1\s*[-–to]\s*5/i.test(classLevel || "");
   const isMiddle = (grade !== null && grade >= 6 && grade <= 8) || /middle|6\s*[-–to]\s*8/i.test(classLevel || "");
-  const isBelow9 = (grade !== null && grade <= 8) || isPrimary || isMiddle || /1\s*[-–to]\s*8|upto\s*8|till\s*8/i.test(classLevel || "");
-  const isBelow11 = (grade !== null && grade <= 10) || isBelow9 || /9\s*[-–to]\s*10|secondary/i.test(classLevel || "");
+  const hasSenior = /\b(9|10|11|12|ix|x|xi|xii|neet|jee|senior|secondary|6\s*[-–to]\s*10|9\s*[-–to]\s*10|9\s*[-–to]\s*12|1\s*[-–to]\s*10|1\s*[-–to]\s*12)\b/i.test(classLevel || "");
+  const isBelow9 = !hasSenior && ((grade !== null && grade <= 8) || isPrimary || isMiddle || /1\s*[-–to]\s*8|upto\s*8|till\s*8/i.test(classLevel || ""));
+  const isBelow11 = (grade !== null && grade <= 10) || /9\s*[-–to]\s*10|secondary|6\s*[-–to]\s*10/i.test(classLevel || "") || (!hasSenior && isBelow9);
 
   const matchedSubjects = new Set<string>();
   let hasUnsupportedHobby = false;
@@ -936,7 +945,7 @@ export function validateAndAlignSubjects(
     }
 
     // 5. Mathematics (with Hindi Ganit and abbreviations) — till Class 8 counts as All Subjects (Class 1-8)
-    if (/\b(maths?|mathematics|algebra|calculus|geometry|trig|quant|arithmetic|mths?|ganit)\b/i.test(t)) {
+    if (/\b(maths?|math[e]?matics?|algebra|calculus|geometry|trig|quant|arithmetic|mths?|ganit)\b/i.test(t)) {
       if (isBelow9) {
         matchedSubjects.add("All Subjects (Class 1-8)");
       } else if (grade && grade >= 9 && grade <= 12 && ROMAN_MAP[grade]) {
@@ -1263,12 +1272,13 @@ export function deduplicateAndNormalizeSubjects(
     const filtered = list.filter((s) => !/^all subjects/i.test(s));
     if (filtered.length > 0) list = filtered;
   } else if (hasJunior && hasSenior) {
-    // Mixed (e.g. Class 8 + Class 11): ensure "All Subjects (Class 1-8)" is present for junior, and senior subjects are retained
+    // Mixed (e.g. Class 8 + Class 11): retain senior subjects. Only include "All Subjects (Class 1-8)" if user explicitly requested all subjects or primary classes
     list = list.filter((s) => s.toLowerCase() !== "all subjects");
     if (!hasNineTen) {
       list = list.filter((s) => !/^(science|general science)$/i.test(s));
     }
-    if (!list.some((s) => /^all subjects \(class 1-8\)$/i.test(s))) {
+    const requestedAllSubjects = subjects.some((s) => /all\s*subjects?|combo/i.test(String(s)));
+    if (requestedAllSubjects && !list.some((s) => /^all subjects \(class 1-8\)$/i.test(s))) {
       list.unshift("All Subjects (Class 1-8)");
     }
   }

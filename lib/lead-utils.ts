@@ -166,8 +166,9 @@ export function normalizeCanonicalClassLevel(raw?: string | null): string | null
     .filter((g) => g.n >= 1 && g.n <= 12);
 
   const hasClassWord = /\b(class|grade|std|standard)\b/i.test(s);
-  const bareNumber = /^(?:class\s*)?(\d{1,2})\.?$/i.test(s);
-  if (bareNumber && !/\b(class|grade|std|standard)\b/i.test(s)) return null;
+  // Numbers 1 and 2 alone are ambiguous because of bot menu choices ("1 - Tutor", "2 - Parent"), so reject bare 1 and 2 without class keyword.
+  const isBareMenuChoice = /^[12]\.?$/i.test(s.trim());
+  if (isBareMenuChoice && !hasClassWord) return null;
   if (/^(hindi|english|maths?|science|physics|chemistry|biology|accountancy|accounts|history|geography|economics|computer|sst|evs|commerce)$/i.test(s)) {
     return null;
   }
@@ -226,14 +227,25 @@ export function extractPublicLocality(raw?: string | null, fallbackCity?: string
   if (/^(nursery|lkg|ukg|kg|jee|neet|cuet|all subjects|hindi|english|maths|science|physics|please call)$/i.test(s)) {
     return null;
   }
-  if (/^(default|skip|password|pwd|pass|login|admin|reply\s*default|test|none|null|undefined)$/i.test(s)) {
+  if (/^(default|skip|password|pwd|pass|login|admin|reply\s*default|test|none|null|undefined|non\s*of|none\s*of|dont\s*know|pata\s*nahi|no\s*idea)$/i.test(s)) {
     return null;
   }
+  // Strip leading prepositions/conjunctions like "and Dwarka" -> "Dwarka"
+  s = s.replace(/^(?:and|or|aur|ya|in|at)\s+/i, "").trim();
+  if (!s) return null;
+
   if (!/\b(sector|sec|block|pocket|phase)\b/i.test(s) && (/\b[a-zA-Z]+[0-9]{2,}\b/i.test(s) || /\b[0-9]{2,}[a-zA-Z]+\b/i.test(s))) {
     return null;
   }
 
-  const sentence = /[?]|\b(mai|main|mein|hu|hoon|i am|i'm|from|padhta|padhti|padhate|padtha|tuition|tution|kya|please|call|skti|sakti|sakta|message|msg|near by|nearby|medium)\b/i.test(s);
+  // Reject person names without place indicators (e.g. Afzal Alam, Priya Sharma)
+  if (!/\b(nagar|vihar|sector|sec\b|colony|enclave|pur\b|ganj\b|bagh\b|kunj|road|street|marg|phase|block|pocket|extension|ext\b|city|town|society|complex|lines|gali|mohalla|pincode)\b/i.test(s)) {
+    if (/\b(sharma|verma|gupta|singh|kumar|chauhan|mishra|alam|khan|yadav|tiwari|tripathi|pandey|shukla|bhatnagar|chadha|chawla|lalwani|lakshmi|bhatia|kaur|saxena|mathur|joshi|agarwal|agrawal|jain|dubey|malhotra|kapoor|khanna|arora|sethi|sood|mehta|shah|patel|reddy|nair|rao|das|banerjee|mukherjee)\b/i.test(s)) {
+      return null;
+    }
+  }
+
+  const sentence = /[?]|\b(mai|main|mein|hu|hoon|i am|i'm|from|padhta|padhti|padhate|padtha|tuition|tution|kya|please|call|skti|sakti|sakta|message|msg|near by|nearby|medium|kindly|send|send this|in english|in hindi|write|tell|teach|want to|thanks|thank you|contact|help|reach)\b/i.test(s);
 
   const title = (value: string) =>
     value

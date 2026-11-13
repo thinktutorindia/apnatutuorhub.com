@@ -52,53 +52,42 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
     });
 
     if (registeredUser) {
-      const hasCompleteTutor = Boolean(
-        registeredUser.tutorProfile &&
-        registeredUser.tutorProfile.address &&
-        registeredUser.tutorProfile.address.toLowerCase() !== "delhi ncr" &&
-        registeredUser.tutorProfile.city &&
-        registeredUser.tutorProfile.city.toLowerCase() !== "delhi ncr" &&
-        ((registeredUser.tutorProfile as any).onboardingStep ?? 0) >= 7 &&
-        registeredUser.email &&
-        !registeredUser.email.startsWith("wa.")
-      );
-      const hasCompleteParent = Boolean(registeredUser.parentProfile);
+      const isTutor = registeredUser.role === "TUTOR" || Boolean(registeredUser.tutorProfile);
+      const isParent = !isTutor && (registeredUser.role === "PARENT" || Boolean(registeredUser.parentProfile));
+      const userType = isTutor ? "TUTOR" : isParent ? "PARENT" : "TUTOR";
 
-      if (hasCompleteTutor || hasCompleteParent) {
-        // Restore session to DONE state with stored profile data
-        const restoredData: Record<string, unknown> = {
-          _registered: true,
-          name: registeredUser.name ?? "",
-          email: registeredUser.email ?? "",
-          phone: registeredUser.phone ?? phone,
-        };
+      // Restore session to DONE state with stored profile data
+      const restoredData: Record<string, unknown> = {
+        _registered: true,
+        name: registeredUser.name ?? "",
+        email: registeredUser.email ?? "",
+        phone: registeredUser.phone ?? phone,
+        userType,
+      };
 
-        if (registeredUser.tutorProfile) {
-          restoredData.area = registeredUser.tutorProfile.address ?? "";
-          restoredData.city = registeredUser.tutorProfile.city ?? "";
-          restoredData.subjects = registeredUser.tutorProfile.subjects ?? [];
-        }
-
-        const userType = registeredUser.parentProfile ? "PARENT" : "TUTOR";
-
-        // Persist restored session so future requests don't need to re-query
-        await prisma.whatsappSession.update({
-          where: { phone: sessionPhone },
-          data: { step: "DONE", data: restoredData as never, userType, lastMessageAt: new Date() },
-        });
-
-        return {
-          id: raw.id,
-          phone: sessionPhone,
-          userType,
-          step: "DONE",
-          data: restoredData,
-          retries: 0,
-          lastMessageAt: existing?.lastMessageAt || raw.lastMessageAt,
-          isIdle,
-          justCreated: !existing,
-        };
+      if (registeredUser.tutorProfile) {
+        restoredData.area = registeredUser.tutorProfile.address ?? "";
+        restoredData.city = registeredUser.tutorProfile.city ?? "";
+        restoredData.subjects = registeredUser.tutorProfile.subjects ?? [];
       }
+
+      // Persist restored session so future requests don't need to re-query
+      await prisma.whatsappSession.update({
+        where: { phone: sessionPhone },
+        data: { step: "DONE", data: restoredData as never, userType, lastMessageAt: new Date() },
+      });
+
+      return {
+        id: raw.id,
+        phone: sessionPhone,
+        userType,
+        step: "DONE",
+        data: restoredData,
+        retries: 0,
+        lastMessageAt: existing?.lastMessageAt || raw.lastMessageAt,
+        isIdle,
+        justCreated: !existing,
+      };
     }
   }
   // ── End session recovery ───────────────────────────────────────────────────

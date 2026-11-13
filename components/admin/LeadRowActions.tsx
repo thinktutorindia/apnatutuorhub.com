@@ -86,7 +86,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
   useEffect(() => {
     setMounted(true);
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640);
+      setIsMobile(window.innerWidth < 768);
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -95,11 +95,12 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
 
   const updateMenuPosition = () => {
     if (typeof window === "undefined") return;
-    const mobile = window.innerWidth < 640;
+    const mobile = window.innerWidth < 768;
     setIsMobile(mobile);
     if (!mobile && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const right = Math.max(12, window.innerWidth - rect.right);
+      const menuWidth = 260;
+      const right = Math.max(12, Math.min(window.innerWidth - menuWidth - 12, window.innerWidth - rect.right));
       const estimatedHeight = 320;
       const spaceBelow = window.innerHeight - rect.bottom;
       const fitsBelow = spaceBelow >= estimatedHeight || spaceBelow >= rect.top;
@@ -178,7 +179,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
         className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-semibold text-left cursor-pointer transition-colors"
       >
         <Edit3 size={15} className="text-[#2D9E6B] shrink-0" />
-        <span className="truncate">Edit Requirement</span>
+        <span className="whitespace-nowrap flex-1 text-left">Edit Requirement</span>
       </button>
 
       {/* View Targeted & Notified Tutors */}
@@ -191,7 +192,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
         className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-blue-50 text-blue-900 font-semibold text-left cursor-pointer transition-colors"
       >
         <Users size={15} className="text-blue-600 shrink-0" />
-        <span className="truncate">Targeted Tutors &amp; Dispatch</span>
+        <span className="whitespace-nowrap flex-1 text-left">Targeted Tutors &amp; Dispatch</span>
       </button>
 
       {/* View Audit & Edit History */}
@@ -204,7 +205,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
         className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-indigo-50 text-indigo-900 font-semibold text-left cursor-pointer transition-colors"
       >
         <History size={15} className="text-indigo-600 shrink-0" />
-        <span className="truncate">Activity &amp; Correction History</span>
+        <span className="whitespace-nowrap flex-1 text-left">Activity &amp; Correction History</span>
       </button>
 
       {/* Expand Radius */}
@@ -216,7 +217,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
         className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-900 font-semibold text-left cursor-pointer transition-colors"
       >
         <Maximize2 size={15} className="text-[#2D9E6B] shrink-0" />
-        <span className="truncate">Expand Radius (+5km)</span>
+        <span className="whitespace-nowrap flex-1 text-left">Expand Radius (+5km)</span>
       </button>
 
       {/* WhatsApp Parent */}
@@ -229,7 +230,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
           className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-800 font-semibold cursor-pointer transition-colors"
         >
           <MessageCircle size={15} className="text-[#2D9E6B] shrink-0" />
-          <span className="truncate">WhatsApp Parent</span>
+          <span className="whitespace-nowrap flex-1 text-left">WhatsApp Parent</span>
         </a>
       )}
 
@@ -249,7 +250,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-amber-50 text-amber-900 font-semibold text-left cursor-pointer transition-colors"
         >
           <X size={15} className="text-amber-600 shrink-0" />
-          <span className="truncate">Force Close Lead</span>
+          <span className="whitespace-nowrap flex-1 text-left">Force Close Lead</span>
         </button>
       )}
 
@@ -268,7 +269,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-semibold text-left cursor-pointer transition-colors"
         >
           <Clock size={15} className="text-slate-500 shrink-0" />
-          <span className="truncate">Force Expire Lead</span>
+          <span className="whitespace-nowrap flex-1 text-left">Force Expire Lead</span>
         </button>
       )}
 
@@ -290,7 +291,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-rose-50 text-rose-700 font-bold text-left cursor-pointer transition-colors"
           >
             <Trash2 size={15} className="text-rose-600 shrink-0" />
-            <span className="truncate">Delete Lead</span>
+            <span className="whitespace-nowrap flex-1 text-left">Delete Lead</span>
           </button>
         </>
       )}
@@ -343,7 +344,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
         createPortal(
           isMobile ? (
             /* Mobile Bottom Sheet */
-            <div className="fixed inset-0 z-50 flex flex-col justify-end">
+            <div className="fixed inset-0 z-[9999] flex flex-col justify-end isolate">
               <div
                 className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
                 onClick={() => setIsOpen(false)}
@@ -379,21 +380,27 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
             </div>
           ) : (
             /* Desktop Floating Menu anchored to button */
-            <div
-              ref={dropdownRef}
-              style={{
-                position: "fixed",
-                top: `${menuCoords?.top ?? 0}px`,
-                right: `${menuCoords?.right ?? 12}px`,
-                zIndex: 50,
-              }}
-              className="w-60 rounded-2xl bg-white border border-slate-200 shadow-2xl p-1.5 space-y-0.5 text-xs animate-in fade-in zoom-in-95 duration-150 text-slate-800"
-            >
-              <div className="px-3 py-1.5 text-[10px] uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-100">
-                Lead {getInquiryHashTag(lead)} Actions
+            <>
+              <div
+                className="fixed inset-0 z-[9998] bg-transparent"
+                onClick={() => setIsOpen(false)}
+              />
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: "fixed",
+                  top: `${menuCoords?.top ?? 0}px`,
+                  right: `${menuCoords?.right ?? 12}px`,
+                  zIndex: 9999,
+                }}
+                className="w-64 min-w-[260px] rounded-2xl bg-white border border-slate-200 shadow-2xl p-1.5 space-y-0.5 text-xs animate-in fade-in zoom-in-95 duration-150 text-slate-800 isolate"
+              >
+                <div className="px-3 py-1.5 text-[10px] uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-100">
+                  Lead {getInquiryHashTag(lead)} Actions
+                </div>
+                {menuContent}
               </div>
-              {menuContent}
-            </div>
+            </>
           ),
           document.body
         )}
@@ -426,7 +433,7 @@ export function LeadRowActions({ lead, isSuperAdmin = false }: LeadRowActionsPro
       {mounted &&
         confirmDialog &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
             <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div

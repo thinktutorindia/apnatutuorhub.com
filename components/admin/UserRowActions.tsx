@@ -69,7 +69,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
   useEffect(() => {
     setMounted(true);
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640);
+      setIsMobile(window.innerWidth < 768);
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -78,12 +78,13 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
 
   const updateMenuPosition = () => {
     if (typeof window === "undefined") return;
-    const mobile = window.innerWidth < 640;
+    const mobile = window.innerWidth < 768;
     setIsMobile(mobile);
     if (!mobile && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const right = Math.max(12, window.innerWidth - rect.right);
-      const estimatedHeight = 360;
+      const menuWidth = 260;
+      const right = Math.max(12, Math.min(window.innerWidth - menuWidth - 12, window.innerWidth - rect.right));
+      const estimatedHeight = 380;
       const spaceBelow = window.innerHeight - rect.bottom;
       const fitsBelow = spaceBelow >= estimatedHeight || spaceBelow >= rect.top;
       const top = fitsBelow ? rect.bottom + 6 : Math.max(12, rect.top - estimatedHeight - 6);
@@ -161,7 +162,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
           className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-800 font-semibold cursor-pointer transition-colors"
         >
           <MessageCircle size={15} className="text-[#2D9E6B] shrink-0" />
-          <span className="truncate">WhatsApp Message</span>
+          <span className="whitespace-nowrap flex-1 text-left">WhatsApp Message</span>
         </a>
       )}
 
@@ -172,7 +173,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
         className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-semibold cursor-pointer transition-colors"
       >
         <Edit3 size={15} className="text-slate-500 shrink-0" />
-        <span className="truncate">Edit Full Profile</span>
+        <span className="whitespace-nowrap flex-1 text-left">Edit Full Profile</span>
       </Link>
 
       {/* Toggle Incomplete User Status */}
@@ -190,7 +191,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-800 font-semibold text-left cursor-pointer transition-colors"
         >
           <Check size={15} className="text-emerald-600 shrink-0" />
-          <span className="truncate">Mark as Complete (Untag)</span>
+          <span className="whitespace-nowrap flex-1 text-left">Mark as Complete (Untag)</span>
         </button>
       ) : (
         <button
@@ -207,7 +208,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-amber-50 text-amber-800 font-semibold text-left cursor-pointer transition-colors"
         >
           <AlertTriangle size={15} className="text-amber-600 shrink-0" />
-          <span className="truncate">Tag as Incomplete User</span>
+          <span className="whitespace-nowrap flex-1 text-left">Tag as Incomplete User</span>
         </button>
       )}
 
@@ -227,7 +228,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-amber-50 text-amber-800 font-semibold text-left cursor-pointer transition-colors"
         >
           <Lock size={15} className="text-amber-600 shrink-0" />
-          <span className="truncate">Suspend Account</span>
+          <span className="whitespace-nowrap flex-1 text-left">Suspend Account</span>
         </button>
       ) : (
         <button
@@ -243,7 +244,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-800 font-semibold text-left cursor-pointer transition-colors"
         >
           <Unlock size={15} className="text-[#2D9E6B] shrink-0" />
-          <span className="truncate">Reactivate Account</span>
+          <span className="whitespace-nowrap flex-1 text-left">Reactivate Account</span>
         </button>
       )}
 
@@ -268,7 +269,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-amber-50 text-amber-800 font-semibold text-left cursor-pointer transition-colors"
             >
               <Coins size={15} className="text-amber-600 shrink-0" />
-              <span className="truncate">Restrict Coin Top-Up</span>
+              <span className="whitespace-nowrap flex-1 text-left">Restrict Coin Top-Up</span>
             </button>
           ) : (
             <button
@@ -277,7 +278,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-800 font-semibold text-left cursor-pointer transition-colors"
             >
               <Coins size={15} className="text-[#2D9E6B] shrink-0" />
-              <span className="truncate">Allow Coin Top-Up</span>
+              <span className="whitespace-nowrap flex-1 text-left">Allow Coin Top-Up</span>
             </button>
           )}
 
@@ -289,7 +290,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-semibold text-left cursor-pointer transition-colors"
             >
               <BellOff size={15} className="text-slate-500 shrink-0" />
-              <span className="truncate">Opt Out Notifications</span>
+              <span className="whitespace-nowrap flex-1 text-left">Opt Out Notifications</span>
             </button>
           ) : (
             <button
@@ -298,7 +299,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-emerald-50 text-emerald-800 font-semibold text-left cursor-pointer transition-colors"
             >
               <Bell size={15} className="text-[#2D9E6B] shrink-0" />
-              <span className="truncate">Enable Notifications</span>
+              <span className="whitespace-nowrap flex-1 text-left">Enable Notifications</span>
             </button>
           )}
         </>
@@ -320,7 +321,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
         className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-semibold text-left cursor-pointer transition-colors"
       >
         <KeyRound size={15} className="text-slate-500 shrink-0" />
-        <span className="truncate">Reset Password</span>
+        <span className="whitespace-nowrap flex-1 text-left">Reset Password</span>
       </button>
 
       {/* Delete User (Super Admin Only) */}
@@ -339,7 +340,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
           className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-rose-50 text-rose-700 font-bold text-left cursor-pointer transition-colors"
         >
           <Trash2 size={15} className="text-rose-600 shrink-0" />
-          <span className="truncate">Delete User</span>
+          <span className="whitespace-nowrap flex-1 text-left">Delete User</span>
         </button>
       )}
     </>
@@ -392,7 +393,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
         createPortal(
           isMobile ? (
             /* Mobile Bottom Sheet Drawer */
-            <div className="fixed inset-0 z-50 flex flex-col justify-end">
+            <div className="fixed inset-0 z-[9999] flex flex-col justify-end isolate">
               {/* Dark backdrop */}
               <div
                 className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
@@ -433,21 +434,27 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
             </div>
           ) : (
             /* Desktop Floating Menu anchored to button */
-            <div
-              ref={dropdownRef}
-              style={{
-                position: "fixed",
-                top: `${menuCoords?.top ?? 0}px`,
-                right: `${menuCoords?.right ?? 12}px`,
-                zIndex: 50,
-              }}
-              className="w-60 rounded-2xl bg-white border border-slate-200 shadow-2xl p-1.5 space-y-0.5 text-xs animate-in fade-in zoom-in-95 duration-150 text-slate-800"
-            >
-              <div className="px-3 py-1.5 text-[10px] uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-100">
-                Account Management
+            <>
+              <div
+                className="fixed inset-0 z-[9998] bg-transparent"
+                onClick={() => setIsOpen(false)}
+              />
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: "fixed",
+                  top: `${menuCoords?.top ?? 0}px`,
+                  right: `${menuCoords?.right ?? 12}px`,
+                  zIndex: 9999,
+                }}
+                className="w-64 min-w-[260px] rounded-2xl bg-white border border-slate-200 shadow-2xl p-1.5 space-y-0.5 text-xs animate-in fade-in zoom-in-95 duration-150 text-slate-800 isolate"
+              >
+                <div className="px-3 py-1.5 text-[10px] uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-100">
+                  Account Management
+                </div>
+                {menuContent}
               </div>
-              {menuContent}
-            </div>
+            </>
           ),
           document.body
         )}
@@ -456,7 +463,7 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
       {mounted &&
         confirmDialog &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
             <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div

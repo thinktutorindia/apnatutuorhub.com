@@ -135,6 +135,10 @@ function keepClassLevel(current: unknown, rawMessage: string, previous: unknown)
     if (/\bneet\b/i.test(rawMessage)) return "NEET";
     if (/\b(jee|mains?|advanced?)\b/i.test(rawMessage)) return "JEE";
   }
+  const bareGradeMatch = rawMessage.trim().match(/^([1-9]|1[0-2])(?:\s*(?:th|st|nd|rd))?$/i);
+  if (bareGradeMatch && !/^[12]$/.test(rawMessage.trim())) {
+    return `Class ${bareGradeMatch[1]}`;
+  }
   const fromMsg = normalizeCanonicalClassLevel(rawMessage);
   if (fromMsg) return fromMsg;
   const prev = normalizeCanonicalClassLevel(typeof previous === "string" ? previous : "");
@@ -149,7 +153,15 @@ function keepArea(current: unknown, rawMessage: string, previous: unknown, city?
   const isIgnoredText =
     /^(default|skip|password|pwd|pass|reply\s*default|leads|plans|coins|help|menu|stop|cancel)$/i.test(trimmed) ||
     trimmed.includes("@") ||
-    /\b[a-zA-Z]+[0-9]{2,}\b/i.test(trimmed);
+    /\b[a-zA-Z]+[0-9]{2,}\b/i.test(trimmed) ||
+    /\b(kindly|send|send this|in english|in hindi|please|call|tell|write|want to|teach|need)\b/i.test(trimmed);
+
+  if (!isIgnoredText) {
+    const locRes = validateAndCleanLocality(trimmed, city);
+    if (locRes.isValid && locRes.area && locRes.area.toLowerCase() !== (city || "delhi").toLowerCase()) {
+      return locRes.area;
+    }
+  }
 
   const fromMsg = isIgnoredText ? null : extractPublicLocality(rawMessage, city);
   if (fromMsg) return fromMsg;
@@ -231,8 +243,9 @@ function formatHumanTeachingContext(
   if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
     humanSubjectLabel = `${cleanClass || "Class 1-5"} (Science & All Subjects)`;
   } else if (cleanClass && cleanSubs.length > 0) {
-    const sStr = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s)).join(", ");
-    humanSubjectLabel = `${cleanClass} (${sStr})`;
+    const nonDefault = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s));
+    const sStr = nonDefault.length > 0 ? nonDefault.join(", ") : cleanSubs.join(", ");
+    humanSubjectLabel = sStr ? `${cleanClass} (${sStr})` : cleanClass;
   } else if (cleanSubs.length > 0) {
     humanSubjectLabel = cleanSubs.join(", ");
   } else {
@@ -243,8 +256,9 @@ function formatHumanTeachingContext(
   if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
     humanAreaPrompt = `Ji bilkul! ${cleanClass || "Class 1-5"} Science ke liye aapka teaching area / city kaunsa hai? 📍`;
   } else if (cleanClass && cleanSubs.length > 0) {
-    const mainSub = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s))[0] || cleanSubs[0];
-    humanAreaPrompt = `Ji bilkul! ${cleanClass} ${mainSub} ke liye aapka teaching area / city kaunsa hai? 📍`;
+    const nonDefault = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s));
+    const mainSub = nonDefault.length > 0 ? nonDefault[0] : cleanSubs[0];
+    humanAreaPrompt = mainSub ? `Ji bilkul! ${cleanClass} ${mainSub} ke liye aapka teaching area / city kaunsa hai? 📍` : `Ji bilkul! ${cleanClass} ke liye aapka teaching area / city kaunsa hai? 📍`;
   } else if (cleanClass) {
     humanAreaPrompt = `Ji bilkul! ${cleanClass} ke liye aapka teaching area / city kaunsa hai? 📍`;
   } else {
@@ -764,15 +778,32 @@ function classAskOrBreak(
   const last = String(data.lastBotAsk || "");
   const count = last === prompt ? Number(data.sameAskCount || 0) + 1 : 1;
   if (count >= 2) {
+    const hasSubs = Array.isArray(data.subjects) && data.subjects.length > 0;
+    const hasClass = Boolean(data.classLevel || (Array.isArray(data.classLevels) && data.classLevels.length > 0));
+
+    if (hasSubs && !hasClass) {
+      const inferredClass = (data.subjects as string[]).some((s) => /11|12|physics|chemistry|biology|account/i.test(String(s))) ? "Class 11-12" : "Class 1-8";
+      return {
+        reply: `Theek hai! Aapka teaching area / city kaunsa hai? 📍`,
+        nextStep: "T_AREA",
+        updatedData: {
+          ...data,
+          classLevel: data.classLevel || inferredClass,
+          lastBotAsk: "break",
+          sameAskCount: 0,
+        },
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Delhi NCR", "Noida", "Gurugram", "Online Only"],
+      };
+    }
+
     return {
       reply:
         `Theek hai — same sawaal dubara nahi poochungi. 😊\n\nAap *kaunse subjects* padhate ho? Maths, Science, English, Physics…\nPayment / QR ke liye *PAY* likhein, ya coordinator: +91 93191 93109`,
       nextStep: "T_SUBJECTS",
       updatedData: {
         ...data,
-        subjects: [],
-        classLevel: undefined,
-        classLevels: undefined,
         lastBotAsk: "break",
         sameAskCount: 0,
       },
@@ -963,6 +994,21 @@ export async function processMessage(
       select: { direction: true, body: true, createdAt: true, senderName: true },
     }).then((msgs) => msgs.reverse()).catch(() => [])
   );
+
+  // ── Ignore WhatsApp Business Automated Away / Greeting Messages ──────────
+  if (
+    /^(?:thank\s*you\s*for\s*contacting|welcome\s*to\s.*thank\s*you\s*for\s*reaching|a\s*warm\s*welcome\s*to\s|hello\s+great\s+to\s+see\s+you\s+and\s+welcome\s+to)\b/i.test(rawMessage.trim()) ||
+    /please\s*let\s*us\s*know\s*how\s*we\s*can\s*help\s*you\b/i.test(rawMessage.trim())
+  ) {
+    console.log(`[whatsapp-bot] Ignored automated WhatsApp business greeting from ${session.phone}`);
+    return {
+      reply: "",
+      nextStep: step,
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+    };
+  }
 
   // ── Unsubscribe / Stop Commands (AquaSMS chat log pattern) ─────────────────
   if (/\b(?:unsubscribe|unsub|stop\s*messages?|stop\s*messaging|dont\s*message|don't\s*message|mat\s*bhejo|msg\s*mat\s*karo)\b|^stop$/i.test(rawMessage.trim())) {
@@ -1846,8 +1892,14 @@ export async function processMessage(
     };
   }
 
-  // "Both" answers online vs offline. Class 1–8 stays home tuition.
-  if (/^(both|dono|online and offline|offline and online)$/i.test(rawMessage.trim())) {
+  // "Both" answers online vs offline. Class 1–8 stays home tuition. Skip if at language select or initial welcome.
+  if (
+    step !== "LANG_SELECT" &&
+    step !== "WELCOME" &&
+    session.step !== "LANG_SELECT" &&
+    session.step !== "WELCOME" &&
+    /^(both|dono|online and offline|offline and online)$/i.test(rawMessage.trim())
+  ) {
     const cls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
     const junior = cls ? isTill8thClass(cls) : false;
     return {
@@ -2113,6 +2165,22 @@ export async function processMessage(
     }
   }
 
+  // ── Early Detection: Tutor sends teaching details at LANG_SELECT or WELCOME ──
+  const rawTrimmed = rawMessage.trim();
+  const hasSubjectSignal = /\b(math|maths|mathematics|mathmatics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i.test(rawTrimmed);
+  const hasClassSignal = extractAllClassLevelsFromText(rawTrimmed).length > 0 || /\b(class|grade|standard|std|\b[1-9]\b|\b1[0-2]\b|11th|12th|10th|9th|8th|7th|6th|5th|4th|3rd|2nd|1st|primary|middle|senior|secondary|nursery|lkg|ukg|kg)\b/i.test(rawTrimmed);
+  const hasLocSignal = validateAndCleanLocality(rawTrimmed).isValid || /\b(nagar|vihar|sector|colony|enclave|pur\b|ganj\b|bagh\b|kunj|road|street|delhi|noida|gurgaon|gurugram|ghaziabad|faridabad|mumbai|bangalore|pune|kolkata|jaipur|lucknow|chandigarh|indore|bhopal|patna|agra|madurai|chennai)\b/i.test(rawTrimmed);
+  const hasTutorSignal = /\b(tutor|teach|teaching|teacher|padhana|padhana\s*hai|classes|tuition|tution)\b/i.test(rawTrimmed);
+
+  if ((step === "LANG_SELECT" || step === "WELCOME") && (hasSubjectSignal || hasClassSignal || hasLocSignal || hasTutorSignal)) {
+    const isEn = /^[a-zA-Z0-9\s.,'\/&-]+$/.test(rawTrimmed) && !/\b(hai|hain|karna|chahiye|karo|batao|kripya)\b/i.test(rawTrimmed);
+    const chosenLang = isEn ? "en" : (data.lang as string) || "hi";
+    session.step = "T_CONVO";
+    session.userType = "TUTOR";
+    data.lang = chosenLang;
+    data.userType = "TUTOR";
+  }
+
   // ── Language Selection & Switch Commands ────────────────────────────────────
   if (/^(lang|language|bhasha)$/i.test(msg)) {
     return {
@@ -2137,7 +2205,7 @@ export async function processMessage(
         quickReplies: ["1 - Tutor", "2 - Parent"],
       };
     }
-    if (/^(2|hi|hindi|हिंदी)$/i.test(rawMessage.trim())) {
+    if (/^(2|hi|hindi|हिंदी|both|dono|1\s*(&|and|\+)?\s*2)$/i.test(rawMessage.trim())) {
       const nextData = { ...data, lang: "hi" };
       return {
         reply: MSG.WELCOME_HI,
@@ -2629,13 +2697,22 @@ export async function processMessage(
       };
     }
 
-    const msgClasses = extractAllClassLevelsFromText(rawMessage);
-    const wantsReplace = /\b(only|sirf|replace|overwrite|sirf yahi)\b/i.test(rawMessage);
-    const hasSubjectWords = /\b(math|maths|mathematics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i.test(rawMessage);
+    // Combine rawMessage with recent inbound fragments from chatHistory (last 2 mins)
+    const recentInbounds = (chatHistory || [])
+      .filter((m) => m.direction === "INBOUND" && m.body && (!m.createdAt || Date.now() - new Date(m.createdAt).getTime() < 120_000))
+      .map((m) => m.body.trim());
+    const combinedContext = Array.from(new Set([...recentInbounds, rawMessage.trim()])).join(" \n ");
+
+    const msgClasses = extractAllClassLevelsFromText(combinedContext);
+    const wantsExplicitAdditive = /\b(also|bhi|along with|as well|aur ek)\b/i.test(rawMessage);
+    const existingSubsGeneric = Array.isArray(data.subjects) && (data.subjects.length === 0 || data.subjects.some((s: string) => /all\s*subjects?/i.test(s)));
+    const hasStructuredSignals = /\b(subjects?|sub|classes?|cls|location|area)\s*[-:]/i.test(rawMessage);
+    const wantsReplace = !wantsExplicitAdditive && (hasStructuredSignals || existingSubsGeneric || /\b(only|sirf|replace|overwrite)\b/i.test(rawMessage));
+    const hasSubjectWords = /\b(math|maths|mathematics|mathmatics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i.test(combinedContext);
     const hasNegatedSubject = /\b(don't|dont|do\s+not|nahi|not)\s+teach\b/i.test(rawMessage);
     const directSubRes =
       hasSubjectWords && !hasNegatedSubject
-        ? validateAndAlignSubjects(rawMessage, msgClasses[0] || (data.classLevel as string | undefined))
+        ? validateAndAlignSubjects(combinedContext, msgClasses[0] || (data.classLevel as string | undefined))
         : null;
 
     const directLocStatement = rawMessage.trim().match(
@@ -3462,10 +3539,13 @@ export async function processMessage(
             }
 
             mergedData.email = emailCandidate;
+            const ackLabel = (session.step === "T_AREA" || (mergedData.area && !mergedData.emailAcknowledged))
+              ? `Location note ho gayi: *${mergedData.area}* ✅`
+              : `Email note ho gaya: *${emailCandidate}* ✅`;
             return {
-              reply: `Email note ho gaya: *${emailCandidate}* ✅\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
+              reply: `${ackLabel}\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
               nextStep: "T_PASSWORD",
-              updatedData: mergedData,
+              updatedData: { ...mergedData, emailAcknowledged: true },
               userType: "TUTOR",
               retries: 0,
               quickReplies: ["Default Password", "12345678"],
@@ -3478,7 +3558,7 @@ export async function processMessage(
           // If in T_PASSWORD step, handle user input
           if (session.step === "T_PASSWORD") {
             const rawTrim = rawMessage.trim();
-            const isDefaultChoice = /default|skip|12345678|nahi|no|set 12345678/i.test(rawTrim);
+            const isDefaultChoice = /default|skip|12345678|nahi|no|set 12345678|dont\s*know|pata\s*nahi|forgot|bhool/i.test(rawTrim);
             if (isDefaultChoice) {
               mergedData.password = "12345678";
               mergedData._usedDefaultPassword = true;
@@ -3830,7 +3910,7 @@ export async function processMessage(
   }
 
   // TUTOR conversational fallback: Require subject, class, area, email, and password before registering
-  if (step === "T_CONVO" || step === "T_SUBJECTS" || step === "T_CLASS" || step === "T_AREA" || step === "T_EMAIL" || step === "T_PASSWORD" || step === "DONE") {
+  if (step === "T_CONVO" || step === "T_NAME" || step === "T_SUBJECTS" || step === "T_CLASS" || step === "T_AREA" || step === "T_EMAIL" || step === "T_PASSWORD" || step === "DONE") {
     const trimmed = rawMessage.trim();
     const fallbackOff = tryTutorOffScriptReply(session, rawMessage, data, step);
     if (fallbackOff) return fallbackOff;
@@ -3868,7 +3948,13 @@ export async function processMessage(
       }
     }
 
-    const isSpecialStep = step === "T_PASSWORD" || step === "T_EMAIL" || session.step === "T_NAME";
+    const isSpecialStep =
+      step === "T_PASSWORD" ||
+      step === "T_EMAIL" ||
+      step === "T_NAME" ||
+      session.step === "T_PASSWORD" ||
+      session.step === "T_EMAIL" ||
+      session.step === "T_NAME";
     const isSensitiveInput =
       Boolean(emailMatch) ||
       Boolean(pwdMatch) ||
@@ -4190,7 +4276,7 @@ export async function processMessage(
     }
 
     if (step === "T_PASSWORD") {
-      if (/default|skip|12345678|nahi|no/i.test(pwdStr)) {
+      if (/default|skip|12345678|nahi|no|dont\s*know|pata\s*nahi|forgot|bhool/i.test(pwdStr)) {
         updated.password = "12345678";
         updated._usedDefaultPassword = true;
       } else if (pwdStr.length < 6) {

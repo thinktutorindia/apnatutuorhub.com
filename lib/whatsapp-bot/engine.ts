@@ -67,9 +67,11 @@ import {
   parseGrade,
   validateAndCleanLocality,
   validateAndAlignSubjects,
+  deduplicateAndNormalizeSubjects,
   KNOWN_INDIAN_CITIES,
   PLACE_INDICATORS,
 } from "./subject-rules";
+import { geocodeAddressWithGemini } from "@/lib/gemini-geocoder";
 import {
   detectLooseIntent,
   looseIntentClarifyReply,
@@ -258,6 +260,64 @@ function formatHumanTeachingContext(
  * Synchronize user credentials (password, email, name, subjects, area)
  * directly in PostgreSQL across User and TutorProfile tables.
  */
+/**
+ * Extract every canonical class level mentioned in a message (e.g. "science to class 8 also",
+ * "for 11 physics", "class 9 and 10", "1 to 8").
+ */
+export function extractAllClassLevelsFromText(text: string): string[] {
+  const s = (text || "").trim();
+  if (!s) return [];
+  const found = new Set<string>();
+
+  // 1. Explicit ranges first (e.g. "1 to 8", "Class 1-8", "6-8", "9-10", "11-12")
+  const rangeRegex = /\b(?:class\s*)?(1[0-2]|[1-9])(?:st|nd|rd|th)?\s*(?:[-–—]|\bto\b)\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rangeRegex.exec(s)) !== null) {
+    const canon = normalizeCanonicalClassLevel(m[0]);
+    if (canon) found.add(canon);
+  }
+
+  // 2. Individual classes / exams (e.g. "class 8", "for 11 physics", "11th", "till 8th", "nursery", "jee", "neet")
+  const singlePatterns = [
+    /\b(?:class|grade|std|standard|for|to|till|upto)\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b(?!\s*(?:days?|hours?|hrs?|km|mins?|minutes?|years?|yrs?|months?|pm|am))/gi,
+    /\b(1[0-2]|[1-9])(?:st|nd|rd|th)\b/gi,
+    /\b(?:nursery|lkg|ukg|playgroup|iit[\s-]*jee|jee|neet|cuet)\b/gi,
+  ];
+  for (const rx of singlePatterns) {
+    while ((m = rx.exec(s)) !== null) {
+      // Avoid matching numbers inside 6-digit pincodes or sector numbers like "Sector 62"
+      const prefixSlice = s.slice(Math.max(0, m.index - 10), m.index).toLowerCase();
+      if (/\b(sector|sec|phase|block|pin|pincode)\s*$/i.test(prefixSlice)) continue;
+      const numMatch = m[0].match(/(1[0-2]|[1-9])/);
+      const nVal = numMatch ? parseInt(numMatch[1], 10) : null;
+      const candidate = numMatch ? `Class ${numMatch[1]}` : m[0];
+      const canon = normalizeCanonicalClassLevel(candidate);
+      if (canon && found.size === 0) {
+        found.add(canon);
+      } else if (canon) {
+        // Don't add single grade if already covered inside an extracted range like "Class 1-8"
+        const alreadyCoveredByRange =
+          nVal !== null &&
+          Array.from(found).some((r) => {
+            const rm = r.match(/(\d+)\s*-\s*(\d+)/);
+            if (!rm) return false;
+            const lo = parseInt(rm[1], 10);
+            const hi = parseInt(rm[2], 10);
+            return nVal >= lo && nVal <= hi;
+          });
+        if (!alreadyCoveredByRange) found.add(canon);
+      }
+    }
+  }
+
+  if (found.size === 0) {
+    const fallback = normalizeCanonicalClassLevel(s);
+    if (fallback) found.add(fallback);
+  }
+
+  return Array.from(found);
+}
+
 export async function syncUserCredentialsInDb(params: {
   phone: string;
   email?: string;
@@ -265,10 +325,20 @@ export async function syncUserCredentialsInDb(params: {
   name?: string;
   subjects?: string[];
   classLevels?: string[];
+  mergeSubjects?: boolean;
+  mergeClasses?: boolean;
   area?: string;
   city?: string;
-}): Promise<{ ok: boolean; updatedFields: string[]; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  updatedFields: string[];
+  finalSubjects?: string[];
+  finalClassLevels?: string[];
+  error?: string;
+}> {
   const updatedFields: string[] = [];
+  let finalSubjects: string[] | undefined;
+  let finalClassLevels: string[] | undefined;
   try {
     const phoneFilters = buildIndiaPhoneOrFilter(params.phone);
     const waEmail = waPlaceholderEmail(params.phone);
@@ -336,17 +406,32 @@ export async function syncUserCredentialsInDb(params: {
       }
     }
 
-    // 4. Tutor profile update (subjects, class, area, city)
+    // 4. Tutor / Parent profile update (subjects, class, area, city)
     const tutorUser = primaryUser
       ? await prisma.user.findUnique({
           where: { id: primaryUser.id },
-          include: { tutorProfile: true },
+          include: { tutorProfile: true, parentProfile: true },
         })
       : null;
     const tutorRow = tutorUser?.tutorProfile ? tutorUser : null;
     const wantsProfileWrite = Boolean(
       params.area || params.city || (params.subjects && params.subjects.length > 0) || (params.classLevels && params.classLevels.length > 0)
     );
+
+    const resolveCoordsSafe = async (locQuery: string): Promise<{ lat: number; lng: number } | null> => {
+      if (!locQuery) return null;
+      const local = resolveLocationCoordinates(locQuery);
+      if (local) return local;
+      try {
+        const gem = await geocodeAddressWithGemini({ address: locQuery });
+        if (gem && Number.isFinite(gem.lat) && Number.isFinite(gem.lng)) {
+          return { lat: gem.lat, lng: gem.lng };
+        }
+      } catch {
+        // fallback gracefully if Gemini geocoder unavailable
+      }
+      return null;
+    };
 
     if (tutorRow && tutorRow.tutorProfile) {
       const profileUpdates: {
@@ -364,7 +449,7 @@ export async function syncUserCredentialsInDb(params: {
         profileUpdates.city = params.city;
       }
       if (params.area || params.city) {
-        const coords = resolveLocationCoordinates(
+        const coords = await resolveCoordsSafe(
           `${params.area || tutorRow.tutorProfile.address || ""} ${params.city || tutorRow.tutorProfile.city || ""}`.trim()
         );
         if (coords) {
@@ -372,11 +457,29 @@ export async function syncUserCredentialsInDb(params: {
           profileUpdates.longitude = coords.lng;
         }
       }
-      if (params.subjects && params.subjects.length > 0) {
-        profileUpdates.subjects = params.subjects;
-      }
       if (params.classLevels && params.classLevels.length > 0) {
-        profileUpdates.classLevels = params.classLevels;
+        const existingCls = tutorRow.tutorProfile.classLevels || [];
+        const mergedCls = params.mergeClasses
+          ? Array.from(new Set([...existingCls, ...params.classLevels]))
+          : Array.from(new Set(params.classLevels));
+        profileUpdates.classLevels = mergedCls;
+        finalClassLevels = mergedCls;
+      } else {
+        finalClassLevels = tutorRow.tutorProfile.classLevels || [];
+      }
+      if (params.subjects && params.subjects.length > 0) {
+        const existingSubs = tutorRow.tutorProfile.subjects || [];
+        const rawSubList = params.mergeSubjects ? [...existingSubs, ...params.subjects] : params.subjects;
+        const cleanSubs = deduplicateAndNormalizeSubjects(rawSubList, finalClassLevels);
+        profileUpdates.subjects = cleanSubs;
+        finalSubjects = cleanSubs;
+      } else if (params.classLevels && params.classLevels.length > 0 && tutorRow.tutorProfile.subjects.length > 0) {
+        // Re-clean existing subjects against updated classLevels if class changed
+        const recleaned = deduplicateAndNormalizeSubjects(tutorRow.tutorProfile.subjects, finalClassLevels);
+        if (JSON.stringify(recleaned) !== JSON.stringify(tutorRow.tutorProfile.subjects)) {
+          profileUpdates.subjects = recleaned;
+          finalSubjects = recleaned;
+        }
       }
       if (Object.keys(profileUpdates).length > 0) {
         await prisma.tutorProfile.update({
@@ -391,11 +494,24 @@ export async function syncUserCredentialsInDb(params: {
           });
         }
         if (params.area || params.city) updatedFields.push("area");
-        if (params.subjects) updatedFields.push("subjects");
-        if (params.classLevels) updatedFields.push("class");
+        if (profileUpdates.subjects) updatedFields.push("subjects");
+        if (profileUpdates.classLevels) updatedFields.push("class");
       }
+    } else if (tutorUser?.parentProfile && (params.area || params.city) && !params.subjects && !params.classLevels) {
+      const coords = await resolveCoordsSafe(
+        `${params.area || tutorUser.parentProfile.address || ""} ${params.city || tutorUser.parentProfile.city || ""}`.trim()
+      );
+      await prisma.parentProfile.update({
+        where: { id: tutorUser.parentProfile.id },
+        data: {
+          ...(params.area ? { address: params.area } : {}),
+          ...(params.city ? { city: params.city } : {}),
+          ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+        },
+      });
+      updatedFields.push("area");
     } else if (wantsProfileWrite && tutorUser && !["SUPER_ADMIN", "SUB_ADMIN"].includes(tutorUser.role)) {
-      const coords = resolveLocationCoordinates(
+      const coords = await resolveCoordsSafe(
         `${params.area || ""} ${params.city || ""}`.trim()
       );
       if (tutorUser.role === "PARENT") {
@@ -404,6 +520,10 @@ export async function syncUserCredentialsInDb(params: {
           data: { role: "TUTOR" },
         });
       }
+      finalClassLevels = params.classLevels ? Array.from(new Set(params.classLevels)) : [];
+      finalSubjects = params.subjects
+        ? deduplicateAndNormalizeSubjects(params.subjects, finalClassLevels)
+        : [];
       await prisma.tutorProfile.create({
         data: {
           userId: tutorUser.id,
@@ -411,13 +531,13 @@ export async function syncUserCredentialsInDb(params: {
           city: params.city || "Delhi",
           latitude: coords?.lat ?? null,
           longitude: coords?.lng ?? null,
-          subjects: params.subjects || [],
-          classLevels: params.classLevels || [],
+          subjects: finalSubjects,
+          classLevels: finalClassLevels,
         },
       });
       if (params.area || params.city) updatedFields.push("area");
-      if (params.subjects) updatedFields.push("subjects");
-      if (params.classLevels) updatedFields.push("class");
+      if (finalSubjects.length > 0) updatedFields.push("subjects");
+      if (finalClassLevels.length > 0) updatedFields.push("class");
     }
     const profileMissing = wantsProfileWrite && !updatedFields.includes("area") && !updatedFields.includes("subjects") && !updatedFields.includes("class") && !tutorRow?.tutorProfile;
 
@@ -434,9 +554,15 @@ export async function syncUserCredentialsInDb(params: {
         if (params.name) merged.name = params.name.trim();
         if (params.area) merged.area = params.area.trim();
         if (params.city) merged.city = params.city.trim();
-        if (params.subjects) merged.subjects = params.subjects;
-        if (params.classLevels) merged.classLevels = params.classLevels;
-        if (params.classLevels?.[0]) merged.classLevel = params.classLevels[0];
+        if (finalSubjects) merged.subjects = finalSubjects;
+        else if (params.subjects) merged.subjects = params.subjects;
+        if (finalClassLevels) {
+          merged.classLevels = finalClassLevels;
+          if (finalClassLevels[0]) merged.classLevel = finalClassLevels[0];
+        } else if (params.classLevels) {
+          merged.classLevels = params.classLevels;
+          if (params.classLevels[0]) merged.classLevel = params.classLevels[0];
+        }
 
         await prisma.whatsappSession.update({
           where: { id: existingSession.id },
@@ -450,7 +576,7 @@ export async function syncUserCredentialsInDb(params: {
     if (profileMissing) {
       return { ok: false, updatedFields, error: "No tutor profile for this WhatsApp number" };
     }
-    return { ok: true, updatedFields };
+    return { ok: true, updatedFields, finalSubjects, finalClassLevels };
   } catch (err: any) {
     console.error("[syncUserCredentialsInDb] Error syncing credentials:", err);
     return { ok: false, updatedFields, error: err?.message || String(err) };
@@ -1327,7 +1453,9 @@ export async function processMessage(
   }
 
   if (step === "UPDATE_SUBJECTS") {
-    const aligned = validateAndAlignSubjects(rawMessage.trim(), data.classLevel as string | undefined);
+    const inlineClasses = extractAllClassLevelsFromText(rawMessage);
+    const targetCls = inlineClasses[0] || (data.classLevel as string | undefined);
+    const aligned = validateAndAlignSubjects(rawMessage.trim(), targetCls);
     if (!aligned.isValid || aligned.subjects.length === 0) {
       return {
         reply: aligned.errorPrompt || "Kaunse subjects padhate ho? Jaise: *Maths, Science* ya *All Subjects*.",
@@ -1337,13 +1465,28 @@ export async function processMessage(
         quickReplies: ["Maths", "All Subjects", "Physics", "Cancel"],
       };
     }
-    const saved = await syncUserCredentialsInDb({ phone: session.phone, subjects: aligned.subjects });
+    const wantsAdd = /\b(also|bhi|add|aur)\b/i.test(rawMessage);
+    const saved = await syncUserCredentialsInDb({
+      phone: session.phone,
+      subjects: aligned.subjects,
+      classLevels: inlineClasses.length > 0 ? inlineClasses : undefined,
+      mergeSubjects: wantsAdd,
+      mergeClasses: wantsAdd,
+    });
+    const outSubs = saved.finalSubjects || aligned.subjects;
+    const outCls = saved.finalClassLevels || (inlineClasses.length > 0 ? inlineClasses : undefined);
     return {
       reply: saved.updatedFields.includes("subjects")
-        ? `Subjects save ho gaye: *${aligned.subjects.join(", ")}* ✅`
+        ? `Subjects save ho gaye: *${outSubs.join(", ")}*${outCls && outCls.length > 0 ? ` (Class: *${outCls.join(", ")}*)` : ""} ✅`
         : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("subjects") ? { ...data, subjects: aligned.subjects } : data,
+      updatedData: saved.updatedFields.includes("subjects")
+        ? {
+            ...data,
+            subjects: outSubs,
+            ...(outCls && outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
+          }
+        : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
@@ -1391,8 +1534,8 @@ export async function processMessage(
         quickReplies: ["View Leads 📋", "My Profile 👤"],
       };
     }
-    const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || undefined);
-    if (!loc.isValid) {
+    const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || undefined, true);
+    if (!loc.isValid || (loc.city === "Delhi" && loc.area === "Delhi")) {
       return {
         reply: loc.errorPrompt || "Sirf locality likhein — jaise *Saket*, *Indirapuram*, *Bandra*, ya *HSR Layout*. 📍",
         nextStep: "UPDATE_AREA",
@@ -2235,24 +2378,13 @@ export async function processMessage(
       };
     }
 
-    if (/\b(subjects?)\s+(update|change|badal)|(?:update|change|badal).{0,16}subjects?\b/i.test(rawMessage)) {
-      return {
-        reply: `Kaunse subjects padhate ho? Jaise: *Maths, Science* ya Class 1–8 ke liye *All Subjects*.`,
-        nextStep: "UPDATE_SUBJECTS",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["Maths", "All Subjects", "Physics", "Cancel"],
-      };
-    }
-
-    const wantsProfileChange = /\b(update|change|set|changed|badal|naya|new)\b/i.test(rawMessage);
-    if (wantsProfileChange && /\b(location|area|locality|jagah|address)\b/i.test(rawMessage)) {
-      const tail = rawMessage.match(/\b(?:location|area|locality|jagah|address)\s+(?:to\s+|as\s+|is\s+|hai\s+|ko\s+)?([a-zA-Z0-9][a-zA-Z0-9\s.,\/-]{1,50})$/i);
+    const wantsProfileChange = /\b(update|change|set|changed|badal|naya|new|add|also|bhi)\b/i.test(rawMessage);
+    if (wantsProfileChange && /\b(location|area|locality|jagah|address|city)\b/i.test(rawMessage)) {
+      const tail = rawMessage.match(/\b(?:location|area|locality|jagah|address|city)\s+(?:to\s+|as\s+|is\s+|hai\s+|ko\s+|in\s+|for\s+)?([a-zA-Z0-9][a-zA-Z0-9\s.,\/-]{1,60})$/i);
       const loc = tail
-        ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || undefined)
+        ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || undefined, true)
         : null;
-      if (loc?.isValid) {
+      if (loc?.isValid && !(loc.city === "Delhi" && loc.area === "Delhi")) {
         const saved = await syncUserCredentialsInDb({
           phone: session.phone,
           area: loc.area,
@@ -2279,23 +2411,43 @@ export async function processMessage(
       };
     }
     if (wantsProfileChange && /\bsubjects?\b/i.test(rawMessage)) {
-      const tail = rawMessage.match(/\bsubjects?\s+(?:to\s+|as\s+|hai\s+|are\s+)?(.+)$/i);
-      const aligned = tail ? validateAndAlignSubjects(tail[1].trim(), data.classLevel as string | undefined) : null;
+      const tail = rawMessage.match(/\bsubjects?\s+(?:to\s+|as\s+|hai\s+|are\s+|for\s+)?(.+)$/i);
+      const inlineRaw = tail ? tail[1].trim() : "";
+      const inlineClasses = extractAllClassLevelsFromText(rawMessage);
+      const targetCls = inlineClasses[0] || (data.classLevel as string | undefined);
+      const aligned = inlineRaw && !/^(update|change|badal|set|karo|krdo)$/i.test(inlineRaw)
+        ? validateAndAlignSubjects(inlineRaw, targetCls)
+        : null;
       if (aligned?.isValid && aligned.subjects.length > 0) {
-        const saved = await syncUserCredentialsInDb({ phone: session.phone, subjects: aligned.subjects });
+        const wantsReplace = /\b(only|sirf|replace|overwrite)\b/i.test(rawMessage);
+        const saved = await syncUserCredentialsInDb({
+          phone: session.phone,
+          subjects: aligned.subjects,
+          classLevels: inlineClasses.length > 0 ? inlineClasses : undefined,
+          mergeSubjects: !wantsReplace,
+          mergeClasses: !wantsReplace,
+        });
+        const outSubs = saved.finalSubjects || aligned.subjects;
+        const outCls = saved.finalClassLevels || (inlineClasses.length > 0 ? inlineClasses : undefined);
         return {
           reply: saved.updatedFields.includes("subjects")
-            ? `Subjects save ho gaye: *${aligned.subjects.join(", ")}* ✅`
+            ? `Subjects save ho gaye: *${outSubs.join(", ")}*${outCls && outCls.length > 0 ? ` (Class: *${outCls.join(", ")}*)` : ""} ✅`
             : profileNotSavedReply(),
           nextStep: "DONE",
-          updatedData: saved.updatedFields.includes("subjects") ? { ...data, subjects: aligned.subjects } : data,
+          updatedData: saved.updatedFields.includes("subjects")
+            ? {
+                ...data,
+                subjects: outSubs,
+                ...(outCls && outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
+              }
+            : data,
           userType: "TUTOR",
           retries: 0,
           quickReplies: ["My Profile 👤", "View Leads 📋"],
         };
       }
       return {
-        reply: `Kaunse subjects padhate ho? Jaise: *Maths, Science* ya *All Subjects*.`,
+        reply: `Kaunse subjects padhate ho? Jaise: *Maths, Science* ya Class 1–8 ke liye *All Subjects*.`,
         nextStep: "UPDATE_SUBJECTS",
         updatedData: data,
         userType: "TUTOR",
@@ -2327,9 +2479,9 @@ export async function processMessage(
         quickReplies: ["Cancel"],
       };
     }
-    if (wantsProfileChange && /\b(class|classes|grade)\b/i.test(rawMessage)) {
-      const cls = normalizeCanonicalClassLevel(rawMessage);
-      if (!cls) {
+    if (wantsProfileChange && /\b(class|classes|grade)\b/i.test(rawMessage) && !/\b(lead|tuition|koi)\b/i.test(rawMessage)) {
+      const classesExtracted = extractAllClassLevelsFromText(rawMessage);
+      if (classesExtracted.length === 0) {
         return {
           reply: `Kaunsi class padhate ho? Jaise: *Class 5*, *Class 9-10*, ya *Class 11-12*.`,
           nextStep: "UPDATE_CLASS",
@@ -2339,11 +2491,17 @@ export async function processMessage(
           quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
         };
       }
-      const saved = await syncUserCredentialsInDb({ phone: session.phone, classLevels: [cls] });
+      const wantsReplace = /\b(only|sirf|replace|overwrite)\b/i.test(rawMessage);
+      const saved = await syncUserCredentialsInDb({
+        phone: session.phone,
+        classLevels: classesExtracted,
+        mergeClasses: !wantsReplace,
+      });
+      const outCls = saved.finalClassLevels || classesExtracted;
       return {
-        reply: saved.updatedFields.includes("class") ? `Class save ho gayi: *${cls}* ✅` : profileNotSavedReply(),
+        reply: saved.updatedFields.includes("class") ? `Class save ho gayi: *${outCls.join(", ")}* ✅` : profileNotSavedReply(),
         nextStep: "DONE",
-        updatedData: saved.updatedFields.includes("class") ? { ...data, classLevel: cls, classLevels: [cls] } : data,
+        updatedData: saved.updatedFields.includes("class") ? { ...data, classLevel: outCls[0], classLevels: outCls } : data,
         userType: "TUTOR",
         retries: 0,
         quickReplies: ["My Profile 👤", "View Leads 📋"],
@@ -2469,89 +2627,145 @@ export async function processMessage(
       };
     }
 
+    const msgClasses = extractAllClassLevelsFromText(rawMessage);
+    const wantsReplace = /\b(only|sirf|replace|overwrite|sirf yahi)\b/i.test(rawMessage);
+    const hasSubjectWords = /\b(math|maths|mathematics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i.test(rawMessage);
+    const hasNegatedSubject = /\b(don't|dont|do\s+not|nahi|not)\s+teach\b/i.test(rawMessage);
+    const directSubRes =
+      hasSubjectWords && !hasNegatedSubject
+        ? validateAndAlignSubjects(rawMessage, msgClasses[0] || (data.classLevel as string | undefined))
+        : null;
+
+    const directLocStatement = rawMessage.trim().match(
+      /^(?:(?:sir|mam|hello|hi)[,\s]+)?(?:my\s+(?:new\s+)?(?:location|area|locality|city)\s+(?:is|hai)|i\s+(?:live|stay|am\s+staying|am\s+living)\s+(?:in|at)|i\s+am\s+from|currently\s+(?:in|at)|location\s*:)\s*(.+)$/i
+    );
+    const directLocRes = directLocStatement
+      ? validateAndCleanLocality(directLocStatement[1].trim(), (data.city as string) || undefined, true)
+      : null;
+
+    const applyDonePatch = async (opts: {
+      ai?: Awaited<ReturnType<typeof askGeminiChatbot>>;
+    }) => {
+      const ai = opts.ai;
+      const mergedData: Record<string, any> = { ...data };
+      let credentialsChanged = false;
+
+      const rawEmailMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      const extractedEmail = (ai?.extractedData?.email as string) || (rawEmailMatch ? rawEmailMatch[0] : undefined);
+      const extractedPassword = ai?.extractedData?.password as string | undefined;
+
+      if (extractedEmail && isValidEmailDomain(extractedEmail) && extractedEmail.toLowerCase() !== data.email) {
+        mergedData.email = extractedEmail.toLowerCase();
+        credentialsChanged = true;
+      }
+
+      if (extractedPassword && extractedPassword.length >= 6) {
+        mergedData.password = extractedPassword;
+        credentialsChanged = true;
+      }
+
+      // Location resolution (prefer explicit location statement or AI area+city, allowing non-Delhi city-only updates)
+      let areaToSave: string | undefined;
+      let cityToSave: string | undefined;
+      if (directLocRes?.isValid && !(directLocRes.city === "Delhi" && directLocRes.area === "Delhi")) {
+        areaToSave = directLocRes.area;
+        cityToSave = directLocRes.city;
+      } else if (ai?.extractedData && (typeof ai.extractedData.area === "string" || typeof ai.extractedData.city === "string")) {
+        const aiArea = typeof ai.extractedData.area === "string" ? ai.extractedData.area.trim() : "";
+        const aiCity = typeof ai.extractedData.city === "string" ? ai.extractedData.city.trim() : "";
+        const combinedLoc = aiArea && aiCity && !aiArea.toLowerCase().includes(aiCity.toLowerCase())
+          ? `${aiArea}, ${aiCity}`
+          : (aiArea || aiCity);
+        const loc = validateAndCleanLocality(combinedLoc, aiCity || (data.city as string) || undefined, true);
+        if (loc.isValid && !(loc.city === "Delhi" && loc.area === "Delhi")) {
+          areaToSave = loc.area;
+          cityToSave = loc.city;
+        }
+      }
+
+      // Class resolution: prioritize classes explicitly written in this incoming message!
+      let classesToSave: string[] | undefined = msgClasses.length > 0 ? msgClasses : undefined;
+      if (!classesToSave && ai?.extractedData && classSignalInMessage(rawMessage)) {
+        const aiClsRaw = Array.isArray(ai.extractedData.classLevels) && ai.extractedData.classLevels.length > 0
+          ? ai.extractedData.classLevels.map((c) => normalizeCanonicalClassLevel(String(c))).filter((c): c is string => Boolean(c))
+          : typeof ai.extractedData.classLevel === "string"
+            ? [normalizeCanonicalClassLevel(ai.extractedData.classLevel)].filter((c): c is string => Boolean(c))
+            : [];
+        if (aiClsRaw.length > 0) classesToSave = aiClsRaw;
+      }
+
+      // Subject resolution: validate new subjects against THIS message's class (not stale data.classLevel!)
+      let subjectsToSave: string[] | undefined;
+      const effectiveClassForMsg = classesToSave?.[0] || (data.classLevel as string | undefined);
+      if (directSubRes?.isValid && directSubRes.subjects.length > 0) {
+        subjectsToSave = directSubRes.subjects;
+      } else if (ai?.extractedData && Array.isArray(ai.extractedData.subjects) && ai.extractedData.subjects.length > 0 && hasSubjectWords && !hasNegatedSubject) {
+        const prevSubSet = new Set(Array.isArray(data.subjects) ? (data.subjects as string[]).map((s) => s.toLowerCase()) : []);
+        const freshAiSubs = (ai.extractedData.subjects as unknown[])
+          .map((s) => String(s || "").trim())
+          .filter((s) => s && !prevSubSet.has(s.toLowerCase()));
+        const subsToAlign = freshAiSubs.length > 0 ? freshAiSubs : ai.extractedData.subjects;
+        const aligned = validateAndAlignSubjects(subsToAlign, effectiveClassForMsg);
+        if (aligned.isValid && aligned.subjects.length > 0) {
+          subjectsToSave = aligned.subjects;
+        }
+      }
+
+      const nameToSave =
+        typeof ai?.extractedData?.name === "string" && isValidName(ai.extractedData.name)
+          ? String(ai.extractedData.name).trim()
+          : undefined;
+
+      const hasPatch = Boolean(
+        credentialsChanged || nameToSave || areaToSave || subjectsToSave || (classesToSave && classesToSave.length > 0)
+      );
+      const saved = hasPatch
+        ? await syncUserCredentialsInDb({
+            phone: session.phone,
+            email: credentialsChanged ? mergedData.email : undefined,
+            password: credentialsChanged ? mergedData.password : undefined,
+            name: nameToSave,
+            area: areaToSave,
+            city: cityToSave,
+            subjects: subjectsToSave,
+            classLevels: classesToSave,
+            mergeSubjects: !wantsReplace,
+            mergeClasses: !wantsReplace,
+          })
+        : { ok: true, updatedFields: [] as string[], finalSubjects: undefined, finalClassLevels: undefined };
+
+      if (saved.updatedFields.includes("area")) {
+        mergedData.area = areaToSave;
+        mergedData.city = cityToSave;
+      }
+      const displaySubjects = saved.finalSubjects || subjectsToSave;
+      const displayClasses = saved.finalClassLevels || classesToSave;
+      if (saved.updatedFields.includes("subjects") && displaySubjects) {
+        mergedData.subjects = displaySubjects;
+      }
+      if (saved.updatedFields.includes("class") && displayClasses && displayClasses.length > 0) {
+        mergedData.classLevel = displayClasses[0];
+        mergedData.classLevels = displayClasses;
+      }
+      if (saved.updatedFields.includes("name")) mergedData.name = nameToSave;
+
+      const savedBits = [
+        saved.updatedFields.includes("name") ? `naam *${nameToSave}*` : "",
+        saved.updatedFields.includes("area") ? `location *${areaToSave}, ${cityToSave}*` : "",
+        saved.updatedFields.includes("subjects") && displaySubjects ? `subjects *${displaySubjects.join(", ")}*` : "",
+        saved.updatedFields.includes("class") && displayClasses ? `class *${displayClasses.join(", ")}*` : "",
+        saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
+      ].filter(Boolean);
+
+      return { savedBits, mergedData };
+    };
+
     if (useAi) {
       try {
         const ai = await askGeminiChatbot(rawMessage, session, chatHistory);
         if (ai && ai.reply) {
-          // Strip any fabricated coordinator name that is not Priya
           ai.reply = ai.reply.replace(/\b(Seema|Anjali|Pooja|Riya|Simran|Neha|Shalini)\b/g, "Priya");
-          const mergedData: Record<string, any> = { ...data };
-          let credentialsChanged = false;
-
-          // Check if AI or message extracted email
-          const rawEmailMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-          const extractedEmail = (ai.extractedData?.email as string) || (rawEmailMatch ? rawEmailMatch[0] : undefined);
-          const extractedPassword = (ai.extractedData?.password as string);
-
-          if (extractedEmail && isValidEmailDomain(extractedEmail) && extractedEmail.toLowerCase() !== data.email) {
-            mergedData.email = extractedEmail.toLowerCase();
-            credentialsChanged = true;
-          }
-
-          if (extractedPassword && extractedPassword.length >= 6) {
-            mergedData.password = extractedPassword;
-            credentialsChanged = true;
-          }
-
-          let areaToSave: string | undefined;
-          let cityToSave: string | undefined;
-          if (typeof ai.extractedData?.area === "string") {
-            const loc = validateAndCleanLocality(ai.extractedData.area, (data.city as string) || undefined);
-            if (loc.isValid) {
-              areaToSave = loc.area;
-              cityToSave = loc.city;
-            }
-          }
-
-          let subjectsToSave: string[] | undefined;
-          if (Array.isArray(ai.extractedData?.subjects) && ai.extractedData.subjects.length > 0) {
-            const aligned = validateAndAlignSubjects(ai.extractedData.subjects, data.classLevel as string | undefined);
-            if (aligned.isValid && aligned.subjects.length > 0) subjectsToSave = aligned.subjects;
-          }
-
-          const classRaw =
-            (ai.extractedData?.classLevel as string) ||
-            (Array.isArray(ai.extractedData?.classLevels) ? String(ai.extractedData.classLevels[0] || "") : "");
-          const classToSave = classRaw ? normalizeCanonicalClassLevel(classRaw) : null;
-
-          const nameToSave =
-            typeof ai.extractedData?.name === "string" && isValidName(ai.extractedData.name)
-              ? String(ai.extractedData.name).trim()
-              : undefined;
-
-          const hasPatch = Boolean(
-            credentialsChanged || nameToSave || areaToSave || subjectsToSave || classToSave
-          );
-          const saved = hasPatch
-            ? await syncUserCredentialsInDb({
-                phone: session.phone,
-                email: credentialsChanged ? mergedData.email : undefined,
-                password: credentialsChanged ? mergedData.password : undefined,
-                name: nameToSave,
-                area: areaToSave,
-                city: cityToSave,
-                subjects: subjectsToSave,
-                classLevels: classToSave ? [classToSave] : undefined,
-              })
-            : { ok: true, updatedFields: [] as string[] };
-          if (saved.updatedFields.includes("area")) {
-            mergedData.area = areaToSave;
-            mergedData.city = cityToSave;
-          }
-          if (saved.updatedFields.includes("subjects")) mergedData.subjects = subjectsToSave;
-          if (saved.updatedFields.includes("class") && classToSave) {
-            mergedData.classLevel = classToSave;
-            mergedData.classLevels = [classToSave];
-          }
-          if (saved.updatedFields.includes("name")) mergedData.name = nameToSave;
-
-          const savedBits = [
-            saved.updatedFields.includes("name") ? `naam *${nameToSave}*` : "",
-            saved.updatedFields.includes("area") ? `location *${areaToSave}, ${cityToSave}*` : "",
-            saved.updatedFields.includes("subjects") ? `subjects *${subjectsToSave?.join(", ")}*` : "",
-            saved.updatedFields.includes("class") ? `class *${classToSave}*` : "",
-            saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
-          ].filter(Boolean);
+          const { savedBits, mergedData } = await applyDonePatch({ ai });
           let reply = ai.reply;
           if (savedBits.length > 0) {
             reply = `Save ho gaya: ${savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`;
@@ -2571,6 +2785,19 @@ export async function processMessage(
       } catch (err) {
         console.warn("[engine] AI call failed in DONE state:", err);
       }
+    }
+
+    // Deterministic fallback in DONE state (works even when Gemini AI is unavailable/offline)
+    const fallbackPatch = await applyDonePatch({});
+    if (fallbackPatch.savedBits.length > 0) {
+      return {
+        reply: `Save ho gaya: ${fallbackPatch.savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`,
+        nextStep: "DONE",
+        updatedData: fallbackPatch.mergedData,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋", "View Plans 💰"],
+      };
     }
 
     // Friendly fallback if AI fails in DONE state
@@ -2679,15 +2906,22 @@ export async function processMessage(
         }
 
         // Additional entity extractors from message text — Universal Indian Locality Validation
-        const shouldCheckRawForArea = Boolean(mergedData.area) || session.step === "T_AREA" || session.step === "P_AREA" || PLACE_INDICATORS.test(rawMessage);
+        const shouldCheckRawForArea = Boolean(mergedData.area) || Boolean(mergedData.city) || session.step === "T_AREA" || session.step === "P_AREA" || PLACE_INDICATORS.test(rawMessage);
         if (shouldCheckRawForArea) {
-          const rawAreaCandidate = mergedData.area || rawMessage;
-          const locRes = validateAndCleanLocality(rawAreaCandidate, (mergedData.city || data.city || "Delhi") as string);
-          if (locRes.isValid) {
+          const aiAreaStr = typeof mergedData.area === "string" ? mergedData.area.trim() : "";
+          const aiCityStr = typeof mergedData.city === "string" ? mergedData.city.trim() : "";
+          const rawAreaCandidate = aiAreaStr
+            ? (aiCityStr && !aiAreaStr.toLowerCase().includes(aiCityStr.toLowerCase()) ? `${aiAreaStr}, ${aiCityStr}` : aiAreaStr)
+            : (aiCityStr || rawMessage);
+          const locRes = validateAndCleanLocality(rawAreaCandidate, (mergedData.city || data.city || "Delhi") as string, true);
+          if (locRes.isValid && !(locRes.city === "Delhi" && locRes.area === "Delhi")) {
             mergedData.area = locRes.area;
             mergedData.city = locRes.city;
-          } else if (mergedData.area) {
-            delete mergedData.area;
+          } else {
+            if (locRes.city && locRes.city !== "Delhi") {
+              mergedData.city = locRes.city;
+            }
+            if (mergedData.area) delete mergedData.area;
           }
         }
 
@@ -2722,9 +2956,11 @@ export async function processMessage(
 
         // State-specific step input helpers
         if (session.step === "T_AREA" && !mergedData.area && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
-          const stepLoc = validateAndCleanLocality(rawMessage.trim(), (mergedData.city || data.city || "Delhi") as string);
-          if (stepLoc.isValid) {
+          const stepLoc = validateAndCleanLocality(rawMessage.trim(), (mergedData.city || data.city || "Delhi") as string, true);
+          if (stepLoc.isValid && !(stepLoc.city === "Delhi" && stepLoc.area === "Delhi")) {
             mergedData.area = stepLoc.area;
+            mergedData.city = stepLoc.city;
+          } else if (stepLoc.city && stepLoc.city !== "Delhi") {
             mergedData.city = stepLoc.city;
           }
         }
@@ -2738,7 +2974,7 @@ export async function processMessage(
         }
         const keptArea = keepArea(mergedData.area, rawMessage, data.area, (mergedData.city || data.city || "Delhi") as string);
         if (keptArea) mergedData.area = keptArea;
-        else delete mergedData.area;
+        else if (!mergedData.area) delete mergedData.area;
         if (session.step === "T_SUBJECTS" && (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
           const stepSub = validateAndAlignSubjects(rawMessage.trim(), targetCls);
           if (stepSub.isValid) {
@@ -2749,14 +2985,14 @@ export async function processMessage(
         // Taxonomy & Till 8th grade handling
         if (/all\s*subjects?|combo/i.test(rawMessage)) {
           const clsNow = normalizeCanonicalClassLevel(String(mergedData.classLevel || ""));
-          mergedData.subjects = leadSubjectsForClass(clsNow, ["All Subjects"]);
+          mergedData.subjects = isTill8thClass(clsNow) ? ["All Subjects (Class 1-8)"] : leadSubjectsForClass(clsNow, ["All Subjects"]);
         }
         if (/1\s*[-–to]+\s*8|class\s*1\s*[-–to]+\s*8|primary|middle|till\s*8/i.test(rawMessage)) {
           if (!mergedData.classLevel) {
             mergedData.classLevel = "Class 1-8";
             mergedData.classLevels = ["Class 1-8"];
           }
-          mergedData.subjects = ["All Subjects"];
+          mergedData.subjects = ["All Subjects (Class 1-8)"];
         }
 
         // Robust role detection
@@ -2800,13 +3036,16 @@ export async function processMessage(
           : [];
         const hasClass = classLevelsArray.length > 0;
 
-        const locResult = validateAndCleanLocality(mergedData.area || data.area, (mergedData.city || data.city || "Delhi") as string);
-        const rawArea = locResult.isValid ? locResult.area : "";
-        if (locResult.isValid) {
+        const locResult = validateAndCleanLocality(mergedData.area || data.area, (mergedData.city || data.city || "Delhi") as string, true);
+        const rawArea = locResult.isValid && !(locResult.city === "Delhi" && locResult.area === "Delhi") ? locResult.area : "";
+        if (rawArea) {
           mergedData.area = locResult.area;
           mergedData.city = locResult.city;
-        } else if (mergedData.area) {
-          delete mergedData.area;
+        } else {
+          if (locResult.city && locResult.city !== "Delhi") {
+            mergedData.city = locResult.city;
+          }
+          if (mergedData.area) delete mergedData.area;
         }
         const hasArea = Boolean(
           rawArea &&

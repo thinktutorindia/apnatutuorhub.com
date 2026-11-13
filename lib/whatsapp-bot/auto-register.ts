@@ -19,7 +19,7 @@ import {
   CLASS_MAP,
   BUDGET_MAP,
 } from "./messages";
-import { validateAndCleanLocality, validateAndAlignSubjects } from "./subject-rules";
+import { validateAndCleanLocality, validateAndAlignSubjects, deduplicateAndNormalizeSubjects } from "./subject-rules";
 import { ALL_CANONICAL_SUBJECTS } from "@/lib/subject-taxonomy";
 import { dispatchLeadMatching } from "@/lib/matching-dispatcher";
 import { extractPublicLocality, isTill8thClass, leadSubjectsForClass, normalizeCanonicalClassLevel, realisticTightBudget } from "@/lib/lead-utils";
@@ -423,9 +423,11 @@ export function expandTutorSubjectsAndClasses(input: {
   }
 
   const canonicalSet = new Set(ALL_CANONICAL_SUBJECTS);
+  const classLevelsOut = Array.from(classSet);
+  const rawCanon = Array.from(subjectSet).filter((s) => canonicalSet.has(s));
   return {
-    subjects: Array.from(subjectSet).filter((s) => canonicalSet.has(s)),
-    classLevels: Array.from(classSet),
+    subjects: deduplicateAndNormalizeSubjects(rawCanon, classLevelsOut),
+    classLevels: classLevelsOut,
   };
 }
 
@@ -446,9 +448,9 @@ export async function registerTutorFromWhatsapp(
   const email = data.email && data.email.includes("@") ? data.email.trim().toLowerCase() : phoneToEmail(phone);
 
   // Locality only — never store a chat sentence or door address as the teaching area.
-  const locRes = validateAndCleanLocality(data.area, data.city);
-  const city = locRes.isValid ? locRes.city : (data.city || "Delhi");
-  const area = extractPublicLocality(locRes.isValid ? locRes.area : data.area, city) || city;
+  const locRes = validateAndCleanLocality(data.area || data.city, data.city, true);
+  const city = locRes.isValid ? locRes.city : (locRes.city || data.city || "Delhi");
+  const area = extractPublicLocality(locRes.isValid ? locRes.area : data.area, city) || (locRes.isValid ? locRes.area : city);
 
   // Validate and align subjects to canonical taxonomy (enforces Class 1-8 rules)
   const subRes = validateAndAlignSubjects(data.subjects, data.classLevel || (data.classLevels ? data.classLevels[0] : undefined));
@@ -621,9 +623,9 @@ export async function registerParentFromWhatsapp(
   const subjects = leadSubjectsForClass(classLevel, validSubs.length > 0 ? validSubs : rawSubs);
   if (subjects.length === 0) return { ok: false, error: "Real subjects are required" };
 
-  const locRes = validateAndCleanLocality(data.area, data.city);
-  const city = locRes.isValid ? locRes.city : (data.city || "Delhi");
-  const area = extractPublicLocality(locRes.isValid ? locRes.area : data.area, city);
+  const locRes = validateAndCleanLocality(data.area || data.city, data.city, true);
+  const city = locRes.isValid ? locRes.city : (locRes.city || data.city || "Delhi");
+  const area = extractPublicLocality(locRes.isValid ? locRes.area : data.area, city) || (locRes.isValid ? locRes.area : undefined);
   if (!area) return { ok: false, error: "A locality is required" };
 
   const parentName = data.parentName || data.name || "Parent";

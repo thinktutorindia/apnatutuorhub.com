@@ -136,6 +136,10 @@ export const KNOWN_INDIAN_CITIES: Record<string, string> = {
   haridwar: "Haridwar",
   haldwani: "Haldwani",
   bilaspur: "Bilaspur",
+  bijnor: "Bijnor",
+  bahadurgarh: "Bahadurgarh",
+  sahibabad: "Ghaziabad",
+  mirzapur: "Mirzapur",
 };
 
 export const CITY_SAMPLE_LOCALITIES: Record<string, string> = {
@@ -232,6 +236,25 @@ const PROMINENT_LOCALITIES: Array<{ name: string; city: string }> = [
   { name: "indirapuram", city: "Ghaziabad" },
   { name: "vaishali", city: "Ghaziabad" },
   { name: "kaushambi", city: "Ghaziabad" },
+  { name: "vasundhara", city: "Ghaziabad" },
+  { name: "raj nagar", city: "Ghaziabad" },
+  { name: "sanjay nagar", city: "Ghaziabad" },
+  { name: "mukharjee nagar", city: "Delhi" },
+  { name: "gtb nagar", city: "Delhi" },
+  { name: "south extension", city: "Delhi" },
+  { name: "south ex", city: "Delhi" },
+  { name: "chhatarpur", city: "Delhi" },
+  { name: "chattarpur", city: "Delhi" },
+  { name: "cr park", city: "Delhi" },
+  { name: "munirka", city: "Delhi" },
+  { name: "green park", city: "Delhi" },
+  { name: "dwarka mor", city: "Delhi" },
+  { name: "uttam ngr", city: "Delhi" },
+  { name: "pari chowk", city: "Greater Noida" },
+  { name: "alpha 1", city: "Greater Noida" },
+  { name: "indira nagar", city: "Lucknow" },
+  { name: "gomti nagar", city: "Lucknow" },
+  { name: "infocity", city: "Ahmedabad" },
   { name: "bandra west", city: "Mumbai" },
   { name: "bandra", city: "Mumbai" },
   { name: "andheri west", city: "Mumbai" },
@@ -442,7 +465,8 @@ const PROMINENT_LOCALITIES: Array<{ name: string; city: string }> = [
  */
 export function validateAndCleanLocality(
   raw: unknown,
-  defaultCity = "Delhi"
+  defaultCity = "Delhi",
+  allowCityOnly = false
 ): { isValid: boolean; area: string; city: string; errorPrompt?: string } {
   if (!raw || typeof raw !== "string") {
     return { isValid: false, area: "", city: defaultCity, errorPrompt: `📍 Aapna teaching area batayein — jaise *Rohini Delhi*, *Dwarka*, *Bandra Mumbai*, ya *Sector 62 Noida*.` };
@@ -450,10 +474,17 @@ export function validateAndCleanLocality(
 
   let clean = raw.trim();
 
-  // Strip conversational wrappers (Hinglish + English)
-  clean = clean.replace(/^(mai|main|hum|me|i\s*am\s*from|i\s*live\s*in|living\s*in|my\s*(?:new\s+)?(?:area|location|locality)\s+is|mera\s+(?:area|location|locality)|meri\s+(?:location|jagah)|near|nearby|opposite|opp|area|location|locality)[:\s-]+/i, "");
-  clean = clean.replace(/\s+(se\s+hu|se\s+hoon|se|mein|me|rehta\s+hu|rehta\s+hoon|area|locality)\b.*$/i, "");
-  clean = clean.replace(/^[,.-]+|[,.-]+$/g, "").trim();
+  // Strip conversational wrappers (Hinglish + English) without truncating mid-sentence locations like "Noida me Sector 62"
+  clean = clean.replace(
+    /^(?:mai|main|hum|me|i\s*(?:am|'m)?\s*(?:from|live\s*in|stay\s*in|living\s*in|staying\s*in|based\s*in)|currently\s*(?:in|at|living\s*in)|current\s*residence|my\s*(?:new\s+)?(?:area|location|locality|city)\s*(?:is|hai)?|mera\s+(?:area|location|locality|city)|meri\s+(?:location|jagah)|near|nearby|opposite|opp|area|location|locality)[:\s-]+/i,
+    ""
+  );
+  clean = clean.replace(
+    /\s+(?:se\s+hu|se\s+hoon|se\s+hai|mein\s+rehta\s+hu|me\s+rehta\s+hu|mein\s+rehti\s+hu|me\s+rehti\s+hu|rehta\s+hu|rehta\s+hoon|rehti\s+hu|rehti\s+hoon)\b.*$/i,
+    ""
+  );
+  clean = clean.replace(/\b(?:se\s+hu|se\s+hoon|se\s+hai|rehta\s+hu|rehti\s+hu)\b/gi, " ");
+  clean = clean.replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
 
   // Foreign / International Locations -> Route to Online Classes
   const FOREIGN_PLACES = /\b(dubai|uae|sharjah|abu\s*dhabi|london|uk|united\s*kingdom|usa|united\s*states|america|canada|toronto|vancouver|australia|sydney|melbourne|singapore|germany|qatar|doha|kuwait|oman|muscat|saudi|riyadh|jeddah|abroad|overseas|foreign)\b/i;
@@ -518,7 +549,17 @@ export function validateAndCleanLocality(
     const rx = new RegExp(`\\b${cKey}\\b`, "i");
     if (rx.test(clean)) {
       const detectedCity = KNOWN_INDIAN_CITIES[cKey];
-      const remainingArea = clean.replace(rx, "").replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
+      let remainingArea = clean
+        .replace(rx, "")
+        .replace(/\b(?:in|at|near|from|mein|me|mai|se|ka|ki|ke)\b/gi, " ")
+        .replace(/^[,.\s-]+|[,.\s-]+$/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      // Convert bare sector number with NCR/sector cities (e.g. "Noida 135" -> "Sector 135")
+      if (/^\d{1,3}(?:\s*[a-zA-Z])?$/.test(remainingArea) && /^(Noida|Greater Noida|Gurgaon|Faridabad|Chandigarh|Ghaziabad)$/i.test(detectedCity)) {
+        remainingArea = `Sector ${remainingArea.toUpperCase()}`;
+      }
 
       const remWords = remainingArea.toLowerCase().split(/[\s,.-]+/).filter(Boolean);
       const isFillerOnly = remWords.length === 0 || remWords.every((w) => NON_LOCALITY_WORDS.has(w));
@@ -533,6 +574,14 @@ export function validateAndCleanLocality(
         return {
           isValid: true,
           area: capArea,
+          city: detectedCity,
+        };
+      }
+
+      if (allowCityOnly) {
+        return {
+          isValid: true,
+          area: detectedCity,
           city: detectedCity,
         };
       }
@@ -785,112 +834,114 @@ export function validateAndAlignSubjects(
     // 1. Stream Combos: PCMB, PCM, PCB
     if (/\b(pcmb)\b/i.test(t)) {
       if (isBelow9) {
-        matchedSubjects.add("Science");
-        matchedSubjects.add("Mathematics");
-        matchedSubjects.add("Maths");
-        matchedSubjects.add("All Subjects");
         matchedSubjects.add("All Subjects (Class 1-8)");
       } else {
-        matchedSubjects.add("Physics");
-        matchedSubjects.add("Chemistry");
-        matchedSubjects.add("Mathematics");
-        matchedSubjects.add("Maths");
-        matchedSubjects.add("Biology");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Maths for Class ${ROMAN_MAP[grade]}` : "Mathematics");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Biology for Class ${ROMAN_MAP[grade]}` : "Biology");
       }
       continue;
     }
     if (/\b(pcm)\b/i.test(t)) {
       if (isBelow9) {
-        matchedSubjects.add("Science");
-        matchedSubjects.add("Mathematics");
-        matchedSubjects.add("Maths");
-        matchedSubjects.add("All Subjects");
         matchedSubjects.add("All Subjects (Class 1-8)");
       } else {
-        matchedSubjects.add("Physics");
-        matchedSubjects.add("Chemistry");
-        matchedSubjects.add("Mathematics");
-        matchedSubjects.add("Maths");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Maths for Class ${ROMAN_MAP[grade]}` : "Mathematics");
       }
       continue;
     }
     if (/\b(pcb)\b/i.test(t)) {
       if (isBelow9) {
-        matchedSubjects.add("Science");
-        matchedSubjects.add("All Subjects");
         matchedSubjects.add("All Subjects (Class 1-8)");
       } else {
-        matchedSubjects.add("Physics");
-        matchedSubjects.add("Chemistry");
-        matchedSubjects.add("Biology");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
+        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Biology for Class ${ROMAN_MAP[grade]}` : "Biology");
       }
       continue;
     }
 
     // 2. Streams: Commerce, Humanities / Arts
     if (/\b(commerce|commerce\s*stream)\b/i.test(t)) {
-      if (!isBelow11) {
-        matchedSubjects.add("Accountancy");
-        matchedSubjects.add("Accounts");
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (!isBelow11) {
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Accountancy for Class ${ROMAN_MAP[grade]}` : "Accountancy");
         matchedSubjects.add("Business Studies");
         matchedSubjects.add("Economics");
-        matchedSubjects.add("Commerce");
       }
       continue;
     }
     if (/\b(humanities|arts\s*stream)\b/i.test(t)) {
-      matchedSubjects.add("Social Studies");
-      matchedSubjects.add("Social Science");
-      matchedSubjects.add("Economics");
-      matchedSubjects.add("History");
-      matchedSubjects.add("Geography");
-      matchedSubjects.add("Political Science");
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else {
+        matchedSubjects.add("Economics");
+        matchedSubjects.add("History");
+        matchedSubjects.add("Geography");
+        matchedSubjects.add("Political Science");
+      }
       continue;
     }
 
     // 3. All Subjects / Combo / General
     if (/all\s*subjects?|combo|sabhi|har\s*subject|general/i.test(t)) {
-      matchedSubjects.add("All Subjects");
-      if (isBelow9) matchedSubjects.add("All Subjects (Class 1-8)");
-      if (isPrimary) matchedSubjects.add("All Subjects (Class 1-5)");
-      if (isMiddle) matchedSubjects.add("All Subjects (Class 6-8)");
-      if (grade && COMBO_SUBJECTS_BY_GRADE[grade]) {
-        matchedSubjects.add(COMBO_SUBJECTS_BY_GRADE[grade]);
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade >= 9) {
+        // Class 9-12 should not use "All Subjects" combo; keep grade-level core subjects only if needed
+        if (grade <= 10 && ROMAN_MAP[grade]) {
+          matchedSubjects.add(`Maths for Class ${ROMAN_MAP[grade]}`);
+          matchedSubjects.add(`Science for Class ${ROMAN_MAP[grade]}`);
+        } else {
+          matchedSubjects.add("All Subjects");
+        }
+      } else {
+        matchedSubjects.add("All Subjects");
       }
       continue;
     }
 
-    // 4. Mathematics (with Hindi Ganit and abbreviations)
-    if (/\b(maths?|mathematics|algebra|calculus|geometry|trig|quant|arithmetic|mths?|ganit)\b/i.test(t)) {
-      matchedSubjects.add("Mathematics");
-      matchedSubjects.add("Maths");
-      if (grade && grade >= 3 && grade <= 12 && ROMAN_MAP[grade]) {
-        matchedSubjects.add(`Maths for Class ${ROMAN_MAP[grade]}`);
-      }
-      continue;
-    }
-
-    // 5. Science & Maths duo
+    // 4. Science & Maths duo (check before single Maths / Science)
     if (/science\s*(&|and|\+)\s*math|math\s*(&|and|\+)\s*science/i.test(t)) {
-      matchedSubjects.add("Science & Maths");
-      matchedSubjects.add("Mathematics");
-      matchedSubjects.add("Maths");
-      matchedSubjects.add("Science");
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade >= 9 && grade <= 10 && ROMAN_MAP[grade]) {
+        matchedSubjects.add(`Maths for Class ${ROMAN_MAP[grade]}`);
+        matchedSubjects.add(`Science for Class ${ROMAN_MAP[grade]}`);
+      } else {
+        matchedSubjects.add("Mathematics");
+        matchedSubjects.add("Science");
+      }
       continue;
     }
 
-    // 6. Science / EVS (with Hindi Vigyan)
+    // 5. Mathematics (with Hindi Ganit and abbreviations) — till Class 8 counts as All Subjects (Class 1-8)
+    if (/\b(maths?|mathematics|algebra|calculus|geometry|trig|quant|arithmetic|mths?|ganit)\b/i.test(t)) {
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade >= 9 && grade <= 12 && ROMAN_MAP[grade]) {
+        matchedSubjects.add(`Maths for Class ${ROMAN_MAP[grade]}`);
+      } else {
+        matchedSubjects.add("Mathematics");
+      }
+      continue;
+    }
+
+    // 6. Science / EVS (with Hindi Vigyan) — till Class 8 counts as All Subjects (Class 1-8)
     if (
       /\b(science|general\s*science|sci|evs|environmental|scince|vigyan)\b/i.test(t) &&
       !/computer|comp\b|political|pol\b|social|data\s*science/i.test(t)
     ) {
-      matchedSubjects.add("Science");
-      matchedSubjects.add("General Science");
-      if (isPrimary) {
-        matchedSubjects.add("Science upto Class V");
-        matchedSubjects.add("EVS");
-      } else if (grade && grade <= 10 && ROMAN_MAP[grade]) {
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade >= 9 && grade <= 10 && ROMAN_MAP[grade]) {
         matchedSubjects.add(`Science for Class ${ROMAN_MAP[grade]}`);
+      } else {
+        matchedSubjects.add("Science");
       }
       continue;
     }
@@ -898,54 +949,67 @@ export function validateAndAlignSubjects(
     // 7. English & Spoken English
     if (/\b(spoken\s*english|english\s*speaking|speaking)\b/i.test(t)) {
       matchedSubjects.add("Spoken English");
-      matchedSubjects.add("English");
       continue;
     }
     if (/\b(english|grammar|literature|comprehension|eng|engish|angrezi)\b/i.test(t)) {
-      matchedSubjects.add("English");
-      if (isPrimary) matchedSubjects.add("English upto V");
-      else if (grade && grade <= 8) matchedSubjects.add("English for VI to VIII");
-      else if (grade && grade <= 10) matchedSubjects.add("English for IX - X");
-      else if (grade && grade <= 12) matchedSubjects.add("English for XI - XII");
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade <= 10) {
+        matchedSubjects.add("English for IX - X");
+      } else if (grade && grade <= 12) {
+        matchedSubjects.add("English for XI - XII");
+      } else {
+        matchedSubjects.add("English");
+      }
       continue;
     }
 
     // 8. Hindi & Sanskrit
     if (/\b(hindi|vyakaran)\b/i.test(t)) {
-      matchedSubjects.add("Hindi");
-      if (isPrimary) matchedSubjects.add("Hindi for Class upto V");
-      else if (grade && grade <= 8) matchedSubjects.add("Hindi for Class VI to VIII");
-      else if (grade && grade <= 10) matchedSubjects.add("Hindi for Class IX or X");
-      else if (grade && grade <= 12) matchedSubjects.add("Hindi for Class XI or XII");
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade <= 10) {
+        matchedSubjects.add("Hindi for Class IX or X");
+      } else if (grade && grade <= 12) {
+        matchedSubjects.add("Hindi for Class XI or XII");
+      } else {
+        matchedSubjects.add("Hindi");
+      }
       continue;
     }
     if (/\b(sanskrit)\b/i.test(t)) {
-      matchedSubjects.add("Sanskrit");
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else {
+        matchedSubjects.add("Sanskrit");
+      }
       continue;
     }
 
     // 9. Social Studies / SST / History / Geography / Civics / Pol Science
     if (/\b(social\s*studies|sst|social\s*science|samajik\s*vigyan|gk|general\s*knowledge)\b/i.test(t)) {
-      matchedSubjects.add("Social Studies");
-      matchedSubjects.add("Social Science");
-      if (grade && grade >= 6 && grade <= 10 && ROMAN_MAP[grade]) {
+      if (isBelow9) {
+        matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade >= 9 && grade <= 10 && ROMAN_MAP[grade]) {
         matchedSubjects.add(`Social Studies for Class ${ROMAN_MAP[grade]}`);
+      } else {
+        matchedSubjects.add("Social Studies");
       }
       continue;
     }
     if (/\b(history|itihas)\b/i.test(t)) {
-      matchedSubjects.add("History");
-      matchedSubjects.add("Social Studies");
+      if (isBelow9) matchedSubjects.add("All Subjects (Class 1-8)");
+      else matchedSubjects.add("History");
       continue;
     }
     if (/\b(geography|bhugol)\b/i.test(t)) {
-      matchedSubjects.add("Geography");
-      matchedSubjects.add("Social Studies");
+      if (isBelow9) matchedSubjects.add("All Subjects (Class 1-8)");
+      else matchedSubjects.add("Geography");
       continue;
     }
     if (/\b(political\s*science|pol\s*science|civics|polity)\b/i.test(t)) {
-      matchedSubjects.add("Political Science");
-      matchedSubjects.add("Civics");
+      if (isBelow9) matchedSubjects.add("All Subjects (Class 1-8)");
+      else matchedSubjects.add("Political Science");
       continue;
     }
     if (/\b(psychology)\b/i.test(t)) { matchedSubjects.add("Psychology"); continue; }
@@ -954,53 +1018,43 @@ export function validateAndAlignSubjects(
 
     // 10. Computer Science / Coding / IT / Python
     if (/\b(computer\s*science|computer|cs|coding|python|java|c\+\+|programming|it\b|ai\b|robotics)\b/i.test(t)) {
-      matchedSubjects.add("Computer Science");
-      matchedSubjects.add("Computer");
       if (/python/i.test(t)) matchedSubjects.add("Python");
-      if (/coding|programming/i.test(t)) matchedSubjects.add("Coding");
-      if (/it\b|information/i.test(t)) matchedSubjects.add("Information Technology");
+      else if (/coding|programming/i.test(t)) matchedSubjects.add("Coding");
+      else if (/it\b|information/i.test(t)) matchedSubjects.add("Information Technology");
+      else matchedSubjects.add("Computer Science");
       continue;
     }
 
     // 11. Senior Sciences: Physics, Chemistry, Biology (Class 1-8 restriction strictly enforced!)
     if (/\b(physics|phy|phyics|bhautiki)\b/i.test(t)) {
       if (isBelow9) {
-        matchedSubjects.add("Science");
         matchedSubjects.add("All Subjects (Class 1-8)");
-      } else if (isBelow11) {
-        matchedSubjects.add("Science");
-        if (grade && ROMAN_MAP[grade]) matchedSubjects.add(`Physics For Class ${ROMAN_MAP[grade]}`);
+      } else if (grade && grade >= 9 && ROMAN_MAP[grade]) {
+        matchedSubjects.add(`Physics For Class ${ROMAN_MAP[grade]}`);
       } else {
         matchedSubjects.add("Physics");
-        if (grade && ROMAN_MAP[grade]) matchedSubjects.add(`Physics For Class ${ROMAN_MAP[grade]}`);
       }
       continue;
     }
 
     if (/\b(chemistry|chem|chemstry|rasayan)\b/i.test(t)) {
       if (isBelow9) {
-        matchedSubjects.add("Science");
         matchedSubjects.add("All Subjects (Class 1-8)");
-      } else if (isBelow11) {
-        matchedSubjects.add("Science");
-        if (grade && ROMAN_MAP[grade]) matchedSubjects.add(`Chemistry For Class ${ROMAN_MAP[grade]}`);
+      } else if (grade && grade >= 9 && ROMAN_MAP[grade]) {
+        matchedSubjects.add(`Chemistry For Class ${ROMAN_MAP[grade]}`);
       } else {
         matchedSubjects.add("Chemistry");
-        if (grade && ROMAN_MAP[grade]) matchedSubjects.add(`Chemistry For Class ${ROMAN_MAP[grade]}`);
       }
       continue;
     }
 
     if (/\b(biology|botany|zoology|bio|jeev\s*vigyan)\b/i.test(t)) {
       if (isBelow9) {
-        matchedSubjects.add("Science");
         matchedSubjects.add("All Subjects (Class 1-8)");
-      } else if (isBelow11) {
-        matchedSubjects.add("Science");
-        if (grade && ROMAN_MAP[grade]) matchedSubjects.add(`Biology for Class ${ROMAN_MAP[grade]}`);
+      } else if (grade && grade >= 9 && ROMAN_MAP[grade]) {
+        matchedSubjects.add(`Biology for Class ${ROMAN_MAP[grade]}`);
       } else {
         matchedSubjects.add("Biology");
-        if (grade && ROMAN_MAP[grade]) matchedSubjects.add(`Biology for Class ${ROMAN_MAP[grade]}`);
       }
       continue;
     }
@@ -1008,8 +1062,7 @@ export function validateAndAlignSubjects(
     // 12. Commerce & Management (Class 11+)
     if (/\b(accounts?|accountancy|acc|bahi\s*khata)\b/i.test(t)) {
       if (!isBelow11) {
-        matchedSubjects.add("Accountancy");
-        matchedSubjects.add("Accounts");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Accountancy for Class ${ROMAN_MAP[grade]}` : "Accountancy");
       }
       continue;
     }
@@ -1097,14 +1150,17 @@ export function validateAndAlignSubjects(
     }
   }
 
-  // Tutors teaching till 8th grade must always have All Subjects & All Subjects (Class 1-8) in taxonomy
+  // Tutors teaching Class 1-8 get clean canonical "All Subjects (Class 1-8)" without duplicates
   if (isBelow9 && matchedSubjects.size > 0) {
-    matchedSubjects.add("All Subjects");
     matchedSubjects.add("All Subjects (Class 1-8)");
   }
 
   // Strict Validation: Every single subject accepted MUST exist in the canonical platform taxonomy!
-  const strictlyCanonical = Array.from(matchedSubjects).filter((s) => CANONICAL_SET.has(s));
+  const rawCanonical = Array.from(matchedSubjects).filter((s) => CANONICAL_SET.has(s));
+  const strictlyCanonical = deduplicateAndNormalizeSubjects(
+    rawCanonical,
+    classLevel ? [classLevel] : undefined
+  );
 
   if (strictlyCanonical.length === 0) {
     if (hasUnsupportedHobby) {
@@ -1126,16 +1182,110 @@ export function validateAndAlignSubjects(
     };
   }
 
-  const humanLabel = strictlyCanonical
-    .filter((s) => !/all subjects \(class 1-8\)/i.test(s) && !/for class [ivx]+/i.test(s))
-    .slice(0, 3)
-    .join(", ") || strictlyCanonical[0];
+  const humanLabel = strictlyCanonical.slice(0, 4).join(", ");
 
   return {
     isValid: true,
     subjects: strictlyCanonical,
     humanLabel,
   };
+}
+
+/**
+ * Deduplicates synonymous subjects (e.g. Mathematics + Maths + Maths for Class XI -> Maths for Class XI)
+ * and enforces the Class 1-8 ("All Subjects (Class 1-8)") vs Class 9-12 (subject-specific) boundary.
+ */
+export function deduplicateAndNormalizeSubjects(
+  subjects: string[],
+  classLevels?: string[]
+): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const s of subjects) {
+    const trimmed = String(s || "").trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(trimmed);
+    }
+  }
+
+  const clsJoined = (classLevels || []).join(" | ").toLowerCase();
+  const hasJunior =
+    /\b([1-8](?:st|nd|rd|th)?|nursery|lkg|ukg|kg|primary|middle|1\s*[-–to]+\s*[58]|6\s*[-–to]+\s*8)\b/i.test(clsJoined);
+  const hasSenior =
+    /\b(9|10|11|12|9th|10th|11th|12th|ix|x|xi|xii|jee|neet|cuet|senior|secondary|9\s*[-–to]+\s*1[02]|11\s*[-–to]+\s*12)\b/i.test(clsJoined);
+  const hasNineTen = /\b(9|10|9th|10th|ix|x|9\s*[-–to]+\s*10)\b/i.test(clsJoined);
+
+  let list = [...unique];
+
+  // If Class 1-8 is taught and no 9-12 is taught, collapse generic school subjects into "All Subjects (Class 1-8)"
+  if (hasJunior && !hasSenior) {
+    const hasAll18 = list.some((s) => /^all subjects/i.test(s));
+    if (hasAll18) {
+      const elementaryDupes = new Set([
+        "all subjects",
+        "science",
+        "general science",
+        "science & maths",
+        "mathematics",
+        "maths",
+        "english",
+        "hindi",
+        "social studies",
+        "social science",
+        "physics",
+        "chemistry",
+        "biology",
+      ]);
+      list = list.filter((s) => !elementaryDupes.has(s.toLowerCase()));
+      if (!list.some((s) => /^all subjects \(class 1-8\)$/i.test(s))) {
+        list.unshift("All Subjects (Class 1-8)");
+      }
+    }
+  } else if (hasSenior && !hasJunior) {
+    // Class 9-12 must NEVER carry "All Subjects" combo tags
+    const filtered = list.filter((s) => !/^all subjects/i.test(s));
+    if (filtered.length > 0) list = filtered;
+  } else if (hasJunior && hasSenior) {
+    // Mixed (e.g. Class 8 + Class 11): keep "All Subjects (Class 1-8)" cleanly without bare "All Subjects"
+    if (list.some((s) => /^all subjects \(class 1-8\)$/i.test(s))) {
+      list = list.filter((s) => s.toLowerCase() !== "all subjects");
+    }
+    if (!hasNineTen) {
+      list = list.filter((s) => !/^(science|general science)$/i.test(s));
+    }
+  }
+
+  const lowerSet = new Set(list.map((s) => s.toLowerCase()));
+
+  // Prune redundant bare/synonym entries when a class-specific or canonical equivalent exists
+  const hasMathsForClass = list.some((s) => /^maths for class /i.test(s));
+  const hasPhysicsForClass = list.some((s) => /^physics for class /i.test(s));
+  const hasChemForClass = list.some((s) => /^chemistry for class /i.test(s));
+  const hasBioForClass = list.some((s) => /^biology for class /i.test(s));
+  const hasSciForClass = list.some((s) => /^science for class /i.test(s));
+  const hasAccForClass = list.some((s) => /^accountancy for class /i.test(s));
+  const hasSstForClass = list.some((s) => /^social studies for class /i.test(s));
+
+  return list.filter((s) => {
+    const l = s.toLowerCase();
+    if (l === "maths" && (hasMathsForClass || lowerSet.has("mathematics"))) return false;
+    if (l === "mathematics" && hasMathsForClass) return false;
+    if (l === "physics" && hasPhysicsForClass) return false;
+    if (l === "chemistry" && hasChemForClass) return false;
+    if (l === "biology" && hasBioForClass) return false;
+    if (l === "general science" && (hasSciForClass || lowerSet.has("science") || lowerSet.has("all subjects (class 1-8)"))) return false;
+    if (l === "science" && hasSciForClass) return false;
+    if (l === "accounts" && (hasAccForClass || lowerSet.has("accountancy"))) return false;
+    if (l === "accountancy" && hasAccForClass) return false;
+    if (l === "social science" && (hasSstForClass || lowerSet.has("social studies"))) return false;
+    if (l === "social studies" && hasSstForClass) return false;
+    if (l === "computer" && lowerSet.has("computer science")) return false;
+    if (l === "all subjects" && lowerSet.has("all subjects (class 1-8)")) return false;
+    return true;
+  });
 }
 
 /**

@@ -63,7 +63,28 @@ function extractTextFromMessage(msg: Record<string, unknown>): string {
     text = (typeof btn.text === "string" && btn.text) || (typeof btn.payload === "string" && btn.payload) || "";
   }
 
-  // 4. Media Caption fallback
+  // 4. WhatsApp Shared Location Pin
+  if (!text && msg.location && typeof msg.location === "object") {
+    const loc = msg.location as Record<string, unknown>;
+    const addr = typeof loc.address === "string" ? loc.address.trim() : "";
+    const name = typeof loc.name === "string" ? loc.name.trim() : "";
+    const lat = typeof loc.latitude === "number" ? loc.latitude : undefined;
+    const lng = typeof loc.longitude === "number" ? loc.longitude : undefined;
+    if (addr || name) {
+      text = [name, addr].filter(Boolean).join(", ");
+    } else if (lat !== undefined && lng !== undefined) {
+      text = `Location: ${lat}, ${lng}`;
+    }
+  }
+
+  // 5. Reaction events (stored in chat log, skipped from auto-reply)
+  if (!text && msg.type === "reaction") {
+    const react = msg.reaction as Record<string, unknown> | undefined;
+    const emoji = typeof react?.emoji === "string" ? react.emoji.trim() : "";
+    text = emoji ? `[reaction:${emoji}]` : "[reaction]";
+  }
+
+  // 6. Media Caption fallback
   if (!text && msg.image && typeof msg.image === "object") {
     const img = msg.image as Record<string, unknown>;
     text = (typeof img.caption === "string" && img.caption) || "[Photo / Document Uploaded for KYC/Verification]";
@@ -323,6 +344,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     if (duplicate && !retryAfterMissedReply) {
+      return;
+    }
+
+    // Do not reply to emoji reactions
+    if (messageType === "reaction" || /^\[reaction(?::.*)?\]$/i.test(text)) {
       return;
     }
 

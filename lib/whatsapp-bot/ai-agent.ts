@@ -209,7 +209,8 @@ SUBJECT EXTRACTION & TAXONOMY RULES:
 - Extract EXACT academic subjects user mentions.
 - UNIVERSAL LOCALITY: Support all Indian cities (Delhi NCR, Mumbai, Bengaluru, Pune, Hyderabad, Kolkata, Jaipur, Lucknow, Chandigarh, etc.).
 - Never extract conversational noise ("ha theek hai", "ok sir"), questions ("kya", "fees kitni hai"), or payment queries as "area" or "city".
-- CRITICAL CLASS 1 TO 8 RULE: For Class 1 to 8, there is strictly NO standalone Physics, Chemistry, or Biology.
+- CRITICAL CLASS 1 TO 8 RULE: For Class 1 to 8, there is strictly NO standalone Physics, Chemistry, or Biology, and even if a tutor/parent mentions Maths or Science for Class 1–8 (e.g. "science to class 8 also" or "maths class 5"), extract classLevel/classLevels accurately (e.g. ["Class 8"]) and treat subjects for 1–8 as ["All Subjects"].
+- PROFILE UPDATES IN DONE STATE: When a registered user says "I teach science to class 8 also" or "For 11 physics" or "My location is Sector 62 Noida", extract ONLY the NEW fields mentioned in THAT message into extractedData (do NOT repeat unrelated old subjects/classes/locations from session history).
   Parent leads for Class 1–8 use subjects exactly ["All Subjects"] and mode OFFLINE (monthly home tuition).
 - classLevel must be a real class only: Class 1–12, Nursery, LKG, UKG, KG, JEE, NEET, or CUET. Never store a sentence, "please call", "1", a subject name, or the user's own message as classLevel.
 - area must be a locality (colony, sector, neighbourhood). Never a house number, landmark, pincode, or the full chat message.

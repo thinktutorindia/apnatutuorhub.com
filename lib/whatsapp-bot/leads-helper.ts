@@ -11,6 +11,17 @@ import { extractPublicLocality, formatLeadBudget, isTill8thClass, leadSubjectsFo
 import { getLeadPointCost } from "@/lib/subscription-plans";
 import { coversClassLevel, hasSubjectOverlap, extractGradeNumber, isGenderCompatible } from "@/lib/matching-engine";
 import { expandTutorSubjectsAndClasses } from "./auto-register";
+import { haversineDistanceKm } from "@/lib/haversine";
+import { resolveLocationCoordinates } from "@/lib/geocoding";
+
+export function isJunkLocality(area?: string | null): boolean {
+  if (!area) return true;
+  const a = area.trim().toLowerCase();
+  if (a.length < 3) return true;
+  if (/^(delhi\s*ncr|delhi|ncr|none|null|undefined|bacche\s*chiye|bache\s*chahiye|tutor|student|tuition)$/i.test(a)) return true;
+  if (/\b(chiye|chahiye|call|padhna|padhana|hu|hoon|hai|hain)\b/i.test(a)) return true;
+  return false;
+}
 
 export type MatchingLeadCard = {
   inquiryNumber: number | null;
@@ -150,14 +161,27 @@ export function detectStream(
   return "NONE";
 }
 
-export function isClassCompatible(tutorClassStr: string | undefined, leadClassStr: string): boolean {
+export function isClassCompatible(tutorClassStr: string | string[] | undefined, leadClassStr: string): boolean {
   if (!tutorClassStr || !leadClassStr) return true;
-  if (/all|any|general/i.test(tutorClassStr)) return true;
+  const tutorClassArr = Array.isArray(tutorClassStr) ? tutorClassStr : [tutorClassStr];
+  if (tutorClassArr.length === 0) return true;
+  if (tutorClassArr.some((c) => /all|any|general/i.test(c))) return true;
 
-  const tutorGrades = extractAllGrades(tutorClassStr);
+  const tutorGrades = new Set<number>();
+  for (const c of tutorClassArr) {
+    const gSet = extractAllGrades(c);
+    for (const g of gSet) tutorGrades.add(g);
+  }
   const leadGrades = extractAllGrades(leadClassStr);
 
   if (tutorGrades.size > 0 && leadGrades.size > 0) {
+    // If tutor does NOT teach any primary (all grades >= 6), reject lead if lead is pure primary (grades <= 5)
+    const hasTutorPrimary = [...tutorGrades].some((tg) => tg <= 5);
+    const isLeadPurePrimary = [...leadGrades].every((lg) => lg <= 5);
+    if (!hasTutorPrimary && isLeadPurePrimary) {
+      return false;
+    }
+
     // If tutor is ONLY primary (grades <= 5), cannot match leads that require secondary/senior (Class 6+)
     const isTutorPurePrimary = [...tutorGrades].every((tg) => tg <= 5);
     const leadHasSeniorOrSecondary = [...leadGrades].some((lg) => lg >= 6);
@@ -200,18 +224,20 @@ export function isClassCompatible(tutorClassStr: string | undefined, leadClassSt
     return false;
   }
 
-  const tc = tutorClassStr.toLowerCase();
+  const combined = tutorClassArr.join(" ").toLowerCase();
   const lc = leadClassStr.toLowerCase();
-  if (/jee|iit/i.test(tc) && /jee|iit/i.test(lc)) return true;
-  if (/neet|medical/i.test(tc) && /neet|medical/i.test(lc)) return true;
+  if (/jee|iit/i.test(combined) && /jee|iit/i.test(lc)) return true;
+  if (/neet|medical/i.test(combined) && /neet|medical/i.test(lc)) return true;
+  if (/commerce/i.test(combined) && /commerce/i.test(lc)) return true;
+  if (/arts|humanities/i.test(combined) && /arts|humanities/i.test(lc)) return true;
 
-  return coversClassLevel([tutorClassStr], leadClassStr);
+  return coversClassLevel(tutorClassArr, leadClassStr);
 }
 
 export function isSubjectCompatible(
   tutorSubs: string[] | undefined,
   leadSubs: string[],
-  tutorClass?: string,
+  tutorClass?: string | string[],
   leadClass?: string
 ): boolean {
   if (!tutorSubs || tutorSubs.length === 0) return true;
@@ -220,16 +246,20 @@ export function isSubjectCompatible(
   const tNorm = tutorSubs.map((s) => s.toLowerCase().trim());
   const lNorm = leadSubs.map((s) => s.toLowerCase().trim());
 
-  const tutorGrades = extractAllGrades(tutorClass);
+  const tutorClassArr = Array.isArray(tutorClass) ? tutorClass : tutorClass ? [tutorClass] : [];
+  const tutorGrades = new Set<number>();
+  for (const c of tutorClassArr) {
+    for (const g of extractAllGrades(c)) tutorGrades.add(g);
+  }
   const leadGrades = extractAllGrades(leadClass);
 
   const isSeniorLead =
     leadGrades.has(11) || leadGrades.has(12) || /11|12|jee|neet|college|b\.com|ba\b|senior/i.test(leadClass || "");
   const isSeniorTutor =
-    tutorGrades.has(11) || tutorGrades.has(12) || /11|12|jee|neet|college|b\.com|ba\b|senior/i.test(tutorClass || "");
+    tutorGrades.has(11) || tutorGrades.has(12) || tutorClassArr.some((c) => /11|12|jee|neet|college|b\.com|ba\b|senior/i.test(c));
 
   const leadStream = detectStream(leadClass, leadSubs);
-  const tutorStream = detectStream(tutorClass, tutorSubs);
+  const tutorStream = detectStream(tutorClassArr.join(" "), tutorSubs);
   const leadIsAllCore = lNorm.some((l) => /all\s*core|all\s*subject/i.test(l));
 
   // ── STRICT SENIOR STREAM SEGREGATION (Class 11-12) ──
@@ -393,7 +423,7 @@ export function isSubjectCompatible(
 export async function getChatbotMatchingLeads(
   area?: string,
   city?: string,
-  classLevel?: string,
+  classLevel?: string | string[],
   subjects?: string[],
   tutorGender?: string | null
 ): Promise<MatchingLeadCard[]> {
@@ -409,6 +439,8 @@ export async function getChatbotMatchingLeads(
         subjects: true,
         area: true,
         city: true,
+        latitude: true,
+        longitude: true,
         budgetMin: true,
         budgetMax: true,
         mode: true,
@@ -416,32 +448,70 @@ export async function getChatbotMatchingLeads(
       },
     });
 
-    const hasSpecificClass = Boolean(classLevel && !/all|any|general/i.test(classLevel));
+    const tutorClassArr = Array.isArray(classLevel) ? classLevel : classLevel ? [classLevel] : [];
+    const hasSpecificClass = tutorClassArr.length > 0 && !tutorClassArr.every((c) => /all|any|general/i.test(c));
 
+    const searchArea = (area || "").toLowerCase().trim();
     const userCity = (city || "").toLowerCase().trim();
+    const hasSpecificLocation = searchArea.length >= 2 && !isJunkLocality(searchArea);
+    const tutorCoords = hasSpecificLocation
+      ? resolveLocationCoordinates(`${searchArea} ${userCity || "Delhi"}`)
+      : null;
 
-    // Hard Constraint Filtering: class compatibility + subject compatibility + gender compatibility
+    // Hard Constraint Filtering: class compatibility + subject compatibility + gender compatibility + 5km proximity
     const candidatePool = rawLeads.filter((lead) => {
-      if (hasSpecificClass && !isClassCompatible(classLevel, lead.classLevel)) {
+      // Discard corrupt or junk leads
+      if (isJunkLocality(lead.area) || lead.inquiryNumber === 474736 || lead.inquiryNumber === 648291) {
         return false;
       }
-      if (!isSubjectCompatible(subjects, lead.subjects, classLevel, lead.classLevel)) {
+
+      if (hasSpecificClass && !isClassCompatible(tutorClassArr, lead.classLevel)) {
+        return false;
+      }
+      if (!isSubjectCompatible(subjects, lead.subjects, tutorClassArr, lead.classLevel)) {
         return false;
       }
       if (tutorGender && !isGenderCompatible(tutorGender, lead.tutorGenderPref)) {
         return false;
       }
-      // Strict city isolation for offline / home visit leads:
+
       const isOnline = lead.mode === "ONLINE";
-      if (!isOnline && userCity && userCity !== "delhi ncr") {
+
+      // Workflow preference: no-location tutors get ONLINE only
+      if (!hasSpecificLocation) {
+        return isOnline;
+      }
+
+      // Offline leads: Must be within 5 km and strictly match city
+      if (!isOnline) {
         const leadCity = (lead.city || "").toLowerCase().trim();
         const matchesCity = leadCity.includes(userCity) || userCity.includes(leadCity);
         const isNcrTutor = /delhi|noida|gurgaon|gurugram|ghaziabad|faridabad/i.test(userCity);
         const isNcrLead = /delhi|noida|gurgaon|gurugram|ghaziabad|faridabad/i.test(leadCity);
-        if (!(isNcrTutor && isNcrLead) && !matchesCity) {
-          return false; // Reject cross-city offline home visits completely
+
+        // Never match different cities/states (e.g., Indore vs Delhi, Lucknow vs Delhi)
+        if (!matchesCity && !(isNcrTutor && isNcrLead)) {
+          return false;
+        }
+
+        // 5 KM Proximity Constraint (Nearby only)
+        const leadCoords = (lead.latitude && lead.longitude)
+          ? { lat: lead.latitude, lng: lead.longitude }
+          : resolveLocationCoordinates(`${lead.area || ""} ${lead.city || ""}`.trim());
+
+        if (tutorCoords && leadCoords) {
+          const distKm = haversineDistanceKm(tutorCoords.lat, tutorCoords.lng, leadCoords.lat, leadCoords.lng);
+          if (distKm > 5.0) {
+            return false; // Rejects cross-city and far distance leads (e.g. Gurugram to Pitampura 35km)
+          }
+        } else {
+          // If exact coordinates are not resolvable, reject cross-NCR municipal leaks
+          if (isNcrTutor && isNcrLead && userCity !== leadCity) {
+            return false;
+          }
         }
       }
+
       return true;
     });
 
@@ -451,7 +521,6 @@ export async function getChatbotMatchingLeads(
       return [];
     }
 
-    const searchArea = (area || "").toLowerCase().trim();
     const isSouthDelhi = /sangam|saket|kalkaji|malviya|hauz|mehrauli|khanpur|nehru|lajpat|south|okhla|badarpur/i.test(searchArea);
     const isWestDelhi = /dwarka|janakpuri|uttam|vikaspuri|tilak|punjabi|paschim|rajouri|west|najafgarh/i.test(searchArea);
     const isNorthDelhi = /rohini|pitampura|model town|shalimar|north|mustafabad|narela|burari/i.test(searchArea);
@@ -464,7 +533,6 @@ export async function getChatbotMatchingLeads(
       const combo = `${leadArea} ${leadCity}`;
 
       // 1. Direct locality match
-      const userCity = (city || "").toLowerCase().trim();
       if (searchArea && (combo.includes(searchArea) || (leadArea && searchArea.includes(leadArea)))) {
         score += 80;
       } else if (userCity && leadCity.includes(userCity)) {
@@ -487,7 +555,7 @@ export async function getChatbotMatchingLeads(
       }
 
       // Exact grade match bonus
-      if (classLevel && extractGradeNumber(classLevel) === extractGradeNumber(lead.classLevel)) {
+      if (tutorClassArr.length > 0 && tutorClassArr.some((c) => extractGradeNumber(c) === extractGradeNumber(lead.classLevel))) {
         score += 40;
       }
 

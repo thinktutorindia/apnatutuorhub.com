@@ -691,10 +691,13 @@ async function tryLooseTutorIntent(
 
   if (intent === "LEADS") {
     const area = (data.area as string) || "Delhi";
+    const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+      ? (data.classLevels as string[])
+      : (data.classLevel ? [data.classLevel as string] : undefined);
     const leads = await getChatbotMatchingLeads(
       area,
       (data.city as string) || "Delhi",
-      data.classLevel as string,
+      tutorClassLevels,
       data.subjects as string[]
     );
     return {
@@ -984,7 +987,8 @@ export async function processMessage(
   options?: ProcessMessageOptions
 ): Promise<EngineResult> {
   const msg = rawMessage.trim().toUpperCase();
-  const { step, data, retries } = session;
+  let step = session.step;
+  const { data, retries } = session;
   const useAi = options?.useAi !== false;
   const chatHistory = options?.chatHistory ?? (
     await prisma.whatsappChatMessage.findMany({
@@ -2022,10 +2026,13 @@ export async function processMessage(
     /^(?:show\s+leads?|view\s+leads?|leads?|my\s+leads?|matching\s+leads?|unlock\s+leads?|explore\s+leads?)$/i.test(msg.trim()) ||
     (/\b(?:show|view|matching|my|explore)\s+lead/i.test(msg) && !/\d{4,7}/.test(msg))
   ) {
+    const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+      ? (data.classLevels as string[])
+      : (data.classLevel ? [data.classLevel as string] : undefined);
     const leads = await getChatbotMatchingLeads(
       (data.area as string) || "Delhi",
       (data.city as string) || "Delhi",
-      data.classLevel as string,
+      tutorClassLevels,
       data.subjects as string[]
     );
     return {
@@ -2176,6 +2183,7 @@ export async function processMessage(
     const isEn = /^[a-zA-Z0-9\s.,'\/&-]+$/.test(rawTrimmed) && !/\b(hai|hain|karna|chahiye|karo|batao|kripya)\b/i.test(rawTrimmed);
     const chosenLang = isEn ? "en" : (data.lang as string) || "hi";
     session.step = "T_CONVO";
+    step = "T_CONVO";
     session.userType = "TUTOR";
     data.lang = chosenLang;
     data.userType = "TUTOR";
@@ -2599,7 +2607,9 @@ export async function processMessage(
       const loc = validateAndCleanLocality(rawLoc.trim(), (data.city as string) || "Delhi");
       const searchArea = loc.isValid ? loc.area : rawLoc.trim();
       const searchCity = loc.isValid ? loc.city : (data.city as string) || "Delhi";
-      const classForSearch = data.classLevel as string | undefined;
+      const classForSearch = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+        ? (data.classLevels as string[])
+        : (data.classLevel as string | undefined);
       const subjectsForSearch = Array.isArray(data.subjects) ? (data.subjects as string[]) : [];
       const leads = await getChatbotMatchingLeads(searchArea, searchCity, classForSearch, subjectsForSearch);
       const displayName = (data.name as string) || "Teacher";
@@ -2634,7 +2644,10 @@ export async function processMessage(
     // ── "Kaise" / "Kya" / very short confused messages → show leads directly ──
     if (/^(kaise|kya|haan|theek|okay|ok|sure|batao|bta?o|aage|next|aur|ha|huh|hmm|chalega|ho\s*gaya)[\s?!.]*$/i.test(rawMessage.trim())) {
       const area = (data.area as string) || "Delhi";
-      const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", data.classLevel as string, data.subjects as string[]);
+      const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+        ? (data.classLevels as string[])
+        : (data.classLevel ? [data.classLevel as string] : undefined);
+      const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", tutorClassLevels, data.subjects as string[]);
       const leadsLink = "https://apnatutorhub.com/tutor/leads";
       if (leads.length > 0) {
         const top = leads[0];
@@ -2660,7 +2673,10 @@ export async function processMessage(
     // ── "Karawal Nagar mein class hai?", "Koi student hai?", "Student chahiye" ──
     if (/\b(student\s*(chahiye|do|bhejo|dedo|mil\s*sakta|hai|hain|milega)|koi\s*student|need\s*student|padhane\s*ke\s*liye\s*student)\b/i.test(rawMessage)) {
       const area = (data.area as string) || "Delhi";
-      const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", data.classLevel as string, data.subjects as string[]);
+      const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+        ? (data.classLevels as string[])
+        : (data.classLevel ? [data.classLevel as string] : undefined);
+      const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", tutorClassLevels, data.subjects as string[]);
       const leadsLink = "https://apnatutorhub.com/tutor/leads";
       if (leads.length > 0) {
         const top = leads[0];
@@ -2715,11 +2731,18 @@ export async function processMessage(
         ? validateAndAlignSubjects(combinedContext, msgClasses[0] || (data.classLevel as string | undefined))
         : null;
 
+    const isMsgSensitive =
+      /^(default|skip|password|pwd|pass|reply\s*default|leads|plans|coins|help|menu|stop|cancel)$/i.test(rawMessage.trim()) ||
+      rawMessage.includes("@") ||
+      /\b[a-zA-Z]+[0-9]{2,}\b/i.test(rawMessage);
+
     const directLocStatement = rawMessage.trim().match(
       /^(?:(?:sir|mam|hello|hi)[,\s]+)?(?:my\s+(?:new\s+)?(?:location|area|locality|city)\s+(?:is|hai)|i\s+(?:live|stay|am\s+staying|am\s+living)\s+(?:in|at)|i\s+am\s+from|currently\s+(?:in|at)|location\s*:)\s*(.+)$/i
     );
-    const directLocRes = directLocStatement
-      ? validateAndCleanLocality(directLocStatement[1].trim(), (data.city as string) || undefined, true)
+    const directLocRes = !isMsgSensitive
+      ? directLocStatement
+        ? validateAndCleanLocality(directLocStatement[1].trim(), (data.city as string) || undefined, true)
+        : validateAndCleanLocality(rawMessage.trim(), (data.city as string) || undefined, true)
       : null;
 
     const applyDonePatch = async (opts: {
@@ -4265,8 +4288,12 @@ export async function processMessage(
         }
       }
 
+      const ackPrefix = (step === "T_AREA" || updated.area)
+        ? `📍 Area note ho gaya: *${areaName}* ✅`
+        : `📧 Email note ho gaya: *${emailStr}* ✅`;
+
       return {
-        reply: `Email note ho gaya: *${emailStr}* ✅\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
+        reply: `${ackPrefix}\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
         nextStep: "T_PASSWORD",
         updatedData: updated,
         userType: "TUTOR",

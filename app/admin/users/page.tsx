@@ -434,9 +434,9 @@ export default async function AdminUsersPage({
 
                   const isGenuineEmail = !u.email.toLowerCase().includes("apnatutorhub.com");
 
-                  const locationText = u.tutorProfile?.city
+                  const locationText = (u.tutorProfile?.address || u.tutorProfile?.city)
                     ? [u.tutorProfile.address, u.tutorProfile.city, u.tutorProfile.pincode].filter(Boolean).join(", ")
-                    : u.parentProfile?.city
+                    : (u.parentProfile?.address || u.parentProfile?.city)
                     ? [u.parentProfile.address, u.parentProfile.city, u.parentProfile.pincode].filter(Boolean).join(", ")
                     : null;
 

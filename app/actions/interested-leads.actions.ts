@@ -21,8 +21,12 @@ import {
 import { revalidatePath } from "next/cache";
 
 import { haversineDistanceKm } from "@/lib/haversine";
-import { formatRichNearbyLocation } from "@/lib/format-rich-nearby-location";
 import { getWhatsAppReachability, waitForWhatsAppDeliveryStatus } from "@/lib/whatsapp-blast-phone";
+import {
+  parentNameForLead,
+  resolveEnquirySubject,
+} from "@/lib/enquiry-render";
+import { formatRichNearbyLocation } from "@/lib/format-rich-nearby-location";
 import {
   resolveBlastFee,
   sanitizeBlastFeeOverrides,
@@ -236,17 +240,24 @@ function enrichLeadWithBusinessRules(
   const recommendedFee = classInfo.recommendedFee;
   const classLabel = classInfo.classLabel;
 
+  // Subject rules: Class 1–8 = "All Subjects"; Class 9–12 = one particular
+  // subject (cleaned of junk like "Maths for Class V"; never generic
+  // "Science"/"Commerce" for Class 11–12).
   let recommendedSubject = "All Subjects";
   if (classCategory === "CLASS_9_12") {
     const leadSub =
       (lead.subjects || []).find((s: string) => !s.toLowerCase().includes("all subject")) ||
       (tutorProfile?.subjects || []).find((s: string) => !s.toLowerCase().includes("all subject")) ||
       "Mathematics";
-    recommendedSubject = leadSub;
+    const grade = Number((classLabel.match(/\d+/) || [])[0] || 12);
+    const seed = lead.id || lead.phone || "";
+    recommendedSubject = resolveEnquirySubject(grade, leadSub, Math.abs(seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0)));
   }
 
+  // Area rule: real but GENERIC locality ("Karol Bagh, Delhi") — never house
+  // numbers / buildings / sectors / landmarks, never a bare city name.
   const locationLabel = deliveryMode === "OFFLINE_5KM" && lead.location && !isCityOnlyLocation(lead.location)
-    ? formatRichNearbyLocation(lead.location)
+    ? formatRichNearbyLocation(lead.location, tutorProfile?.city)
     : "Online (Pan-India)";
 
   return {
@@ -624,6 +635,7 @@ async function dispatchBlastWhatsAppMessage(opts: {
   inquiryCode: string;
   clientName: string;
   classLine: string;
+  subjectLine: string;
   modeLine: string;
   locationLine: string;
   feeLine: string;
@@ -651,14 +663,17 @@ async function dispatchBlastWhatsAppMessage(opts: {
   const templateId = isLocationTemplate ? "tutor_location_details" : "tuition_enquiry_direct";
   const placeholders = isLocationTemplate
     ? []
-    : [
+    : // Meta approved `tuition_enquiry_direct` body labels:
+      // {{1}} 🆕 Enquiry ID · {{2}} 💬 Name · {{3}} 📝 Class · {{4}} 📚 Subject
+      // {{5}} 📍 Area · {{6}} 💵 Budget · {{7}} 📌 Mode
+      [
         opts.inquiryCode,
         opts.clientName,
         opts.classLine,
-        opts.modeLine,
+        opts.subjectLine,
         opts.locationLine,
         opts.feeLine,
-        "Any (Male or Female Tutor)",
+        opts.modeLine,
       ];
 
   const templateRes = await sendAquaWhatsAppMessage({
@@ -950,12 +965,16 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
 
             const inquiryCode = lead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
             const forceTemplate = Boolean(input.forceApprovedTemplate) || !reach.within24h;
+            // Deterministic realistic parent name (never the literal word "Parent",
+            // never the tutor's own name) — same name the admin saw in the preview.
+            const clientName = parentNameForLead(lead.id);
             const waResult = await dispatchBlastWhatsAppMessage({
               to: normalized,
               personalizedText: personalized,
               inquiryCode,
-              clientName: "Parent",
-              classLine: `${safeClass} (${meta.recommendedSubject})`,
+              clientName,
+              classLine: safeClass,
+              subjectLine: meta.recommendedSubject,
               modeLine: is5Km ? "Home Tuition (Offline)" : "Online Class",
               locationLine: loc,
               feeLine: effectiveFee,

@@ -17,6 +17,7 @@ import {
   type NotifDeliveryResult,
 } from "@/app/actions/interested-leads.actions";
 import { editWhatsAppPitchWithAIAction } from "@/app/actions/ai-message-edit.actions";
+import { parentNameForLead } from "@/lib/enquiry-render";
 import {
   resolveBlastFee,
   blastFeeBandForLead,
@@ -410,8 +411,8 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
         return `*Approved template: tutor_location_details (Marketing)*\n\nHello! 👋\n\nThank you for connecting apnatutorhub.com\n\nPlease share the following details so we can assign suitable tuition:\n\n1️⃣ Your Location / Area\n2️⃣ Subjects you want to teach\n3️⃣ Classes you want to teach (e.g., Nursery–5th, 6th–8th, 9th–10th, 11th–12th)\n\n*(Meta Approved ID: 39080956 · Dispatched strictly to 24h-closed recipients)*`;
       }
       const inquiryCode = focusedLead.id.replace(/\W/g, "").slice(-6).toUpperCase() || "ATH001";
-      const clientDisplayName = "Parent";
-      return `*Approved template: tuition_enquiry_direct (Utility)*\n\nWe recently received an Enquiry for you with following details:\n\n🆕 Enquiry ID : #${inquiryCode}\n💬 Name : ${clientDisplayName}\n📝 Class : ${safeClass} (${focusedLead.recommendedSubject})\n📚 Subject : ${modeLine}\n📍 Area : ${loc}\n💵 Budget : ${effectiveFee}\n📌 Mode : Any (Male or Female Tutor)\n\nPlease check this and Respond\nContact 08062180653\nApnaTutorHub (Reply STOP to Unsubscribe)`;
+      const clientDisplayName = parentNameForLead(focusedLead.id);
+      return `*Approved template: tuition_enquiry_direct (Utility)*\n\nWe recently received an Enquiry for you with following details:\n\n🆕 Enquiry ID : #${inquiryCode}\n💬 Name : ${clientDisplayName}\n📝 Class : ${safeClass}\n📚 Subject : ${focusedLead.recommendedSubject}\n📍 Area : ${loc}\n💵 Budget : ${effectiveFee}\n📌 Mode : ${modeLine}\n\nPlease check this and Respond\nContact 08062180653\nApnaTutorHub (Reply STOP to Unsubscribe)`;
     }
 
     // Use offlineTemplate if lead is within 5km, else onlineTemplate

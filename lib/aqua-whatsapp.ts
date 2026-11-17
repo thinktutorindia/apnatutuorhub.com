@@ -14,7 +14,7 @@ export const AQUA_DEFAULT_DAILY_TEST_CAP = 3;
 
 const SEND_AUDIT_ACTIONS = ["SEND_TEST_WHATSAPP", "SEND_WHATSAPP"] as const;
 
-export type AquaSendMode = "template" | "text";
+export type AquaSendMode = "template" | "text" | "image";
 
 export type AquaWhatsAppConfig = {
   enabled: boolean;
@@ -273,6 +273,10 @@ export async function sendAquaWhatsAppMessage(input: {
   to: string;
   mode: AquaSendMode;
   text?: string;
+  /** For mode "image": public https URL of the image (WhatsApp downloads it directly). */
+  imageUrl?: string;
+  /** Optional caption for image messages. */
+  imageCaption?: string;
   templateId?: string;
   placeholders?: string[];
   estimatedInr?: number;
@@ -331,13 +335,24 @@ export async function sendAquaWhatsAppMessage(input: {
             ...(templateComponents.length > 0 ? { components: templateComponents } : {}),
           },
         }
-      : {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to,
-          type: "text",
-          text: { body: (input.text ?? "").trim() },
-        };
+      : input.mode === "image"
+        ? {
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to,
+            type: "image",
+            image: {
+              link: input.imageUrl ?? "",
+              ...(input.imageCaption ? { caption: input.imageCaption.slice(0, 900) } : {}),
+            },
+          }
+        : {
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to,
+            type: "text",
+            text: { body: (input.text ?? "").trim() },
+          };
 
   try {
     const endpoint = `${cfg.apiBase}/v3/${cfg.phoneNumberId}/messages`;

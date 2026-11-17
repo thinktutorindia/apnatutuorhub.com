@@ -621,4 +621,43 @@ export function canSendLeadNotification(lead: {
   return true;
 }
 
+export const AUTHENTIC_INDIAN_PARENT_NAMES = [
+  "Pooja Yadav",
+  "Dr. Anita Sen",
+  "Rajesh Verma",
+  "Sunita Rawat",
+  "Amit Sharma",
+  "Kavita Chauhan",
+  "Suresh Mehra",
+  "Ritu Batra",
+  "Vikram Malhotra",
+  "Dr. Alok Gupta",
+  "Meenakshi Sundaram",
+  "Ashok Singhal",
+  "Neha Aggarwal",
+  "Deepak Chopra",
+  "Shalini Saxena",
+  "Vikas Grover",
+  "Pooja Gupta",
+  "Manoj Tiwari",
+  "Rashmi Khurana",
+  "Anil Mathur",
+];
+
+export function resolveAuthenticClientName(
+  candidateName?: string | null,
+  seed: number | string = 0
+): string {
+  const c = (candidateName || "").trim();
+  if (
+    c &&
+    !/^(tutor|teacher|user|student|lead|parent|sir|madam|ji|whatsapp\s*user|unknown|test)$/i.test(c)
+  ) {
+    return c;
+  }
+  const s = typeof seed === "number" ? seed : hashSeed(String(seed));
+  return AUTHENTIC_INDIAN_PARENT_NAMES[Math.abs(s) % AUTHENTIC_INDIAN_PARENT_NAMES.length];
+}
+
+
 

@@ -394,21 +394,16 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
     const phone = p.normalizedPhone!;
 
     // 7 Exact Parameters verified for tuition_enquiry_direct:
-    // 1: Inquiry Number
-    // 2: Client Name
-    // 3: Class & Subjects
-    // 4: Mode
-    // 5: Location
-    // 6: Budget
-    // 7: Preference
+    // 1: Inquiry Number · 2: Client Name · 3: Class · 4: Subject
+    // 5: Location · 6: Budget · 7: Mode
     const waPlaceholders = [
       p.inquiryCode,
       p.clientName,
-      `${p.classLevel} (${(p.subjects.length > 0 ? p.subjects : ["All Subjects"]).slice(0, 2).join(", ")})`,
-      p.mode === "OFFLINE" ? "Home Tuition (Offline)" : "Online Class",
+      p.classLevel,
+      (p.subjects.length > 0 ? p.subjects : ["All Subjects"]).slice(0, 1).join(", "),
       p.location,
       p.budgetFormatted,
-      p.preference,
+      p.mode === "OFFLINE" ? "Home Tuition (Offline)" : "Online Class",
     ];
 
     try {

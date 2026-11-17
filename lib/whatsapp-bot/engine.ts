@@ -611,7 +611,21 @@ export type EngineResult = {
   userType?: string | null;
   retries: number;
   quickReplies?: string[];
+  /** Optional image attachments to send after the text reply (e.g. payment QR). */
+  imageUrls?: string[];
+  imageCaption?: string;
 };
+
+/** Payment QR images (Hindi + English) sent whenever the user asks how to pay. */
+const PAYMENT_QR_IMAGE_URLS = [
+  "https://apnatutorhub.com/tutor_plan_hindi_qr.jpg",
+  "https://apnatutorhub.com/tutor_plan_english_qr.jpg",
+];
+const PAYMENT_QR_CAPTION = "💳 Scan to pay ₹1,257 — Commission Based Plan (6 months validity)";
+
+function paymentQrImages(): { imageUrls: string[]; imageCaption: string } {
+  return { imageUrls: [...PAYMENT_QR_IMAGE_URLS], imageCaption: PAYMENT_QR_CAPTION };
+}
 
 async function tryLooseTutorIntent(
   session: BotSession,
@@ -845,6 +859,7 @@ function tryTutorOffScriptReply(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImages(),
     };
   }
 
@@ -1969,6 +1984,7 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImages(),
     };
   }
 
@@ -2317,6 +2333,7 @@ export async function processMessage(
               userType: "PARENT",
               retries: 0,
               quickReplies: ["Fee Info", "Trial Demo Status", "Talk to Coordinator 📞"],
+              ...(asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()) ? paymentQrImages() : {}),
             };
           }
         } catch (err) {}
@@ -2882,6 +2899,7 @@ export async function processMessage(
             quickReplies: ai.quickReplies && ai.quickReplies.length > 0
               ? ai.quickReplies
               : ["View Leads", "Plans", "My Profile"],
+            ...(asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()) ? paymentQrImages() : {}),
           };
         }
       } catch (err) {

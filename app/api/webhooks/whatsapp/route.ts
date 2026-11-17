@@ -12,7 +12,7 @@ import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { claimReplyTurn, getOrCreateSession, updateSession, resetSession } from "@/lib/whatsapp-bot/session";
 import { processMessage } from "@/lib/whatsapp-bot/engine";
-import { sendBotMessage } from "@/lib/whatsapp-bot/sender";
+import { sendBotMessage, sendBotImageMessage } from "@/lib/whatsapp-bot/sender";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 import { updateWhatsAppChatMessageStatus, upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { isPositiveInterest, autoTagWhatsAppInterest } from "@/lib/whatsapp-interest-sync";
@@ -400,6 +400,17 @@ export async function POST(request: Request): Promise<NextResponse> {
           senderName: "Bot",
         });
         console.log(`[whatsapp-webhook] Automated reply sent to ${phone}: ${sent ? "SUCCESS" : "FAILED"}`);
+      }
+
+      // 4b. Optional image attachments (e.g. payment QR) requested by the engine
+      if (result.imageUrls && result.imageUrls.length > 0) {
+        const imagesSent = await sendBotImageMessage(
+          phone,
+          result.imageUrls,
+          result.imageCaption,
+          { step: result.nextStep, senderName: "Bot" }
+        );
+        console.log(`[whatsapp-webhook] Image attachments to ${phone}: ${imagesSent ? "SUCCESS" : "FAILED"}`);
       }
     } catch (err) {
       console.error("[whatsapp-webhook] Unhandled error:", err);

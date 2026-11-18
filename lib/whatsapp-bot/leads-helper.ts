@@ -165,7 +165,9 @@ export function isClassCompatible(tutorClassStr: string | string[] | undefined, 
   if (!tutorClassStr || !leadClassStr) return true;
   const tutorClassArr = Array.isArray(tutorClassStr) ? tutorClassStr : [tutorClassStr];
   if (tutorClassArr.length === 0) return true;
-  if (tutorClassArr.some((c) => /all|any|general/i.test(c))) return true;
+  // Only a genuinely generic class tag bypasses filtering. A subject label
+  // like "All Subjects for Class 7" must NOT disable class validation.
+  if (tutorClassArr.some((c) => /^(?:all|any)(?:\s+(?:classes|class|grades?|levels?))?$|^(?:general|all)$/i.test(String(c).trim()))) return true;
 
   const tutorGrades = new Set<number>();
   for (const c of tutorClassArr) {
@@ -221,7 +223,7 @@ export function isClassCompatible(tutorClassStr: string | string[] | undefined, 
       // Primary range (if tutor specifically teaches a range like Class 1-5 or Class 1-8)
       if (tutorGrades.size > 1 && tg <= 5 && [...leadGrades].some((lg) => lg <= 5)) return true;
     }
-    return false;
+    return coversClassLevel(tutorClassArr, leadClassStr);
   }
 
   const combined = tutorClassArr.join(" ").toLowerCase();
@@ -241,7 +243,9 @@ export function isSubjectCompatible(
   leadClass?: string
 ): boolean {
   if (!tutorSubs || tutorSubs.length === 0) return true;
-  const isTutorAllSubjects = tutorSubs.some((s) => /all\s*subject|all|any|general|combo/i.test(s));
+  // Only a true "all subjects" label may match every class; words like "all"
+  // inside unrelated labels must never create a blanket subject match.
+  const isTutorAllSubjects = tutorSubs.some((s) => /^all\s*(?:core\s*)?subjects?\b|^combo\b|^general$/i.test(String(s).trim()));
 
   const tNorm = tutorSubs.map((s) => s.toLowerCase().trim());
   const lNorm = leadSubs.map((s) => s.toLowerCase().trim());

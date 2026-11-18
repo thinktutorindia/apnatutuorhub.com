@@ -14,6 +14,7 @@ import {
   normalizeTaxonomySubject,
   searchTaxonomySubjects,
 } from "@/lib/subject-taxonomy";
+import { normalizeSubjectsForClassRule, parseClassGradesFromText } from "../subject-normalization";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -188,6 +189,26 @@ const NON_LOCALITY_WORDS = new Set([
   "who", "what", "where", "how", "why", "when", "can", "could", "will", "would", "is", "am", "are", "have", "has", "give", "send", "tell", "teach", "work", "looking", "interested",
   "my", "home", "ghar", "house", "makaan", "anywhere", "kahin", "everywhere", "any", "all", "sab", "sabhi", "pure", "poore", "poora", "city", "state", "desh", "india"
 ]);
+
+// Words that can never (by themselves) be a locality — subject/class chatter.
+const SUBJECT_LOCALITY_WORDS = new Set([
+  "math", "maths", "mathematics", "mathmatic", "mathmatics", "ganit",
+  "science", "sci", "vigyan", "physics", "phy", "chemistry", "chem", "biology", "bio", "botany", "zoology",
+  "english", "hindi", "sanskrit", "urdu", "french", "german", "spanish",
+  "account", "accounts", "accountancy", "commerce", "business", "studies", "economics", "economic", "eco",
+  "sst", "social", "history", "geography", "political", "polity", "psychology", "sociology", "civics",
+  "computer", "computers", "coding", "python", "java", "it", "informatics", "evs", "environmental",
+  "gk", "knowledge", "jee", "neet", "iit", "cuet", "cat",
+  "class", "classes", "grade", "grades", "std", "standard", "subject", "subjects", "all", "core", "combo",
+  "and", "aur", "or", "ya", "for", "to", "upto", "till", "only", "sirf",
+]);
+
+/** "Maths, Science", "Class 10 Maths", "All Subjects" → true (not a locality). */
+function looksLikeSubjectOnlyText(text: string): boolean {
+  const words = String(text || "").toLowerCase().split(/[\s,./&+\-–—]+/).filter(Boolean);
+  if (!words.length) return false;
+  return words.every((w) => SUBJECT_LOCALITY_WORDS.has(w) || /^\d{1,2}(?:st|nd|rd|th)?$/.test(w));
+}
 
 export const PLACE_INDICATORS = /\b(nagar|vihar|colony|enclave|sector|sec\b|phase|block|road|street|marg|bazaar|bazar|market|park|heights|apartments|extension|ext\b|pur\b|pura\b|ganj\b|gaon\b|halli\b|pet\b|peth\b|wadi\b|layout|kunj|chowk|cantt|tola|basti|para|palli|guda|hills|estate|town|society|complex|cross|main|line|lines|gali|mohalla|mandir|metro)\b/i;
 
@@ -720,7 +741,7 @@ export function validateAndCleanLocality(
   const hasPersonSurname = !hasPlaceKeyword && words.some((w) =>
     /^(sharma|verma|gupta|singh|kumar|chauhan|mishra|alam|khan|yadav|tiwari|tripathi|pandey|shukla|bhatnagar|chadha|chawla|lalwani|lakshmi|bhatia|kaur|saxena|mathur|joshi|agarwal|agrawal|jain|dubey|malhotra|kapoor|khanna|arora|sethi|sood|mehta|shah|patel|reddy|nair|rao|das|banerjee|mukherjee)$/i.test(w)
   );
-  const isValidProperName = !isGibberish && !hasEmbeddedDigits && !hasPersonSurname && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
+  const isValidProperName = !looksLikeSubjectOnlyText(clean) && !isGibberish && !hasEmbeddedDigits && !hasPersonSurname && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
 
   if (hasPlaceKeyword || isValidProperName) {
     const formatted = clean
@@ -803,7 +824,10 @@ export function validateAndAlignSubjects(
     };
   }
 
-  const grade = parseGrade(classLevel);
+  const classGradeList = parseClassGradesFromText(classLevel || "").filter((g) => g >= 1 && g <= 12);
+  // For a RANGE (e.g. "Class 11-12") naming a single grade would be wrong — keep
+  // the subject bare so dedupe attaches the tutor's full class span.
+  const grade = classGradeList.length === 1 ? classGradeList[0] : classGradeList.length > 1 ? null : parseGrade(classLevel);
   const isPrimary = (grade !== null && grade <= 5) || /primary|kg|nursery|1\s*[-–to]\s*5/i.test(classLevel || "");
   const isMiddle = (grade !== null && grade >= 6 && grade <= 8) || /middle|6\s*[-–to]\s*8/i.test(classLevel || "");
   const hasSenior = /\b(9|10|11|12|ix|x|xi|xii|neet|jee|senior|secondary|6\s*[-–to]\s*10|9\s*[-–to]\s*10|9\s*[-–to]\s*12|1\s*[-–to]\s*10|1\s*[-–to]\s*12)\b/i.test(classLevel || "");
@@ -812,6 +836,7 @@ export function validateAndAlignSubjects(
 
   const matchedSubjects = new Set<string>();
   let hasUnsupportedHobby = false;
+  let seniorAllSubjectsRequested = false;
 
   for (const token of cleanTokens) {
     let t = token.toLowerCase();
@@ -844,7 +869,7 @@ export function validateAndAlignSubjects(
 
     // Ignore pure locality / place tokens (e.g. "Dwarka Delhi", "Rohini", "Delhi NCR")
     if (
-      !/math|science|english|hindi|sanskrit|social|sst|physics|chemistry|biology|account|commerce|computer|coding/i.test(t) &&
+      !/math|science|english|hindi|sanskrit|social|sst|physics|chem|biology|account|commerce|computer|coding|business|studies|econom|history|geograph|political|psycholog|sociolog|french|german|spanish|urdu|evs|environmental|gk|botany|zoology|informatics|it\b/i.test(t) &&
       (validateAndCleanLocality(t).isValid || /vihar|nagar|road|enclave|colony|delhi|noida|gurgaon|sector|pur\b|ext\b|saket|dwarka|rohini/i.test(t))
     ) {
       continue;
@@ -914,17 +939,26 @@ export function validateAndAlignSubjects(
 
     // 3. All Subjects / Combo / General
     if (/all\s*subjects?|combo|sabhi|har\s*subject|general/i.test(t)) {
-      if (isBelow9) {
+      const juniorBand = isBelow9 || classGradeList.some((g) => g >= 1 && g <= 8);
+      const senior910 = classGradeList.filter((g) => g >= 9 && g <= 10);
+      const senior1112 = classGradeList.filter((g) => g >= 11);
+      if (juniorBand) {
         matchedSubjects.add("All Subjects (Class 1-8)");
-      } else if (grade && grade >= 9) {
-        // Class 9-12 should not use "All Subjects" combo; keep grade-level core subjects only if needed
-        if (grade <= 10 && ROMAN_MAP[grade]) {
-          matchedSubjects.add(`Maths for Class ${ROMAN_MAP[grade]}`);
-          matchedSubjects.add(`Science for Class ${ROMAN_MAP[grade]}`);
-        } else {
-          matchedSubjects.add("All Subjects");
+      }
+      if (senior910.length) {
+        // Class 9-10: derive concrete core subjects instead of a combo label.
+        // Per-class canonical labels ("Maths for Class IX/X") are taxonomy-valid.
+        for (const g of senior910) {
+          if (!ROMAN_MAP[g]) continue;
+          matchedSubjects.add(`Maths for Class ${ROMAN_MAP[g]}`);
+          matchedSubjects.add(`Science for Class ${ROMAN_MAP[g]}`);
         }
-      } else {
+      }
+      if (senior1112.length) {
+        // Class 11-12 must never store "All Subjects" — ask for specific subjects.
+        seniorAllSubjectsRequested = true;
+      }
+      if (!juniorBand && !senior910.length && !senior1112.length) {
         matchedSubjects.add("All Subjects");
       }
       continue;
@@ -1188,6 +1222,14 @@ export function validateAndAlignSubjects(
   );
 
   if (strictlyCanonical.length === 0) {
+    if (seniorAllSubjectsRequested) {
+      return {
+        isValid: false,
+        subjects: [],
+        humanLabel: "",
+        errorPrompt: `⚠️ Class 9–12 ke liye *specific subjects* batayein — jaise *Maths, Physics, Chemistry, Accounts, Economics*.\n\n"All Subjects" sirf Class 1–8 ke liye hota hai.`,
+      };
+    }
     if (hasUnsupportedHobby) {
       // Extract which hobby was typed for a personalised reply
       const hobbyMatch = rawInputStr.match(/\b(cooking|cookery|driving|cricket|swimming|dance|dancing|gym|fitness|yoga(?!\s*class)|guitar|drums|piano|singing|chess|skating|makeup|nanny)\b/i);
@@ -1224,93 +1266,7 @@ export function deduplicateAndNormalizeSubjects(
   subjects: string[],
   classLevels?: string[]
 ): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const s of subjects) {
-    const trimmed = String(s || "").trim();
-    if (!trimmed) continue;
-    const key = trimmed.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(trimmed);
-    }
-  }
-
-  const clsJoined = (classLevels || []).join(" | ").toLowerCase();
-  const hasJunior =
-    /\b([1-8](?:st|nd|rd|th)?|nursery|lkg|ukg|kg|primary|middle|1\s*[-–to]+\s*[58]|6\s*[-–to]+\s*8)\b/i.test(clsJoined);
-  const hasSenior =
-    /\b(9|10|11|12|9th|10th|11th|12th|ix|x|xi|xii|jee|neet|cuet|senior|secondary|9\s*[-–to]+\s*1[02]|11\s*[-–to]+\s*12)\b/i.test(clsJoined);
-  const hasNineTen = /\b(9|10|9th|10th|ix|x|9\s*[-–to]+\s*10)\b/i.test(clsJoined);
-
-  let list = [...unique];
-
-  // If Class 1-8 is taught and no 9-12 is taught, collapse generic school subjects into "All Subjects (Class 1-8)"
-  const elementaryDupes = new Set([
-    "all subjects",
-    "science",
-    "general science",
-    "science & maths",
-    "mathematics",
-    "maths",
-    "english",
-    "hindi",
-    "social studies",
-    "social science",
-    "physics",
-    "chemistry",
-    "biology",
-    "evs",
-    "environmental studies(evs)",
-  ]);
-
-  if (hasJunior && !hasSenior) {
-    const nonElementary = list.filter((s) => !elementaryDupes.has(s.toLowerCase()));
-    list = ["All Subjects (Class 1-8)", ...nonElementary];
-  } else if (hasSenior && !hasJunior) {
-    // Class 9-12 must NEVER carry "All Subjects" combo tags
-    const filtered = list.filter((s) => !/^all subjects/i.test(s));
-    if (filtered.length > 0) list = filtered;
-  } else if (hasJunior && hasSenior) {
-    // Mixed (e.g. Class 8 + Class 11): retain senior subjects. Only include "All Subjects (Class 1-8)" if user explicitly requested all subjects or primary classes
-    list = list.filter((s) => s.toLowerCase() !== "all subjects");
-    if (!hasNineTen) {
-      list = list.filter((s) => !/^(science|general science)$/i.test(s));
-    }
-    const requestedAllSubjects = subjects.some((s) => /all\s*subjects?|combo/i.test(String(s)));
-    if (requestedAllSubjects && !list.some((s) => /^all subjects \(class 1-8\)$/i.test(s))) {
-      list.unshift("All Subjects (Class 1-8)");
-    }
-  }
-
-  const lowerSet = new Set(list.map((s) => s.toLowerCase()));
-
-  // Prune redundant bare/synonym entries when a class-specific or canonical equivalent exists
-  const hasMathsForClass = list.some((s) => /^maths for class /i.test(s));
-  const hasPhysicsForClass = list.some((s) => /^physics for class /i.test(s));
-  const hasChemForClass = list.some((s) => /^chemistry for class /i.test(s));
-  const hasBioForClass = list.some((s) => /^biology for class /i.test(s));
-  const hasSciForClass = list.some((s) => /^science for class /i.test(s));
-  const hasAccForClass = list.some((s) => /^accountancy for class /i.test(s));
-  const hasSstForClass = list.some((s) => /^social studies for class /i.test(s));
-
-  return list.filter((s) => {
-    const l = s.toLowerCase();
-    if (l === "maths" && (hasMathsForClass || lowerSet.has("mathematics"))) return false;
-    if (l === "mathematics" && (hasMathsForClass || lowerSet.has("maths for class xi") || lowerSet.has("maths for class xii"))) return false;
-    if (l === "physics" && (hasPhysicsForClass || lowerSet.has("physics for class xi") || lowerSet.has("physics for class xii"))) return false;
-    if (l === "chemistry" && (hasChemForClass || lowerSet.has("chemistry for class xi") || lowerSet.has("chemistry for class xii"))) return false;
-    if (l === "biology" && (hasBioForClass || lowerSet.has("biology for class xi") || lowerSet.has("biology for class xii"))) return false;
-    if (l === "general science" && (hasSciForClass || lowerSet.has("science") || lowerSet.has("all subjects (class 1-8)"))) return false;
-    if (l === "science" && (hasSciForClass || (hasSenior && !hasNineTen))) return false;
-    if (l === "accounts" && (hasAccForClass || lowerSet.has("accountancy"))) return false;
-    if (l === "accountancy" && hasAccForClass) return false;
-    if (l === "social science" && (hasSstForClass || lowerSet.has("social studies"))) return false;
-    if (l === "social studies" && hasSstForClass) return false;
-    if (l === "computer" && lowerSet.has("computer science")) return false;
-    if (l === "all subjects" && lowerSet.has("all subjects (class 1-8)")) return false;
-    return true;
-  });
+  return normalizeSubjectsForClassRule(subjects, classLevels || []);
 }
 
 /**

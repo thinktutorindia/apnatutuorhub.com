@@ -22,19 +22,11 @@ import { sendAquaWhatsAppMessage, normalizeIndiaWhatsApp } from "@/lib/aqua-what
 import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { sendBatchEmails, type BatchEmailItem } from "@/lib/resend-service";
 import { generateDummyLead } from "@/lib/dummy-lead-engine";
-import { cleanSubjectName, sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
+import { isSubjectAndClassMatched } from "@/lib/matching-engine";
+import { sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
 import { getLeadPointCost } from "@/lib/subscription-plans";
 
 const MATCH_RADIUS_KM = 5;
-
-function subjectsOverlap(tutorSubjects: string[], leadSubjects: string[]): boolean {
-  const tutor = tutorSubjects.map((s) => cleanSubjectName(s).toLowerCase()).filter(Boolean);
-  const lead = leadSubjects.map((s) => cleanSubjectName(s).toLowerCase()).filter(Boolean);
-  if (tutor.length === 0 || lead.length === 0) return false;
-  return lead.some((ls) =>
-    tutor.some((ts) => ts.includes(ls) || ls.includes(ts) || ts.includes("all subject") || ls.includes("all subject"))
-  );
-}
 
 function pickTutorSubjects(tutorSubjects: string[], classLevel: string, seed: number): string[] {
   if (isTill8thClass(classLevel)) return ["All Subjects"];
@@ -177,7 +169,14 @@ export async function runGeoLeadBroadcast(mode: GeoBroadcastMode = "live") {
         const dist = haversineDistanceKm(tLat, tLng, lead.latitude, lead.longitude);
         if (dist > MATCH_RADIUS_KM) continue;
         if (isTill8thClass(lead.classLevel) && lead.mode === "ONLINE") continue;
-        if (!subjectsOverlap(tutorSubjects, lead.subjects || [])) continue;
+        // Subject AND class must both match — cleanSubjectName alone strips
+        // the class suffix and would deliver a Class 10 lead to a Class 1-8 tutor.
+        if (!isSubjectAndClassMatched(
+          tutorSubjects,
+          tutor.tutorProfile?.classLevels || [],
+          lead.subjects || [],
+          lead.classLevel || ""
+        )) continue;
         candidates.push({ lead, dist });
       }
 

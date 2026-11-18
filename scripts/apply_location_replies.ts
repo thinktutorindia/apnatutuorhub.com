@@ -1,7 +1,7 @@
 /**
  * Location-reply harvester: scan inbound WhatsApp messages from the tutors
- * we sent the location-ask to, parse their replied area/locality, and update
- * TutorProfile (address/city) — never overwriting a proper sublocality.
+ * we sent the location-ask to, parse their replied area/locality, and refresh
+ * TutorProfile (address/city). Latest reply always wins — no skip-if-filled.
  *
  * Run: npx tsx --env-file=.env scripts/apply_location_replies.ts
  * Dry: npx tsx --env-file=.env scripts/apply_location_replies.ts --dry
@@ -14,6 +14,11 @@ import { INDIAN_CITY_COORDINATES } from "../lib/geocoding";
 
 const prisma = new PrismaClient();
 const DRY = process.argv.includes("--dry");
+/** --days N: scan inbound messages from the last N days (default 1). */
+const DAYS = (() => {
+  const i = process.argv.indexOf("--days");
+  return i >= 0 ? Math.max(1, parseInt(process.argv[i + 1] || "1", 10) || 1) : 1;
+})();
 
 /** flattened locality keys ("laxminagar" ← "laxmi nagar") for fuzzy place check */
 const FLAT_KEYS = new Set(
@@ -97,7 +102,7 @@ function parseCsv(path: string): string[][] {
 /** Phones we actually SENT the location-ask to (all 3 batches). */
 function askedPhones(): Set<string> {
   const out = new Set<string>();
-  for (const p of ["exports/location_ask_blast_results.csv", "exports/generic_location_ask_results.csv", "exports/generic_location_ask2_results.csv"]) {
+  for (const p of ["exports/location_ask_blast_results.csv", "exports/generic_location_ask_results.csv", "exports/generic_location_ask2_results.csv", "exports/baddata_notasked7_results.csv"]) {
     if (!fs.existsSync(p)) continue;
     const rows = parseCsv(p);
     const header = rows[0];
@@ -130,6 +135,26 @@ function looksLikePlace(text: string): boolean {
   if (/\b(delhi|noida|greater noida|gurgaon|gurugram|ghaziabad|faridabad)\b/.test(clean)) return true;
   if (FLAT_KEYS.has(clean.replace(/\s+/g, ""))) return true;
   return false;
+}
+
+/** Strip numbered-list / label prefixes like "4. Address: X" and empty "()" junk. */
+function cleanReplyLocation(text: string): string {
+  let out = String(text || "").trim();
+  for (let i = 0; i < 3; i++) {
+    const next = out
+      .replace(/^\s*\d{1,2}\s*[.)]\s*/, "")
+      .replace(/^\s*(?:full\s+)?(?:address|area|location|locality|residence|city)\s*[:=-]\s*/i, "")
+      .trim();
+    if (next === out) break;
+    out = next;
+  }
+  out = out
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\s*\betc\.?\s*$/i, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;])/g, "$1")
+    .trim();
+  return stripAddressJunk(out) || out;
 }
 
 /** Extract the best location text from a tutor's inbound reply bodies. */
@@ -180,7 +205,7 @@ function extractReplyLocation(bodies: string[]): { location: string | null; city
     if (cand) {
       cand = cand.replace(/^[=–\-:,\s📍]+/, "").trim();
       if (cand && !isJunkLocality(cand) && !isJunkLocalityText(cand) && !isGenericLocationText(cand)) {
-        const cleaned = stripAddressJunk(cand) || "";
+        const cleaned = cleanReplyLocation(cand);
         if (cleaned && cleaned.length >= 3) {
           raws.push(cleaned);
           if (!best || labeled) best = cleaned;
@@ -199,22 +224,17 @@ function extractReplyLocation(bodies: string[]): { location: string | null; city
   return { location: best ? titleCase(best) : null, city: cityHit ? canonicalCity(cityHit) : null, raw: raws.join(" | ") };
 }
 
-function currentAddressUsable(addr: string, cityRaw: string): boolean {
-  const a = stripAddressJunk(addr || "") || "";
-  return Boolean(a && !isJunkLocality(a) && !isJunkLocalityText(a) && !isGenericLocationText(a) && a.toLowerCase() !== cityRaw.toLowerCase());
-}
-
 async function main() {
   const asked = askedPhones();
   console.log(`Asked phones (all 3 batches, SENT only): ${asked.size}`);
 
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const since = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
   const msgs = await prisma.whatsappChatMessage.findMany({
     where: { direction: "INBOUND", createdAt: { gte: since } },
     select: { phone: true, body: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });
-  console.log(`Inbound msgs last 24h: ${msgs.length}`);
+  console.log(`Inbound msgs last ${DAYS}d: ${msgs.length}`);
 
   const byPhone = new Map<string, string[]>();
   for (const m of msgs) {
@@ -252,10 +272,10 @@ async function main() {
     }
     const prof = t.tutorProfile;
     const cityRaw = (prof.city || "").trim();
-    if (currentAddressUsable(prof.address || "", cityRaw)) {
-      skippedGood.push([t.name || "", digits, prof.address || "", parsed.raw]);
-      continue;
-    }
+
+    // User rule (18 Nov 2026): location reply always overwrites the stored
+    // location — even when the profile already had a usable address.
+    // No skip/exceptions.
 
     // city: reply's explicit city > existing NCR city > resolved from locality
     const replyCity = parsed.city;

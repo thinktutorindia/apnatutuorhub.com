@@ -1534,7 +1534,7 @@ export async function processMessage(
         quickReplies: ["Maths", "All Subjects", "Physics", "Cancel"],
       };
     }
-    const wantsAdd = /\b(also|bhi|add|aur)\b/i.test(rawMessage);
+    const wantsAdd = /\b(also|bhi|add|aur ek|along with|as well)\b/i.test(rawMessage);
     const saved = await syncUserCredentialsInDb({
       phone: session.phone,
       subjects: aligned.subjects,
@@ -2514,13 +2514,13 @@ export async function processMessage(
         ? validateAndAlignSubjects(inlineRaw, targetCls)
         : null;
       if (aligned?.isValid && aligned.subjects.length > 0) {
-        const wantsReplace = /\b(only|sirf|replace|overwrite)\b/i.test(rawMessage);
+        const wantsAdd = /\b(also|bhi|add|aur ek)\b/i.test(rawMessage);
         const saved = await syncUserCredentialsInDb({
           phone: session.phone,
           subjects: aligned.subjects,
           classLevels: inlineClasses.length > 0 ? inlineClasses : undefined,
-          mergeSubjects: !wantsReplace,
-          mergeClasses: !wantsReplace,
+          mergeSubjects: wantsAdd,
+          mergeClasses: wantsAdd,
         });
         const outSubs = saved.finalSubjects || aligned.subjects;
         const outCls = saved.finalClassLevels || (inlineClasses.length > 0 ? inlineClasses : undefined);
@@ -2586,11 +2586,11 @@ export async function processMessage(
           quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
         };
       }
-      const wantsReplace = /\b(only|sirf|replace|overwrite)\b/i.test(rawMessage);
+      const wantsAddClass = /\b(also|bhi|add|aur ek|along with|as well)\b/i.test(rawMessage);
       const saved = await syncUserCredentialsInDb({
         phone: session.phone,
         classLevels: classesExtracted,
-        mergeClasses: !wantsReplace,
+        mergeClasses: wantsAddClass,
       });
       const outCls = saved.finalClassLevels || classesExtracted;
       return {
@@ -2736,16 +2736,22 @@ export async function processMessage(
       .map((m) => m.body.trim());
     const combinedContext = Array.from(new Set([...recentInbounds, rawMessage.trim()])).join(" \n ");
 
-    const msgClasses = extractAllClassLevelsFromText(combinedContext);
-    const wantsExplicitAdditive = /\b(also|bhi|along with|as well|aur ek)\b/i.test(rawMessage);
-    const existingSubsGeneric = Array.isArray(data.subjects) && (data.subjects.length === 0 || data.subjects.some((s: string) => /all\s*subjects?/i.test(s)));
-    const hasStructuredSignals = /\b(subjects?|sub|classes?|cls|location|area)\s*[-:]/i.test(rawMessage);
-    const wantsReplace = !wantsExplicitAdditive && (hasStructuredSignals || existingSubsGeneric || /\b(only|sirf|replace|overwrite)\b/i.test(rawMessage));
-    const hasSubjectWords = /\b(math|maths|mathematics|mathmatics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i.test(combinedContext);
+    // Latest explicit classes in THIS message win; previous fragments (2-min
+    // window) are only a fallback when the current message names none.
+    const rawMsgClasses = extractAllClassLevelsFromText(rawMessage);
+    const msgClasses = rawMsgClasses.length > 0 ? rawMsgClasses : extractAllClassLevelsFromText(combinedContext);
+    const wantsExplicitAdditive = /\b(also|bhi|add|along with|as well|aur ek)\b/i.test(rawMessage);
+    // User rule: latest stated location/subjects/classes always overwrite the old
+    // values — no exception. Only explicit additive words ("also", "bhi") merge.
+    const wantsReplace = !wantsExplicitAdditive;
+    const subjectWordsRe =
+      /\b(math|maths|mathematics|mathmatics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i;
+    const hasSubjectWords = subjectWordsRe.test(combinedContext);
+    const rawHasSubjectWords = subjectWordsRe.test(rawMessage);
     const hasNegatedSubject = /\b(don't|dont|do\s+not|nahi|not)\s+teach\b/i.test(rawMessage);
     const directSubRes =
       hasSubjectWords && !hasNegatedSubject
-        ? validateAndAlignSubjects(combinedContext, msgClasses[0] || (data.classLevel as string | undefined))
+        ? validateAndAlignSubjects(rawHasSubjectWords ? rawMessage : combinedContext, msgClasses[0] || (data.classLevel as string | undefined))
         : null;
 
     const isMsgSensitive =

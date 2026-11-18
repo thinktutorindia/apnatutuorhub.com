@@ -2311,32 +2311,48 @@ export function parseGradeNumbers(text: string): number[] {
   if (/xi\s*(?:-|–|to|and|\s)\s*xii\b|11\s*[-–to\s]+\s*12/i.test(lower)) {
     [11, 12].forEach((g) => grades.add(g));
   }
-  if (/kg\s+to\s+10th|class\s+1\s+to\s+10/i.test(lower)) {
+  if (/kg\s+to\s+10th/i.test(lower)) {
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((g) => grades.add(g));
   }
   if (/iitjee|iit-jee|neet|entrance/i.test(lower)) {
     [11, 12, 13].forEach((g) => grades.add(g));
   }
 
-  // Roman numeral single class checks
-  if (/\bClass\s+XII\b/i.test(text) || /\bfor\s+XII\b/i.test(text)) grades.add(12);
-  else if (/\bClass\s+XI\b/i.test(text) || /\bfor\s+XI\b/i.test(text)) grades.add(11);
-  else if (/\bClass\s+X\b/i.test(text) || /\bfor\s+X\b/i.test(text)) grades.add(10);
-  else if (/\bClass\s+IX\b/i.test(text) || /\bfor\s+IX\b/i.test(text)) grades.add(9);
-  else if (/\bClass\s+VIII\b/i.test(text) || /\bfor\s+VIII\b/i.test(text)) grades.add(8);
-  else if (/\bClass\s+VII\b/i.test(text) || /\bfor\s+VII\b/i.test(text)) grades.add(7);
-  else if (/\bClass\s+VI\b/i.test(text) || /\bfor\s+VI\b/i.test(text)) grades.add(6);
-  else if (/\bClass\s+V\b/i.test(text) || /\bfor\s+V\b/i.test(text)) grades.add(5);
-  else if (/\bClass\s+IV\b/i.test(text) || /\bfor\s+IV\b/i.test(text)) grades.add(4);
-  else if (/\bClass\s+III\b/i.test(text) || /\bfor\s+III\b/i.test(text)) grades.add(3);
-  else if (/\bClass\s+II\b/i.test(text) || /\bfor\s+II\b/i.test(text)) grades.add(2);
-  else if (/\bClass\s+I\b/i.test(text) || /\bfor\s+I\b/i.test(text)) grades.add(1);
-
-  // Arabic single class check
-  const numMatch = text.match(/\b(?:Class|Grade|Std)\s*(\d{1,2})\b/i);
-  if (numMatch) {
-    const num = parseInt(numMatch[1], 10);
-    if (num >= 1 && num <= 12) grades.add(num);
+  // Every explicit class reference, not just the first one. Handles lists
+  // ("IX, XI, XII"), ranges ("X-XII", "1-8") and repeated "for" clauses.
+  const ROMAN_NUM: Record<string, number> = {
+    i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6,
+    vii: 7, viii: 8, ix: 9, x: 10, xi: 11, xii: 12,
+  };
+  const tokenVal = (tok: string): number => {
+    const t = tok.toLowerCase().replace(/(?:st|nd|rd|th)$/, "");
+    if (/^\d{1,2}$/.test(t)) {
+      const n = parseInt(t, 10);
+      return n >= 1 && n <= 12 ? n : 0;
+    }
+    return ROMAN_NUM[t] || 0;
+  };
+  const TOKEN = "(?:\\d{1,2}(?:st|nd|rd|th)?|[ivx]{1,4})";
+  const refRes = [
+    new RegExp(`\\b(?:class(?:es)?|grade|std|standard)\\s*[-:=]?\\s*(${TOKEN}(?:\\s*(?:,|&|\\/|and|or|to|-|–|—)\\s*${TOKEN})*)(?![a-z])`, "gi"),
+    new RegExp(`\\bfor\\s+(${TOKEN}(?:\\s*(?:,|&|\\/|and|or|to|-|–|—)\\s*${TOKEN})*)(?![a-z])`, "gi"),
+  ];
+  for (const re of refRes) {
+    for (const m of lower.matchAll(re)) {
+      for (const part of m[1].split(/\s*(?:,|&|\/|and|or)\s*/i)) {
+        const range = part.match(/^(\S+)\s*(?:to|-|–|—)\s*(\S+)$/);
+        if (range) {
+          const a = tokenVal(range[1]);
+          const b = tokenVal(range[2]);
+          if (a && b) {
+            for (let g = Math.min(a, b); g <= Math.max(a, b); g++) grades.add(g);
+          }
+        } else {
+          const n = tokenVal(part);
+          if (n) grades.add(n);
+        }
+      }
+    }
   }
 
   return Array.from(grades);

@@ -66,6 +66,7 @@ import {
   validateSubjectClassCompatibility,
   parseGrade,
   validateAndCleanLocality,
+  extractLocationSegment,
   validateAndAlignSubjects,
   deduplicateAndNormalizeSubjects,
   KNOWN_INDIAN_CITIES,
@@ -2765,7 +2766,11 @@ export async function processMessage(
     const directLocRes = !isMsgSensitive
       ? directLocStatement
         ? validateAndCleanLocality(directLocStatement[1].trim(), (data.city as string) || undefined, true)
-        : validateAndCleanLocality(rawMessage.trim(), (data.city as string) || undefined, true)
+        : validateAndCleanLocality(
+            extractLocationSegment(rawMessage.trim()) || rawMessage.trim(),
+            (data.city as string) || undefined,
+            true
+          )
       : null;
 
     const applyDonePatch = async (opts: {

@@ -762,6 +762,87 @@ export function validateAndCleanLocality(
 }
 
 /**
+ * Extracts ONLY the location segment from structured multi-line / pipe messages,
+ * e.g. "1. Location | Laxminagar, Nirman Vihar" -> "Laxminagar, Nirman Vihar".
+ * Never returns subject/class lines. Returns null when no labeled location found,
+ * so callers can fall back to the whole message for simple single-area inputs.
+ */
+export function extractLocationSegment(raw: string): string | null {
+  if (!raw || typeof raw !== "string") return null;
+
+  const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+
+  const INDIAN_CITY_RE = /\b(delhi|mumbai|noida|greater\s*noida|gurgaon|gurugram|faridabad|ghaziabad|bangalore|pune|kolkata|chennai|hyderabad)\b/i;
+
+  // Same-line label + value: "1. Location | Laxminagar, Nirman Vihar" / "Area: Sector 62"
+  const locLabelWithValRe = /^(?:[\s\d\.\)\u{1F3FB}-\u{1F3FF}\u200d\u2640-\u2642\u2700-\u27bf]*?)(?:location|area|locality|city|address|teaching\s+area)\b\s*[:\|=\-\/]\s*(.+)$/iu;
+  // Label-ish line containing a location keyword (value on next line): "1️⃣ Your Location / Area"
+  const locKeywordRe = /\b(?:location|area|locality|city|address)\b/i;
+  // Embedded statement within a single line: "my location is X" / "i live in X" / "location: X"
+  const embeddedLocRe = /(?:my\s+(?:new\s+)?(?:location|area|locality|city)\s+(?:is|hai)|i\s+(?:live|stay|am\s+staying|am\s+living)\s+(?:in|at)|i\s+am\s+from|currently\s+(?:in|at)|location\s*:)\s*(.+)$/i;
+
+  const takeFirstSegment = (s: string) =>
+    s.split(/\s*\|\s*/)[0].trim().replace(/^[,.\s-]+|[,.\s-]+$/g, "");
+
+  // 1. Same-line label + value
+  for (const line of lines) {
+    const m = line.match(locLabelWithValRe);
+    if (m) {
+      const val = takeFirstSegment(m[1]);
+      if (val.length > 0) return val;
+    }
+  }
+
+  // 2. Embedded statement within a single line (capture only that line's tail)
+  for (const line of lines) {
+    const m = line.match(embeddedLocRe);
+    if (m) {
+      const val = takeFirstSegment(m[1]);
+      if (val.length > 0) return val;
+    }
+  }
+
+  // 3. Short label-ish line containing a location keyword -> next line is the value
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].length <= 50 && locKeywordRe.test(lines[i]) && i + 1 < lines.length) {
+      const val = takeFirstSegment(lines[i + 1]);
+      if (val.length > 0) return val;
+    }
+  }
+
+  // 4. Multi-line message with subject/class content -> first line if it looks like a place
+  const hasSubjectWords = /\b(math|maths|mathematics|science|subject|subjects|class|grade|all\s*subject|teach|hindi|english|biology|physics|chemistry|accounts|commerce|economics|computer)\b/i.test(raw);
+  if (hasSubjectWords && lines.length > 1) {
+    const first = lines[0];
+    if (
+      first.length > 0 &&
+      first.length <= 70 &&
+      (PLACE_INDICATORS.test(first) || INDIAN_CITY_RE.test(first))
+    ) {
+      return first;
+    }
+  }
+
+  // 5. Single line with pipe/dash separators -> first segment if it looks like a place
+  if (lines.length === 1) {
+    const parts = lines[0].split(/\s*\|\s*|\s*-\s*/);
+    if (parts.length > 1) {
+      const first = takeFirstSegment(parts[0]);
+      if (
+        first.length > 0 &&
+        first.length <= 70 &&
+        (PLACE_INDICATORS.test(first) || INDIAN_CITY_RE.test(first))
+      ) {
+        return first;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Validates and aligns raw subject input to canonical platform taxonomy.
  * Enforces critical educational rules:
  * - Class 1 to 8: strictly NO Physics, Chemistry, Biology! Normalizes to "Science" and "All Subjects (Class 1-8)".

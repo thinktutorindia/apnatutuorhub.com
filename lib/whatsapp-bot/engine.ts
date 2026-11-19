@@ -624,8 +624,9 @@ const PAYMENT_QR_IMAGE_URLS = [
 ];
 const PAYMENT_QR_CAPTION = "💳 Scan to pay ₹1,257 — Commission Based Plan (6 months validity)";
 
-function paymentQrImages(): { imageUrls: string[]; imageCaption: string } {
-  return { imageUrls: [...PAYMENT_QR_IMAGE_URLS], imageCaption: PAYMENT_QR_CAPTION };
+// Send only ONE QR image to avoid duplicate delivery (text message already carries clickable QR links).
+function paymentQrImage(): { imageUrls: string[]; imageCaption: string } {
+  return { imageUrls: [PAYMENT_QR_IMAGE_URLS[0]], imageCaption: PAYMENT_QR_CAPTION };
 }
 
 async function tryLooseTutorIntent(
@@ -860,7 +861,6 @@ function tryTutorOffScriptReply(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
-      ...paymentQrImages(),
     };
   }
 
@@ -1985,7 +1985,6 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
-      ...paymentQrImages(),
     };
   }
 
@@ -2334,7 +2333,7 @@ export async function processMessage(
               userType: "PARENT",
               retries: 0,
               quickReplies: ["Fee Info", "Trial Demo Status", "Talk to Coordinator 📞"],
-              ...(asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()) ? paymentQrImages() : {}),
+              ...(asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()) ? paymentQrImage() : {}),
             };
           }
         } catch (err) {}
@@ -2910,7 +2909,7 @@ export async function processMessage(
             quickReplies: ai.quickReplies && ai.quickReplies.length > 0
               ? ai.quickReplies
               : ["View Leads", "Plans", "My Profile"],
-            ...(asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()) ? paymentQrImages() : {}),
+            ...(asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()) ? paymentQrImage() : {}),
           };
         }
       } catch (err) {

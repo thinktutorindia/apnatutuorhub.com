@@ -212,7 +212,7 @@ export async function adminApprovePaymentAction(
           type: "PURCHASE",
           amount: coinsToAdd,
           balanceAfter: wallet.balance,
-          description: `BharatPe UPI Top-Up (₹${request.amountInr}) • UTR: ${request.utrNumber}`,
+          description: `UPI Top-Up (₹${request.amountInr}) • UTR: ${request.utrNumber}`,
           referenceId: `UPI-${request.utrNumber}`,
         },
       });

@@ -39,8 +39,8 @@ export function UpiQrPaymentCard({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const UPI_ID = "BHARATPE2E0T0B7N1S27616@unitype";
-  const PAYEE_NAME = "RAKHI";
+  const UPI_ID = "9311459543@kotakbank";
+  const PAYEE_NAME = "ROHIT SHARMA";
 
   const handleCopyUpi = () => {
     navigator.clipboard.writeText(UPI_ID);
@@ -159,12 +159,12 @@ export function UpiQrPaymentCard({
         </div>
       </div>
 
-      {/* BharatPe QR Card */}
+      {/* UPI QR Card */}
       <div className="bg-gradient-to-b from-slate-50 to-white border-2 border-slate-200/90 rounded-2xl p-4 sm:p-5 flex flex-col items-center text-center space-y-4 shadow-sm">
-        <div className="relative w-56 h-72 sm:w-64 sm:h-80 rounded-xl overflow-hidden shadow-md border border-gray-200 bg-white">
+        <div className="relative w-60 h-60 sm:w-64 sm:h-64 rounded-xl overflow-hidden shadow-md border border-gray-200 bg-white">
           <Image
-            src="/images/bharatpe-qr.jpg"
-            alt="BharatPe UPI Scanner - RAKHI"
+            src="/images/payment/upi-qr.png"
+            alt="UPI QR Scanner - ROHIT SHARMA (Kotak Bank)"
             fill
             className="object-contain"
             priority

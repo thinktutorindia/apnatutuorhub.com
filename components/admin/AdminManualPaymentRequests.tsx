@@ -86,7 +86,7 @@ export function AdminManualPaymentRequests({
 
   const handleReject = async () => {
     if (!rejectModalId) return;
-    const reason = rejectReason.trim() || "Payment verification could not be confirmed with BharatPe records.";
+    const reason = rejectReason.trim() || "Payment verification could not be confirmed with bank records.";
 
     setActionLoading(rejectModalId);
     try {
@@ -139,7 +139,7 @@ export function AdminManualPaymentRequests({
             )}
           </div>
           <p className="text-xs text-gray-500 font-medium">
-            Review BharatPe QR receipts, verify UTR with bank records, and 1-click approve coin top-ups &amp; plans.
+            Review UPI QR receipts, verify UTR with bank records, and 1-click approve coin top-ups &amp; plans.
           </p>
         </div>
 
@@ -388,7 +388,7 @@ export function AdminManualPaymentRequests({
                 rows={3}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="e.g. UTR number not found in BharatPe / Amount mismatch"
+                placeholder="e.g. UTR number not found in bank records / Amount mismatch"
                 className="w-full p-3 rounded-xl border border-gray-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
               />
             </div>

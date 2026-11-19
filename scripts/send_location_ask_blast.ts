@@ -84,7 +84,7 @@ async function main() {
       });
       if (res.ok) sent++;
       else failed++;
-      results.push([t.name, t.phone, t.city, res.ok ? "SENT" : "FAILED", res.rawStatus || "", res.error || "", res.messageId || ""]);
+      results.push([t.name, t.phone, t.city, res.ok ? "SENT" : "FAILED", res.rawStatus || "", res.error || "", res.providerMessageId || ""]);
       console.log(`${i + 1}/${batch.length} ${res.ok ? "✓" : "✗"} ${t.name} (${t.phone})${res.error ? ` — ${res.error}` : ""}`);
     } catch (e) {
       failed++;

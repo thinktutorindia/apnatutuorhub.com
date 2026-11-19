@@ -123,7 +123,7 @@ export function TopUpModal({
                 Top Up Coins
               </h2>
               <p className="text-xs text-gray-500 font-medium">
-                Scan BharatPe QR to pay via any UPI app · Instant admin verification!
+                Scan UPI QR to pay via any UPI app · Instant admin verification!
               </p>
             </div>
           </div>

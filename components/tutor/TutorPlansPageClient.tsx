@@ -762,7 +762,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 >
                   <Lock size={15} className="!text-white" />
                   <span className="!text-white font-900">
-                    Pay ₹{(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr).toLocaleString("en-IN")} via BharatPe UPI QR →
+                    Pay ₹{(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr).toLocaleString("en-IN")} via UPI QR →
                   </span>
                 </button>
               </div>

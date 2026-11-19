@@ -737,8 +737,9 @@ const PUBLIC_SITE = "https://apnatutorhub.com";
 
 /** Payment steps + QR image links (WhatsApp shows image preview from URL). */
 export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "1257"): string {
-  const hindiQr = `${PUBLIC_SITE}/tutor_plan_hindi_qr.jpg`;
-  const engQr = `${PUBLIC_SITE}/tutor_plan_english_qr.jpg`;
+  // Use the brand-new clean Kotak QR URL — the old flyer JPG URLs are cached by
+  // WhatsApp and still preview the stale (BharatPe) QR in existing chats.
+  const qrUrl = `${PUBLIC_SITE}/images/payment/upi-qr.png`;
   const plansUrl = `${PUBLIC_SITE}/tutor/plans`;
 
   const planLine = "Commission Based Plan *₹1,257*";
@@ -747,9 +748,8 @@ export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "
     `💳 *${planLine} — payment steps*\n\n` +
     `1️⃣ Open: ${plansUrl}\n` +
     `2️⃣ *Commission Based Plan (₹1,257)* select karein → *Pay Now* (UPI / Card / Netbanking)\n` +
-    `3️⃣ Ya QR scan karein:\n` +
-    `📱 Hindi: ${hindiQr}\n` +
-    `📱 English: ${engQr}\n\n` +
+    `3️⃣ Ya niche diye gaye *Kotak UPI QR* ko scan karein:\n` +
+    `📱 ${qrUrl}\n\n` +
     `Payment confirm hote hi leads unlock ho jati hain. ✅\n` +
     `Madad: *HELP* ya WhatsApp +91 93191 93109 (9am–7pm)`
   );

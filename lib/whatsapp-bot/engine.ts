@@ -617,16 +617,13 @@ export type EngineResult = {
   imageCaption?: string;
 };
 
-/** Payment QR images (Hindi + English) sent whenever the user asks how to pay. */
-const PAYMENT_QR_IMAGE_URLS = [
-  "https://apnatutorhub.com/tutor_plan_hindi_qr.jpg",
-  "https://apnatutorhub.com/tutor_plan_english_qr.jpg",
-];
+/** Clean Kotak UPI QR (9311459543@kotakbank / ROHIT SHARMA) — the only QR sent in chat. */
+const PAYMENT_QR_IMAGE_URL = "https://apnatutorhub.com/images/payment/upi-qr.png";
 const PAYMENT_QR_CAPTION = "💳 Scan to pay ₹1,257 — Commission Based Plan (6 months validity)";
 
-// Send only ONE QR image to avoid duplicate delivery (text message already carries clickable QR links).
+// Send exactly ONE QR image so the chat always shows the Kotak QR directly.
 function paymentQrImage(): { imageUrls: string[]; imageCaption: string } {
-  return { imageUrls: [PAYMENT_QR_IMAGE_URLS[0]], imageCaption: PAYMENT_QR_CAPTION };
+  return { imageUrls: [PAYMENT_QR_IMAGE_URL], imageCaption: PAYMENT_QR_CAPTION };
 }
 
 async function tryLooseTutorIntent(
@@ -861,6 +858,7 @@ function tryTutorOffScriptReply(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
     };
   }
 
@@ -1985,6 +1983,7 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
     };
   }
 

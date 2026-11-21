@@ -45,10 +45,10 @@ async function withInChatPaymentQr(
 ): Promise<EngineResult> {
   if (unsubscribed || !result.reply?.trim()) return result;
   if (result.imageUrls?.length) return result; // engine already attached it
-  if (!wantsPaymentQrInChat(raw)) return result;
+  if (!wantsPaymentQrInChat(raw, result.reply)) return result;
 
   // Never badge the same chat with the QR again inside 45 minutes unless the
-  // tutor explicitly asks for it again.
+  // tutor explicitly asks for it again or asked for plans/membership.
   const recentQr = await prisma.whatsappChatMessage
     .findFirst({
       where: {
@@ -60,7 +60,7 @@ async function withInChatPaymentQr(
       select: { id: true },
     })
     .catch(() => null);
-  if (recentQr && !/\b(?:qr|upi|pay\s*now|payment\s*link)\b/i.test(raw)) return result;
+  if (recentQr && !/\b(?:qr|upi|pay\s*now|payment\s*link|plans?|membership|1257)\b/i.test(raw)) return result;
 
   return {
     ...result,

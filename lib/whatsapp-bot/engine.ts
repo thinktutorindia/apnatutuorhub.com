@@ -33,6 +33,7 @@ import {
   asksPlanPaymentOrQr,
   asksZeroCommissionPlan,
   paymentPlanHint,
+  shouldIncludePaymentQr,
 } from "./plan-intent";
 import {
   isAckOnly,
@@ -684,7 +685,7 @@ export const PAYMENT_QR_CAPTION =
   "Payment ke baad UTR ya screenshot yahan bhejein — team 15 min mein activate kar degi. ✅";
 
 // Send exactly ONE QR image so the chat always shows the Kotak QR directly.
-function paymentQrImage(): { imageUrls: string[]; imageCaption: string } {
+export function paymentQrImage(): { imageUrls: string[]; imageCaption: string } {
   return { imageUrls: [PAYMENT_QR_IMAGE_URL], imageCaption: PAYMENT_QR_CAPTION };
 }
 
@@ -801,6 +802,7 @@ async function tryLooseTutorIntent(
       userType: "TUTOR",
       retries: 0,
       quickReplies: ["View Leads 📋", "Open Wallet 💳", "Help 📞"],
+      ...paymentQrImage(),
     };
   }
 
@@ -932,6 +934,7 @@ function tryTutorOffScriptReply(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["PAY / QR 💳", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
     };
   }
 
@@ -2297,6 +2300,7 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
     };
   }
 
@@ -2309,6 +2313,7 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["PAY / QR 💳", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
     };
   }
 
@@ -2335,6 +2340,7 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["Recharge Wallet 💳", "View All Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
     };
   }
 
@@ -2753,6 +2759,7 @@ export async function processMessage(
         userType: "TUTOR",
         retries: 0,
         quickReplies: ["View Leads 📋", "Open Wallet 💳", "Help 📞"],
+        ...paymentQrImage(),
       };
     }
 
@@ -3298,7 +3305,7 @@ export async function processMessage(
             quickReplies: ai.quickReplies && ai.quickReplies.length > 0
               ? ai.quickReplies
               : ["View Leads", "Plans", "My Profile"],
-            ...(asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()) ? paymentQrImage() : {}),
+            ...(shouldIncludePaymentQr(rawMessage, reply) ? paymentQrImage() : {}),
           };
         }
       } catch (err) {
@@ -3659,7 +3666,7 @@ export async function processMessage(
               quickReplies: ai.quickReplies && ai.quickReplies.length > 0
                 ? ai.quickReplies
                 : ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
-              ...(asksPlanPaymentOrQr(rawMessage) || wantsToPayNow(rawMessage) ? paymentQrImage() : {}),
+              ...(shouldIncludePaymentQr(rawMessage, ai.reply) ? paymentQrImage() : {}),
             };
           }
 

@@ -187,7 +187,8 @@ const NON_LOCALITY_WORDS = new Set([
   "mere", "paas", "pass", "job", "kr", "kro", "lo", "mai", "main", "mera", "meri", "aap", "aapka", "aapki", "tum", "tumhara", "tumhari", "hum", "humara",
   "mujhe", "mujhko", "bola", "boli", "raha", "rahi", "rahe", "pagal", "salary", "paisa", "paise", "de", "do", "dena", "lena", "provide", "karta", "karti", "karte",
   "who", "what", "where", "how", "why", "when", "can", "could", "will", "would", "is", "am", "are", "have", "has", "give", "send", "tell", "teach", "work", "looking", "interested",
-  "my", "home", "ghar", "house", "makaan", "anywhere", "kahin", "everywhere", "any", "all", "sab", "sabhi", "pure", "poore", "poora", "city", "state", "desh", "india"
+  "my", "home", "ghar", "house", "makaan", "anywhere", "kahin", "everywhere", "any", "all", "sab", "sabhi", "pure", "poore", "poora", "city", "state", "desh", "india",
+  "pay", "paying", "arrange", "arranging", "pl", "scam", "scammer", "scammers", "invalid", "ready", "tomorrow", "today", "yesterday", "check", "checking", "later", "fine", "sure", "xyz", "busy", "study", "tuition", "tution", "nothing", "wait", "waiting", "soon", "morning", "evening", "night", "good", "bad", "fake", "fraud", "true", "false", "correct", "wrong", "change", "new"
 ]);
 
 // Words that can never (by themselves) be a locality — subject/class chatter.
@@ -749,8 +750,8 @@ export function validateAndCleanLocality(
     };
   }
 
-  // If it has a place keyword but also contains conversational intent words (job, salary, call, etc.), reject as a sentence
-  if (words.some((w) => ["job", "salary", "pagal", "call", "chahiye", "padhana", "padhna", "free", "demo", "lead", "leads", "contact", "pass", "kr", "lo", "mera", "meri", "hum", "know", "dikhta", "dikhti", "but", "bhi", "rahti", "rehti", "raha", "available", "want", "wait", "school", "nothing", "confirm", "oky"].includes(w))) {
+  // If it contains conversational intent words (job, salary, call, etc.), reject as a sentence
+  if (words.some((w) => ["job", "salary", "pagal", "call", "chahiye", "padhana", "padhna", "free", "demo", "lead", "leads", "contact", "pass", "kr", "lo", "mera", "meri", "hum", "know", "dikhta", "dikhti", "but", "bhi", "rahti", "rehti", "raha", "available", "want", "wait", "school", "nothing", "confirm", "oky", "pay", "payment", "arrange", "pl", "please", "scam", "scammer", "scammers", "login", "reset", "password", "invalid", "ready", "tomorrow", "check", "later", "fine", "sure", "cancel", "stop", "test"].includes(w))) {
     return {
       isValid: false, area: "", city: defaultCity,
       errorPrompt: `📍 Yeh area nahi lag raha. Sirf apna *mohalla aur city* batayein.\nJaise: *Janakpuri Delhi*, *Bandra Mumbai*, *Sector 15 Noida*.`,
@@ -774,24 +775,58 @@ export function validateAndCleanLocality(
     /^(rakesh|ramesh|suresh|mahesh|mukesh|rajesh|dinesh|anil|sunil|amit|rahul|rohit|vikas|vikram|vinay|vijay|sanjay|ajay|deepak|manoj|pankaj|ashok|alok|sachin|gaurav|saurabh|priya|pooja|neha|anjali|swati|shweta|divya|kavita|sunita|anita|rekha|meena|charu|somya|vakeel|sajid|afzal|arun|varun|tarun|neeraj|dheeraj|suraj|akash|aakash|vivek|abhishek|manish|ashish|mohit|sumit|nisha|sneha|preeti|priti|shilpa|richa|jyoti|ritu|monika|poonam|rashmi|bhavna|arti|aarti)$/i.test(w)
   );
   const isPasswordOrJunkWord = words.some((w) => /^(qwerty|asdf|zxcv|123456|pass123|password123|password|testing|default)$/i.test(w));
-  const isValidProperName = !looksLikeSubjectOnlyText(clean) && !isGibberish && !hasEmbeddedDigits && !hasPersonTitle && !hasPersonSurname && !hasPersonGivenName && !isPasswordOrJunkWord && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
 
-  if (hasPlaceKeyword || isValidProperName) {
-    const formatted = clean
+  // If clean has a genuine Indian place indicator (nagar, vihar, sector, colony, road, etc.)
+  if (hasPlaceKeyword && !looksLikeSubjectOnlyText(clean) && !isGibberish && !hasEmbeddedDigits && !isPasswordOrJunkWord) {
+    const nonPlaceWords = clean.replace(PLACE_INDICATORS, "").toLowerCase().split(/[\s,.-]+/).filter(Boolean);
+    const isOnlyPlaceKeyword = nonPlaceWords.length === 0 && !/\d/.test(clean);
+    const hasOnlyStopWordsWithPlace = nonPlaceWords.length > 0 && nonPlaceWords.every((w) => NON_LOCALITY_WORDS.has(w));
+    if (!isOnlyPlaceKeyword && !hasOnlyStopWordsWithPlace) {
+      const formatted = clean
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
+      return {
+        isValid: true,
+        area: formatted,
+        city: defaultCity,
+      };
+    }
+  }
+
+  // If clean does NOT have a place keyword, it MUST match a recognized Indian locality from our databases!
+  // Arbitrary random words (e.g. "Ready", "Pl arrange", "Scammers", "How to pay", "Tomorrow") are strictly rejected!
+  const cleanLower = clean.toLowerCase();
+  const recognizedCandidate =
+    PROMINENT_LOCALITIES.find((l) => cleanLower === l.name || cleanLower.includes(l.name)) ||
+    GEO_LOCALITIES.find((l) => cleanLower === l.name.toLowerCase() || cleanLower.includes(l.name.toLowerCase().split(" (")[0]));
+
+  if (recognizedCandidate && !looksLikeSubjectOnlyText(clean) && !hasPersonSurname && !hasPersonGivenName) {
+    const formatted = (recognizedCandidate.name.split(" (")[0])
       .split(/\s+/)
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(" ");
     return {
       isValid: true,
       area: formatted,
-      city: defaultCity,
+      city: recognizedCandidate.city || defaultCity,
     };
   }
 
   return {
     isValid: false, area: "", city: defaultCity,
-    errorPrompt: `📍 Yeh area pehchana nahi gaya. Apna sahi *locality aur city* likhein — jaise:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Salt Lake, Kolkata*\n• *Sector 62, Noida*`,
+    errorPrompt: `📍 Yeh location hamare system mein available/pehchani nahi gayi. Kripya apna sahi area aur city batayein — jaise:\n• *Rohini, Delhi*\n• *Sector 62, Noida*\n• *Bandra, Mumbai*\n• *Koramangala, Bangalore*`,
   };
+}
+
+/**
+ * Checks whether a given location string is an authentic, available/recognized locality or city in India.
+ * Rejects conversational sentences, questions, action words, and arbitrary random words.
+ */
+export function isAvailableOrKnownLocation(rawArea?: string | null, cityHint?: string): boolean {
+  if (!rawArea || typeof rawArea !== "string") return false;
+  const res = validateAndCleanLocality(rawArea, cityHint || "Delhi", true);
+  return Boolean(res.isValid && res.area);
 }
 
 /**

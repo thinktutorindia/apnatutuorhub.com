@@ -453,9 +453,9 @@ export async function syncUserCredentialsInDb(params: {
     // 4. Tutor / Parent profile update (subjects, class, area, city)
     const tutorUser = primaryUser
       ? await prisma.user.findUnique({
-          where: { id: primaryUser.id },
-          include: { tutorProfile: true, parentProfile: true },
-        })
+        where: { id: primaryUser.id },
+        include: { tutorProfile: true, parentProfile: true },
+      })
       : null;
     const tutorRow = tutorUser?.tutorProfile ? tutorUser : null;
     const wantsProfileWrite = Boolean(
@@ -492,17 +492,26 @@ export async function syncUserCredentialsInDb(params: {
           params.mode === "ONLINE"
             ? "ONLINE"
             : params.mode === "OFFLINE"
-            ? "OFFLINE"
-            : params.mode === "COACHING"
-            ? "COACHING"
-            : "EITHER";
+              ? "OFFLINE"
+              : params.mode === "COACHING"
+                ? "COACHING"
+                : "EITHER";
         if (params.mode === "ONLINE" && !params.area && !tutorRow.tutorProfile.address) {
           profileUpdates.address = "Online (Pan-India)";
           profileUpdates.city = "Online";
         }
       }
       if (params.area) {
-        profileUpdates.address = params.area;
+        // Enforce location availability check: never write random words to tutorProfile.address!
+        const locCheck = validateAndCleanLocality(params.area, params.city || tutorRow.tutorProfile.city || "Delhi", true);
+        if (locCheck.isValid && (!sameLocality(locCheck.area, locCheck.city) || locCheck.area === "Online (Pan-India)")) {
+          profileUpdates.address = locCheck.area;
+          if (locCheck.city && !params.city) {
+            profileUpdates.city = locCheck.city;
+          }
+        } else {
+          console.warn(`[syncUserCredentialsInDb] Blocked updating address to invalid/unavailable location: "${params.area}"`);
+        }
       }
       if (params.city) {
         profileUpdates.city = params.city;
@@ -558,21 +567,25 @@ export async function syncUserCredentialsInDb(params: {
         if (profileUpdates.teachingMode) updatedFields.push("mode");
       }
     } else if (tutorUser?.parentProfile && (params.area || params.city) && !params.subjects && !params.classLevels) {
+      const locCheck = params.area ? validateAndCleanLocality(params.area, params.city || tutorUser.parentProfile.city || "Delhi", true) : null;
+      const validArea = locCheck?.isValid ? locCheck.area : undefined;
       const coords = await resolveCoordsSafe(
-        `${params.area || tutorUser.parentProfile.address || ""} ${params.city || tutorUser.parentProfile.city || ""}`.trim()
+        `${validArea || tutorUser.parentProfile.address || ""} ${params.city || tutorUser.parentProfile.city || ""}`.trim()
       );
       await prisma.parentProfile.update({
         where: { id: tutorUser.parentProfile.id },
         data: {
-          ...(params.area ? { address: params.area } : {}),
+          ...(validArea ? { address: validArea } : {}),
           ...(params.city ? { city: params.city } : {}),
           ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
         },
       });
-      updatedFields.push("area");
+      if (validArea || params.city) updatedFields.push("area");
     } else if (wantsProfileWrite && tutorUser && !["SUPER_ADMIN", "SUB_ADMIN"].includes(tutorUser.role)) {
+      const locCheck = params.area ? validateAndCleanLocality(params.area, params.city || "Delhi", true) : null;
+      const validArea = locCheck?.isValid ? locCheck.area : null;
       const coords = await resolveCoordsSafe(
-        `${params.area || ""} ${params.city || ""}`.trim()
+        `${validArea || ""} ${params.city || ""}`.trim()
       );
       if (tutorUser.role === "PARENT") {
         await prisma.user.update({
@@ -587,7 +600,7 @@ export async function syncUserCredentialsInDb(params: {
       await prisma.tutorProfile.create({
         data: {
           userId: tutorUser.id,
-          address: params.area || null,
+          address: validArea,
           city: params.city || "Delhi",
           latitude: coords?.lat ?? null,
           longitude: coords?.lng ?? null,
@@ -1331,14 +1344,14 @@ export async function processMessage(
       Array.isArray(data.subjects) && data.subjects.length > 0
         ? (data.subjects as string[]).join(", ")
         : userProfile?.subjects?.length
-        ? userProfile.subjects.join(", ")
-        : "Not set";
+          ? userProfile.subjects.join(", ")
+          : "Not set";
     const classes =
       Array.isArray(data.classLevels) && data.classLevels.length > 0
         ? (data.classLevels as string[]).join(", ")
         : userProfile?.classLevels?.length
-        ? userProfile.classLevels.join(", ")
-        : (data.classLevel as string) || "Not set";
+          ? userProfile.classLevels.join(", ")
+          : (data.classLevel as string) || "Not set";
     const mode = (data.mode as string) || userProfile?.teachingMode || "Both (Online + Offline)";
     const location = city && !area.toLowerCase().includes(city.toLowerCase()) ? `${area}, ${city}` : area;
     const coinsStr = userProfile?.coins !== undefined && userProfile.coins !== null ? `\n🪙 Coins: *${userProfile.coins}*` : "";
@@ -1607,7 +1620,7 @@ export async function processMessage(
     const loc = validateAndCleanLocality(directAreaMatch[1].trim(), (data.city as string) || "Delhi");
     if (!loc.isValid) {
       return {
-        reply: "Sirf locality likhein — jaise *Rohini*, *Saket*, ya *Sector 45*. Ghar number ya poora message area nahi hai. 📍",
+        reply: loc.errorPrompt || `📍 Location *"${directAreaMatch[1].trim()}"* hamare system mein available/pehchani nahi gayi.\n\nKripya apna sahi area aur city batayein — jaise: *Rohini Delhi*, *Sector 62 Noida*, ya *Bandra Mumbai*.`,
         nextStep: "UPDATE_AREA",
         updatedData: data,
         retries: 0,
@@ -1759,10 +1772,10 @@ export async function processMessage(
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("subjects")
         ? {
-            ...data,
-            subjects: outSubs,
-            ...(outCls && outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
-          }
+          ...data,
+          subjects: outSubs,
+          ...(outCls && outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
+        }
         : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
@@ -2417,18 +2430,18 @@ export async function processMessage(
 
         const newLead = parentProfileId
           ? await prisma.lead.create({
-              data: {
-                inquiryNumber: nextInq,
-                parentProfileId,
-                subjects: adminSealed.subjects,
-                classLevel: adminSealed.classLevel,
-                mode: adminSealed.mode,
-                area: adminSealed.area,
-                city: adminCity,
-                status: "ACTIVE",
-                notes: `Direct Admin Entry: ${sName}, Phone: +91-${pNum}`,
-              },
-            }).catch(() => ({ inquiryNumber: nextInq }))
+            data: {
+              inquiryNumber: nextInq,
+              parentProfileId,
+              subjects: adminSealed.subjects,
+              classLevel: adminSealed.classLevel,
+              mode: adminSealed.mode,
+              area: adminSealed.area,
+              city: adminCity,
+              status: "ACTIVE",
+              notes: `Direct Admin Entry: ${sName}, Phone: +91-${pNum}`,
+            },
+          }).catch(() => ({ inquiryNumber: nextInq }))
           : { inquiryNumber: nextInq };
 
         return {
@@ -2625,7 +2638,7 @@ export async function processMessage(
               ...(asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()) ? paymentQrImage() : {}),
             };
           }
-        } catch (err) {}
+        } catch (err) { }
       }
       return {
         reply: `Namaste! Aapki tuition enquiry hamare coordinators ke paas note hai. 🙏\n\nKoi bhi update, fee details ya demo schedule ke liye aap seedha hamare team se connect kar sakte hain:\n\n📞 WhatsApp Coordinator: +91 93191 93109\nTiming: 9:00 AM – 7:00 PM (Mon–Sat)`,
@@ -2848,10 +2861,10 @@ export async function processMessage(
           nextStep: "DONE",
           updatedData: saved.updatedFields.includes("subjects")
             ? {
-                ...data,
-                subjects: outSubs,
-                ...(outCls && outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
-              }
+              ...data,
+              subjects: outSubs,
+              ...(outCls && outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
+            }
             : data,
           userType: "TUTOR",
           retries: 0,
@@ -3080,13 +3093,24 @@ export async function processMessage(
 
     const rawEmailMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
     const directLocStatement = rawMessage.trim().match(
-      /^(?:(?:sir|mam|hello|hi)[,\s]+)?(?:my\s+(?:new\s+)?(?:location|area|locality|city)\s+(?:is|hai)|i\s+(?:live|stay|am\s+staying|am\s+living)\s+(?:in|at)|i\s+am\s+from|currently\s+(?:in|at)|location\s*:)\s*(.+)$/i
+      /^(?:(?:sir|mam|hello|hi)[,\s]+)?(?:(?:change|update|set|mera|meri)\s+)?(?:my\s+(?:new\s+)?(?:location|area|locality|city)\s*(?:is|to|hai|kardo|karo)?|i\s+(?:live|stay|am\s+staying|am\s+living)\s+(?:in|at)|i\s+am\s+from|currently\s+(?:in|at)|location\s*[:=-])\s*(.+)$/i
     );
     // CRITICAL FIX: In DONE state, only treat as direct locality if the user explicitly stated location intent!
     // Never run validateAndCleanLocality on arbitrary conversational messages ("Pl arrange", "Scammers", "How to pay")!
     const directLocRes = !isMsgSensitive && directLocStatement
       ? validateAndCleanLocality(directLocStatement[1].trim(), (data.city as string) || undefined, true)
       : null;
+
+    if (directLocStatement && (!directLocRes || !directLocRes.isValid)) {
+      return {
+        reply: `📍 Location *"${directLocStatement[1].trim()}"* hamare system mein available/pehchani nahi gayi.\n\nKripya apna sahi mohalla/area aur city batayein — jaise:\n• *Rohini, Delhi*\n• *Sector 62, Noida*\n• *Bandra, Mumbai*\n• *Online (Pan-India)*`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["Rohini, Delhi 📍", "Sector 62, Noida 📍", "Online (Pan-India) 🌐"],
+      };
+    }
 
     const applyDonePatch = async (opts: {
       ai?: Awaited<ReturnType<typeof askGeminiChatbot>>;
@@ -3176,21 +3200,22 @@ export async function processMessage(
       );
       const saved = hasPatch
         ? await syncUserCredentialsInDb({
-            phone: session.phone,
-            email: credentialsChanged ? mergedData.email : undefined,
-            password: credentialsChanged ? mergedData.password : undefined,
-            name: nameToSave,
-            area: areaToSave,
-            city: cityToSave,
-            subjects: subjectsToSave,
-            classLevels: classesToSave,
-            mode: modeToSave,
-            mergeSubjects: !wantsReplace,
-            mergeClasses: !wantsReplace,
-          })
+          phone: session.phone,
+          email: credentialsChanged ? mergedData.email : undefined,
+          password: credentialsChanged ? mergedData.password : undefined,
+          name: nameToSave,
+          area: areaToSave,
+          city: cityToSave,
+          subjects: subjectsToSave,
+          classLevels: classesToSave,
+          mode: modeToSave,
+          mergeSubjects: !wantsReplace,
+          mergeClasses: !wantsReplace,
+        })
         : { ok: true, updatedFields: [] as string[], finalSubjects: undefined, finalClassLevels: undefined };
 
-      if (saved.updatedFields.includes("area")) {
+      const areaPatched = saved.updatedFields.includes("area") || Boolean(areaToSave);
+      if (areaPatched) {
         // Never wipe a real locality when only the city was patched.
         if (areaToSave) mergedData.area = areaToSave;
         if (cityToSave) mergedData.city = cityToSave;
@@ -3200,21 +3225,21 @@ export async function processMessage(
       }
       const displaySubjects = saved.finalSubjects || subjectsToSave;
       const displayClasses = saved.finalClassLevels || classesToSave;
-      if (saved.updatedFields.includes("subjects") && displaySubjects) {
+      if ((saved.updatedFields.includes("subjects") || subjectsToSave) && displaySubjects) {
         mergedData.subjects = displaySubjects;
       }
-      if (saved.updatedFields.includes("class") && displayClasses && displayClasses.length > 0) {
+      if ((saved.updatedFields.includes("class") || classesToSave) && displayClasses && displayClasses.length > 0) {
         mergedData.classLevel = displayClasses[0];
         mergedData.classLevels = displayClasses;
       }
-      if (saved.updatedFields.includes("name")) mergedData.name = nameToSave;
+      if (saved.updatedFields.includes("name") || nameToSave) mergedData.name = nameToSave;
 
       const savedBits = [
-        saved.updatedFields.includes("name") ? `naam *${nameToSave}*` : "",
-        saved.updatedFields.includes("area") ? `location *${[areaToSave, cityToSave].filter(Boolean).join(", ")}*` : "",
-        saved.updatedFields.includes("mode") && modeToSave ? `mode *${modeToSave === "ONLINE" ? "Online (Pan-India) 💻" : modeToSave === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Both (Online + Offline) 🌐"}*` : "",
-        saved.updatedFields.includes("subjects") && displaySubjects ? `subjects *${displaySubjects.join(", ")}*` : "",
-        saved.updatedFields.includes("class") && displayClasses ? `class *${displayClasses.join(", ")}*` : "",
+        (saved.updatedFields.includes("name") || nameToSave) && nameToSave ? `naam *${nameToSave}*` : "",
+        areaPatched && areaToSave ? `location *${[areaToSave, cityToSave].filter(Boolean).join(", ")}*` : "",
+        (saved.updatedFields.includes("mode") || modeToSave) && modeToSave ? `mode *${modeToSave === "ONLINE" ? "Online (Pan-India) 💻" : modeToSave === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Both (Online + Offline) 🌐"}*` : "",
+        (saved.updatedFields.includes("subjects") || subjectsToSave) && displaySubjects ? `subjects *${displaySubjects.join(", ")}*` : "",
+        (saved.updatedFields.includes("class") || classesToSave) && displayClasses ? `class *${displayClasses.join(", ")}*` : "",
         saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
       ].filter(Boolean);
 
@@ -3534,8 +3559,8 @@ export async function processMessage(
         const classLevelsArray = Array.isArray(mergedData.classLevels) && mergedData.classLevels.length > 0
           ? (mergedData.classLevels as string[])
           : mergedData.classLevel
-          ? [String(mergedData.classLevel)]
-          : [];
+            ? [String(mergedData.classLevel)]
+            : [];
         const hasClass = classLevelsArray.length > 0;
 
         const locResult = validateAndCleanLocality(mergedData.area || data.area, (mergedData.city || data.city || "Delhi") as string, true);
@@ -3850,8 +3875,8 @@ export async function processMessage(
               const reason = /\d/.test(nameCandidate)
                 ? `"*${typed}*" mein digits hain — naam mein sirf letters hone chahiye.`
                 : nameCandidate.length < 2
-                ? `Bahut chhota naam lag raha hai.`
-                : `"*${typed}*" naam nahi lag raha.`;
+                  ? `Bahut chhota naam lag raha hai.`
+                  : `"*${typed}*" naam nahi lag raha.`;
               return {
                 reply: `⚠️ ${reason}\n\n👤 Apna *poora naam* likhein — jaise *Priya Sharma* ya *Rahul Gupta*:`,
                 nextStep: "T_NAME",
@@ -3961,7 +3986,7 @@ export async function processMessage(
                 existingUserPhone = existingUser.phone;
                 mergedData._existingAccount = true;
               }
-            } catch {}
+            } catch { }
 
             if (isExisting) {
               const existingPhone10 = (existingUserPhone || "").replace(/\D/g, "").slice(-10);
@@ -4307,10 +4332,10 @@ export async function processMessage(
           role === "TUTOR"
             ? "T_CONVO"
             : role === "PARENT"
-            ? "P_CONVO"
-            : session.step === "WELCOME"
-            ? "WELCOME"
-            : session.step;
+              ? "P_CONVO"
+              : session.step === "WELCOME"
+                ? "WELCOME"
+                : session.step;
 
         return {
           reply: ai.reply,
@@ -4321,10 +4346,10 @@ export async function processMessage(
           quickReplies: ai.quickReplies && ai.quickReplies.length > 0
             ? ai.quickReplies
             : role === "TUTOR"
-            ? ["Sangam Vihar, Delhi", "Dwarka, Delhi", "Noida / Gurgaon"]
-            : role === "PARENT"
-            ? ["Class 9-10 Maths/Sci", "Class 1-5 All", "Class 11-12"]
-            : ["1️⃣ TUTOR", "2️⃣ PARENT"],
+              ? ["Sangam Vihar, Delhi", "Dwarka, Delhi", "Noida / Gurgaon"]
+              : role === "PARENT"
+                ? ["Class 9-10 Maths/Sci", "Class 1-5 All", "Class 11-12"]
+                : ["1️⃣ TUTOR", "2️⃣ PARENT"],
         };
       }
     } catch (err) {
@@ -4456,16 +4481,16 @@ export async function processMessage(
     }
 
     if (!isOffScriptTutorTalk(trimmed)) {
-    const subAlignFallback = validateAndAlignSubjects(trimmed, updated.classLevel as string);
-    if (subAlignFallback.isValid && subAlignFallback.subjects.length > 0) {
-      updated.subjects = subAlignFallback.subjects;
-    } else if (step === "T_SUBJECTS" && !/^(menu|help|cancel)$/i.test(trimmed)) {
-      const splitSubs = trimmed.split(/,|and|&/i).map((s) => s.trim()).filter(Boolean);
-      const subResStep = validateAndAlignSubjects(splitSubs, updated.classLevel as string);
-      if (subResStep.isValid) {
-        updated.subjects = subResStep.subjects;
+      const subAlignFallback = validateAndAlignSubjects(trimmed, updated.classLevel as string);
+      if (subAlignFallback.isValid && subAlignFallback.subjects.length > 0) {
+        updated.subjects = subAlignFallback.subjects;
+      } else if (step === "T_SUBJECTS" && !/^(menu|help|cancel)$/i.test(trimmed)) {
+        const splitSubs = trimmed.split(/,|and|&/i).map((s) => s.trim()).filter(Boolean);
+        const subResStep = validateAndAlignSubjects(splitSubs, updated.classLevel as string);
+        if (subResStep.isValid) {
+          updated.subjects = subResStep.subjects;
+        }
       }
-    }
     }
 
     if (/all\s*subjects?|combo/i.test(trimmed)) {
@@ -4660,8 +4685,8 @@ export async function processMessage(
         const reason = /\d/.test(nameCandidate)
           ? `"*${typed}*" mein digits hain — naam mein sirf letters hone chahiye.`
           : nameCandidate.length < 2
-          ? `Bahut chhota naam lag raha hai.`
-          : `"*${typed}*" naam nahi lag raha.`;
+            ? `Bahut chhota naam lag raha hai.`
+            : `"*${typed}*" naam nahi lag raha.`;
         return {
           reply: `⚠️ ${reason}\n\n👤 Apna *poora naam* likhein — jaise *Priya Sharma* ya *Rahul Gupta*:`,
           nextStep: "T_NAME",
@@ -4725,7 +4750,7 @@ export async function processMessage(
           existingUserPhone = existingUser.phone;
           updated._existingAccount = true;
         }
-      } catch {}
+      } catch { }
 
       if (isExisting) {
         const existingPhone10 = (existingUserPhone || "").replace(/\D/g, "").slice(-10);
@@ -5079,8 +5104,8 @@ function handleInvalid(
   const reply = contextHint
     ? `${contextHint}`
     : stepHint
-    ? `Samajh nahi aaya. 🙏\n\n${stepHint}`
-    : `Samajh nahi aaya. 🙏 Type *MENU* to restart.`;
+      ? `Samajh nahi aaya. 🙏\n\n${stepHint}`
+      : `Samajh nahi aaya. 🙏 Type *MENU* to restart.`;
 
   return {
     reply,

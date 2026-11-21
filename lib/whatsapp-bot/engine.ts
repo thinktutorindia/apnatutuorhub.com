@@ -1354,12 +1354,14 @@ export async function processMessage(
   }
 
   // ── Manual Password Reset & Login/Dashboard Access Issues ─────────────────
-  const isExplicitManualReset = /^(?:manual\s*reset|reset\s*password|temporary\s*password|temp\s*password)$/i.test(rawMessage.trim());
+  const isExplicitManualReset =
+    /^(?:manual\s*reset|reset\s*password|temporary\s*password|temp\s*password|aap\s*(?:hi\s*)?(?:kardo\s*reset|reset\s*(?:kardo|karo|kar\s*do)|password\s*reset\s*kardo))$/i.test(rawMessage.trim());
   const isLoginOrDashboardIssue =
     isExplicitManualReset ||
+    /^(?:not\s*login|login\s*nhi|cant\s*login|can't\s*login)$/i.test(rawMessage.trim()) ||
     /\b(?:id|i['’]?d|dashboard|account|login|portal|site|website)\b.*?\b(?:open|khul|login)\s*(?:nahi|ni|not)\s*(?:ho\s*raha|hona|rahi|raha\s*hai|h)?\b/i.test(rawMessage) ||
     /\b(?:open|khul|chal)\s*(?:nahi|ni)\s*(?:ho\s*raha|rahi|raha\s*hai|raha)\b.*?\b(?:id|i['’]?d|dashboard|account|login|portal)\b/i.test(rawMessage) ||
-    /\b(?:login|sign\s*in)\s*(?:problem|issue|error|nahi\s*ho\s*raha|failed|atak|musibat)\b/i.test(rawMessage);
+    /\b(?:login|sign\s*in)\s*(?:problem|issue|error|nahi\s*ho\s*raha|failed|atak|musibat|nhi\s*ho\s*rahi)\b/i.test(rawMessage);
 
   if (isLoginOrDashboardIssue) {
     const cleanPhone = session.phone.replace(/\D/g, "");
@@ -1884,32 +1886,48 @@ export async function processMessage(
     step === "LANG_SELECT" ||
     step === "WELCOME";
 
-  const hasExplicitLeadPrefix =
-    /^(?:(?:unlock|view|show|check|open|lead)\s*(?:lead\s*)?)(?:#|ath[- ]?)?(\d{4,7})$/i.test(rawMessage.trim()) ||
-    /^#(?:ath[- ]?)?(\d{4,7})$/i.test(rawMessage.trim()) ||
-    /(?:(?:unlock|view|show|check|open)\s+lead\s+)#?(\d{4,7})\b/i.test(rawMessage.trim());
+  const leadMatchAnywhere =
+    rawMessage.match(/(?:requirement|lead|inquiry|enquiry)\s*#?(\d{4,7})\b/i) ||
+    rawMessage.match(/#(\d{4,7})\b/);
 
   const isBareNumberInDone =
     (step === "DONE" || data._registered === true) &&
     /^\d{4,7}$/.test(rawMessage.trim());
 
-  if (!isRegistrationStep && (hasExplicitLeadPrefix || isBareNumberInDone)) {
-    const inquiryMatch =
-      rawMessage.trim().match(/^(?:(?:unlock|view|show|check|open|lead)\s*(?:lead\s*)?)?(?:#|ath[- ]?)?(\d{4,7})$/i) ||
-      rawMessage.trim().match(/(?:(?:unlock|view|show|check|open)\s*(?:lead)?\s*)#?(\d{4,7})\b/i);
+  // If user says "Interested", "Yes agree", "Pl arrange", "I want this lead", etc.
+  const isInterestedLeadReply =
+    /^(?:interested|yes|i\s*am\s*interested|i'm\s*interested|agree|pl\s*arrange|arrange|mujhe\s*chahiye|ye\s*wali\s*(?:tution|tuition)|interested\s*in\s*this|yes\s*agree)\b/i.test(rawMessage.trim());
 
-    if (inquiryMatch) {
-      const inqNum = parseInt(inquiryMatch[1], 10);
-      const result = await formatSingleLeadInquiry(inqNum, session.phone);
-      return {
-        reply: result.reply,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: session.userType || "TUTOR",
-        retries: 0,
-        quickReplies: result.quickReplies,
-      };
+  let targetInquiryNum: number | null = null;
+  if (leadMatchAnywhere) {
+    targetInquiryNum = parseInt(leadMatchAnywhere[1], 10);
+  } else if (isBareNumberInDone) {
+    targetInquiryNum = parseInt(rawMessage.trim(), 10);
+  } else if (isInterestedLeadReply && chatHistory && chatHistory.length > 0) {
+    for (let i = chatHistory.length - 1; i >= 0; i--) {
+      const msg = chatHistory[i];
+      if (msg.direction === "OUTBOUND" && msg.body) {
+        const histMatch =
+          msg.body.match(/(?:requirement|lead|inquiry|enquiry)\s*#?(\d{4,7})\b/i) ||
+          msg.body.match(/#(\d{4,7})\b/);
+        if (histMatch) {
+          targetInquiryNum = parseInt(histMatch[1], 10);
+          break;
+        }
+      }
     }
+  }
+
+  if (!isRegistrationStep && targetInquiryNum) {
+    const result = await formatSingleLeadInquiry(targetInquiryNum, session.phone);
+    return {
+      reply: result.reply,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: result.quickReplies,
+    };
   }
 
   // ── High-Intent Real Chat Scenarios (Identified from Aqua SMS logs) ─────────
@@ -2223,8 +2241,12 @@ export async function processMessage(
     };
   }
 
+  const isConversationalQuestionOrObjection =
+    rawMessage.trim().split(/\s+/).length > 3 ||
+    /\b(?:kyu|kyun|keun|kaun|kaise|kya|why|how|phir|har\s*mahine|bhi|nahi|not|condition|sahi|fake|fraud|authentic|loot|advance|pehle|baad)\b/i.test(rawMessage);
+
   // ── Zero Commission BEFORE commission (avoid "without commission plan" mismatch) ──
-  if (asksZeroCommissionPlan(rawMessage)) {
+  if (!isConversationalQuestionOrObjection && asksZeroCommissionPlan(rawMessage)) {
     return {
       reply: formatGrowthPlanDetailMessage(),
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
@@ -2236,7 +2258,7 @@ export async function processMessage(
   }
 
   // ── Commission Plan Interest Handler (₹1,257) ──────────────────────────────
-  if (asksCommissionPlan(rawMessage)) {
+  if (!isConversationalQuestionOrObjection && asksCommissionPlan(rawMessage)) {
     return {
       reply: formatCommissionPlanDetailMessage(),
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
@@ -3044,27 +3066,26 @@ export async function processMessage(
     const hasSubjectWords = subjectWordsRe.test(combinedContext);
     const rawHasSubjectWords = subjectWordsRe.test(rawMessage);
     const hasNegatedSubject = /\b(don't|dont|do\s+not|nahi|not)\s+teach\b/i.test(rawMessage);
-    const directSubRes =
-      hasSubjectWords && !hasNegatedSubject
-        ? validateAndAlignSubjects(rawHasSubjectWords ? rawMessage : combinedContext, msgClasses[0] || (data.classLevel as string | undefined))
-        : null;
+    const directSubStatement = rawMessage.trim().match(
+      /^(?:(?:sir|mam|hello|hi)[,\s]+)?(?:my\s+subjects?\s+(?:are|hai)|i\s+teach\s+(?:only\s+)?|subjects?\s*:)\s*(.+)$/i
+    );
+    const directSubRes = directSubStatement && !hasNegatedSubject
+      ? validateAndAlignSubjects(directSubStatement[1].trim(), msgClasses[0] || (data.classLevel as string | undefined))
+      : null;
 
     const isMsgSensitive =
       /^(default|skip|password|pwd|pass|reply\s*default|leads|plans|coins|help|menu|stop|cancel)$/i.test(rawMessage.trim()) ||
       rawMessage.includes("@") ||
       /\b[a-zA-Z]+[0-9]{2,}\b/i.test(rawMessage);
 
+    const rawEmailMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
     const directLocStatement = rawMessage.trim().match(
       /^(?:(?:sir|mam|hello|hi)[,\s]+)?(?:my\s+(?:new\s+)?(?:location|area|locality|city)\s+(?:is|hai)|i\s+(?:live|stay|am\s+staying|am\s+living)\s+(?:in|at)|i\s+am\s+from|currently\s+(?:in|at)|location\s*:)\s*(.+)$/i
     );
-    const directLocRes = !isMsgSensitive
-      ? directLocStatement
-        ? validateAndCleanLocality(directLocStatement[1].trim(), (data.city as string) || undefined, true)
-        : validateAndCleanLocality(
-            extractLocationSegment(rawMessage.trim()) || rawMessage.trim(),
-            (data.city as string) || undefined,
-            true
-          )
+    // CRITICAL FIX: In DONE state, only treat as direct locality if the user explicitly stated location intent!
+    // Never run validateAndCleanLocality on arbitrary conversational messages ("Pl arrange", "Scammers", "How to pay")!
+    const directLocRes = !isMsgSensitive && directLocStatement
+      ? validateAndCleanLocality(directLocStatement[1].trim(), (data.city as string) || undefined, true)
       : null;
 
     const applyDonePatch = async (opts: {
@@ -3074,7 +3095,6 @@ export async function processMessage(
       const mergedData: Record<string, any> = { ...data };
       let credentialsChanged = false;
 
-      const rawEmailMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
       const extractedEmail = (ai?.extractedData?.email as string) || (rawEmailMatch ? rawEmailMatch[0] : undefined);
       const extractedPassword = ai?.extractedData?.password as string | undefined;
 
@@ -3229,17 +3249,20 @@ export async function processMessage(
       }
     }
 
-    // Deterministic fallback in DONE state (works even when Gemini AI is unavailable/offline)
-    const fallbackPatch = await applyDonePatch({});
-    if (fallbackPatch.savedBits.length > 0) {
-      return {
-        reply: `Save ho gaya: ${fallbackPatch.savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`,
-        nextStep: "DONE",
-        updatedData: fallbackPatch.mergedData,
-        userType: session.userType || "TUTOR",
-        retries: 0,
-        quickReplies: ["My Profile 👤", "View Leads 📋", "View Plans 💰"],
-      };
+    // Deterministic fallback in DONE state — only apply if user made an explicit statement
+    const hasExplicitStatement = Boolean(directLocStatement || directSubStatement || rawEmailMatch);
+    if (hasExplicitStatement) {
+      const fallbackPatch = await applyDonePatch({});
+      if (fallbackPatch.savedBits.length > 0) {
+        return {
+          reply: `Save ho gaya: ${fallbackPatch.savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`,
+          nextStep: "DONE",
+          updatedData: fallbackPatch.mergedData,
+          userType: session.userType || "TUTOR",
+          retries: 0,
+          quickReplies: ["My Profile 👤", "View Leads 📋", "View Plans 💰"],
+        };
+      }
     }
 
     // Friendly fallback if AI fails in DONE state

@@ -631,10 +631,11 @@ export function validateAndCleanLocality(
 
       const remWords = remainingArea.toLowerCase().split(/[\s,.-]+/).filter(Boolean);
       const isFillerOnly = remWords.length === 0 || remWords.every((w) => NON_LOCALITY_WORDS.has(w));
+      const isSubjectOnly = looksLikeSubjectOnlyText(remainingArea);
       const hasPlaceKeyword = PLACE_INDICATORS.test(remainingArea);
       const hasStopWord = remWords.some((w) => NON_LOCALITY_WORDS.has(w));
 
-      if (remainingArea.length >= 2 && !isFillerOnly && (!hasStopWord || hasPlaceKeyword)) {
+      if (remainingArea.length >= 2 && !isFillerOnly && !isSubjectOnly && (!hasStopWord || hasPlaceKeyword)) {
         const capArea = remainingArea
           .split(/\s+/)
           .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
@@ -642,6 +643,15 @@ export function validateAndCleanLocality(
         return {
           isValid: true,
           area: capArea,
+          city: detectedCity,
+        };
+      }
+
+      // If user only gave city name or city + subject (e.g. "Delhi", "Class 10 Maths Noida")
+      if (isSubjectOnly || isFillerOnly || !remainingArea) {
+        return {
+          isValid: true,
+          area: detectedCity,
           city: detectedCity,
         };
       }
@@ -1034,31 +1044,39 @@ export function validateAndAlignSubjects(
     if (/\b(pcmb)\b/i.test(t)) {
       if (isBelow9) {
         matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade >= 9 && grade <= 10) {
+        matchedSubjects.add(ROMAN_MAP[grade] ? `Maths for Class ${ROMAN_MAP[grade]}` : "Mathematics");
+        matchedSubjects.add(ROMAN_MAP[grade] ? `Science for Class ${ROMAN_MAP[grade]}` : "Science");
       } else {
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Maths for Class ${ROMAN_MAP[grade]}` : "Mathematics");
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Biology for Class ${ROMAN_MAP[grade]}` : "Biology");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Maths for Class ${ROMAN_MAP[grade]}` : "Mathematics");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Biology for Class ${ROMAN_MAP[grade]}` : "Biology");
       }
       continue;
     }
     if (/\b(pcm)\b/i.test(t)) {
       if (isBelow9) {
         matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade >= 9 && grade <= 10) {
+        matchedSubjects.add(ROMAN_MAP[grade] ? `Maths for Class ${ROMAN_MAP[grade]}` : "Mathematics");
+        matchedSubjects.add(ROMAN_MAP[grade] ? `Science for Class ${ROMAN_MAP[grade]}` : "Science");
       } else {
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Maths for Class ${ROMAN_MAP[grade]}` : "Mathematics");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Maths for Class ${ROMAN_MAP[grade]}` : "Mathematics");
       }
       continue;
     }
     if (/\b(pcb)\b/i.test(t)) {
       if (isBelow9) {
         matchedSubjects.add("All Subjects (Class 1-8)");
+      } else if (grade && grade >= 9 && grade <= 10) {
+        matchedSubjects.add(ROMAN_MAP[grade] ? `Science for Class ${ROMAN_MAP[grade]}` : "Science");
       } else {
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
-        matchedSubjects.add(grade && grade >= 9 && ROMAN_MAP[grade] ? `Biology for Class ${ROMAN_MAP[grade]}` : "Biology");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Physics For Class ${ROMAN_MAP[grade]}` : "Physics");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Chemistry For Class ${ROMAN_MAP[grade]}` : "Chemistry");
+        matchedSubjects.add(grade && grade >= 11 && ROMAN_MAP[grade] ? `Biology for Class ${ROMAN_MAP[grade]}` : "Biology");
       }
       continue;
     }
@@ -1200,6 +1218,8 @@ export function validateAndAlignSubjects(
         matchedSubjects.add("All Subjects (Class 1-8)");
       } else if (grade && grade >= 9 && grade <= 10 && ROMAN_MAP[grade]) {
         matchedSubjects.add(`Social Studies for Class ${ROMAN_MAP[grade]}`);
+      } else if (grade && grade >= 11) {
+        // Class 11-12 does not have Social Studies / Social Science
       } else {
         matchedSubjects.add("Social Studies");
       }
@@ -1233,12 +1253,19 @@ export function validateAndAlignSubjects(
       continue;
     }
 
-    // 11. Senior Sciences: Physics, Chemistry, Biology (Class 1-8 restriction strictly enforced!)
+    // 11. Senior Sciences: Physics, Chemistry, Biology
+    // Class 1-8: strictly All Subjects
+    // Class 9-10: mapped to Science (CBSE/ICSE school curriculum)
+    // Class 11-12: stream-specific (Physics for Class XI/XII, etc.)
     if (/\b(physics|phy|phyics|bhautiki)\b/i.test(t)) {
       if (isBelow9) {
         matchedSubjects.add("All Subjects (Class 1-8)");
-      } else if (grade && grade >= 9 && ROMAN_MAP[grade]) {
+      } else if (grade && grade >= 9 && grade <= 10) {
+        matchedSubjects.add(ROMAN_MAP[grade] ? `Science for Class ${ROMAN_MAP[grade]}` : "Science");
+      } else if (grade && grade >= 11 && ROMAN_MAP[grade]) {
         matchedSubjects.add(`Physics For Class ${ROMAN_MAP[grade]}`);
+      } else if (isBelow11) {
+        matchedSubjects.add("Science");
       } else {
         matchedSubjects.add("Physics");
       }
@@ -1248,8 +1275,12 @@ export function validateAndAlignSubjects(
     if (/\b(chemistry|chem|chemstry|rasayan)\b/i.test(t)) {
       if (isBelow9) {
         matchedSubjects.add("All Subjects (Class 1-8)");
-      } else if (grade && grade >= 9 && ROMAN_MAP[grade]) {
+      } else if (grade && grade >= 9 && grade <= 10) {
+        matchedSubjects.add(ROMAN_MAP[grade] ? `Science for Class ${ROMAN_MAP[grade]}` : "Science");
+      } else if (grade && grade >= 11 && ROMAN_MAP[grade]) {
         matchedSubjects.add(`Chemistry For Class ${ROMAN_MAP[grade]}`);
+      } else if (isBelow11) {
+        matchedSubjects.add("Science");
       } else {
         matchedSubjects.add("Chemistry");
       }
@@ -1259,8 +1290,12 @@ export function validateAndAlignSubjects(
     if (/\b(biology|botany|zoology|bio|jeev\s*vigyan)\b/i.test(t)) {
       if (isBelow9) {
         matchedSubjects.add("All Subjects (Class 1-8)");
-      } else if (grade && grade >= 9 && ROMAN_MAP[grade]) {
+      } else if (grade && grade >= 9 && grade <= 10) {
+        matchedSubjects.add(ROMAN_MAP[grade] ? `Science for Class ${ROMAN_MAP[grade]}` : "Science");
+      } else if (grade && grade >= 11 && ROMAN_MAP[grade]) {
         matchedSubjects.add(`Biology for Class ${ROMAN_MAP[grade]}`);
+      } else if (isBelow11) {
+        matchedSubjects.add("Science");
       } else {
         matchedSubjects.add("Biology");
       }

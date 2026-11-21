@@ -210,12 +210,77 @@ export function isRealClassLevel(raw?: string | null): boolean {
   return parts.length > 1 && parts.every((p) => Boolean(normalizeCanonicalClassLevel(p)));
 }
 
-/** Class 1–8 leads always store exactly this subject list. */
+/**
+ * Canonical subject normalization per class level:
+ * 1. Class 1–8: ALWAYS strictly ["All Subjects"], regardless of what individual subjects were entered.
+ * 2. Class 9–10: School curriculum (Mathematics, Science, Social Science, English, Hindi, Sanskrit, Computer Science).
+ *    NEVER standalone Physics, Chemistry, Biology (normalized to "Science").
+ *    NEVER "All Subjects" (normalized to ["Mathematics", "Science"]).
+ * 3. Class 11–12 (and JEE/NEET): Stream-specific subjects (Physics, Chemistry, Biology, Mathematics, Accountancy, Business Studies, Economics, etc.).
+ *    NEVER "All Subjects", NEVER "Social Science" or "General Science".
+ */
 export function leadSubjectsForClass(classLevel?: string | null, subjects?: string[] | null): string[] {
   if (isTill8thClass(classLevel)) return ["All Subjects"];
+
   const cleaned = (subjects || [])
     .map((s) => String(s || "").trim())
     .filter((s) => s && !/^all subjects\s*\(/i.test(s) && !/^all subjects for class\b/i.test(s));
+
+  if (isClass9or10(classLevel)) {
+    const mapped: string[] = [];
+    for (const sub of cleaned) {
+      if (/^all\s*subjects?$/i.test(sub)) {
+        mapped.push("Mathematics", "Science");
+      } else if (/^(physics|chemistry|biology|phy|chem|bio|general\s*science)$/i.test(sub)) {
+        mapped.push("Science");
+      } else if (/^(maths?|mathematics|algebra|geometry|ganit)$/i.test(sub)) {
+        mapped.push("Mathematics");
+      } else if (/^(social\s*(?:science|studies)|sst|samajik\s*vigyan)$/i.test(sub)) {
+        mapped.push("Social Science");
+      } else if (/^(accounts?|accountancy|commerce|business\s*studies|bst)$/i.test(sub)) {
+        continue;
+      } else if (/^(english|eng)$/i.test(sub)) {
+        mapped.push("English");
+      } else if (/^(hindi)$/i.test(sub)) {
+        mapped.push("Hindi");
+      } else if (/^(sanskrit)$/i.test(sub)) {
+        mapped.push("Sanskrit");
+      } else if (/^(computer|computers|computer\s*science|coding|python|it\b)$/i.test(sub)) {
+        mapped.push("Computer Science");
+      } else {
+        if (/science/i.test(sub)) mapped.push("Science");
+        else if (/math/i.test(sub)) mapped.push("Mathematics");
+        else if (/social/i.test(sub)) mapped.push("Social Science");
+        else mapped.push(sub);
+      }
+    }
+    const unique = [...new Set(mapped)];
+    if (unique.length > 0) return unique.slice(0, 3);
+    return ["Mathematics", "Science"];
+  }
+
+  if (isClass11or12(classLevel)) {
+    const mapped: string[] = [];
+    for (const sub of cleaned) {
+      if (/^all\s*subjects?$/i.test(sub)) {
+        continue;
+      }
+      if (/^(social\s*(?:science|studies)|sst|general\s*science|evs)$/i.test(sub)) {
+        continue;
+      }
+      if (/^accounts?$/i.test(sub)) {
+        mapped.push("Accountancy");
+      } else if (/^maths?$/i.test(sub)) {
+        mapped.push("Mathematics");
+      } else {
+        mapped.push(sub);
+      }
+    }
+    const unique = [...new Set(mapped)];
+    if (unique.length > 0) return unique.slice(0, 4);
+    return ["Mathematics"];
+  }
+
   const unique = [...new Set(cleaned)];
   const specific = unique.filter((s) => !/^all subjects$/i.test(s));
   if (specific.length > 0) return specific.slice(0, 3);
@@ -623,6 +688,27 @@ export function isTill8thClass(classLevel?: string | null): boolean {
   }
 
   return false;
+}
+
+/**
+ * Returns true if the class level is strictly Class 9 or Class 10 (or Class 9-10).
+ */
+export function isClass9or10(classLevel?: string | null): boolean {
+  if (!classLevel || typeof classLevel !== "string") return false;
+  const s = classLevel.trim().toLowerCase();
+  if (isTill8thClass(classLevel)) return false;
+  if (/class\s*(11|12)\b|\b(11|12)(th)?\b|class\s*(xi|xii)\b|jee|neet/i.test(s)) return false;
+  return /class\s*(9|10)\b|\b(9|10)(th)?\b|class\s*(ix|x)\b|class\s*9\s*[-–—to]\s*10/i.test(s);
+}
+
+/**
+ * Returns true if the class level is Class 11, Class 12, or Senior entrance (JEE/NEET/CUET).
+ */
+export function isClass11or12(classLevel?: string | null): boolean {
+  if (!classLevel || typeof classLevel !== "string") return false;
+  const s = classLevel.trim().toLowerCase();
+  if (isTill8thClass(classLevel)) return false;
+  return /class\s*(11|12)\b|\b(11|12)(th)?\b|class\s*(xi|xii)\b|class\s*11\s*[-–—to]\s*12|jee|neet|cuet/i.test(s);
 }
 
 /**

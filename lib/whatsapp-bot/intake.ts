@@ -39,6 +39,20 @@ function titleCase(value: string): string {
 
 function locationFrom(text: string, fallbackCity?: string): { area: string; city: string } | null {
   if (YES.test(text)) return null;
+
+  // If text is multi-segment (e.g. "Class 1, All Subjects, Sector 6"), check segments from right to left
+  const parts = text.split(/[,|]/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const part = parts[i];
+      if (normalizeCanonicalClassLevel(part)) continue;
+      const partRes = validateAndCleanLocality(part, fallbackCity || "Delhi");
+      if (partRes.isValid && partRes.area) {
+        return { area: partRes.area, city: partRes.city };
+      }
+    }
+  }
+
   const locRes = validateAndCleanLocality(text, fallbackCity || "Delhi");
   if (locRes.isValid && locRes.area) {
     return { area: locRes.area, city: locRes.city };
@@ -166,7 +180,7 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
       );
     }
     draft.subjects = ["All Subjects"];
-  } else if (senior && (draft.subjects || []).some((s) => /^(science|general science|all subjects)$/i.test(s))) {
+  } else if (senior && (draft.subjects || []).some((s) => /^(science|general science|all subjects)(?:\s+for\s+class\b.*)?$/i.test(s))) {
     draft.subjects = [];
     draft.confirm = "senior-subject";
     return explain(
@@ -248,6 +262,13 @@ export function sealLeadEntry(draft: IntakeDraft):
   if (!classLevel || !/^(Class ([1-9]|1[0-2])(-([1-9]|1[0-2]))?|Nursery|LKG|UKG|KG|JEE|NEET|CUET)$/.test(classLevel)) {
     return { ok: false, reason: "Yeh class valid nahi hai. Class 1 se 12, Nursery, JEE ya NEET likhein." };
   }
+  const rawArea = (draft.area || "").trim();
+  if (
+    /[?]|\b(near|house|h\.?\s*no|flat|plot|sbi|atm|bank|mandir|temple|branch)\b/i.test(rawArea) &&
+    !/\b(sector|sec\b|nagar|vihar|colony|enclave|pur\b|bagh\b|kunj|society)\b/i.test(rawArea)
+  ) {
+    return { ok: false, reason: "Area sirf sector, colony ya mohalla ho sakta hai. Ghar number aur poora sentence save nahi hota." };
+  }
   const area = extractPublicLocality(draft.area || "") || localityFrom(draft.area || "");
   if (!area || area.length > 40 || /[?]|\b(please|call|hu|hoon|padhta|padhti|near|house|sbi|tuition|tution)\b/i.test(area)) {
     return { ok: false, reason: "Area sirf sector, colony ya mohalla ho sakta hai. Ghar number aur poora sentence save nahi hota." };
@@ -264,10 +285,11 @@ export function sealLeadEntry(draft: IntakeDraft):
     }
     return { ok: true, classLevel, subjects: ["All Subjects"], area, city: draft.city, mode: "OFFLINE" };
   }
-  if (subjects.length === 0 || subjects.every((s) => /^all subjects$/i.test(s))) {
+  const rawSubs = draft.subjects || [];
+  if (subjects.length === 0 || rawSubs.every((s) => /^all subjects$/i.test(s))) {
     return { ok: false, reason: `${classLevel} ke liye Maths, Science, Physics ya Accounts jaisa subject chahiye. All Subjects sirf Class 1–8 par hai.` };
   }
-  if (/^(jee|neet|cuet|class 11|class 12)/i.test(classLevel) && subjects.some((s) => /^(science|general science)$/i.test(s))) {
+  if (/^(jee|neet|cuet|class 11|class 12)/i.test(classLevel) && subjects.some((s) => /^(science|general science)(?:\s+for\s+class\b.*)?$/i.test(s))) {
     return { ok: false, reason: `${classLevel} mein sirf Science kaafi nahi. Physics, Chemistry, Maths, Biology ya Accounts likhein.` };
   }
   const compat = validateSubjectClassCompatibility(subjects, classLevel, "PARENT");

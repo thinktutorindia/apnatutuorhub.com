@@ -381,7 +381,18 @@ export function normalizeSubjectsForClassRule(subjects: string[], classLevels: s
       if (explicitBases.has(key)) continue;
       if (JUNIOR_ONLY_BASES.has(key)) continue; // EVS etc. never attach to Class 9-12
       if (!seniorLabels.length) seniorOut.push(p.base);
-      for (const label of seniorLabels) seniorOut.push(`${p.base} for Class ${label}`);
+      for (const label of seniorLabels) {
+        const gradeNum = ROMAN_TO_NUM[label.toLowerCase()];
+        // Class 9-10: Physics, Chemistry, Biology map to Science for Class IX/X
+        if ((gradeNum === 9 || gradeNum === 10) && (key === "physics" || key === "chemistry" || key === "biology")) {
+          seniorOut.push(`Science for Class ${label}`);
+        } else if ((gradeNum === 11 || gradeNum === 12) && key === "social science") {
+          // Social Science never attaches to Class 11-12
+          continue;
+        } else {
+          seniorOut.push(`${p.base} for Class ${label}`);
+        }
+      }
     }
 
     // Senior "All Subjects" labels are a last resort: drop them whenever the

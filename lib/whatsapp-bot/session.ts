@@ -46,7 +46,7 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
         OR: buildIndiaUserLookupOr(sessionPhone) as never,
       },
       include: {
-        tutorProfile: { select: { id: true, address: true, city: true, subjects: true } },
+        tutorProfile: { select: { id: true, address: true, city: true, subjects: true, classLevels: true, teachingMode: true } },
         parentProfile: { select: { id: true } },
       },
     });
@@ -69,6 +69,11 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
         restoredData.area = registeredUser.tutorProfile.address ?? "";
         restoredData.city = registeredUser.tutorProfile.city ?? "";
         restoredData.subjects = registeredUser.tutorProfile.subjects ?? [];
+        restoredData.classLevels = registeredUser.tutorProfile.classLevels ?? [];
+        if (Array.isArray(restoredData.classLevels) && restoredData.classLevels.length > 0) {
+          restoredData.classLevel = restoredData.classLevels[0];
+        }
+        restoredData.mode = registeredUser.tutorProfile.teachingMode ?? "EITHER";
       }
 
       // Persist restored session so future requests don't need to re-query

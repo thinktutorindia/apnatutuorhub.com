@@ -161,11 +161,20 @@ export function normalizeCanonicalClassLevel(raw?: string | null): string | null
   if (/^primary$/i.test(s) || /\bprimary\b/i.test(s) && !/\d/.test(s)) return "Class 1-5";
   if (/^middle(\s+school)?$/i.test(s)) return "Class 6-8";
 
+  const hasClassWord = /\b(class|grade|std|standard)\b/i.test(s);
+
+  // Reject date/calendar expressions like "3rd dec", "available after 10th nov", "from 1st jan"
+  if (
+    !hasClassWord &&
+    (/\b\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)\b/i.test(s) ||
+      /\b(?:after|from|till|starting|join)\s+\d{1,2}(?:st|nd|rd|th)?\b/i.test(s))
+  ) {
+    return null;
+  }
+
   const grades = [...s.matchAll(/\b(\d{1,2})\s*(st|nd|rd|th)?\b/gi)]
     .map((m) => ({ n: parseInt(m[1], 10), ordinal: Boolean(m[2]) }))
     .filter((g) => g.n >= 1 && g.n <= 12);
-
-  const hasClassWord = /\b(class|grade|std|standard)\b/i.test(s);
   // Numbers 1 and 2 alone are ambiguous because of bot menu choices ("1 - Tutor", "2 - Parent"), so reject bare 1 and 2 without class keyword.
   const isBareMenuChoice = /^[12]\.?$/i.test(s.trim());
   if (isBareMenuChoice && !hasClassWord) return null;
@@ -227,8 +236,12 @@ export function extractPublicLocality(raw?: string | null, fallbackCity?: string
   if (/^(nursery|lkg|ukg|kg|jee|neet|cuet|all subjects|hindi|english|maths|science|physics|please call)$/i.test(s)) {
     return null;
   }
-  if (/^(default|skip|password|pwd|pass|login|admin|reply\s*default|test|none|null|undefined|non\s*of|none\s*of|dont\s*know|pata\s*nahi|no\s*idea)$/i.test(s)) {
+  if (/^(default|skip|password|pwd|pass|login|admin|reply\s*default|test|none|null|undefined|non\s*of|none\s*of|dont\s*know|pata\s*nahi|no\s*idea|qwerty|asdf|zxcv|123456|pass123|password123)$/i.test(s)) {
     return null;
+  }
+  // Online / Pan-India preference
+  if (/\b(?:online\s*(?:only|mode|class|classes|tuition|tutions?|chahiye|hi|h)?|pan\s*india|all\s*india|remote|work\s*from\s*home|wfh|no\s*offline)\b/i.test(s) && !/\b(nagar|vihar|sector|colony|enclave|pur|bagh)\b/i.test(s)) {
+    return "Online (Pan-India)";
   }
   // Strip leading prepositions/conjunctions like "and Dwarka" -> "Dwarka"
   s = s.replace(/^(?:and|or|aur|ya|in|at)\s+/i, "").trim();
@@ -238,9 +251,12 @@ export function extractPublicLocality(raw?: string | null, fallbackCity?: string
     return null;
   }
 
-  // Reject person names without place indicators (e.g. Afzal Alam, Priya Sharma)
+  // Reject person titles and names without place indicators (e.g. Dr Rakesh, Afzal Alam, Priya Sharma)
   if (!/\b(nagar|vihar|sector|sec\b|colony|enclave|pur\b|ganj\b|bagh\b|kunj|road|street|marg|phase|block|pocket|extension|ext\b|city|town|society|complex|lines|gali|mohalla|pincode)\b/i.test(s)) {
-    if (/\b(sharma|verma|gupta|singh|kumar|chauhan|mishra|alam|khan|yadav|tiwari|tripathi|pandey|shukla|bhatnagar|chadha|chawla|lalwani|lakshmi|bhatia|kaur|saxena|mathur|joshi|agarwal|agrawal|jain|dubey|malhotra|kapoor|khanna|arora|sethi|sood|mehta|shah|patel|reddy|nair|rao|das|banerjee|mukherjee)\b/i.test(s)) {
+    if (/^(?:dr\.?|doctor|prof\.?|professor|mr\.?|mrs\.?|ms\.?|er\.?|adv\.?|ca\.?)\s+/i.test(s)) {
+      return null;
+    }
+    if (/\b(sharma|verma|gupta|singh|kumar|chauhan|mishra|alam|khan|yadav|tiwari|tripathi|pandey|shukla|bhatnagar|chadha|chawla|lalwani|lakshmi|bhatia|kaur|saxena|mathur|joshi|agarwal|agrawal|jain|dubey|malhotra|kapoor|khanna|arora|sethi|sood|mehta|shah|patel|reddy|nair|rao|das|banerjee|mukherjee|rakesh|ramesh|suresh|mahesh|mukesh|rajesh|dinesh|anil|sunil|amit|rahul|rohit|vikas|vinay|vijay|sanjay|ajay|deepak|manoj|pankaj|ashok|priya|pooja|neha|anjali|swati|shweta|divya|kavita|sunita|anita|rekha|meena|charu|somya|vakeel|sajid|afzal|sneha)\b/i.test(s)) {
       return null;
     }
   }

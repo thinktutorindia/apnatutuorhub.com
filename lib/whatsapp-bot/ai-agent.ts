@@ -9,6 +9,7 @@
  */
 
 import { BotSession } from "./session";
+import { UserProfileContext } from "./user-profile-context";
 
 export type ChatHistoryEntry = {
   direction: string;
@@ -166,9 +167,25 @@ PASSWORD & CREDENTIAL RULES:
 STAFF ESCALATION — If user says: "problem", "issue", "complaint", "cheated", "call me", "not working", "refund", "fraud":
 Reply: "Samajh gaya. Seedha humse baat karo:\n📞 WhatsApp: +91 93191 93109\nTime: 9am-7pm (Mon-Sat)"
 
-PROFILE COMMANDS — recognize and handle:
+PROFILE COMMANDS & STORED PROFILE AWARENESS (CRITICAL):
+- When "Stored User Profile in Database" is provided:
+  * This user is ALREADY registered with ApnaTutorHub!
+  * Address them warmly by name if available (e.g. "Namaste Rahul ji!" or "Sure Rahul!").
+  * NEVER ask them to register, re-select role, or re-enter fields already in their profile, UNLESS they explicitly ask to change or update them.
+  * When user asks to view their profile ("My Profile", "Mera profile", "Show profile"):
+    Show a clean, structured summary: Name, Email, Location, Teaching Mode, Subjects, Classes, and Coin balance.
+  * When user asks about coins ("My coins", "Kitne coins hain", "Wallet"):
+    State their exact wallet coins directly from the profile.
+  * When user wants to UPDATE or EDIT ANY info in natural language (Hinglish/English):
+    - Location: "Mera area Saket kar do" / "Update location to Dwarka Sector 10" -> extract into extractedData: { area, city }
+    - Teaching Mode: "I only want online tuitions" / "Mode online kar do" -> extract into extractedData: { mode: "ONLINE" } (or OFFLINE / EITHER)
+    - Subjects/Classes: "Class 12 ke liye Chemistry bhi add kar do" -> extract into extractedData: { subjects, classLevels }
+    - Password: "Password change karke Pass@123 kar do" -> extract into extractedData: { password: "Pass@123" }
+    - Email: "Naya email rahul.new@gmail.com hai" -> extract into extractedData: { email: "rahul.new@gmail.com" }
+    - Name: "Mera naam Dr. Rajesh Verma hai" -> extract into extractedData: { name: "Dr. Rajesh Verma" }
+    Acknowledge the update warmly in your reply (e.g. "Aapka location *Saket, Delhi* note ho gaya hai! ✅") and populate the changed fields in extractedData so the system syncs it to the database immediately.
 - "MY PROFILE" / "PROFILE": Show their saved data
-- "UPDATE NAME/EMAIL/PASSWORD/SUBJECTS/AREA/PHONE": Ask for new value or extract directly into extractedData.
+- "UPDATE NAME/EMAIL/PASSWORD/SUBJECTS/AREA/MODE/PHONE": Ask for new value or extract directly into extractedData.
 - "MY LEADS" / "VIEW LEADS": Show matching leads
 - "HOW MANY COINS" / "KITNE COINS" / "WALLET" / "I ALREADY HAVE COINS": The engine fetches their live wallet balance. If balance is above 0, tell them the number and send them to leads. Do NOT ask them to buy coins.
 - "BUY COINS" / "RECHARGE" / "PLANS": Show the ₹1,257 Commission Based Plan only when they explicitly ask, or when their balance is 0.
@@ -197,6 +214,10 @@ PLATFORM KNOWLEDGE & REAL CHAT SCENARIOS:
   * "INTERESTED" / "I WANT THIS LEAD" / Broadcast replies: Warmly welcome them! Direct them to unlock leads at https://apnatutorhub.com/tutor/leads or activate the Commission Plan at https://apnatutorhub.com/tutor/plans.
   * "PARENT CONTACT NUMBER DO" / "Send parent phone": Explain transparently that parents' direct call & WhatsApp numbers are unlocked directly via https://apnatutorhub.com/tutor/leads.
   * ONLINE TUTORS / Outside Delhi: Remind them that All-India Online Home Tuitions are available at https://apnatutorhub.com/tutor/leads?mode=ONLINE without needing to travel!
+  * "ONLINE CHAHIYE NO OFFLINE" / "ONLINE ME AREA KA KYA MATLAB": Agree warmly and immediately: "Aapne bilkul sahi kaha! Online classes mein travel distance nahi hota — pure India ke students connect hote hain. Aap kaunse subjects online padhana chahte hain?" Set mode to "ONLINE", area to "Online (Pan-India)", city to "Online".
+  * "CAN'T PAY BEFOREHAND" / "PEHLE PAYMENT NAHI HO PAYEGA" / "SORRY I CAN'T PAY BEFOREHAND": Reassure them respectfully: "Koi baat nahi sir! Parent ko trial demo class ke liye koi payment nahi deni hoti, wo 100% free hoti hai. Platform par leads dekhna bhi free hai: https://apnatutorhub.com/tutor/leads. Bas jab lead ka direct parent number unlock karna ho tabhi plan activate karna hota hai."
+  * "ID / DASHBOARD OPEN NAHI HO RAHA" / "LOGIN NAHI HO RAHA": Answer directly: "Login portal: https://apnatutorhub.com/login. Forgot Password dabayein ya default password 12345678 se try karein. Agar phir bhi issue ho, toh yahin MANUAL RESET likh dein hum turant temporary password set kar denge!"
+  * DATES & AVAILABILITY ("I M FREE AFTER 3RD DEC", "AVAILABLE FROM MONDAY"): Note their future availability warmly: "Theek hai sir! 3rd Dec ke baad aap available hain, humne note kar liya hai. Tab tak profile ready kar lijiye taaki alert aate hi lead claim kar sakein." NEVER extract calendar dates as a class grade!
   * DISTANCE TOO FAR: Suggest filtering by their local area at https://apnatutorhub.com/tutor/leads or taking Online leads.
   * MOBILE APP: Explain that ApnaTutorHub is an installable Web-App (PWA). Open https://apnatutorhub.com in Chrome, tap 3 dots (⋮), and click "Install App" or "Add to Home Screen".
   * "SAARI BOOKED BATA RHA HAI": Explain the quality cap — max 3 tutors per lead so tutors have 90%+ win rate. Fresh leads drop regularly at https://apnatutorhub.com/tutor/leads?status=ACTIVE.
@@ -244,7 +265,8 @@ Output JSON format:
 export async function askGeminiChatbot(
   userMessage: string,
   session: BotSession,
-  chatHistory?: ChatHistoryEntry[]
+  chatHistory?: ChatHistoryEntry[],
+  userProfile?: UserProfileContext | null
 ): Promise<AiBotResponse | null> {
   const apiKey =
     process.env.GEMINI_API_KEY ||
@@ -259,20 +281,50 @@ export async function askGeminiChatbot(
   let historySection = "";
   if (chatHistory && chatHistory.length > 0) {
     const formatted = chatHistory
-      .slice(-8)
+      .slice(-15)
       .map((m) => {
         const who = m.direction === "INBOUND" ? "User/Tutor" : "Bot (Priya)";
-        return `[${who}]: ${m.body.replace(/\n+/g, " ").slice(0, 200)}`;
+        const time = m.createdAt
+          ? new Date(m.createdAt).toLocaleTimeString("en-IN", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "";
+        const timeTag = time ? ` [${time}]` : "";
+        return `[${who}${timeTag}]: ${m.body.replace(/\s+/g, " ").slice(0, 350)}`;
       })
       .join("\r\n");
     historySection = `\r\nRecent Conversation History (chronological order, most recent at bottom):\r\n${formatted}\r\n`;
   }
 
-  const prompt = `\r\nSystem Context:\r\n${SYSTEM_INSTRUCTION}\r\n\r\nCurrent Session State:\r\n- Phone: ${session.phone}\r\n- Current Step: ${session.step}\r\n- User Type: ${session.userType || "Unknown"}\r\n- Previously Collected Data: ${JSON.stringify(session.data || {})}\r\n${historySection}\r\nNew Incoming Message from User:\r\n"${userMessage}"\r\n\r\nRespond with the JSON object only:\r\n`;
+  let profileSection = "";
+  if (userProfile && userProfile.isRegistered) {
+    const parts = [
+      `- Registered: YES (${userProfile.role || "TUTOR"})`,
+      userProfile.name ? `- Name: ${userProfile.name}` : null,
+      userProfile.email ? `- Email: ${userProfile.email}` : null,
+      userProfile.area || userProfile.city ? `- Location: ${[userProfile.area, userProfile.city].filter(Boolean).join(", ")}` : null,
+      userProfile.teachingMode ? `- Teaching Mode: ${userProfile.teachingMode}` : null,
+      userProfile.subjects && userProfile.subjects.length > 0 ? `- Subjects: ${userProfile.subjects.join(", ")}` : null,
+      userProfile.classLevels && userProfile.classLevels.length > 0 ? `- Classes: ${userProfile.classLevels.join(", ")}` : null,
+      userProfile.coins !== undefined && userProfile.coins !== null ? `- Wallet Balance: ${userProfile.coins} coins` : null,
+      userProfile.subscriptionPlan ? `- Plan: ${userProfile.subscriptionPlan}` : null,
+    ].filter(Boolean);
+
+    if (userProfile.recentLeads && userProfile.recentLeads.length > 0) {
+      parts.push(`- Posted Student Requirements:\n  ${userProfile.recentLeads.map((l) => `* ${l.title || l.classLevel || "Tuition"} (${(l.subjects || []).join(", ")}) in ${l.area || "City"} [${l.status}]`).join("\n  ")}`);
+    }
+
+    profileSection = `\r\nStored User Profile in Database:\r\n${parts.join("\r\n")}\r\n`;
+  }
+
+  const prompt = `\r\nSystem Context:\r\n${SYSTEM_INSTRUCTION}\r\n\r\nCurrent Session State:\r\n- Phone: ${session.phone}\r\n- Current Step: ${session.step}\r\n- User Type: ${session.userType || "Unknown"}\r\n- Previously Collected Data: ${JSON.stringify(session.data || {})}\r\n${profileSection}${historySection}\r\nNew Incoming Message from User:\r\n"${userMessage}"\r\n\r\nRespond with the JSON object only:\r\n`;
 
   const models = [
     "gemini-3.5-flash-lite",
     "gemini-flash-lite-latest",
+    "gemini-3.7-flash",
     "gemini-3.5-flash",
   ];
 

@@ -735,23 +735,20 @@ export function formatGrowthPlanDetailMessage(): string {
 
 const PUBLIC_SITE = "https://apnatutorhub.com";
 
-/** Payment steps + QR image links (WhatsApp shows image preview from URL). */
+/** Payment steps + QR image attachment message (QR PNG is sent as a separate image attachment). */
 export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "1257"): string {
-  // Use the brand-new clean Kotak QR URL — the old flyer JPG URLs are cached by
-  // WhatsApp and still preview the stale (BharatPe) QR in existing chats.
-  const qrUrl = `${PUBLIC_SITE}/images/payment/upi-qr.png`;
   const plansUrl = `${PUBLIC_SITE}/tutor/plans`;
 
   const planLine = "Commission Based Plan *₹1,257*";
 
   return (
     `💳 *${planLine} — payment steps*\n\n` +
-    `1️⃣ Open: ${plansUrl}\n` +
-    `2️⃣ *Commission Based Plan (₹1,257)* select karein → *Pay Now* (UPI / Card / Netbanking)\n` +
-    `3️⃣ Ya niche diye gaye *Kotak UPI QR* ko scan karein:\n` +
-    `📱 ${qrUrl}\n\n` +
-    `Payment confirm hote hi leads unlock ho jati hain. ✅\n` +
-    `Madad: *HELP* ya WhatsApp +91 93191 93109 (9am–7pm)`
+    `1️⃣ Online payment karein (UPI / Card / Netbanking):\n` +
+    `👉 ${plansUrl}\n\n` +
+    `2️⃣ Ya niche bheja gaya *Kotak UPI QR scan karein* aur ₹1,257 transfer karein.\n\n` +
+    `✅ Payment ke baad screenshot ya UTR number yahan bhejein — team 15–30 min mein activate kar degi.\n\n` +
+    `🆔 UPI ID: *9311459543@kotakbank*\n` +
+    `Madad: WhatsApp +91 93191 93109 (9am–7pm)`
   );
 }
 

@@ -11,9 +11,16 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { claimReplyTurn, getOrCreateSession, updateSession, resetSession } from "@/lib/whatsapp-bot/session";
-import { processMessage } from "@/lib/whatsapp-bot/engine";
+import {
+  processMessage,
+  PAYMENT_QR_CAPTION,
+  PAYMENT_QR_IMAGE_URL,
+  type EngineResult,
+} from "@/lib/whatsapp-bot/engine";
+import { wantsPaymentQrInChat } from "@/lib/whatsapp-bot/plan-intent";
 import { sendBotMessage, sendBotImageMessage } from "@/lib/whatsapp-bot/sender";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
+import { indiaPhoneLast10 } from "@/lib/india-phone";
 import { updateWhatsAppChatMessageStatus, upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { isPositiveInterest, autoTagWhatsAppInterest } from "@/lib/whatsapp-interest-sync";
 
@@ -22,6 +29,45 @@ export const runtime = "nodejs";
 // ── Automatic WhatsApp Reply Toggle ──────────────────────────────────────────
 // Enabled for live automatic chatbot replies.
 export const AUTO_REPLY_ENABLED = true;
+
+/**
+ * The engine only attaches the QR for literal "PAY"/"QR" messages. Real tutors
+ * say "done", "commission plan bhejo", "parent number kaise unlock", "interested"
+ * and got a text-only reply with a URL — no scannable QR in chat. Attach the
+ * clean Kotak QR on every genuine payment/plan/unlock intent, with opt-out and
+ * anti-spam guards, so payment can happen inside the chat itself.
+ */
+async function withInChatPaymentQr(
+  phone: string,
+  raw: string,
+  result: EngineResult,
+  unsubscribed: boolean
+): Promise<EngineResult> {
+  if (unsubscribed || !result.reply?.trim()) return result;
+  if (result.imageUrls?.length) return result; // engine already attached it
+  if (!wantsPaymentQrInChat(raw)) return result;
+
+  // Never badge the same chat with the QR again inside 45 minutes unless the
+  // tutor explicitly asks for it again.
+  const recentQr = await prisma.whatsappChatMessage
+    .findFirst({
+      where: {
+        phone,
+        direction: "OUTBOUND",
+        createdAt: { gte: new Date(Date.now() - 45 * 60 * 1000) },
+        body: { contains: "upi-qr.png" },
+      },
+      select: { id: true },
+    })
+    .catch(() => null);
+  if (recentQr && !/\b(?:qr|upi|pay\s*now|payment\s*link)\b/i.test(raw)) return result;
+
+  return {
+    ...result,
+    imageUrls: [PAYMENT_QR_IMAGE_URL],
+    imageCaption: PAYMENT_QR_CAPTION,
+  };
+}
 
 // ── Payload normalisation ────────────────────────────────────────────────────
 
@@ -372,17 +418,32 @@ export async function POST(request: Request): Promise<NextResponse> {
         return;
       }
 
-      // 1b. Fetch recent conversation history so bot never has amnesia
+      // 1b. Fetch recent conversation history across all phone formats so bot never has amnesia
+      const phoneVariants = Array.from(
+        new Set([
+          phone,
+          normalizeIndiaWhatsApp(phone),
+          indiaPhoneLast10(phone),
+          phone.replace(/\D/g, ""),
+        ].filter(Boolean) as string[])
+      );
+
       const recentChatMessages = await prisma.whatsappChatMessage.findMany({
-        where: { phone },
+        where: { phone: { in: phoneVariants } },
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 20,
         select: { direction: true, body: true, createdAt: true, senderName: true },
       });
       const chatHistory = recentChatMessages.reverse();
 
       // 2. Process through state machine with full chat history
-      const result = await processMessage(session, text, { chatHistory });
+      const processed = await processMessage(session, text, { chatHistory });
+      const result = await withInChatPaymentQr(
+        phone,
+        text,
+        processed,
+        (session.data as Record<string, unknown>)?.unsubscribed === true
+      );
 
       // 3. Persist state
       await updateSession(

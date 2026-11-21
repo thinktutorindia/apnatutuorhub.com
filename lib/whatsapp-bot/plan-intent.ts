@@ -2,6 +2,8 @@
  * Plan-related intents — commission vs zero-commission must not cross-match.
  */
 
+import { refusesAdvancePayment } from "./conversation-intents";
+
 const ZERO_COMMISSION =
   /(?:without|with\s*out|no|zero|0\s*%|bina|non[\s-]*commission|commission\s*(?:nahi|free|free\s*plan)|0\s*commission)/i;
 
@@ -61,4 +63,51 @@ export function paymentPlanHint(raw: string): "1257" | "2999" | "any" {
   if (/1257|commission\s*(?:wala|based|plan)/i.test(raw) && !asksZeroCommissionPlan(raw)) return "1257";
   if (/2999|silver|zero\s*commission|0\s*%/i.test(raw)) return "2999";
   return "any";
+}
+
+/**
+ * Messages that must NEVER trigger an in-chat QR: opt-outs, hostility,
+ * pay-later objections, and unrelated login/KYC threads.
+ */
+export function blocksPaymentQrInChat(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return true;
+  return (
+    /\b(?:stop|unsubscribe|unsub|block|mat\s*bhejo|msg\s*mat\s*karo|band\s*karo|dont\s*send|don't\s*send)\b/i.test(t) ||
+    /\b(?:not\s*interested|no\s*thanks|scam|scammer|fraud|bakwas|faltu|chutiya|dudee)\b/i.test(t) ||
+    refusesAdvancePayment(t) ||
+    /\b(?:free\s*(?:lead|demo|me|mein)|bina\s*(?:paise|payment|reg)|pehle\s*demo|payment\s*(?:baad|ke\s*baad)|tuition\s*milne\s*ke\s*baad|class\s*milne\s*se\s*pehle)\b/i.test(t) ||
+    /\bpayment\b.{0,60}\b(?:baad|after|milne\s*ke|milne\s*par)\b/i.test(t) ||
+    (/\b(?:password|login|log\s*in|otp|forgot|reset)\b/i.test(t) && !/\b(?:pay|payment|qr)\b/i.test(t)) ||
+    (/\b(?:kyc|document|aadhaar|pan\s*card|marksheet|selfie)\b/i.test(t) && !/\b(?:pay|payment|qr|plan)\b/i.test(t))
+  );
+}
+
+/**
+ * Broad positive intent for "let me pay from this chat".
+ * The bot's narrow payment branches only catch literal "PAY"/"QR"; real tutors
+ * say "done", "commission plan bhejo", "parent number kaise unlock", "interested".
+ * Those messages got text-only replies with a URL and no scannable QR, so the
+ * coordinator had to send the QR manually. This widens the trigger.
+ */
+export function wantsPaymentQrInChat(raw: string): boolean {
+  const t = raw.trim();
+  if (!t || blocksPaymentQrInChat(t)) return false;
+
+  // Explicit payment/QR intents — always show QR
+  if (asksPlanPaymentOrQr(t)) return true;
+  if (/\b(?:qr|upi|scan\s*(?:qr|karo|kar)|paytm|phonepe|gpay|google\s*pay|razorpay)\b/i.test(t)) return true;
+  if (/\b(?:1257|₹\s?1,257|rs\.?\s?1257)\b/i.test(t)) return true;
+  if (/^\s*(?:pay|payment|qr)\s*$/i.test(t)) return true;
+  if (/^\s*(?:done|paid|pay\s*done|payment\s*done|utr\b|paid\s+\S+)/i.test(t)) return true;
+  if (/\b(?:screenshot|ss|receipt|payment\s*proof)\b.{0,20}\b(?:bhej|send|diya|kar|done|h)\b/i.test(t)) return true;
+
+  // Plan/registration context — show QR only if explicitly about paying/buying
+  if (/\b(?:plans*|membership|recharge|coins?|kharid\w*|activate|registration|register|fees?|price|charges?)\b/i.test(t) &&
+      /\b(?:kaise|karna|karu|karunga|karungi|abhi|pay|payment|lena|lungi|le\s*lena|abhi\s*karna)\b/i.test(t)) return true;
+
+  // Lead unlock context — show QR when explicitly asking HOW to unlock (not just "interested")
+  if (/\b(?:unlock|contact|number|parent)\b.{0,30}\b(?:kaise|kab|hoga)\b/i.test(t)) return true;
+
+  return false;
 }

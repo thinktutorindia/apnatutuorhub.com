@@ -509,10 +509,28 @@ export function validateAndCleanLocality(
   // Strip leading prepositions/conjunctions like "and Dwarka" -> "Dwarka"
   clean = clean.replace(/^(?:and|or|aur|ya|in|at)\s+/i, "");
   clean = clean.replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
+  // A trailing question mark is a question, not part of a locality name.
+  // e.g. "Sector 75 Noida?" -> "Sector 75" (previously saved as "Sector 75 ?").
+  clean = clean.replace(/[?？]+$/g, "").trim();
 
-  // Reject passwords, bot commands, defaults, conversational sentences, or tokens with letters+numbers directly attached (e.g. Meenu123, Priya123, Default, 12345678)
+  // Bot-bug guard: short acknowledgements / form answers are NOT localities.
+  // Previously replies like "Available", "I Want", "Oky", "Wait", "School"
+  // passed the proper-name fallback and were saved as the tutor's area.
   if (
-    /^(default|skip|password|pwd|pass|reply\s*default|none|null|undefined|test|admin|login|non\s*of|none\s*of|dont\s*know|pata\s*nahi|no\s*idea)$/i.test(clean) ||
+    /^(?:(?:i\s+)?(?:want|need|know|confirm|confirmed|interested|available|oky|okk|okay|ok|fine|good|great|sure|yes|done|thanks|thank\s*you|nothing|wait|school|hii?|hello|ji|theek|haan|ha|invalid|btara\s*h?|hn\s*reset|ky\s*pass(?:\.\s*h)?|was\s+calling|not\s+login|login\s+n(?:ahi|hi)\s*hori|pl\s*arrange|please\s*arrange|plans?|leads?|payment|inter|scam|scammers?|dudee)\b[\s,!.]*)+$/i.test(clean) ||
+    /^(?:aftr\s+confirmation|after\s+confirmation|without\s+pay|pay\s+after)\b/i.test(clean)
+  ) {
+    return {
+      isValid: false,
+      area: "",
+      city: defaultCity,
+      errorPrompt: `📍 Yeh area nahi lag raha. Apna *mohalla ya locality* likhein — jaise:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*`,
+    };
+  }
+
+  // Reject passwords, bot commands, defaults, conversational sentences, or tokens with letters+numbers directly attached (e.g. Meenu123, Priya123, Default, 12345678, Qwerty)
+  if (
+    /^(default|skip|password|pwd|pass|reply\s*default|none|null|undefined|test|admin|login|non\s*of|none\s*of|dont\s*know|pata\s*nahi|no\s*idea|qwerty|asdf|zxcv|123456|pass123|password123)$/i.test(clean) ||
     /\b(kindly|send|in\s+english|in\s+hindi|please|call\s+me)\b/i.test(clean) ||
     (!PLACE_INDICATORS.test(clean) && /\b[a-zA-Z]+[0-9]{2,}\b/i.test(clean)) ||
     (!PLACE_INDICATORS.test(clean) && /\b[0-9]{2,}[a-zA-Z]+\b/i.test(clean))
@@ -522,6 +540,16 @@ export function validateAndCleanLocality(
       area: "",
       city: defaultCity,
       errorPrompt: `📍 Yeh area samajh nahi aaya. Apna *mohalla ya locality* likhein — jaise:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*`,
+    };
+  }
+
+  // Online / Remote / All-India tuition preference -> Route to Online Classes
+  const ONLINE_PLACES = /\b(?:online\s*(?:only|mode|class|classes|tuition|tutions?|chahiye|hi|h|lena)?|sirf\s*online|pan\s*india|all\s*india|remote|work\s*from\s*home|wfh|no\s*offline|ghar\s*se\s*online)\b/i;
+  if (ONLINE_PLACES.test(clean) && !/\b(nagar|vihar|sector|colony|enclave|pur|bagh)\b/i.test(clean)) {
+    return {
+      isValid: true,
+      area: "Online (Pan-India)",
+      city: "Online",
     };
   }
 
@@ -722,7 +750,7 @@ export function validateAndCleanLocality(
   }
 
   // If it has a place keyword but also contains conversational intent words (job, salary, call, etc.), reject as a sentence
-  if (words.some((w) => ["job", "salary", "pagal", "call", "chahiye", "padhana", "padhna", "free", "demo", "lead", "leads", "contact", "pass", "kr", "lo", "mera", "meri", "hum"].includes(w))) {
+  if (words.some((w) => ["job", "salary", "pagal", "call", "chahiye", "padhana", "padhna", "free", "demo", "lead", "leads", "contact", "pass", "kr", "lo", "mera", "meri", "hum", "know", "dikhta", "dikhti", "but", "bhi", "rahti", "rehti", "raha", "available", "want", "wait", "school", "nothing", "confirm", "oky"].includes(w))) {
     return {
       isValid: false, area: "", city: defaultCity,
       errorPrompt: `📍 Yeh area nahi lag raha. Sirf apna *mohalla aur city* batayein.\nJaise: *Janakpuri Delhi*, *Bandra Mumbai*, *Sector 15 Noida*.`,
@@ -737,11 +765,16 @@ export function validateAndCleanLocality(
 
   // Words with numbers attached (e.g. Meenu123, test99) are never valid standalone proper names for localities
   const hasEmbeddedDigits = words.some((w) => /[a-zA-Z]/.test(w) && /\d/.test(w) && !/^(b|c|d|e|f|g|h|p|q|s|m|l)\d{1,3}$/i.test(w));
-  // Reject person names when no place indicator is present (e.g. "Afzal Alam", "Priya Sharma")
+  // Reject person titles and names when no place indicator is present (e.g. "Dr Rakesh", "Afzal Alam", "Priya Sharma", "Ishu Mittal")
+  const hasPersonTitle = !hasPlaceKeyword && words.some((w) => /^(dr|doctor|prof|professor|mr|mrs|ms|er|adv|ca|sir|madam|mam)$/i.test(w));
   const hasPersonSurname = !hasPlaceKeyword && words.some((w) =>
-    /^(sharma|verma|gupta|singh|kumar|chauhan|mishra|alam|khan|yadav|tiwari|tripathi|pandey|shukla|bhatnagar|chadha|chawla|lalwani|lakshmi|bhatia|kaur|saxena|mathur|joshi|agarwal|agrawal|jain|dubey|malhotra|kapoor|khanna|arora|sethi|sood|mehta|shah|patel|reddy|nair|rao|das|banerjee|mukherjee)$/i.test(w)
+    /^(sharma|verma|gupta|singh|kumar|chauhan|mishra|alam|ali|khan|yadav|tiwari|tripathi|pandey|shukla|bhatnagar|chadha|chawla|lalwani|lakshmi|bhatia|kaur|saxena|mathur|joshi|agarwal|agrawal|jain|dubey|malhotra|kapoor|khanna|arora|sethi|sood|mehta|shah|patel|reddy|nair|rao|das|banerjee|mukherjee|mittal|tanwar|jatav|pahuja|singhal|rawat|vashisht|thakur|sevak|prasad|garg|goel|bansal|khandelwal|agarwala)$/i.test(w)
   );
-  const isValidProperName = !looksLikeSubjectOnlyText(clean) && !isGibberish && !hasEmbeddedDigits && !hasPersonSurname && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
+  const hasPersonGivenName = !hasPlaceKeyword && words.some((w) =>
+    /^(rakesh|ramesh|suresh|mahesh|mukesh|rajesh|dinesh|anil|sunil|amit|rahul|rohit|vikas|vikram|vinay|vijay|sanjay|ajay|deepak|manoj|pankaj|ashok|alok|sachin|gaurav|saurabh|priya|pooja|neha|anjali|swati|shweta|divya|kavita|sunita|anita|rekha|meena|charu|somya|vakeel|sajid|afzal|arun|varun|tarun|neeraj|dheeraj|suraj|akash|aakash|vivek|abhishek|manish|ashish|mohit|sumit|nisha|sneha|preeti|priti|shilpa|richa|jyoti|ritu|monika|poonam|rashmi|bhavna|arti|aarti)$/i.test(w)
+  );
+  const isPasswordOrJunkWord = words.some((w) => /^(qwerty|asdf|zxcv|123456|pass123|password123|password|testing|default)$/i.test(w));
+  const isValidProperName = !looksLikeSubjectOnlyText(clean) && !isGibberish && !hasEmbeddedDigits && !hasPersonTitle && !hasPersonSurname && !hasPersonGivenName && !isPasswordOrJunkWord && words.length >= 1 && words.length <= 5 && !hasStopWord && /^[a-zA-Z0-9\s'.,\/-]+$/.test(clean) && clean.length >= 2 && clean.length <= 50;
 
   if (hasPlaceKeyword || isValidProperName) {
     const formatted = clean

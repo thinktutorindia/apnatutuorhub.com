@@ -14,6 +14,7 @@ import { type BotSession } from "./session";
 import { handleTutorStep } from "./flows/tutor";
 import { handleParentStep } from "./flows/parent";
 import { askGeminiChatbot } from "./ai-agent";
+import { getStoredUserProfile, type UserProfileContext } from "./user-profile-context";
 import {
   getChatbotMatchingLeads,
   formatTutorLeadsAndPlansMessage,
@@ -60,6 +61,8 @@ import {
   buildIndiaPhoneOrFilter,
   findPrimaryUserForWhatsApp,
   waPlaceholderEmail,
+  canonicalIndiaPhone,
+  indiaPhoneLast10,
 } from "@/lib/india-phone";
 import {
   getSubjectClassSuggestions,
@@ -106,6 +109,24 @@ export const DELHI_NCR_LOCALITIES = [
 export function cleanExtractedArea(raw: unknown, defaultCity = "Delhi"): string {
   const res = validateAndCleanLocality(raw, defaultCity);
   return extractPublicLocality(res.isValid ? res.area : typeof raw === "string" ? raw : "", res.city || defaultCity) || "";
+}
+
+/**
+ * A single-word city reply (e.g. "It is in gurgaon") is resolved by
+ * validateAndCleanLocality(..., allowCityOnly=true) into area === city.
+ * Saving that as `address` produces polluted profiles like "Gurgaon, Gurgaon"
+ * and wipes a real locality (e.g. Sector 90). Treat area === city as a
+ * non-locality signal everywhere we previously only rejected "Delhi, Delhi".
+ */
+function sameLocality(area?: string | null, city?: string | null): boolean {
+  const norm = (s?: string | null) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const a = norm(area);
+  const c = norm(city);
+  if (!a || !c) return false;
+  if (a === c) return true;
+  // Common city aliases that must not be treated as locality + city.
+  const alias: Record<string, string> = { gurgaon: "gurugram", gurugram: "gurugram", bombay: "mumbai", mumbai: "mumbai", bengaluru: "bangalore", bangalore: "bangalore" };
+  return (alias[a] || a) === (alias[c] || c);
 }
 
 export function getLocalitiesQuickReplies(city?: string): string[] {
@@ -302,7 +323,7 @@ export function extractAllClassLevelsFromText(text: string): string[] {
   // 2. Individual classes / exams (e.g. "class 8", "for 11 physics", "11th", "till 8th", "nursery", "jee", "neet")
   const singlePatterns = [
     /\b(?:class|grade|std|standard|for|to|till|upto)\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b(?!\s*(?:days?|hours?|hrs?|km|mins?|minutes?|years?|yrs?|months?|pm|am))/gi,
-    /\b(1[0-2]|[1-9])(?:st|nd|rd|th)\b/gi,
+    /\b(1[0-2]|[1-9])(?:st|nd|rd|th)\b(?!\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|tarikh|tareekh|date|floor|manzil|year|saal|week|hafte|rank|prize|attempt|time|baje|pm|am|days?|hours?|hrs?|mins?|minutes?))\b/gi,
     /\b(?:nursery|lkg|ukg|playgroup|iit[\s-]*jee|jee|neet|cuet)\b/gi,
   ];
   for (const rx of singlePatterns) {
@@ -351,6 +372,7 @@ export async function syncUserCredentialsInDb(params: {
   mergeClasses?: boolean;
   area?: string;
   city?: string;
+  mode?: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
 }): Promise<{
   ok: boolean;
   updatedFields: string[];
@@ -463,7 +485,22 @@ export async function syncUserCredentialsInDb(params: {
         longitude?: number;
         subjects?: string[];
         classLevels?: string[];
+        teachingMode?: "ONLINE" | "OFFLINE" | "EITHER" | "COACHING";
       } = {};
+      if (params.mode) {
+        profileUpdates.teachingMode =
+          params.mode === "ONLINE"
+            ? "ONLINE"
+            : params.mode === "OFFLINE"
+            ? "OFFLINE"
+            : params.mode === "COACHING"
+            ? "COACHING"
+            : "EITHER";
+        if (params.mode === "ONLINE" && !params.area && !tutorRow.tutorProfile.address) {
+          profileUpdates.address = "Online (Pan-India)";
+          profileUpdates.city = "Online";
+        }
+      }
       if (params.area) {
         profileUpdates.address = params.area;
       }
@@ -518,6 +555,7 @@ export async function syncUserCredentialsInDb(params: {
         if (params.area || params.city) updatedFields.push("area");
         if (profileUpdates.subjects) updatedFields.push("subjects");
         if (profileUpdates.classLevels) updatedFields.push("class");
+        if (profileUpdates.teachingMode) updatedFields.push("mode");
       }
     } else if (tutorUser?.parentProfile && (params.area || params.city) && !params.subjects && !params.classLevels) {
       const coords = await resolveCoordsSafe(
@@ -618,8 +656,13 @@ export type EngineResult = {
 };
 
 /** Clean Kotak UPI QR (9311459543@kotakbank / ROHIT SHARMA) — the only QR sent in chat. */
-const PAYMENT_QR_IMAGE_URL = "https://apnatutorhub.com/images/payment/upi-qr.png";
-const PAYMENT_QR_CAPTION = "💳 Scan to pay ₹1,257 — Commission Based Plan (6 months validity)";
+export const PAYMENT_QR_IMAGE_URL = "https://apnatutorhub.com/images/payment/upi-qr.png";
+export const PAYMENT_QR_CAPTION =
+  "💳 Scan to pay ₹1,257 — Commission Based Plan (6 months validity)\n" +
+  "🆔 UPI: 9311459543@kotakbank\n\n" +
+  "👉 Direct Payment Link (Card/UPI/Netbanking):\n" +
+  "https://apnatutorhub.com/tutor/plans\n\n" +
+  "Payment ke baad UTR ya screenshot yahan bhejein — team 15 min mein activate kar degi. ✅";
 
 // Send exactly ONE QR image so the chat always shows the Kotak QR directly.
 function paymentQrImage(): { imageUrls: string[]; imageCaption: string } {
@@ -889,13 +932,16 @@ function tryTutorOffScriptReply(
   }
 
   if (/password/i.test(rawMessage) && /(?:own|already|using|change|reset|update|purana)/i.test(rawMessage)) {
+    // Never ask a registered tutor to type a new password into WhatsApp: the
+    // old flow stored plaintext in session data and weak values like 123456
+    // never reached the DB hash. Send them through the real reset flow.
     return {
-      reply: `Apna password yahin type karein (kam se kam 6 characters) ya *default* likhein: 🔐`,
-      nextStep: "T_PASSWORD",
-      updatedData: { ...data, lastBotAsk: "password", sameAskCount: 0 },
+      reply: `Password reset ke liye https://apnatutorhub.com/login par *Forgot Password* dabayein — reset link/OTP aapke registered email ya mobile par aayega. 🔑\nAgar email access nahi hai to yahin *MANUAL RESET* likh dein, main temporary password set karke bhej dunga.`,
+      nextStep: "DONE",
+      updatedData: data,
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["default", "12345678"],
+      quickReplies: ["MANUAL RESET", "Help 📞"],
     };
   }
 
@@ -1004,14 +1050,44 @@ export async function processMessage(
   let step = session.step;
   const { data, retries } = session;
   const useAi = options?.useAi !== false;
+  const userProfile = await getStoredUserProfile(session.phone);
+
+  const phoneVariants = Array.from(
+    new Set([
+      session.phone,
+      canonicalIndiaPhone(session.phone),
+      indiaPhoneLast10(session.phone),
+      session.phone.replace(/\D/g, ""),
+    ].filter(Boolean) as string[])
+  );
+
   const chatHistory = options?.chatHistory ?? (
     await prisma.whatsappChatMessage.findMany({
-      where: { phone: session.phone },
+      where: { phone: { in: phoneVariants } },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 20,
       select: { direction: true, body: true, createdAt: true, senderName: true },
     }).then((msgs) => msgs.reverse()).catch(() => [])
   );
+
+  // Sync state data from DB profile if registered so context is never lost
+  if (userProfile?.isRegistered) {
+    if (!data._registered) data._registered = true;
+    if (!data.name && userProfile.name) data.name = userProfile.name;
+    if (!data.email && userProfile.email) data.email = userProfile.email;
+    if (!data.area && userProfile.area) data.area = userProfile.area;
+    if (!data.city && userProfile.city) data.city = userProfile.city;
+    if ((!data.subjects || (Array.isArray(data.subjects) && data.subjects.length === 0)) && userProfile.subjects?.length) {
+      data.subjects = userProfile.subjects;
+    }
+    if ((!data.classLevels || (Array.isArray(data.classLevels) && data.classLevels.length === 0)) && userProfile.classLevels?.length) {
+      data.classLevels = userProfile.classLevels;
+      if (!data.classLevel) data.classLevel = userProfile.classLevels[0];
+    }
+    if (!data.mode && userProfile.teachingMode) {
+      data.mode = userProfile.teachingMode;
+    }
+  }
 
   // ── Ignore WhatsApp Business Automated Away / Greeting Messages ──────────
   if (
@@ -1037,6 +1113,57 @@ export async function processMessage(
       userType: session.userType,
       retries: 0,
       quickReplies: ["START", "MENU"],
+    };
+  }
+
+  // ── Payment proof (UTR / screenshot / "done" after QR) ─────────────────────
+  // Never claim activation without manual verification. Ask for the UTR or a
+  // screenshot instead of treating a bare "done" as a completed payment.
+  const paymentPromptRecently =
+    chatHistory?.some(
+      (m) =>
+        m.direction === "OUTBOUND" &&
+        /upi-qr\.png|scan to pay|payment steps|kotakbank|utr number/i.test(m.body || "")
+    ) ?? false;
+
+  // UTR number pattern: 12-digit numeric string (NPCI UTR)
+  const utrNumberMatch = rawMessage.match(/\b(\d{12})\b/);
+  if (utrNumberMatch) {
+    return {
+      reply:
+        `✅ UTR *${utrNumberMatch[1]}* receive ho gaya hai! Dhanyavaad! 🙏\n\n` +
+        `Hamari team 15–30 minutes mein verify karke aapka plan activate kar degi. Activation ke baad aapko yahan confirmation milega.\n\n` +
+        `Koi sawaal ho to: WhatsApp +91 93191 93109`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, lastBotAsk: "utr-received", utrNumber: utrNumberMatch[1], sameAskCount: 0 },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  if (
+    /\butr\b/i.test(rawMessage) ||
+    /\b(?:screenshot|ss|receipt|payment\s*proof)\b.{0,20}\b(?:bhej|send|diya|kar|h)\b/i.test(rawMessage) ||
+    (/^\s*(?:done|paid|payment\s*done|pay\s*done)\b/i.test(rawMessage.trim()) && paymentPromptRecently)
+  ) {
+    // If they just say "done" or "paid" without a UTR, ask for confirmation proof
+    const justSaidDone = /^\s*(?:done|paid|payment\s*done|pay\s*done)\b/i.test(rawMessage.trim());
+    return {
+      reply: justSaidDone
+        ? `Bahut badhiya! 🎉 Payment ka UTR number ya screenshot yahin bhejein — team 15–30 min mein verify karke plan activate kar degi.\n\n🆔 UPI ID: *9311459543@kotakbank* (agar abhi pay nahi kiya to scan karein 👇)`
+        : `Payment ka proof receive ho gaya hai! 📲\n\nKripya *UTR number* (12-digit) ya *payment screenshot* yahin attach karein — team verify karke turant activate kar degi.\n\n⚠️ Verification ke baad hi lead unlock hoti hai.`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: {
+        ...data,
+        lastBotAsk: "await-utr",
+        sameAskCount: 0,
+        paymentProofReceivedAt: new Date().toISOString(),
+      },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Screenshot send karein 📸", "QR dobara bhejo 💳", "Talk to Support 📞"],
+      ...(justSaidDone ? paymentQrImage() : {}),
     };
   }
 
@@ -1196,19 +1323,99 @@ export async function processMessage(
 
   // ── Profile View ──────────────────────────────────────────────────────────
   if (/^(my\s*profile|profile|mera profile|meri profile|profil)$/i.test(rawMessage.trim())) {
-    const name = (data.name as string) || "Not set";
-    const email = (data.email as string) || "Not set";
-    const area = (data.area as string) || "Not set";
-    const city = (data.city as string) || "";
-    const subjects = Array.isArray(data.subjects) && data.subjects.length > 0 ? (data.subjects as string[]).join(", ") : "Not set";
-    const location = city ? `${area}, ${city}` : area;
-    const profileText = `👤 *Aapka Profile:*\n\nNaam: ${name}\nEmail: ${email}\nLocation: ${location}\nSubjects: ${subjects}\nPhone: +91-${session.phone}\nPassword: Set (encrypted 🔒)\n\nKuch update karna hai? Type karein:\n*UPDATE PASSWORD <naya password>*\n*UPDATE EMAIL <naya email>*\n*UPDATE NAME / UPDATE SUBJECTS*`;
+    const name = (data.name as string) || userProfile?.name || "Not set";
+    const email = (data.email as string) || userProfile?.email || "Not set";
+    const area = (data.area as string) || userProfile?.area || "Not set";
+    const city = (data.city as string) || userProfile?.city || "";
+    const subjects =
+      Array.isArray(data.subjects) && data.subjects.length > 0
+        ? (data.subjects as string[]).join(", ")
+        : userProfile?.subjects?.length
+        ? userProfile.subjects.join(", ")
+        : "Not set";
+    const classes =
+      Array.isArray(data.classLevels) && data.classLevels.length > 0
+        ? (data.classLevels as string[]).join(", ")
+        : userProfile?.classLevels?.length
+        ? userProfile.classLevels.join(", ")
+        : (data.classLevel as string) || "Not set";
+    const mode = (data.mode as string) || userProfile?.teachingMode || "Both (Online + Offline)";
+    const location = city && !area.toLowerCase().includes(city.toLowerCase()) ? `${area}, ${city}` : area;
+    const coinsStr = userProfile?.coins !== undefined && userProfile.coins !== null ? `\n🪙 Coins: *${userProfile.coins}*` : "";
+
+    const profileText = `👤 *Aapka Profile:*\n\nNaam: ${name}\nEmail: ${email}\nLocation: ${location}\nMode: ${mode}\nClass: ${classes}\nSubjects: ${subjects}\nPhone: +91-${session.phone}${coinsStr}\nPassword: Set (encrypted 🔒)\n\nKuch update karna hai? Likhein:\n• *UPDATE AREA <naya area>*\n• *UPDATE MODE Online / Offline*\n• *UPDATE SUBJECTS <subjects>*\n• *UPDATE PASSWORD <naya password>*`;
     return {
       reply: profileText,
       nextStep: step,
       updatedData: data,
       retries: 0,
-      quickReplies: ["Update Password", "Update Email", "Update Subjects", "View Leads 📋"],
+      quickReplies: ["Update Area 📍", "Update Mode 💻", "Update Subjects 📚", "View Leads 📋"],
+    };
+  }
+
+  // ── Manual Password Reset & Login/Dashboard Access Issues ─────────────────
+  const isExplicitManualReset = /^(?:manual\s*reset|reset\s*password|temporary\s*password|temp\s*password)$/i.test(rawMessage.trim());
+  const isLoginOrDashboardIssue =
+    isExplicitManualReset ||
+    /\b(?:id|i['’]?d|dashboard|account|login|portal|site|website)\b.*?\b(?:open|khul|login)\s*(?:nahi|ni|not)\s*(?:ho\s*raha|hona|rahi|raha\s*hai|h)?\b/i.test(rawMessage) ||
+    /\b(?:open|khul|chal)\s*(?:nahi|ni)\s*(?:ho\s*raha|rahi|raha\s*hai|raha)\b.*?\b(?:id|i['’]?d|dashboard|account|login|portal)\b/i.test(rawMessage) ||
+    /\b(?:login|sign\s*in)\s*(?:problem|issue|error|nahi\s*ho\s*raha|failed|atak|musibat)\b/i.test(rawMessage);
+
+  if (isLoginOrDashboardIssue) {
+    const cleanPhone = session.phone.replace(/\D/g, "");
+    const last10 = cleanPhone.slice(-10);
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: session.phone },
+          { phone: cleanPhone },
+          { phone: `+91${last10}` },
+          { phone: `91${last10}` },
+          { phone: last10 },
+        ],
+      },
+      select: { id: true, email: true, name: true },
+    }).catch(() => null);
+
+    const email = existingUser?.email || (data.email as string) || `user${last10}@apnatutorhub.com`;
+    const name = existingUser?.name || (data.name as string) || "Teacher";
+
+    if (isExplicitManualReset) {
+      const tempPass = "Tutor@123";
+      await syncUserCredentialsInDb({
+        phone: session.phone,
+        password: tempPass,
+      });
+      return {
+        reply:
+          `🔑 *Temporary Password Set Ho Gaya!*\n\n` +
+          `Aapke account ka naya password set kar diya hai:\n` +
+          `🔐 Password: *${tempPass}*\n` +
+          `📧 Login ID: *${email}* ya *${last10}*\n\n` +
+          `👉 *Abhi login karein:* https://apnatutorhub.com/login\n\n` +
+          `Login ke baad profile settings mein jaakar apna password update kar sakte hain. ✅`,
+        nextStep: step === "WELCOME" ? "DONE" : step,
+        updatedData: { ...data, email, password: tempPass },
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "My Profile 👤", "Talk to Support 📞"],
+      };
+    }
+
+    return {
+      reply:
+        `Namaste ${name} ji! Login ya Dashboard open hone mein problem aa rahi hai toh yeh check karein: 📲\n\n` +
+        `📧 *Aapka Registered Login:* ${email}\n` +
+        `📱 *Mobile:* +91 ${last10}\n\n` +
+        `1️⃣ *Direct Login Link:*\n👉 https://apnatutorhub.com/login\n\n` +
+        `2️⃣ Agar password yaad nahi ya galat bata raha hai, toh niche *MANUAL RESET* dabayein — hum turant temporary password (*Tutor@123*) set kar denge.\n\n` +
+        `3️⃣ Agar screen blank aa rahi ho, toh browser mein page reload karein ya Incognito/Private window mein open karein.\n\n` +
+        `Koi bhi dikkat ho toh direct call/WhatsApp karein: +91 93191 93109`,
+      nextStep: step === "WELCOME" ? "DONE" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["MANUAL RESET", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -1603,7 +1810,7 @@ export async function processMessage(
       };
     }
     const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || undefined, true);
-    if (!loc.isValid || (loc.city === "Delhi" && loc.area === "Delhi")) {
+    if (!loc.isValid || sameLocality(loc.area, loc.city)) {
       return {
         reply: loc.errorPrompt || "Sirf locality likhein — jaise *Saket*, *Indirapuram*, *Bandra*, ya *HSR Layout*. 📍",
         nextStep: "UPDATE_AREA",
@@ -1636,6 +1843,34 @@ export async function processMessage(
       reply: `Phone update request note ho gayi: *${newPhone}* 📱\n\nSecurity ke liye WhatsApp number verify karna hota hai. Agar aapka number change hua hai, toh kripya naye number se WhatsApp karein.`,
       nextStep: "DONE",
       updatedData: { ...data, phone: newPhone },
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+    };
+  }
+
+  if (step === "UPDATE_MODE") {
+    let mode: "ONLINE" | "OFFLINE" | "EITHER" | null = null;
+    if (/\bonline\b/i.test(rawMessage)) mode = "ONLINE";
+    else if (/\boffline\b/i.test(rawMessage)) mode = "OFFLINE";
+    else if (/\b(both|dono|either)\b/i.test(rawMessage)) mode = "EITHER";
+
+    if (!mode) {
+      return {
+        reply: "Kripya valid teaching mode chunein:\n• *Online* (Pan-India)\n• *Offline* (Home Tuition)\n• *Both* (Online + Offline)",
+        nextStep: "UPDATE_MODE",
+        updatedData: data,
+        retries: 0,
+        quickReplies: ["Online 💻", "Offline 🏠", "Both 🌐", "Cancel"],
+      };
+    }
+    const saved = await syncUserCredentialsInDb({ phone: session.phone, mode });
+    return {
+      reply: saved.updatedFields.includes("mode")
+        ? `Teaching mode update ho gaya: *${mode === "ONLINE" ? "Online (Pan-India) 💻" : mode === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Online + Offline 🌐"}* ✅`
+        : profileNotSavedReply(),
+      nextStep: "DONE",
+      updatedData: saved.updatedFields.includes("mode") ? { ...data, mode } : data,
+      userType: "TUTOR",
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
@@ -1695,8 +1930,9 @@ export async function processMessage(
   }
 
   // 2. Online Class Preference (e.g. tutors outside Delhi or preferring remote)
-  // Do not steal plan / interested / Facebook-parent messages.
+  // When at T_AREA step, allow it to fall through to the main intake flow so "Online" is accepted as teaching mode & locality!
   if (
+    step !== "T_AREA" &&
     /(?:\bonline\b.*?\b(?:class|classes|tuition|tutor|available|teach|padhana|student|work)\b|\b(?:class|classes|tuition|tutor|teach|padhana)\b.*?\bonline\b|^online\s*(?:only)?$)/i.test(rawMessage) &&
     !/\b(plan|plans|subscription|membership|pricing|coins?|wallet|kharid|interested|facebook|requirement for)\b/i.test(rawMessage) &&
     data.lastBotAsk !== "online-generic"
@@ -1704,7 +1940,7 @@ export async function processMessage(
     return {
       reply: `Ji bilkul! Hamare platform par All-India Online Home Tuitions bhi available hain. 💻\n\nAap pure India ke students ko ghar baithe online classes (Google Meet / Zoom) de sakte hain:\n\n👉 *Online Leads dekhein:*\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n👉 *Commission Based Plan (₹1,257):*\nhttps://apnatutorhub.com/tutor/plans\n\nAap kaunse subjects aur classes online padhana chahte hain? Humein reply karein taaki hum aapke liye matching online leads bhej sakein!`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: { ...data, mode: "ONLINE", lastBotAsk: "online-generic", sameAskCount: 0 },
+      updatedData: { ...data, mode: "ONLINE", area: data.area || "Online (Pan-India)", city: data.city || "Online", lastBotAsk: "online-generic", sameAskCount: 0 },
       userType: "TUTOR",
       retries: 0,
       quickReplies: ["View Online Leads 💻", "Commission Plan 🤝", "Update Subjects 📚"],
@@ -2262,12 +2498,17 @@ export async function processMessage(
   // NEVER demote them to WELCOME/LANG_SELECT with userType: null when they send Hi/Hello/Menu!
   const isRegisteredUser = step === "DONE" || data._registered === true;
   if (isRegisteredUser && SPECIAL_COMMANDS.includes(msg)) {
+    // START / MENU / HI must also re-subscribe a previously unsubscribed tutor.
+    // This branch previously returned the original `data`, so `unsubscribed`
+    // survived and every later message got the "type START" wall again.
+    const cleanData: Record<string, any> = { ...data };
+    if (cleanData.unsubscribed) delete cleanData.unsubscribed;
     const isParent = session.userType === "PARENT" || data.userType === "PARENT" || Boolean(data.studentName || data.parentProfileId);
     if (isParent) {
       return {
         reply: `Namaste! 🙏 Aapki tuition enquiry hamare coordinators ke paas active hai.\n\nAapko trial demo schedule karwana hai ya fee details ke baare mein sawaal hai?`,
         nextStep: "DONE",
-        updatedData: data,
+        updatedData: cleanData,
         userType: "PARENT",
         retries: 0,
         quickReplies: ["Trial Demo Status", "Fee Info", "Talk to Coordinator 📞"],
@@ -2277,7 +2518,7 @@ export async function processMessage(
     return {
       reply: `Namaste ${tutorName} ji! 🙏 Main Priya, ApnaTutorHub coordinator.\n\nBatayein, matching leads dekhna chahte hain ya wallet/plans ki details?`,
       nextStep: "DONE",
-      updatedData: data,
+      updatedData: cleanData,
       userType: "TUTOR",
       retries: 0,
       quickReplies: ["View Leads 📋", "My Profile 👤", "View Plans 💰", "Help 📞"],
@@ -2323,12 +2564,39 @@ export async function processMessage(
     if (isParent) {
       if (useAi) {
         try {
-          const ai = await askGeminiChatbot(rawMessage, session, chatHistory);
+          const ai = await askGeminiChatbot(rawMessage, session, chatHistory, userProfile);
           if (ai && ai.reply) {
+            const parentClasses = extractAllClassLevelsFromText(rawMessage);
+            const parentLoc = validateAndCleanLocality(rawMessage, (data.city as string) || undefined, true);
+            const hasNewReq = Boolean(
+              parentClasses.length > 0 ||
+              ai.extractedData?.classLevel ||
+              (parentLoc.isValid && !sameLocality(parentLoc.area, parentLoc.city)) ||
+              (Array.isArray(ai.extractedData?.subjects) && ai.extractedData.subjects.length > 0)
+            );
+            let updatedData = { ...data };
+            if (hasNewReq) {
+              const newCls = parentClasses[0] || (ai.extractedData?.classLevel as string) || (data.classLevel as string);
+              const newArea = parentLoc.isValid ? parentLoc.area : (ai.extractedData?.area as string) || (data.area as string);
+              const newSubs = (ai.extractedData?.subjects as string[]) || (data.subjects as string[]) || ["All Subjects"];
+              if (newCls && newArea) {
+                await registerParentFromWhatsapp(session.phone, {
+                  studentName: (data.studentName as string) || (data.name as string) || "Student",
+                  parentName: (data.parentName as string) || (data.name as string) || "Parent",
+                  email: (data.email as string) || undefined,
+                  phone: session.phone,
+                  city: (parentLoc.city as string) || (data.city as string) || "Delhi",
+                  area: newArea,
+                  classLevel: newCls,
+                  subjects: newSubs,
+                });
+                updatedData = { ...updatedData, classLevel: newCls, area: newArea, subjects: newSubs };
+              }
+            }
             return {
               reply: ai.reply,
               nextStep: "DONE",
-              updatedData: data,
+              updatedData,
               userType: "PARENT",
               retries: 0,
               quickReplies: ["Fee Info", "Trial Demo Status", "Talk to Coordinator 📞"],
@@ -2473,12 +2741,40 @@ export async function processMessage(
     }
 
     const wantsProfileChange = /\b(update|change|set|changed|badal|naya|new|add|also|bhi)\b/i.test(rawMessage);
+    if (wantsProfileChange && /\b(teaching\s*mode|mode|online\s*only|offline\s*only)\b/i.test(rawMessage)) {
+      let newMode: "ONLINE" | "OFFLINE" | "EITHER" | null = null;
+      if (/\bonline\b/i.test(rawMessage)) newMode = "ONLINE";
+      else if (/\boffline\b/i.test(rawMessage)) newMode = "OFFLINE";
+      else if (/\b(both|dono|either)\b/i.test(rawMessage)) newMode = "EITHER";
+
+      if (newMode) {
+        const saved = await syncUserCredentialsInDb({ phone: session.phone, mode: newMode });
+        return {
+          reply: saved.updatedFields.includes("mode")
+            ? `Teaching mode update ho gaya: *${newMode === "ONLINE" ? "Online (Pan-India) 💻" : newMode === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Online + Offline 🌐"}* ✅`
+            : profileNotSavedReply(),
+          nextStep: "DONE",
+          updatedData: saved.updatedFields.includes("mode") ? { ...data, mode: newMode } : data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["My Profile 👤", "View Leads 📋"],
+        };
+      }
+      return {
+        reply: "Kaunsa teaching mode choose karna chahte hain?\n• *Online* (Pan-India)\n• *Offline* (Home Tuition)\n• *Both* (Online + Offline)",
+        nextStep: "UPDATE_MODE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Online 💻", "Offline 🏠", "Both 🌐", "Cancel"],
+      };
+    }
     if (wantsProfileChange && /\b(location|area|locality|jagah|address|city)\b/i.test(rawMessage)) {
       const tail = rawMessage.match(/\b(?:location|area|locality|jagah|address|city)\s+(?:to\s+|as\s+|is\s+|hai\s+|ko\s+|in\s+|for\s+)?([a-zA-Z0-9][a-zA-Z0-9\s.,\/-]{1,60})$/i);
       const loc = tail
         ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || undefined, true)
         : null;
-      if (loc?.isValid && !(loc.city === "Delhi" && loc.area === "Delhi")) {
+      if (loc?.isValid && !sameLocality(loc.area, loc.city)) {
         const saved = await syncUserCredentialsInDb({
           phone: session.phone,
           area: loc.area,
@@ -2795,7 +3091,7 @@ export async function processMessage(
       // Location resolution (prefer explicit location statement or AI area+city, allowing non-Delhi city-only updates)
       let areaToSave: string | undefined;
       let cityToSave: string | undefined;
-      if (directLocRes?.isValid && !(directLocRes.city === "Delhi" && directLocRes.area === "Delhi")) {
+      if (directLocRes?.isValid && !sameLocality(directLocRes.area, directLocRes.city)) {
         areaToSave = directLocRes.area;
         cityToSave = directLocRes.city;
       } else if (ai?.extractedData && (typeof ai.extractedData.area === "string" || typeof ai.extractedData.city === "string")) {
@@ -2805,7 +3101,7 @@ export async function processMessage(
           ? `${aiArea}, ${aiCity}`
           : (aiArea || aiCity);
         const loc = validateAndCleanLocality(combinedLoc, aiCity || (data.city as string) || undefined, true);
-        if (loc.isValid && !(loc.city === "Delhi" && loc.area === "Delhi")) {
+        if (loc.isValid && !sameLocality(loc.area, loc.city)) {
           areaToSave = loc.area;
           cityToSave = loc.city;
         }
@@ -2844,8 +3140,19 @@ export async function processMessage(
           ? String(ai.extractedData.name).trim()
           : undefined;
 
+      // Mode resolution
+      let modeToSave: "ONLINE" | "OFFLINE" | "EITHER" | undefined;
+      const rawModeStr = String(ai?.extractedData?.mode || "").toUpperCase();
+      if (rawModeStr === "ONLINE" || /\b(?:online\s*(?:only|classes|teaching|tuition)?|pan-?india)\b/i.test(rawMessage)) {
+        modeToSave = "ONLINE";
+      } else if (rawModeStr === "OFFLINE" || /\b(?:offline\s*(?:only|classes|teaching|tuition)?|home\s*tuitions?)\b/i.test(rawMessage)) {
+        modeToSave = "OFFLINE";
+      } else if (rawModeStr === "EITHER" || /\b(?:both|dono|either)\b/i.test(rawMessage)) {
+        modeToSave = "EITHER";
+      }
+
       const hasPatch = Boolean(
-        credentialsChanged || nameToSave || areaToSave || subjectsToSave || (classesToSave && classesToSave.length > 0)
+        credentialsChanged || nameToSave || areaToSave || subjectsToSave || (classesToSave && classesToSave.length > 0) || modeToSave
       );
       const saved = hasPatch
         ? await syncUserCredentialsInDb({
@@ -2857,14 +3164,19 @@ export async function processMessage(
             city: cityToSave,
             subjects: subjectsToSave,
             classLevels: classesToSave,
+            mode: modeToSave,
             mergeSubjects: !wantsReplace,
             mergeClasses: !wantsReplace,
           })
         : { ok: true, updatedFields: [] as string[], finalSubjects: undefined, finalClassLevels: undefined };
 
       if (saved.updatedFields.includes("area")) {
-        mergedData.area = areaToSave;
-        mergedData.city = cityToSave;
+        // Never wipe a real locality when only the city was patched.
+        if (areaToSave) mergedData.area = areaToSave;
+        if (cityToSave) mergedData.city = cityToSave;
+      }
+      if (saved.updatedFields.includes("mode") && modeToSave) {
+        mergedData.mode = modeToSave;
       }
       const displaySubjects = saved.finalSubjects || subjectsToSave;
       const displayClasses = saved.finalClassLevels || classesToSave;
@@ -2879,7 +3191,8 @@ export async function processMessage(
 
       const savedBits = [
         saved.updatedFields.includes("name") ? `naam *${nameToSave}*` : "",
-        saved.updatedFields.includes("area") ? `location *${areaToSave}, ${cityToSave}*` : "",
+        saved.updatedFields.includes("area") ? `location *${[areaToSave, cityToSave].filter(Boolean).join(", ")}*` : "",
+        saved.updatedFields.includes("mode") && modeToSave ? `mode *${modeToSave === "ONLINE" ? "Online (Pan-India) 💻" : modeToSave === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Both (Online + Offline) 🌐"}*` : "",
         saved.updatedFields.includes("subjects") && displaySubjects ? `subjects *${displaySubjects.join(", ")}*` : "",
         saved.updatedFields.includes("class") && displayClasses ? `class *${displayClasses.join(", ")}*` : "",
         saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
@@ -2890,13 +3203,13 @@ export async function processMessage(
 
     if (useAi) {
       try {
-        const ai = await askGeminiChatbot(rawMessage, session, chatHistory);
+        const ai = await askGeminiChatbot(rawMessage, session, chatHistory, userProfile);
         if (ai && ai.reply) {
           ai.reply = ai.reply.replace(/\b(Seema|Anjali|Pooja|Riya|Simran|Neha|Shalini)\b/g, "Priya");
           const { savedBits, mergedData } = await applyDonePatch({ ai });
           let reply = ai.reply;
-          if (savedBits.length > 0) {
-            reply = `Save ho gaya: ${savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`;
+          if (savedBits.length > 0 && !reply.toLowerCase().includes("save ho gaya")) {
+            reply = `${reply}\n\n(Aapka ${savedBits.join(", ")} update kar diya gaya hai ✅)`;
           }
 
           return {
@@ -3005,13 +3318,23 @@ export async function processMessage(
 
   if (useAi) {
     try {
-      const ai = await askGeminiChatbot(rawMessage, session, chatHistory);
+      const ai = await askGeminiChatbot(rawMessage, session, chatHistory, userProfile);
       if (ai && ai.reply) {
         // Clean and merge extracted data
         const mergedData: Record<string, any> = { ...data };
+        // During identity steps the answer is a NAME / EMAIL / PASSWORD — never a
+        // locality. Gemini frequently mislabels those answers as `area`, which used
+        // to overwrite the tutor's real teaching area in the DB. Skip AI area/city
+        // entirely while collecting identity so the existing (correct) area wins.
+        const isIdentityStep =
+          session.step === "T_PASSWORD" ||
+          session.step === "T_EMAIL" ||
+          session.step === "T_NAME" ||
+          session.step === "P_STUDENT_NAME";
         if (ai.extractedData) {
           for (const [k, v] of Object.entries(ai.extractedData)) {
             if (v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)) {
+              if (isIdentityStep && (k === "area" || k === "city")) continue;
               mergedData[k] = v;
             }
           }
@@ -3034,8 +3357,21 @@ export async function processMessage(
           mergedData.password = pwdMatch[1].trim();
         }
 
+        // Name extractor (explicit name: ... or Dr/Prof title prefix or "mera naam ...")
+        if (!mergedData.name || /^(teacher|tutor|user|student|unknown)$/i.test(String(mergedData.name).trim())) {
+          const explicitNameMatch =
+            rawMessage.match(/(?:my\s*name\s*is|mera\s*naam|name\s*is|naam\s*hai|i\s*am|main\s*hoon)\s+([a-zA-Z\s.'-]+)/i) ||
+            rawMessage.match(/^(?:dr\.?|doctor|prof\.?|professor|mr\.?|mrs\.?|ms\.?|er\.?|adv\.?)\s+[a-zA-Z\s.'-]+$/i);
+          if (explicitNameMatch) {
+            const candidate = explicitNameMatch[1] ? explicitNameMatch[1].trim() : explicitNameMatch[0].trim();
+            if (isValidName(candidate)) {
+              mergedData.name = candidate;
+            }
+          }
+        }
+
         // Additional entity extractors from message text — Universal Indian Locality Validation
-        const isPasswordOrEmailStep = session.step === "T_PASSWORD" || session.step === "T_EMAIL" || session.step === "T_NAME";
+        const isPasswordOrEmailStep = isIdentityStep;
         const isMsgSensitive =
           /^(default|skip|password|pwd|pass|reply\s*default|leads|plans|coins|help|menu|stop|cancel)$/i.test(rawMessage.trim()) ||
           rawMessage.includes("@") ||
@@ -3052,7 +3388,7 @@ export async function processMessage(
             ? (aiCityStr && !aiAreaStr.toLowerCase().includes(aiCityStr.toLowerCase()) ? `${aiAreaStr}, ${aiCityStr}` : aiAreaStr)
             : (aiCityStr || rawMessage);
           const locRes = validateAndCleanLocality(rawAreaCandidate, (mergedData.city || data.city || "Delhi") as string, true);
-          if (locRes.isValid && !(locRes.city === "Delhi" && locRes.area === "Delhi")) {
+          if (locRes.isValid && !sameLocality(locRes.area, locRes.city)) {
             mergedData.area = locRes.area;
             mergedData.city = locRes.city;
           } else {
@@ -3095,7 +3431,7 @@ export async function processMessage(
         // State-specific step input helpers
         if (session.step === "T_AREA" && !mergedData.area && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
           const stepLoc = validateAndCleanLocality(rawMessage.trim(), (mergedData.city || data.city || "Delhi") as string, true);
-          if (stepLoc.isValid && !(stepLoc.city === "Delhi" && stepLoc.area === "Delhi")) {
+          if (stepLoc.isValid && !sameLocality(stepLoc.area, stepLoc.city)) {
             mergedData.area = stepLoc.area;
             mergedData.city = stepLoc.city;
           } else if (stepLoc.city && stepLoc.city !== "Delhi") {
@@ -3110,7 +3446,12 @@ export async function processMessage(
           delete mergedData.classLevel;
           delete mergedData.classLevels;
         }
-        const keptArea = keepArea(mergedData.area, rawMessage, data.area, (mergedData.city || data.city || "Delhi") as string);
+        // During identity steps (name/email/password) the AI frequently mislabels the
+        // answer as `area`. Always preserve the previously-validated area and discard
+        // whatever the AI extracted into mergedData.area during those steps.
+        const keptArea = isIdentityStep
+          ? (typeof data.area === "string" && data.area.trim() ? data.area.trim() : undefined)
+          : keepArea(mergedData.area, rawMessage, data.area, (mergedData.city || data.city || "Delhi") as string);
         if (keptArea) mergedData.area = keptArea;
         else if (!mergedData.area) delete mergedData.area;
         if (session.step === "T_SUBJECTS" && (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
@@ -3175,7 +3516,7 @@ export async function processMessage(
         const hasClass = classLevelsArray.length > 0;
 
         const locResult = validateAndCleanLocality(mergedData.area || data.area, (mergedData.city || data.city || "Delhi") as string, true);
-        const rawArea = locResult.isValid && !(locResult.city === "Delhi" && locResult.area === "Delhi") ? locResult.area : "";
+        const rawArea = locResult.isValid && !sameLocality(locResult.area, locResult.city) ? locResult.area : "";
         if (rawArea) {
           mergedData.area = locResult.area;
           mergedData.city = locResult.city;
@@ -3213,6 +3554,34 @@ export async function processMessage(
         if (role === "TUTOR") {
           const midOnboardOff = tryTutorOffScriptReply(session, rawMessage, mergedData, session.step);
           if (midOnboardOff) return midOnboardOff;
+
+          const isTutorReadyToFinalize =
+            hasSubjects &&
+            hasClass &&
+            hasArea &&
+            (Boolean(mergedData.email) || session.step === "T_EMAIL" || session.step === "T_PASSWORD" || Boolean(mergedData.password));
+
+          // If Gemini generated a smart, contextual, human reply and registration is not finalizing yet:
+          if (!isTutorReadyToFinalize && ai && ai.reply) {
+            let nextStep = "T_CONVO";
+            if (!hasSubjects) nextStep = "T_SUBJECTS";
+            else if (!hasClass) nextStep = "T_CLASS";
+            else if (!hasArea) nextStep = "T_AREA";
+            else if (!mergedData.name) nextStep = "T_NAME";
+            else if (!mergedData.email) nextStep = "T_EMAIL";
+
+            return {
+              reply: ai.reply,
+              nextStep,
+              updatedData: mergedData,
+              userType: "TUTOR",
+              retries: 0,
+              quickReplies: ai.quickReplies && ai.quickReplies.length > 0
+                ? ai.quickReplies
+                : ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
+              ...(asksPlanPaymentOrQr(rawMessage) || wantsToPayNow(rawMessage) ? paymentQrImage() : {}),
+            };
+          }
 
           // Case A: Missing all teaching details
           if (!hasSubjects && !hasClass && !hasArea) {
@@ -3304,17 +3673,24 @@ export async function processMessage(
                   quickReplies: getLocalitiesQuickReplies((mergedData.city || data.city) as string),
                 };
               }
+              mergedData.area = locCheck.area;
+              mergedData.city = locCheck.city;
+              if (locCheck.area.toLowerCase().includes("online")) {
+                mergedData.mode = "ONLINE";
+                mergedData.modeKey = "2";
+              }
+            } else {
+              const ctx = formatHumanTeachingContext(subsArray, classLevelsArray[0] || (mergedData.classLevel as string), rawArea);
+              mergedData.subjects = ctx.cleanSubs;
+              return {
+                reply: ctx.humanAreaPrompt,
+                nextStep: "T_AREA",
+                updatedData: mergedData,
+                userType: "TUTOR",
+                retries: 0,
+                quickReplies: getLocalitiesQuickReplies((mergedData.city || data.city) as string),
+              };
             }
-            const ctx = formatHumanTeachingContext(subsArray, classLevelsArray[0] || (mergedData.classLevel as string), rawArea);
-            mergedData.subjects = ctx.cleanSubs;
-            return {
-              reply: ctx.humanAreaPrompt,
-              nextStep: "T_AREA",
-              updatedData: mergedData,
-              userType: "TUTOR",
-              retries: 0,
-              quickReplies: getLocalitiesQuickReplies((mergedData.city || data.city) as string),
-            };
           }
 
           // Case E1: Has area only, but missing subjects and class (e.g. user typed "sangam vihar")
@@ -3382,7 +3758,8 @@ export async function processMessage(
           }
 
           // Case E6: Missing area
-          if (!hasArea) {
+          const hasAreaNow = hasArea || Boolean(typeof mergedData.area === "string" && mergedData.area.trim().length >= 2);
+          if (!hasAreaNow) {
             return {
               reply: `Aapka teaching area / location kya hai? 📍`,
               nextStep: "T_AREA",
@@ -3410,9 +3787,10 @@ export async function processMessage(
             };
           }
 
-          const ctx = formatHumanTeachingContext(subsArray, rawCls, rawArea);
+          const effectiveArea = (typeof mergedData.area === "string" && mergedData.area.trim()) || rawArea || (mergedData.city as string) || "Delhi";
+          const ctx = formatHumanTeachingContext(subsArray, rawCls, effectiveArea);
           mergedData.subjects = ctx.cleanSubs;
-          const areaName = rawArea;
+          const areaName = effectiveArea;
           const cityName = (mergedData.city as string) || "Delhi";
           const tutorName = (mergedData.name as string) || "";
 
@@ -3512,13 +3890,15 @@ export async function processMessage(
               }
               return {
                 reply:
-                  `Email baad mein bhej dena (jaise name@gmail.com) — login alerts ke liye chahiye.\n\n` +
-                  `Aapki profile note ho gayi hai! Abhi matching leads dekh sakte hain:\n👉 https://apnatutorhub.com/tutor/leads\n👉 Plans: https://apnatutorhub.com/tutor/plans`,
+                  `✅ Profile note ho gayi! Leads aur login ke liye email baad mein bhej sakte hain.\n\n` +
+                  `📋 Matching leads dekhein: https://apnatutorhub.com/tutor/leads\n` +
+                  `💎 Membership plan (₹1,257): https://apnatutorhub.com/tutor/plans\n\n` +
+                  `Reply karein *PAY* ya *QR* — payment QR turant bhejenge!`,
                 nextStep: "DONE",
                 updatedData: { ...mergedData, _registered: true, lastBotAsk: "email-skip", sameAskCount: 0 },
                 userType: "TUTOR",
                 retries: 0,
-                quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
+                quickReplies: ["View Leads 📋", "PAY / QR 💳", "Talk to Support 📞"],
               };
             }
 
@@ -3589,9 +3969,9 @@ export async function processMessage(
             }
 
             mergedData.email = emailCandidate;
-            const ackLabel = (session.step === "T_AREA" || (mergedData.area && !mergedData.emailAcknowledged))
-              ? `Location note ho gayi: *${mergedData.area}* ✅`
-              : `Email note ho gaya: *${emailCandidate}* ✅`;
+            const ackLabel = session.step === "T_EMAIL" || emailCandidate
+              ? `Email note ho gaya: *${emailCandidate}* ✅`
+              : (mergedData.area ? `Location note ho gayi: *${mergedData.area}* ✅` : `Details note ho gayi! ✅`);
             return {
               reply: `${ackLabel}\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
               nextStep: "T_PASSWORD",
@@ -3659,18 +4039,24 @@ export async function processMessage(
           }
 
           const usedDefault = mergedData._usedDefaultPassword === true;
+          // Registration is complete: never keep a plaintext password in session JSON.
+          delete mergedData.password;
+          delete mergedData._usedDefaultPassword;
           mergedData._registered = true;
 
-          // Simple profile-created confirmation. Leads/plans are only sent when tutor asks.
+          // Profile created confirmation with login + leads + payment CTA
           const loginLine = `📧 ${emailToUse} | 📱 ${phoneToUse}`;
           const pwdNote = usedDefault
             ? `\n🔑 Default password *12345678* — login karke change kar lein: https://apnatutorhub.com/login`
             : ``;
+          const finalName = resolvedTutorName || (typeof mergedData.name === "string" ? mergedData.name : "");
+          const nameGreeting = finalName && !/^(tutor|teacher|user|unknown)$/i.test(finalName.trim()) ? ` ${finalName.trim()} ji` : "";
           const profileReply =
-            `✅ *Profile taiyaar ho gayi hai ${tutorName} ji!*\n` +
+            `✅ *Profile taiyaar ho gayi hai${nameGreeting}!*\n` +
             `🔐 Login: ${loginLine}\nhttps://apnatutorhub.com/login${pwdNote}\n\n` +
-            `Matching student leads dekhne ke liye reply karein *LEADS* 📋\n` +
-            `Membership plans ke liye reply karein *PLANS* 💎`;
+            `📋 Matching student leads dekhne ke liye reply karein *LEADS*\n` +
+            `💎 Membership plan (₹1,257) ke liye reply karein *PAY* — QR bhejenge turant!\n` +
+            `👉 Plans: https://apnatutorhub.com/tutor/plans`;
 
           return {
             reply: profileReply,
@@ -3680,8 +4066,8 @@ export async function processMessage(
             retries: 0,
             quickReplies: [
               "View Leads 📋",
+              "PAY / QR 💳",
               "Membership Plans 💎",
-              "My Profile",
             ],
           };
         }
@@ -3698,6 +4084,25 @@ export async function processMessage(
 
           const parentArea = typeof mergedData.area === "string" ? mergedData.area.trim() : (typeof data.area === "string" ? (data.area as string).trim() : "");
           const parentHasArea = Boolean(parentArea && parentArea.toLowerCase() !== "delhi ncr" && parentArea.length >= 2);
+
+          const isParentReadyToFinalize = parentHasSubs && parentHasClass && parentHasArea;
+          if (!isParentReadyToFinalize && ai && ai.reply) {
+            let nextStep = "P_CONVO";
+            if (!parentHasClass) nextStep = "P_CLASS";
+            else if (!parentHasSubs) nextStep = "P_SUBJECTS";
+            else if (!parentHasArea) nextStep = "P_AREA";
+
+            return {
+              reply: ai.reply,
+              nextStep,
+              updatedData: mergedData,
+              userType: "PARENT",
+              retries: 0,
+              quickReplies: ai.quickReplies && ai.quickReplies.length > 0
+                ? ai.quickReplies
+                : ["Class 9-10 Maths & Sci", "Class 1-5 All Subjects", "Class 11-12"],
+            };
+          }
 
           if (!parentHasSubs && !parentHasClass && !parentHasArea) {
             return {
@@ -3851,6 +4256,8 @@ export async function processMessage(
             };
           }
 
+          delete mergedData.password;
+          delete mergedData._usedDefaultPassword;
           mergedData._registered = true;
 
           // Simple profile-created confirmation only. Tutors/demo sent only on request.
@@ -4378,6 +4785,9 @@ export async function processMessage(
     }
 
     const usedDefault = updated._usedDefaultPassword === true;
+    // Registration is complete: never keep a plaintext password in session JSON.
+    delete updated.password;
+    delete updated._usedDefaultPassword;
     updated._registered = true;
 
     // Simple profile-created confirmation only. Leads/plans sent only when tutor asks.

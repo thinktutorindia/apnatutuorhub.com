@@ -17,7 +17,7 @@ export type LooseIntent =
   | "NOISE";
 
 const LEADS_LOOSE =
-  /\b(leds?|lede|lid|leadz|tuition|tution|students?|requirement|inquiry|enquiry|class\s*chahiye|padhana|padha(?:na|ne)|unlock|contact\s*number|parent\s*no)\b/i;
+  /\b(leds?|lede|lid|leadz|tuition|tution|students?|requirement|inquiry|enquiry|class\s*chahiye|padhana|padha(?:na|ne)|unlock|contact\s*number|parent\s*no|milao|bhejo|chahiye|dikhao|dikha|show|refresh|naya\s*lead|fresh\s*lead|koi\s*lead|koi\s*tuition|koi\s*student)\b/i;
 const PLANS_LOOSE =
   /\b(pln|paln|plan|membership|membrship|recharge|rechrg|top\s*up|topup|wallet|coins?|kharid|payment|pay\s*karna)\b/i;
 const PROFILE_LOOSE =

@@ -172,8 +172,18 @@ export function normalizeCanonicalClassLevel(raw?: string | null): string | null
     return null;
   }
 
-  const grades = [...s.matchAll(/\b(\d{1,2})\s*(st|nd|rd|th)?\b/gi)]
-    .map((m) => ({ n: parseInt(m[1], 10), ordinal: Boolean(m[2]) }))
+  // Reject locality/address contexts without explicit class keywords (e.g. "vasundhra sec-12", "sector 12", "Rohini Sector 11")
+  if (
+    !hasClassWord &&
+    (/\b(sector|sec|phase|block|pocket|plot|flat|house|lane|street|road|gali|pin|pincode)[\s-]*\d/i.test(s) ||
+      /\b(nagar|vihar|pur|ganj|bagh|colony|enclave|kunj|park|puri|extension|society|apartment)\b/i.test(s))
+  ) {
+    return null;
+  }
+
+  const grades = [...s.matchAll(/(?:(sector|sec|phase|block|pocket|plot|flat|house|lane|street|road|gali|pin|pincode)[\s-]*)?\b(\d{1,2})\s*(st|nd|rd|th)?\b/gi)]
+    .filter((m) => !m[1]) // skip numbers that are part of sector/plot/house/block addresses
+    .map((m) => ({ n: parseInt(m[2], 10), ordinal: Boolean(m[3]) }))
     .filter((g) => g.n >= 1 && g.n <= 12);
   // Numbers 1 and 2 alone are ambiguous because of bot menu choices ("1 - Tutor", "2 - Parent"), so reject bare 1 and 2 without class keyword.
   const isBareMenuChoice = /^[12]\.?$/i.test(s.trim());

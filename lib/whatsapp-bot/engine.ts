@@ -328,9 +328,9 @@ export function extractAllClassLevelsFromText(text: string): string[] {
   ];
   for (const rx of singlePatterns) {
     while ((m = rx.exec(s)) !== null) {
-      // Avoid matching numbers inside 6-digit pincodes or sector numbers like "Sector 62"
+      // Avoid matching numbers inside 6-digit pincodes or sector numbers like "Sector 62" or "sec-12"
       const prefixSlice = s.slice(Math.max(0, m.index - 10), m.index).toLowerCase();
-      if (/\b(sector|sec|phase|block|pin|pincode)\s*$/i.test(prefixSlice)) continue;
+      if (/\b(sector|sec|phase|block|pocket|plot|flat|house|lane|street|road|gali|pin|pincode)[\s-]*$/i.test(prefixSlice)) continue;
       const numMatch = m[0].match(/(1[0-2]|[1-9])/);
       const nVal = numMatch ? parseInt(numMatch[1], 10) : null;
       const candidate = numMatch ? `Class ${numMatch[1]}` : m[0];
@@ -354,8 +354,14 @@ export function extractAllClassLevelsFromText(text: string): string[] {
   }
 
   if (found.size === 0) {
-    const fallback = normalizeCanonicalClassLevel(s);
-    if (fallback) found.add(fallback);
+    // Only use fallback if string is not an address/sector
+    if (
+      !/\b(sector|sec|phase|block|pocket|plot|flat|house|lane|street|road|gali|pin|pincode)[\s-]*\d/i.test(s) &&
+      !/\b(nagar|vihar|pur|ganj|bagh|colony|enclave|kunj|park|puri|extension|society|apartment)\b/i.test(s)
+    ) {
+      const fallback = normalizeCanonicalClassLevel(s);
+      if (fallback) found.add(fallback);
+    }
   }
 
   return Array.from(found);
@@ -1061,7 +1067,7 @@ export async function processMessage(
 ): Promise<EngineResult> {
   const msg = rawMessage.trim().toUpperCase();
   let step = session.step;
-  const { data, retries } = session;
+  let { data, retries } = session;
   const useAi = options?.useAi !== false;
   const userProfile = await getStoredUserProfile(session.phone);
 
@@ -1118,7 +1124,18 @@ export async function processMessage(
   }
 
   // ── Unsubscribe / Stop Commands (AquaSMS chat log pattern) ─────────────────
-  if (/\b(?:unsubscribe|unsub|stop\s*messages?|stop\s*messaging|dont\s*message|don't\s*message|mat\s*bhejo|msg\s*mat\s*karo)\b|^stop$/i.test(rawMessage.trim())) {
+  // Guard against broadcast alert footers "(Reply STOP to Unsubscribe)" quoted or forwarded by users
+  const unquotedStopMessage = rawMessage
+    .replace(/\(?reply\s+stop\s+to\s+unsubscribe\)?/gi, "")
+    .replace(/reply\s+stop/gi, "")
+    .trim();
+  const hasPositiveEngagementIntent = /\b(interested|interest|agree|yes|haan|want|chahiye|arrange|demo|send|lead|leads|available|ready|kardo|karo)\b/i.test(unquotedStopMessage);
+  const isExplicitUnsubscribe =
+    !hasPositiveEngagementIntent &&
+    (/\b(?:unsubscribe|unsub|stop\s*messages?|stop\s*messaging|dont\s*message|don't\s*message|mat\s*bhejo|msg\s*mat\s*karo)\b/i.test(unquotedStopMessage) ||
+      /^stop$/i.test(unquotedStopMessage));
+
+  if (isExplicitUnsubscribe) {
     return {
       reply: `Aapko notifications se unsubscribe kar diya gaya hai. Hamari taraf se ab aapko automated alerts nahi aayenge. 🙏\n\nAgar future mein dobara tuition alerts chahiye hon, toh bas *START* likh kar bhej dein.\n\nApnaTutorHub.com`,
       nextStep: "WELCOME",
@@ -1297,14 +1314,17 @@ export async function processMessage(
     if (socialLoose) return socialLoose;
   }
 
-  // ── Staff Escalation: complaint / issue / problem / scam ─────────────────
-  if (/\b(problem|issue|complaint|cheated|fraud|refund|not working|call me|fake|chor|scam|dhokha|loot|police|court)\b/i.test(rawMessage)) {
+  // ── Staff Escalation: severe legal / police threats ───────────────────────
+  // General refund / payment / trust / coordinator questions are answered by Gemini AI.
+  // Only true legal threats get escalated to static registration.
+  if (/\b(police|court|consumer\s*court|consumer\s*forum|fir\b|cyber\s*crime|cyber\s*cell|legal\s*notice)\b/i.test(rawMessage)) {
+    const cleanPhone = session.phone.replace(/^91/, "");
     return {
-      reply: `Aapka issue register kar liya gaya hai. Aapka registered WhatsApp (+91-${session.phone}) note ho gaya hai — hamare senior coordinator isi chat par aapki madad karenge.\n\n📞 Direct Helpline: 08062180653\n⏰ Time: 9:00 AM – 7:00 PM (Mon–Sat)\n\nAap apna specific issue yahan likhein — hum turant resolve karenge!`,
+      reply: `Aapka issue register kar liya gaya hai. Aapka registered WhatsApp (+91-${cleanPhone}) note ho gaya hai — hamare senior coordinator turant aapki madad karenge.\n\n📞 Direct WhatsApp Support: +91 93191 93109\n⏰ Time: 9:00 AM – 7:00 PM (Mon–Sat)\n\nAap apna specific issue yahan likhein — hum turant resolve karenge!`,
       nextStep: step,
       updatedData: data,
       retries: 0,
-      quickReplies: ["View Leads 📋", "Buy Coins 🪙", "MENU 🏠"],
+      quickReplies: ["Talk to Support 📞", "View Leads 📋", "MENU 🏠"],
     };
   }
 
@@ -1322,16 +1342,26 @@ export async function processMessage(
     };
   }
 
-  // If user previously unsubscribed and hasn't sent a restart keyword, acknowledge gently
-  if (data.unsubscribed === true && !SPECIAL_COMMANDS.includes(msg)) {
-    return {
-      reply: `Aapne pehle tuition alerts unsubscribe kiye the. Dobara shuru karne ke liye *START* likhein. 🙏`,
-      nextStep: "WELCOME",
-      updatedData: data,
-      userType: session.userType,
-      retries: 0,
-      quickReplies: ["START", "MENU"],
-    };
+  // If user previously unsubscribed, check if they are re-engaging with an active request
+  if (data.unsubscribed === true) {
+    const isReengaging =
+      SPECIAL_COMMANDS.includes(msg) ||
+      /\b(start|hi|hello|leads?|demo|interested|tuition|class|sec(?:tor)?|delhi|noida|gurugram|mumbai)\b/i.test(rawMessage) ||
+      validateAndCleanLocality(rawMessage, undefined, true).isValid;
+
+    if (isReengaging) {
+      // Clear unsubscribed flag and proceed with normal processing!
+      data = { ...data, unsubscribed: false };
+    } else {
+      return {
+        reply: `Aapne pehle tuition alerts unsubscribe kiye the. Dobara shuru karne ke liye *START* likhein. 🙏`,
+        nextStep: "WELCOME",
+        updatedData: data,
+        userType: session.userType,
+        retries: 0,
+        quickReplies: ["START", "MENU"],
+      };
+    }
   }
 
   // ── Profile View ──────────────────────────────────────────────────────────
@@ -2952,39 +2982,41 @@ export async function processMessage(
         rawMessage.match(/([A-Za-z][A-Za-z\s]{2,25}?)\s+(mein|me|mai)\b/i);
       const rawLoc = locMatch ? (locMatch[2] || locMatch[1]).trim() : rawMessage.replace(/\b(koi|class|hai|hain|mein|me|mai|lead|tuition|student|available|requirement)\b/gi, " ").trim();
       const loc = validateAndCleanLocality(rawLoc.trim(), (data.city as string) || "Delhi");
-      const searchArea = loc.isValid ? loc.area : rawLoc.trim();
-      const searchCity = loc.isValid ? loc.city : (data.city as string) || "Delhi";
-      const classForSearch = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
-        ? (data.classLevels as string[])
-        : (data.classLevel as string | undefined);
-      const subjectsForSearch = Array.isArray(data.subjects) ? (data.subjects as string[]) : [];
-      const leads = await getChatbotMatchingLeads(searchArea, searchCity, classForSearch, subjectsForSearch);
-      const displayName = (data.name as string) || "Teacher";
-      if (leads.length > 0) {
-        const leadLines = leads.slice(0, 3).map((l, i) =>
-          `${i + 1}. *#${l.inquiryNumber}* — ${l.classLevel} (${l.subjects.join(", ")})\n   📍 ${l.area} | ${l.mode} | 💰 ${l.budget}`
-        ).join("\n\n");
-        return {
-          reply: `Ji *${displayName}* ji! *${searchArea}* ke paas *${leads.length} active requirement${leads.length > 1 ? "s" : ""}* hain:\n\n${leadLines}\n\n🔓 Unlock karein: https://apnatutorhub.com/tutor/leads`,
-          nextStep: "DONE",
-          updatedData: data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: [
-            `🔥 Unlock #${leads[0].inquiryNumber}`,
-            "View All Leads 📋",
-            "My Coins 🪙",
-          ],
-        };
-      } else {
-        return {
-          reply: `*${searchArea}* mein abhi koi matching requirement nahi hai — lekin parent har 15-30 min mein post karte hain. 🔔\n\nApna area update karein taaki jab bhi iss area mein lead aaye, *aapko pehle alert mile*:\nhttps://apnatutorhub.com/tutor/leads`,
-          nextStep: "DONE",
-          updatedData: data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: ["Update My Area 📍", "View All Leads 📋", "Online Leads 💻"],
-        };
+      if (loc.isValid && !sameLocality(loc.area, loc.city)) {
+        const searchArea = loc.area;
+        const searchCity = loc.city;
+        const classForSearch = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+          ? (data.classLevels as string[])
+          : (data.classLevel as string | undefined);
+        const subjectsForSearch = Array.isArray(data.subjects) ? (data.subjects as string[]) : [];
+        const leads = await getChatbotMatchingLeads(searchArea, searchCity, classForSearch, subjectsForSearch);
+        const displayName = (data.name as string) || "Teacher";
+        if (leads.length > 0) {
+          const leadLines = leads.slice(0, 3).map((l, i) =>
+            `${i + 1}. *#${l.inquiryNumber}* — ${l.classLevel} (${l.subjects.join(", ")})\n   📍 ${l.area} | ${l.mode} | 💰 ${l.budget}`
+          ).join("\n\n");
+          return {
+            reply: `Ji *${displayName}* ji! *${searchArea}* ke paas *${leads.length} active requirement${leads.length > 1 ? "s" : ""}* hain:\n\n${leadLines}\n\n🔓 Unlock karein: https://apnatutorhub.com/tutor/leads`,
+            nextStep: "DONE",
+            updatedData: data,
+            userType: "TUTOR",
+            retries: 0,
+            quickReplies: [
+              `🔥 Unlock #${leads[0].inquiryNumber}`,
+              "View All Leads 📋",
+              "My Coins 🪙",
+            ],
+          };
+        } else {
+          return {
+            reply: `*${searchArea}* mein abhi koi matching requirement nahi hai — lekin parent har 15-30 min mein post karte hain. 🔔\n\nApna area update karein taaki jab bhi iss area mein lead aaye, *aapko pehle alert mile*:\nhttps://apnatutorhub.com/tutor/leads`,
+            nextStep: "DONE",
+            updatedData: data,
+            userType: "TUTOR",
+            retries: 0,
+            quickReplies: ["Update My Area 📍", "View All Leads 📋", "Online Leads 💻"],
+          };
+        }
       }
     }
 
@@ -3238,8 +3270,8 @@ export async function processMessage(
         (saved.updatedFields.includes("name") || nameToSave) && nameToSave ? `naam *${nameToSave}*` : "",
         areaPatched && areaToSave ? `location *${[areaToSave, cityToSave].filter(Boolean).join(", ")}*` : "",
         (saved.updatedFields.includes("mode") || modeToSave) && modeToSave ? `mode *${modeToSave === "ONLINE" ? "Online (Pan-India) 💻" : modeToSave === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Both (Online + Offline) 🌐"}*` : "",
-        (saved.updatedFields.includes("subjects") || subjectsToSave) && displaySubjects ? `subjects *${displaySubjects.join(", ")}*` : "",
-        (saved.updatedFields.includes("class") || classesToSave) && displayClasses ? `class *${displayClasses.join(", ")}*` : "",
+        (saved.updatedFields.includes("subjects") || subjectsToSave) && displaySubjects && displaySubjects.length > 0 ? `subjects *${displaySubjects.join(", ")}*` : "",
+        (saved.updatedFields.includes("class") || classesToSave) && displayClasses && displayClasses.length > 0 ? `class *${displayClasses.join(", ")}*` : "",
         saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
       ].filter(Boolean);
 

@@ -37,14 +37,18 @@ export function refusesAdvancePayment(raw: string): boolean {
   const t = raw.trim();
   if (!t) return false;
   return (
-    /\b(?:will not|won't|wont|do not|don't|dont|can't|cant|cannot|unable to)\s+pay\b/i.test(t) ||
+    /\b(?:will not|won't|wont|do not|don't|dont|can't|cant|cannot|unable to|not wanna|wanna not|not want to|do not want to|don't want to)\s+pay\b/i.test(t) ||
+    /\bnot\s+(?:going to|gonna|wanna|willing to)\s+pay\b/i.test(t) ||
     /\bpay\s+(?:beforehand|in\s*advance|upfront|before)\b/i.test(t) ||
     /\bnot\s+pay\s+anything\b/i.test(t) ||
     /\bnothing\s+advance\b/i.test(t) ||
     /\badvance\s*(?:nahi|nai|not|ni)\b/i.test(t) ||
     /\b(?:pehle|advance)\s*(?:payment|pay|paise)\s*(?:nahi|ni|nai)\b/i.test(t) ||
-    /\b(?:nahi|nai|ni)\s+(?:dunga|dungi|dena|depaunga|karunga|karungi).{0,24}(?:advance|paise|pay|payment|pehle)/i.test(t) ||
-    /\b(?:paise|payment|advance)\s+(?:nahi|nai|ni)\b/i.test(t) ||
+    /\b(?:nahi|nai|ni|nhi)\s+(?:dunga|dungi|dena|depaunga|karunga|karungi|krunga|krungi).{0,24}(?:advance|paise|pay|payment|pehle|fee|fees)/i.test(t) ||
+    /\b(?:nhi|nahi|ni|na)\s*(?:mai|hum|me)?\s*(?:bhi)?\s*(?:payment|pay|paise)\s*(?:nhi|nahi|ni|na)?\s*(?:krunga|karunga|dunga|denge|karenge|pay\s*karunga|krungi|karungi)\b/i.test(t) ||
+    /\bpayment\s*(?:nhi|nahi|ni|na)\s*(?:karunga|krunga|hoga|karu|dunga|karungi|krungi)\b/i.test(t) ||
+    /\b(?:paise|payment|advance)\s+(?:nahi|nai|ni|nhi)\b/i.test(t) ||
+    /\b(?:pay|payment|fees?)\s*(?:nahi|ni|nai|nhi|not)\s*(?:karna|karunga|krunga|dena|dunga|denge)\b/i.test(t) ||
     /\bbina\s+(?:advance|payment|paise|reg)/i.test(t) ||
     /\bfree\s*(?:mein|me|lead)/i.test(t) ||
     /\bpehle\s*demo\b/i.test(t)

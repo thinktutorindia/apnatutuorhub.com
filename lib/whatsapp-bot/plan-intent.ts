@@ -46,7 +46,8 @@ export function asksCommissionPlan(raw: string): boolean {
 export function asksPlanPaymentOrQr(raw: string): boolean {
   const t = raw.trim();
   if (!t) return false;
-  if (/\b(?:will not|won't|wont|do not|don't|dont)\s+pay\b/i.test(t)) return false;
+  if (refusesAdvancePayment(t)) return false;
+  if (/\b(?:will not|won't|wont|do not|don't|dont|not wanna|wanna not|not want to)\s+pay\b/i.test(t)) return false;
 
   return (
     /\b(qr|qrcode|scan\s*qr|upi|razorpay|payment\s*link|pay\s*link)\b/i.test(t) ||

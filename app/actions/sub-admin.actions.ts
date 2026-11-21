@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { can, DEFAULT_ROLE_FEATURES, type AdminFeatureKey } from "@/lib/rbac";
+import { isProtectedUser } from "@/lib/protected-users";
 import {
   actionError,
   actionSuccess,
@@ -76,6 +77,15 @@ export async function createSubAdminAction(
 
   const { name, email, phone, password, subAdminRole } = parsed.data;
 
+  // An empty permission array locks staff out of every admin module. When the
+  // form does not send explicit features, seed the department defaults so the
+  // new account can actually work (SUPPORT/OPERATIONS include WhatsApp chats).
+  if (customPermissions.length === 0) {
+    customPermissions = Array.from(
+      new Set<string>(DEFAULT_ROLE_FEATURES[subAdminRole] ?? [])
+    );
+  }
+
   // Check for existing user by email or phone
   const existingUser = await prisma.user.findFirst({
     where: phone ? { OR: [{ email }, { phone }] } : { email },
@@ -116,6 +126,103 @@ export async function createSubAdminAction(
   revalidatePath("/admin/sub-admins");
   revalidatePath("/admin/users");
   return actionSuccess({ userId: newUser.id });
+}
+
+// ── Promote an existing Parent/Tutor account to Staff ─────────────────────────
+
+const STAFF_DEPARTMENTS = [
+  "SUPPORT",
+  "VERIFICATION",
+  "FINANCE",
+  "OPERATIONS",
+  "MARKETING",
+] as const;
+
+type StaffDepartment = (typeof STAFF_DEPARTMENTS)[number];
+
+/**
+ * Converts an existing user into a working staff account instead of failing
+ * with "user already exists" when an admin tries to re-create them.
+ * Grants the department's default modules plus WhatsApp Live Chats so the
+ * promoted user can open /admin/whatsapp-chats immediately.
+ */
+export async function promoteUserToStaffAction(
+  userId: string,
+  department: StaffDepartment = "SUPPORT",
+  options?: { grantWhatsAppChats?: boolean }
+): Promise<
+  ActionResult<{
+    userId: string;
+    email: string | null;
+    name: string | null;
+    subAdminRole: StaffDepartment;
+    customPermissions: string[];
+  }>
+> {
+  const { error, session } = await requireSuperAdmin();
+  if (error || !session) return actionError(error ?? "Unauthenticated");
+
+  const dept: StaffDepartment = STAFF_DEPARTMENTS.includes(department as StaffDepartment)
+    ? (department as StaffDepartment)
+    : "SUPPORT";
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, role: true, customPermissions: true },
+  });
+
+  if (!target) return actionError("User not found.");
+  if (target.role === "SUPER_ADMIN") {
+    return actionError("A Super Admin account cannot be demoted to staff.");
+  }
+  if (target.role === "SUB_ADMIN") {
+    return actionError("This user is already a staff member.");
+  }
+
+  const permissions = Array.from(
+    new Set<string>([
+      ...(DEFAULT_ROLE_FEATURES[dept] ?? []),
+      ...(options?.grantWhatsAppChats === false ? [] : ["whatsapp-chats"]),
+    ])
+  ) as AdminFeatureKey[];
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.update({
+      where: { id: userId },
+      data: {
+        role: "SUB_ADMIN",
+        subAdminRole: dept,
+        customPermissions: permissions,
+        isActive: true,
+      },
+      select: { id: true, name: true, email: true, subAdminRole: true, customPermissions: true },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session.user.id,
+        action: "PROMOTE_USER_TO_STAFF",
+        entityType: "User",
+        entityId: userId,
+        details: `Promoted ${target.role} ${target.email ?? target.id} to ${dept} staff with WhatsApp Live Chats access (${permissions.length} features)`,
+      },
+    });
+
+    return user;
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/sub-admins");
+  revalidatePath("/admin/whatsapp-chats");
+  revalidatePath("/admin/dashboard");
+
+  return actionSuccess({
+    userId: updated.id,
+    email: updated.email,
+    name: updated.name,
+    subAdminRole: (updated.subAdminRole ?? dept) as StaffDepartment,
+    customPermissions: updated.customPermissions ?? [],
+  });
 }
 
 // ── Update Sub-Admin Role & Permissions ────────────────────────────────────────
@@ -262,6 +369,10 @@ export async function deleteSubAdminAction(
   // Prevent deleting self
   if (session!.user.id === userId) {
     return actionError("You cannot delete your own account");
+  }
+
+  if (isProtectedUser(userId)) {
+    return actionError("This account is protected and cannot be deleted.");
   }
 
   await prisma.$transaction(async (tx) => {

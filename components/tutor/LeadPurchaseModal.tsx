@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -90,18 +89,21 @@ export function LeadPurchaseModal({
   walletBalance,
   subscriptionInfo,
   onClose,
+  onUnlocked,
 }: {
   lead: LeadSummary;
   walletBalance: number;
   subscriptionInfo?: SubscriptionInfo | null;
   onClose: () => void;
+  /** Called immediately after a successful paid unlock so the parent can keep
+   * the contact visible even if the underlying lead card is filtered out. */
+  onUnlocked?: (contact: ParentContact, purchaseId: string) => void;
 }) {
   const [stage, setStage] = useState<Stage>("confirm");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [contact, setContact] = useState<ParentContact | null>(null);
   const [purchaseId, setPurchaseId] = useState<string>("");
-  const router = useRouter();
 
   const planPointCost = getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
   const remainingPoints =
@@ -146,8 +148,9 @@ export function LeadPurchaseModal({
     setContact(result.data.parentContact);
     setPurchaseId(result.data.purchaseId);
     setStage("success");
-    // Immediately refresh server data so this tutor sees the updated slot count
-    router.refresh();
+    // Keep the unlocked phone in the parent feed's persistent panel before any
+    // route refresh can re-render/filter the card that opened this modal.
+    onUnlocked?.(result.data.parentContact, result.data.purchaseId);
   };
 
   const canAfford = unlockViaMembershipPoints || walletBalance >= lead.coinCost;

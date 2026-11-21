@@ -402,6 +402,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
         claimedBannerInfo={claimedBannerInfo}
         kycStatus={tutorProfile.kycStatus}
         initialInquiryNumber={targetedInquiryNum}
+        tutorId={tutorProfile.id}
       />
     </div>
   );

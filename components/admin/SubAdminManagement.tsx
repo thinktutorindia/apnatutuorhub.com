@@ -30,6 +30,7 @@ import {
   updateSubAdminPermissionsAction,
 } from "@/app/actions/sub-admin.actions";
 import { ActionOverlay } from "@/components/ui/LoadingState";
+import { isProtectedUser } from "@/lib/protected-users";
 import {
   ALL_ADMIN_FEATURES,
   DEFAULT_ROLE_FEATURES,
@@ -424,14 +425,16 @@ export function SubAdminManagement({ initialSubAdmins, roleBadges }: SubAdminMan
                       </button>
                     )}
 
-                    <button
-                      onClick={() => handleDelete(admin.id)}
-                      disabled={isPending}
-                      className="px-2.5 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-950 border border-rose-300 text-xs font-800 cursor-pointer"
-                      title="Delete account"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {!isProtectedUser(admin.id) && (
+                      <button
+                        onClick={() => handleDelete(admin.id)}
+                        disabled={isPending}
+                        className="px-2.5 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-950 border border-rose-300 text-xs font-800 cursor-pointer"
+                        title="Delete account"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

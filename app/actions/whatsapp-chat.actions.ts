@@ -6,6 +6,7 @@ import { normalizeIndiaWhatsApp, sendAquaWhatsAppMessage } from "@/lib/aqua-what
 import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
 import { revalidatePath } from "next/cache";
+import { getAllowedSubAdminModules } from "@/lib/rbac";
 
 export interface WhatsAppConversationSummary {
   phone: string;
@@ -81,6 +82,20 @@ async function requireStaffOrAdmin() {
   if (role !== "SUPER_ADMIN" && role !== "SUB_ADMIN") {
     return { error: "Forbidden: Staff or Admin role required", session: null };
   }
+
+  // A staff account must also hold the WhatsApp Live Chats module. Role alone
+  // is not enough — finance/marketing staff must not be able to call these
+  // actions from another page even if middleware allowed that page.
+  if (role === "SUB_ADMIN") {
+    const allowed = getAllowedSubAdminModules(session.user);
+    if (!allowed.includes("/admin/whatsapp-chats")) {
+      return {
+        error: "Forbidden: WhatsApp Live Chats access is not granted to this staff account",
+        session: null,
+      };
+    }
+  }
+
   return { error: null, session };
 }
 

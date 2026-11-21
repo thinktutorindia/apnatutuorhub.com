@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { toCsvString } from "@/lib/csv-exporter";
+import { PROTECTED_USER_IDS } from "@/lib/protected-users";
 
 function requireSuperAdmin(role: string | undefined): boolean {
   return role === "SUPER_ADMIN";
@@ -19,6 +20,7 @@ export async function exportUsersCsv(): Promise<{ csv: string; filename: string 
   if (!session?.user || !requireSuperAdmin(session.user.role)) return null;
 
   const users = await prisma.user.findMany({
+    where: { id: { notIn: [...PROTECTED_USER_IDS] } },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

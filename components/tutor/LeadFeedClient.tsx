@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -32,6 +32,7 @@ import {
   Star,
 } from "lucide-react";
 import { LeadPurchaseModal, type SubscriptionInfo } from "@/components/tutor/LeadPurchaseModal";
+import type { ParentContact } from "@/app/actions/leads.actions";
 import { StartChatButton } from "@/components/chat/StartChatButton";
 import { LeadNotifReminderBanner } from "@/components/tutor/LeadNotifReminderBanner";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
@@ -62,6 +63,115 @@ export type ParentDetails = {
   studentName?: string | null;
   studentNotes?: string | null;
 };
+
+/** A paid unlock is kept locally so a route refresh can never make the phone
+ * disappear while the tutor is still looking at the lead. */
+type UnlockedContact = {
+  leadId: string;
+  inquiryNumber?: number | null;
+  title: string;
+  phone: string | null;
+  name: string | null;
+  email: string | null;
+  area?: string | null;
+  city?: string | null;
+  purchaseId?: string | null;
+  unlockedAt: string;
+};
+
+function unlockedStorageKey(tutorId?: string) {
+  return `ath:unlocked-contacts:v1:${tutorId || "anonymous"}`;
+}
+
+function readUnlockedContacts(tutorId?: string): UnlockedContact[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.sessionStorage.getItem(unlockedStorageKey(tutorId));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as UnlockedContact[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function whatsappNumber(phone: string | null | undefined) {
+  let digits = (phone || "").replace(/\D/g, "");
+  if (digits.startsWith("91") && digits.length === 12) digits = digits.slice(2);
+  else if (digits.startsWith("0") && digits.length === 11) digits = digits.slice(1);
+  return digits;
+}
+
+function UnlockedContactPanel({ contacts }: { contacts: UnlockedContact[] }) {
+  if (contacts.length === 0) return null;
+
+  return (
+    <section className="rounded-3xl border border-emerald-300 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 pb-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-extrabold text-[#0F2540]">
+            <CheckCircle2 size={16} className="text-[#2D9E6B]" />
+            Your Unlocked Parent Contacts ({contacts.length})
+          </h2>
+          <p className="mt-0.5 text-[11px] font-semibold text-slate-500">
+            These numbers stay visible here even if the lead card moves to another tab.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {contacts.map((c) => {
+          const wa = whatsappNumber(c.phone);
+          return (
+            <div
+              key={c.leadId}
+              className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3.5 space-y-2"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-extrabold text-[#0F2540]">
+                    {c.name || "Verified Parent"}
+                  </p>
+                  <p className="truncate text-[10px] font-semibold text-slate-500">{c.title}</p>
+                </div>
+                <CheckCircle2 size={15} className="shrink-0 text-[#2D9E6B]" />
+              </div>
+
+              <div>
+                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                  Full Phone Number
+                </span>
+                <p className="font-mono text-sm font-extrabold text-[#0F2540] break-all">
+                  {c.phone || "—"}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {c.phone && (
+                  <a
+                    href={`tel:${c.phone}`}
+                    className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-bold text-white"
+                  >
+                    <Phone size={11} /> Call
+                  </a>
+                )}
+                {wa && (
+                  <a
+                    href={`https://wa.me/${wa}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#25D366] px-2.5 py-1 text-[10px] font-bold text-white"
+                  >
+                    <MessageCircle size={11} /> WhatsApp
+                  </a>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 export type FeedLead = {
   id: string;
@@ -260,15 +370,13 @@ function LeadCard({
   lead,
   walletBalance,
   subscriptionInfo,
-  autoOpenModal = false,
+  onUnlock,
 }: {
   lead: FeedLead;
   walletBalance: number;
   subscriptionInfo?: SubscriptionInfo | null;
-  autoOpenModal?: boolean;
+  onUnlock: (lead: FeedLead) => void;
 }) {
-  const [modalOpen, setModalOpen] = useState(autoOpenModal);
-
   const slots = publicTutorSlots(lead.purchaseCount);
   const maxTutorsAllowed = slots.max;
   const currentPurchases = slots.purchased;
@@ -657,7 +765,7 @@ function LeadCard({
           ) : (
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={() => onUnlock(lead)}
               className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer text-center whitespace-normal ${
                 unlockViaMembershipPoints
                   ? "bg-emerald-700 hover:bg-emerald-800 text-white shadow-emerald-700/20"
@@ -678,22 +786,6 @@ function LeadCard({
         </div>
       </div>
 
-      {modalOpen && (
-        <LeadPurchaseModal
-          lead={{
-            id: lead.id,
-            subjects: lead.subjects,
-            classLevel: lead.classLevel,
-            mode: lead.mode,
-            city: lead.city,
-            area: lead.area,
-            coinCost: planPointCost,
-          }}
-          walletBalance={walletBalance}
-          subscriptionInfo={subscriptionInfo}
-          onClose={() => setModalOpen(false)}
-        />
-      )}
     </>
   );
 }
@@ -709,6 +801,7 @@ export function LeadFeedClient({
   tutorClassLevels = [],
   tutorLocation,
   initialInquiryNumber,
+  tutorId,
 }: {
   leads: FeedLead[];
   walletBalance: number;
@@ -725,30 +818,13 @@ export function LeadFeedClient({
     lon?: number | null;
   };
   initialInquiryNumber?: number;
+  tutorId?: string;
 }) {
   const hasTutorLocation = Boolean(tutorLocation?.lat && tutorLocation?.lon);
   const hasTutorSubjects = Boolean(tutorSubjects && tutorSubjects.length > 0);
   const hasFilterConfig = hasTutorLocation || hasTutorSubjects;
 
   const router = useRouter();
-
-  // Refresh server data when user returns to this tab — zero cost while active.
-  // This keeps slot counts current without any polling overhead.
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        router.refresh();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    const poll = window.setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
-    }, 30000);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.clearInterval(poll);
-    };
-  }, [router]);
 
   const [viewTab, setViewTab] = useState<"matched" | "nearby" | "all" | "shortlisted" | "unlocked">(
     initialInquiryNumber ? "all" : hasFilterConfig ? "matched" : "all"
@@ -761,12 +837,116 @@ export function LeadFeedClient({
     Boolean(claimedBannerInfo?.claimed)
   );
 
+  // Modal lives at feed level (not inside a lead card) so a server refresh or
+  // tab re-filter can never unmount it and take the unlocked phone with it.
+  const [unlockTarget, setUnlockTarget] = useState<FeedLead | null>(null);
+  const [unlockedContacts, setUnlockedContacts] = useState<UnlockedContact[]>([]);
+  const autoOpenedRef = useRef(false);
+
+  useEffect(() => {
+    const contacts = readUnlockedContacts(tutorId);
+    queueMicrotask(() => setUnlockedContacts(contacts));
+  }, [tutorId]);
+
+  // Deep link from a notification: open the unlock/apply modal once.
+  useEffect(() => {
+    if (autoOpenedRef.current || !initialInquiryNumber) return;
+    const target = leads.find((l) => l.inquiryNumber === initialInquiryNumber);
+    if (target) {
+      autoOpenedRef.current = true;
+      queueMicrotask(() => setUnlockTarget(target));
+    }
+  }, [initialInquiryNumber, leads]);
+
+  // Refresh only when the user comes back to the tab. The old 30s timer made
+  // the whole 500-lead feed re-render repeatedly and caused visible lag.
+  // Never refresh while the unlock modal is open.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && !unlockTarget) {
+        router.refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [router, unlockTarget]);
+
+  const handleUnlockSuccess = (contact: ParentContact, purchaseId: string) => {
+    if (!unlockTarget) return;
+
+    const entry: UnlockedContact = {
+      leadId: unlockTarget.id,
+      inquiryNumber: unlockTarget.inquiryNumber,
+      title: `${cleanClassLevelDisplay(unlockTarget.classLevel)}${
+        unlockTarget.area || unlockTarget.city
+          ? ` · ${[unlockTarget.area, unlockTarget.city].filter(Boolean).join(", ")}`
+          : ""
+      }`,
+      name: contact.name || null,
+      phone: contact.phone || null,
+      email: contact.email || null,
+      area: contact.area || unlockTarget.area,
+      city: contact.city || unlockTarget.city,
+      purchaseId,
+      unlockedAt: new Date().toISOString(),
+    };
+
+    setUnlockedContacts((prev) => {
+      const next = [entry, ...prev.filter((c) => c.leadId !== entry.leadId)];
+      try {
+        window.sessionStorage.setItem(
+          unlockedStorageKey(tutorId),
+          JSON.stringify(next.slice(0, 50))
+        );
+      } catch {
+        // storage unavailable — in-memory state still keeps the phone visible
+      }
+      return next.slice(0, 50);
+    });
+
+    // Server data can now catch up safely; the modal and contact panel are both
+    // owned by this component and survive the refresh.
+    router.refresh();
+  };
+
+
   const unpurchased = useMemo(
     () => leads.filter((l) => !l.isPurchased),
     [leads]
   );
   const shortlisted = useMemo(() => leads.filter((l) => l.isShortlisted), [leads]);
   const purchased = useMemo(() => leads.filter((l) => l.isPurchased), [leads]);
+
+  // Every paid unlock from the server is also pinned in the panel, so a reload
+  // or a status change can never make a previously unlocked phone disappear.
+  const serverUnlockedContacts = useMemo<UnlockedContact[]>(
+    () =>
+      purchased
+        .filter((l) => l.parentDetails?.phone)
+        .map((l) => ({
+          leadId: l.id,
+          inquiryNumber: l.inquiryNumber,
+          title: `${cleanClassLevelDisplay(l.classLevel)}${
+            l.area || l.city ? ` · ${[l.area, l.city].filter(Boolean).join(", ")}` : ""
+          }`,
+          name: l.parentDetails?.name || null,
+          phone: l.parentDetails?.phone || null,
+          email: l.parentDetails?.email || null,
+          area: l.parentDetails?.address || l.area,
+          city: l.parentDetails?.city || l.city,
+          purchaseId: l.purchaseId,
+          unlockedAt: l.purchasedAt || "",
+        })),
+    [purchased]
+  );
+
+  const visibleUnlockedContacts = useMemo(() => {
+    const byLead = new Map<string, UnlockedContact>();
+    for (const c of serverUnlockedContacts) byLead.set(c.leadId, c);
+    // Locally cached contact is fresher and survives a slow server refresh.
+    for (const c of unlockedContacts) byLead.set(c.leadId, c);
+    return Array.from(byLead.values());
+  }, [serverUnlockedContacts, unlockedContacts]);
 
   const matchedLeads = useMemo(() => {
     return unpurchased.filter((l) =>
@@ -885,6 +1065,9 @@ export function LeadFeedClient({
 
   return (
     <div className="space-y-6 text-slate-900">
+      {/* Paid unlocks are always shown in full here — never masked, timed or hidden. */}
+      <UnlockedContactPanel contacts={visibleUnlockedContacts} />
+
       {/* Claimed / Fully Booked Alert Banner */}
       {showClaimedBanner && claimedBannerInfo && (
         <DummyClaimedLeadCard info={claimedBannerInfo} onDismiss={() => setShowClaimedBanner(false)} />
@@ -1274,10 +1457,33 @@ export function LeadFeedClient({
               lead={lead}
               walletBalance={walletBalance}
               subscriptionInfo={subscriptionInfo}
-              autoOpenModal={Boolean(initialInquiryNumber && lead.inquiryNumber === initialInquiryNumber)}
+              onUnlock={setUnlockTarget}
             />
           ))}
         </div>
+      )}
+
+      {/* Feed-level modal: a refresh / re-filter cannot unmount it and hide the phone. */}
+      {unlockTarget && (
+        <LeadPurchaseModal
+          lead={{
+            id: unlockTarget.id,
+            subjects: unlockTarget.subjects,
+            classLevel: unlockTarget.classLevel,
+            mode: unlockTarget.mode,
+            city: unlockTarget.city,
+            area: unlockTarget.area,
+            coinCost: getLeadPointCost(
+              unlockTarget.classLevel,
+              unlockTarget.budgetMin,
+              unlockTarget.budgetMax
+            ),
+          }}
+          walletBalance={walletBalance}
+          subscriptionInfo={subscriptionInfo}
+          onClose={() => setUnlockTarget(null)}
+          onUnlocked={handleUnlockSuccess}
+        />
       )}
     </div>
   );

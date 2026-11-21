@@ -30,6 +30,7 @@ import {
   adminToggleIncompleteUserAction,
 } from "@/app/actions/admin.actions";
 import { toggleTutorMarketingNotifsAction } from "@/app/actions/tutor.actions";
+import { isProtectedUser } from "@/lib/protected-users";
 
 interface UserRowActionsProps {
   user: {
@@ -324,8 +325,8 @@ export function UserRowActions({ user, isSuperAdmin = false }: UserRowActionsPro
         <span className="whitespace-nowrap flex-1 text-left">Reset Password</span>
       </button>
 
-      {/* Delete User (Super Admin Only) */}
-      {isSuperAdmin && (
+      {/* Delete User (Super Admin Only, never for protected accounts) */}
+      {isSuperAdmin && !isProtectedUser(user.id) && (
         <button
           type="button"
           onClick={() => {

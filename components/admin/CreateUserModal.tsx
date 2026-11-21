@@ -38,6 +38,7 @@ import {
   adminGetNextAutoEmailAction,
   type CreateUserInput,
 } from "@/app/actions/admin.actions";
+import { promoteUserToStaffAction } from "@/app/actions/sub-admin.actions";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { CLASS_LEVELS, BOARDS } from "@/lib/validations";
 import { TRUEMYTUTOR_TREE, searchTaxonomySubjects } from "@/lib/subject-taxonomy";
@@ -290,6 +291,8 @@ export function CreateUserModal({
 
   // Result state
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [promotionMsg, setPromotionMsg] = useState<string | null>(null);
+  const [isPromoting, setIsPromoting] = useState(false);
   const [existingUserMatch, setExistingUserMatch] = useState<{
     id: string;
     name?: string;
@@ -661,6 +664,7 @@ export function CreateUserModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setPromotionMsg(null);
     setCreatedResult(null);
 
     const effectiveCity = manualCity.trim() || selectedLocation?.city || undefined;
@@ -931,15 +935,55 @@ export function CreateUserModal({
                 </div>
 
                 {existingUserMatch && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-amber-200/80">
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-amber-200/80">
+                    {isSuperAdmin &&
+                      existingUserMatch.role !== "SUB_ADMIN" &&
+                      existingUserMatch.role !== "SUPER_ADMIN" && (
+                        <button
+                          type="button"
+                          disabled={isPromoting}
+                          onClick={async () => {
+                            setIsPromoting(true);
+                            setPromotionMsg(null);
+                            const res = await promoteUserToStaffAction(
+                              existingUserMatch.id,
+                              subAdminRole
+                            );
+                            setIsPromoting(false);
+                            if (res.success) {
+                              setPromotionMsg(
+                                `Done — ${res.data?.name || "User"} is now ${res.data?.subAdminRole} staff with WhatsApp Live Chats access. They can log in and open /admin/whatsapp-chats.`
+                              );
+                              setErrorMsg(null);
+                            } else {
+                              setPromotionMsg(res.error ?? "Could not promote this user.");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2D9E6B] hover:bg-[#238357] disabled:opacity-60 text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+                        >
+                          {isPromoting ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <ShieldCheck size={14} />
+                          )}
+                          <span>
+                            {isPromoting
+                              ? "Promoting…"
+                              : "Make This User Staff + WhatsApp Access"}
+                          </span>
+                        </button>
+                      )}
                     <Link
                       href={`/admin/users/${existingUserMatch.id}/edit`}
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] text-white text-xs font-extrabold shadow-sm transition-all"
                     >
                       <ExternalLink size={14} className="text-[#2D9E6B]" />
-                      <span>Open Existing Profile &amp; Promote to Sub-Admin →</span>
+                      <span>Open Full Profile</span>
                     </Link>
                   </div>
+                )}
+                {promotionMsg && (
+                  <p className="pt-2 text-xs font-bold text-emerald-800">{promotionMsg}</p>
                 )}
               </div>
             )}

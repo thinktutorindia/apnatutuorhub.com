@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { can, type Permission } from "@/lib/rbac";
+import { can, DEFAULT_ROLE_FEATURES, type Permission } from "@/lib/rbac";
+import { isProtectedUser } from "@/lib/protected-users";
 import {
   actionError,
   actionSuccess,
@@ -67,6 +68,18 @@ const PRIVILEGED_ROLES = new Set(["SUPER_ADMIN", "SUB_ADMIN"]);
  */
 function isSuperAdmin(session: { user?: { role?: string | null } } | null): boolean {
   return session?.user?.role === "SUPER_ADMIN";
+}
+
+/**
+ * Staff accounts are useless if they are created with an empty permission list:
+ * `getAllowedSubAdminModules()` treats any non-empty customPermissions list as
+ * the source of truth, but an empty list still blocks every non-default route
+ * in the middleware. Always seed a new staff account with the department's
+ * default modules (SUPPORT / OPERATIONS already include WhatsApp Live Chats).
+ */
+function defaultStaffPermissions(subAdminRole?: string | null): string[] {
+  const key = subAdminRole && subAdminRole in DEFAULT_ROLE_FEATURES ? subAdminRole : "SUPPORT";
+  return Array.from(new Set<string>(DEFAULT_ROLE_FEATURES[key] ?? []));
 }
 
 
@@ -275,6 +288,8 @@ export async function adminCreateUserAction(
   const roleLabel = input.role === "TUTOR" ? "Tutor" : input.role === "PARENT" ? "Parent" : "User";
   const finalName = rawName || (phoneToStore ? `${roleLabel} (${phoneToStore.slice(-4)})` : roleLabel);
 
+  const staffDepartment = input.subAdminRole ?? "SUPPORT";
+
   const newUser = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -283,10 +298,15 @@ export async function adminCreateUserAction(
         phone: phoneToStore,
         passwordHash,
         role: input.role,
-        subAdminRole: input.role === "SUB_ADMIN" ? (input.subAdminRole ?? "SUPPORT") : null,
+        subAdminRole: input.role === "SUB_ADMIN" ? staffDepartment : null,
         isActive: true,
         emailVerified: new Date(),
-        customPermissions: input.isIncompleteUser ? ["tag:incomplete"] : [],
+        customPermissions:
+          input.role === "SUB_ADMIN"
+            ? defaultStaffPermissions(staffDepartment)
+            : input.isIncompleteUser
+            ? ["tag:incomplete"]
+            : [],
       },
     });
 
@@ -2656,6 +2676,10 @@ export async function adminDeleteUserAction(
     return actionError("You cannot delete your own admin account.");
   }
 
+  if (isProtectedUser(userId)) {
+    return actionError("This account is protected and cannot be deleted.");
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.account.deleteMany({ where: { userId } });
     await tx.session.deleteMany({ where: { userId } });
@@ -2897,7 +2921,13 @@ export async function adminEditUserAction(
         email,
         ...(phoneRes.data?.phone !== undefined ? { phone: phoneRes.data.phone } : {}),
         role,
-        subAdminRole: role === "SUB_ADMIN" ? subAdminRole : null,
+        subAdminRole: role === "SUB_ADMIN" ? (subAdminRole || "SUPPORT") : null,
+        // Promoting an existing user to staff must reset stale tags
+        // (e.g. "tag:incomplete") that would otherwise override department
+        // defaults and silently lock the new staff member out of every module.
+        ...(role === "SUB_ADMIN"
+          ? { customPermissions: defaultStaffPermissions(subAdminRole || "SUPPORT") }
+          : {}),
       },
     });
 
@@ -3142,7 +3172,10 @@ export async function adminUpdateFullUserAction(
         email,
         ...(phoneRes.data?.phone !== undefined ? { phone: phoneRes.data.phone } : {}),
         role,
-        subAdminRole: role === "SUB_ADMIN" ? subAdminRole : null,
+        subAdminRole: role === "SUB_ADMIN" ? (subAdminRole || "SUPPORT") : null,
+        ...(role === "SUB_ADMIN"
+          ? { customPermissions: defaultStaffPermissions(subAdminRole || "SUPPORT") }
+          : {}),
         isActive,
       },
     });

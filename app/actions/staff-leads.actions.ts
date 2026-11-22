@@ -4405,10 +4405,48 @@ export async function getStaffLiveStatusAction(): Promise<ActionResult<{
     }));
 
     const onlineIds = activeSessions.map((s) => s.staffId);
+
+    // Also include staff actively seen via mobile presence in the last 2 minutes
+    const recentPresences = await prisma.staffPresence.findMany({
+      where: {
+        staffId: { notIn: onlineIds.length > 0 ? onlineIds : ["_none_"] },
+        lastSeenAt: { gte: new Date(now.getTime() - 120_000) },
+        online: true,
+      },
+      include: {
+        staff: { select: { id: true, name: true, email: true, subAdminRole: true } },
+      },
+    });
+
+    const presenceOnline = await Promise.all(
+      recentPresences.map(async (p) => {
+        const [callsToday, conversionsToday] = await Promise.all([
+          prisma.staffLeadCallLog.count({ where: { calledById: p.staffId, calledAt: { gte: todayStart } } }),
+          prisma.staffLeadCallLog.count({ where: { calledById: p.staffId, calledAt: { gte: todayStart }, outcome: "CONVERTED" } }),
+        ]);
+        const elapsedMins = p.lastActiveAt ? Math.max(1, Math.round((now.getTime() - p.lastActiveAt.getTime()) / 60000)) : 1;
+        return {
+          staffId: p.staffId,
+          staffName: p.staff.name,
+          email: p.staff.email,
+          subAdminRole: p.staff.subAdminRole,
+          status: p.isIdle ? "IDLE_ON_MOBILE" : "ACTIVE_ON_MOBILE",
+          clockIn: p.lastSeenAt ?? now,
+          elapsedMinutes: elapsedMins,
+          onBreakSince: null,
+          callsToday,
+          conversionsToday,
+        };
+      })
+    );
+
+    const allOnline = [...online, ...presenceOnline];
+    const allOnlineIds = [...onlineIds, ...recentPresences.map((p) => p.staffId)];
+
     const offlineStaff = await prisma.user.findMany({
       where: {
         role: { in: ["SUB_ADMIN", "SUPER_ADMIN"] },
-        id: { notIn: onlineIds.length > 0 ? onlineIds : ["_none_"] },
+        id: { notIn: allOnlineIds.length > 0 ? allOnlineIds : ["_none_"] },
         isActive: true,
       },
       select: { id: true, name: true, email: true, subAdminRole: true },
@@ -4431,7 +4469,7 @@ export async function getStaffLiveStatusAction(): Promise<ActionResult<{
       };
     }));
 
-    return actionSuccess({ online, offline });
+    return actionSuccess({ online: allOnline, offline });
   } catch (err) {
     console.error("[getStaffLiveStatusAction]", err);
     return actionError("Failed to fetch staff live status");

@@ -7,12 +7,14 @@ import { resolveTutorContext } from "@/lib/tutor-context";
 import {
   actionFieldErrors,
   actionSuccess,
+  actionError,
   type ActionResult,
 } from "@/lib/action-result";
 import { formFloat, formInt, formList, formString } from "@/lib/form-data";
 import { tutorProfileSchema } from "@/lib/validations";
 import { getProfileScore } from "@/lib/profile-score";
-import { geocodeLocation } from "@/lib/geocoding";
+import { geocodeLocation, resolveLocationCoordinates } from "@/lib/geocoding";
+import { normalizeSubjectsForClassRule, parseClassGradesFromText } from "@/lib/subject-normalization";
 import { can } from "@/lib/rbac";
 
 export type TutorProfileState = ActionResult<{ updated: true }>;
@@ -459,4 +461,134 @@ export async function toggleTutorMarketingNotifsAction(targetUserId: string, ena
     console.error("[toggleTutorMarketingNotifsAction] error:", err);
     return { success: false, error: "Failed to update notification settings." };
   }
+}
+
+// ────────────────────────────────────────────────
+// Quick Location & Subjects Update Action (Modal / Login popup)
+// ────────────────────────────────────────────────
+
+export async function updateTutorQuickPreferencesAction(input: {
+  city: string;
+  address: string;
+  subjects: string[];
+  classLevels?: string[];
+  teachingMode?: "OFFLINE" | "ONLINE" | "EITHER";
+}): Promise<ActionResult<{ updated: true; city: string; address: string; subjects: string[] }>> {
+  const authRes = await resolveTutorContext();
+  if (!authRes.ok) return authRes.result;
+
+  const city = (input.city || "").trim();
+  const address = (input.address || "").trim();
+  const rawSubjects = Array.isArray(input.subjects) ? input.subjects.map((s) => s.trim()).filter(Boolean) : [];
+  const teachingMode = input.teachingMode || "EITHER";
+
+  if (!city || city === "null" || city === "undefined") {
+    return actionError("Please select or enter your city.");
+  }
+  if (!address || address === "null" || address === "undefined" || address.length < 2) {
+    return actionError("Please enter your locality / area (e.g. Sector 62, Rohini, South Patel Nagar).");
+  }
+  if (rawSubjects.length === 0) {
+    return actionError("Please select at least one teaching subject.");
+  }
+
+  // Derive / normalize class levels & subjects as per strict rule
+  const rawClassLevels = input.classLevels && input.classLevels.length > 0 ? input.classLevels : [];
+  const normalizedSubjects = normalizeSubjectsForClassRule(rawSubjects, rawClassLevels);
+  const finalSubjects = normalizedSubjects.length > 0 ? normalizedSubjects : rawSubjects;
+
+  // Deducing classLevels from subjects
+  const grades = parseClassGradesFromText([...finalSubjects, ...rawClassLevels].join(" "));
+  const inferredClasses = Array.from(new Set(grades)).sort((a, b) => a - b).map((g) => `Class ${g}`);
+  const finalClassLevels =
+    inferredClasses.length > 0
+      ? inferredClasses
+      : rawClassLevels.length > 0
+      ? rawClassLevels
+      : ["Class 1-12"];
+
+  // Geocode location
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+  try {
+    const coords = resolveLocationCoordinates(address) || resolveLocationCoordinates(city);
+    if (coords) {
+      latitude = coords.lat;
+      longitude = coords.lng;
+    } else {
+      const geo = await geocodeLocation({ address, city });
+      if (geo) {
+        latitude = geo.lat;
+        longitude = geo.lng;
+      }
+    }
+  } catch (err) {
+    console.warn("[updateTutorQuickPreferencesAction] Geocoding warning:", err);
+  }
+
+  const existing = await prisma.tutorProfile.findUnique({
+    where: { id: authRes.context.tutorProfileId },
+    select: {
+      onboardingStep: true,
+      latitude: true,
+      longitude: true,
+      bio: true,
+      qualification: true,
+      experience: true,
+      feeMin: true,
+      feeMax: true,
+      introVideoUrl: true,
+      kycStatus: true,
+      isVerified: true,
+      availability: true,
+    },
+  });
+
+  const finalLat = latitude ?? existing?.latitude ?? null;
+  const finalLng = longitude ?? existing?.longitude ?? null;
+
+  // Recalculate profile score
+  const mergedForScore = {
+    subjects: finalSubjects,
+    classLevels: finalClassLevels,
+    teachingMode,
+    bio: existing?.bio ?? null,
+    qualification: existing?.qualification ?? null,
+    experience: existing?.experience ?? null,
+    city,
+    feeMin: existing?.feeMin ?? null,
+    feeMax: existing?.feeMax ?? null,
+    introVideoUrl: existing?.introVideoUrl ?? null,
+    latitude: finalLat,
+    kycStatus: existing?.kycStatus ?? "NOT_SUBMITTED",
+    isVerified: existing?.isVerified ?? false,
+    availability: existing?.availability ?? [],
+  };
+  const profileScore = getProfileScore(mergedForScore);
+
+  await prisma.tutorProfile.update({
+    where: { id: authRes.context.tutorProfileId },
+    data: {
+      city,
+      address,
+      subjects: finalSubjects,
+      classLevels: finalClassLevels,
+      teachingMode: teachingMode as any,
+      profileScore,
+      ...(finalLat != null && { latitude: finalLat }),
+      ...(finalLng != null && { longitude: finalLng }),
+      onboardingStep: Math.max(existing?.onboardingStep ?? 0, 7),
+    },
+  });
+
+  revalidatePath("/tutor/dashboard");
+  revalidatePath("/tutor/leads");
+  revalidatePath("/tutor/profile");
+
+  return actionSuccess({
+    updated: true,
+    city,
+    address,
+    subjects: finalSubjects,
+  });
 }

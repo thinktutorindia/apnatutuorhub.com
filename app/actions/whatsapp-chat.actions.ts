@@ -653,6 +653,39 @@ export async function sendStaffWhatsAppReplyAction(params: {
     });
     if (!saved) return actionError("Failed to store the reply in the local chat log.");
 
+    // Update presence & log activity for staff member
+    try {
+      await prisma.staffPresence.upsert({
+        where: { staffId: guard.session.user.id },
+        create: {
+          staffId: guard.session.user.id,
+          dutyStatus: "ON_DUTY",
+          online: true,
+          isIdle: false,
+          currentPath: "/admin/whatsapp-chats",
+          lastSeenAt: new Date(),
+          lastActiveAt: new Date(),
+        },
+        update: {
+          online: true,
+          isIdle: false,
+          currentPath: "/admin/whatsapp-chats",
+          lastSeenAt: new Date(),
+          lastActiveAt: new Date(),
+        },
+      });
+      await prisma.staffActivityEvent.create({
+        data: {
+          staffId: guard.session.user.id,
+          type: "ACTIVE",
+          path: "/admin/whatsapp-chats",
+          detail: `Sent manual WhatsApp reply to ${normalized}`,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[sendStaffWhatsAppReplyAction] Audit tracking warning:", auditErr);
+    }
+
     revalidatePath("/admin/whatsapp-chats");
 
     return actionSuccess({

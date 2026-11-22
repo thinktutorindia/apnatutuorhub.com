@@ -24,6 +24,7 @@ import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopup
 import { maskPhoneNumber } from "@/lib/mask-utils";
 import { can } from "@/lib/rbac";
 import { UserEntrySource } from "@/components/admin/UserEntrySource";
+import { UserDirectoryPhoneReveal } from "@/components/admin/UserDirectoryPhoneReveal";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "User Management — Admin" };
@@ -70,9 +71,24 @@ export default async function AdminUsersPage({
   const statusFilter = params.status ?? "";
   const emailTypeFilter = params.emailType ?? "";
   const tagFilter = params.tag ?? "";
-  const page = Math.max(1, Number(params.page ?? 1));
+  const maxStaffPages = 5; // Max 100 users visible to staff in directory browsing (5 * 20)
+  const requestedPage = Math.max(1, Number(params.page ?? 1));
+  const page = isSuperAdmin ? requestedPage : Math.min(requestedPage, maxStaffPages);
   const take = 20;
   const skip = (page - 1) * take;
+
+  // Track staff phone reveal quota (100 numbers per UTC day)
+  const now = new Date();
+  const staffPresence = !isSuperAdmin
+    ? await prisma.staffPresence.findUnique({ where: { staffId: session.user.id } })
+    : null;
+  const isSameDay =
+    staffPresence?.revealDate &&
+    staffPresence.revealDate.getUTCFullYear() === now.getUTCFullYear() &&
+    staffPresence.revealDate.getUTCMonth() === now.getUTCMonth() &&
+    staffPresence.revealDate.getUTCDate() === now.getUTCDate();
+  const revealsToday = isSameDay ? staffPresence?.revealCount ?? 0 : 0;
+  const remainingReveals = Math.max(0, 100 - revealsToday);
 
   const where: any = {};
   const andConditions: any[] = [];
@@ -344,6 +360,23 @@ export default async function AdminUsersPage({
                 <span>⚠️ {incompleteTotal} Incomplete User{incompleteTotal > 1 ? "s" : ""}</span>
               </Link>
             )}
+            {!isSuperAdmin && (
+              <span
+                className={`inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                  remainingReveals > 10
+                    ? "bg-emerald-50 text-emerald-950 border-emerald-300"
+                    : remainingReveals > 0
+                    ? "bg-amber-50 text-amber-950 border-amber-300"
+                    : "bg-red-50 text-red-950 border-red-300"
+                }`}
+                title="Daily phone number reveal quota for staff data protection"
+              >
+                <Lock size={11} className="text-emerald-700" />
+                <span>
+                  Phone Quota: <strong>{revealsToday}/100</strong> used today ({remainingReveals} left)
+                </span>
+              </span>
+            )}
           </div>
           <h1 className="text-xl sm:text-2xl font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
             User Directory
@@ -488,29 +521,13 @@ export default async function AdminUsersPage({
                                 </span>
                               )}
                             </div>
-                            {u.phone ? (
-                              isSuperAdmin ? (
-                                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-700 text-[#0F2540]">
-                                  <Phone size={10} />
-                                  {u.phone}
-                                </p>
-                              ) : (
-                                <p
-                                  className="mt-0.5 flex items-center gap-1 text-[11px] font-700 text-slate-500"
-                                  title="Phone number masked for staff. Full number visible to Super Admin."
-                                >
-                                  <Lock size={10} className="text-amber-500 shrink-0" />
-                                  {maskPhoneNumber(u.phone)}
-                                </p>
-                              )
-                            ) : (
-                              <p
-                                className="mt-0.5 text-[10px] font-800 text-amber-900 bg-amber-50 inline-flex px-1.5 py-0.5 rounded border border-amber-200"
-                                title="Add mobile from Edit — staff can fill it when missing."
-                              >
-                                No mobile on file
-                              </p>
-                            )}
+                            <UserDirectoryPhoneReveal
+                              userId={u.id}
+                              userName={u.name}
+                              maskedPhone={maskPhoneNumber(u.phone)}
+                              initialRawPhone={isSuperAdmin ? u.phone : null}
+                              isSuperAdmin={isSuperAdmin}
+                            />
                           </div>
                         </div>
                       </td>
@@ -599,9 +616,16 @@ export default async function AdminUsersPage({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 bg-slate-50 border-t border-slate-200 text-xs font-700 text-slate-700">
-            <p>
-              Page {page} of {totalPages} · {total} users
-            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p>
+                Page {page} of {isSuperAdmin ? totalPages : Math.min(totalPages, maxStaffPages)} · {total} users
+              </p>
+              {!isSuperAdmin && totalPages > maxStaffPages && (
+                <span className="text-[10px] font-bold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                  Staff directory capped at {maxStaffPages * take} users (Search to find specific users)
+                </span>
+              )}
+            </div>
             <div className="flex gap-2">
               {page > 1 && (
                 <Link
@@ -611,7 +635,7 @@ export default async function AdminUsersPage({
                   ← Prev
                 </Link>
               )}
-              {page < totalPages && (
+              {page < (isSuperAdmin ? totalPages : Math.min(totalPages, maxStaffPages)) && (
                 <Link
                   href={`/admin/users?q=${encodeURIComponent(q)}&role=${roleFilter}&status=${statusFilter}&emailType=${emailTypeFilter}&tag=${tagFilter}&page=${page + 1}`}
                   className="rounded-xl px-4 py-2 bg-[#2D9E6B] text-white font-800 hover:bg-[#238357]"

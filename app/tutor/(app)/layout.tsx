@@ -9,6 +9,7 @@ import { SignOutButton } from "@/components/auth/SignOutButton";
 import { TutorNavClient } from "@/components/tutor/TutorNavClient";
 import { NotificationBell } from "@/components/NotificationBell";
 import { WhatsAppHelpLink } from "@/components/support/WhatsAppHelpLink";
+import { QuickProfileUpdateModal } from "@/components/tutor/QuickProfileUpdateModal";
 
 export default async function TutorAppLayout({
   children,
@@ -39,7 +40,10 @@ export default async function TutorAppLayout({
         kycRejectionNote: true,
         onboardingStep: true,
         city: true,
+        address: true,
         subjects: true,
+        classLevels: true,
+        teachingMode: true,
         wallet: { select: { balance: true } },
       },
     }),
@@ -180,6 +184,15 @@ export default async function TutorAppLayout({
       <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-5 pb-24 xl:pb-8 min-w-0">
         {children}
       </main>
+
+      {/* Quick Location & Subjects Update Modal for Tutors */}
+      <QuickProfileUpdateModal
+        initialCity={tutorProfile?.city}
+        initialAddress={tutorProfile?.address}
+        initialSubjects={tutorProfile?.subjects}
+        initialClassLevels={tutorProfile?.classLevels}
+        initialTeachingMode={tutorProfile?.teachingMode}
+      />
     </div>
   );
 }

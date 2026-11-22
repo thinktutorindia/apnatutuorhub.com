@@ -21,6 +21,7 @@ import {
   sanitizeSubjectsForClassLevel,
 } from "@/lib/dummy-campaign-types";
 import { TutorLeadNotificationPopup } from "@/components/tutor/TutorLeadNotificationPopup";
+import { DashboardQuickPrefTrigger } from "@/components/tutor/DashboardQuickPrefTrigger";
 
 export default async function TutorDashboardPage() {
   const session = await auth();
@@ -316,6 +317,12 @@ export default async function TutorDashboardPage() {
                 ? "Verified student inquiries are live near you. Unlock a lead whenever you're ready to start a tuition demo."
                 : "Explore instant student leads below. You can start unlocking immediately with wallet coins or an active membership plan!"}
             </p>
+
+            <DashboardQuickPrefTrigger
+              locality={tutorProfile?.address}
+              city={tutorProfile?.city}
+              subjectCount={tutorSubjects.length}
+            />
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full lg:w-auto">

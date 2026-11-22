@@ -246,6 +246,52 @@ export function MyStaffLeadsClient({
     return null;
   });
 
+  // Mobile telecalling return detector: tracks when user returns from phone dialer
+  const [recentCallReturn, setRecentCallReturn] = useState<{
+    leadId: string;
+    leadName: string;
+    phone: string;
+    durationSec: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const checkReturnCall = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const stored = localStorage.getItem("ath_recent_dial");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const elapsed = Math.round((Date.now() - parsed.time) / 1000);
+          if (elapsed >= 3 && elapsed < 900) {
+            setRecentCallReturn({
+              leadId: parsed.leadId,
+              leadName: parsed.leadName,
+              phone: parsed.phone,
+              durationSec: elapsed,
+            });
+          } else {
+            localStorage.removeItem("ath_recent_dial");
+          }
+        }
+      } catch {}
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        checkReturnCall();
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pageshow", handleVisibility);
+    checkReturnCall();
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pageshow", handleVisibility);
+    };
+  }, []);
+
   const lastWorkedLead = useMemo(() => {
     if (lastWorkedLeadId) {
       const found = leads.find((l) => l.id === lastWorkedLeadId);
@@ -516,7 +562,16 @@ export function MyStaffLeadsClient({
     const targetLead = currentLead;
     const leadId = targetLead.id;
     const prevStatus = targetLead.status;
-    const notesToSave = notesOverride !== undefined ? notesOverride : (callNotes || `Logged via Calling Desk`);
+    let effectiveNotes = notesOverride !== undefined ? notesOverride : (callNotes || `Logged via Calling Desk`);
+    if (recentCallReturn && recentCallReturn.leadId === leadId) {
+      const dur = recentCallReturn.durationSec;
+      effectiveNotes += ` [Duration: ${Math.floor(dur / 60)}m ${dur % 60}s]`;
+      try {
+        localStorage.removeItem("ath_recent_dial");
+      } catch {}
+      setRecentCallReturn(null);
+    }
+    const notesToSave = effectiveNotes;
     const followUpToSave = followUpOverride !== undefined ? followUpOverride : (followUpDate || null);
 
     let nextStatus: StaffLeadStatus = targetLead.status;
@@ -1629,6 +1684,18 @@ export function MyStaffLeadsClient({
                   <div className="flex items-center gap-2 pt-0.5">
                     <a
                       href={`tel:+91${currentLead.phone.replace(/\D/g, "").slice(-10)}`}
+                      onClick={() => {
+                        if (typeof window !== "undefined") {
+                          try {
+                            localStorage.setItem("ath_recent_dial", JSON.stringify({
+                              leadId: currentLead.id,
+                              leadName: currentLead.name || "Lead",
+                              phone: currentLead.phone,
+                              time: Date.now(),
+                            }));
+                          } catch {}
+                        }
+                      }}
                       className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm transition-all active:scale-[0.98]"
                       title="Direct call (C or Space)"
                     >
@@ -1715,6 +1782,33 @@ export function MyStaffLeadsClient({
                   />
                 ) : (
                   <>
+                    {/* Mobile Telecalling Return Banner */}
+                    {recentCallReturn && recentCallReturn.leadId === currentLead.id && (
+                      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 border-2 border-emerald-500 shadow-sm space-y-2 animate-in slide-in-from-top-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                            <span className="text-xs font-black text-emerald-950">
+                              📞 Call to {recentCallReturn.leadName || "Contact"} Ended ({Math.floor(recentCallReturn.durationSec / 60)}m {recentCallReturn.durationSec % 60}s)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try { localStorage.removeItem("ath_recent_dial"); } catch {}
+                              setRecentCallReturn(null);
+                            }}
+                            className="text-slate-400 hover:text-slate-700 text-xs font-bold px-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-emerald-900 font-semibold">
+                          Select the call outcome below to log this call and advance to your next lead!
+                        </p>
+                      </div>
+                    )}
+
                     {/* Call Outcomes 3x2 Grid */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">

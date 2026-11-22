@@ -22,7 +22,7 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/action-resu
 import type { StaffDutyStatus, StaffActivityType } from "@prisma/client";
 
 // Max masked-contact reveals a single staff member may make per UTC day.
-const REVEAL_DAILY_LIMIT = 80;
+const REVEAL_DAILY_LIMIT = 100;
 // Consider a heartbeat "online" if seen within this window.
 const PRESENCE_ONLINE_WINDOW_MS = 90_000;
 
@@ -275,6 +275,74 @@ export async function logContactRevealAction(
 
   return actionSuccess({
     allowed: true,
+    revealsToday: next,
+    remaining: Math.max(0, REVEAL_DAILY_LIMIT - next),
+  });
+}
+
+// ─── 4b. Reveal phone number from User Directory (with 100/day limit) ──────────
+
+export async function revealUserDirectoryPhoneAction(
+  targetUserId: string
+): Promise<ActionResult<{ allowed: boolean; phone?: string | null; reason?: string; revealsToday: number; remaining: number }>> {
+  const { error, session } = await requireAdmin();
+  if (error || !session?.user) return actionError(error ?? "Unauthorized");
+  const staffId = session.user.id;
+  const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+  const now = new Date();
+  const ip = await clientIp();
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, name: true, phone: true },
+  });
+  if (!targetUser) return actionError("User not found");
+
+  if (isSuperAdmin) {
+    return actionSuccess({
+      allowed: true,
+      phone: targetUser.phone,
+      revealsToday: 0,
+      remaining: 9999,
+    });
+  }
+
+  const presence = await prisma.staffPresence.findUnique({ where: { staffId } });
+
+  if (presence?.forcedOff) {
+    await logActivity(staffId, "RATE_LIMIT_HIT", { path: "/admin/users", ipAddress: ip, detail: `forced_off for ${targetUserId}` });
+    return actionSuccess({ allowed: false, reason: "You are locked off duty by an admin.", revealsToday: 0, remaining: 0 });
+  }
+
+  const sameDay = isSameUtcDay(presence?.revealDate, now);
+  const current = sameDay ? presence?.revealCount ?? 0 : 0;
+
+  if (current >= REVEAL_DAILY_LIMIT) {
+    await logActivity(staffId, "RATE_LIMIT_HIT", { path: "/admin/users", ipAddress: ip, detail: `count=${current} on user directory` });
+    return actionSuccess({
+      allowed: false,
+      reason: `Daily view limit of ${REVEAL_DAILY_LIMIT} phone numbers reached. Contact Super Admin.`,
+      revealsToday: current,
+      remaining: 0,
+    });
+  }
+
+  const next = current + 1;
+  await prisma.staffPresence.upsert({
+    where: { staffId },
+    create: { staffId, dutyStatus: "ON_DUTY", revealCount: next, revealDate: now, lastSeenAt: now },
+    update: { revealCount: next, revealDate: now, lastSeenAt: now },
+  });
+
+  await logActivity(staffId, "REVEAL_CONTACT", {
+    path: "/admin/users",
+    detail: `Revealed user phone for ${targetUser.name || targetUserId} (${targetUser.phone ? targetUser.phone.slice(-4) : "empty"})`,
+    ipAddress: ip,
+  });
+
+  return actionSuccess({
+    allowed: true,
+    phone: targetUser.phone,
     revealsToday: next,
     remaining: Math.max(0, REVEAL_DAILY_LIMIT - next),
   });

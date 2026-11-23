@@ -708,10 +708,9 @@ export function formatCommissionPlanDetailMessage(): string {
     `• Low Competition: Shared with max 3 tutors only\n` +
     `• Direct Parent Phone & Address Unlocked\n` +
     `• 5km Nearby Home Tuition ya Online Classes\n\n` +
-    `👉 *Abhi Plan Activate Karein:*\n` +
-    `https://apnatutorhub.com/tutor/plans\n\n` +
-    `Payment / QR ke liye reply karein *PAY* ya *QR*.\n` +
-    `Reply *ACTIVATE 1257* ya *HELP* agar aapko activate karne mein koi sawaal ho.`;
+    `👉 *Abhi Plan Activate Karein (Instant Online Activation):*\n` +
+    `https://apnatutorhub.com/tutor/plans?checkout=STARTER\n\n` +
+    `Reply karein *PAY* ya *ACTIVATE 1257* instant payment link ke liye.`;
 }
 
 /**
@@ -735,20 +734,23 @@ export function formatGrowthPlanDetailMessage(): string {
 
 const PUBLIC_SITE = "https://apnatutorhub.com";
 
-/** Payment steps + QR image attachment message (QR PNG is sent as a separate image attachment). */
+/** Payment steps + 1-Click Razorpay instant activation link */
 export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "1257"): string {
-  const plansUrl = `${PUBLIC_SITE}/tutor/plans`;
+  const plansUrl = `${PUBLIC_SITE}/tutor/plans?checkout=STARTER`;
 
   const planLine = "Commission Based Plan *₹1,257*";
 
   return (
-    `💳 *${planLine} — payment steps*\n\n` +
-    `1️⃣ Online payment karein (UPI / Card / Netbanking):\n` +
+    `💳 *${planLine} — Instant Online Activation*\n\n` +
+    `⚡ *1-Click Secure Payment (UPI / GPay / PhonePe / Paytm / Cards):*\n` +
     `👉 ${plansUrl}\n\n` +
-    `2️⃣ Ya niche bheja gaya *Kotak UPI QR scan karein* aur ₹1,257 transfer karein.\n\n` +
-    `✅ Payment ke baad screenshot ya UTR number yahan bhejein — team 15–30 min mein activate kar degi.\n\n` +
-    `🆔 UPI ID: *9311459543@kotakbank*\n` +
-    `Madad: WhatsApp +91 93191 93109 (9am–7pm)`
+    `✨ *Membership Perks:*\n` +
+    `• *5 Verified Student Leads Unlocked*\n` +
+    `• *6 Months Long Validity* (180 days)\n` +
+    `• *Direct Parent Phone Numbers & Addresses*\n` +
+    `• 50% commission on 1st month tuition fee + 5% recurring from 2nd month\n` +
+    `• 100% Instant Automated Activation via Razorpay (Zero waiting!)\n\n` +
+    `Madad ke liye: WhatsApp +91 93191 93109 (9am–7pm)`
   );
 }
 

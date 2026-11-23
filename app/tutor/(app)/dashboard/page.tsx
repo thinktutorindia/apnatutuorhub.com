@@ -23,7 +23,13 @@ import {
 import { TutorLeadNotificationPopup } from "@/components/tutor/TutorLeadNotificationPopup";
 import { DashboardQuickPrefTrigger } from "@/components/tutor/DashboardQuickPrefTrigger";
 
-export default async function TutorDashboardPage() {
+interface PageProps {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function TutorDashboardPage({ searchParams }: PageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const isJustActivated = resolvedSearchParams?.subscription === "activated" || resolvedSearchParams?.activated === "1";
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -98,6 +104,12 @@ export default async function TutorDashboardPage() {
     { done: isKycApproved, label: "Complete KYC verification (Optional)" },
   ];
   const profileScore = scoreBreakdown?.total ?? 0;
+
+  const isSubscriptionActive = Boolean(
+    tutorProfile?.subscriptionPlan &&
+    tutorProfile.subscriptionExpiresAt &&
+    new Date(tutorProfile.subscriptionExpiresAt) > new Date()
+  );
 
   const tutorSubjects = tutorProfile?.subjects ?? [];
   let tutorLat = tutorProfile?.latitude;
@@ -283,6 +295,37 @@ export default async function TutorDashboardPage() {
     <div className="space-y-6 pb-8 text-slate-900">
       <EnablePushBanner userId={session.user.id} />
 
+      {/* ── CELEBRATION BANNER (Shown upon instant plan activation) ── */}
+      {isJustActivated && (
+        <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-2xl border-2 border-emerald-300/40 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl shrink-0 shadow-inner">
+                🎉
+              </div>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/25 text-white text-[11px] font-black uppercase tracking-wider">
+                  ✅ Payment Confirmed &amp; Membership Live
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white">
+                  Welcome to ApnaTutorHub Verified Membership!
+                </h3>
+                <p className="text-xs sm:text-sm text-emerald-100 font-medium max-w-xl">
+                  Your Commission Based Plan is active for <strong>6 Months</strong>. You have <strong>5 verified student leads</strong> unlocked with direct parent contact numbers.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/tutor/leads"
+              className="px-6 py-3.5 rounded-2xl bg-white text-emerald-950 font-black text-xs sm:text-sm shadow-xl hover:bg-emerald-50 active:scale-98 transition-all shrink-0 inline-flex items-center gap-2"
+            >
+              <span>Explore My 5 Leads</span>
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* ── Modern Attractive Hero Banner ── */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#07131F] via-[#0B1E33] to-[#0D253A] p-6 sm:p-9 text-white border border-white/10 shadow-2xl shadow-slate-900/10">
         {/* Ambient Glowing Orbs */}
@@ -299,6 +342,11 @@ export default async function TutorDashboardPage() {
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow-2xs">
                   <ShieldAlert size={14} className="text-amber-400" /> Identity Verification (Optional)
+                </span>
+              )}
+              {isSubscriptionActive && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-emerald-500/25 to-teal-500/25 text-emerald-300 border border-emerald-400/50 shadow-sm">
+                  <Crown size={14} className="text-yellow-400" /> Commission Plan Active (5 Leads)
                 </span>
               )}
               {tutorProfile?.isFeatured && (

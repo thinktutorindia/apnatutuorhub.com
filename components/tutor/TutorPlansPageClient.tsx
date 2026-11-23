@@ -81,8 +81,32 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
   const [couponError, setCouponError] = useState<string | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<ValidateCouponResult | null>(null);
 
+  // Celebratory Post-Payment Success Dialog State
+  const [paymentSuccess, setPaymentSuccess] = useState<{
+    orderId: string;
+    paymentId: string;
+    planName: string;
+    amount: number;
+    leads: number;
+    expiresAt?: string;
+  } | null>(null);
+
   const activePlanKey = currentPlan.toUpperCase() as SubscriptionPlanId;
   const activePlanConfig = SUBSCRIPTION_PLANS[activePlanKey] ?? null;
+  const isPlanActive = Boolean(
+    activePlanConfig &&
+    expiresAt &&
+    new Date(expiresAt) > new Date()
+  );
+
+  // Auto-open checkout if requested via URL param (e.g. from WhatsApp 1-click link)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("checkout") === "STARTER" && !isPlanActive) {
+      handleOpenCheckout("STARTER");
+    }
+  }, [isPlanActive]);
 
   const handleOpenCheckout = (planId: SubscriptionPlanId) => {
     setCheckoutPlanId(planId);
@@ -129,7 +153,17 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
       });
 
       if (verifyRes.ok) {
-        window.location.href = "/tutor/dashboard?subscription=activated";
+        const verifyData = await verifyRes.json();
+        setPaymentSuccess({
+          orderId: mockOrderId,
+          paymentId: mockPaymentId,
+          planName: SUBSCRIPTION_PLANS[planId].name,
+          amount: SUBSCRIPTION_PLANS[planId].priceInr,
+          leads: SUBSCRIPTION_PLANS[planId].totalLeads,
+          expiresAt: verifyData.expiresAt,
+        });
+        setCheckoutPlanId(null);
+        setIsLoading(false);
       } else {
         const data = await verifyRes.json();
         throw new Error(data.error || "Activation failed");
@@ -176,7 +210,17 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           });
 
           if (verifyRes.ok) {
-            window.location.href = "/tutor/dashboard?subscription=activated";
+            const verifyData = await verifyRes.json();
+            setPaymentSuccess({
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              planName: SUBSCRIPTION_PLANS[planId].name,
+              amount: data.totalAmount ?? (appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[planId].priceInr),
+              leads: SUBSCRIPTION_PLANS[planId].totalLeads,
+              expiresAt: verifyData.expiresAt,
+            });
+            setCheckoutPlanId(null);
+            setIsLoading(false);
           } else {
             setErrorMessage("Payment verification failed. Please contact support.");
             setIsLoading(false);
@@ -235,15 +279,22 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
             Start unlocking verified student leads with our official <span className="text-emerald-300 font-bold">Commission Based Plan</span> — 5 Verified Leads, 6 Months validity, low ₹1,257 registration, and direct parent contacts!
           </p>
 
-          {activePlanConfig && (
-            <div className="inline-flex flex-wrap justify-center items-center gap-3 px-5 py-3 rounded-2xl border" style={{background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)'}}>
+          {activePlanConfig && isPlanActive && (
+            <div className="inline-flex flex-wrap justify-center items-center gap-3 px-5 py-3 rounded-2xl border" style={{background: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.35)'}}>
               <div className="flex items-center gap-2 text-xs font-bold text-white">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Active: <span className="text-emerald-300 font-extrabold">{activePlanConfig.name}</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                Active Plan: <span className="text-emerald-300 font-extrabold">{activePlanConfig.name}</span>
               </div>
-              <span className="text-slate-600 hidden sm:inline">·</span>
-              <span className="text-xs text-slate-300 font-semibold">Used: <strong className="text-white">{leadsUsedThisMonth}</strong> leads</span>
-              {expiresAt && <span className="text-xs text-slate-400">Expires: {new Date(expiresAt).toLocaleDateString()}</span>}
+              <span className="text-slate-500 hidden sm:inline">·</span>
+              <span className="text-xs text-slate-200 font-semibold">5 Leads Unlocked</span>
+              {expiresAt && (
+                <>
+                  <span className="text-slate-500 hidden sm:inline">·</span>
+                  <span className="text-xs text-emerald-200 font-semibold">
+                    Valid Until: {new Date(expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -318,44 +369,92 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
             </div>
 
             {/* Right Pricing & CTA Card */}
-            <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/95 border-2 border-emerald-400/80 shadow-lg text-center shrink-0 w-full lg:w-72 space-y-3">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                  Special Registration
-                </span>
-                <div className="text-4xl sm:text-5xl font-black text-[#0F2540] mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                  ₹1,257
+            {isPlanActive ? (
+              <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/95 border-2 border-emerald-500 shadow-xl text-center shrink-0 w-full lg:w-80 space-y-3 relative overflow-hidden">
+                <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-emerald-500 to-teal-500" />
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-2xl shadow-inner">
+                  👑
                 </div>
-                <div className="text-xs font-bold text-slate-400 line-through">Regular ₹2,500</div>
-                <div className="text-xs font-black text-emerald-700 mt-0.5">Save ₹1,243 (50% OFF)</div>
-              </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
+                    ✅ Your Membership is Active
+                  </span>
+                  <div className="text-xl sm:text-2xl font-black text-[#0F2540] mt-2">
+                    Commission Plan
+                  </div>
+                  <div className="text-xs font-bold text-emerald-700 mt-0.5">
+                    5 Verified Leads Unlocked
+                  </div>
+                </div>
 
-              <div className="w-full text-xs text-slate-600 font-semibold space-y-1 py-1 border-y border-slate-100">
-                <div className="flex items-center justify-between">
-                  <span>Validity:</span>
-                  <span className="font-black text-slate-900">6 Months</span>
+                <div className="w-full text-xs text-slate-600 font-semibold space-y-1.5 py-2 border-y border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span>Status:</span>
+                    <span className="font-black text-emerald-700 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Valid Until:</span>
+                    <span className="font-black text-slate-900">
+                      {expiresAt ? new Date(expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "6 Months"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Available Leads:</span>
+                    <span className="font-black text-emerald-700">5 Student Leads</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Leads:</span>
-                  <span className="font-black text-emerald-700">5 Student Leads</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Competition:</span>
-                  <span className="font-black text-slate-900">Max 3 Tutors</span>
-                </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => handleOpenCheckout('STARTER')}
-                disabled={isLoading}
-                className="w-full py-3.5 px-6 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xl shadow-emerald-600/30 cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <span>{activePlanKey === 'STARTER' ? '✅ Plan Active' : '🤝 Select Commission Plan'}</span>
-                <ArrowRight size={16} />
-              </button>
-              <p className="text-[10px] text-slate-400 font-semibold">Instant unlock for 5 verified student leads</p>
-            </div>
+                <Link
+                  href="/tutor/leads"
+                  className="w-full py-3.5 px-6 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xl shadow-emerald-600/30 cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-98 flex items-center justify-center gap-2"
+                >
+                  <span>Browse Student Leads</span>
+                  <ArrowRight size={16} />
+                </Link>
+                <p className="text-[10px] text-slate-500 font-bold">Direct parent contact numbers ready to unlock</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/95 border-2 border-emerald-400/80 shadow-lg text-center shrink-0 w-full lg:w-72 space-y-3">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                    Special Registration
+                  </span>
+                  <div className="text-4xl sm:text-5xl font-black text-[#0F2540] mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    ₹1,257
+                  </div>
+                  <div className="text-xs font-bold text-slate-400 line-through">Regular ₹2,500</div>
+                  <div className="text-xs font-black text-emerald-700 mt-0.5">Save ₹1,243 (50% OFF)</div>
+                </div>
+
+                <div className="w-full text-xs text-slate-600 font-semibold space-y-1 py-1 border-y border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span>Validity:</span>
+                    <span className="font-black text-slate-900">6 Months</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Leads:</span>
+                    <span className="font-black text-emerald-700">5 Student Leads</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Competition:</span>
+                    <span className="font-black text-slate-900">Max 3 Tutors</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenCheckout('STARTER')}
+                  disabled={isLoading}
+                  className="w-full py-3.5 px-6 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xl shadow-emerald-600/30 cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <span>🤝 Select Commission Plan</span>
+                  <ArrowRight size={16} />
+                </button>
+                <p className="text-[10px] text-slate-400 font-semibold">Instant unlock for 5 verified student leads</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -835,6 +934,82 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* ── CELEBRATORY PAYMENT SUCCESS MODAL ── */}
+      {paymentSuccess && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl border border-emerald-200 shadow-2xl w-full max-w-md relative p-6 sm:p-8 text-center space-y-5 animate-in zoom-in-95 duration-200">
+            {/* Glowing checkmark badge */}
+            <div className="relative mx-auto w-20 h-20">
+              <div className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
+              <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-xl shadow-emerald-600/30">
+                <CheckCircle2 size={42} strokeWidth={2.5} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-200">
+                ✅ Payment Verified &amp; Captured
+              </span>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight pt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                Membership Activated! 🎉
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                Congratulations! You are now a <strong>Verified ApnaTutorHub Teacher</strong>. Your 5 student leads quota has been unlocked immediately.
+              </p>
+            </div>
+
+            {/* Receipt Summary Card */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2 text-xs font-bold text-slate-700 shadow-2xs">
+              <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-500">Plan:</span>
+                <span className="text-slate-900 font-black">{paymentSuccess.planName}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-500">Amount Paid:</span>
+                <span className="text-emerald-700 font-black text-sm">₹{paymentSuccess.amount.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-500">Payment ID:</span>
+                <span className="text-slate-900 font-mono text-[11px] select-all bg-white px-2 py-0.5 rounded border border-slate-200">
+                  {paymentSuccess.paymentId}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-500">Leads Unlocked:</span>
+                <span className="text-emerald-700 font-black">5 Verified Student Leads*</span>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-slate-500">Validity:</span>
+                <span className="text-slate-900 font-black">
+                  {paymentSuccess.expiresAt
+                    ? new Date(paymentSuccess.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                    : "6 Months (180 Days)"}
+                </span>
+              </div>
+            </div>
+
+            {/* Call to Actions */}
+            <div className="space-y-2 pt-1">
+              <Link
+                href="/tutor/leads"
+                className="w-full py-3.5 px-6 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xl shadow-emerald-700/30 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-98"
+              >
+                <span>Browse Your 5 Student Leads Now</span>
+                <ArrowRight size={16} />
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/tutor/dashboard?subscription=activated";
+                }}
+                className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+              >
+                Go to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       )}

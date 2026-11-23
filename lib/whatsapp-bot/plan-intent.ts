@@ -85,37 +85,12 @@ export function blocksPaymentQrInChat(raw: string): boolean {
 }
 
 /**
- * Broad positive intent for "let me pay from this chat" or "send plan details".
- * Whenever a tutor asks for plan details, pricing, membership, or how to pay,
- * send the payment QR code as well with the plan.
+ * Previously sent payment QR images in chat. Now deprecated in favor of 1-click Razorpay payment links.
  */
 export function wantsPaymentQrInChat(raw: string, replyBody?: string): boolean {
-  const t = raw.trim();
-  if (!t || blocksPaymentQrInChat(t)) return false;
-
-  // Explicit payment/QR intents — always show QR
-  if (asksPlanPaymentOrQr(t)) return true;
-  if (/\b(?:qr|qrcode|upi|scan\s*(?:qr|karo|kar)|paytm|phonepe|gpay|google\s*pay|razorpay)\b/i.test(t)) return true;
-  if (/\b(?:1257|₹\s?1,257|rs\.?\s?1257)\b/i.test(t)) return true;
-  if (/^\s*(?:pay|payment|qr)\s*$/i.test(t)) return true;
-  if (/^\s*(?:done|paid|pay\s*done|payment\s*done|utr\b|paid\s+\S+)/i.test(t)) return true;
-  if (/\b(?:screenshot|ss|receipt|payment\s*proof)\b.{0,20}\b(?:bhej|send|diya|kar|done|h)\b/i.test(t)) return true;
-
-  // Plan / Membership intent — send QR as well with plan!
-  if (asksCommissionPlan(t) || asksZeroCommissionPlan(t)) return true;
-  if (/\b(?:plans*|membership|pricing|package|packages|recharge|coins?|buy\s*coins|wallet)\b/i.test(t)) return true;
-
-  // If the outbound reply itself presents the plan details or payment link
-  if (replyBody && /\b(?:apnatutorhub\.com\/tutor\/plans|commission\s*based\s*plan|9311459543@kotakbank)\b/i.test(replyBody)) {
-    return true;
-  }
-
-  // Lead unlock context — show QR when explicitly asking HOW to unlock (not just "interested")
-  if (/\b(?:unlock|contact|number|parent)\b.{0,30}\b(?:kaise|kab|hoga)\b/i.test(t)) return true;
-
   return false;
 }
 
 export function shouldIncludePaymentQr(raw: string, replyBody?: string): boolean {
-  return wantsPaymentQrInChat(raw, replyBody);
+  return false;
 }

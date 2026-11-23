@@ -725,9 +725,9 @@ export const PAYMENT_QR_CAPTION =
   "https://apnatutorhub.com/tutor/plans\n\n" +
   "Payment ke baad UTR ya screenshot yahan bhejein — team 15 min mein activate kar degi. ✅";
 
-// Send exactly ONE QR image so the chat always shows the Kotak QR directly.
-export function paymentQrImage(): { imageUrls: string[]; imageCaption: string } {
-  return { imageUrls: [PAYMENT_QR_IMAGE_URL], imageCaption: PAYMENT_QR_CAPTION };
+// Direct Razorpay 1-click link is sent in text instead of offline QR images
+export function paymentQrImage(): { imageUrls?: string[]; imageCaption?: string } {
+  return {};
 }
 
 async function tryLooseTutorIntent(
@@ -930,7 +930,7 @@ function classAskOrBreak(
       },
       userType: "TUTOR",
       retries: 0,
-      quickReplies: ["Maths, Science", "All Subjects (Class 1-8)", "PAY / QR 💳", "Talk to Support 📞"],
+      quickReplies: ["Maths, Science", "All Subjects (Class 1-8)", "Activate Plan ⚡", "Talk to Support 📞"],
     };
   }
   return {
@@ -974,7 +974,7 @@ function tryTutorOffScriptReply(
       updatedData: { ...data, interestedPlanType: "COMMISSION_1257", lastBotAsk: "commission", sameAskCount: 0 },
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["PAY / QR 💳", "View Leads 📋", "Talk to Support 📞"],
+      quickReplies: ["Activate Plan ⚡", "View Leads 📋", "Talk to Support 📞"],
       ...paymentQrImage(),
     };
   }
@@ -1036,7 +1036,7 @@ function tryTutorOffScriptReply(
       updatedData: { ...data, lastBotAsk: "refuse-pay", sameAskCount: 0 },
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["View Leads 📋", "PAY / QR 💳", "Talk to Support 📞"],
+      quickReplies: ["View Leads 📋", "Activate Plan ⚡", "Talk to Support 📞"],
     };
   }
 
@@ -1230,8 +1230,8 @@ export async function processMessage(
     const justSaidDone = /^\s*(?:done|paid|payment\s*done|pay\s*done)\b/i.test(rawMessage.trim());
     return {
       reply: justSaidDone
-        ? `Bahut badhiya! 🎉 Payment ka UTR number ya screenshot yahin bhejein — team 15–30 min mein verify karke plan activate kar degi.\n\n🆔 UPI ID: *9311459543@kotakbank* (agar abhi pay nahi kiya to scan karein 👇)`
-        : `Payment ka proof receive ho gaya hai! 📲\n\nKripya *UTR number* (12-digit) ya *payment screenshot* yahin attach karein — team verify karke turant activate kar degi.\n\n⚠️ Verification ke baad hi lead unlock hoti hai.`,
+        ? `Bahut badhiya! 🎉 Agar aapne Razorpay se online pay kiya hai toh plan turant auto-activate ho chuka hai! Ek baar apna portal check karein:\n👉 https://apnatutorhub.com/tutor/leads\n\nAgar offline UPI se transfer kiya hai toh UTR number yahin bhej dein, coordinator verify kar denge.`
+        : `Payment details note kar li hain! ✅ Agar aapne Razorpay online gateway se pay kiya hai toh plan turant active ho chuka hai: https://apnatutorhub.com/tutor/leads. Kisi bhi help ke liye coordinator: +91 93191 93109.`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: {
         ...data,
@@ -1241,8 +1241,7 @@ export async function processMessage(
       },
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["Screenshot send karein 📸", "QR dobara bhejo 💳", "Talk to Support 📞"],
-      ...(justSaidDone ? paymentQrImage() : {}),
+      quickReplies: ["View Leads 📋", "My Dashboard 🎓", "Talk to Support 📞"],
     };
   }
 
@@ -2358,7 +2357,7 @@ export async function processMessage(
       updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["PAY / QR 💳", "View Leads 📋", "Talk to Support 📞"],
+      quickReplies: ["Activate Plan ⚡", "View Leads 📋", "Talk to Support 📞"],
       ...paymentQrImage(),
     };
   }
@@ -4097,7 +4096,7 @@ export async function processMessage(
                 updatedData: { ...mergedData, _registered: true, lastBotAsk: "email-skip", sameAskCount: 0 },
                 userType: "TUTOR",
                 retries: 0,
-                quickReplies: ["View Leads 📋", "PAY / QR 💳", "Talk to Support 📞"],
+                quickReplies: ["View Leads 📋", "Activate Plan ⚡", "Talk to Support 📞"],
               };
             }
 
@@ -4265,7 +4264,7 @@ export async function processMessage(
             retries: 0,
             quickReplies: [
               "View Leads 📋",
-              "PAY / QR 💳",
+              "Activate Plan ⚡",
               "Membership Plans 💎",
             ],
           };

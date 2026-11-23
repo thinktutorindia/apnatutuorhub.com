@@ -190,12 +190,14 @@ export async function validateCouponAction(
     return actionError(`Minimum order amount of ₹${minRs} required for this coupon`);
   }
 
-  // User usage limit check (max 1 per user)
-  const previousUsage = await prisma.couponUsage.findFirst({
-    where: { couponId: coupon.id, userId: session.user.id },
-  });
-  if (previousUsage) {
-    return actionError("You have already used this coupon code");
+  // User usage limit check (max 1 per user, exempt test coupons starting with TEST)
+  if (!coupon.code.startsWith("TEST")) {
+    const previousUsage = await prisma.couponUsage.findFirst({
+      where: { couponId: coupon.id, userId: session.user.id },
+    });
+    if (previousUsage) {
+      return actionError("You have already used this coupon code");
+    }
   }
 
   let discountPaise = 0;
@@ -253,11 +255,13 @@ export async function consumeCouponInTx(
     return actionError("Coupon code has expired");
   }
 
-  const existingUserUsage = await tx.couponUsage.findFirst({
-    where: { couponId: input.couponId, userId: input.userId },
-  });
-  if (existingUserUsage) {
-    return actionError("You have already used this coupon code");
+  if (!coupon.code.startsWith("TEST")) {
+    const existingUserUsage = await tx.couponUsage.findFirst({
+      where: { couponId: input.couponId, userId: input.userId },
+    });
+    if (existingUserUsage) {
+      return actionError("You have already used this coupon code");
+    }
   }
 
   const updated = await tx.coupon.updateMany({

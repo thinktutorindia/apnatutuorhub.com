@@ -55,6 +55,7 @@ staff_performance_*
 # Local Database & Raw Data Repositories
 /data/
 /datauploadrawdata/
+/exports/
 /whattodo/
 whattodo.zip
 *.zip

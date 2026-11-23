@@ -1,13 +1,14 @@
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { getSubscriptionPlan, getPriceWithGst } from "@/lib/subscription-plans";
+import { getSubscriptionPlan, getPriceWithGst, getGstAmount } from "@/lib/subscription-plans";
 import {
   fetchRazorpayOrder,
   isRazorpayConfigured,
   verifyPaymentSignature,
 } from "@/lib/razorpay";
 import { prisma } from "@/lib/prisma";
+import { consumeCouponInTx } from "@/app/actions/coupon.actions";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -47,6 +48,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Payment gateway is not configured" }, { status: 503 });
   }
 
+  let verifiedOrder: Awaited<ReturnType<typeof fetchRazorpayOrder>> | null = null;
+
   // ── Payment authenticity (mandatory whenever Razorpay is configured) ──────────
   // Security: never activate a paid plan without cryptographic proof of a captured
   // payment whose ORDER matches this exact plan, amount and tutor. This closes the
@@ -69,9 +72,8 @@ export async function POST(request: Request) {
 
     // Bind the order to this plan/amount/tutor so a cheap order can't unlock an
     // expensive plan, and another tutor's order can't be replayed.
-    let order: Awaited<ReturnType<typeof fetchRazorpayOrder>>;
     try {
-      order = await fetchRazorpayOrder(orderId);
+      verifiedOrder = await fetchRazorpayOrder(orderId);
     } catch (err) {
       console.error("[subscribe/verify] Could not fetch order", err);
       return NextResponse.json(
@@ -80,26 +82,30 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!order) {
+    if (!verifiedOrder) {
       return NextResponse.json({ error: "Order not found" }, { status: 400 });
     }
 
-    const expectedPaise = plan.noGst
-      ? plan.priceInr * 100                   // STARTER: no GST
-      : getPriceWithGst(plan.priceInr) * 100; // Others: base + 18% GST
-    if (order.amount !== expectedPaise) {
+    const discountPaise = Number(verifiedOrder.notes?.discountPaise ?? "0") || 0;
+    const discountInr = Math.min(plan.priceInr, Math.round(discountPaise / 100));
+    const finalBasePrice = Math.max(1, plan.priceInr - discountInr);
+    const gstAmountInr = plan.noGst ? 0 : getGstAmount(finalBasePrice);
+    const totalPriceInr = finalBasePrice + gstAmountInr;
+    const expectedPaise = Math.max(100, Math.round(totalPriceInr * 100));
+
+    if (verifiedOrder.amount !== expectedPaise) {
       return NextResponse.json(
         { error: "Payment amount does not match the selected plan." },
         { status: 400 }
       );
     }
-    if (order.notes?.tutorProfileId && order.notes.tutorProfileId !== tutorProfile.id) {
+    if (verifiedOrder.notes?.tutorProfileId && verifiedOrder.notes.tutorProfileId !== tutorProfile.id) {
       return NextResponse.json(
         { error: "This payment does not belong to your account." },
         { status: 403 }
       );
     }
-    if (order.notes?.planId && order.notes.planId.toUpperCase() !== plan.id) {
+    if (verifiedOrder.notes?.planId && verifiedOrder.notes.planId.toUpperCase() !== plan.id) {
       return NextResponse.json(
         { error: "Payment plan mismatch." },
         { status: 400 }
@@ -134,6 +140,22 @@ export async function POST(request: Request) {
   const isStarterPass = plan.id === "STARTER";
 
   await prisma.$transaction(async (tx) => {
+    // If order has a coupon attached, consume it atomically
+    const couponId = verifiedOrder?.notes?.couponId;
+    const discountPaise = Number(verifiedOrder?.notes?.discountPaise ?? "0") || 0;
+    if (couponId) {
+      try {
+        await consumeCouponInTx(tx, {
+          couponId: String(couponId),
+          userId: session.user.id,
+          orderId: paymentId || orderId,
+          discountPaise,
+        });
+      } catch (err) {
+        console.warn("[subscribe/verify] Coupon consumption skipped or already used:", err);
+      }
+    }
+
     await tx.tutorProfile.update({
       where: { id: tutorProfile.id },
       data: {

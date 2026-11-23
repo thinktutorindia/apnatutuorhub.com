@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { planId } = body;
+  const { planId, couponCode } = body;
   const plan = getSubscriptionPlan(planId);
 
   if (!plan) {
@@ -34,17 +34,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tutor profile not found" }, { status: 404 });
   }
 
-  // STARTER (₹99 festival pass) is GST-exempt; all other plans attract 18% GST
-  const basePrice = plan.priceInr;
-  const gstAmount = plan.noGst ? 0 : getGstAmount(basePrice);
-  const totalPrice = basePrice + gstAmount;
-  const priceInPaise = totalPrice * 100;
+  let finalBasePrice = plan.priceInr;
+  let appliedCouponId: string | undefined;
+  let discountInr = 0;
+
+  if (couponCode && typeof couponCode === "string" && couponCode.trim()) {
+    const cleanCode = couponCode.trim().toUpperCase();
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: cleanCode },
+    });
+    if (coupon && coupon.isActive && (!coupon.expiresAt || new Date() <= coupon.expiresAt)) {
+      if (coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit) {
+        if (coupon.discountType === "FLAT") {
+          discountInr = Math.round(coupon.discountAmount / 100);
+        } else {
+          discountInr = Math.round((plan.priceInr * coupon.discountAmount) / 100);
+          if (coupon.maxDiscountInr && discountInr * 100 > coupon.maxDiscountInr) {
+            discountInr = Math.round(coupon.maxDiscountInr / 100);
+          }
+        }
+        discountInr = Math.min(discountInr, plan.priceInr);
+        finalBasePrice = Math.max(1, plan.priceInr - discountInr);
+        appliedCouponId = coupon.id;
+      }
+    }
+  }
+
+  const gstAmount = plan.noGst ? 0 : getGstAmount(finalBasePrice);
+  const totalPrice = finalBasePrice + gstAmount;
+  // Razorpay requires at least 100 paise (₹1)
+  const priceInPaise = Math.max(100, Math.round(totalPrice * 100));
 
   if (isRazorpayConfigured()) {
     try {
       const order = await createRazorpayOrder(priceInPaise, `sub_${tutorProfile.id}_${plan.id}`, {
         tutorProfileId: tutorProfile.id,
         planId: plan.id,
+        couponId: appliedCouponId ?? "",
+        discountPaise: String(discountInr * 100),
       });
 
       return NextResponse.json({
@@ -52,9 +79,10 @@ export async function POST(request: Request) {
         amount: order.amount,
         currency: order.currency,
         keyId: order.keyId,
-        baseAmount: basePrice,
+        baseAmount: finalBasePrice,
         gstAmount,
         totalAmount: totalPrice,
+        discountAmount: discountInr,
       });
     } catch (err: any) {
       console.error("[subscribe] Razorpay order creation failed", err);
@@ -76,8 +104,9 @@ export async function POST(request: Request) {
     amount: priceInPaise,
     currency: "INR",
     keyId: process.env.RAZORPAY_KEY_ID || "rzp_test_mock",
-    baseAmount: basePrice,
+    baseAmount: finalBasePrice,
     gstAmount,
     totalAmount: totalPrice,
+    discountAmount: discountInr,
   });
 }

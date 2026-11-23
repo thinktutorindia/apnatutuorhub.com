@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
   },
 
   // Server external packages for Prisma & Node-only libraries
-  serverExternalPackages: ["@prisma/client", "bcryptjs", "web-push"],
+  serverExternalPackages: ["@prisma/client", "bcryptjs", "web-push", "bullmq", "ioredis"],
 
   async rewrites() {
     return [

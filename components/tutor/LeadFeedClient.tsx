@@ -30,6 +30,7 @@ import {
   UserCheck,
   Zap,
   Star,
+  Target,
 } from "lucide-react";
 import { LeadPurchaseModal, type SubscriptionInfo } from "@/components/tutor/LeadPurchaseModal";
 import type { ParentContact } from "@/app/actions/leads.actions";
@@ -820,9 +821,11 @@ export function LeadFeedClient({
   initialInquiryNumber?: number;
   tutorId?: string;
 }) {
-  const hasTutorLocation = Boolean(tutorLocation?.lat && tutorLocation?.lon);
+  const hasTutorLocation = Boolean(
+    (tutorLocation?.lat && tutorLocation?.lon) || tutorLocation?.city || tutorLocation?.address
+  );
   const hasTutorSubjects = Boolean(tutorSubjects && tutorSubjects.length > 0);
-  const hasFilterConfig = hasTutorLocation || hasTutorSubjects;
+  const hasFilterConfig = true;
 
   const router = useRouter();
 
@@ -1206,33 +1209,29 @@ export function LeadFeedClient({
       {/* View Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Lead Feed Tabs" className="flex flex-wrap gap-2">
-          {hasFilterConfig && (
-            <button
-              type="button"
-              onClick={() => setViewTab("matched")}
-              className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-                viewTab === "matched"
-                  ? "bg-[#2D9E6B] text-white shadow-md shadow-emerald-500/20"
-                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-              }`}
-            >
-              🎯 Matched for Me ({matchedLeads.length})
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setViewTab("matched")}
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+              viewTab === "matched"
+                ? "bg-[#2D9E6B] text-white shadow-md shadow-emerald-500/20"
+                : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+            }`}
+          >
+            🎯 Matched for Me ({matchedLeads.length})
+          </button>
 
-          {hasTutorLocation && (
-            <button
-              type="button"
-              onClick={() => setViewTab("nearby")}
-              className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-                viewTab === "nearby"
-                  ? "bg-[#0F2540] text-white shadow-md shadow-slate-900/20"
-                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-              }`}
-            >
-              📍 Within {teachingRadius || 10} km ({nearbyLeads.length})
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setViewTab("nearby")}
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+              viewTab === "nearby"
+                ? "bg-[#0F2540] text-white shadow-md shadow-slate-900/20"
+                : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+            }`}
+          >
+            📍 Within {teachingRadius || 5} km ({nearbyLeads.length})
+          </button>
 
           <button
             type="button"
@@ -1273,34 +1272,32 @@ export function LeadFeedClient({
       </div>
 
       {/* Informative Context Banners */}
-      {viewTab === "matched" && hasFilterConfig && (
+      {viewTab === "matched" && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-medium">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white font-black text-sm">
-              🎯
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white font-black text-sm shadow-xs">
+              <Target size={16} />
             </span>
             <div>
               <span className="font-bold text-emerald-900">
                 Auto-filtered for your profile:
               </span>{" "}
-              Showing {filtered.length} leads within {teachingRadius || 10} km
+              Showing {filtered.length} leads within {teachingRadius || 5} km
               {tutorLocation?.city ? ` of ${tutorLocation.city}` : ""} matching your teaching subjects &amp; grades.
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {hasTutorLocation && (
-              <button
-                type="button"
-                onClick={() => setViewTab("nearby")}
-                className="px-2.5 py-1 rounded-xl bg-white border border-emerald-300 text-emerald-800 font-bold hover:bg-emerald-100 transition-colors text-[11px] cursor-pointer"
-              >
-                View all {nearbyLeads.length} within {teachingRadius || 10} km
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setViewTab("nearby")}
+              className="px-3.5 py-1.5 rounded-full bg-white border border-emerald-300 text-emerald-800 font-bold hover:bg-emerald-100 transition-colors text-xs cursor-pointer shadow-xs"
+            >
+              View all {nearbyLeads.length} within {teachingRadius || 5} km
+            </button>
             <button
               type="button"
               onClick={() => setViewTab("all")}
-              className="px-2.5 py-1 rounded-xl bg-emerald-700 text-white font-bold hover:bg-emerald-800 transition-colors text-[11px] cursor-pointer"
+              className="px-3.5 py-1.5 rounded-full bg-emerald-800 text-white font-bold hover:bg-emerald-900 transition-colors text-xs cursor-pointer shadow-xs"
             >
               Browse all {unpurchased.length} city leads
             </button>

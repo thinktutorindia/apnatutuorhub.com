@@ -381,13 +381,13 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
         leads={feedLeads}
         walletBalance={walletBalance}
         tutorSubjects={tutorProfile.subjects}
-        teachingRadius={5}
+        teachingRadius={tutorProfile.teachingRadius || 5}
         tutorClassLevels={tutorProfile.classLevels}
         tutorLocation={{
           city: tutorProfile.city,
           address: tutorProfile.address,
-          lat: tutorProfile.latitude,
-          lon: tutorProfile.longitude,
+          lat: tutorLat,
+          lon: tutorLng,
         }}
         subscriptionInfo={{
           planId: tutorProfile.subscriptionPlan,

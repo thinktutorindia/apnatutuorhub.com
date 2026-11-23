@@ -17,9 +17,11 @@ const REFUND_REASONS = [
 export function RequestLeadRefundButton({
   purchaseId,
   purchasedAt,
+  className,
 }: {
   purchaseId: string;
   purchasedAt?: string | null;
+  className?: string;
 }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);

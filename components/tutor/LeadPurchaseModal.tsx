@@ -104,6 +104,7 @@ export function LeadPurchaseModal({
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [contact, setContact] = useState<ParentContact | null>(null);
   const [purchaseId, setPurchaseId] = useState<string>("");
+  const [showSlowHint, setShowSlowHint] = useState(false);
 
   const planPointCost = getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
   const remainingPoints =
@@ -136,21 +137,35 @@ export function LeadPurchaseModal({
     if (isPurchasing) return;
     setIsPurchasing(true);
     setStage("purchasing");
-    const result = await purchaseLeadAction(lead.id);
-    setIsPurchasing(false);
+    setErrorMsg("");
+    setShowSlowHint(false);
+    const slowHintTimer = setTimeout(() => setShowSlowHint(true), 12000);
+    try {
+      const result = await purchaseLeadAction(lead.id);
+      if (!result.success || !result.data) {
+        setErrorMsg(result.error ?? "Failed to unlock lead. Please try again.");
+        setStage("error");
+        return;
+      }
 
-    if (!result.success || !result.data) {
-      setErrorMsg(result.error ?? "Failed to unlock lead.");
+      setContact(result.data.parentContact);
+      setPurchaseId(result.data.purchaseId);
+      setStage("success");
+      // Keep the unlocked phone in the parent feed's persistent panel before any
+      // route refresh can re-render/filter the card that opened this modal.
+      onUnlocked?.(result.data.parentContact, result.data.purchaseId);
+    } catch (err) {
+      // A Prisma timeout / dropped server action used to leave the spinner
+      // spinning forever. Surface a retryable error instead. The action is
+      // idempotent, so pressing Try Again can never charge twice.
+      setErrorMsg(
+        "Unlock took too long or the connection dropped. Please try again — your contact will show automatically if the unlock already completed."
+      );
       setStage("error");
-      return;
+    } finally {
+      clearTimeout(slowHintTimer);
+      setIsPurchasing(false);
     }
-
-    setContact(result.data.parentContact);
-    setPurchaseId(result.data.purchaseId);
-    setStage("success");
-    // Keep the unlocked phone in the parent feed's persistent panel before any
-    // route refresh can re-render/filter the card that opened this modal.
-    onUnlocked?.(result.data.parentContact, result.data.purchaseId);
   };
 
   const canAfford = unlockViaMembershipPoints || walletBalance >= lead.coinCost;
@@ -340,6 +355,11 @@ export function LeadPurchaseModal({
             <p className="text-xs font-bold text-[#0F2540]">
               Unlocking lead and verifying slot availability…
             </p>
+            {showSlowHint && (
+              <p className="text-[11px] font-semibold text-slate-500 max-w-xs">
+                Network thoda slow hai — kripya 10–15 second aur wait karein. Page close na karein.
+              </p>
+            )}
           </div>
         )}
 

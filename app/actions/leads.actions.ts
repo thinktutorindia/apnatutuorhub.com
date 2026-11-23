@@ -617,6 +617,30 @@ export async function purchaseLeadAction(
     return actionError("This lead is no longer accepting applications.");
   }
 
+  // Resolve the contact once and reuse it for both the first unlock and an
+  // idempotent replay. A slow first attempt can commit before the browser
+  // receives the response — the retry must return the contact, not dead-end.
+  const resolvedContact = resolveParentContactForLead(lead);
+  const parentContactPayload: ParentContact = {
+    name: resolvedContact.name,
+    email: resolvedContact.email,
+    phone: resolvedContact.phone,
+    area: resolvedContact.area,
+    city: resolvedContact.city,
+    pincode: resolvedContact.pincode ?? null,
+  };
+
+  const priorPurchase = await prisma.leadPurchase.findFirst({
+    where: { leadId, tutorProfileId },
+    select: { id: true },
+  });
+  if (priorPurchase) {
+    return actionSuccess({
+      purchaseId: priorPurchase.id,
+      parentContact: parentContactPayload,
+    });
+  }
+
   // Tutors are not blocked by a slot cap. purchaseCount still increments so
   // every tutor feed shows the same updated spots (the card displays 3).
 
@@ -657,15 +681,20 @@ export async function purchaseLeadAction(
     );
   }
 
-  const alreadyPurchased = await prisma.leadPurchase.findFirst({
-    where: { leadId, tutorProfileId },
-    select: { id: true },
-  });
-  if (alreadyPurchased) return actionError("You have already unlocked this lead.");
+  // Atomic transaction with database-level balance and capacity guards.
+  // Retried once on transient pool/deadlock errors; the in-transaction
+  // duplicate guard below makes the retry safe (never double-charges).
+  const runUnlockTransaction = () =>
+    prisma.$transaction(async (tx) => {
+      // 0. Idempotency guard inside the transaction: if a previous attempt
+      // committed, return its purchase id instead of deducting coins again.
+      const existing = await tx.leadPurchase.findFirst({
+        where: { leadId, tutorProfileId },
+        select: { id: true },
+      });
+      if (existing) throw new Error(`ALREADY_UNLOCKED:${existing.id}`);
 
-  // Atomic transaction with database-level balance and capacity guards
-  const result = await prisma.$transaction(async (tx) => {
-    // 1. Atomic Wallet Balance Guard (if coins are required)
+      // 1. Atomic Wallet Balance Guard (if coins are required)
     if (effectiveCoinCost > 0) {
       const walletUpdate = await tx.wallet.updateMany({
         where: {
@@ -735,16 +764,40 @@ export async function purchaseLeadAction(
       });
     }
 
-    return purchase;
-  }, { timeout: 15000, maxWait: 10000 }).catch((err: Error) => {
-    if (err.message.startsWith("INSUFFICIENT_COINS")) {
-      return { errorType: "INSUFFICIENT_COINS" as const };
+      return purchase;
+    }, { timeout: 15000, maxWait: 10000 }).catch((err: Error) => {
+      if (err.message.startsWith("INSUFFICIENT_COINS")) {
+        return { errorType: "INSUFFICIENT_COINS" as const };
+      }
+      if (err.message.startsWith("LEAD_CLOSED")) {
+        return { errorType: "LEAD_CLOSED" as const };
+      }
+      if (err.message.startsWith("ALREADY_UNLOCKED:")) {
+        return { alreadyUnlockedId: err.message.split(":")[1] };
+      }
+      throw err;
+    });
+
+  let result: Awaited<ReturnType<typeof runUnlockTransaction>> | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      result = await runUnlockTransaction();
+      break;
+    } catch (err: any) {
+      const transient = /P2024|P1008|P2034|pool.?timeout|timed out/i.test(String(err?.message ?? ""));
+      if (!transient || attempt === 1) throw err;
+      // Pool contention is transient — one bounded retry, never double-charges
+      // because the transaction re-checks for an existing purchase.
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    if (err.message.startsWith("LEAD_CLOSED")) {
-      return { errorType: "LEAD_CLOSED" as const };
-    }
-    throw err;
-  });
+  }
+
+  if (result && "alreadyUnlockedId" in result) {
+    return actionSuccess({
+      purchaseId: String(result.alreadyUnlockedId),
+      parentContact: parentContactPayload,
+    });
+  }
 
   if (result && "errorType" in result) {
     if (result.errorType === "INSUFFICIENT_COINS") {
@@ -761,9 +814,14 @@ export async function purchaseLeadAction(
     return actionError("Failed to purchase lead. Please try again.");
   }
 
-  revalidatePath("/tutor/leads");
-  revalidatePath("/tutor/wallet");
-  revalidatePath("/tutor/dashboard");
+  // One targeted invalidation is enough — the client also calls router.refresh()
+  // after success. Three revalidations re-rendered the 500-lead feed repeatedly
+  // and made the unlock feel stuck. Never let cache plumbing fail the unlock.
+  try {
+    revalidatePath("/tutor/leads");
+  } catch (e) {
+    console.warn("[purchaseLead] revalidate failed:", e);
+  }
 
   captureEvent(authCtx.context.userId, Events.LEAD_UNLOCKED, {
     leadId,
@@ -802,18 +860,9 @@ export async function purchaseLeadAction(
     });
   });
 
-  const resolvedContact = resolveParentContactForLead(lead);
-
   return actionSuccess({
     purchaseId: result.id,
-    parentContact: {
-      name: resolvedContact.name,
-      email: resolvedContact.email,
-      phone: resolvedContact.phone,
-      area: resolvedContact.area,
-      city: resolvedContact.city,
-      pincode: resolvedContact.pincode ?? null,
-    },
+    parentContact: parentContactPayload,
   });
 }
 

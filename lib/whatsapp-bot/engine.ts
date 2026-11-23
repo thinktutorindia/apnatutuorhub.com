@@ -88,6 +88,14 @@ const ADMIN_PHONES = ["919311459543", "917559563565"];
 
 const MAX_RETRIES = 3;
 
+export const MID_FLOW_STEPS = new Set([
+  "T_NAME", "T_CITY", "T_AREA", "T_SUBJECTS", "T_CLASSES", "T_CLASS",
+  "T_TIMING", "T_EXPERIENCE", "T_CONFIRM", "T_EMAIL", "T_PASSWORD",
+  "P_STUDENT_NAME", "P_CLASS", "P_SUBJECTS", "P_CITY", "P_AREA",
+  "P_MODE", "P_BUDGET", "P_PHONE", "P_EMAIL",
+  "UPDATE_NAME", "UPDATE_EMAIL", "UPDATE_PASSWORD", "UPDATE_SUBJECTS", "UPDATE_CLASS", "UPDATE_AREA", "UPDATE_PHONE",
+]);
+
 export const DELHI_NCR_LOCALITIES = [
   "dwarka", "rohini", "janakpuri", "uttam nagar", "vikaspuri", "paschim vihar",
   "pitampura", "shalimar bagh", "model town", "ashok vihar", "civil lines",
@@ -393,7 +401,7 @@ export async function syncUserCredentialsInDb(params: {
   try {
     const phoneFilters = buildIndiaPhoneOrFilter(params.phone);
     const waEmail = waPlaceholderEmail(params.phone);
-    const primaryUser = await findPrimaryUserForWhatsApp(prisma, params.phone);
+    let primaryUser = await findPrimaryUserForWhatsApp(prisma, params.phone);
 
     // 1. Password update — find the specific user first (prioritize tutor), then update by ID
     let passwordHash: string | undefined;
@@ -437,7 +445,7 @@ export async function syncUserCredentialsInDb(params: {
           })) as any;
           primaryUser = user as any;
           updatedFields.push("email");
-          console.info(`[syncUserCredentialsInDb] Linked phone ${canonPhone} to existing user ${user.id} (${cleanEmail})`);
+          console.info(`[syncUserCredentialsInDb] Linked phone ${canonPhone} to existing user ${user?.id} (${cleanEmail})`);
         } else {
           // Create user row with this phone and email so credentials are never lost
           user = (await prisma.user.create({
@@ -454,7 +462,7 @@ export async function syncUserCredentialsInDb(params: {
           })) as any;
           primaryUser = user as any;
           updatedFields.push("email");
-          console.info(`[syncUserCredentialsInDb] Created new user ${user.id} for phone ${canonPhone} (${cleanEmail})`);
+          console.info(`[syncUserCredentialsInDb] Created new user ${user?.id} for phone ${canonPhone} (${cleanEmail})`);
         }
       } else {
         // Check if another distinct user owns this email
@@ -2596,13 +2604,6 @@ export async function processMessage(
 
   // Skip SPECIAL_COMMANDS intercept for active mid-flow steps where "hi"/"hello" is a wrong input,
   // UNLESS the session was idle (>15 mins), in which case "hi" is a returning greeting to start fresh.
-  const MID_FLOW_STEPS = new Set([
-    "T_NAME", "T_CITY", "T_AREA", "T_SUBJECTS", "T_CLASSES", "T_CLASS",
-    "T_TIMING", "T_EXPERIENCE", "T_CONFIRM", "T_EMAIL", "T_PASSWORD",
-    "P_STUDENT_NAME", "P_CLASS", "P_SUBJECTS", "P_CITY", "P_AREA",
-    "P_MODE", "P_BUDGET", "P_PHONE", "P_EMAIL",
-    "UPDATE_NAME", "UPDATE_EMAIL", "UPDATE_PASSWORD", "UPDATE_SUBJECTS", "UPDATE_CLASS", "UPDATE_AREA", "UPDATE_PHONE",
-  ]);
   // CRITICAL: If the user is already registered (DONE state or _registered is true),
   // NEVER demote them to WELCOME/LANG_SELECT with userType: null when they send Hi/Hello/Menu!
   const isRegisteredUser = step === "DONE" || data._registered === true;

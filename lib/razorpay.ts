@@ -3,9 +3,9 @@ import crypto from "crypto";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const KEY_ID = process.env.RAZORPAY_KEY_ID ?? "";
-const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET ?? "";
-const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET ?? "";
+const KEY_ID = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
+const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";
+const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || "";
 
 export function isRazorpayConfigured(): boolean {
   return Boolean(KEY_ID && KEY_SECRET);

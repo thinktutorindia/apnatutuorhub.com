@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Wallet, X, Ticket, Tag, AlertCircle } from "lucide-react";
+import { CheckCircle2, Wallet, X, Ticket, Tag, AlertCircle, Zap, Lock, ArrowLeft } from "lucide-react";
 import { CoinPackageGrid } from "@/components/wallet/CoinPackageGrid";
 import { validateCouponAction, type ValidateCouponResult } from "@/app/actions/coupon.actions";
+import { createCoinOrderAction, confirmCoinPaymentAction } from "@/app/actions/wallet.actions";
 import { COIN_PACKAGES, type CoinPackageId } from "@/lib/razorpay";
 import { UpiQrPaymentCard } from "@/components/payment/UpiQrPaymentCard";
 
@@ -14,7 +15,7 @@ declare global {
   }
 }
 
-type ModalState = "packages" | "qr_payment" | "submitted" | "paying" | "success" | "error";
+type ModalState = "packages" | "checkout_choice" | "qr_payment" | "submitted" | "paying" | "success" | "error";
 
 export function TopUpModal({
   userEmail,
@@ -87,7 +88,79 @@ export function TopUpModal({
     const pkg = COIN_PACKAGES.find((p: any) => p.id === pkgId);
     if (!pkg) return;
     setSelectedPkg(pkg);
-    setModalState("qr_payment");
+    setModalState("checkout_choice");
+  };
+
+  const handleOnlineCoinCheckout = async (pkgId: CoinPackageId) => {
+    const pkg = COIN_PACKAGES.find((p: any) => p.id === pkgId);
+    if (!pkg) return;
+    setLoadingPkg(pkgId);
+    setErrorMsg("");
+
+    try {
+      const res = await createCoinOrderAction(pkgId, appliedCoupon?.code);
+      if (!res.success || !res.data) {
+        throw new Error(res.error || "Failed to create payment order");
+      }
+
+      const orderData = res.data;
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "ApnaTutorHub",
+        description: `${orderData.packageName} (${orderData.totalCoins} Coins)`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: userName,
+          email: userEmail,
+        },
+        theme: {
+          color: "#2D9E6B",
+        },
+        handler: async function (response: any) {
+          setModalState("paying");
+          const confirmRes = await confirmCoinPaymentAction({
+            orderId: response.razorpay_order_id,
+            paymentId: response.razorpay_payment_id,
+            signature: response.razorpay_signature,
+            packageId: pkgId,
+          });
+
+          if (confirmRes.success && confirmRes.data) {
+            setCreditedCoins(orderData.totalCoins);
+            setModalState("success");
+            onSuccess(orderData.totalCoins);
+          } else {
+            setErrorMsg(confirmRes.error || "Payment verification failed");
+            setModalState("error");
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setModalState("checkout_choice");
+            setLoadingPkg(null);
+          },
+        },
+      };
+
+      const razorpayWindow = (window as any).Razorpay;
+      if (razorpayWindow) {
+        setModalState("paying");
+        const rzp = new razorpayWindow(options);
+        rzp.open();
+      } else {
+        setSelectedPkg(pkg);
+        setModalState("qr_payment");
+      }
+    } catch (err: any) {
+      console.warn("Razorpay error, falling back to QR", err);
+      setErrorMsg(err.message || "Failed to open online payment. You can pay via UPI QR below.");
+      setSelectedPkg(pkg);
+      setModalState("qr_payment");
+    } finally {
+      setLoadingPkg(null);
+    }
   };
 
   const getFinalPrice = (basePrice: number) => {
@@ -233,6 +306,76 @@ export function TopUpModal({
             )}
             <CoinPackageGrid onSelect={handleSelectPackage} loading={loadingPkg} appliedCoupon={appliedCoupon} />
           </>
+        )}
+
+        {/* Checkout Method Choice (Instant Online vs Manual UPI QR) */}
+        {modalState === "checkout_choice" && selectedPkg && (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            <button
+              type="button"
+              onClick={() => setModalState("packages")}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
+            >
+              <ArrowLeft size={14} />
+              <span>Back to Packages</span>
+            </button>
+
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">
+                    Selected Coin Pack
+                  </span>
+                  <h3 className="text-lg font-black text-gray-900 mt-0.5">
+                    🪙 {selectedPkg.name} ({selectedPkg.totalCoins} Coins)
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-black text-[#0F2540]">
+                    ₹{getFinalPrice(selectedPkg.priceInr).toLocaleString("en-IN")}
+                  </div>
+                  {appliedCoupon && (
+                    <span className="text-[11px] font-bold text-emerald-700">
+                      Saved ₹{appliedCoupon.discountAmountInr} with {appliedCoupon.code}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                Unlock high-intent parent inquiries instantly with coins. Unlocked contacts remain permanently accessible on your account.
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                disabled={loadingPkg !== null}
+                onClick={() => handleOnlineCoinCheckout(selectedPkg.id)}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+              >
+                <Zap size={15} />
+                <span>
+                  Pay Online (Instant Coins Credit) — ₹{getFinalPrice(selectedPkg.priceInr).toLocaleString("en-IN")} →
+                </span>
+              </button>
+
+              <div className="flex items-center gap-2 my-1">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">or</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalState("qr_payment")}
+                className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Lock size={13} className="text-gray-500" />
+                <span>Pay via Kotak UPI QR (Offline / Screenshot Transfer)</span>
+              </button>
+            </div>
+          </div>
         )}
 
         {/* UPI QR Payment Step */}

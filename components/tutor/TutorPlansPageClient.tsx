@@ -192,11 +192,14 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
         const rzp = new razorpayWindow(options);
         rzp.open();
       } else {
-        await handleTestCheckout(planId);
+        setPlanStep("qr_payment");
       }
     } catch (err: any) {
-      console.warn("Razorpay error, executing test checkout fallback", err);
-      await handleTestCheckout(planId);
+      console.warn("Razorpay error", err);
+      setErrorMessage(err.message || "Could not open online payment gateway. You can also pay via UPI QR below.");
+      setPlanStep("qr_payment");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -752,18 +755,38 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               )}
             </div>
 
-            {/* Action Buttons / QR Payment Flow */}
+            {/* Action Buttons / Online Checkout & QR Payment Flow */}
             {planStep === "summary" && (
-              <div className="pt-3 border-t border-gray-200">
+              <div className="pt-3 border-t border-gray-200 space-y-2.5">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => handleRazorpaySubscribe(checkoutPlanId)}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 !text-white text-xs font-900 flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+                >
+                  <Zap size={15} className="!text-white" />
+                  <span className="!text-white font-900">
+                    Pay Online (Instant Activation) — ₹{(
+                      SUBSCRIPTION_PLANS[checkoutPlanId].noGst
+                        ? (appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr)
+                        : getPriceWithGst(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr)
+                    ).toLocaleString("en-IN")} →
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-2 my-1">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">or</span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setPlanStep("qr_payment")}
-                  className="w-full py-3.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-900 flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                  className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
-                  <Lock size={15} className="!text-white" />
-                  <span className="!text-white font-900">
-                    Pay ₹{(appliedCoupon ? appliedCoupon.finalAmountInr : SUBSCRIPTION_PLANS[checkoutPlanId].priceInr).toLocaleString("en-IN")} via UPI QR →
-                  </span>
+                  <Lock size={13} className="text-gray-500" />
+                  <span>Pay via Kotak UPI QR (Offline / Screenshot Transfer)</span>
                 </button>
               </div>
             )}

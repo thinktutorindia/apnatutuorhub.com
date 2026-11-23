@@ -516,6 +516,10 @@ export async function purchaseLeadAction(
         subscriptionPlan: true,
         subscriptionExpiresAt: true,
         leadsResetAt: true,
+        // Needed when a generated feed lead is auto-persisted below so the
+        // stored lead matches the class/subjects the tutor actually saw.
+        classLevels: true,
+        subjects: true,
       },
     }),
   ]);
@@ -540,71 +544,77 @@ export async function purchaseLeadAction(
           });
           parentProfileId = newPp.id;
         }
-        const inqNum = 32000 + Math.floor(Math.random() * 800);
+        // Every field the unlock transaction below reads MUST be selected here.
+        // Omitting `subjects` used to make `lead.subjects.slice(...)` throw inside
+        // the transaction, which surfaced as "connection dropped" in the modal.
+        const dummyLeadSelect = {
+          id: true,
+          inquiryNumber: true,
+          subjects: true,
+          coinCost: true,
+          purchaseCount: true,
+          maxTutors: true,
+          status: true,
+          classLevel: true,
+          budgetMin: true,
+          budgetMax: true,
+          city: true,
+          area: true,
+          pincode: true,
+          parentProfile: {
+            select: {
+              user: { select: { id: true, name: true, email: true, phone: true } },
+            },
+          },
+        } as const;
+
         const dummyClass = tutorProfile?.classLevels?.[0] || "Class 9-10";
         const dummyJunior = isTill8thClass(dummyClass);
-        const dummyBudget = realisticTightBudget({
-          classLevel: dummyClass,
-          inquiryNumber: inqNum,
-        }) ?? (dummyJunior ? { min: 4500, max: 4650 } : { min: 360, max: 380 });
-        lead = await prisma.lead.create({
-          data: {
-            id: leadId,
-            inquiryNumber: inqNum,
-            parentProfileId,
-            subjects: dummyJunior ? ["All Subjects"] : (tutorProfile?.subjects?.slice(0, 2) || ["Mathematics"]),
+        const dummySubjects = dummyJunior
+          ? ["All Subjects"]
+          : (tutorProfile?.subjects?.slice(0, 2) || ["Mathematics"]);
+
+        // Stable, collision-tolerant inquiry number derived from the generated
+        // id. A random number could clash with one of the 53k stored leads and
+        // leave `lead` null ("This lead no longer exists"). Try a few neighbours
+        // and fall back to fetching the row if another request created it first.
+        const inqBase =
+          32000 + (leadId.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % 780);
+        for (let attempt = 0; attempt < 8 && !lead; attempt++) {
+          const inqNum = inqBase + attempt;
+          const dummyBudget = realisticTightBudget({
             classLevel: dummyClass,
-            mode: dummyJunior ? "OFFLINE" : (inqNum % 3 === 0 ? "ONLINE" : "OFFLINE"),
-            budgetMin: dummyBudget.min,
-            budgetMax: dummyBudget.max,
-            coinCost: getLeadPointCost(dummyClass, dummyBudget.min, dummyBudget.max),
-            maxTutors: 3,
-            city: "Delhi",
-            area: "Delhi NCR",
-            status: "ACTIVE",
-            notes: "Parent requirement verified by ApnaTutorHub Desk. Please coordinate demo class.",
-          },
-          select: {
-            id: true,
-            coinCost: true,
-            purchaseCount: true,
-            maxTutors: true,
-            status: true,
-            classLevel: true,
-            budgetMin: true,
-            budgetMax: true,
-            city: true,
-            area: true,
-            pincode: true,
-            parentProfile: {
-              select: {
-                user: { select: { id: true, name: true, email: true, phone: true } },
-              },
+            inquiryNumber: inqNum,
+          }) ?? (dummyJunior ? { min: 4500, max: 4650 } : { min: 360, max: 380 });
+          lead = await prisma.lead.create({
+            data: {
+              id: leadId,
+              inquiryNumber: inqNum,
+              parentProfileId,
+              subjects: dummySubjects,
+              classLevel: dummyClass,
+              mode: dummyJunior ? "OFFLINE" : (inqNum % 3 === 0 ? "ONLINE" : "OFFLINE"),
+              budgetMin: dummyBudget.min,
+              budgetMax: dummyBudget.max,
+              coinCost: getLeadPointCost(dummyClass, dummyBudget.min, dummyBudget.max),
+              maxTutors: 3,
+              city: "Delhi",
+              area: "Delhi NCR",
+              status: "ACTIVE",
+              notes: "Parent requirement verified by ApnaTutorHub Desk. Please coordinate demo class.",
             },
-          },
-        }).catch(async () => {
-          return prisma.lead.findUnique({
-            where: { id: leadId },
-            select: {
-              id: true,
-              coinCost: true,
-              purchaseCount: true,
-              maxTutors: true,
-              status: true,
-              classLevel: true,
-              budgetMin: true,
-              budgetMax: true,
-              city: true,
-              area: true,
-              pincode: true,
-              parentProfile: {
-                select: {
-                  user: { select: { id: true, name: true, email: true, phone: true } },
-                },
-              },
-            },
+            select: dummyLeadSelect,
+          }).catch(async (e: any) => {
+            if (e?.code === "P2002") return null; // id or inquiry collision — try next
+            throw e;
           });
-        });
+        }
+        if (!lead) {
+          lead = await prisma.lead.findUnique({
+            where: { id: leadId },
+            select: dummyLeadSelect,
+          });
+        }
       }
     } catch (e) {
       console.warn("[leads.actions] Error auto-persisting dynamic lead:", e);
@@ -758,7 +768,7 @@ export async function purchaseLeadAction(
           type: "DEDUCTION",
           amount: effectiveCoinCost,
           balanceAfter: updatedW?.balance ?? 0,
-          description: `Unlocked lead: ${lead.classLevel} (${lead.subjects.slice(0, 2).join(", ")})`,
+          description: `Unlocked lead: ${lead.classLevel} (${Array.isArray(lead.subjects) ? lead.subjects.slice(0, 2).join(", ") : "All Subjects"})`,
           referenceId: leadId,
         },
       });
@@ -840,24 +850,25 @@ export async function purchaseLeadAction(
   );
 
   // Phase 1: Dispatch notifications to Parent & Tutor
+  const subjectsLabel = Array.isArray(lead.subjects) ? lead.subjects.join(", ") : "All Subjects";
   after(() => {
     // Notify Parent that a tutor unlocked their requirement
     void createNotification({
       userId: lead.parentProfile.user.id,
       type: "LEAD_UNLOCKED",
       title: "🎯 A Tutor Unlocked Your Requirement!",
-      message: `A tutor unlocked your requirement for ${lead.classLevel} ${lead.subjects.join(", ")}. Check your applicants list to chat with them!`,
+      message: `A tutor unlocked your requirement for ${lead.classLevel} ${subjectsLabel}. Check your applicants list to chat with them!`,
       actionUrl: `/parent/my-leads/${leadId}/applicants`,
-    });
+    }).catch((e) => console.warn("[purchaseLead] parent notification failed:", e));
 
     // Notify Tutor confirmation
     void createNotification({
       userId: authCtx.context.userId,
       type: "LEAD_PURCHASED",
       title: "✅ Parent Contact Unlocked!",
-      message: `You unlocked parent contact details for ${lead.classLevel} ${lead.subjects.join(", ")}.`,
+      message: `You unlocked parent contact details for ${lead.classLevel} ${subjectsLabel}.`,
       actionUrl: `/tutor/leads`,
-    });
+    }).catch((e) => console.warn("[purchaseLead] tutor notification failed:", e));
   });
 
   return actionSuccess({

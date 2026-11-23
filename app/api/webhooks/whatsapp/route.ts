@@ -431,7 +431,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       const recentChatMessages = await prisma.whatsappChatMessage.findMany({
         where: { phone: { in: phoneVariants } },
         orderBy: { createdAt: "desc" },
-        take: 20,
+        take: 100,
         select: { direction: true, body: true, createdAt: true, senderName: true },
       });
       const chatHistory = recentChatMessages.reverse();

@@ -41,10 +41,15 @@ You are Priya, the coordinator for ApnaTutorHub (https://apnatutorhub.com) — I
 - When a tutor asks "X area mein koi class/lead hai?", NEVER say "portal par check karein". The system shows real leads directly.
 - If you don't know whether leads exist, say "Main check kar rahi hoon..." — never redirect without checking.
 
-⚠️ CONVERSATIONAL CONTINUITY (NEVER VIOLATE):
+⚠️ CONVERSATIONAL CONTINUITY & FULL MEMORY (NEVER VIOLATE):
 - ALWAYS read Recent Conversation History before responding!
 - If there is ANY previous conversation or sent alert, NEVER say "Main ApnaTutorHub se Priya bol rahi hoon" or introduce the platform from scratch!
 - NEVER give generic sales pitches when user is following up on a specific enquiry, fee, or complaint.
+- CRITICAL CONTEXT RULE: If the user has ALREADY provided their email, name, subjects, class levels, or location in ANY past message in the history (or if shown in "User Email Already Found in Past Chat Messages" or "Stored User Profile"), NEVER ask for it again! Recognize it as already known and proceed immediately.
+- If the user provides an Email ID (e.g. name@domain.com) in ANY incoming message or conversation turn, ALWAYS extract it in extractedData.email.
+- If the user provides or mentions subjects they teach (e.g. Maths, Science, Physics, Chemistry, English, Accounts, Commerce), ALWAYS extract them into extractedData.subjects.
+- If the user provides or mentions classes (e.g. Class 1-10, Class 11-12, Class 9, Class 10), ALWAYS extract them into extractedData.classLevels.
+- If the user is replying to a requirement alert (e.g. "Interested", "I can teach this", "lead dedo"), NEVER reset their state or ask them who they are. Answer their question or guide them to unlock the lead.
 
 ⚠️ COMMISSION & REGISTRATION FEE OBJECTIONS (CRITICAL):
 - When a tutor asks or objects: "Har mahine 50% commission kaun leta hai?", "Phir 1257 bhi dena hai?", "Jab commission lenge hi to phir 1257 kyu?", "Aapke condition sahi nahi hain":
@@ -328,9 +333,30 @@ export async function askGeminiChatbot(
   }
 
   let historySection = "";
+  let historyExtractedSection = "";
   if (chatHistory && chatHistory.length > 0) {
+    // Scan inbound messages in chatHistory for previously mentioned emails, subjects, classes
+    const historyEmails: string[] = [];
+    for (const m of chatHistory) {
+      if (m.direction === "INBOUND" && m.body) {
+        const emailMatches = m.body.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+        if (emailMatches) {
+          for (const em of emailMatches) {
+            const cleanEm = em.toLowerCase();
+            if (!cleanEm.endsWith("@apnatutorhub.com") && !historyEmails.includes(cleanEm)) {
+              historyEmails.push(cleanEm);
+            }
+          }
+        }
+      }
+    }
+
+    if (historyEmails.length > 0) {
+      historyExtractedSection = `\r\nUser Email Already Found in Past Chat Messages: ${historyEmails.join(", ")} (NEVER ASK FOR EMAIL AGAIN!)\r\n`;
+    }
+
     const formatted = chatHistory
-      .slice(-15)
+      .slice(-60)
       .map((m) => {
         const who = m.direction === "INBOUND" ? "User/Tutor" : "Bot (Priya)";
         const time = m.createdAt
@@ -341,10 +367,10 @@ export async function askGeminiChatbot(
             })
           : "";
         const timeTag = time ? ` [${time}]` : "";
-        return `[${who}${timeTag}]: ${m.body.replace(/\s+/g, " ").slice(0, 350)}`;
+        return `[${who}${timeTag}]: ${m.body.replace(/\s+/g, " ").slice(0, 1000)}`;
       })
       .join("\r\n");
-    historySection = `\r\nRecent Conversation History (chronological order, most recent at bottom):\r\n${formatted}\r\n`;
+    historySection = `\r\nRecent Conversation History (${Math.min(chatHistory.length, 60)} messages, chronological order, most recent at bottom):\r\n${formatted}\r\n`;
   }
 
   let profileSection = "";
@@ -368,13 +394,16 @@ export async function askGeminiChatbot(
     profileSection = `\r\nStored User Profile in Database:\r\n${parts.join("\r\n")}\r\n`;
   }
 
-  const prompt = `\r\nSystem Context:\r\n${SYSTEM_INSTRUCTION}\r\n\r\nCurrent Session State:\r\n- Phone: ${session.phone}\r\n- Current Step: ${session.step}\r\n- User Type: ${session.userType || "Unknown"}\r\n- Previously Collected Data: ${JSON.stringify(session.data || {})}\r\n${profileSection}${historySection}\r\nNew Incoming Message from User:\r\n"${userMessage}"\r\n\r\nRespond with the JSON object only:\r\n`;
+  const prompt = `\r\nSystem Context:\r\n${SYSTEM_INSTRUCTION}\r\n\r\nCurrent Session State:\r\n- Phone: ${session.phone}\r\n- Current Step: ${session.step}\r\n- User Type: ${session.userType || "Unknown"}\r\n- Previously Collected Data: ${JSON.stringify(session.data || {})}\r\n${profileSection}${historyExtractedSection}${historySection}\r\nNew Incoming Message from User:\r\n"${userMessage}"\r\n\r\nRespond with the JSON object only:\r\n`;
 
   const models = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
     "gemini-3.5-flash-lite",
     "gemini-flash-lite-latest",
     "gemini-3.7-flash",
-    "gemini-3.5-flash",
   ];
 
   for (const model of models) {

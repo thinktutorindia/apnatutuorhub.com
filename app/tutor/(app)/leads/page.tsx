@@ -234,7 +234,7 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       id: lead.id,
       inquiryNumber: lead.inquiryNumber,
       parentProfileId: lead.parentProfileId,
-      subjects: isTill8thClass(cleanCls) ? ["All Subjects"] : cleanSubjs,
+      subjects: cleanSubjs,
       classLevel: cleanCls,
       mode: isTill8thClass(cleanCls) ? "OFFLINE" : lead.mode,
       board: lead.board,
@@ -260,18 +260,18 @@ export default async function TutorLeadsPage({ searchParams }: Props) {
       status: lead.status,
       parentDetails: isPurchased && resolvedContact
         ? {
-            name: resolvedContact.name,
-            phone: resolvedContact.phone,
-            email: resolvedContact.email,
-            address: resolvedContact.area,
-            city: resolvedContact.city,
-            state: lead.parentProfile.state || null,
-            pincode: resolvedContact.pincode || null,
-            board: lead.board || null,
-            tutorGenderPref: lead.tutorGenderPref || null,
-            languagePref: lead.languagePref || null,
-            notes: sanitizeLeadNotes(lead.notes, true),
-          }
+          name: resolvedContact.name,
+          phone: resolvedContact.phone,
+          email: resolvedContact.email,
+          address: resolvedContact.area,
+          city: resolvedContact.city,
+          state: lead.parentProfile.state || null,
+          pincode: resolvedContact.pincode || null,
+          board: lead.board || null,
+          tutorGenderPref: lead.tutorGenderPref || null,
+          languagePref: lead.languagePref || null,
+          notes: sanitizeLeadNotes(lead.notes, true),
+        }
         : null,
     });
   }

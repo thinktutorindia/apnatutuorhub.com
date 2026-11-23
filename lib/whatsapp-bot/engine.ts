@@ -421,7 +421,42 @@ export async function syncUserCredentialsInDb(params: {
       // Find the user to update — try phone first, then wa_ email fallback
       let user = primaryUser ?? (await prisma.user.findFirst({ where: { email: waEmail } }));
 
-      if (user) {
+      if (!user) {
+        // Try finding if an existing user already has this cleanEmail
+        const existingEmailUser = await prisma.user.findUnique({
+          where: { email: cleanEmail },
+          include: { tutorProfile: true, parentProfile: true },
+        });
+        const canonPhone = normalizeIndiaWhatsApp(params.phone) || params.phone.replace(/\D/g, "");
+        if (existingEmailUser) {
+          // Link phone to existing user
+          user = (await prisma.user.update({
+            where: { id: existingEmailUser.id },
+            data: { phone: canonPhone },
+            include: { tutorProfile: true, parentProfile: true },
+          })) as any;
+          primaryUser = user as any;
+          updatedFields.push("email");
+          console.info(`[syncUserCredentialsInDb] Linked phone ${canonPhone} to existing user ${user.id} (${cleanEmail})`);
+        } else {
+          // Create user row with this phone and email so credentials are never lost
+          user = (await prisma.user.create({
+            data: {
+              phone: canonPhone,
+              email: cleanEmail,
+              name: params.name?.trim() || "Tutor",
+              role: "TUTOR",
+              isActive: true,
+              signupSource: "WHATSAPP",
+              ...(passwordHash ? { passwordHash } : {}),
+            },
+            include: { tutorProfile: true, parentProfile: true },
+          })) as any;
+          primaryUser = user as any;
+          updatedFields.push("email");
+          console.info(`[syncUserCredentialsInDb] Created new user ${user.id} for phone ${canonPhone} (${cleanEmail})`);
+        }
+      } else {
         // Check if another distinct user owns this email
         const existingEmailUser = await prisma.user.findUnique({
           where: { email: cleanEmail },
@@ -441,8 +476,6 @@ export async function syncUserCredentialsInDb(params: {
         } else {
           console.warn(`[syncUserCredentialsInDb] Email ${cleanEmail} is already taken by user ${existingEmailUser.id}`);
         }
-      } else {
-        console.warn(`[syncUserCredentialsInDb] No user found for phone ${params.phone} — email NOT updated`);
       }
     }
 
@@ -1087,7 +1120,7 @@ export async function processMessage(
     await prisma.whatsappChatMessage.findMany({
       where: { phone: { in: phoneVariants } },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: 100,
       select: { direction: true, body: true, createdAt: true, senderName: true },
     }).then((msgs) => msgs.reverse()).catch(() => [])
   );
@@ -1095,8 +1128,13 @@ export async function processMessage(
   // Sync state data from DB profile if registered so context is never lost
   if (userProfile?.isRegistered) {
     if (!data._registered) data._registered = true;
+    if (step !== "DONE" && !MID_FLOW_STEPS.has(step)) {
+      step = "DONE";
+    }
     if (!data.name && userProfile.name) data.name = userProfile.name;
-    if (!data.email && userProfile.email) data.email = userProfile.email;
+    if (!data.email && userProfile.email && !userProfile.email.startsWith("wa_") && !userProfile.email.startsWith("wa.")) {
+      data.email = userProfile.email;
+    }
     if (!data.area && userProfile.area) data.area = userProfile.area;
     if (!data.city && userProfile.city) data.city = userProfile.city;
     if ((!data.subjects || (Array.isArray(data.subjects) && data.subjects.length === 0)) && userProfile.subjects?.length) {
@@ -2701,10 +2739,24 @@ export async function processMessage(
 
     const rawTrimmed = rawMessage.trim();
 
-    // Direct single email in DONE state
-    if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i.test(rawTrimmed) && isValidEmailDomain(rawTrimmed)) {
-      const newEmail = rawTrimmed.toLowerCase();
-      await syncUserCredentialsInDb({ phone: session.phone, email: newEmail });
+    // Direct single email or email statement in DONE state
+    const directEmailMatch = rawTrimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
+    const isBareEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i.test(rawTrimmed);
+    const isEmailUpdateIntent = directEmailMatch && isValidEmailDomain(directEmailMatch[0]) &&
+      (isBareEmail || /\b(?:email|mail|id|update|change|mera|meri|set|save|ye|yeh|hai)\b/i.test(rawTrimmed));
+
+    if (isEmailUpdateIntent && directEmailMatch) {
+      const newEmail = directEmailMatch[0].toLowerCase();
+      await syncUserCredentialsInDb({
+        phone: session.phone,
+        email: newEmail,
+        name: (data.name as string) || undefined,
+        area: (data.area as string) || undefined,
+        city: (data.city as string) || undefined,
+        subjects: Array.isArray(data.subjects) && data.subjects.length > 0 ? (data.subjects as string[]) : undefined,
+        classLevels: Array.isArray(data.classLevels) && data.classLevels.length > 0 ? (data.classLevels as string[]) : undefined,
+        mode: data.mode as any,
+      });
       return {
         reply: `Email successfully update ho gaya hai: *${newEmail}* ✅\n\nAap is email se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`,
         nextStep: "DONE",
@@ -2715,9 +2767,19 @@ export async function processMessage(
       };
     }
 
-    // Direct password pattern in DONE state (e.g. "Rohit@2927")
+    // Direct password pattern in DONE state (e.g. "Rohit@2927" or "Swami@172")
     if (/^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9\s])\S{6,30}$/.test(rawTrimmed)) {
-      await syncUserCredentialsInDb({ phone: session.phone, password: rawTrimmed });
+      await syncUserCredentialsInDb({
+        phone: session.phone,
+        password: rawTrimmed,
+        email: (data.email as string) || undefined,
+        name: (data.name as string) || undefined,
+        area: (data.area as string) || undefined,
+        city: (data.city as string) || undefined,
+        subjects: Array.isArray(data.subjects) && data.subjects.length > 0 ? (data.subjects as string[]) : undefined,
+        classLevels: Array.isArray(data.classLevels) && data.classLevels.length > 0 ? (data.classLevels as string[]) : undefined,
+        mode: data.mode as any,
+      });
       const userEmail = (data.email as string) || "aapka email";
       return {
         reply: `Password successfully update ho gaya hai: *${rawTrimmed}* 🔒\n\nAap is password aur apne email (*${userEmail}*) ya mobile (+91-${session.phone}) se login kar sakte hain:\nhttps://apnatutorhub.com/login`,
@@ -3161,7 +3223,15 @@ export async function processMessage(
       const extractedEmail = (ai?.extractedData?.email as string) || (rawEmailMatch ? rawEmailMatch[0] : undefined);
       const extractedPassword = ai?.extractedData?.password as string | undefined;
 
-      if (extractedEmail && isValidEmailDomain(extractedEmail) && extractedEmail.toLowerCase() !== data.email) {
+      const needsEmailSync = extractedEmail && isValidEmailDomain(extractedEmail) && (
+        extractedEmail.toLowerCase() !== data.email ||
+        !userProfile?.email ||
+        userProfile.email.startsWith("wa_") ||
+        userProfile.email.startsWith("wa.") ||
+        userProfile.email.toLowerCase() !== extractedEmail.toLowerCase()
+      );
+
+      if (needsEmailSync && extractedEmail) {
         mergedData.email = extractedEmail.toLowerCase();
         credentialsChanged = true;
       }
@@ -3190,9 +3260,9 @@ export async function processMessage(
         }
       }
 
-      // Class resolution: prioritize classes explicitly written in this incoming message!
+      // Class resolution: prioritize classes explicitly written in this incoming message or extracted by AI
       let classesToSave: string[] | undefined = msgClasses.length > 0 ? msgClasses : undefined;
-      if (!classesToSave && ai?.extractedData && classSignalInMessage(rawMessage)) {
+      if (!classesToSave && ai?.extractedData) {
         const aiClsRaw = Array.isArray(ai.extractedData.classLevels) && ai.extractedData.classLevels.length > 0
           ? ai.extractedData.classLevels.map((c) => normalizeCanonicalClassLevel(String(c))).filter((c): c is string => Boolean(c))
           : typeof ai.extractedData.classLevel === "string"
@@ -3206,15 +3276,15 @@ export async function processMessage(
       const effectiveClassForMsg = classesToSave?.[0] || (data.classLevel as string | undefined);
       if (directSubRes?.isValid && directSubRes.subjects.length > 0) {
         subjectsToSave = directSubRes.subjects;
-      } else if (ai?.extractedData && Array.isArray(ai.extractedData.subjects) && ai.extractedData.subjects.length > 0 && hasSubjectWords && !hasNegatedSubject) {
-        const prevSubSet = new Set(Array.isArray(data.subjects) ? (data.subjects as string[]).map((s) => s.toLowerCase()) : []);
-        const freshAiSubs = (ai.extractedData.subjects as unknown[])
+      } else if (ai?.extractedData && Array.isArray(ai.extractedData.subjects) && ai.extractedData.subjects.length > 0 && !hasNegatedSubject) {
+        const rawAiSubs = (ai.extractedData.subjects as unknown[])
           .map((s) => String(s || "").trim())
-          .filter((s) => s && !prevSubSet.has(s.toLowerCase()));
-        const subsToAlign = freshAiSubs.length > 0 ? freshAiSubs : ai.extractedData.subjects;
-        const aligned = validateAndAlignSubjects(subsToAlign, effectiveClassForMsg);
+          .filter(Boolean);
+        const aligned = validateAndAlignSubjects(rawAiSubs, effectiveClassForMsg);
         if (aligned.isValid && aligned.subjects.length > 0) {
           subjectsToSave = aligned.subjects;
+        } else if (rawAiSubs.length > 0) {
+          subjectsToSave = deduplicateAndNormalizeSubjects(rawAiSubs, classesToSave);
         }
       }
 
@@ -3657,6 +3727,31 @@ export async function processMessage(
             else if (!mergedData.name) nextStep = "T_NAME";
             else if (!mergedData.email) nextStep = "T_EMAIL";
 
+            // Live credential sync so extracted email, subjects, class, locality are saved immediately to DB
+            try {
+              const liveEmail = (typeof mergedData.email === "string" && isValidEmailDomain(mergedData.email)) ? mergedData.email : undefined;
+              const liveArea = typeof mergedData.area === "string" ? mergedData.area : undefined;
+              const liveCity = typeof mergedData.city === "string" ? mergedData.city : undefined;
+              const liveSubs = subsArray.length > 0 ? subsArray : undefined;
+              const liveClasses = classLevelsArray.length > 0 ? classLevelsArray : undefined;
+              const liveName = (typeof mergedData.name === "string" && isValidName(mergedData.name)) ? mergedData.name : undefined;
+
+              if (liveEmail || liveArea || liveCity || liveSubs || liveClasses || liveName) {
+                await syncUserCredentialsInDb({
+                  phone: session.phone,
+                  email: liveEmail,
+                  name: liveName,
+                  area: liveArea,
+                  city: liveCity,
+                  subjects: liveSubs,
+                  classLevels: liveClasses,
+                  mode: mergedData.mode,
+                });
+              }
+            } catch (syncErr) {
+              console.warn("[engine] Live intake credential sync warning:", syncErr);
+            }
+
             return {
               reply: ai.reply,
               nextStep,
@@ -3902,6 +3997,22 @@ export async function processMessage(
 
           // If we are at T_NAME step, accept the name from the current message
           if (session.step === "T_NAME") {
+            // If user provided an email address instead of a name at T_NAME step, capture it and don't complain about digits
+            const emailInNameMsg = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            if (emailInNameMsg && isValidEmailDomain(emailInNameMsg[0])) {
+              const cleanEm = emailInNameMsg[0].toLowerCase();
+              mergedData.email = cleanEm;
+              await syncUserCredentialsInDb({ phone: session.phone, email: cleanEm });
+              return {
+                reply: `Email note ho gaya: *${cleanEm}* ✅\n\n👤 Profile registration ke liye apna *poora naam* batayein (jaise: Priya Sharma, Rahul Gupta):`,
+                nextStep: "T_NAME",
+                updatedData: mergedData,
+                userType: "TUTOR",
+                retries: 0,
+                quickReplies: [],
+              };
+            }
+
             const nameCandidate = rawMessage.trim();
             const isNameOk =
               nameCandidate.length >= 2 &&

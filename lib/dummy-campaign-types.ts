@@ -228,7 +228,12 @@ export function sanitizeSubjectsForClassLevel(
   const isSenior = n !== null ? n >= 11 : /11|12|jee|neet|senior/i.test(classLevel);
   const isJunior = n !== null ? n <= 8 : /nursery|kg|primary|middle|class\s*[1-8]\b/i.test(classLevel);
 
-  if (isJunior) return ["All Subjects"];
+  if (isJunior) {
+    const explicit = (subjects || []).find((s) => /all subjects for class \d+/i.test(s));
+    if (explicit) return [explicit];
+    const grade = n !== null ? n : 5;
+    return [`All Subjects for Class ${grade}`];
+  }
 
   const cleaned = subjects.map(cleanSubjectName).filter(Boolean);
 
@@ -252,7 +257,9 @@ export function sanitizeSubjectsForClassLevel(
     unique = unique.map((s) => (/^science$/i.test(s) ? "Physics" : s));
   }
 
-  return unique.length > 0 ? unique : isSenior ? ["Physics", "Chemistry"] : ["All Subjects"];
+  const baseSubjects = unique.length > 0 ? unique : isSenior ? ["Physics", "Chemistry"] : ["Mathematics"];
+  const clsName = n !== null ? `Class ${n}` : classLevel;
+  return baseSubjects.map((s) => (/for class/i.test(s) ? s : `${s} for ${clsName}`));
 }
 
 export function feeBandKeyForClass(classLevel: string): FeeBandKey {
@@ -495,8 +502,8 @@ export interface DummyLead {
 // ─── Mode label helper ────────────────────────────────────────────────────────
 
 export const modeLabel: Record<string, string> = {
-  ONLINE:   "Online",
-  OFFLINE:  "Home Tuition",
-  EITHER:   "Home Tuition",
+  ONLINE: "Online",
+  OFFLINE: "Home Tuition",
+  EITHER: "Home Tuition",
   COACHING: "Home Tuition",
 };

@@ -36,11 +36,10 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
   let data = (raw.data as Record<string, unknown>) ?? {};
 
   // ── Session recovery for already-registered users ──────────────────────────
-  // If the session looks fresh (LANG_SELECT/WELCOME with empty data), check if
-  // this phone is already a registered user. If yes, restore to DONE so the bot
-  // doesn't ask them to create a profile again.
-  const isBlankSession = (step === "LANG_SELECT" || step === "WELCOME") && !data._registered;
-  if (isBlankSession) {
+  // If user is already registered in DB (as Tutor or Parent), always restore them
+  // to DONE so the bot doesn't ask them to create a profile or re-answer basics again.
+  const shouldCheckRegistration = !data._registered || step !== "DONE";
+  if (shouldCheckRegistration) {
     const registeredUser = await prisma.user.findFirst({
       where: {
         OR: buildIndiaUserLookupOr(sessionPhone) as never,
@@ -51,29 +50,36 @@ export async function getOrCreateSession(phone: string): Promise<BotSession> {
       },
     });
 
-    if (registeredUser) {
+    if (registeredUser && (registeredUser.tutorProfile || registeredUser.parentProfile || registeredUser.role === "TUTOR" || registeredUser.role === "PARENT")) {
       const isTutor = registeredUser.role === "TUTOR" || Boolean(registeredUser.tutorProfile);
       const isParent = !isTutor && (registeredUser.role === "PARENT" || Boolean(registeredUser.parentProfile));
       const userType = isTutor ? "TUTOR" : isParent ? "PARENT" : "TUTOR";
 
       // Restore session to DONE state with stored profile data
       const restoredData: Record<string, unknown> = {
+        ...data,
         _registered: true,
-        name: registeredUser.name ?? "",
-        email: registeredUser.email ?? "",
+        name: registeredUser.name ?? (data.name as string) ?? "",
+        email: (registeredUser.email && !registeredUser.email.startsWith("wa_") && !registeredUser.email.startsWith("wa."))
+          ? registeredUser.email
+          : ((data.email as string) || registeredUser.email || ""),
         phone: registeredUser.phone ?? phone,
         userType,
       };
 
       if (registeredUser.tutorProfile) {
-        restoredData.area = registeredUser.tutorProfile.address ?? "";
-        restoredData.city = registeredUser.tutorProfile.city ?? "";
-        restoredData.subjects = registeredUser.tutorProfile.subjects ?? [];
-        restoredData.classLevels = registeredUser.tutorProfile.classLevels ?? [];
+        restoredData.area = registeredUser.tutorProfile.address ?? (data.area as string) ?? "";
+        restoredData.city = registeredUser.tutorProfile.city ?? (data.city as string) ?? "";
+        restoredData.subjects = (registeredUser.tutorProfile.subjects && registeredUser.tutorProfile.subjects.length > 0)
+          ? registeredUser.tutorProfile.subjects
+          : ((data.subjects as string[]) ?? []);
+        restoredData.classLevels = (registeredUser.tutorProfile.classLevels && registeredUser.tutorProfile.classLevels.length > 0)
+          ? registeredUser.tutorProfile.classLevels
+          : ((data.classLevels as string[]) ?? []);
         if (Array.isArray(restoredData.classLevels) && restoredData.classLevels.length > 0) {
           restoredData.classLevel = restoredData.classLevels[0];
         }
-        restoredData.mode = registeredUser.tutorProfile.teachingMode ?? "EITHER";
+        restoredData.mode = registeredUser.tutorProfile.teachingMode ?? (data.mode as string) ?? "EITHER";
       }
 
       // Persist restored session so future requests don't need to re-query

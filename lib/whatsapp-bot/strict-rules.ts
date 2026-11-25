@@ -294,8 +294,8 @@ export function extractStrictClasses(rawText: string): ExtractedClassSet {
     }
   }
 
-  // Roman ranges: "IX-X", "XI to XII"
-  const romanRangeRe = /\b(xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)\s*(?:to|-|–|—|and|&|\/)\s*(xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)\b/gi;
+  // Roman ranges: "IX-X", "XI to XII", "XIth and XIIth"
+  const romanRangeRe = /\b(xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)(?:th|st|nd|rd)?\s*(?:to|-|–|—|and|&|\/)\s*(?:class(?:es)?|grade|std)?\s*(xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)(?:th|st|nd|rd)?\b/gi;
   for (const m of lower.matchAll(romanRangeRe)) {
     const a = ROMAN_TO_NUM[m[1]];
     const b = ROMAN_TO_NUM[m[2]];
@@ -311,7 +311,7 @@ export function extractStrictClasses(rawText: string): ExtractedClassSet {
 
   // Explicit single classes / ordinals / Roman numerals after class keyword
   const explicitSingleRe =
-    /\b(?:class|classes|grade|std|standard)\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b|\b(1[0-2]|[1-9])(?:st|nd|rd|th)\s*(?:class|grade|std|standard)?\b|\b(?:class\s*)(xii|xi|ix|viii|vii|vi|iv|iii|ii|x|v|i)\b/gi;
+    /\b(?:class|classes|grade|std|standard)\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b|\b(1[0-2]|[1-9])(?:st|nd|rd|th)\s*(?:class|grade|std|standard)?\b|\b(?:class\s*)(xii|xi|ix|viii|vii|vi|iv|iii|ii|x|v|i)(?:th|st|nd|rd)?\b/gi;
   for (const m of lower.matchAll(explicitSingleRe)) {
     const startIdx = m.index ?? 0;
     const tail = lower.slice(startIdx + m[0].length);
@@ -340,10 +340,11 @@ export function extractStrictClasses(rawText: string): ExtractedClassSet {
     }
   }
 
-  // Standalone Roman numerals (strictly XI, XII, IX, VIII, VII, VI, etc. — never bare "I")
-  const bareRomanRe = /\b(xii|xi|ix|viii|vii|vi|iv|iii|ii)\b/gi;
+  // Standalone Roman numerals & ordinals (e.g. "XI", "XIIth", "IXth", "Xth" — never bare "I" / "V" / "X")
+  const bareRomanRe = /\b(xii|xi|ix|viii|vii|vi|iv|iii|ii)(?:th|st|nd|rd)?\b|\b(x|v)(?:th)\b/gi;
   for (const m of lower.matchAll(bareRomanRe)) {
-    const g = ROMAN_TO_NUM[m[1]];
+    const token = (m[1] || m[2] || "").toLowerCase();
+    const g = ROMAN_TO_NUM[token];
     if (g) grades.add(g);
   }
 
@@ -813,30 +814,94 @@ export function sanitizeEducationForDb(
     ? rawClassLevels.map((c) => String(c || "").trim()).filter(Boolean)
     : [];
 
-  const enforced = enforceStrictEducation({
-    subjectsInput: subsArr,
-    classesInput: clsArr,
-  });
+  // Separate already-attributed "<Subject> for <Grade>" entries from unattributed base subjects
+  // so multi-band arrays never Cartesian cross-pollinate across bands.
+  const attributedEntries = subsArr.filter((s) => /\bfor\s+(?:class|pre-primary|jee|neet|cuet)\b/i.test(s));
+  const bareEntries = subsArr.filter((s) => !/\bfor\s+(?:class|pre-primary|jee|neet|cuet)\b/i.test(s));
 
-  if (enforced.classLevels.length > 0 && enforced.subjects.length > 0) {
-    return {
-      classLevels: enforced.classLevels,
-      subjects: enforced.subjects,
-    };
+  const outSubjects = new Set<string>();
+  const outClassPrePrimary = { value: false };
+  const outGrades = new Set<number>();
+  const outExams = new Set<"JEE" | "NEET" | "CUET">();
+
+  const initialCls = extractStrictClasses(clsArr.join(", "));
+  if (initialCls.prePrimary) outClassPrePrimary.value = true;
+  for (const g of initialCls.grades) outGrades.add(g);
+  for (const ex of initialCls.exams) outExams.add(ex);
+
+  for (const entry of attributedEntries) {
+    const cls = extractStrictClasses(entry);
+    const bases = extractBaseSubjectsFromText(entry);
+    if (cls.prePrimary) {
+      outClassPrePrimary.value = true;
+      if (bases.length === 0 || !bases.every((b) => SENIOR_ONLY_SUBJECTS.has(b))) {
+        outSubjects.add("All Subjects for Pre-Primary");
+      }
+    }
+    for (const g of cls.grades) {
+      outGrades.add(g);
+      if (g <= 8) {
+        if (bases.length === 0 || bases.includes("All Subjects") || !bases.every((b) => SENIOR_ONLY_SUBJECTS.has(b))) {
+          outSubjects.add(`All Subjects for Class ${g}`);
+        }
+      } else {
+        for (const b of bases) {
+          const mapped = mapSubjectForGrade(b, g);
+          if (mapped) outSubjects.add(mapped);
+        }
+      }
+    }
+    for (const ex of cls.exams) {
+      outExams.add(ex);
+      for (const b of bases) {
+        if (b !== "All Subjects") {
+          outSubjects.add(`${b} for ${ex}`);
+        }
+      }
+    }
   }
 
-  // Fallback parse when subjects contain "for Class X" etc. even if classLevels wasn't expanded
-  const derivedCls = extractStrictClasses([...clsArr, ...subsArr].join(", "));
-  if (derivedCls.labels.length > 0) {
-    const reEnforced = enforceStrictEducation({
-      subjectsInput: subsArr,
-      classesInput: derivedCls.labels,
+  // Ensure every junior grade already present gets "All Subjects for Class N"
+  if (outClassPrePrimary.value) outSubjects.add("All Subjects for Pre-Primary");
+  for (const g of outGrades) {
+    if (g <= 8) outSubjects.add(`All Subjects for Class ${g}`);
+  }
+
+  if (bareEntries.length > 0 && (clsArr.length > 0 || outGrades.size > 0 || outClassPrePrimary.value || outExams.size > 0)) {
+    const baseClsLabels = formatCanonicalClassLabels({
+      prePrimary: outClassPrePrimary.value,
+      grades: [...outGrades],
+      exams: [...outExams],
     });
-    return {
-      classLevels: reEnforced.classLevels,
-      subjects: reEnforced.subjects,
-    };
+    const enforced = enforceStrictEducation({
+      subjectsInput: bareEntries,
+      classesInput: baseClsLabels.length > 0 ? baseClsLabels : clsArr,
+    });
+    for (const s of enforced.subjects) outSubjects.add(s);
+    const parsedCls = extractStrictClasses(enforced.classLevels.join(", "));
+    if (parsedCls.prePrimary) outClassPrePrimary.value = true;
+    for (const g of parsedCls.grades) outGrades.add(g);
+    for (const ex of parsedCls.exams) outExams.add(ex);
+  } else if (attributedEntries.length === 0) {
+    const enforced = enforceStrictEducation({
+      subjectsInput: subsArr,
+      classesInput: clsArr,
+    });
+    if (enforced.classLevels.length > 0 && enforced.subjects.length > 0) {
+      return {
+        classLevels: enforced.classLevels,
+        subjects: enforced.subjects,
+      };
+    }
   }
 
-  return { classLevels: [], subjects: [] };
+  const finalClasses = formatCanonicalClassLabels({
+    prePrimary: outClassPrePrimary.value,
+    grades: [...outGrades],
+    exams: [...outExams],
+  });
+  return {
+    classLevels: finalClasses,
+    subjects: [...outSubjects],
+  };
 }

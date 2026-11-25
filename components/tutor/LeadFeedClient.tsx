@@ -885,7 +885,7 @@ export function LeadFeedClient({
     return unpurchased.filter((l) => {
       if (!hasTutorLocation) return true;
       if (l.mode === "ONLINE") return true;
-      return l.distanceKm !== null && l.distanceKm <= (teachingRadius || 10);
+      return l.distanceKm !== null && l.distanceKm <= (teachingRadius);
     });
   }, [unpurchased, hasTutorLocation, teachingRadius]);
 
@@ -912,7 +912,7 @@ export function LeadFeedClient({
         } else if (viewTab === "nearby") {
           if (l.isPurchased) return false;
           if (hasTutorLocation && l.mode !== "ONLINE") {
-            if (l.distanceKm === null || l.distanceKm > (teachingRadius || 10)) return false;
+            if (l.distanceKm === null || l.distanceKm > (teachingRadius)) return false;
           }
         } else if (viewTab === "shortlisted") {
           if (!l.isShortlisted) return false;
@@ -1121,7 +1121,7 @@ export function LeadFeedClient({
               : "text-slate-700 hover:text-slate-950 hover:bg-white/70"
               }`}
           >
-            📍 {lang === "hi" ? `${teachingRadius || 5} किमी के दायरे में` : `Within ${teachingRadius || 5} km`} ({nearbyLeads.length})
+            📍 {lang === "hi" ? `${teachingRadius} किमी के दायरे में` : `Within ${teachingRadius} km`} ({nearbyLeads.length})
           </button>
 
           <button
@@ -1173,8 +1173,8 @@ export function LeadFeedClient({
                 {t("autoFilteredTitle")}
               </span>{" "}
               {lang === "hi"
-                ? `आपके विषय और कक्षा अनुसार ${teachingRadius || 5} किमी के दायरे में ${filtered.length} अनुरोध दिखाए जा रहे हैं।`
-                : `Showing ${filtered.length} leads within ${teachingRadius || 5} km${tutorLocation?.city ? ` of ${tutorLocation.city}` : ""} matching your teaching subjects & grades.`}
+                ? `आपके विषय और कक्षा अनुसार ${teachingRadius} किमी के दायरे में ${filtered.length} अनुरोध दिखाए जा रहे हैं।`
+                : `Showing ${filtered.length} leads within ${teachingRadius} km${tutorLocation?.address || tutorLocation?.city ? ` near ${tutorLocation.address || tutorLocation.city}` : ""} matching your teaching subjects & grades.`}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -1183,7 +1183,7 @@ export function LeadFeedClient({
               onClick={() => setViewTab("nearby")}
               className="px-3.5 py-1.5 rounded-full bg-white border border-emerald-300 text-emerald-800 font-bold hover:bg-emerald-100 transition-colors text-xs cursor-pointer shadow-xs"
             >
-              {lang === "hi" ? `${teachingRadius || 5} किमी में सभी ${nearbyLeads.length} देखें` : `View all ${nearbyLeads.length} within ${teachingRadius || 5} km`}
+              {lang === "hi" ? `${teachingRadius} किमी में सभी ${nearbyLeads.length} देखें` : `View all ${nearbyLeads.length} within ${teachingRadius} km`}
             </button>
             <button
               type="button"
@@ -1207,8 +1207,8 @@ export function LeadFeedClient({
                 {lang === "hi" ? "इलाका दृश्य:" : "Neighborhood View:"}
               </span>{" "}
               {lang === "hi"
-                ? `${teachingRadius || 10} किमी के दायरे में सभी ${filtered.length} छात्र अनुरोध दिखाए जा रहे हैं।`
-                : `Showing all ${filtered.length} student leads within ${teachingRadius || 10} km radius${tutorLocation?.address ? ` (${tutorLocation.address})` : ""} across all subjects.`}
+                ? `${teachingRadius} किमी के दायरे में सभी ${filtered.length} छात्र अनुरोध दिखाए जा रहे हैं।`
+                : `Showing all ${filtered.length} student leads within ${teachingRadius} km radius${tutorLocation?.address ? ` (${tutorLocation.address})` : ""} across all subjects.`}
             </div>
           </div>
           <button
@@ -1314,7 +1314,7 @@ export function LeadFeedClient({
           </p>
           <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
             {viewTab === "matched"
-              ? (lang === "hi" ? `फिलहाल ${teachingRadius || 10} किमी के दायरे में आपके विषयों से मेल खाने वाला कोई नया अनुरोध नहीं है।` : `No student requirements strictly match your subjects within ${teachingRadius || 10} km right now.`)
+              ? (lang === "hi" ? `फिलहाल ${teachingRadius} किमी के दायरे में आपके विषयों से मेल खाने वाला कोई नया अनुरोध नहीं है।` : `No student requirements strictly match your subjects within ${teachingRadius} km right now.`)
               : (lang === "hi" ? "अन्य अनुरोध देखने के लिए खोज शब्द, विषय फ़िल्टर, या मोड बदलें।" : "Try adjusting your search keyword, subject filter, or mode toggle to see more inquiries.")}
           </p>
           {viewTab === "matched" && (
@@ -1325,7 +1325,7 @@ export function LeadFeedClient({
                   onClick={() => setViewTab("nearby")}
                   className="px-4 py-2 rounded-xl bg-[#0F2540] text-white font-bold text-xs cursor-pointer"
                 >
-                  {lang === "hi" ? `${teachingRadius || 10} किमी में सभी ${nearbyLeads.length} देखें` : `View ${nearbyLeads.length} nearby in ${teachingRadius || 10} km`}
+                  {lang === "hi" ? `${teachingRadius} किमी में सभी ${nearbyLeads.length} देखें` : `View ${nearbyLeads.length} nearby in ${teachingRadius} km`}
                 </button>
               )}
               <button

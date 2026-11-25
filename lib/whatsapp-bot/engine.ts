@@ -1224,27 +1224,36 @@ function buildProfileViewResult(
   step: string,
   userProfile: UserProfileContext | null | undefined
 ): EngineResult {
-  const name = (data.name as string) || userProfile?.name || "Not set";
-  const email = (data.email as string) || userProfile?.email || "Not set";
-  const area = (data.area as string) || userProfile?.area || "Not set";
-  const city = (data.city as string) || userProfile?.city || "";
+  const canonicalEmail =
+    userProfile?.email && isStrictValidEmail(userProfile.email) && !isPlaceholderEmail(userProfile.email)
+      ? userProfile.email
+      : isStrictValidEmail(data.email) && !isPlaceholderEmail(String(data.email))
+        ? String(data.email)
+        : "Not set";
+  const name = (userProfile?.name && isValidName(userProfile.name) ? userProfile.name : undefined) || (data.name as string) || "Not set";
+  const area = userProfile?.area || (data.area as string) || "Not set";
+  const city = userProfile?.city || (data.city as string) || "";
+  const sanitizedProfileEdu =
+    userProfile?.subjects?.length || userProfile?.classLevels?.length
+      ? sanitizeEducationForDb(userProfile?.subjects || [], userProfile?.classLevels || [])
+      : null;
   const subjects =
-    Array.isArray(data.subjects) && data.subjects.length > 0
-      ? (data.subjects as string[]).join(", ")
-      : userProfile?.subjects?.length
-        ? userProfile.subjects.join(", ")
+    sanitizedProfileEdu?.subjects.length
+      ? sanitizedProfileEdu.subjects.join(", ")
+      : Array.isArray(data.subjects) && data.subjects.length > 0
+        ? (data.subjects as string[]).join(", ")
         : "Not set";
   const classes =
-    Array.isArray(data.classLevels) && data.classLevels.length > 0
-      ? (data.classLevels as string[]).join(", ")
-      : userProfile?.classLevels?.length
-        ? userProfile.classLevels.join(", ")
+    sanitizedProfileEdu?.classLevels.length
+      ? sanitizedProfileEdu.classLevels.join(", ")
+      : Array.isArray(data.classLevels) && data.classLevels.length > 0
+        ? (data.classLevels as string[]).join(", ")
         : (data.classLevel as string) || "Not set";
-  const mode = (data.mode as string) || userProfile?.teachingMode || "Both (Online + Offline)";
+  const mode = userProfile?.teachingMode || (data.mode as string) || "Both (Online + Offline)";
   const location = city && !area.toLowerCase().includes(city.toLowerCase()) ? `${area}, ${city}` : area;
   const coinsStr = userProfile?.coins !== undefined && userProfile?.coins !== null ? `\n🪙 Coins: *${userProfile.coins}*` : "";
 
-  const profileText = `👤 *Your Profile:*\n\nName: ${name}\nEmail: ${email}\nLocation: ${location}\nMode: ${mode}\nClasses: ${classes}\nSubjects: ${subjects}\nPhone: +91-${session.phone}${coinsStr}\nPassword: Set (encrypted 🔒)\n\nTo update anything, type:\n• *UPDATE AREA <new locality>*\n• *UPDATE MODE Online / Offline*\n• *UPDATE SUBJECTS <subjects & classes>*\n• *UPDATE PASSWORD <new password>*`;
+  const profileText = `👤 *Your Profile:*\n\nName: ${name}\nEmail: ${canonicalEmail}\nLocation: ${location}\nMode: ${mode}\nClasses: ${classes}\nSubjects: ${subjects}\nPhone: +91-${session.phone}${coinsStr}\nPassword: Set (encrypted 🔒)\n\nTo update anything, type:\n• *UPDATE AREA <new locality>*\n• *UPDATE MODE Online / Offline*\n• *UPDATE SUBJECTS <subjects & classes>*\n• *UPDATE PASSWORD <new password>*`;
   return {
     reply: profileText,
     nextStep: step,
@@ -1751,11 +1760,11 @@ async function tryDeterministicDoneShortcuts(params: {
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("class") || savedSubsOk
         ? {
-            ...data,
-            classLevel: outCls[0],
-            classLevels: outCls,
-            ...(savedSubsOk ? { subjects: outSubs } : {}),
-          }
+          ...data,
+          classLevel: outCls[0],
+          classLevels: outCls,
+          ...(savedSubsOk ? { subjects: outSubs } : {}),
+        }
         : data,
       userType: "TUTOR",
       retries: 0,
@@ -2663,38 +2672,38 @@ export async function processMessage(
     }
   }
 
-  // Sync state data from DB profile if registered so context is never lost
+  // Sync state data from DB profile if registered so WhatsApp & Dashboard stay 100% in sync
   if (userProfile?.isRegistered) {
     if (!data._registered) data._registered = true;
     if (step !== "DONE" && !MID_FLOW_STEPS.has(step)) {
       step = "DONE";
     }
-    if (!data.name && userProfile.name && isValidName(userProfile.name)) data.name = userProfile.name;
-    if (!data.email && userProfile.email && isStrictValidEmail(userProfile.email) && !isPlaceholderEmail(userProfile.email)) {
+    if (userProfile.name && isValidName(userProfile.name)) data.name = userProfile.name;
+    if (userProfile.email && isStrictValidEmail(userProfile.email) && !isPlaceholderEmail(userProfile.email)) {
       data.email = userProfile.email;
     }
-    if (!data.area && userProfile.area && !/^(delhi ncr|india|unknown|na|none)$/i.test(userProfile.area.trim())) {
+    if (userProfile.area && !/^(delhi ncr|india|unknown|na|none)$/i.test(userProfile.area.trim())) {
       data.area = userProfile.area;
     }
-    if (!data.city && userProfile.city) data.city = userProfile.city;
-    if ((!data.subjects || (Array.isArray(data.subjects) && data.subjects.length === 0)) && userProfile.subjects?.length) {
+    if (userProfile.city) data.city = userProfile.city;
+    if (userProfile.subjects?.length) {
       const sanitizedProfileEdu = sanitizeEducationForDb(userProfile.subjects, userProfile.classLevels || []);
       if (sanitizedProfileEdu.subjects.length > 0) {
         data.subjects = sanitizedProfileEdu.subjects;
       }
-      if ((!data.classLevels || (Array.isArray(data.classLevels) && data.classLevels.length === 0)) && sanitizedProfileEdu.classLevels.length > 0) {
+      if (sanitizedProfileEdu.classLevels.length > 0) {
         data.classLevels = sanitizedProfileEdu.classLevels;
-        if (!data.classLevel) data.classLevel = sanitizedProfileEdu.classLevels[0];
+        data.classLevel = sanitizedProfileEdu.classLevels[0];
       }
     }
     if ((!data.classLevels || (Array.isArray(data.classLevels) && data.classLevels.length === 0)) && userProfile.classLevels?.length) {
       const parsedProfileCls = extractStrictClasses(userProfile.classLevels.join(", ")).labels;
       if (parsedProfileCls.length > 0) {
         data.classLevels = parsedProfileCls;
-        if (!data.classLevel) data.classLevel = parsedProfileCls[0];
+        data.classLevel = parsedProfileCls[0];
       }
     }
-    if (!data.mode && userProfile.teachingMode) {
+    if (userProfile.teachingMode) {
       data.mode = userProfile.teachingMode;
     }
   }
@@ -4026,7 +4035,7 @@ export async function processMessage(
       let classesToSave: string[] | undefined;
       let subjectsToSave: string[] | undefined;
 
-      if (directSubStrict?.ok && directSubStrict.subjects.length > 0) {
+      if (directSubStrict?.ok && directSubStrict.subjects.length > 0 && aiClsRaw.length === 0 && aiSubsRaw.length === 0) {
         subjectsToSave = directSubStrict.subjects;
         classesToSave = directSubStrict.classLevels.length > 0 ? directSubStrict.classLevels : undefined;
       } else if (rawHasSubjectWords || rawMsgClasses.length > 0 || aiClsRaw.length > 0 || aiSubsRaw.length > 0) {
@@ -4036,13 +4045,27 @@ export async function processMessage(
             : data.classLevel
               ? [String(data.classLevel)]
               : undefined;
+        const mergedRawForEdu =
+          directSubStatement?.[1]?.trim() ||
+          (rawHasSubjectWords || rawMsgClasses.length > 0 ? rawMessage : undefined);
         const strictRes = enforceStrictEducation({
-          rawMessage: rawHasSubjectWords || rawMsgClasses.length > 0 ? rawMessage : undefined,
-          subjectsInput: aiSubsRaw.length > 0 ? aiSubsRaw : undefined,
+          rawMessage: mergedRawForEdu,
+          subjectsInput: aiSubsRaw.length > 0 ? aiSubsRaw : directSubStrict?.subjects,
           classesInput: msgClasses.length > 0 ? msgClasses : aiClsRaw.length > 0 ? aiClsRaw : fallbackExistingCls,
         });
-        if (strictRes.classLevels.length > 0) classesToSave = strictRes.classLevels;
-        if (strictRes.subjects.length > 0) subjectsToSave = strictRes.subjects;
+        const mergedCls = new Set<string>(strictRes.classLevels);
+        const mergedSubs = new Set<string>(strictRes.subjects);
+        // Never lose valid AI-extracted bands (e.g. if user used new Hindi shorthand before regex saw it)
+        if (aiSubsRaw.length > 0 || aiClsRaw.length > 0) {
+          const aiStrictOnly = enforceStrictEducation({
+            subjectsInput: aiSubsRaw,
+            classesInput: aiClsRaw,
+          });
+          for (const c of aiStrictOnly.classLevels) mergedCls.add(c);
+          for (const s of aiStrictOnly.subjects) mergedSubs.add(s);
+        }
+        if (mergedCls.size > 0) classesToSave = Array.from(mergedCls);
+        if (mergedSubs.size > 0) subjectsToSave = Array.from(mergedSubs);
       }
 
       const nameToSave =
@@ -4129,8 +4152,13 @@ export async function processMessage(
 
           const { savedBits, mergedData } = await applyDonePatch({ ai });
           let reply = ai.reply;
-          if (savedBits.length > 0 && !reply.toLowerCase().includes("updated") && !reply.toLowerCase().includes("saved")) {
-            reply = `${reply}\n\n(Updated: ${savedBits.join(", ")} ✅)`;
+          if (savedBits.length > 0) {
+            const hasDbDetailsInReply = /all subjects|class\s*[1-9]|saved in database|updated:/i.test(reply);
+            if (!reply.toLowerCase().includes("updated") && !reply.toLowerCase().includes("saved")) {
+              reply = `${reply}\n\n(Updated: ${savedBits.join(", ")} ✅)`;
+            } else if (!hasDbDetailsInReply || (Array.isArray(mergedData.subjects) && mergedData.subjects.length > 0 && /1 to 8|1-8|8tk/i.test(reply) && !mergedData.subjects.some((s: string) => /Class [1-8]\b/i.test(s)))) {
+              reply = `${reply}\n\n_(Saved: ${savedBits.join(", ")} ✅)_`;
+            }
           }
 
           return {

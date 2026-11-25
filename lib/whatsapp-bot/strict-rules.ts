@@ -263,9 +263,9 @@ export function extractStrictClasses(rawText: string): ExtractedClassSet {
     grades.add(12);
   }
 
-  // Numeric ranges: "1-5", "1 to 8", "10 - 12", "Class 6 to Class 8", "9th and 10th", "11 & 12"
+  // Numeric ranges: "1-5", "1 to 8", "10 - 12", "Class 6 to Class 8", "9th and 10th", "11 & 12", "1st se 6th"
   const numRangeRe =
-    /\b(?:class(?:es)?|grade|std|standard)?\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\s*(?:to|-|–|—|and|&|\/|,)\s*(?:class(?:es)?|grade|std|standard)?\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b/gi;
+    /\b(?:class(?:es)?|grade|std|standard)?\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\s*(?:to|-|–|—|\bse\b|and|&|\/|,)\s*(?:class(?:es)?|grade|std|standard)?\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b/gi;
   for (const m of lower.matchAll(numRangeRe)) {
     const startIdx = m.index ?? 0;
     const tail = lower.slice(startIdx + m[0].length);
@@ -275,7 +275,7 @@ export function extractStrictClasses(rawText: string): ExtractedClassSet {
     const b = parseInt(m[2], 10);
     if (a >= 1 && a <= 12 && b >= 1 && b <= 12) {
       const connector = m[0].replace(/^.*?(?:\d{1,2})(?:st|nd|rd|th)?/, "");
-      const isContinuous = /(?:\bto\b|-|–|—)/i.test(connector);
+      const isContinuous = /(?:\bto\b|\bse\b|-|–|—)/i.test(connector);
       if (isContinuous && Math.abs(b - a) >= 1) {
         for (let g = Math.min(a, b); g <= Math.max(a, b); g++) grades.add(g);
       } else {
@@ -285,8 +285,8 @@ export function extractStrictClasses(rawText: string): ExtractedClassSet {
     }
   }
 
-  // Upto / till N: "till 8th", "upto class 5", "8 tak"
-  const uptoRe = /(?:upto|up\s*to|till|below)\s*(?:class(?:es)?|grade|std)?\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b|\b(?:class(?:es)?\s*)?(1[0-2]|[1-9])(?:st|nd|rd|th)?\s*tak\b/gi;
+  // Upto / till N: "till 8th", "upto class 5", "8 tak", "8tk", "classes 8tk"
+  const uptoRe = /(?:upto|up\s*to|till|below)\s*(?:class(?:es)?|grade|std)?\s*(1[0-2]|[1-9])(?:st|nd|rd|th)?\b|\b(?:class(?:es)?\s*)?(1[0-2]|[1-9])(?:st|nd|rd|th)?\s*(?:tak|tk|takk)\b/gi;
   for (const m of lower.matchAll(uptoRe)) {
     const n = parseInt(m[1] || m[2], 10);
     if (n >= 1 && n <= 12) {
@@ -619,10 +619,10 @@ export function enforceStrictEducation(input: {
     : String(input.classesInput || "");
 
   // Step A: Clause-by-clause parsing on rawMessage if it contains multiple clauses
-  // Split on sentence boundaries (period/newline/semicolon) ONLY when numbers/classes aren't split mid-decimal.
+  // Split on sentence boundaries (period/newline/semicolon) or "and/&/aur <next class band>" without breaking "Class 9 and 10".
   const clauses = rawText
     ? rawText
-        .split(/(?:\n|;|(?<=[a-z0-9])\.(?:\s+|$)|,\s*(?=[a-z]+\s+(?:class\s*)?(?:\d|nursery|kg))|(?<=\d)\s+and\s+(?=[a-z]+\s+(?:class\s*)?\d+\s*[-–to]))/i)
+        .split(/(?:\n|;|(?<=[a-z0-9])\.(?:\s+|$)|,\s*(?=[a-z]+\s+(?:class\s*)?(?:\d|nursery|kg))|\s+(?:and|&|aur|plus)\s+(?=(?:class(?:es)?\s*)?(?:1[0-2]|[1-9])(?:st|nd|rd|th)?\s*(?:[-–—]|to\b|se\b|tak\b|tk\b)|(?:xii|xi)\b|pre[-\s]?primary|nursery|lkg|ukg|jee|neet))/i)
         .map((c) => c.trim())
         .filter(Boolean)
     : [];

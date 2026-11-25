@@ -41,10 +41,13 @@ export async function getStoredUserProfile(phone: string): Promise<UserProfileCo
   if (!phone) return null;
 
   try {
-    const user = await prisma.user.findFirst({
+    // Use identical primary-user resolution as findPrimaryUserForWhatsApp / syncUserCredentialsInDb:
+    // oldest account first, preferring rows with a TutorProfile so WhatsApp & Admin DB stay in sync.
+    const users = await prisma.user.findMany({
       where: {
         OR: buildIndiaUserLookupOr(phone) as never,
       },
+      orderBy: { createdAt: "asc" },
       include: {
         tutorProfile: true,
         parentProfile: {
@@ -65,6 +68,9 @@ export async function getStoredUserProfile(phone: string): Promise<UserProfileCo
         },
       },
     });
+
+    const withTutor = users.filter((u) => Boolean(u.tutorProfile));
+    const user = (withTutor.length > 0 ? withTutor : users)[0];
 
     if (!user) {
       return { isRegistered: false };

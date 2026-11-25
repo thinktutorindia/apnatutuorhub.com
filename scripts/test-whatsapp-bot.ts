@@ -734,6 +734,29 @@ const tests = [
     assert.equal(rHindiInAreaUpdate.nextStep, "DONE");
     assertEnglishOnly(rHindiInAreaUpdate.reply, "Hindi script escape in UPDATE_AREA");
   }),
+
+  // ── 12. Live WhatsApp "8tk" Hindi Slang & Multi-Band Separation ────────────
+  test('Parses "My subjects are classes 8tk all subjects and 11-12 mai chemistry and physics" strictly across both bands', () => {
+    const res = enforceStrictEducation({
+      rawMessage: "My subjects are classes 8tk all subjects and 11-12 mai chemistry and physics",
+    });
+    assert.equal(res.ok, true);
+    for (let g = 1; g <= 8; g++) {
+      assert.equal(res.classLevels.includes(`Class ${g}`), true);
+      assert.equal(res.subjects.includes(`All Subjects for Class ${g}`), true);
+    }
+    assert.equal(res.classLevels.includes("Class 11"), true);
+    assert.equal(res.classLevels.includes("Class 12"), true);
+    assert.equal(res.subjects.includes("Chemistry for Class XI"), true);
+    assert.equal(res.subjects.includes("Physics for Class XI"), true);
+    assert.equal(res.subjects.includes("Chemistry for Class XII"), true);
+    assert.equal(res.subjects.includes("Physics for Class XII"), true);
+    assert.equal(res.subjects.some((s) => /Physics.*Class [1-8]\b|Chemistry.*Class [1-8]\b/i.test(s)), false);
+
+    const hRange = enforceStrictEducation({ rawMessage: "1st se 6th all subjects" });
+    assert.equal(hRange.ok, true);
+    assert.deepEqual(hRange.classLevels, ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6"]);
+  }),
 ];
 
 async function run() {

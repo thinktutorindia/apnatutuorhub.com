@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Calendar } from "lucide-react";
 import { useSeniorTutor } from "@/components/tutor/SeniorTutorContext";
 import BookingCard from "@/components/booking/BookingCard";
+import { RequestLeadRefundButton } from "@/components/tutor/RequestLeadRefundButton";
 import type { ExistingReview } from "@/app/actions/review.actions";
 
 interface BookingItem {
@@ -37,6 +38,10 @@ interface Props {
   pendingCount: number;
   displayedBookings: BookingItem[];
   reviewMapObj: Record<string, ExistingReview>;
+  purchaseByLead: Record<
+    string,
+    { purchaseId: string; purchasedAt: string; coinsSpent: number }
+  >;
 }
 
 export function TutorBookingsClient({
@@ -45,6 +50,7 @@ export function TutorBookingsClient({
   pendingCount,
   displayedBookings,
   reviewMapObj,
+  purchaseByLead,
 }: Props) {
   const { lang, t } = useSeniorTutor();
 
@@ -130,22 +136,36 @@ export function TutorBookingsClient({
         </div>
       ) : (
         <div className="space-y-4">
-          {displayedBookings.map((booking) => (
-            <BookingCard
-              key={booking.id}
-              booking={{
-                ...booking,
-                startDate: booking.startDate ? new Date(booking.startDate) : null,
-                completedAt: booking.completedAt
-                  ? new Date(booking.completedAt)
-                  : null,
-                leadId: booking.leadId || "",
-              }}
-              viewerRole="TUTOR"
-              hasReview={Boolean(reviewMapObj[booking.id])}
-              existingReview={reviewMapObj[booking.id] ?? null}
-            />
-          ))}
+          {displayedBookings.map((booking) => {
+            const purchase = booking.leadId
+              ? purchaseByLead[booking.leadId]
+              : undefined;
+            return (
+              <div key={booking.id} className="space-y-2">
+                <BookingCard
+                  booking={{
+                    ...booking,
+                    startDate: booking.startDate ? new Date(booking.startDate) : null,
+                    completedAt: booking.completedAt
+                      ? new Date(booking.completedAt)
+                      : null,
+                    leadId: booking.leadId || "",
+                  }}
+                  viewerRole="TUTOR"
+                  hasReview={Boolean(reviewMapObj[booking.id])}
+                  existingReview={reviewMapObj[booking.id] ?? null}
+                />
+                {purchase && (
+                  <div className="flex justify-end">
+                    <RequestLeadRefundButton
+                      purchaseId={purchase.purchaseId}
+                      purchasedAt={purchase.purchasedAt}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

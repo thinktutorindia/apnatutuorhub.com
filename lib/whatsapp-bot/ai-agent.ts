@@ -12,6 +12,7 @@ import { BotSession } from "./session";
 import { UserProfileContext } from "./user-profile-context";
 import { enforceStrictEducation, extractStrictEmail, isPlaceholderEmail, validateStrictEmail } from "./strict-rules";
 import { looksLikeUnexpectedNoise } from "./loose-intent";
+import { GEMINI_TEXT_MODEL_CASCADE, getGeminiApiKey } from "@/lib/gemini-models";
 
 export type ChatHistoryEntry = {
   direction: string;
@@ -276,10 +277,7 @@ export async function askGeminiChatbot(
   chatHistory?: ChatHistoryEntry[],
   userProfile?: UserProfileContext | null
 ): Promise<AiBotResponse | null> {
-  const apiKey =
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
-    process.env.GOOGLE_GENAI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
     console.warn("[ai-agent] No GEMINI_API_KEY configured.");
@@ -310,7 +308,7 @@ export async function askGeminiChatbot(
     }
 
     const formatted = chatHistory
-      .slice(-60)
+      .slice(-20)
       .map((m) => {
         const who = m.direction === "INBOUND" ? "User/Tutor" : "Bot (Priya)";
         const time = m.createdAt
@@ -321,10 +319,10 @@ export async function askGeminiChatbot(
             })
           : "";
         const timeTag = time ? ` [${time}]` : "";
-        return `[${who}${timeTag}]: ${m.body.replace(/\s+/g, " ").slice(0, 1000)}`;
+        return `[${who}${timeTag}]: ${m.body.replace(/\s+/g, " ").slice(0, 350)}`;
       })
       .join("\r\n");
-    historySection = `\r\nRecent Conversation History (${Math.min(chatHistory.length, 60)} messages, chronological order, most recent at bottom):\r\n${formatted}\r\n`;
+    historySection = `\r\nRecent Conversation History (${Math.min(chatHistory.length, 20)} messages, chronological order, most recent at bottom):\r\n${formatted}\r\n`;
   }
 
   let profileSection = "";
@@ -350,27 +348,27 @@ export async function askGeminiChatbot(
 
   const prompt = `\r\nSystem Context:\r\n${SYSTEM_INSTRUCTION}\r\n\r\nCurrent Session State:\r\n- Phone: ${session.phone}\r\n- Current Step: ${session.step}\r\n- User Type: ${session.userType || "Unknown"}\r\n- Previously Collected Data: ${JSON.stringify(session.data || {})}\r\n${profileSection}${historyExtractedSection}${historySection}\r\nNew Incoming Message from User:\r\n"${userMessage}"\r\n\r\nRespond with the JSON object only:\r\n`;
 
-  const models = [
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-  ];
+  const models = Array.from(
+    new Set([
+      "gemini-3.5-flash-lite",
+      "gemini-flash-lite-latest",
+      "gemini-3.1-flash-lite-preview",
+      "gemini-3-flash-preview",
+      "gemini-3.5-flash",
+      ...GEMINI_TEXT_MODEL_CASCADE,
+    ])
+  ).slice(0, 5);
 
   for (const model of models) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 18000);
+    const timeout = setTimeout(() => controller.abort(), 11000);
 
     try {
-      const isLite = model.includes("lite");
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const generationConfig: Record<string, any> = {
         temperature: 0.2,
         responseMimeType: "application/json",
       };
-      if (!isLite) {
-        generationConfig.thinkingConfig = { thinkingBudget: 0 };
-      }
 
       const res = await fetch(url, {
         method: "POST",

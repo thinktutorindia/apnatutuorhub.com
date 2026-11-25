@@ -141,7 +141,7 @@ export function SeniorDashboardClient({
       showFeedback(
         lang === "hi"
           ? "फ़ोन नंबर देखने के लिए कम से कम 10 कॉइन्स आवश्यक हैं। कॉइन्स जोड़ें।"
-          : "You need at least 10 Coins to view a parent phone number. Please add coins in Coin Wallet."
+          : "You need coins to view a parent phone number. Please add coins in Coin Wallet."
       );
       return;
     }
@@ -660,8 +660,8 @@ return (
             {isUnlocking
               ? (lang === "hi" ? "अनलॉक हो रहा है…" : "Unlocking…")
               : isSubscriptionActive
-                ? (lang === "hi" ? "हाँ, फ़ोन नंबर दिखाएं (0 कॉइन्स)" : "Yes, Show Phone Number (0 Coins)")
-                : (lang === "hi" ? "हाँ, फ़ोन नंबर दिखाएं (10 कॉइन्स)" : "Yes, Show Phone Number (10 Coins)")}
+                ? (lang === "hi" ? "हाँ, फ़ोन नंबर दिखाएं · प्लान में शामिल" : "Yes, Show Phone Number · Free with Plan")
+                : (lang === "hi" ? "हाँ, फ़ोन नंबर दिखाएं (10 कॉइन्स)" : "Yes, Show Phone Number")}
           </button>
           <button
             type="button"

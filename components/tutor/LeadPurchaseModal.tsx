@@ -243,8 +243,8 @@ export function LeadPurchaseModal({
                 </p>
                 <p className="text-xs font-semibold text-slate-700">
                   {lang === "hi"
-                    ? `आपकी सक्रिय सदस्यता में 100% शामिल। वॉलेट से 0 कॉइन्स काटे जाएंगे (प्लान में ${remainingLeads} अनलॉक शेष)।`
-                    : `Covered 100% by your active membership. 0 Coins charged from your wallet (${remainingLeads} plan unlocks remaining).`}
+                    ? `आपकी सक्रिय सदस्यता में 100% शामिल। वॉलेट से कोई कॉइन नहीं कटेगा (प्लान में ${remainingLeads} अनलॉक शेष)।`
+                    : `Covered 100% by your active membership. No coins will be deducted from your wallet (${remainingLeads} plan unlocks remaining).`}
                 </p>
               </div>
             ) : (

@@ -28,6 +28,7 @@ import { useSeniorTutor, type TextScale, type Language } from "@/components/tuto
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { NotificationBell } from "@/components/NotificationBell";
 import { updateTutorQuickPreferencesAction } from "@/app/actions/tutor.actions";
+import { ChatInboxModal } from "@/components/chat/ChatInboxModal";
 
 interface SeniorTutorShellProps {
   children: React.ReactNode;
@@ -56,6 +57,7 @@ export function SeniorTutorShell({
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSavingArea, setIsSavingArea] = useState(false);
+  const [chatInboxOpen, setChatInboxOpen] = useState(false);
 
   const {
     scale,
@@ -124,6 +126,7 @@ export function SeniorTutorShell({
       label: t("navMessages"),
       icon: MessageCircle,
       isActive: isMessagesActive,
+      inbox: true,
       badge: unreadMessagesCount > 0 ? String(unreadMessagesCount) : undefined,
       badgeColor: "bg-red-600 text-white",
     },
@@ -230,17 +233,13 @@ export function SeniorTutorShell({
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`relative w-full min-h-[46px] px-3 py-2 rounded-xl border-2 flex items-center justify-between gap-2 text-left transition cursor-pointer ${
-                      item.isActive
-                        ? "border-[#065F46] bg-[#ECFDF5] text-[#064E3B] font-black shadow-2xs"
-                        : "border-[#E5DEC9] bg-white text-[#18181B] hover:border-[#065F46] hover:bg-[#ECFDF5]/50 font-bold"
-                    }`}
-                  >
+                const navClass = `relative w-full min-h-[46px] px-3 py-2 rounded-xl border-2 flex items-center justify-between gap-2 text-left transition cursor-pointer ${
+                  item.isActive
+                    ? "border-[#065F46] bg-[#ECFDF5] text-[#064E3B] font-black shadow-2xs"
+                    : "border-[#E5DEC9] bg-white text-[#18181B] hover:border-[#065F46] hover:bg-[#ECFDF5]/50 font-bold"
+                }`;
+                const inner = (
+                  <>
                     {item.isActive && (
                       <span className="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full bg-[#065F46]" />
                     )}
@@ -262,6 +261,31 @@ export function SeniorTutorShell({
                         {item.badge}
                       </span>
                     )}
+                  </>
+                );
+                if ("inbox" in item && item.inbox) {
+                  return (
+                    <button
+                      key={item.href}
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setChatInboxOpen(true);
+                      }}
+                      className={navClass}
+                    >
+                      {inner}
+                    </button>
+                  );
+                }
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={navClass}
+                  >
+                    {inner}
                   </Link>
                 );
               })}
@@ -647,6 +671,7 @@ export function SeniorTutorShell({
           </div>
         </div>
       )}
+      {chatInboxOpen && <ChatInboxModal onClose={() => setChatInboxOpen(false)} />}
     </div>
   );
 }

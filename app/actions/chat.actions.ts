@@ -23,6 +23,72 @@ import { logActivity, ActivityEvent } from "@/lib/activity-logger";
 
 export type ChatState = ActionResult<{ conversationId: string; messageId?: string }>;
 
+export type ConversationSummary = {
+  id: string;
+  otherUserName: string;
+  requirement: string | null;
+  lastMessage: string;
+  lastAt: string;
+  unread: number;
+};
+
+/** Conversation list for the in-page tutor/parent chat inbox. */
+export async function listMyConversationsAction(): Promise<
+  ActionResult<ConversationSummary[]>
+> {
+  const session = await auth();
+  if (!session?.user?.id) return actionError("Please sign in to view messages.");
+
+  const conversations = await prisma.conversation.findMany({
+    where: {
+      OR: [
+        { parentProfile: { userId: session.user.id } },
+        { tutorProfile: { userId: session.user.id } },
+      ],
+    },
+    orderBy: { lastMessageAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      lastMessageAt: true,
+      parentProfile: { select: { userId: true, user: { select: { name: true } } } },
+      tutorProfile: { select: { userId: true, user: { select: { name: true } } } },
+      lead: { select: { classLevel: true, subjects: true } },
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { content: true },
+      },
+    },
+  });
+
+  const items = await Promise.all(
+    conversations.map(async (c) => {
+      const isTutor = c.tutorProfile.userId === session.user.id;
+      const other = isTutor ? c.parentProfile.user : c.tutorProfile.user;
+      const unread = await prisma.message.count({
+        where: {
+          conversationId: c.id,
+          isRead: false,
+          senderUserId: { not: session.user.id },
+        },
+      });
+      return {
+        id: c.id,
+        otherUserName: other.name || "User",
+        requirement: c.lead
+          ? `${c.lead.classLevel} · ${c.lead.subjects.join(", ")}`
+          : null,
+        lastMessage: c.messages[0]?.content || "No messages yet",
+        lastAt: c.lastMessageAt.toISOString(),
+        unread,
+      };
+    })
+  );
+
+  return actionSuccess(items);
+}
+
 export type ChatThreadPayload = {
   conversationId: string;
   currentUserId: string;

@@ -126,6 +126,25 @@ export default async function TutorBookingsPage({
     };
   });
 
+  const myLeadPurchases = await prisma.leadPurchase.findMany({
+    where: { tutorProfileId: tutorProfile.id },
+    select: { id: true, leadId: true, createdAt: true, coinsSpent: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const purchaseByLead: Record<
+    string,
+    { purchaseId: string; purchasedAt: string; coinsSpent: number }
+  > = {};
+  for (const pur of myLeadPurchases) {
+    if (!purchaseByLead[pur.leadId]) {
+      purchaseByLead[pur.leadId] = {
+        purchaseId: pur.id,
+        purchasedAt: pur.createdAt.toISOString(),
+        coinsSpent: pur.coinsSpent,
+      };
+    }
+  }
+
   return (
     <TutorBookingsClient
       tab={tab}
@@ -137,6 +156,7 @@ export default async function TutorBookingsPage({
         completedAt: b.completedAt ? b.completedAt.toISOString() : null,
       }))}
       reviewMapObj={reviewMapObj}
+      purchaseByLead={purchaseByLead}
     />
   );
 }

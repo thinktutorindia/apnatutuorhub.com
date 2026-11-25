@@ -185,6 +185,8 @@ export const INDIAN_CITY_COORDINATES: Record<string, { lat: number; lng: number 
   "madhapur": { lat: 17.4483, lng: 78.3915 },
 };
 
+const SORTED_CITY_KEYS = Object.keys(INDIAN_CITY_COORDINATES).sort((a, b) => b.length - a.length);
+
 /**
  * Fast synchronous coordinate resolver for Indian localities and cities.
  * Sub-millisecond lookup for instant distance calculations.
@@ -199,15 +201,14 @@ export function resolveLocationCoordinates(query?: string | null): { lat: number
   }
 
   // 2. Substring match across all known locality keys (sorted by length descending so specific localities match before generic city names)
-  const sortedKeys = Object.keys(INDIAN_CITY_COORDINATES).sort((a, b) => b.length - a.length);
-  for (const key of sortedKeys) {
+  for (const key of SORTED_CITY_KEYS) {
     if (clean.includes(key)) {
       return INDIAN_CITY_COORDINATES[key];
     }
   }
 
   // 3. Reverse substring match: if any key starts with or includes clean
-  for (const key of sortedKeys) {
+  for (const key of SORTED_CITY_KEYS) {
     if (key.includes(clean)) {
       return INDIAN_CITY_COORDINATES[key];
     }

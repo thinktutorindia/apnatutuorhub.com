@@ -228,11 +228,9 @@ export function sanitizeSubjectsForClassLevel(
   const isSenior = n !== null ? n >= 11 : /11|12|jee|neet|senior/i.test(classLevel);
   const isJunior = n !== null ? n <= 8 : /nursery|kg|primary|middle|class\s*[1-8]\b/i.test(classLevel);
 
+  // Class 1–8 strictly All Subjects only — no redundant class suffix or subject listing
   if (isJunior) {
-    const explicit = (subjects || []).find((s) => /all subjects for class \d+/i.test(s));
-    if (explicit) return [explicit];
-    const grade = n !== null ? n : 5;
-    return [`All Subjects for Class ${grade}`];
+    return ["All Subjects"];
   }
 
   const cleaned = subjects.map(cleanSubjectName).filter(Boolean);
@@ -252,14 +250,13 @@ export function sanitizeSubjectsForClassLevel(
 
   let unique = [...new Set(adapted)];
 
-  // Ensure Class 11/12 never retains "Science"
+  // Ensure Class 11/12 never retains generic "Science"
   if (isSenior) {
     unique = unique.map((s) => (/^science$/i.test(s) ? "Physics" : s));
   }
 
   const baseSubjects = unique.length > 0 ? unique : isSenior ? ["Physics", "Chemistry"] : ["Mathematics"];
-  const clsName = n !== null ? `Class ${n}` : classLevel;
-  return baseSubjects.map((s) => (/for class/i.test(s) ? s : `${s} for ${clsName}`));
+  return baseSubjects.map((s) => cleanSubjectName(s));
 }
 
 export function feeBandKeyForClass(classLevel: string): FeeBandKey {

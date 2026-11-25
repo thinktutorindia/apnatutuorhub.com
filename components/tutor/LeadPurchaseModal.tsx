@@ -33,6 +33,7 @@ import {
   cleanClassLevelDisplay,
   sanitizeSubjectsForClassLevel,
 } from "@/lib/dummy-campaign-types";
+import { useSeniorTutor, translateClass, translateSubject } from "@/components/tutor/SeniorTutorContext";
 
 const applicationInitial: ApplicationState = { success: false };
 
@@ -99,6 +100,7 @@ export function LeadPurchaseModal({
    * the contact visible even if the underlying lead card is filtered out. */
   onUnlocked?: (contact: ParentContact, purchaseId: string) => void;
 }) {
+  const { lang, t } = useSeniorTutor();
   const [stage, setStage] = useState<Stage>("confirm");
   const [errorMsg, setErrorMsg] = useState("");
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -110,6 +112,8 @@ export function LeadPurchaseModal({
   const remainingPoints =
     subscriptionInfo?.remainingPoints ??
     (subscriptionInfo?.quotaRemaining ?? 0) * 10;
+  const remainingLeads =
+    subscriptionInfo?.quotaRemaining ?? Math.max(1, Math.floor(remainingPoints / 10));
   const unlockViaMembershipPoints = Boolean(
     subscriptionInfo?.hasActivePlan && remainingPoints >= planPointCost
   );
@@ -197,13 +201,18 @@ export function LeadPurchaseModal({
                 className="text-lg font-bold text-[#0F2540]"
                 style={{ fontFamily: "Poppins, sans-serif" }}
               >
-                {stage === "success" ? "Lead Unlocked Successfully! 🎉" : "Unlock Student Requirement"}
+                {stage === "success"
+                  ? (lang === "hi" ? "अनलॉक सफल रहा! 🎉" : "Lead Unlocked Successfully! 🎉")
+                  : t("unlockModalHeading")}
               </h2>
               <p className="text-xs font-semibold text-slate-500">
-                {cleanClassLevelDisplay(lead.classLevel)} ·{" "}
-                {sanitizeSubjectsForClassLevel(lead.subjects, lead.classLevel)
-                  .slice(0, 3)
-                  .join(", ")}
+                {translateClass(cleanClassLevelDisplay(lead.classLevel), lang)} ·{" "}
+                {translateSubject(
+                  sanitizeSubjectsForClassLevel(lead.subjects, lead.classLevel)
+                    .slice(0, 3)
+                    .join(", "),
+                  lang
+                )}
               </p>
             </div>
           </div>
@@ -227,45 +236,54 @@ export function LeadPurchaseModal({
               <div className="rounded-2xl border border-amber-200 bg-[#FFF8E8] p-4.5 text-center space-y-1.5">
                 <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#F5A623] text-[#0F2540] font-extrabold text-[11px]">
                   <Crown size={12} />
-                  <span>{subscriptionInfo?.planName ?? "VIP Plan"} Benefit</span>
+                  <span>{subscriptionInfo?.planName ?? (lang === "hi" ? "सक्रिय मेंबरशिप" : "Active Membership")} {lang === "hi" ? "का लाभ" : "Benefit"}</span>
                 </div>
                 <p className="text-2xl sm:text-3xl font-extrabold text-[#0F2540] flex items-center justify-center gap-1.5">
-                  <span>0 Coins (Free Unlock)</span>
+                  <span>{t("freeUnlockHeading")}</span>
                 </p>
                 <p className="text-xs font-semibold text-slate-700">
-                  Included in your plan. Uses {planPointCost} plan points ({remainingPoints} points remaining).
+                  {lang === "hi"
+                    ? `आपकी सक्रिय सदस्यता में 100% शामिल। वॉलेट से 0 कॉइन्स काटे जाएंगे (प्लान में ${remainingLeads} अनलॉक शेष)।`
+                    : `Covered 100% by your active membership. 0 Coins charged from your wallet (${remainingLeads} plan unlocks remaining).`}
                 </p>
               </div>
             ) : (
               <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-center space-y-1">
                 <span className="text-[10px] font-extrabold uppercase text-amber-800 tracking-wider">
-                  Lead Unlock Cost
+                  {lang === "hi" ? "अनलॉक शुल्क" : "Lead Unlock Cost"}
                 </span>
                 <p className="text-3xl font-extrabold text-amber-950 font-mono flex items-center justify-center gap-1.5">
                   <Coins size={26} className="text-amber-500" />
-                  <span>{lead.coinCost} Coins</span>
+                  <span>{lead.coinCost} {t("coinsBadge")}</span>
                 </p>
                 <p className="text-xs font-semibold text-slate-600">
-                  Your wallet balance: <strong className="text-slate-900">{walletBalance} coins</strong>
+                  {lang === "hi" ? "आपका वॉलेट बैलेंस:" : "Your wallet balance:"} <strong className="text-slate-900">{walletBalance} {t("coinsBadge")}</strong>
+                  {walletBalance >= lead.coinCost && (
+                    <span className="block text-[11px] text-emerald-700 font-bold mt-0.5">
+                      {lang === "hi"
+                        ? `(अनलॉक के बाद शेष: ${walletBalance - lead.coinCost} कॉइन्स)`
+                        : `(Remaining after unlock: ${walletBalance - lead.coinCost} Coins)`}
+                    </span>
+                  )}
                 </p>
               </div>
             )}
 
             {/* Unlocked Benefits */}
             <div className="space-y-2 rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 text-xs font-semibold text-slate-700">
-              <p className="font-bold text-[#0F2540]">What you unlock instantly:</p>
+              <p className="font-bold text-[#0F2540]">{t("whatYouUnlockHeading")}</p>
               <ul className="space-y-1.5 text-xs text-slate-700 font-medium">
                 <li className="flex items-center gap-2">
                   <Phone size={14} className="text-[#2D9E6B]" />
-                  <span>Direct parent WhatsApp &amp; phone number</span>
+                  <span>{t("unlockBenefit1")}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Mail size={14} className="text-[#2D9E6B]" />
-                  <span>Verified email &amp; communication channel</span>
+                  <span>{t("unlockBenefit2")}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <MapPin size={14} className="text-[#2D9E6B]" />
-                  <span>Exact student locality, address &amp; notes</span>
+                  <span>{t("unlockBenefit3")}</span>
                 </li>
               </ul>
             </div>
@@ -324,23 +342,24 @@ export function LeadPurchaseModal({
                   onClick={onClose}
                   className="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t("cancelModalBtn")}
                 </button>
                 <button
                   type="button"
                   disabled={isPurchasing}
                   onClick={handleConfirm}
-                  className={`flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer ${
-                    unlockViaMembershipPoints
+                  className={`flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-white font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer ${unlockViaMembershipPoints
                       ? "bg-[#0F2540] hover:bg-[#1A3C5E]"
                       : "bg-[#2D9E6B] hover:bg-[#238357] shadow-emerald-500/20"
-                  }`}
+                    }`}
                 >
                   <Unlock size={14} />
                   <span>
                     {unlockViaMembershipPoints
-                      ? `Confirm Unlock (${planPointCost} membership pts)`
-                      : `Confirm Unlock (${lead.coinCost} Coins)`}
+                      ? t("confirmUnlockBtn")
+                      : (lang === "hi"
+                          ? `अनलॉक की पुष्टि करें (${lead.coinCost} कॉइन्स)`
+                          : `Confirm Unlock (${lead.coinCost} Coins)`)}
                   </span>
                 </button>
               </div>
@@ -364,107 +383,132 @@ export function LeadPurchaseModal({
         )}
 
         {/* ── Stage: Success + Apply ── */}
-        {stage === "success" && contact && (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4.5 space-y-2.5 text-xs">
-              <div className="flex items-center gap-2 font-bold text-[#0F2540]">
-                <Shield size={16} className="text-[#2D9E6B]" />
-                <span>Parent Contact Information</span>
-              </div>
-
-              <div className="space-y-1.5 text-slate-800">
-                {contact.name && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 font-semibold">Parent Name:</span>
-                    <span className="font-bold text-[#0F2540]">{contact.name}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-semibold">Phone:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="font-bold text-[#0F2540] font-mono">{contact.phone ?? "—"}</span>
-                    {contact.phone && <CopyButton text={contact.phone} />}
-                  </div>
+        {stage === "success" && contact && (() => {
+          const phoneClean = contact.phone ? contact.phone.replace(/\D/g, "").slice(-10) : "";
+          return (
+            <div className="space-y-4">
+              <div className="rounded-3xl border-2 border-emerald-400 bg-emerald-50/90 p-5 space-y-4 text-xs shadow-md">
+                <div className="flex items-center gap-2 font-black text-emerald-900 text-sm">
+                  <Shield size={18} className="text-emerald-600" />
+                  <span>✅ {lang === "hi" ? "अभिभावक संपर्क विवरण अनलॉक हो गया" : "Parent Contact Details Unlocked"}</span>
                 </div>
-                {contact.email && !contact.email.startsWith("wa_") && !contact.email.includes("apnatutorhub") && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 font-semibold">Email:</span>
-                    <div className="flex items-center gap-1">
-                      <span className="font-bold text-[#0F2540]">{contact.email}</span>
-                      <CopyButton text={contact.email} />
+
+                <div className="bg-white rounded-2xl p-4 border border-emerald-200 space-y-3">
+                  {contact.name && (
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <span className="text-slate-500 font-bold">{lang === "hi" ? "छात्र / अभिभावक:" : "Student / Parent:"}</span>
+                      <span className="font-black text-slate-900 text-sm">{contact.name}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider block mb-1">
+                      {t("parentMobileLabel")}
+                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-emerald-950 font-mono text-2xl tracking-wider select-all">
+                        {contact.phone ?? "—"}
+                      </span>
+                      {contact.phone && <CopyButton text={contact.phone} />}
                     </div>
                   </div>
-                )}
-                {(contact.area || contact.city || contact.pincode) && (
-                  <div className="flex items-start justify-between">
-                    <span className="text-slate-500 font-semibold">Address:</span>
-                    <span className="font-semibold text-slate-700 text-right max-w-xs">
-                      {[contact.area, contact.city, contact.pincode].filter(Boolean).join(", ")}
-                    </span>
-                  </div>
-                )}
+
+                  {contact.phone && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <a
+                        href={`tel:${contact.phone}`}
+                        className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 text-center"
+                      >
+                        <Phone size={15} />
+                        <span>{t("callParentNow")}</span>
+                      </a>
+                      <a
+                        href={`https://wa.me/91${phoneClean}?text=Namaste%2C%20main%20ApnaTutorHub%20se%20verified%20tutor%20hoon%20aapke%20tuition%20requirement%20ke%20liye.`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 text-center"
+                      >
+                        <span className="text-sm">💬</span>
+                        <span>{t("whatsappParent")}</span>
+                      </a>
+                    </div>
+                  )}
+
+                  {(contact.area || contact.city || contact.pincode) && (
+                    <div className="pt-2 border-t border-slate-100 text-xs">
+                      <span className="text-slate-500 font-bold block mb-0.5">{lang === "hi" ? "पता / इलाका:" : "Address / Locality:"}</span>
+                      <span className="font-bold text-slate-800">
+                        {[contact.area, contact.city, contact.pincode].filter(Boolean).join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-bold">
+                  {t("seniorTeacherTip")}
+                </div>
               </div>
+
+              {/* Proposal form */}
+              <form action={appAction} className="space-y-3 pt-1">
+                <input type="hidden" name="purchaseId" value={purchaseId} />
+
+                <label className="block text-xs font-bold text-[#0F2540]">
+                  {t("sendInAppProposal")}
+                </label>
+
+                {appState.error && <FormAlert tone="error" message={appState.error} />}
+                {appState.success && (
+                  <FormAlert tone="success" message={lang === "hi" ? "प्रस्ताव सफलतापूर्वक भेजा गया!" : "Proposal sent successfully!"} />
+                )}
+
+                <textarea
+                  name="proposalNote"
+                  rows={2}
+                  placeholder={lang === "hi" ? "अपना परिचय दें — शिक्षण अनुभव, परिणाम और समय की उपलब्धता…" : "Introduce yourself — teaching experience, relevant results, and schedule availability…"}
+                  className="w-full rounded-2xl p-3 bg-white border border-slate-200 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B] resize-none"
+                />
+
+                <div className="relative">
+                  <IndianRupee
+                    size={14}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    name="feeQuote"
+                    type="number"
+                    min={0}
+                    step={50}
+                    placeholder={
+                      isTill8thClass(lead.classLevel)
+                        ? (lang === "hi" ? "अपेक्षित मासिक शुल्क (₹ / महीना)" : "Expected Monthly Fee Quote (₹ / month)")
+                        : (lang === "hi" ? "अपेक्षित प्रति घंटा शुल्क (₹ / घंटा)" : "Expected Hourly Fee Quote (₹ / hour)")
+                    }
+                    className="w-full rounded-2xl pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B]"
+                  />
+                </div>
+
+                <div className="flex flex-col-reverse gap-2.5 sm:flex-row pt-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-6 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs transition-colors cursor-pointer w-full text-center"
+                  >
+                    {t("doneCloseWindowBtn")}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={appPending}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md transition-all cursor-pointer"
+                  >
+                    <Send size={13} />
+                    <span>{appPending ? t("sendingState") : t("sendProposalBtn")}</span>
+                  </button>
+                </div>
+              </form>
             </div>
-
-            {/* Proposal form */}
-            <form action={appAction} className="space-y-3 pt-1">
-              <input type="hidden" name="purchaseId" value={purchaseId} />
-
-              <label className="block text-xs font-bold text-[#0F2540]">
-                Send an In-App Proposal <span className="text-slate-400 font-normal">(Optional)</span>
-              </label>
-
-              {appState.error && <FormAlert tone="error" message={appState.error} />}
-              {appState.success && (
-                <FormAlert tone="success" message="Proposal sent successfully!" />
-              )}
-
-              <textarea
-                name="proposalNote"
-                rows={2}
-                placeholder="Introduce yourself — teaching experience, relevant results, and schedule availability…"
-                className="w-full rounded-2xl p-3 bg-white border border-slate-200 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B] resize-none"
-              />
-
-              <div className="relative">
-                <IndianRupee
-                  size={14}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  name="feeQuote"
-                  type="number"
-                  min={0}
-                  step={50}
-                  placeholder={
-                    isTill8thClass(lead.classLevel)
-                      ? "Expected Monthly Fee Quote (₹ / month)"
-                      : "Expected Hourly Fee Quote (₹ / hour)"
-                  }
-                  className="w-full rounded-2xl pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 outline-none focus:border-[#2D9E6B]"
-                />
-              </div>
-
-              <div className="flex flex-col-reverse gap-2.5 sm:flex-row pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
-                >
-                  Done / Close
-                </button>
-                <button
-                  type="submit"
-                  disabled={appPending}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
-                >
-                  <Send size={13} />
-                  <span>{appPending ? "Sending…" : "Send Proposal to Parent"}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── Stage: Error ── */}
         {stage === "error" && (

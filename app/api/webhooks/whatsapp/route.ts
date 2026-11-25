@@ -31,11 +31,9 @@ export const runtime = "nodejs";
 export const AUTO_REPLY_ENABLED = true;
 
 /**
- * The engine only attaches the QR for literal "PAY"/"QR" messages. Real tutors
- * say "done", "commission plan bhejo", "parent number kaise unlock", "interested"
- * and got a text-only reply with a URL — no scannable QR in chat. Attach the
- * clean Kotak QR on every genuine payment/plan/unlock intent, with opt-out and
- * anti-spam guards, so payment can happen inside the chat itself.
+ * Tutors who ask for payment or plans in WhatsApp receive the direct 1-click
+ * Razorpay online payment link for instant automated activation without manual
+ * UPI QR images or screenshot verification delays.
  */
 async function withInChatPaymentQr(
   phone: string,
@@ -44,28 +42,25 @@ async function withInChatPaymentQr(
   unsubscribed: boolean
 ): Promise<EngineResult> {
   if (unsubscribed || !result.reply?.trim()) return result;
-  if (result.imageUrls?.length) return result; // engine already attached it
-  if (!wantsPaymentQrInChat(raw, result.reply)) return result;
 
-  // Never badge the same chat with the QR again inside 45 minutes unless the
-  // tutor explicitly asks for it again or asked for plans/membership.
-  const recentQr = await prisma.whatsappChatMessage
-    .findFirst({
-      where: {
-        phone,
-        direction: "OUTBOUND",
-        createdAt: { gte: new Date(Date.now() - 45 * 60 * 1000) },
-        body: { contains: "upi-qr.png" },
-      },
-      select: { id: true },
-    })
-    .catch(() => null);
-  if (recentQr && !/\b(?:qr|upi|pay\s*now|payment\s*link|plans?|membership|1257)\b/i.test(raw)) return result;
+  // Append direct Razorpay 1-click activation link if not already present
+  if (wantsPaymentQrInChat(raw, result.reply) && !result.reply.includes("checkout=STARTER")) {
+    const paymentLinkMessage =
+      "\n\n👉 *Direct 1-Click Online Payment (Instant Activation):*\n" +
+      "https://apnatutorhub.com/tutor/plans?checkout=STARTER\n\n" +
+      "⚡ Pay via UPI (GPay/PhonePe/Paytm), Card, or Netbanking — your plan activates instantly!";
+    return {
+      ...result,
+      reply: result.reply + paymentLinkMessage,
+      imageUrls: undefined,
+      imageCaption: undefined,
+    };
+  }
 
   return {
     ...result,
-    imageUrls: [PAYMENT_QR_IMAGE_URL],
-    imageCaption: PAYMENT_QR_CAPTION,
+    imageUrls: undefined,
+    imageCaption: undefined,
   };
 }
 
@@ -411,14 +406,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.log(`[whatsapp-bot] Inbound from ${phone}: "${text.slice(0, 80)}"`);
 
     try {
-      // 1. Load or create session
+      // Wait briefly if another turn literally just started < 1s ago, then claim turn
       const session = await getOrCreateSession(phone);
       const ownsTurn = await claimReplyTurn(session);
       if (!ownsTurn) {
         return;
       }
 
-      // 1b. Fetch recent conversation history across all phone formats so bot never has amnesia
+      // 1b. Fetch recent conversation history across all phone formats
       const phoneVariants = Array.from(
         new Set([
           phone,
@@ -436,11 +431,35 @@ export async function POST(request: Request): Promise<NextResponse> {
       });
       const chatHistory = recentChatMessages.reverse();
 
+      // Merge a back-to-back split message sent within 12 seconds (e.g. "Nursery to class 3" + "All subjects")
+      let effectiveInboundText = text;
+      const nowMs = Date.now();
+      const priorQuickMsgs = chatHistory.filter(
+        (m) =>
+          m.direction === "INBOUND" &&
+          m.body &&
+          m.body.trim() !== text.trim() &&
+          m.createdAt &&
+          nowMs - new Date(m.createdAt).getTime() < 12_000
+      );
+      if (priorQuickMsgs.length > 0 && recentChatMessages[recentChatMessages.length - 1]?.direction !== "OUTBOUND") {
+        // Combine recent rapid inbound fragments so the bot sees full context cleanly
+        const lastOutboundIdx = [...chatHistory].reverse().findIndex((m) => m.direction === "OUTBOUND");
+        const sinceLastOut = lastOutboundIdx === -1 ? chatHistory : chatHistory.slice(chatHistory.length - lastOutboundIdx);
+        const recentParts = sinceLastOut
+          .filter((m) => m.direction === "INBOUND" && m.body && nowMs - new Date(m.createdAt).getTime() < 15_000)
+          .map((m) => m.body.trim());
+        const uniqParts = Array.from(new Set(recentParts));
+        if (uniqParts.length > 1) {
+          effectiveInboundText = uniqParts.join(", ");
+        }
+      }
+
       // 2. Process through state machine with full chat history
-      const processed = await processMessage(session, text, { chatHistory });
+      const processed = await processMessage(session, effectiveInboundText, { chatHistory });
       const result = await withInChatPaymentQr(
         phone,
-        text,
+        effectiveInboundText,
         processed,
         (session.data as Record<string, unknown>)?.unsubscribed === true
       );
@@ -475,11 +494,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
     } catch (err) {
       console.error("[whatsapp-webhook] Unhandled error:", err);
-      // Try to send an error message to the user
       try {
         await sendBotMessage(
           phone,
-          "Kuch gadbad ho gayi. *MENU* type karo phir se try karne ke liye."
+          "Sorry, something went wrong. Please reply *MENU* to continue or contact coordinator WhatsApp +91 93191 93109."
         );
       } catch {
         // Best-effort

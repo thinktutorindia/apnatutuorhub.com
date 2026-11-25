@@ -31,6 +31,8 @@ import {
   Zap,
   Star,
   Target,
+  Crown,
+  RotateCcw,
 } from "lucide-react";
 import { LeadPurchaseModal, type SubscriptionInfo } from "@/components/tutor/LeadPurchaseModal";
 import type { ParentContact } from "@/app/actions/leads.actions";
@@ -46,8 +48,18 @@ import {
   sanitizeSubjectsForClassLevel,
   type DummyClaimedLeadInfo,
 } from "@/lib/dummy-campaign-types";
+import { useSeniorTutor, translateClass, translateSubject, translateMode, formatFeeDisplay } from "@/components/tutor/SeniorTutorContext";
 import { hasSubjectOverlap, isLeadMatchedToTutor } from "@/lib/feed-matching";
 import { sanitizeLeadNotes } from "@/lib/lead-sanitizer";
+
+export function formatMilestoneCount(count: number): string {
+  if (count >= 100) {
+    const hundreds = Math.floor(count / 100) * 100;
+    return `${hundreds}+`;
+  }
+  if (count >= 50) return "50+";
+  return String(count);
+}
 
 export type ParentDetails = {
   name: string;
@@ -103,56 +115,60 @@ function whatsappNumber(phone: string | null | undefined) {
 }
 
 function UnlockedContactPanel({ contacts }: { contacts: UnlockedContact[] }) {
+  const { lang, t } = useSeniorTutor();
   if (contacts.length === 0) return null;
 
   return (
-    <section className="rounded-3xl border border-emerald-300 bg-white p-5 shadow-sm">
+    <section className="rounded-3xl border-2 border-emerald-500/40 bg-white p-5 sm:p-6 shadow-sm space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 pb-3">
         <div>
-          <h2 className="flex items-center gap-2 text-sm font-extrabold text-[#0F2540]">
-            <CheckCircle2 size={16} className="text-[#2D9E6B]" />
-            Your Unlocked Parent Contacts ({contacts.length})
+          <h2 className="flex items-center gap-2 text-base sm:text-lg font-black text-slate-900">
+            <CheckCircle2 size={20} className="text-emerald-600" />
+            {t("unlockedPanelHeading")} ({contacts.length})
           </h2>
-          <p className="mt-0.5 text-[11px] font-semibold text-slate-500">
-            These numbers stay visible here even if the lead card moves to another tab.
+          <p className="text-xs sm:text-sm text-slate-600 font-medium mt-0.5">
+            {t("unlockedPanelSubtext")}
           </p>
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {contacts.map((c) => {
           const wa = whatsappNumber(c.phone);
           return (
             <div
               key={c.leadId}
-              className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3.5 space-y-2"
+              className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/70 p-4 sm:p-5 space-y-3 shadow-xs"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-extrabold text-[#0F2540]">
-                    {c.name || "Verified Parent"}
+                  <p className="text-base font-black text-slate-900 truncate">
+                    {c.name || (lang === "hi" ? "सत्यापित अभिभावक" : "Verified Parent")}
                   </p>
-                  <p className="truncate text-[10px] font-semibold text-slate-500">{c.title}</p>
+                  <p className="text-xs text-slate-600 font-semibold">{c.title}</p>
                 </div>
-                <CheckCircle2 size={15} className="shrink-0 text-[#2D9E6B]" />
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-200 text-emerald-900 shrink-0">
+                  {t("unlockedStatusBadge")}
+                </span>
               </div>
 
-              <div>
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  Full Phone Number
+              <div className="bg-white rounded-xl p-3 border border-emerald-200 shadow-2xs">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                  {t("parentMobileLabel")}
                 </span>
-                <p className="font-mono text-sm font-extrabold text-[#0F2540] break-all">
+                <p className="font-mono text-xl font-black text-slate-900 tracking-wider">
                   {c.phone || "—"}
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex items-center gap-2 pt-1">
                 {c.phone && (
                   <a
                     href={`tel:${c.phone}`}
-                    className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-bold text-white"
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 py-3 text-xs sm:text-sm font-black text-white shadow transition-all active:scale-95"
                   >
-                    <Phone size={11} /> Call
+                    <Phone size={15} />
+                    <span>{t("callParentBtn")}</span>
                   </a>
                 )}
                 {wa && (
@@ -160,9 +176,10 @@ function UnlockedContactPanel({ contacts }: { contacts: UnlockedContact[] }) {
                     href={`https://wa.me/${wa}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-lg bg-[#25D366] px-2.5 py-1 text-[10px] font-bold text-white"
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 text-xs sm:text-sm font-black text-white shadow transition-all active:scale-95"
                   >
-                    <MessageCircle size={11} /> WhatsApp
+                    <MessageCircle size={16} />
+                    <span>{t("whatsappBtn")}</span>
                   </a>
                 )}
               </div>
@@ -254,9 +271,8 @@ function DummyClaimedLeadCard({
   const subjects = info.subjects || "Matched subjects";
   const budget =
     info.budgetMin && info.budgetMax
-      ? `₹${info.budgetMin.toLocaleString("en-IN")}–₹${info.budgetMax.toLocaleString("en-IN")}${
-          info.rateType === "MONTHLY" ? "/mo" : "/hr"
-        }`
+      ? `₹${info.budgetMin.toLocaleString("en-IN")}–₹${info.budgetMax.toLocaleString("en-IN")}${info.rateType === "MONTHLY" ? "/mo" : "/hr"
+      }`
       : null;
   const modeStyle = MODE_STYLES[info.mode || ""] || MODE_STYLES.EITHER;
 
@@ -378,7 +394,8 @@ function LeadCard({
   subscriptionInfo?: SubscriptionInfo | null;
   onUnlock: (lead: FeedLead) => void;
 }) {
-  const slots = publicTutorSlots(lead.purchaseCount);
+  const { lang, t } = useSeniorTutor();
+  const slots = publicTutorSlots(lead.id, Boolean(lead.isPurchased));
   const maxTutorsAllowed = slots.max;
   const currentPurchases = slots.purchased;
   const spotsLeft = slots.left;
@@ -406,160 +423,47 @@ function LeadCard({
   return (
     <>
       <div
-        className={`group relative rounded-3xl bg-white border transition-all duration-300 flex flex-col justify-between p-5 sm:p-6 space-y-4 hover:-translate-y-1 hover:shadow-xl ${
-          lead.isPurchased
-            ? "border-emerald-300 ring-2 ring-emerald-500/10 shadow-sm"
-            : lead.isShortlisted
-            ? "border-amber-300 ring-2 ring-amber-500/10 shadow-sm"
-            : unlockViaMembershipPoints
-            ? "border-amber-200 shadow-2xs hover:border-amber-400"
-            : "border-slate-200/90 shadow-2xs hover:border-emerald-400"
-        }`}
+        className={`group relative rounded-3xl bg-white border-2 transition-all flex flex-col justify-between p-5 sm:p-6 space-y-4 shadow-sm hover:shadow-md ${lead.isPurchased
+          ? "border-emerald-500 bg-emerald-50/20"
+          : "border-slate-200/90 hover:border-emerald-500"
+          }`}
       >
-        <div className="space-y-4">
-          {/* Top Row: Class, Board, Mode & Timestamp */}
-          <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-mono font-extrabold text-[11px] text-[#0F2540] bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+        <div className="space-y-3.5">
+          {/* Top Row: Class, Mode & Distance */}
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-mono font-bold text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
                 #{getInquiryDisplayCode(lead)}
               </span>
 
-              <span className="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-[#0F2540] text-white shadow-2xs">
-                {cleanClassLevelDisplay(lead.classLevel)}
+              <span className="px-3 py-1 rounded-xl text-xs font-black bg-slate-900 text-white">
+                {translateClass(cleanClassLevelDisplay(lead.classLevel), lang)}
               </span>
 
-              {lead.board && (
-                <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                  {lead.board}
-                </span>
-              )}
-
-              <span
-                className={`px-2.5 py-0.5 rounded-xl text-[11px] font-bold border ${modeStyle.bg} ${modeStyle.text} ${modeStyle.border}`}
-              >
-                {MODE_LABELS[lead.mode] ?? lead.mode}
+              <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300">
+                {translateMode(lead.mode, lang)}
               </span>
             </div>
 
-            {/* Time Posted Badge */}
-            <div
-              className="flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 shrink-0"
-              title={`Posted on ${timeInfo.exactDate} at ${timeInfo.exactTime}`}
-            >
-              {timeInfo.isFresh ? (
-                <span className="flex items-center gap-1 text-emerald-700 font-extrabold">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  <Clock size={11} className="text-[#2D9E6B]" />
-                  <span>{timeInfo.relative}</span>
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  <Clock size={11} className="text-slate-400" />
-                  <span>{timeInfo.relative}</span>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Status Badges & Priority */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Competition & Exclusivity Tag */}
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200 px-2.5 py-0.5 text-[11px] font-bold shadow-2xs">
-                <UserCheck size={11} className="text-blue-600" />
-                <span>Low Competition (Max 3)</span>
-              </span>
-
-              {timeInfo.isFresh && (
-                <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-800">
-                  FRESH
-                </span>
-              )}
-              {unlockViaMembershipPoints && !lead.isPurchased && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-bold">
-                  <Zap size={11} className="text-emerald-600" />
-                  <span>Membership · {planPointCost} pts</span>
-                </span>
-              )}
-              {lead.isShortlisted && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 text-[11px] font-extrabold shadow-2xs">
-                  ★ Shortlisted by Parent
-                </span>
-              )}
-              {lead.isHired && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF3DC] text-[#92400E] border border-[#F5A623]/40 px-2.5 py-0.5 text-[11px] font-800">
-                  🏆 Hired
-                </span>
-              )}
-              {lead.isPurchased && !lead.isShortlisted && !lead.isHired && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-extrabold shadow-2xs">
-                  <CheckCircle2 size={12} className="text-emerald-700" />
-                  Unlocked Lead
-                </span>
-              )}
-            </div>
-
-            {lead.distanceKm !== null && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
-                <Compass size={11} /> {lead.distanceKm.toFixed(1)} km away
+            {lead.distanceKm !== null && lead.mode !== "ONLINE" && (
+              <span className="text-xs font-bold text-emerald-900 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 shrink-0">
+                📍 {lead.distanceKm.toFixed(1)} {lang === "hi" ? "किमी" : "km"}
               </span>
             )}
           </div>
 
-          {/* Slots Availability Tracker & Progress Bar */}
-          {!lead.isPurchased && (
-            <div className="rounded-2xl bg-gradient-to-r from-slate-50 via-slate-50/80 to-slate-50 border border-slate-200/90 p-3 space-y-2 shadow-2xs">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 font-bold">
-                  {isFull ? (
-                    <span className="text-slate-600 font-extrabold flex items-center gap-1">
-                      🔒 All {maxTutorsAllowed} tutor slots filled
-                    </span>
-                  ) : isAlmostFull ? (
-                    <span className="text-rose-700 font-extrabold flex items-center gap-1 animate-pulse">
-                      <Flame size={14} className="text-rose-600 shrink-0" />
-                      🔥 Only {spotsLeft} of {maxTutorsAllowed} tutor slots left!
-                    </span>
-                  ) : (
-                    <span className="text-[#0F2540] font-bold flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#2D9E6B] shadow-xs" />
-                      <span>
-                        <strong className="text-emerald-700 font-extrabold">{spotsLeft} of {maxTutorsAllowed}</strong> tutor slots available
-                      </span>
-                    </span>
-                  )}
-                </div>
-
-                <span className="text-[11px] font-bold text-slate-500 font-mono bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                  {currentPurchases}/{maxTutorsAllowed} unlocked
-                </span>
-              </div>
-
-              {/* Progress Track */}
-              <div className="h-2 w-full bg-slate-200/90 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    isFull
-                      ? "bg-slate-400"
-                      : isAlmostFull
-                      ? "bg-gradient-to-r from-amber-500 to-rose-500"
-                      : "bg-gradient-to-r from-emerald-500 to-[#2D9E6B]"
-                  }`}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Subjects Section */}
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-              Required Subjects
-            </span>
-            <UserSubjectChips
-              subjects={sanitizeSubjectsForClassLevel(lead.subjects, lead.classLevel)}
-              maxVisible={3}
-            />
+          {/* Clean Subject Title */}
+          <div>
+            <h3 className="text-lg font-black text-slate-900 leading-snug">
+              {translateSubject(
+                (lead.subjects &&
+                  sanitizeSubjectsForClassLevel(lead.subjects, lead.classLevel)
+                    .slice(0, 3)
+                    .join(", ")) ||
+                "All Subjects",
+                lang
+              )}
+            </h3>
           </div>
 
           {/* Shortlisted Banner */}
@@ -567,9 +471,9 @@ function LeadCard({
             <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-3.5 text-xs font-semibold text-amber-950 flex items-start gap-2.5 shadow-2xs">
               <span className="text-base shrink-0">⭐</span>
               <div>
-                <p className="font-extrabold text-amber-900">You are Shortlisted!</p>
+                <p className="font-extrabold text-amber-900">{t("shortlistedTitle")}</p>
                 <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                  The parent reviewed your profile and expressed interest. Reach out via Call or WhatsApp right away.
+                  {t("shortlistedDesc")}
                 </p>
               </div>
             </div>
@@ -577,53 +481,56 @@ function LeadCard({
 
           {/* Unlocked Parent Contact Box */}
           {lead.isPurchased && lead.parentDetails ? (
-            <div className="space-y-3 rounded-2xl border border-emerald-300 bg-emerald-50/60 p-4 text-xs shadow-2xs">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/80 pb-2.5">
+            <div className="space-y-3 rounded-2xl border-2 border-emerald-400 bg-emerald-50/80 p-4 text-xs shadow-md">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200 pb-2.5">
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider block">
-                    Parent Contact Info
+                  <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider block">
+                    ✅ {lang === "hi" ? "अभिभावक संपर्क अनलॉक हो गया" : "Parent Contact Unlocked"}
                   </span>
-                  <p className="text-sm font-extrabold text-[#0F2540]">
-                    {lead.parentDetails.name || "Verified Parent"}
+                  <p className="text-base font-black text-[#0F2540]">
+                    {lead.parentDetails.name || (lang === "hi" ? "सत्यापित अभिभावक" : "Verified Parent")}
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {lead.parentProfileId && (
-                    <StartChatButton
-                      targetProfileId={lead.parentProfileId}
-                      leadId={lead.id}
-                      role="TUTOR"
-                      buttonText="💬 Chat"
-                    />
-                  )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-black text-emerald-800 bg-white border border-emerald-300 shrink-0">
+                    ⚡ {slots.left} {slots.left > 1 ? t("slotsLeftPluralText") : t("slotsLeftText")}
+                  </span>
                   {lead.parentDetails.phone && (
                     <>
                       <a
                         href={`tel:${lead.parentDetails.phone}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-2xs transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition-all active:scale-95"
                       >
-                        <Phone size={11} />
-                        <span>Call</span>
+                        <Phone size={13} />
+                        <span>{t("callParentBtn")}</span>
                       </a>
                       <a
                         href={`https://wa.me/91${phoneClean}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs shadow-2xs transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-black text-xs shadow-sm transition-all active:scale-95"
                       >
-                        <MessageCircle size={11} />
-                        <span>WhatsApp</span>
+                        <MessageCircle size={13} />
+                        <span>{t("whatsappBtn")}</span>
                       </a>
                     </>
+                  )}
+                  {lead.parentProfileId && (
+                    <StartChatButton
+                      targetProfileId={lead.parentProfileId}
+                      leadId={lead.id}
+                      role="TUTOR"
+                      buttonText={lang === "hi" ? "💬 इन-ऐप चैट" : "💬 Chat"}
+                    />
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 block">Phone</span>
-                  <p className="font-bold text-[#0F2540] font-mono">
+                <div className="p-2.5 rounded-xl bg-white border border-emerald-200">
+                  <span className="text-[10px] font-black text-emerald-800 uppercase block">{t("parentMobileLabel")}</span>
+                  <p className="font-black text-[#0F2540] font-mono text-lg tracking-wide">
                     {lead.parentDetails.phone || "—"}
                   </p>
                 </div>
@@ -640,7 +547,7 @@ function LeadCard({
                   )}
 
                 <div className="sm:col-span-2">
-                  <span className="text-[10px] font-bold text-slate-500 block">Address & Locality</span>
+                  <span className="text-[10px] font-bold text-slate-500 block">{lang === "hi" ? "पता और इलाका" : "Address & Locality"}</span>
                   <p className="font-semibold text-slate-700">
                     {[
                       lead.parentDetails.address,
@@ -658,7 +565,7 @@ function LeadCard({
                   if (!cleanParentNotes) return null;
                   return (
                     <div className="sm:col-span-2 rounded-xl bg-white p-2.5 border border-emerald-200">
-                      <span className="text-[10px] font-bold text-slate-500 block">Notes from Parent</span>
+                      <span className="text-[10px] font-bold text-slate-500 block">{lang === "hi" ? "अभिभावक का विवरण" : "Notes from Parent"}</span>
                       <p className="text-[11px] italic text-slate-700 pt-0.5">
                         &quot;{cleanParentNotes}&quot;
                       </p>
@@ -668,58 +575,56 @@ function LeadCard({
               </div>
             </div>
           ) : (
-            /* Requirement Details Grid */
-            <div className="space-y-2.5 pt-1 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-slate-600 font-medium">
-                {(lead.area || lead.city) && (
-                  <div className="flex items-center gap-1.5 text-slate-800">
-                    <MapPin size={13} className="text-[#2D9E6B] shrink-0" />
-                    <span className="truncate font-semibold">
-                      {[lead.area, lead.city].filter(Boolean).join(", ")}
-                    </span>
-                  </div>
-                )}
+            /* Requirement Details: Only Wanted Info without Duplication */
+            <div className="space-y-2.5 pt-1 text-sm leading-relaxed">
+              {/* Landmark */}
+              <div className="flex items-center gap-2 text-slate-700">
+                <MapPin size={15} className="text-emerald-700 shrink-0" />
+                <span className="font-semibold break-words leading-relaxed">
+                  <strong className="text-slate-900">
+                      {lead.mode === "ONLINE"
+                        ? (lang === "hi" ? "ऑनलाइन एनक्वायरी:" : "Online enquiry:")
+                        : t("landmarkPrefix")}
+                    </strong>{" "}
+                    {lead.mode === "ONLINE"
+                      ? (lead.city || (lang === "hi" ? "दिल्ली एनसीआर" : "Delhi NCR"))
+                      : ([lead.area, lead.city].filter(Boolean).join(", ") || "Delhi NCR")}
+                </span>
+              </div>
 
-                {(lead.budgetMin || lead.budgetMax) && (
-                  <div className="flex items-center gap-1.5 text-[#0F2540] font-bold">
-                    <IndianRupee size={13} className="text-[#2D9E6B] shrink-0" />
-                    <span className="truncate">
-                      {formatLeadBudget(lead, "full")}
-                    </span>
-                  </div>
-                )}
+              {/* Timing from DB */}
+              {lead.timingPreference && (
+                <div className="flex items-center gap-2 text-slate-700">
+                  <Clock size={15} className="text-amber-700 shrink-0" />
+                  <span className="font-semibold break-words leading-relaxed">
+                    <strong className="text-slate-900">{t("timingPrefix")}</strong> {lead.timingPreference}
+                  </span>
+                </div>
+              )}
 
-                {lead.timingPreference && (
-                  <div className="flex items-center gap-1.5 text-slate-600">
-                    <Clock size={13} className="text-slate-400 shrink-0" />
-                    <span className="truncate">{lead.timingPreference}</span>
-                  </div>
-                )}
+              {/* Fee & Available Slots Row */}
+              <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100">
+                <div className="flex items-center gap-1.5 text-slate-900 font-black text-sm">
+                  <span className="text-xs font-bold text-slate-500 uppercase">{t("feePrefix")}</span>
+                  <span className="text-emerald-900 font-extrabold">{formatFeeDisplay(formatLeadBudget(lead, "full"), lang)}</span>
+                </div>
 
-                {lead.tutorGenderPref && lead.tutorGenderPref !== "ANY" && (
-                  <div className="flex items-center gap-1.5 text-[#0F2540] font-bold">
-                    <User size={13} className="shrink-0 text-[#2D9E6B]" />
-                    <span>{lead.tutorGenderPref === "FEMALE" ? "Female Tutor Required" : "Male Tutor Required"}</span>
-                  </div>
-                )}
-
-                {lead.languagePref && (
-                  <div className="flex items-center gap-1.5 text-slate-600">
-                    <Languages size={13} className="text-slate-400 shrink-0" />
-                    <span>{lead.languagePref}</span>
-                  </div>
+                {spotsLeft > 0 && !lead.isPurchased && (
+                  <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg shrink-0">
+                    ⚡ {spotsLeft} {spotsLeft > 1 ? t("slotsLeftPluralText") : t("slotsLeftText")}
+                  </span>
                 )}
               </div>
 
-              {(() => {
-                const cleanNotes = sanitizeLeadNotes(lead.notes, lead.isPurchased);
-                if (!cleanNotes) return null;
-                return (
-                  <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 text-[11px] text-slate-700 italic">
-                    &quot;{cleanNotes}&quot;
-                  </div>
-                );
-              })()}
+              {/* Tutor Gender Pref if specified */}
+              {lead.tutorGenderPref && lead.tutorGenderPref !== "ANY" && (
+                <div className="pt-0.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg">
+                    <User size={13} className="text-slate-500" />
+                    <span>{lead.tutorGenderPref === "FEMALE" ? t("femaleTutorRequired") : t("maleTutorRequired")}</span>
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -729,28 +634,30 @@ function LeadCard({
           <div className="flex items-center gap-2 flex-wrap">
             {unlockViaMembershipPoints ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-xs">
-                <Zap size={13} className="text-emerald-600" />
+                <Crown size={13} className="text-amber-500" />
                 <span>
-                  {planPointCost} membership points · {remainingPoints} left
+                  {lang === "hi"
+                    ? `प्लान लाभ · 0 कॉइन्स (${subscriptionInfo?.quotaRemaining ?? Math.max(1, Math.floor(remainingPoints / 10))} शेष)`
+                    : `Plan Benefit · 0 Coins (${subscriptionInfo?.quotaRemaining ?? Math.max(1, Math.floor(remainingPoints / 10))} left)`}
                 </span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-2xs">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-2xs whitespace-nowrap">
                 <Coins size={13} className="text-slate-500" />
-                <span>{planPointCost} Coins to Unlock</span>
+                <span>{planPointCost} {lang === "hi" ? "कॉइन्स अनलॉक हेतु" : "Coins to Unlock"}</span>
               </span>
             )}
 
             <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-              Exact time: {timeInfo.exactTime}
+              {lang === "hi" ? "सटीक समय:" : "Exact time:"} {timeInfo.exactTime}
             </span>
           </div>
 
           {lead.isPurchased ? (
             <div className="flex flex-col items-end gap-1">
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-2xl border border-emerald-200">
-                <CheckCircle2 size={13} />
-                <span>Full Contact Unlocked</span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-800 bg-emerald-100 px-3.5 py-2 rounded-2xl border border-emerald-300">
+                <CheckCircle2 size={15} />
+                <span>{t("contactUnlockedBadge")}</span>
               </span>
               {lead.purchaseId && (
                 <RequestLeadRefundButton
@@ -760,28 +667,23 @@ function LeadCard({
               )}
             </div>
           ) : isFull ? (
-            <span className="text-xs font-bold text-slate-400 px-3 py-1.5">
+            <span className="text-xs font-bold text-slate-400 px-3 py-2 bg-slate-100 rounded-xl">
               Closed (Max Capacity)
             </span>
           ) : (
             <button
               type="button"
               onClick={() => onUnlock(lead)}
-              className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-md active:scale-95 transition-all cursor-pointer text-center whitespace-normal ${
-                unlockViaMembershipPoints
-                  ? "bg-emerald-700 hover:bg-emerald-800 text-white shadow-emerald-700/20"
-                  : "bg-gradient-to-r from-[#2D9E6B] to-[#1F8255] hover:from-[#238357] hover:to-[#186843] text-white shadow-emerald-500/20"
-              }`}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm whitespace-nowrap bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md active:scale-95 transition-all cursor-pointer text-center"
             >
-              <Unlock size={13} className="shrink-0" />
-              {unlockViaMembershipPoints ? (
-                <span>Unlock Lead</span>
-              ) : (
-                <>
-                  <span className="sm:hidden">Unlock ({planPointCost} Coins)</span>
-                  <span className="hidden sm:inline">Unlock Parent Contact ({planPointCost} Coins)</span>
-                </>
-              )}
+              <Unlock size={15} className="shrink-0" />
+              <span>
+                {unlockViaMembershipPoints
+                  ? t("seeParentPhonePlanBtn")
+                  : (lang === "hi"
+                    ? "🟢 अभिभावक संपर्क देखें"
+                    : "🟢 View Parent Contact")}
+              </span>
             </button>
           )}
         </div>
@@ -803,6 +705,7 @@ export function LeadFeedClient({
   tutorLocation,
   initialInquiryNumber,
   tutorId,
+  tutorName,
 }: {
   leads: FeedLead[];
   walletBalance: number;
@@ -820,6 +723,7 @@ export function LeadFeedClient({
   };
   initialInquiryNumber?: number;
   tutorId?: string;
+  tutorName?: string;
 }) {
   const hasTutorLocation = Boolean(
     (tutorLocation?.lat && tutorLocation?.lon) || tutorLocation?.city || tutorLocation?.address
@@ -827,7 +731,17 @@ export function LeadFeedClient({
   const hasTutorSubjects = Boolean(tutorSubjects && tutorSubjects.length > 0);
   const hasFilterConfig = true;
 
+  const { lang, t } = useSeniorTutor();
   const router = useRouter();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const cleanTutorName = (tutorName || "").replace(/\s+ji$/i, "").trim() || "Teacher";
+
+  const handleRefreshFeed = () => {
+    setIsRefreshing(true);
+    router.push(`/tutor/leads?refreshed=${Date.now()}`);
+    router.refresh();
+    setTimeout(() => setIsRefreshing(false), 900);
+  };
 
   const [viewTab, setViewTab] = useState<"matched" | "nearby" | "all" | "shortlisted" | "unlocked">(
     initialInquiryNumber ? "all" : hasFilterConfig ? "matched" : "all"
@@ -880,11 +794,10 @@ export function LeadFeedClient({
     const entry: UnlockedContact = {
       leadId: unlockTarget.id,
       inquiryNumber: unlockTarget.inquiryNumber,
-      title: `${cleanClassLevelDisplay(unlockTarget.classLevel)}${
-        unlockTarget.area || unlockTarget.city
-          ? ` · ${[unlockTarget.area, unlockTarget.city].filter(Boolean).join(", ")}`
-          : ""
-      }`,
+      title: `${cleanClassLevelDisplay(unlockTarget.classLevel)}${unlockTarget.area || unlockTarget.city
+        ? ` · ${[unlockTarget.area, unlockTarget.city].filter(Boolean).join(", ")}`
+        : ""
+        }`,
       name: contact.name || null,
       phone: contact.phone || null,
       email: contact.email || null,
@@ -929,9 +842,8 @@ export function LeadFeedClient({
         .map((l) => ({
           leadId: l.id,
           inquiryNumber: l.inquiryNumber,
-          title: `${cleanClassLevelDisplay(l.classLevel)}${
-            l.area || l.city ? ` · ${[l.area, l.city].filter(Boolean).join(", ")}` : ""
-          }`,
+          title: `${cleanClassLevelDisplay(l.classLevel)}${l.area || l.city ? ` · ${[l.area, l.city].filter(Boolean).join(", ")}` : ""
+            }`,
           name: l.parentDetails?.name || null,
           phone: l.parentDetails?.phone || null,
           email: l.parentDetails?.email || null,
@@ -1115,160 +1027,138 @@ export function LeadFeedClient({
         </div>
       )}
 
-      {/* Page Header Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 ath-panel">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#2D9E6B]">
-              Student Enquiries
+      {/* ==================== WARM EMERALD HERO WELCOME CARD ==================== */}
+      <div className="editorial-card hero-pattern border-[#A7F3D0] p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5 shadow-xs">
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#A7F3D0] text-[#064E3B] font-black text-xs uppercase tracking-wider shadow-2xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#059669] animate-pulse" />
+              <span>{t("liveInquiriesBadge")}</span>
             </span>
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className="text-xs text-slate-500 font-semibold">Live Feed</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] font-black text-xs">
+              {t("seniorEducatorVerified")}
+            </span>
           </div>
-          <h1
-            className="text-xl sm:text-2xl font-bold text-[#0F2540]"
-            style={{ fontFamily: "Poppins, sans-serif" }}
-          >
-            Find Student Requirements
+
+          <h1 className="font-display font-black text-2xl sm:text-3xl lg:text-4xl text-[#18181B] tracking-tight">
+            {lang === "hi" ? `नमस्ते, ${cleanTutorName} जी! 👋` : `Namaste, ${cleanTutorName} Ji! 👋`}
           </h1>
-          <p className="text-xs text-slate-600 font-medium">
-            Matched with your subjects, teaching mode, and locality radius. Low competition: Max 3 verified tutors per lead.
+
+          <p className="text-slate-700 font-medium text-sm sm:text-base">
+            {t("welcomeSub")}
           </p>
+
+          {/* Location & Radius & Milestone Active Leads Pill */}
+          <div className="pt-0.5 flex flex-wrap items-center gap-2">
+            <span className="inline-flex flex-wrap items-center gap-2 px-3.5 py-2 rounded-2xl bg-white border-2 border-[#A7F3D0] text-[#18181B] font-black text-xs sm:text-sm shadow-2xs">
+              <MapPin size={16} className="text-[#065F46] shrink-0" />
+              <span>
+                {tutorLocation?.address || tutorLocation?.city || "Delhi NCR"} • {lang === "hi" ? `${teachingRadius} किमी दायरा` : `Within ${teachingRadius} km`} • {formatMilestoneCount(unpurchased.length)} {lang === "hi" ? "सक्रिय अनुरोध" : "Active Leads"}
+              </span>
+            </span>
+          </div>
         </div>
 
         {/* Action / Badges Bar */}
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          {/* Subscription Status Card */}
+        <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleRefreshFeed}
+            disabled={isRefreshing}
+            className="senior-btn px-5 py-3.5 rounded-2xl btn-emerald-sheen text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition cursor-pointer disabled:opacity-75"
+          >
+            <RotateCcw size={15} className={isRefreshing ? "animate-spin" : ""} />
+            <span>{isRefreshing ? t("refreshingState") : t("refreshInquiriesBtn")}</span>
+          </button>
+
+          {/* Subscription Status or Wallet Balance */}
           {subscriptionInfo?.hasActivePlan ? (
-            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-300 rounded-2xl px-4 py-2.5">
-              <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
-                <Zap size={18} />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-emerald-900">
-                    Active Membership
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-700 text-white">
-                    Verified Lead Access
-                  </span>
-                </div>
-                <span className="text-[11px] font-semibold text-emerald-800 block">
-                  <strong>{subscriptionInfo.quotaRemaining}</strong> leads remaining this month
+            <div className="flex items-center justify-between gap-3 bg-white border-2 border-[#A7F3D0] rounded-2xl px-4 py-2.5 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <Crown size={16} className="text-emerald-700 shrink-0" />
+                <span className="text-xs font-black text-emerald-900">
+                  {subscriptionInfo.quotaRemaining} {t("leadsRemainingCount")}
                 </span>
               </div>
               <Link
                 href="/tutor/plans"
-                className="ml-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 underline"
+                className="text-[11px] font-extrabold text-emerald-800 hover:underline"
               >
-                Details →
+                {t("managePlanLink")}
               </Link>
             </div>
-          ) : walletBalance > 0 ? (
-            <Link
-              href="/tutor/leads"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold text-xs shadow-2xs"
-            >
-              <Coins size={14} className="text-emerald-700" />
-              <span>{walletBalance} coins — unlock leads below</span>
-            </Link>
           ) : (
             <Link
-              href="/tutor/plans"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md"
+              href="/tutor/wallet"
+              className="senior-btn px-5 py-3 rounded-2xl bg-white hover:bg-[#FEF3C7] text-[#92400E] border-2 border-[#FDE68A] font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition"
             >
-              <Zap size={14} />
-              <span>Get Commission Plan (₹1,257)</span>
+              <Coins size={15} />
+              <span>{lang === "hi" ? `🪙 वॉलेट (${walletBalance} कॉइन्स)` : `🪙 Wallet (${walletBalance} Coins)`}</span>
             </Link>
           )}
-
-          {/* Coin Balance Quick Card */}
-          <div className="flex items-center gap-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl px-4 py-2.5 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-xl bg-amber-400/20 text-amber-700 flex items-center justify-center font-extrabold">
-                <Coins size={18} />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-amber-800 block">Coin Balance</span>
-                <span className="text-sm font-extrabold text-amber-950 font-mono">
-                  {walletBalance} Coins
-                </span>
-              </div>
-            </div>
-
-            <Link
-              href="/tutor/wallet"
-              className="ml-2 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-xs transition-colors"
-            >
-              Top Up +
-            </Link>
-          </div>
         </div>
       </div>
 
-      {/* View Tabs */}
+      {/* View Tabs (Large, High Legibility, Senior Friendly) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label="Lead Feed Tabs" className="flex flex-wrap gap-2">
+        <nav aria-label="Lead Feed Tabs" className="flex flex-wrap gap-2 p-1.5 bg-slate-100 rounded-2xl border-2 border-slate-200">
           <button
             type="button"
             onClick={() => setViewTab("matched")}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-              viewTab === "matched"
-                ? "bg-[#2D9E6B] text-white shadow-md shadow-emerald-500/20"
-                : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-black transition-all cursor-pointer ${viewTab === "matched"
+              ? "bg-emerald-600 text-white shadow-sm"
+              : "text-slate-700 hover:text-slate-950 hover:bg-white/70"
+              }`}
           >
-            🎯 Matched for Me ({matchedLeads.length})
+            {t("tabMatchingSubjects")} ({matchedLeads.length})
           </button>
 
           <button
             type="button"
             onClick={() => setViewTab("nearby")}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-              viewTab === "nearby"
-                ? "bg-[#0F2540] text-white shadow-md shadow-slate-900/20"
-                : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-black transition-all cursor-pointer ${viewTab === "nearby"
+              ? "bg-slate-900 text-white shadow-sm"
+              : "text-slate-700 hover:text-slate-950 hover:bg-white/70"
+              }`}
           >
-            📍 Within {teachingRadius || 5} km ({nearbyLeads.length})
+            📍 {lang === "hi" ? `${teachingRadius || 5} किमी के दायरे में` : `Within ${teachingRadius || 5} km`} ({nearbyLeads.length})
           </button>
 
           <button
             type="button"
             onClick={() => setViewTab("all")}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-              viewTab === "all"
-                ? "bg-slate-800 text-white shadow-md"
-                : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-black transition-all cursor-pointer ${viewTab === "all"
+              ? "bg-slate-900 text-white shadow-sm"
+              : "text-slate-700 hover:text-slate-950 hover:bg-white/70"
+              }`}
           >
-            🌐 All City Leads ({unpurchased.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewTab("shortlisted")}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-              viewTab === "shortlisted"
-                ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
-                : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-            }`}
-          >
-            ★ Shortlisted ({shortlisted.length})
+            {t("tabAllCityLeads")} ({formatMilestoneCount(unpurchased.length)})
           </button>
 
           <button
             type="button"
             onClick={() => setViewTab("unlocked")}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-              viewTab === "unlocked"
-                ? "bg-[#0F2540] text-white shadow-md shadow-slate-900/20"
-                : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-black transition-all cursor-pointer ${viewTab === "unlocked"
+              ? "bg-emerald-700 text-white shadow-sm"
+              : "text-slate-700 hover:text-slate-950 hover:bg-white/70"
+              }`}
           >
-            ✓ Unlocked Leads ({purchased.length})
+            {t("tabUnlockedContacts")} ({visibleUnlockedContacts.length})
           </button>
         </nav>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefreshFeed}
+            disabled={isRefreshing}
+            className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border-2 border-emerald-300 font-black text-xs inline-flex items-center gap-1.5 shadow-2xs transition cursor-pointer disabled:opacity-70"
+            title="Rotate and refresh student inquiries"
+          >
+            <RotateCcw size={14} className={isRefreshing ? "animate-spin" : ""} />
+            <span>{isRefreshing ? t("refreshingState") : t("rotateInquiriesBtn")}</span>
+          </button>
+        </div>
       </div>
 
       {/* Informative Context Banners */}
@@ -1280,10 +1170,11 @@ export function LeadFeedClient({
             </span>
             <div>
               <span className="font-bold text-emerald-900">
-                Auto-filtered for your profile:
+                {t("autoFilteredTitle")}
               </span>{" "}
-              Showing {filtered.length} leads within {teachingRadius || 5} km
-              {tutorLocation?.city ? ` of ${tutorLocation.city}` : ""} matching your teaching subjects &amp; grades.
+              {lang === "hi"
+                ? `आपके विषय और कक्षा अनुसार ${teachingRadius || 5} किमी के दायरे में ${filtered.length} अनुरोध दिखाए जा रहे हैं।`
+                : `Showing ${filtered.length} leads within ${teachingRadius || 5} km${tutorLocation?.city ? ` of ${tutorLocation.city}` : ""} matching your teaching subjects & grades.`}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -1292,14 +1183,14 @@ export function LeadFeedClient({
               onClick={() => setViewTab("nearby")}
               className="px-3.5 py-1.5 rounded-full bg-white border border-emerald-300 text-emerald-800 font-bold hover:bg-emerald-100 transition-colors text-xs cursor-pointer shadow-xs"
             >
-              View all {nearbyLeads.length} within {teachingRadius || 5} km
+              {lang === "hi" ? `${teachingRadius || 5} किमी में सभी ${nearbyLeads.length} देखें` : `View all ${nearbyLeads.length} within ${teachingRadius || 5} km`}
             </button>
             <button
               type="button"
               onClick={() => setViewTab("all")}
               className="px-3.5 py-1.5 rounded-full bg-emerald-800 text-white font-bold hover:bg-emerald-900 transition-colors text-xs cursor-pointer shadow-xs"
             >
-              Browse all {unpurchased.length} city leads
+              {lang === "hi" ? `पूरे शहर के सभी ${formatMilestoneCount(unpurchased.length)} अनुरोध देखें` : `Browse all ${formatMilestoneCount(unpurchased.length)} city leads`}
             </button>
           </div>
         </div>
@@ -1313,10 +1204,11 @@ export function LeadFeedClient({
             </span>
             <div>
               <span className="font-bold text-sky-900">
-                Neighborhood View:
+                {lang === "hi" ? "इलाका दृश्य:" : "Neighborhood View:"}
               </span>{" "}
-              Showing all {filtered.length} student leads within {teachingRadius || 10} km radius
-              {tutorLocation?.address ? ` (${tutorLocation.address})` : ""} across all subjects.
+              {lang === "hi"
+                ? `${teachingRadius || 10} किमी के दायरे में सभी ${filtered.length} छात्र अनुरोध दिखाए जा रहे हैं।`
+                : `Showing all ${filtered.length} student leads within ${teachingRadius || 10} km radius${tutorLocation?.address ? ` (${tutorLocation.address})` : ""} across all subjects.`}
             </div>
           </div>
           <button
@@ -1324,7 +1216,7 @@ export function LeadFeedClient({
             onClick={() => setViewTab("matched")}
             className="px-2.5 py-1 rounded-xl bg-sky-700 text-white font-bold hover:bg-sky-800 transition-colors text-[11px] cursor-pointer shrink-0"
           >
-            ← Back to Matched ({matchedLeads.length})
+            {lang === "hi" ? `← विषय अनुसार अनुरोध (${matchedLeads.length})` : `← Back to Matched (${matchedLeads.length})`}
           </button>
         </div>
       )}
@@ -1334,14 +1226,15 @@ export function LeadFeedClient({
           <div className="flex items-center gap-2.5">
             <MapPin size={18} className="text-amber-600 shrink-0" />
             <span>
-              <strong>Location not configured:</strong> Set your teaching locality and radius in your profile to auto-filter leads near you.
+              <strong>{lang === "hi" ? "स्थान निर्धारित नहीं है:" : "Location not configured:"}</strong>{" "}
+              {lang === "hi" ? "अपने घर के पास के ट्यूशन देखने के लिए प्रोफ़ाइल में क्षेत्र और दूरी सेट करें।" : "Set your teaching locality and radius in your profile to auto-filter leads near you."}
             </span>
           </div>
           <Link
             href="/tutor/profile"
             className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 transition-colors"
           >
-            Set Location →
+            {lang === "hi" ? "स्थान सेट करें →" : "Set Location →"}
           </Link>
         </div>
       )}
@@ -1356,7 +1249,7 @@ export function LeadFeedClient({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by enquiry # (e.g. 32042), subject, class, locality..."
+              placeholder={t("searchPlaceholder")}
               className="w-full rounded-2xl pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#2D9E6B] font-semibold text-xs"
             />
           </div>
@@ -1369,9 +1262,9 @@ export function LeadFeedClient({
               onChange={(e) => setSubjectFilter(e.target.value)}
               className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
             >
-              <option value="ALL">All Subjects</option>
+              <option value="ALL">{t("allSubjectsOption")}</option>
               {tutorSubjects.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>{translateSubject(s, lang)}</option>
               ))}
             </select>
           </div>
@@ -1383,13 +1276,12 @@ export function LeadFeedClient({
                 key={m}
                 type="button"
                 onClick={() => setModeFilter(m)}
-                className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                  modeFilter === m
-                    ? "bg-[#0F2540] text-white shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${modeFilter === m
+                  ? "bg-[#0F2540] text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+                  }`}
               >
-                {m === "ALL" ? "All Modes" : m === "OFFLINE" ? "Offline" : m === "ONLINE" ? "Online" : m === "COACHING" ? "Coaching" : "Either"}
+                {m === "ALL" ? t("allModesOption") : m === "OFFLINE" ? t("offlineMode") : m === "ONLINE" ? t("onlineMode") : m === "COACHING" ? t("coachingMode") : t("eitherMode")}
               </button>
             ))}
           </div>
@@ -1403,10 +1295,10 @@ export function LeadFeedClient({
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
           >
-            <option value="recent">Sort: Newest First</option>
-            <option value="distance">Sort: Closest First</option>
-            <option value="budget">Sort: Highest Budget</option>
-            <option value="cost">Sort: Lowest Unlock Coins</option>
+            <option value="recent">{t("sortNewest")}</option>
+            <option value="distance">{t("sortDistance")}</option>
+            <option value="budget">{lang === "hi" ? "क्रम: सबसे अधिक शुल्क" : "Sort: Highest Budget"}</option>
+            <option value="cost">{lang === "hi" ? "क्रम: न्यूनतम कॉइन्स" : "Sort: Lowest Unlock Coins"}</option>
           </select>
         </div>
       </div>
@@ -1418,12 +1310,12 @@ export function LeadFeedClient({
             <BookOpen size={28} />
           </div>
           <p className="text-base font-bold text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-            No student requirements found
+            {lang === "hi" ? "कोई छात्र अनुरोध नहीं मिला" : "No student requirements found"}
           </p>
           <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
             {viewTab === "matched"
-              ? `No student requirements strictly match your subjects within ${teachingRadius || 10} km right now.`
-              : "Try adjusting your search keyword, subject filter, or mode toggle to see more inquiries."}
+              ? (lang === "hi" ? `फिलहाल ${teachingRadius || 10} किमी के दायरे में आपके विषयों से मेल खाने वाला कोई नया अनुरोध नहीं है।` : `No student requirements strictly match your subjects within ${teachingRadius || 10} km right now.`)
+              : (lang === "hi" ? "अन्य अनुरोध देखने के लिए खोज शब्द, विषय फ़िल्टर, या मोड बदलें।" : "Try adjusting your search keyword, subject filter, or mode toggle to see more inquiries.")}
           </p>
           {viewTab === "matched" && (
             <div className="pt-2 flex flex-wrap justify-center gap-2">
@@ -1433,7 +1325,7 @@ export function LeadFeedClient({
                   onClick={() => setViewTab("nearby")}
                   className="px-4 py-2 rounded-xl bg-[#0F2540] text-white font-bold text-xs cursor-pointer"
                 >
-                  View {nearbyLeads.length} nearby in {teachingRadius || 10} km
+                  {lang === "hi" ? `${teachingRadius || 10} किमी में सभी ${nearbyLeads.length} देखें` : `View ${nearbyLeads.length} nearby in ${teachingRadius || 10} km`}
                 </button>
               )}
               <button
@@ -1441,13 +1333,13 @@ export function LeadFeedClient({
                 onClick={() => setViewTab("all")}
                 className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-300 cursor-pointer"
               >
-                Browse all {unpurchased.length} city leads
+                {lang === "hi" ? `पूरे शहर के सभी ${unpurchased.length} अनुरोध देखें` : `Browse all ${unpurchased.length} city leads`}
               </button>
             </div>
           )}
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 grid-cols-[repeat(auto-fit,minmax(420px,1fr))]">
           {filtered.map((lead) => (
             <LeadCard
               key={lead.id}

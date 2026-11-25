@@ -105,6 +105,13 @@ export function hasSubjectOverlap(tutorSubjects: string[], leadSubjects: string[
         (ts.includes("science") || ts.includes("evs") || ts.includes("general science"))
       ) return true;
 
+      // A tutor who teaches generic Science is qualified for Physics, Chemistry,
+      // Biology and EVS requirements (Class 9-12 PCM/PCB streams included).
+      if (
+        (ts.includes("science") || ts.includes("evs") || ts.includes("general science")) &&
+        (ls.includes("physic") || ls.includes("chem") || ls.includes("bio") || ls.includes("science") || ls.includes("evs"))
+      ) return true;
+
       // Physics / Chemistry / Biology
       if (ls.includes("physic") && ts.includes("physic")) return true;
       if (ls.includes("chem") && ts.includes("chem")) return true;

@@ -492,7 +492,7 @@ export function validateAndCleanLocality(
   allowCityOnly = false
 ): { isValid: boolean; area: string; city: string; errorPrompt?: string } {
   if (!raw || typeof raw !== "string") {
-    return { isValid: false, area: "", city: defaultCity, errorPrompt: `📍 Aapna teaching area batayein — jaise *Rohini Delhi*, *Dwarka*, *Bandra Mumbai*, ya *Sector 62 Noida*.` };
+    return { isValid: false, area: "", city: defaultCity, errorPrompt: `📍 Please share your teaching area — for example: *Rohini Delhi*, *Dwarka*, *Bandra Mumbai*, or *Sector 62 Noida* (or type *Online*).` };
   }
 
   let clean = raw.trim();
@@ -511,25 +511,22 @@ export function validateAndCleanLocality(
   clean = clean.replace(/^(?:and|or|aur|ya|in|at)\s+/i, "");
   clean = clean.replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
   // A trailing question mark is a question, not part of a locality name.
-  // e.g. "Sector 75 Noida?" -> "Sector 75" (previously saved as "Sector 75 ?").
   clean = clean.replace(/[?？]+$/g, "").trim();
 
   // Bot-bug guard: short acknowledgements / form answers are NOT localities.
-  // Previously replies like "Available", "I Want", "Oky", "Wait", "School"
-  // passed the proper-name fallback and were saved as the tutor's area.
   if (
-    /^(?:(?:i\s+)?(?:want|need|know|confirm|confirmed|interested|available|oky|okk|okay|ok|fine|good|great|sure|yes|done|thanks|thank\s*you|nothing|wait|school|hii?|hello|ji|theek|haan|ha|invalid|btara\s*h?|hn\s*reset|ky\s*pass(?:\.\s*h)?|was\s+calling|not\s+login|login\s+n(?:ahi|hi)\s*hori|pl\s*arrange|please\s*arrange|plans?|leads?|payment|inter|scam|scammers?|dudee)\b[\s,!.]*)+$/i.test(clean) ||
+    /^(?:(?:i\s+)?(?:want|need|know|confirm|confirmed|interested|available|comfortable|oky|okk|okay|ok|fine|good|great|sure|yes|done|thanks|thank\s*you|nothing|wait|school|hii?|hello|ji|theek|haan|ha|invalid|btara\s*h?|hn\s*reset|ky\s*pass(?:\.\s*h)?|was\s+calling|not\s+login|login\s+n(?:ahi|hi)\s*hori|pl\s*arrange|please\s*arrange|plans?|leads?|payment|inter|scam|scammers?|dudee)\b[\s,!.]*)+$/i.test(clean) ||
     /^(?:aftr\s+confirmation|after\s+confirmation|without\s+pay|pay\s+after)\b/i.test(clean)
   ) {
     return {
       isValid: false,
       area: "",
       city: defaultCity,
-      errorPrompt: `📍 Yeh area nahi lag raha. Apna *mohalla ya locality* likhein — jaise:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*`,
+      errorPrompt: `📍 That doesn't look like a locality. Please share your *neighbourhood / sector and city* — for example:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*\n• *Online*`,
     };
   }
 
-  // Reject passwords, bot commands, defaults, conversational sentences, or tokens with letters+numbers directly attached (e.g. Meenu123, Priya123, Default, 12345678, Qwerty)
+  // Reject passwords, bot commands, defaults, conversational sentences, or tokens with letters+numbers directly attached
   if (
     /^(default|skip|password|pwd|pass|reply\s*default|none|null|undefined|test|admin|login|non\s*of|none\s*of|dont\s*know|pata\s*nahi|no\s*idea|qwerty|asdf|zxcv|123456|pass123|password123)$/i.test(clean) ||
     /\b(kindly|send|in\s+english|in\s+hindi|please|call\s+me)\b/i.test(clean) ||
@@ -540,7 +537,7 @@ export function validateAndCleanLocality(
       isValid: false,
       area: "",
       city: defaultCity,
-      errorPrompt: `📍 Yeh area samajh nahi aaya. Apna *mohalla ya locality* likhein — jaise:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*`,
+      errorPrompt: `📍 I couldn't recognize that as a locality. Please share your *area and city* — for example:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*\n• *Online*`,
     };
   }
 
@@ -664,14 +661,13 @@ export function validateAndCleanLocality(
         };
       }
 
-      // If user only gave the city name (e.g. "Delhi", "Mumbai") or filler like "Delhi mein kahin bhi",
-      // we must prompt for their specific area in that city!
-      const sampleLocs = CITY_SAMPLE_LOCALITIES[detectedCity] || `[Aapka Mohalla], ${detectedCity}`;
+      // If user only gave the city name (e.g. "Delhi", "Mumbai"), ask for specific area
+      const sampleLocs = CITY_SAMPLE_LOCALITIES[detectedCity] || `your sector/locality, ${detectedCity}`;
       return {
         isValid: false,
         area: "",
         city: detectedCity,
-        errorPrompt: `📍 Sirf *${detectedCity}* mila — aapka specific mohalla ya area bhi batayein.\n\nJaise: *${sampleLocs}*`,
+        errorPrompt: `📍 Got *${detectedCity}* — please also share your specific *sector or locality*.\n\nFor example: *${sampleLocs}*`,
       };
     }
   }
@@ -693,7 +689,6 @@ export function validateAndCleanLocality(
   for (const [key] of Object.entries(INDIAN_CITY_COORDINATES)) {
     const rx = new RegExp(`\\b${key}\\b`, "i");
     if (rx.test(clean)) {
-      // If the coordinate key is actually a city name, treat as city!
       const matchedCity = KNOWN_INDIAN_CITIES[key];
       if (matchedCity) {
         const remainingArea = clean.replace(rx, "").replace(/^[,.\s-]+|[,.\s-]+$/g, "").trim();
@@ -705,12 +700,12 @@ export function validateAndCleanLocality(
             city: matchedCity,
           };
         }
-        const sampleLocs = CITY_SAMPLE_LOCALITIES[matchedCity] || `[Aapka Mohalla], ${matchedCity}`;
+        const sampleLocs = CITY_SAMPLE_LOCALITIES[matchedCity] || `your sector/locality, ${matchedCity}`;
         return {
           isValid: false,
           area: "",
           city: matchedCity,
-          errorPrompt: `📍 Sirf *${matchedCity}* mila — aapka specific mohalla ya area bhi batayein.\n\nJaise: *${sampleLocs}*`,
+          errorPrompt: `📍 Got *${matchedCity}* — please also share your specific *sector or locality*.\n\nFor example: *${sampleLocs}*`,
         };
       }
 
@@ -727,7 +722,7 @@ export function validateAndCleanLocality(
   if (clean.length < 2 || /^\d+$/.test(clean) || /\?|^(kya|kyun|kaise|kitna|kitne|fees|free)\b/i.test(clean)) {
     return {
       isValid: false, area: "", city: defaultCity,
-      errorPrompt: `📍 Yeh area samajh nahi aaya. Apna *mohalla ya locality* likhein — jaise:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*`,
+      errorPrompt: `📍 I couldn't understand that locality. Please write your *area and city* — for example:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*\n• *Online*`,
     };
   }
 
@@ -736,7 +731,7 @@ export function validateAndCleanLocality(
   if (words.length === 0) {
     return {
       isValid: false, area: "", city: defaultCity,
-      errorPrompt: `📍 Area detect nahi hua. Apna *locality aur city* likhein — jaise:\n• *Rohini Delhi*\n• *Bandra Mumbai*\n• *Sector 62 Noida*`,
+      errorPrompt: `📍 No area detected. Please enter your *locality and city* — for example:\n• *Rohini, Delhi*\n• *Bandra, Mumbai*\n• *Sector 62, Noida*`,
     };
   }
 
@@ -748,7 +743,7 @@ export function validateAndCleanLocality(
   if (hasStopWord && !hasPlaceKeyword) {
     return {
       isValid: false, area: "", city: defaultCity,
-      errorPrompt: `📍 Yeh ek sentence lag raha hai, area nahi. Sirf apna *mohalla / locality* type karein — jaise *Dwarka*, *Rohini*, ya *Andheri West*.`,
+      errorPrompt: `📍 That sounds like a sentence rather than a locality. Please type only your *neighbourhood / sector* — e.g., *Dwarka*, *Rohini*, or *Andheri West*.`,
     };
   }
 
@@ -756,15 +751,15 @@ export function validateAndCleanLocality(
   if (words.length > 3 && !hasPlaceKeyword) {
     return {
       isValid: false, area: "", city: defaultCity,
-      errorPrompt: `📍 Bahut saare words hain — sirf apna *locality aur city* likhein.\nUdaharan: *Vasant Kunj Delhi*, *Koramangala Bangalore*, *Hazratganj Lucknow*.`,
+      errorPrompt: `📍 Too many words — please enter just your *locality and city* (e.g., *Vasant Kunj, Delhi*, *Koramangala, Bangalore*, *Hazratganj, Lucknow*).`,
     };
   }
 
   // If it contains conversational intent words (job, salary, call, etc.), reject as a sentence
-  if (words.some((w) => ["job", "salary", "pagal", "call", "chahiye", "padhana", "padhna", "free", "demo", "lead", "leads", "contact", "pass", "kr", "lo", "mera", "meri", "hum", "know", "dikhta", "dikhti", "but", "bhi", "rahti", "rehti", "raha", "available", "want", "wait", "school", "nothing", "confirm", "oky", "pay", "payment", "arrange", "pl", "please", "scam", "scammer", "scammers", "login", "reset", "password", "invalid", "ready", "tomorrow", "check", "later", "fine", "sure", "cancel", "stop", "test"].includes(w))) {
+  if (words.some((w) => ["job", "salary", "pagal", "call", "chahiye", "padhana", "padhna", "free", "demo", "lead", "leads", "contact", "pass", "kr", "lo", "mera", "meri", "hum", "know", "dikhta", "dikhti", "but", "bhi", "rahti", "rehti", "raha", "available", "want", "wait", "school", "nothing", "confirm", "oky", "pay", "payment", "arrange", "pl", "please", "scam", "scammer", "scammers", "login", "reset", "password", "invalid", "ready", "tomorrow", "check", "later", "fine", "sure", "cancel", "stop", "test", "comfortable"].includes(w))) {
     return {
       isValid: false, area: "", city: defaultCity,
-      errorPrompt: `📍 Yeh area nahi lag raha. Sirf apna *mohalla aur city* batayein.\nJaise: *Janakpuri Delhi*, *Bandra Mumbai*, *Sector 15 Noida*.`,
+      errorPrompt: `📍 That doesn't look like a locality. Please share only your *neighbourhood and city* — e.g., *Janakpuri, Delhi*, *Bandra, Mumbai*, or *Sector 15, Noida*.`,
     };
   }
 
@@ -825,7 +820,7 @@ export function validateAndCleanLocality(
 
   return {
     isValid: false, area: "", city: defaultCity,
-    errorPrompt: `📍 Yeh location hamare system mein available/pehchani nahi gayi. Kripya apna sahi area aur city batayein — jaise:\n• *Rohini, Delhi*\n• *Sector 62, Noida*\n• *Bandra, Mumbai*\n• *Koramangala, Bangalore*`,
+    errorPrompt: `📍 That locality was not recognized. Please enter a valid *area and city* — for example:\n• *Rohini, Delhi*\n• *Sector 62, Noida*\n• *Bandra, Mumbai*\n• *Koramangala, Bangalore*\n• *Online*`,
   };
 }
 
@@ -961,7 +956,7 @@ export function validateAndAlignSubjects(
       isValid: false,
       subjects: [],
       humanLabel: "",
-      errorPrompt: `📚 Kaunse subjects padhate hain? Sirf subject naam likhein, jaise:\n• *Maths, Science*\n• *Physics, Chemistry*\n• *All Subjects*\n• *English, Hindi*`,
+      errorPrompt: `📚 Which subjects do you teach? Examples:\n• *All Subjects* (for Classes 1–8)\n• *Mathematics, Science* (for Classes 9–10)\n• *Physics, Chemistry* or *Accountancy, Economics* (for Classes 11–12)`,
     };
   }
 
@@ -979,7 +974,7 @@ export function validateAndAlignSubjects(
       isValid: false,
       subjects: [],
       humanLabel: "",
-      errorPrompt: `📚 Koi subject nahi mila. Sirf subject naam likhein, jaise:\n• *Maths, Science*\n• *Physics, Chemistry*\n• *All Subjects*`,
+      errorPrompt: `📚 No valid subjects detected. Please enter subject names like:\n• *All Subjects* (Classes 1–8)\n• *Mathematics, Science*\n• *Physics, Chemistry*`,
     };
   }
 
@@ -1411,25 +1406,24 @@ export function validateAndAlignSubjects(
         isValid: false,
         subjects: [],
         humanLabel: "",
-        errorPrompt: `⚠️ Class 9–12 ke liye *specific subjects* batayein — jaise *Maths, Physics, Chemistry, Accounts, Economics*.\n\n"All Subjects" sirf Class 1–8 ke liye hota hai.`,
+        errorPrompt: `⚠️ For Classes 9–12, please share *specific subjects* — e.g., *Mathematics, Science, SST, English* (for 9–10) or *Physics, Chemistry, Accountancy, Economics* (for 11–12).\n\n"All Subjects" is strictly for Classes 1–8.`,
       };
     }
     if (hasUnsupportedHobby) {
-      // Extract which hobby was typed for a personalised reply
       const hobbyMatch = rawInputStr.match(/\b(cooking|cookery|driving|cricket|swimming|dance|dancing|gym|fitness|yoga(?!\s*class)|guitar|drums|piano|singing|chess|skating|makeup|nanny)\b/i);
-      const hobbyWord = hobbyMatch ? hobbyMatch[0].charAt(0).toUpperCase() + hobbyMatch[0].slice(1).toLowerCase() : "yeh subject";
+      const hobbyWord = hobbyMatch ? hobbyMatch[0].charAt(0).toUpperCase() + hobbyMatch[0].slice(1).toLowerCase() : "this subject";
       return {
         isValid: false,
         subjects: [],
         humanLabel: "",
-        errorPrompt: `⚠️ *${hobbyWord}* ke liye hum tutors nahi dete. \n\nApnaTutorHub par sirf *school aur college ke academic subjects* ke verified tutors available hain.\n\nIn mein se koi batayein:\n• *Maths, Science*\n• *English, Hindi*\n• *Physics, Chemistry, Biology*\n• *All Subjects (Class 1-8)*`,
+        errorPrompt: `⚠️ We currently only match verified *academic school & exam subjects* (not *${hobbyWord}*).\n\nPlease share academic subjects such as:\n• *All Subjects* (Classes 1–8)\n• *Mathematics, Science, SST, English*\n• *Physics, Chemistry, Biology*\n• *Accountancy, Business Studies, Economics*`,
       };
     }
     return {
       isValid: false,
       subjects: [],
       humanLabel: "",
-      errorPrompt: `📚 "*${displayInput}*" — yeh subject pehchana nahi gaya.\n\nIn mein se koi likhein:\n• *Maths, Science*\n• *Physics, Chemistry*\n• *English, Hindi*\n• *Commerce (Accounts, BST)*\n• *All Subjects*`,
+      errorPrompt: `📚 I couldn't recognize "*${displayInput}*" as an academic subject.\n\nPlease reply with subjects like:\n• *All Subjects* (Classes 1–8)\n• *Mathematics, Science, English*\n• *Physics, Chemistry, Biology*\n• *Accountancy, Business Studies*`,
     };
   }
 
@@ -1443,8 +1437,8 @@ export function validateAndAlignSubjects(
 }
 
 /**
- * Deduplicates synonymous subjects (e.g. Mathematics + Maths + Maths for Class XI -> Maths for Class XI)
- * and enforces the Class 1-8 ("All Subjects (Class 1-8)") vs Class 9-12 (subject-specific) boundary.
+ * Deduplicates synonymous subjects and enforces the Class 1-8 ("All Subjects")
+ * vs Class 9-10 (general board subjects, no sub-branches) vs Class 11-12 (stream subjects) rules.
  */
 export function deduplicateAndNormalizeSubjects(
   subjects: string[],
@@ -1464,81 +1458,81 @@ export function getSubjectClassSuggestions(subject: string): { prompt: string; q
   if (/physic|chem|bio|neet|jee/i.test(s)) {
     const name = /chem/i.test(s) ? "Chemistry" : /bio/i.test(s) ? "Biology" : "Physics";
     return {
-      prompt: `${name} kaunsi classes ko padhate ho? 📚`,
-      quickReplies: ["Class 11-12", "Class 9-10 (Science)", "JEE / NEET", "College / B.Sc"],
+      prompt: `Which classes do you teach ${name} for? 📚`,
+      quickReplies: ["Class 11-12", "Class 9-10 (Science)", "JEE / NEET"],
     };
   }
 
-  // Commerce & Management — never match Computer Science / "cs" substring / Economics-as-cs
+  // Commerce & Management
   if (
     /\b(accounts?|accountancy|b\.?\s*com|commerce|business\s*studies|\bbst\b|ca\s*foundation|\bcma\b)\b/i.test(s) &&
     !/computer|coding|python|programming/i.test(s)
   ) {
     return {
-      prompt: `Commerce / Accounts kaunsi classes ko padhate ho? 📚`,
-      quickReplies: ["Class 11-12", "B.Com / College", "CA Foundation", "CUET"],
+      prompt: `Which classes do you teach Commerce / Accountancy for? 📚`,
+      quickReplies: ["Class 11-12", "B.Com / College", "CUET"],
     };
   }
 
   // Humanities / Arts Senior Electives
   if (/political\s*science|pol\s*science|sociology|psychology|legal\s*studies/i.test(s)) {
     return {
-      prompt: `${subject} kaunsi classes ko padhate ho? 📚`,
-      quickReplies: ["Class 11-12", "BA / College", "CUET", "Class 9-10 (SST)"],
+      prompt: `Which classes do you teach ${subject} for? 📚`,
+      quickReplies: ["Class 11-12", "Class 9-10 (Social Science)", "CUET"],
     };
   }
 
   // Foreign Languages
   if (/french|german|spanish|japanese|russian|chinese|arabic|foreign\s*language/i.test(s)) {
     return {
-      prompt: `${subject} kaunsi classes ya level ko padhate ho? 🌍`,
-      quickReplies: ["Class 6-8 (School)", "Class 9-10 (Board)", "Class 11-12", "Spoken / All Levels"],
+      prompt: `Which classes do you teach ${subject} for? 🌍`,
+      quickReplies: ["Class 6-8", "Class 9-10", "Class 11-12"],
     };
   }
 
   // Sanskrit
   if (/sanskrit/i.test(s)) {
     return {
-      prompt: `Sanskrit kaunsi classes ko padhate ho? 📚`,
+      prompt: `Which classes do you teach Sanskrit for? 📚`,
       quickReplies: ["Class 6-8", "Class 9-10", "Class 11-12"],
     };
   }
 
-  // All Subjects / Combo
+  // All Subjects / Combo (strictly Classes 1-8)
   if (/all\s*subjects?|combo/i.test(s)) {
     return {
-      prompt: `All subjects kaunsi classes tak padhate ho? 📚`,
-      quickReplies: ["Class 1-5 (Primary)", "Class 6-8 (Middle)", "Class 1-8 (Combo)", "Class 9-10"],
+      prompt: `Which classes do you teach All Subjects up to? 📚`,
+      quickReplies: ["Pre-Primary to Class 3", "Class 1-5", "Class 6-8", "Class 1-8"],
     };
   }
 
   // Mathematics
   if (/math/i.test(s)) {
     return {
-      prompt: `Maths kaunsi classes ko padhate ho? 📚`,
-      quickReplies: ["Class 1-8 (Foundation)", "Class 9-10", "Class 11-12", "JEE / Advanced"],
+      prompt: `Which classes do you teach Mathematics for? 📚`,
+      quickReplies: ["Class 1-8 (All Subjects)", "Class 9-10", "Class 11-12", "JEE"],
     };
   }
 
   // Computer Science & Coding
   if (/computer|coding|python|java|c\+\+|programming/i.test(s)) {
     return {
-      prompt: `Coding / CS kaunsi classes ko padhate ho? 💻`,
-      quickReplies: ["Class 11-12 (CS/IP)", "Class 9-10 (IT/AI)", "Kids Coding (Class 4-8)", "Python / Web Dev"],
+      prompt: `Which classes do you teach Computer Science / Coding for? 💻`,
+      quickReplies: ["Class 9-10", "Class 11-12", "Class 1-8 (All Subjects)"],
     };
   }
 
   // Languages: English & Hindi
   if (/english|hindi/i.test(s)) {
     return {
-      prompt: `${subject} kaunsi classes ko padhate ho? 📚`,
-      quickReplies: ["Class 1-5 (Primary)", "Class 6-8 (Middle)", "Class 9-10", "Class 11-12"],
+      prompt: `Which classes do you teach ${subject} for? 📚`,
+      quickReplies: ["Class 1-8 (All Subjects)", "Class 9-10", "Class 11-12"],
     };
   }
 
   return {
-    prompt: `${subject} kaunsi classes ko padhate ho? 📚`,
-    quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "All Classes"],
+    prompt: `Which classes do you teach ${subject} for? 📚`,
+    quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12"],
   };
 }
 
@@ -1602,8 +1596,8 @@ export function validateSubjectClassCompatibility(
   if (nonAcademic.length > 0 && subjects.length === nonAcademic.length) {
     return {
       isValid: false,
-      reason: "Hum sirf academic & school subjects ke liye home tuition provide karte hain (Maths, Science, English, Commerce, etc.)! 📚",
-      suggestedReplies: ["All Subjects (Class 1-8)", "Maths & Science", "Physics / Chem (11-12)", "Commerce (11-12)"],
+      reason: "We currently only provide tutors for academic school and exam subjects (All Subjects for Classes 1–8, school subjects for Classes 9–10, and stream subjects for Classes 11–12). 📚",
+      suggestedReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
     };
   }
 
@@ -1611,7 +1605,7 @@ export function validateSubjectClassCompatibility(
   if (/all\s*subjects?/i.test(lowerCls)) {
     return {
       isValid: true,
-      switchedSubject: ["All Subjects", "All Subjects (Class 1-8)"],
+      switchedSubject: ["All Subjects"],
       switchedClass: cleanCls.replace(/\(all\s*subjects?\)/i, "").trim() || "Class 1-5",
     };
   }
@@ -1640,24 +1634,23 @@ export function validateSubjectClassCompatibility(
 
   if (isSeniorScience && isBelow9) {
     const sciName = isChemistry ? "Chemistry" : isBiology ? "Biology" : "Physics";
-    const gradeLabel = grade ? `Class ${grade}` : "Class 1-8";
+    const gradeLabel = grade ? `Class ${grade}` : "Classes 1–8";
 
     if (userType === "PARENT") {
       return {
         isValid: false,
-        reason: `School curriculum mein ${gradeLabel} ke liye ${sciName} alag se nahi hoti, wahan 'General Science' aur 'All Subjects' hota hai! 📚\n\nBachche ke liye kya chahiye?`,
-        suggestedReplies: [`${gradeLabel} All Subjects`, `${gradeLabel} Science`, "Class 9-10 (Science)"],
+        reason: `In school curricula, *${sciName}* is not a separate subject for ${gradeLabel} — Classes 1–8 cover *All Subjects* together. 📚\n\nWhich option would you like?`,
+        suggestedReplies: [`${gradeLabel} All Subjects`, "Class 9-10 (Science)"],
       };
     }
 
     return {
       isValid: false,
-      reason: `School curriculum mein ${sciName} Class 9 se 12th (aur JEE/NEET) mein hoti hai! 📚 Class 1–5 mein 'All Subjects', 'Maths' ya 'General Science' hota hai.\n\nKya aap Class 9 ya usse upar padhana chahte hain, ya ${gradeLabel} ke liye subjects select karna chahte hain?`,
+      reason: `*${sciName}* starts from Class 11–12 (or as *Science* in Class 9–10). Classes 1–8 cover *All Subjects* only. 📚\n\nWhich classes do you want to save?`,
       suggestedReplies: [
         "Class 9-10 (Science)",
         `Class 11-12 (${sciName})`,
         `${gradeLabel} (All Subjects)`,
-        `${gradeLabel} (Maths & Science)`,
       ],
     };
   }
@@ -1668,15 +1661,15 @@ export function validateSubjectClassCompatibility(
     if (userType === "PARENT") {
       return {
         isValid: false,
-        reason: `Accounts aur Commerce subjects Class 11-12 aur College mein shuru hote hain! 📚 Kaunsi class ke liye tutor chahiye?`,
-        suggestedReplies: ["Class 11-12 Commerce", "B.Com / College", "Class 9-10 Maths/Sci"],
+        reason: `Accountancy and Business Studies start in Class 11–12 and College. Which class does your child need help with? 📚`,
+        suggestedReplies: ["Class 11-12 Commerce", "B.Com / College", "Class 9-10 Maths & Science"],
       };
     }
 
     return {
       isValid: false,
-      reason: `Accounts aur Commerce school mein Class 11-12 aur College level par hota hai! 📚 Class 1-10 mein yeh subject nahi hota.\n\nKaunsi class ko padhate hain?`,
-      suggestedReplies: ["Class 11-12", "B.Com / College", "CA Foundation", "Class 1-10 All Subjects"],
+      reason: `Accountancy and Commerce are taught from Class 11–12 and College level (not Classes 1–10). 📚\n\nWhich classes do you teach?`,
+      suggestedReplies: ["Class 11-12", "B.Com / College", "Class 1-8 All Subjects"],
     };
   }
 
@@ -1686,14 +1679,14 @@ export function validateSubjectClassCompatibility(
     if (userType === "TUTOR") {
       return {
         isValid: true,
-        switchedSubject: ["Social Studies", "Social Science", "SST"],
+        switchedSubject: ["Social Science"],
       };
     }
     const subName = subjects.find((s) => /political|sociology|psychology|legal/i.test(s)) || "Humanities";
     return {
       isValid: false,
-      reason: `${subName} Class 11-12 aur College level par alag subject hota hai! 📚 Class 6-10 ke liye 'Social Science (SST)' hota hai.\n\nKaunsi class padhate hain?`,
-      suggestedReplies: ["Class 11-12", "Class 9-10 (SST)", "Class 6-8 (SST)", "BA / College"],
+      reason: `${subName} is a Class 11–12 / College subject; Classes 9–10 cover *Social Science* and Classes 1–8 cover *All Subjects*. 📚\n\nWhich class is this for?`,
+      suggestedReplies: ["Class 11-12", "Class 9-10 (Social Science)", "Class 6-8 All Subjects"],
     };
   }
 
@@ -1702,8 +1695,8 @@ export function validateSubjectClassCompatibility(
   if (isForeignLang && isPrimary && (grade !== null && grade <= 4)) {
     return {
       isValid: false,
-      reason: `Foreign languages school mein generally Class 5-6 onwards shuru hoti hain! 🌍 Kaunse level ke liye padhate hain?`,
-      suggestedReplies: ["Class 6-8 (School)", "Class 9-10 (Board)", "Class 11-12", "Spoken / All Levels"],
+      reason: `Foreign languages usually start from Class 5–6 onwards (and Classes 1–8 cover *All Subjects*). Which classes do you teach? 🌍`,
+      suggestedReplies: ["Class 6-8 All Subjects", "Class 9-10", "Class 11-12"],
     };
   }
 
@@ -1712,18 +1705,17 @@ export function validateSubjectClassCompatibility(
   if (isSanskrit && isPrimary && (grade !== null && grade <= 4)) {
     return {
       isValid: false,
-      reason: `Sanskrit schools mein Class 5-6 se shuru hoti hai! 📚 Kaunsi class ko padhate hain?`,
+      reason: `Sanskrit typically starts from Class 5–6 onwards (and Classes 1–8 cover *All Subjects*). Which classes do you teach? 📚`,
       suggestedReplies: ["Class 6-8", "Class 9-10", "Class 11-12"],
     };
   }
 
-  // ── 6. "All Subjects" for Senior Secondary ──────────────────────────────────
+  // ── 6. "All Subjects" for Class 9-12 ────────────────────────────────────────
   const hasAllSubjects = subjects.some((s) => /all\s*subjects?|combo/i.test(s));
   const isSeniorSecondary = grade === 11 || grade === 12 || /11|12|senior/i.test(lowerCls);
-  if (hasAllSubjects && isSeniorSecondary) {
+  if (hasAllSubjects && !isBelow9) {
     const specificSubjects = subjects.filter((s) => !/all\s*subjects?|combo/i.test(s));
     if (specificSubjects.length > 0) {
-      // Auto-strip "All Subjects" because they teach specific subject(s) in Class 11/12
       return {
         isValid: true,
         switchedSubject: specificSubjects,
@@ -1731,13 +1723,12 @@ export function validateSubjectClassCompatibility(
     }
     return {
       isValid: false,
-      reason: `Class 11-12 mein 'All Subjects' nahi hota (Science, Commerce, Arts streams hoti hain)! 📚 Kaunsi stream ya specific subject padhate hain?`,
-      suggestedReplies: [
-        "Science (PCM / PCB)",
-        "Commerce (Accounts/BST)",
-        "Humanities / Arts",
-        "Class 1-10 All Subjects",
-      ],
+      reason: isSeniorSecondary
+        ? `Class 11–12 requires specific stream subjects rather than "All Subjects". Which subjects do you teach? 📚`
+        : `For Class 9–10, please share specific school subjects (*Mathematics, Science, Social Science, English, Hindi, Computer Science*) — "All Subjects" is strictly for Classes 1–8. 📚`,
+      suggestedReplies: isSeniorSecondary
+        ? ["Physics, Chemistry, Maths", "Accountancy, Economics, BST", "Biology, Chemistry", "History, Pol Science"]
+        : ["Mathematics, Science", "Social Science, English", "All Subjects (Class 1-8)"],
     };
   }
 

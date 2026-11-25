@@ -249,43 +249,21 @@ export function QuickProfileUpdateModal({
     null
   );
 
-  // Auto-open on login if missing info or on first session visit
+  // Listen for explicit user trigger to open preferences modal
   useEffect(() => {
-    // Listen for custom trigger to open anytime
     const handleTrigger = () => setIsOpen(true);
     window.addEventListener("ath:open-quick-profile-modal", handleTrigger);
-
-    try {
-      const dismissed = sessionStorage.getItem(STORAGE_KEY);
-      if (isMissingInfo) {
-        // High priority: missing info opens immediately
-        const timer = setTimeout(() => setIsOpen(true), 800);
-        return () => {
-          clearTimeout(timer);
-          window.removeEventListener("ath:open-quick-profile-modal", handleTrigger);
-        };
-      } else if (!dismissed) {
-        // Polite prompt on login
-        const timer = setTimeout(() => setIsOpen(true), 1500);
-        return () => {
-          clearTimeout(timer);
-          window.removeEventListener("ath:open-quick-profile-modal", handleTrigger);
-        };
-      }
-    } catch {
-      if (isMissingInfo) setIsOpen(true);
-    }
 
     return () => {
       window.removeEventListener("ath:open-quick-profile-modal", handleTrigger);
     };
-  }, [isMissingInfo]);
+  }, []);
 
   const handleClose = () => {
     setIsOpen(false);
     try {
       sessionStorage.setItem(STORAGE_KEY, "dismissed");
-    } catch {}
+    } catch { }
   };
 
   const handleAddCustomSubject = () => {
@@ -341,7 +319,7 @@ export function QuickProfileUpdateModal({
           });
           try {
             sessionStorage.setItem(STORAGE_KEY, "saved");
-          } catch {}
+          } catch { }
           setTimeout(() => {
             setIsOpen(false);
             window.location.reload();
@@ -457,11 +435,10 @@ export function QuickProfileUpdateModal({
                         setAddress("");
                       }
                     }}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      isSelected
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${isSelected
                         ? "bg-[#0F2540] text-white shadow-sm"
                         : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    }`}
+                      }`}
                   >
                     {c}
                   </button>
@@ -524,11 +501,10 @@ export function QuickProfileUpdateModal({
                   key={m.id}
                   type="button"
                   onClick={() => setTeachingMode(m.id as any)}
-                  className={`p-2.5 rounded-xl text-xs font-bold border text-center transition-all cursor-pointer ${
-                    teachingMode === m.id
+                  className={`p-2.5 rounded-xl text-xs font-bold border text-center transition-all cursor-pointer ${teachingMode === m.id
                       ? "border-emerald-500 bg-emerald-50/70 text-emerald-900 ring-2 ring-emerald-500/10 font-black"
                       : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
-                  }`}
+                    }`}
                 >
                   {m.label}
                 </button>
@@ -566,11 +542,10 @@ export function QuickProfileUpdateModal({
                           key={item.label}
                           type="button"
                           onClick={() => handleTogglePreset(item.subjects)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                            isSelected
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${isSelected
                               ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                               : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200"
-                          }`}
+                            }`}
                         >
                           {isSelected && <Check size={12} className="stroke-[3]" />}
                           <span>{item.label}</span>
@@ -651,11 +626,10 @@ export function QuickProfileUpdateModal({
         {/* Message / Status Feedback */}
         {message && (
           <div
-            className={`mx-6 mb-2 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
-              message.type === "success"
+            className={`mx-6 mb-2 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${message.type === "success"
                 ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
                 : "bg-rose-50 border border-rose-200 text-rose-800"
-            }`}
+              }`}
           >
             {message.type === "success" ? (
               <Sparkles size={14} className="text-emerald-600 shrink-0" />

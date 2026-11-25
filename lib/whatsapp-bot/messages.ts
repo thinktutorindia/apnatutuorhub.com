@@ -1,46 +1,26 @@
 /**
  * lib/whatsapp-bot/messages.ts
- * All chatbot message templates in one place.
- * Edit here to change bot copy — nothing else needs to change.
+ * All chatbot message templates in English only.
  */
 
 export const MSG = {
-  // ── Language Selection ────────────────────────────────────────────────────────
-  LANG_PROMPT: `Welcome to *ApnaTutorHub*! / *ApnaTutorHub* में आपका स्वागत है! 🙏
-India's Leading Home Tutoring Network.
+  WELCOME_EN: `Hello! I'm Priya from *ApnaTutorHub* — India's trusted home tutoring network. 🎓
 
-Please choose your language / अपनी भाषा चुनें:
-1 — English
-2 — हिंदी (Hindi)
+How can I help you today?
+1 — *Tutor* (Looking for student tuition leads)
+2 — *Parent* (Looking for a home or online tutor)
 
-Reply with *1* or *2*`,
+Reply with *1* or *2*, or tell me directly what you need.`,
 
-  // ── Common (Bilingual) ────────────────────────────────────────────────────────
-  WELCOME_EN: `Namaste! I am Priya from *ApnaTutorHub* — India's Leading Home Tutoring Network. 🎓
+  WELCOME: `Hello! I'm Priya from *ApnaTutorHub* — India's trusted home tutoring network. 🎓
 
-Please tell us who you are:
-1 — *Tutor* (Looking for home tuition / teaching opportunities)
-2 — *Parent* (Looking for a qualified home tutor for your child)
+How can I help you today?
+1 — *Tutor* (Looking for student tuition leads)
+2 — *Parent* (Looking for a home or online tutor)
 
-Reply with *1* or *2*`,
+Reply with *1* or *2*, or tell me directly what you need.`,
 
-  WELCOME_HI: `नमस्ते! मैं *ApnaTutorHub* से प्रिया बोल रही हूँ — भारत का प्रमुख होम ट्यूशन नेटवर्क। 🎓
-
-कृपया बताएं आप किस सहायता के लिए जुड़े हैं:
-1 — *ट्यूटर* (होम ट्यूशन / टीचिंग वर्क चाहिए)
-2 — *पेरेंट* (बच्चे के लिए होम ट्यूटर चाहिए)
-
-Reply करें *1* या *2*`,
-
-  WELCOME: `Namaste! I am Priya from *ApnaTutorHub*! / नमस्ते! मैं *ApnaTutorHub* से प्रिया बोल रही हूँ। 🙏
-
-Please choose your language / अपनी भाषा चुनें:
-1 — English
-2 — हिंदी (Hindi)
-
-Reply with *1* or *2*`,
-
-  RE_WELCOME: `👋 Welcome back! Main *ApnaTutorHub* se Priya बोल रही हूँ।
+  RE_WELCOME: `Welcome back! I'm Priya from *ApnaTutorHub*.
 
 Are you a Tutor or a Parent?
 1 — *Tutor* (Looking for tuition opportunities)
@@ -49,25 +29,23 @@ Are you a Tutor or a Parent?
 Reply with *1* or *2*`,
 
   UNKNOWN: `Sorry, I didn't quite catch that. 🙏
-Type *MENU* to restart or reply with the requested option.`,
-
-  UNKNOWN_HI: `समझ नहीं आया। 🙏
-Restart करने के लिए *MENU* type करें।`,
+Type *MENU* to restart or reply with your question.`,
 
   HELP: `📞 *ApnaTutorHub Support*
 
+Helpline: 08062180653
 WhatsApp: +91 93191 93109
 Timings: 9:00 AM – 7:00 PM (Mon–Sat)
 
 Type *MENU* anytime to return to the main menu.`,
 
   CANCEL: `✅ Session cleared.
-Type *MENU* anytime to start afresh.
+Type *MENU* anytime to start fresh.
 
-*ApnaTutorHub.com — We Provide Home Tutors* 🙏`,
+*ApnaTutorHub.com — We Provide Home Tutors*`,
 
-  TOO_MANY_RETRIES: `Something went wrong. Let's start fresh.
-Type *MENU* to try again.`,
+  TOO_MANY_RETRIES: `Something got mixed up. Let's start fresh.
+Type *MENU* to continue.`,
 
   // ── Tutor Flow ────────────────────────────────────────────────────────────
   T_NAME: `Great! 🎉 Let's set up your *tutor profile*.
@@ -78,37 +56,35 @@ _(e.g. Priya Sharma)_`,
 
   T_CITY: `📍 *Step 2 of 8* — Which *city* are you based in?
 
-_(e.g. Delhi, Noida, Mumbai, Lucknow)_`,
+_(e.g. Delhi, Noida, Mumbai, Bangalore — or type Online)_`,
 
   T_AREA: (city: string) => `🏠 *Step 3 of 8* — Which *area / locality* in *${city}*?
 
-_(e.g. Sector 15, Andheri West, Hazratganj)_`,
+_(e.g. Sector 15, Dwarka, Andheri West — or type Online)_`,
 
   T_SUBJECTS: `📚 *Step 4 of 8* — Which *subjects* do you teach?
 
-Type all subjects, separated by commas.
-
 Examples:
-• Mathematics, Physics, Chemistry
-• English, Hindi, Social Science
-• All Subjects`,
+• All Subjects (for Classes 1–8)
+• Mathematics, Science, SST, English (for Classes 9–10)
+• Physics, Chemistry, Accountancy, Economics (for Classes 11–12)`,
 
   T_CLASSES: `🎓 *Step 5 of 8* — Which *classes* do you teach?
 
 Reply with numbers separated by commas:
 
-1 → Class 1–5 (Primary)
-2 → Class 6–8 (Middle School)
-3 → Class 9–10 (Board Exam)
-4 → Class 11–12 (Senior Secondary)
-5 → JEE / NEET / Entrance Exam
+1 → Class 1–5 (All Subjects)
+2 → Class 6–8 (All Subjects)
+3 → Class 9–10 (Board Subjects)
+4 → Class 11–12 (Stream Subjects)
+5 → JEE / NEET / Entrance
 6 → All of the above
 
 _(e.g. 1,2,3)_`,
 
   T_MODE: `🏡 *Step 6 of 8* — How do you prefer to teach?
 
-1 → *Home visit* (I go to the student's home)
+1 → *Home visit* (at the student's home)
 2 → *Online only* (video call)
 3 → *Both* (home visit + online)
 
@@ -116,11 +92,11 @@ Reply *1*, *2*, or *3*`,
 
   T_TIMING: `⏰ *Step 7 of 8* — What are your *available timings*?
 
-_(e.g. Morning 7–10am & Evenings 5–8pm, or Weekdays 4–8pm, Weekends anytime)_`,
+_(e.g. Morning 7–10am, Evenings 4–8pm, or Flexible)_`,
 
   T_EXPERIENCE: `💼 *Step 8 of 8* — How many *years of teaching experience* do you have?
 
-Type a number. Reply *0* if you are just starting out.`,
+Type a number (reply *0* if just starting out).`,
 
   T_CONFIRM: (d: {
     name: string;
@@ -150,12 +126,10 @@ Is everything correct?
 
 Your profile is live and will be matched with nearby parents.
 
-📲 *Complete your profile* (add photo, education, bio):
+📲 *Complete your profile* (photo, education, bio):
 🔗 ${link}
 
-Our team will contact you for profile verification shortly.
-
-Thank you for joining *ApnaTutorHub*! 🙏
+Thank you for joining *ApnaTutorHub*!
 _ApnaTutorHub.com — We Provide Home Tutors_`,
 
   // ── Parent Flow ───────────────────────────────────────────────────────────
@@ -176,13 +150,10 @@ Reply *1–6*`,
 
   P_SUBJECTS: `📚 *Step 3 of 8* — Which *subjects* do you need help with?
 
-Type subjects separated by commas.
-
 Examples:
-• Mathematics, Science
-• English, Hindi
-• Physics, Chemistry, Biology
-• All Subjects`,
+• All Subjects (for Nursery to Class 8)
+• Mathematics, Science, English (for Class 9–10)
+• Physics, Chemistry, Accounts (for Class 11–12)`,
 
   P_CITY: `📍 *Step 4 of 8* — Which *city* are you in?
 
@@ -199,17 +170,17 @@ _(e.g. Evenings 5–7pm, Weekends only, Flexible)_`,
   P_MODE: `🏡 *Step 7 of 8* — What type of tuition do you prefer?
 
 1 → *Home tutor* comes to your home
-2 → *Online* (video call)
+2 → *Online* (Class 9+ video call)
 3 → *Either* is fine
 
 Reply *1*, *2*, or *3*`,
 
   P_BUDGET: `💰 *Step 8 of 8* — What is your approximate *monthly tuition budget*?
 
-1 → Under ₹2,000 / month
-2 → ₹2,000 – ₹5,000 / month
-3 → ₹5,000 – ₹10,000 / month
-4 → Above ₹10,000 / month
+1 → Under ₹3,000 / month
+2 → ₹3,000 – ₹6,000 / month
+3 → ₹6,000 – ₹8,000 / month
+4 → Above ₹8,000 / month
 
 Reply *1–4*`,
 
@@ -245,14 +216,12 @@ Is everything correct?
 
 📋 Reference No: *ATH-${String(inquiryNumber).padStart(4, "0")}*
 
-Our verified tutors will reach out to you shortly. You can also view matching tutors at:
-
+Verified tutors will reach out to you shortly. You can also view tutors at:
 🔗 https://apnatutorhub.com/find-tutor
 
-📞 If you don't hear back within 24 hours, WhatsApp us again and type *HELP*.
+📞 Need help? Reply *HELP* or call 08062180653 (9am–7pm).
 
-Thank you for choosing *ApnaTutorHub*! 🙏
-_ApnaTutorHub.com — We Provide Home Tutors_`,
+Thank you for choosing *ApnaTutorHub*!`,
 } as const;
 
 // ── Lookup tables ────────────────────────────────────────────────────────────
@@ -282,12 +251,12 @@ export const TEACHING_MODE_MAP: Record<string, string> = {
 };
 
 export const BUDGET_MAP: Record<string, { label: string; min: number; max: number }> = {
-  "1": { label: "Under ₹2,000/month", min: 0, max: 2000 },
-  "2": { label: "₹2,000–₹5,000/month", min: 2000, max: 5000 },
-  "3": { label: "₹5,000–₹10,000/month", min: 5000, max: 10000 },
-  "4": { label: "Above ₹10,000/month", min: 10000, max: 50000 },
+  "1": { label: "Under ₹3,000/month", min: 0, max: 3000 },
+  "2": { label: "₹3,000–₹6,000/month", min: 3000, max: 6000 },
+  "3": { label: "₹6,000–₹8,000/month", min: 6000, max: 8000 },
+  "4": { label: "Above ₹8,000/month", min: 8000, max: 50000 },
 };
 
-export const SPECIAL_COMMANDS = ["MENU", "START", "HI", "HELLO", "HALO", "LANG", "LANGUAGE", "BHASHA"];
+export const SPECIAL_COMMANDS = ["MENU", "START", "HI", "HELLO", "HALO"];
 export const HELP_COMMANDS = ["HELP", "SUPPORT"];
 export const CANCEL_COMMANDS = ["STOP", "CANCEL", "QUIT", "EXIT"];

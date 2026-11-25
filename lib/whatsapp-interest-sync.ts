@@ -6,6 +6,7 @@
  * and ensures they can be targeted directly in Dummy Lead Campaigns.
  */
 
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 
@@ -191,15 +192,23 @@ export async function ensureTutorUserForPhone(phone: string, name?: string | nul
   });
 
   if (existingUser) {
-    // If user already exists but doesn't have a tutorProfile, create one
+    if (!existingUser.passwordHash) {
+      const defaultHash = await bcrypt.hash("12345678", 10);
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: { passwordHash: defaultHash },
+      }).catch(() => null);
+    }
+    // If user already exists but doesn't have a tutorProfile, create a clean empty-slot profile
+    // (never invent fake "All Subjects" / "Class 1-10" defaults before onboarding collects them)
     if (!existingUser.tutorProfile) {
       await prisma.tutorProfile.create({
         data: {
           userId: existingUser.id,
           city: null,
           address: null,
-          subjects: ["All Subjects"],
-          classLevels: ["Class 1-10"],
+          subjects: [],
+          classLevels: [],
           isVerified: false,
           marketingNotifsEnabled: true,
           onboardingStep: 0,
@@ -212,12 +221,14 @@ export async function ensureTutorUserForPhone(phone: string, name?: string | nul
   // Create lightweight User + TutorProfile for this interested WhatsApp contact
   const placeholderEmail = `wa.${digits10}@apnatutorhub.com`;
   const displayName = name || `Tutor ${digits10.slice(-4)}`;
+  const defaultPasswordHash = await bcrypt.hash("12345678", 10);
 
   const newUser = await prisma.user.create({
     data: {
       name: displayName,
       email: placeholderEmail,
       phone: digits10,
+      passwordHash: defaultPasswordHash,
       role: "TUTOR",
       isActive: true,
       signupSource: "WHATSAPP",
@@ -225,8 +236,8 @@ export async function ensureTutorUserForPhone(phone: string, name?: string | nul
         create: {
           city: null,
           address: null,
-          subjects: ["All Subjects"],
-          classLevels: ["Class 1-10"],
+          subjects: [],
+          classLevels: [],
           isVerified: false,
           marketingNotifsEnabled: true,
           onboardingStep: 0,

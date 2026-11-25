@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, BellOff, CheckCircle2, X } from "lucide-react";
+import { Bell, BellOff, CheckCircle2, X, Sparkles } from "lucide-react";
 import { UnblockGuideModal } from "@/components/UnblockGuideModal";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -26,7 +26,6 @@ export function EnablePushBanner({
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "denied">("idle");
   const [showGuide, setShowGuide] = useState(false);
-
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -50,12 +49,10 @@ export function EnablePushBanner({
     setStatus("loading");
 
     try {
-      // 1. Get VAPID public key
       const keyRes = await fetch("/api/push/subscribe");
       if (!keyRes.ok) throw new Error("VAPID key route failed");
       const { publicKey } = await keyRes.json();
 
-      // 2. Request browser permission
       const result = await Notification.requestPermission();
       setPermission(result);
 
@@ -65,17 +62,17 @@ export function EnablePushBanner({
         return;
       }
 
-      // 3. Register SW
       const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
       await navigator.serviceWorker.ready;
 
-      // 4. Subscribe
+      const existingSub = await registration.pushManager.getSubscription();
+      if (existingSub) await existingSub.unsubscribe();
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as string,
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as BufferSource,
       });
 
-      // 5. Save to server DB
       await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -94,26 +91,12 @@ export function EnablePushBanner({
   const isParent = role === "PARENT";
 
   if (permission === "granted" || status === "success") {
-    return (
-      <div className="ath-panel flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-4 text-xs font-bold text-[#0F2540] min-w-0">
-        <div className="flex items-start gap-2 min-w-0">
-          <CheckCircle2 size={16} className="text-[#2D9E6B] shrink-0 mt-0.5" />
-          <span className="leading-snug">
-            {isParent
-              ? "Tutor application alerts are on for this device."
-              : "Student lead alerts are on for this device."}
-          </span>
-        </div>
-        <span className="rounded-full bg-[#E8F7F0] text-[#238357] px-2.5 py-0.5 text-[10px] font-800 w-fit">
-          Connected
-        </span>
-      </div>
-    );
+    return null; // Don't take up permanent space if already granted
   }
 
   return (
     <>
-      <div className="ath-panel flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center relative min-w-0">
+      <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
           type="button"
           aria-label="Dismiss notification banner"
@@ -121,63 +104,55 @@ export function EnablePushBanner({
             setDismissed(true);
             window.localStorage.setItem("ath-push-banner-dismissed", "1");
           }}
-          className="absolute top-3 right-3 p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/70 cursor-pointer min-h-11 min-w-11 inline-flex items-center justify-center"
+          className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
         >
           <X size={16} />
         </button>
-        <div className="flex items-start gap-3 pr-10 min-w-0">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_0px_#0F172A]">
-            <Bell size={22} className="text-orange-600 animate-bounce" />
+
+        <div className="flex items-start gap-3.5 pr-8 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
+            <Bell size={18} />
           </div>
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-black text-[#0F172A] uppercase tracking-wide">
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-slate-900">
                 {isParent
-                  ? "⚠️ Turn On Notifications for Instant Tutor Responses & Applications"
-                  : "⚠️ Turn On Notifications to Get Instant Student Leads & Inquiries"}
-              </p>
-              <span className="neu-badge bg-red-100 text-red-700 border-red-300 text-[10px] font-extrabold">
-                REQUIRED
+                  ? "Get instant alerts for tutor replies"
+                  : "Get instant alerts when students post near you"}
+              </h4>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                Recommended
               </span>
             </div>
-            <p className="text-xs font-bold text-slate-700">
-              {isParent
-                ? "Allow notifications to receive instant updates when verified tutors apply for your tuition requirement."
-                : "Allow notifications to get instant popups and leads whenever a parent posts a new tuition requirement in your area."}
+            <p className="text-xs text-slate-500 mt-0.5 font-medium leading-relaxed max-w-xl">
+              Turn on push alerts so you never miss an inquiry or newly posted tuition class in your locality.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
-          {permission === "denied" && (
-            <button
-              onClick={() => setShowGuide(true)}
-              className="neu-button-ghost text-xs font-extrabold flex items-center gap-1.5 text-rose-700 border-rose-300 bg-rose-50 hover:bg-rose-100 cursor-pointer"
-            >
+        <button
+          type="button"
+          onClick={enablePush}
+          disabled={status === "loading"}
+          className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shrink-0 transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+        >
+          {status === "loading" ? (
+            "Connecting..."
+          ) : status === "denied" || permission === "denied" ? (
+            <>
               <BellOff size={14} />
-              Blocked — How to Unblock
-            </button>
+              <span>Permission Denied (Guide)</span>
+            </>
+          ) : (
+            <>
+              <Bell size={14} />
+              <span>Turn On Alerts</span>
+            </>
           )}
-
-          <button
-            onClick={enablePush}
-            disabled={status === "loading"}
-            className="neu-button-accent text-xs font-black shrink-0 flex items-center gap-1.5 cursor-pointer bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md"
-          >
-            <Bell size={14} />
-            {status === "loading"
-              ? "Enabling..."
-              : isParent
-              ? "Turn On Tutor Alerts"
-              : "Turn On Lead Alerts"}
-          </button>
-        </div>
+        </button>
       </div>
 
-      <UnblockGuideModal
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-      />
+      <UnblockGuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />
     </>
   );
 }

@@ -114,7 +114,7 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
     /^(?:please\s*)?call(?:\s*me)?\.?$|\bonline\s+le\s+s|\bnot attending\b|\bhindi medium\b|\benglish medium\b|\bagree to take\b|\bfree\s+(?:one\s+)?class\b|\bregistration fees?\b|\bcharges?\b/i.test(text);
   if (garbage && !normalizeCanonicalClassLevel(text)) {
     return explain(
-      `Yeh class nahi hai, isliye request save nahi hui.\n\nClass 1–8 = home tuition, All Subjects.\nClass 9–10 = Maths / Science / English.\nClass 11–12 = Physics, Accounts, jaise koi ek subject.\n\nEk line mein likhein: *Class 4, All Subjects, Mukundpur*`,
+      `That doesn't look like a school class, so nothing was saved yet.\n\n• Class 1–8: Home tuition, All Subjects\n• Class 9–10: Maths, Science, SST, English, etc.\n• Class 11–12: Specific stream subjects (Physics, Accounts, Maths, etc.)\n\nPlease reply in one line, e.g.: *Class 4, All Subjects, Mukundpur*`,
       ["Class 1-5 All Subjects", "Class 8 All Subjects", "Class 9 Maths", "Class 11 Physics"],
       draft
     );
@@ -146,7 +146,7 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
 
   if (!draft.classLevel) {
     return explain(
-      `Pehle class batayein. Sirf number ya koi sentence class nahi hota.\n\n*Class 1 se 8* — home tuition, saare subjects.\n*Class 9–10* — Maths, Science, English.\n*Class 11–12 / JEE / NEET* — Physics, Chemistry, Accounts jaise subject.`,
+      `Please tell me the student's class first.\n\n• *Class 1–8* — Home tuition, All Subjects\n• *Class 9–10* — Mathematics, Science, English, SST\n• *Class 11–12 / JEE / NEET* — Physics, Chemistry, Accountancy, Maths, etc.`,
       ["Class 1-5", "Class 6-8", "Class 9-10", "Class 11-12"],
       draft
     );
@@ -160,8 +160,8 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
     draft.mode = "OFFLINE";
     draft.confirm = "junior-offline";
     return explain(
-      `*${draft.classLevel}* ke bachche ke liye online class nahi chalti. Sirf *home tuition (offline)* hai, mahine ki fees par.\n\nAgar yeh theek hai to *HAAN* likhein, aur locality batayein (sector ya colony, ghar number nahi).`,
-      ["HAAN", "Class 9-10 Online", "Mukundpur", "Rohini"],
+      `For *${draft.classLevel}*, we offer *home tuition (offline)* on a monthly fee basis.\n\nPlease reply *YES* to confirm and share your locality (sector or colony name).`,
+      ["YES", "Class 9-10 Online", "Mukundpur", "Rohini"],
       draft
     );
   }
@@ -174,8 +174,8 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
       draft.subjects = ["All Subjects"];
       draft.confirm = "junior-subjects";
       return explain(
-        `${compat.reason || `*${draft.classLevel}* mein Physics ya Accounts alag se nahi hota.`}\n\nIs class par *All Subjects* aur *home tuition* hota hai. Sahi ho to *HAAN* likhein.`,
-        ["HAAN, All Subjects", "Class 9-10 Science", "Class 11 Physics"],
+        `${compat.reason || `*${draft.classLevel}* does not have separate Physics or Accountancy subjects.`}\n\nFor Classes 1–8, home tuition covers *All Subjects*. Reply *YES* if that works for you.`,
+        ["YES, All Subjects", "Class 9-10 Science", "Class 11 Physics"],
         draft
       );
     }
@@ -184,22 +184,22 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
     draft.subjects = [];
     draft.confirm = "senior-subject";
     return explain(
-      `*${draft.classLevel}* mein "All Subjects" ya sirf "Science" nahi hota. Stream alag hoti hai.\n\nKaunsa subject chahiye: *Physics, Chemistry, Maths, Biology, Accounts, Economics, ya English*?`,
-      ["Physics", "Chemistry", "Maths", "Accounts"],
+      `For *${draft.classLevel}*, please choose specific stream subjects rather than "All Subjects" or generic "Science".\n\nWhich subject do you need: *Physics, Chemistry, Mathematics, Biology, Accountancy, Economics, or English*?`,
+      ["Physics", "Chemistry", "Mathematics", "Accountancy"],
       draft
     );
   } else if (!junior && (!draft.subjects || draft.subjects.length === 0 || draft.subjects.every((s) => /^all subjects$/i.test(s)))) {
     draft.subjects = [];
     return explain(
-      `*${draft.classLevel}* ke liye subject batayein. Class 9–10 par Maths, Science, English, SST. Class 11–12 par Physics, Accounts, ya Economics.\n\nAll Subjects sirf Class 1–8 par hota hai.`,
-      grade !== null && grade <= 10 ? ["Maths", "Science", "English", "SST"] : ["Physics", "Maths", "Accounts", "Biology"],
+      `Please specify the subjects needed for *${draft.classLevel}*. Class 9–10 covers Maths, Science, English, SST; Class 11–12 covers stream subjects like Physics, Accountancy, Economics.\n\n"All Subjects" is only for Classes 1–8.`,
+      grade !== null && grade <= 10 ? ["Mathematics", "Science", "English", "Social Science"] : ["Physics", "Mathematics", "Accountancy", "Biology"],
       draft
     );
   } else if (draft.classLevel && draft.subjects && draft.subjects.length > 0) {
     const compat = validateSubjectClassCompatibility(draft.subjects, draft.classLevel, "PARENT");
     if (!compat.isValid) {
       return explain(
-        compat.reason || `*${draft.subjects[0]}* is class ke saath match nahi karta.`,
+        compat.reason || `*${draft.subjects[0]}* does not match this class level.`,
         compat.suggestedReplies || ["Class 9-10 Science", "Class 11 Physics"],
         { ...draft, subjects: [] }
       );
@@ -213,15 +213,15 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
 
   if (draft.confirm) {
     return explain(
-      `Confirm kar dein: *${draft.classLevel}*, ${draft.subjects?.join(", ") || "subject"}, ${draft.mode === "ONLINE" ? "Online" : "Home tuition"}${draft.area ? `, ${draft.area}` : ""}.\n\nSahi ho to *HAAN* likhein.`,
-      ["HAAN", "Class 9-10", "Change subject"],
+      `Please confirm: *${draft.classLevel}*, ${draft.subjects?.join(", ") || "subjects"}, ${draft.mode === "ONLINE" ? "Online" : "Home tuition"}${draft.area ? `, ${draft.area}` : ""}.\n\nReply *YES* to confirm.`,
+      ["YES", "Class 9-10", "Change subject"],
       draft
     );
   }
 
   if (!draft.area) {
     return explain(
-      `*${draft.classLevel}* · ${(draft.subjects || []).join(", ")} · ${junior ? "Home tuition, monthly" : draft.mode === "ONLINE" ? "Online, hourly" : "Home tuition, hourly"}.\n\nAb locality batayein — mohalla, sector, ya colony. Ghar number, pincode, ya "near SBI" mat likhein.`,
+      `*${draft.classLevel}* · ${(draft.subjects || []).join(", ")} · ${junior ? "Home tuition (monthly)" : draft.mode === "ONLINE" ? "Online (hourly)" : "Home tuition (hourly)"}.\n\nPlease share your locality / sector / colony name (no house number or landmark needed).`,
       ["Rohini", "Dwarka", "Mukundpur", "Noida Sector 62"],
       draft
     );
@@ -230,8 +230,8 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
   const subjects = leadSubjectsForClass(draft.classLevel, draft.subjects || []);
   if (subjects.length === 0) {
     return explain(
-      `Subject abhi clear nahi hai. *${draft.classLevel}* ke liye subject ka naam likhein.`,
-      ["Maths", "Science", "English", "All Subjects"],
+      `The subjects for *${draft.classLevel}* aren't clear yet. Please name the subject(s) you need.`,
+      ["Mathematics", "Science", "English", "All Subjects"],
       draft
     );
   }
@@ -249,7 +249,7 @@ export function assessIntake(message: string, previous: IntakeDraft = {}): Intak
   return {
     ready: true,
     draft,
-    reply: `Save kar rahe hain: *${sealed.classLevel}*, ${sealed.subjects.join(", ")}, ${sealed.area}, ${sealed.mode === "ONLINE" ? "Online" : "Home tuition"}.`,
+    reply: `Saving your request: *${sealed.classLevel}*, ${sealed.subjects.join(", ")}, ${sealed.area}, ${sealed.mode === "ONLINE" ? "Online" : "Home tuition"}.`,
     quickReplies: [],
   };
 }
@@ -260,41 +260,41 @@ export function sealLeadEntry(draft: IntakeDraft):
   | { ok: false; reason: string } {
   const classLevel = normalizeCanonicalClassLevel(draft.classLevel || "");
   if (!classLevel || !/^(Class ([1-9]|1[0-2])(-([1-9]|1[0-2]))?|Nursery|LKG|UKG|KG|JEE|NEET|CUET)$/.test(classLevel)) {
-    return { ok: false, reason: "Yeh class valid nahi hai. Class 1 se 12, Nursery, JEE ya NEET likhein." };
+    return { ok: false, reason: "That doesn't look like a valid class. Please enter Class 1 to 12, Nursery, JEE, or NEET." };
   }
   const rawArea = (draft.area || "").trim();
   if (
     /[?]|\b(near|house|h\.?\s*no|flat|plot|sbi|atm|bank|mandir|temple|branch)\b/i.test(rawArea) &&
     !/\b(sector|sec\b|nagar|vihar|colony|enclave|pur\b|bagh\b|kunj|society)\b/i.test(rawArea)
   ) {
-    return { ok: false, reason: "Area sirf sector, colony ya mohalla ho sakta hai. Ghar number aur poora sentence save nahi hota." };
+    return { ok: false, reason: "Please enter only your sector, colony, or neighbourhood (not a house number or full sentence)." };
   }
   const area = extractPublicLocality(draft.area || "") || localityFrom(draft.area || "");
   if (!area || area.length > 40 || /[?]|\b(please|call|hu|hoon|padhta|padhti|near|house|sbi|tuition|tution)\b/i.test(area)) {
-    return { ok: false, reason: "Area sirf sector, colony ya mohalla ho sakta hai. Ghar number aur poora sentence save nahi hota." };
+    return { ok: false, reason: "Please enter only your sector, colony, or neighbourhood (not a house number or full sentence)." };
   }
   const junior = isTill8thClass(classLevel);
   const subjects = leadSubjectsForClass(classLevel, draft.subjects || []);
   if (junior) {
     if (draft.mode === "ONLINE") {
-      return { ok: false, reason: "Class 1–8 online save nahi hota. Sirf home tuition hai." };
+      return { ok: false, reason: "Classes 1–8 are available for offline home tuition only." };
     }
     const specific = (draft.subjects || []).filter((s) => !/^all subjects$/i.test(s));
     if (specific.some((s) => /physic|chem|bio|account|commerce/i.test(s))) {
-      return { ok: false, reason: `${classLevel} mein Physics ya Accounts save nahi hota. Is class par All Subjects aur home tuition hota hai.` };
+      return { ok: false, reason: `${classLevel} does not support Physics or Accountancy separately — Classes 1–8 cover All Subjects via home tuition.` };
     }
     return { ok: true, classLevel, subjects: ["All Subjects"], area, city: draft.city, mode: "OFFLINE" };
   }
   const rawSubs = draft.subjects || [];
   if (subjects.length === 0 || rawSubs.every((s) => /^all subjects$/i.test(s))) {
-    return { ok: false, reason: `${classLevel} ke liye Maths, Science, Physics ya Accounts jaisa subject chahiye. All Subjects sirf Class 1–8 par hai.` };
+    return { ok: false, reason: `Please specify subjects for ${classLevel} (e.g., Mathematics, Science, Physics, Accountancy). "All Subjects" is for Classes 1–8 only.` };
   }
   if (/^(jee|neet|cuet|class 11|class 12)/i.test(classLevel) && subjects.some((s) => /^(science|general science)(?:\s+for\s+class\b.*)?$/i.test(s))) {
-    return { ok: false, reason: `${classLevel} mein sirf Science kaafi nahi. Physics, Chemistry, Maths, Biology ya Accounts likhein.` };
+    return { ok: false, reason: `For ${classLevel}, please specify exact stream subjects like Physics, Chemistry, Mathematics, Biology, or Accountancy.` };
   }
   const compat = validateSubjectClassCompatibility(subjects, classLevel, "PARENT");
   if (!compat.isValid) {
-    return { ok: false, reason: compat.reason || "Yeh subject is class ke saath save nahi ho sakta." };
+    return { ok: false, reason: compat.reason || "Those subjects are not compatible with this class level." };
   }
   return { ok: true, classLevel, subjects, area, city: draft.city, mode: draft.mode === "ONLINE" ? "ONLINE" : "OFFLINE" };
 }

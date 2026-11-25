@@ -470,16 +470,16 @@ export async function toggleTutorMarketingNotifsAction(targetUserId: string, ena
 export async function updateTutorQuickPreferencesAction(input: {
   city: string;
   address: string;
-  subjects: string[];
+  subjects?: string[];
   classLevels?: string[];
   teachingMode?: "OFFLINE" | "ONLINE" | "EITHER";
+  teachingRadius?: number;
 }): Promise<ActionResult<{ updated: true; city: string; address: string; subjects: string[] }>> {
   const authRes = await resolveTutorContext();
   if (!authRes.ok) return authRes.result;
 
   const city = (input.city || "").trim();
   const address = (input.address || "").trim();
-  const rawSubjects = Array.isArray(input.subjects) ? input.subjects.map((s) => s.trim()).filter(Boolean) : [];
   const teachingMode = input.teachingMode || "EITHER";
 
   if (!city || city === "null" || city === "undefined") {
@@ -488,12 +488,46 @@ export async function updateTutorQuickPreferencesAction(input: {
   if (!address || address === "null" || address === "undefined" || address.length < 2) {
     return actionError("Please enter your locality / area (e.g. Sector 62, Rohini, South Patel Nagar).");
   }
+
+  const existing = await prisma.tutorProfile.findUnique({
+    where: { id: authRes.context.tutorProfileId },
+    select: {
+      onboardingStep: true,
+      latitude: true,
+      longitude: true,
+      bio: true,
+      qualification: true,
+      experience: true,
+      feeMin: true,
+      feeMax: true,
+      introVideoUrl: true,
+      kycStatus: true,
+      isVerified: true,
+      availability: true,
+      subjects: true,
+      classLevels: true,
+      teachingRadius: true,
+    },
+  });
+
+  const rawSubjects =
+    Array.isArray(input.subjects) && input.subjects.length > 0
+      ? input.subjects.map((s) => s.trim()).filter(Boolean)
+      : existing?.subjects && existing.subjects.length > 0
+      ? existing.subjects
+      : ["All Core Subjects"];
+
   if (rawSubjects.length === 0) {
     return actionError("Please select at least one teaching subject.");
   }
 
   // Derive / normalize class levels & subjects as per strict rule
-  const rawClassLevels = input.classLevels && input.classLevels.length > 0 ? input.classLevels : [];
+  const rawClassLevels =
+    input.classLevels && input.classLevels.length > 0
+      ? input.classLevels
+      : existing?.classLevels && existing.classLevels.length > 0
+      ? existing.classLevels
+      : [];
   const normalizedSubjects = normalizeSubjectsForClassRule(rawSubjects, rawClassLevels);
   const finalSubjects = normalizedSubjects.length > 0 ? normalizedSubjects : rawSubjects;
 
@@ -526,26 +560,12 @@ export async function updateTutorQuickPreferencesAction(input: {
     console.warn("[updateTutorQuickPreferencesAction] Geocoding warning:", err);
   }
 
-  const existing = await prisma.tutorProfile.findUnique({
-    where: { id: authRes.context.tutorProfileId },
-    select: {
-      onboardingStep: true,
-      latitude: true,
-      longitude: true,
-      bio: true,
-      qualification: true,
-      experience: true,
-      feeMin: true,
-      feeMax: true,
-      introVideoUrl: true,
-      kycStatus: true,
-      isVerified: true,
-      availability: true,
-    },
-  });
-
   const finalLat = latitude ?? existing?.latitude ?? null;
   const finalLng = longitude ?? existing?.longitude ?? null;
+  const teachingRadius =
+    typeof input.teachingRadius === "number" && input.teachingRadius >= 1 && input.teachingRadius <= 30
+      ? input.teachingRadius
+      : undefined;
 
   // Recalculate profile score
   const mergedForScore = {
@@ -575,6 +595,7 @@ export async function updateTutorQuickPreferencesAction(input: {
       classLevels: finalClassLevels,
       teachingMode: teachingMode as any,
       profileScore,
+      ...(teachingRadius != null && { teachingRadius }),
       ...(finalLat != null && { latitude: finalLat }),
       ...(finalLng != null && { longitude: finalLng }),
       onboardingStep: Math.max(existing?.onboardingStep ?? 0, 7),

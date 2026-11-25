@@ -615,14 +615,62 @@ export async function completePhoneNumberAction(
       phone: { in: phoneVariants },
       id: { not: session.user.id },
     },
-    select: { id: true, email: true },
+    select: {
+      id: true,
+      email: true,
+      signupSource: true,
+      tutorProfile: {
+        select: {
+          id: true,
+          onboardingStep: true,
+          city: true,
+          address: true,
+          subjects: true,
+          classLevels: true,
+          teachingMode: true,
+          wallet: { select: { balance: true } },
+          _count: {
+            select: {
+              purchases: true,
+              bookings: true,
+              subscriptions: true,
+              manualPayments: true,
+            },
+          },
+        },
+      },
+      parentProfile: {
+        select: {
+          id: true,
+          _count: { select: { leads: true } },
+        },
+      },
+    },
   });
 
   if (existing) {
-    return {
-      success: false,
-      error: "This mobile number is already linked to another ApnaTutorHub account.",
-    };
+    const isUnusedWaShell =
+      existing.signupSource === "WHATSAPP" &&
+      (existing.email.startsWith("wa.") || existing.email.startsWith("wa_")) &&
+      (existing.tutorProfile?.onboardingStep ?? 0) <= 0 &&
+      (existing.tutorProfile?.wallet?.balance ?? 0) <= 0 &&
+      (existing.tutorProfile?._count.purchases ?? 0) === 0 &&
+      (existing.tutorProfile?._count.bookings ?? 0) === 0 &&
+      (existing.tutorProfile?._count.subscriptions ?? 0) === 0 &&
+      (existing.tutorProfile?._count.manualPayments ?? 0) === 0 &&
+      (existing.parentProfile?._count.leads ?? 0) === 0;
+
+    if (isUnusedWaShell) {
+      // Release phone from the empty auto-created WhatsApp stub so the verified website user can claim it
+      await prisma.user.delete({ where: { id: existing.id } }).catch(async () => {
+        await prisma.user.update({ where: { id: existing.id }, data: { phone: null } });
+      });
+    } else {
+      return {
+        success: false,
+        error: "This mobile number is already linked to another ApnaTutorHub account.",
+      };
+    }
   }
 
   // Update user with phone and clear incomplete tag

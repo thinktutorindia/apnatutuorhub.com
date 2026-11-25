@@ -92,27 +92,27 @@ export function detectLooseIntent(rawMessage: string): LooseIntent | null {
 export function looseIntentClarifyReply(intent: LooseIntent, isTutor: boolean): string {
   if (intent === "GREETING") {
     return isTutor
-      ? "Namaste! Main Priya, ApnaTutorHub coordinator. Batayein, matching leads dekhni hain ya profile update karni hai? 🙏"
-      : "Namaste! Main Priya, ApnaTutorHub coordinator. Bachche ke liye tutor chahiye ya koi aur sawaal? 🙏";
+      ? "Hello! I'm Priya from ApnaTutorHub. Would you like to check matching student leads or update your tutor profile? 🙏"
+      : "Hello! I'm Priya from ApnaTutorHub. Would you like to find a tutor for your child? 🙏";
   }
   if (intent === "THANKS") {
-    return "Aapka dhanyavaad! Kuch aur chahiye ho to likh dein — *leads*, *profile*, *coins*, ya *help*.";
+    return "You're welcome! Let me know anytime if you need *leads*, *profile*, *plans*, or *help*.";
   }
   if (intent === "DECLINE") {
-    return "Theek hai, koi baat nahi! 🙏 Jab bhi aapko fresh tuition requirements ya koi help chahiye ho, bas yahan *LEADS* likh dein.";
+    return "No problem at all! 🙏 Whenever you need fresh tuition leads or assistance, just reply *LEADS*.";
   }
   if (intent === "WRONG_INFO") {
-    return "Report note kar li gayi hai! 📋 Agar kisi lead mein contact number ya student detail galat hai, toh hamari verification team turant check karke lead update karegi aur coins wallet mein refund kar degi.\n\n📞 Support Helpline: 08062180653 / WhatsApp: +91 93191 93109";
+    return "Thanks for letting us know! 📋 If a lead has a wrong number or unavailable parent, our verification team will review and refund your coins.\n\n📞 Helpline: 08062180653 | WhatsApp: +91 93191 93109";
   }
   if (intent === "PING") {
     return isTutor
-      ? "Ji batayein, hum aapki kya madad kar sakte hain? Aap matching student leads dekhna chahte hain ya koi requirement check karni hai? 😊"
-      : "Ji batayein, bachche ke liye kaunsi class aur subject ka home tutor chahiye? 🎓";
+      ? "Hi there! How can I help you today? Would you like to see matching student leads or check a specific requirement? 😊"
+      : "Hi there! Which class, subjects, and locality do you need a home tutor for? 🎓";
   }
   if (intent === "CONFUSED" || intent === "NOISE") {
     return isTutor
-      ? "Thoda clear nahi hua — koi baat nahi. 😊\n\nAap yeh likh sakte hain:\n• *Leads* — matching students\n• *Rohini mein koi class?* — area wise leads\n• *My profile* — apna data\n• *Help* — coordinator\n\nYa seedha apna sawaal ek line mein likh dein."
-      : "Thoda clear nahi hua. Bachche ki *class*, *subject* aur *area* ek line mein likh dein — jaise: *Class 8, Maths, Saket*";
+      ? "I didn't quite catch that — no worries! 😊\n\nYou can simply write:\n• *Leads* — view matching students\n• *My profile* — check or update your details\n• *Plans* — membership & coins\n• *Help* — coordinator support\n\nOr tell me your subjects, classes, and city/area in one line."
+      : "I didn't quite catch that. Please share your child's *class*, *subjects*, and *locality* in one line (e.g., *Class 8, All Subjects, Rohini*).";
   }
   if (intent === "LEADS") return "";
   if (intent === "PLANS") return "";

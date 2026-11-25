@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Wallet, ArrowUpRight, ArrowDownLeft, RotateCcw, Gift, ShieldCheck, Plus, Sparkles } from "lucide-react";
 import type { WalletTransactionType } from "@prisma/client";
 import { TopUpModal } from "@/components/wallet/TopUpModal";
+import { useSeniorTutor } from "@/components/tutor/SeniorTutorContext";
 
 type Transaction = {
   id: string;
@@ -102,6 +103,7 @@ export function WalletPageClient({
   isOldUser?: boolean;
   coinCosts?: { class18: number; class912: number; competitive: number };
 }) {
+  const { lang, t } = useSeniorTutor();
   const router = useRouter();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [filter, setFilter] = useState<WalletTransactionType | "ALL">("ALL");
@@ -122,103 +124,60 @@ export function WalletPageClient({
     router.refresh();
   };
 
+  const filterLabels: Record<string, string> = {
+    ALL: t("txFilterAll"),
+    PURCHASE: t("txFilterPurchase"),
+    DEDUCTION: t("txFilterDeduction"),
+    REFUND: t("txFilterRefund"),
+    BONUS: t("txFilterBonus"),
+  };
+
+  const txTypeLabels: Record<WalletTransactionType, string> = {
+    PURCHASE: t("txTypePurchase"),
+    DEDUCTION: t("txTypeDeduction"),
+    REFUND: t("txTypeRefund"),
+    BONUS: t("txTypeBonus"),
+    ADMIN_CREDIT: t("txTypeAdminCredit"),
+    ADMIN_DEBIT: t("txTypeAdminDebit"),
+  };
+
   return (
     <>
-      <div className="space-y-6 pb-8">
-        {/* Festival Season Promotional Banner — shown when top-up is hidden */}
-        {!canTopup && (
-          <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-400/60 bg-gradient-to-br from-emerald-500/10 via-blue-400/10 to-teal-300/10 p-5 shadow-lg">
-            <div className="absolute -top-8 -right-8 w-36 h-36 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
-            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <span className="text-3xl shrink-0 mt-0.5">🚀</span>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-emerald-800 mb-0.5">🤝 Official Membership Plan</p>
-                  <p className="text-base font-black text-[#0F2540] leading-tight">
-                    Start with <span className="text-emerald-700">Commission Based Plan (₹1,257)</span>{" "}
-                    <span className="text-xs font-bold text-slate-500 line-through">₹2,500</span>{" "}
-                    <span className="text-[11px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">50% OFF</span>
-                  </p>
-                  <p className="text-xs text-slate-600 font-semibold mt-1">
-                    <strong>5 Verified Leads Unlock</strong> • <strong>6 Months Validity</strong> (180 Days)
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
-                    Verified parent contacts • Direct call &amp; WhatsApp • Low competition: max 3 tutors
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/tutor/plans"
-                className="shrink-0 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 !text-white text-xs font-black shadow-lg transition-all hover:scale-105 inline-flex items-center gap-1.5"
-              >
-                <Sparkles size={14} />
-                <span>View ₹1,257 Commission Plan →</span>
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Creator / Barter Video Review Promo Banner */}
-        <div className="relative overflow-hidden rounded-3xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-5 shadow-xs">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <span className="text-3xl shrink-0 mt-0.5">📹</span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-800">Free Coins Program</span>
-                  <span className="text-[10px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Earn 10 Free Coins</span>
-                </div>
-                <p className="text-sm font-black text-slate-900 mt-0.5">
-                  Record a 30-sec Video Review & Get 10 Free Coins!
-                </p>
-                <p className="text-xs text-slate-600 font-medium mt-1">
-                  Share your experience on Instagram or WhatsApp video to our coordinator. Unlocks 1 verified Class 1–8 tuition lead for free!
-                </p>
-              </div>
-            </div>
-            <a
-              href="https://wa.me/919319193109?text=Hi%20ApnaTutorHub%2C%20I%20want%20to%20submit%20my%2030-sec%20video%20review%20for%2010%20free%20coins!"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md transition-all inline-flex items-center gap-1.5"
-            >
-              <span>Submit Video on WhatsApp →</span>
-            </a>
-          </div>
-        </div>
-
+      <div className="space-y-6 pb-8 text-slate-900">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl border border-gray-200/90 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs">
           <div>
-            <span className="text-xs font-800 uppercase tracking-wider text-[#2D9E6B] block mb-1">
-              Tutor Wallet &amp; Credits
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 block w-fit mb-1">
+              {lang === "hi" ? "शिक्षक वॉलेट और क्रेडिट" : "Tutor Wallet & Credits"}
             </span>
-            <h1 className="text-2xl sm:text-3xl font-800 text-[#0F2540] tracking-tight" style={{ fontFamily: "Poppins, sans-serif" }}>
-              Coin Wallet
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {t("walletTitle")}
             </h1>
-            <p className="text-sm text-gray-600 font-600 mt-1">
-              Use coins to connect with interested parents and unlock direct tuition enquiries.
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              {t("walletSub")}
             </p>
           </div>
 
-          {canTopup ? (
-            <button
-              type="button"
-              onClick={() => setTopUpOpen(true)}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#2D9E6B] hover:bg-[#238357] !text-white text-xs font-800 shrink-0 inline-flex items-center justify-center gap-2 cursor-pointer min-h-11"
-            >
-              <Plus size={16} />
-              <span className="!text-white font-800">Top Up Coins</span>
-            </button>
-          ) : (
-            <Link
-              href="/tutor/plans"
-              className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 !text-white text-xs font-800 shrink-0 flex items-center gap-2 shadow-md transition-all"
-            >
-              <Sparkles size={15} />
-              <span>Upgrade Plan to Unlock Top-up</span>
-            </Link>
-          )}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {canTopup ? (
+              <button
+                type="button"
+                onClick={() => setTopUpOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shrink-0 inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <Plus size={15} />
+                <span>{t("addCoinsBtn")}</span>
+              </button>
+            ) : (
+              <Link
+                href="/tutor/plans"
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-xs transition-colors"
+              >
+                <Sparkles size={14} />
+                <span>{lang === "hi" ? "कमीशन प्लान देखें (5 लीड्स)" : "Explore Membership (5 Leads)"}</span>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Balance Card + Stats */}
@@ -230,10 +189,10 @@ export function WalletPageClient({
             </div>
             <div>
               <p className="text-xs font-800 uppercase tracking-wider text-amber-900">
-                Current Balance
+                {t("walletBalanceCardLabel")}
               </p>
               <p className="text-4xl font-800 text-[#0F2540] tracking-tight mt-1" style={{ fontFamily: "Poppins, sans-serif" }}>
-                {liveBalance} <span className="text-2xl font-700 text-amber-600">Coins</span>
+                {liveBalance} <span className="text-2xl font-700 text-amber-600">{t("coinsBadge")}</span>
               </p>
             </div>
             {canTopup ? (
@@ -243,14 +202,14 @@ export function WalletPageClient({
                 className="w-full py-2.5 px-4 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] !text-white text-xs font-800 flex items-center justify-center gap-1.5 cursor-pointer mt-1"
               >
                 <Plus size={14} />
-                <span className="!text-white font-800">Buy Coins Now</span>
+                <span className="!text-white font-800">{t("addCoinsBtn")}</span>
               </button>
             ) : (
               <Link
                 href="/tutor/plans"
                 className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 !text-white text-xs font-800 flex items-center justify-center gap-1.5 transition-all shadow-md mt-1"
               >
-                <span>Explore Membership Plans</span>
+                <span>{lang === "hi" ? "मेम्बरशिप प्लान देखें" : "Explore Membership Plans"}</span>
               </Link>
             )}
           </div>
@@ -260,7 +219,7 @@ export function WalletPageClient({
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#2D9E6B] flex items-center justify-center font-800 text-lg">
               <ArrowUpRight size={20} />
             </div>
-            <p className="text-xs font-800 uppercase tracking-wider text-gray-500">Total Purchased</p>
+            <p className="text-xs font-800 uppercase tracking-wider text-gray-500">{t("totalPurchasedLabel")}</p>
             <p className="text-3xl font-800 text-[#0F2540] tracking-tight group-hover:text-[#2D9E6B] transition-colors" style={{ fontFamily: "Poppins, sans-serif" }}>
               {totalPurchased} <span className="text-lg font-700 text-gray-500">🪙</span>
             </p>
@@ -271,7 +230,7 @@ export function WalletPageClient({
             <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-800 text-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
               <ArrowDownLeft size={20} />
             </div>
-            <p className="text-xs font-800 uppercase tracking-wider text-gray-500">Total Spent</p>
+            <p className="text-xs font-800 uppercase tracking-wider text-gray-500">{t("totalSpentLabel")}</p>
             <p className="text-3xl font-800 text-[#0F2540] tracking-tight group-hover:text-blue-600 transition-colors" style={{ fontFamily: "Poppins, sans-serif" }}>
               {totalSpent} <span className="text-lg font-700 text-gray-500">🪙</span>
             </p>
@@ -283,9 +242,11 @@ export function WalletPageClient({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-gray-100">
             <div>
               <h2 className="text-lg font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
-                Transaction History
+                {t("txHistoryTitle")}
               </h2>
-              <p className="text-xs text-gray-600 font-600">Track all coin top-ups, unlocks, refunds, and bonuses</p>
+              <p className="text-xs text-gray-600 font-600">
+                {lang === "hi" ? "सभी कॉइन टॉप-अप, अनलॉक, रिफंड और बोनस लेन-देन देखें" : "Track all coin top-ups, unlocks, refunds, and bonuses"}
+              </p>
             </div>
 
             {/* Filter pills */}
@@ -306,7 +267,7 @@ export function WalletPageClient({
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
-                    {FILTER_LABELS[type]}
+                    {filterLabels[type] ?? FILTER_LABELS[type]}
                   </button>
                 );
               })}
@@ -318,22 +279,29 @@ export function WalletPageClient({
               <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-2xl mx-auto">
                 🎉
               </div>
-              <p className="text-sm font-700 text-gray-800">No transactions recorded yet</p>
+              <p className="text-sm font-700 text-gray-800">
+                {t("txEmpty")}
+              </p>
               <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                Choose the ₹1,257 Commission Based Plan to unlock verified student leads.
+                {lang === "hi"
+                  ? "सत्यापित छात्र लीड्स अनलॉक करने के लिए ₹1,257 कमीशन आधारित प्लान चुनें।"
+                  : "Choose the ₹1,257 Commission Based Plan to unlock verified student leads."}
               </p>
               <Link
                 href="/tutor/plans"
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 !text-white text-xs font-800 inline-flex items-center gap-1.5 mt-2"
               >
                 <Sparkles size={14} />
-                <span className="!text-white font-800">View ₹1,257 Commission Plan →</span>
+                <span className="!text-white font-800">
+                  {lang === "hi" ? "₹1,257 कमीशन प्लान देखें →" : "View ₹1,257 Commission Plan →"}
+                </span>
               </Link>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
               {paginated.map((tx) => {
                 const config = TX_CONFIG[tx.type] ?? TX_CONFIG.PURCHASE;
+                const typeLabel = txTypeLabels[tx.type] ?? config.label;
                 const Icon = config.icon;
                 const isPending =
                   tx.type === "REFUND" &&
@@ -357,11 +325,11 @@ export function WalletPageClient({
                     <div className="flex-1 min-w-0">
                       <p className="truncate text-sm font-800 text-[#0F2540]">
                         {isPending
-                          ? `Refund Request — Pending Review${reasonText ? ` (${reasonText})` : ""}`
-                          : (tx.description ?? config.label)}
+                          ? (lang === "hi" ? `रिफंड अनुरोध — समीक्षा जारी${reasonText ? ` (${reasonText})` : ""}` : `Refund Request — Pending Review${reasonText ? ` (${reasonText})` : ""}`)
+                          : (tx.description && tx.description !== tx.type ? tx.description : typeLabel)}
                       </p>
                       <p className="text-xs font-600 text-gray-500 mt-0.5">
-                        {new Date(tx.createdAt).toLocaleString("en-IN", {
+                        {new Date(tx.createdAt).toLocaleString(lang === "hi" ? "hi-IN" : "en-IN", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
@@ -376,7 +344,7 @@ export function WalletPageClient({
                         {config.sign}{tx.amount} 🪙
                       </p>
                       <p className="text-[11px] font-600 text-gray-500">
-                        Balance: {tx.balanceAfter} 🪙
+                        {lang === "hi" ? "शेष:" : "Balance:"} {tx.balanceAfter} 🪙
                       </p>
                     </div>
                   </div>
@@ -410,6 +378,27 @@ export function WalletPageClient({
             </div>
           )}
         </section>
+
+        {/* Coordinator Help Card */}
+        <div className="rounded-3xl p-5 sm:p-6 bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl shrink-0">
+              💬
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900">Need Help with Coins or Payments?</h3>
+              <p className="text-xs text-slate-600 font-medium">Koi bhi coin deduction, refund ya membership ki query ho toh seedha coordinator Rohit Sharma se baat karein.</p>
+            </div>
+          </div>
+          <a
+            href="https://wa.me/919319193109?text=Namaste%20Rohit%20Ji%2C%20mujhe%20wallet%20coins%20ke%20baare%20mein%20jaankari%20chahiye."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-black shrink-0 inline-flex items-center gap-2 shadow-sm"
+          >
+            <span>WhatsApp Coordinator (+91 93191 93109)</span>
+          </a>
+        </div>
 
         {/* Coin Cost Guide */}
         <section className="rounded-3xl p-6 bg-white border border-gray-200/90 shadow-xs space-y-4">

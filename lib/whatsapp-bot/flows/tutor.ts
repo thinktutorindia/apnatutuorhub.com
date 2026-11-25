@@ -80,7 +80,7 @@ export async function handleTutorStep(
       // Catch email typed at city step
       if (r.includes("@")) {
         return {
-          reply: `⚠️ Yeh email ID lag raha hai — city step mein email nahi, city batayein.\n\n📍 Apna *city* likhein (jaise: *Delhi*, *Mumbai*, *Noida*, *Bangalore*):`,
+          reply: `⚠️ That looks like an email address — please enter your *city* first (e.g., *Delhi*, *Noida*, *Mumbai*, *Bangalore*, or *Online*):`,
           nextStep: "T_CITY",
           updatedData: data,
         };
@@ -89,7 +89,7 @@ export async function handleTutorStep(
       const cityName = loc.isValid ? loc.city : r.trim();
       if (!isValidCity(cityName)) {
         return {
-          reply: `📍 "*${r.slice(0, 20)}*" city nahi pehchani.\n\nKaunse city mein padhate hain? Jaise: *Delhi*, *Noida*, *Mumbai*, *Bangalore*:`,
+          reply: `📍 I didn't recognize "*${r.slice(0, 20)}*" as a city.\n\nWhich city do you teach in? (e.g., *Delhi*, *Noida*, *Mumbai*, *Bangalore*, or *Online*):`,
           nextStep: "T_CITY",
           updatedData: data,
         };
@@ -105,7 +105,7 @@ export async function handleTutorStep(
       // Catch email typed at area step
       if (r.includes("@")) {
         return {
-          reply: `⚠️ Yeh email ID lag raha hai — area step mein email nahi chahiye.\n\n🏠 Apna *mohalla / locality* likhein (jaise: *Rohini*, *Dwarka*, *Andheri West*):`,
+          reply: `⚠️ That looks like an email address — please enter your *locality / area* first (e.g., *Rohini*, *Dwarka*, *Andheri West*, or *Online*):`,
           nextStep: "T_AREA",
           updatedData: data,
         };
@@ -113,7 +113,7 @@ export async function handleTutorStep(
       const loc = validateAndCleanLocality(r, (data.city as string) || undefined);
       if (!loc.isValid) {
         return {
-          reply: loc.errorPrompt || `🏠 Apna *mohalla / locality* likhein (jaise: *Rohini Delhi*, *Bandra Mumbai*, *Sector 62 Noida*):`,
+          reply: loc.errorPrompt || `🏠 Please enter your *locality / area* (e.g., *Rohini Delhi*, *Bandra Mumbai*, *Sector 62 Noida*, or *Online*):`,
           nextStep: "T_AREA",
           updatedData: data,
         };

@@ -74,22 +74,29 @@ export async function getNextInquiryNumber(
 
 export type BudgetRateType = "MONTHLY" | "HOURLY";
 
-/** Tutor cards always show 3 slots. Extra unlocks stay open and are not shown as a full card. */
-export const PUBLIC_TUTOR_SLOTS = 3;
+/** Slots are presented as 1–5 out of 5, derived from the lead id so every tutor sees the same number. */
+export const PUBLIC_TUTOR_SLOTS = 5;
 
-export function publicTutorSlots(purchaseCount?: number | null): {
+export function publicTutorSlots(
+  leadId?: string | null,
+  unlockedByViewer = false
+): {
   max: number;
   purchased: number;
   left: number;
 } {
-  const purchased = Math.min(
-    Math.max(0, purchaseCount ?? 0),
-    PUBLIC_TUTOR_SLOTS - 1
-  );
+  const id = String(leadId ?? "0");
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  const base = 1 + (Math.abs(hash) % PUBLIC_TUTOR_SLOTS); // stable 1..5 for this lead
+  // The tutor who unlocked sees one slot fewer; everyone else sees the original.
+  const left = unlockedByViewer ? Math.max(0, base - 1) : base;
   return {
     max: PUBLIC_TUTOR_SLOTS,
-    purchased,
-    left: PUBLIC_TUTOR_SLOTS - purchased,
+    purchased: PUBLIC_TUTOR_SLOTS - left,
+    left,
   };
 }
 

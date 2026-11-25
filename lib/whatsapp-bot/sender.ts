@@ -7,7 +7,7 @@
 import { sendAquaWhatsAppMessage } from "@/lib/aqua-whatsapp";
 import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 
-/** Drop legacy ₹99 or ₹999 starter offers; replace with ₹2,999 Growth Membership */
+/** Drop legacy ₹99 or ₹999 starter offers; replace with active ₹1,257 Commission Plan */
 export function omitStarterPlan(text: string): string {
   let out = text.replace(
     /(?:₹|rs\.?|inr)\s*(?:99|999)(?!\d)\s*(?:starter|trial)?\s*offer\s*(?:ya|or|and|\/)\s*/gi,
@@ -15,7 +15,7 @@ export function omitStarterPlan(text: string): string {
   );
   out = out.replace(
     /(?:₹|rs\.?|inr)\s*(?:99|999)(?!\d)(\s*(?:starter|trial|festival))?\s*(offer|plan|pass|deal|membership)/gi,
-    "₹2,999 $2"
+    "₹1,257 $2"
   );
   return out.replace(/[ \t]{2,}/g, " ").trim();
 }

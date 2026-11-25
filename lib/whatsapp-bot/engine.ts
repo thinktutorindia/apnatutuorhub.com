@@ -13,7 +13,7 @@ import {
 import { type BotSession } from "./session";
 import { handleTutorStep } from "./flows/tutor";
 import { handleParentStep } from "./flows/parent";
-import { askGeminiChatbot } from "./ai-agent";
+import { askGeminiChatbot, type AiBotResponse } from "./ai-agent";
 import { getStoredUserProfile, type UserProfileContext } from "./user-profile-context";
 import {
   getChatbotMatchingLeads,
@@ -82,6 +82,15 @@ import {
   looseIntentClarifyReply,
   looksLikeUnexpectedNoise,
 } from "./loose-intent";
+import {
+  isStrictValidEmail,
+  validateStrictEmail,
+  extractStrictEmail,
+  extractStrictClasses,
+  enforceStrictEducation,
+  sanitizeEducationForDb,
+} from "./strict-rules";
+import { resolvePersonaPrecheck } from "./persona-understanding";
 
 // Admin WhatsApp numbers — these get lead forwarding + full control
 const ADMIN_PHONES = ["919311459543", "917559563565"];
@@ -202,39 +211,25 @@ function keepArea(current: unknown, rawMessage: string, previous: unknown, city?
 }
 
 export function isValidEmailDomain(email: string): boolean {
-  if (!email || !email.includes("@")) return false;
-  const parts = email.split("@");
-  if (parts.length !== 2) return false;
-  const user = parts[0].trim();
-  const domain = parts[1].toLowerCase().trim();
-
-  // Local-part username must be non-empty and valid
-  if (!user || user.length === 0 || !/^[a-zA-Z0-9._%+-]+$/.test(user)) return false;
-
-  // Reject common domain typos
-  if (/^(gmai|gmal|gamil|gmaill|gmial)\./i.test(domain)) return false;
-  if (/^(yaho|yahooo|yhoo)\./i.test(domain)) return false;
-  if (/^(hotmial|hotmai)\./i.test(domain)) return false;
-  if (/\.(gom|con|cpm|coom|comm|cm)$/i.test(domain)) return false;
-
-  return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(domain);
+  return isStrictValidEmail(email);
 }
 
 function profileNotSavedReply(): string {
-  return `Profile save nahi hua. Is WhatsApp number par tutor account nahi mila.\n\nLogin karke yahan update karein:\nhttps://apnatutorhub.com/tutor/profile`;
+  return `Your profile update could not be saved yet because no tutor account is linked to this WhatsApp number.\n\nPlease log in and update it here:\nhttps://apnatutorhub.com/tutor/profile`;
 }
 
 function isValidName(v: string): boolean {
   const clean = v.trim();
   if (clean.length < 2 || clean.length > 50) return false;
-  if (/^(hi|hello|hey|namaste|yes|no|ok|done|skip)$/i.test(clean)) return false;
+  if (looksLikeUnexpectedNoise(clean)) return false;
+  if (/^(hi|hello|hey|namaste|yes|no|ok|done|skip|test|testing|asdf|qwerty|abc|xyz|lol|lmao|none|null|na|unknown|tutor|teacher|parent|student|admin|help|menu)$/i.test(clean)) return false;
   if (/\d/.test(clean)) return false;
   return /^[a-zA-Z\s.'-]+$/.test(clean);
 }
 
 function formatHumanTeachingContext(
   subs: string[],
-  cls: string | undefined,
+  cls: string | string[] | undefined,
   area: string | undefined
 ): {
   cleanSubs: string[];
@@ -243,69 +238,182 @@ function formatHumanTeachingContext(
   humanAreaPrompt: string;
   humanEmailSummary: string;
 } {
-  const cleanClass = (cls || "").trim();
-  let cleanSubs = [...subs];
+  const cleanClass = Array.isArray(cls) ? cls.join(", ").trim() : (cls || "").trim();
+  const enforced = enforceStrictEducation({
+    subjectsInput: subs,
+    classesInput: Array.isArray(cls) && cls.length > 0 ? cls : cleanClass || undefined,
+  });
 
-  const grade = parseGrade(cleanClass);
-  const isPrimary = (grade !== null && grade <= 5) || /primary|kg|nursery|1\s*[-–to]\s*5/i.test(cleanClass);
+  const cleanSubs =
+    enforced.subjects.length > 0
+      ? enforced.subjects
+      : enforced.pendingBaseSubjects.length > 0
+        ? enforced.pendingBaseSubjects
+        : [...subs].filter((s) => !/all\s*subjects\s*\(class\s*1-8\)/i.test(s));
 
-  const hasPhysics = cleanSubs.some((s) => /physic/i.test(s));
-  const hasChemistry = cleanSubs.some((s) => /chem/i.test(s));
-  const hasBiology = cleanSubs.some((s) => /bio/i.test(s));
+  const resolvedClass =
+    enforced.classLevels.length > 0 ? enforced.classLevels.join(", ") : cleanClass;
 
-  if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
-    // In Class 1-5, physics/chem/bio do NOT exist as standalone subjects in school curricula.
-    // They are taught as Science / EVS / All Subjects.
-    cleanSubs = cleanSubs.filter((s) => !/physic|chem|bio/i.test(s));
-    if (!cleanSubs.some((s) => /science/i.test(s))) cleanSubs.push("Science");
-    if (!cleanSubs.some((s) => /all\s*subject/i.test(s))) {
-      cleanSubs.push("All Subjects", "All Subjects (Class 1-8)");
-    }
-  }
-
-  const isSenior = (grade !== null && grade >= 11) || /11|12|senior/i.test(cleanClass);
-  if (isSenior) {
-    // In Class 11-12, 'All Subjects' does not exist in school curricula.
-    cleanSubs = cleanSubs.filter((s) => !/all\s*subjects?|combo/i.test(s));
-    if (cleanSubs.length === 0) cleanSubs.push("Mathematics");
-  }
+  const isAllSub1to8 =
+    cleanSubs.length > 0 && cleanSubs.every((s) => /^All Subjects for (?:Class \d+|Pre-Primary)/i.test(s));
 
   let humanSubjectLabel = "";
-  if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
-    humanSubjectLabel = `${cleanClass || "Class 1-5"} (Science & All Subjects)`;
-  } else if (cleanClass && cleanSubs.length > 0) {
-    const nonDefault = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s));
-    const sStr = nonDefault.length > 0 ? nonDefault.join(", ") : cleanSubs.join(", ");
-    humanSubjectLabel = sStr ? `${cleanClass} (${sStr})` : cleanClass;
+  if (isAllSub1to8) {
+    humanSubjectLabel = `${resolvedClass || "Classes 1–8"} (All Subjects)`;
+  } else if (resolvedClass && cleanSubs.length > 0) {
+    humanSubjectLabel = `${resolvedClass} (${cleanSubs.slice(0, 6).join(", ")}${cleanSubs.length > 6 ? "…" : ""})`;
   } else if (cleanSubs.length > 0) {
     humanSubjectLabel = cleanSubs.join(", ");
   } else {
-    humanSubjectLabel = cleanClass || "All Classes";
+    humanSubjectLabel = resolvedClass || "your classes";
   }
 
   let humanAreaPrompt = "";
-  if (isPrimary && (hasPhysics || hasChemistry || hasBiology)) {
-    humanAreaPrompt = `Ji bilkul! ${cleanClass || "Class 1-5"} Science ke liye aapka teaching area / city kaunsa hai? 📍`;
-  } else if (cleanClass && cleanSubs.length > 0) {
-    const nonDefault = cleanSubs.filter((s) => !/all subjects \(class 1-8\)/i.test(s));
-    const mainSub = nonDefault.length > 0 ? nonDefault[0] : cleanSubs[0];
-    humanAreaPrompt = mainSub ? `Ji bilkul! ${cleanClass} ${mainSub} ke liye aapka teaching area / city kaunsa hai? 📍` : `Ji bilkul! ${cleanClass} ke liye aapka teaching area / city kaunsa hai? 📍`;
-  } else if (cleanClass) {
-    humanAreaPrompt = `Ji bilkul! ${cleanClass} ke liye aapka teaching area / city kaunsa hai? 📍`;
+  if (isAllSub1to8) {
+    humanAreaPrompt = `Got it! For *${resolvedClass || "Classes 1–8"} (All Subjects)*, which city and locality do you teach in (or Online)? 📍`;
+  } else if (resolvedClass && cleanSubs.length > 0) {
+    humanAreaPrompt = `Got it! For *${resolvedClass}* (${cleanSubs[0]}), which city and locality do you teach in (or Online)? 📍`;
+  } else if (resolvedClass) {
+    humanAreaPrompt = `Got it! For *${resolvedClass}*, which city and locality do you teach in (or Online)? 📍`;
   } else {
-    humanAreaPrompt = `Aapka teaching area / city kaunsa hai? 📍`;
+    humanAreaPrompt = `Which city and locality do you teach in (or Online)? 📍`;
   }
 
   const cleanArea = area || "Delhi";
-  const humanEmailSummary = `Details note ho gayi! 📚 ${cleanArea} — ${humanSubjectLabel}`;
+  const humanEmailSummary = `Profile details noted! 📚 ${cleanArea} — ${humanSubjectLabel}`;
 
   return {
     cleanSubs,
-    cleanClass,
+    cleanClass: resolvedClass,
     humanSubjectLabel,
     humanAreaPrompt,
     humanEmailSummary,
   };
+}
+
+/**
+ * Shared strict education normalizer for both AI and deterministic onboarding paths.
+ * Enforces Class 1-8 All Subjects only, Class 9-10 board subjects only, Class 11-12
+ * stream subjects only, and multi-clause mixed grade-band inputs.
+ */
+function applyStrictEducationToData(params: {
+  rawMessage: string;
+  isIdentityStep: boolean;
+  isInitialWelcomeChoice: boolean;
+  previousData: Record<string, any>;
+  mergedData: Record<string, any>;
+  aiSubjects?: unknown;
+  aiClasses?: unknown;
+}): {
+  mergedData: Record<string, any>;
+  errorReply?: { reply: string; nextStep: string; quickReplies: string[] };
+} {
+  const { rawMessage, isIdentityStep, isInitialWelcomeChoice, previousData, mergedData, aiSubjects, aiClasses } = params;
+  const trimmed = rawMessage.trim();
+
+  if (isIdentityStep) {
+    const prevCls = Array.isArray(previousData.classLevels) && previousData.classLevels.length > 0
+      ? (previousData.classLevels as string[])
+      : previousData.classLevel ? [String(previousData.classLevel)] : [];
+    const prevSubs = Array.isArray(previousData.subjects) ? (previousData.subjects as string[]) : [];
+    const kept = enforceStrictEducation({
+      subjectsInput: prevSubs.length ? prevSubs : undefined,
+      classesInput: prevCls.length ? prevCls : undefined,
+    });
+    if (kept.classLevels.length > 0) {
+      mergedData.classLevels = kept.classLevels;
+      mergedData.classLevel = kept.classLevels[0];
+    }
+    if (kept.subjects.length > 0) {
+      mergedData.subjects = kept.subjects;
+    } else if (kept.pendingBaseSubjects.length > 0) {
+      mergedData.subjects = kept.pendingBaseSubjects;
+    }
+    return { mergedData };
+  }
+
+  const offScript = isOffScriptTutorTalk(trimmed) || isInitialWelcomeChoice;
+  const candidateClsFromRaw = offScript ? [] : extractStrictClasses(trimmed).labels;
+  const candidateClsFromAi = Array.isArray(aiClasses)
+    ? aiClasses.map((c) => String(c || "").trim()).filter(Boolean)
+    : [];
+  const prevCls = Array.isArray(previousData.classLevels) && previousData.classLevels.length > 0
+    ? (previousData.classLevels as string[])
+    : previousData.classLevel ? [String(previousData.classLevel)] : [];
+
+  const candidateCls =
+    candidateClsFromRaw.length > 0
+      ? candidateClsFromRaw
+      : candidateClsFromAi.length > 0
+        ? candidateClsFromAi
+        : prevCls;
+
+  const candidateSubsFromAi = !offScript && Array.isArray(aiSubjects)
+    ? aiSubjects.map((s) => String(s || "").trim()).filter(Boolean)
+    : [];
+  const prevSubs = Array.isArray(previousData.subjects) ? (previousData.subjects as string[]) : [];
+  const candidateSubs =
+    candidateSubsFromAi.length > 0
+      ? candidateSubsFromAi
+      : prevSubs;
+
+  const strict = enforceStrictEducation({
+    rawMessage: offScript ? undefined : trimmed,
+    subjectsInput: candidateSubs.length > 0 ? candidateSubs : undefined,
+    classesInput: candidateCls.length > 0 ? candidateCls : undefined,
+  });
+
+  if (strict.errorPrompt && !offScript) {
+    if (strict.incompatibleSeniorOnlyForJunior) {
+      delete mergedData.classLevel;
+      delete mergedData.classLevels;
+      mergedData.subjects = strict.pendingBaseSubjects;
+      return {
+        mergedData,
+        errorReply: {
+          reply: strict.errorPrompt,
+          nextStep: "T_CLASS",
+          quickReplies: ["Class 1-8 (All Subjects)", "Class 9-10 (Science)", "Class 11-12"],
+        },
+      };
+    }
+    if (strict.needsSpecificSubjectsFor9to12) {
+      mergedData.classLevels = strict.classLevels;
+      mergedData.classLevel = strict.classLevels[0];
+      delete mergedData.subjects;
+      const is1112 = strict.classLevels.some((c) => /11|12/.test(c));
+      return {
+        mergedData,
+        errorReply: {
+          reply: strict.errorPrompt,
+          nextStep: "T_SUBJECTS",
+          quickReplies: is1112
+            ? ["Physics, Chemistry", "Maths", "Accountancy, Economics", "Biology"]
+            : ["Mathematics, Science", "Social Science, English", "Hindi, Sanskrit"],
+        },
+      };
+    }
+  }
+
+  if (strict.classLevels.length > 0) {
+    mergedData.classLevels = strict.classLevels;
+    mergedData.classLevel = strict.classLevels[0];
+  } else {
+    delete mergedData.classLevels;
+    delete mergedData.classLevel;
+  }
+
+  if (strict.subjects.length > 0) {
+    mergedData.subjects = strict.subjects;
+  } else if (strict.pendingBaseSubjects.length > 0) {
+    mergedData.subjects = strict.pendingBaseSubjects;
+  } else if (offScript && prevSubs.length > 0) {
+    mergedData.subjects = prevSubs;
+  } else {
+    delete mergedData.subjects;
+  }
+
+  return { mergedData };
 }
 
 /**
@@ -423,8 +531,8 @@ export async function syncUserCredentialsInDb(params: {
       }
     }
 
-    // 2. Email update
-    if (params.email && isValidEmailDomain(params.email)) {
+    // 2. Email update (strict firewall: valid domain required, zero random words/typos)
+    if (params.email && isStrictValidEmail(params.email)) {
       const cleanEmail = params.email.trim().toLowerCase();
       // Find the user to update — try phone first, then wa_ email fallback
       let user = primaryUser ?? (await prisma.user.findFirst({ where: { email: waEmail } }));
@@ -448,6 +556,7 @@ export async function syncUserCredentialsInDb(params: {
           console.info(`[syncUserCredentialsInDb] Linked phone ${canonPhone} to existing user ${user?.id} (${cleanEmail})`);
         } else {
           // Create user row with this phone and email so credentials are never lost
+          const createPasswordHash = passwordHash ?? (await bcrypt.hash("12345678", 10));
           user = (await prisma.user.create({
             data: {
               phone: canonPhone,
@@ -456,7 +565,7 @@ export async function syncUserCredentialsInDb(params: {
               role: "TUTOR",
               isActive: true,
               signupSource: "WHATSAPP",
-              ...(passwordHash ? { passwordHash } : {}),
+              passwordHash: createPasswordHash,
             },
             include: { tutorProfile: true, parentProfile: true },
           })) as any;
@@ -575,9 +684,11 @@ export async function syncUserCredentialsInDb(params: {
       }
       if (params.classLevels && params.classLevels.length > 0) {
         const existingCls = tutorRow.tutorProfile.classLevels || [];
-        const mergedCls = params.mergeClasses
-          ? Array.from(new Set([...existingCls, ...params.classLevels]))
-          : Array.from(new Set(params.classLevels));
+        const rawCls = params.mergeClasses
+          ? [...existingCls, ...params.classLevels]
+          : [...params.classLevels];
+        const parsedCls = extractStrictClasses(rawCls.join(", ")).labels;
+        const mergedCls = parsedCls.length > 0 ? parsedCls : Array.from(new Set(rawCls));
         profileUpdates.classLevels = mergedCls;
         finalClassLevels = mergedCls;
       } else {
@@ -586,15 +697,23 @@ export async function syncUserCredentialsInDb(params: {
       if (params.subjects && params.subjects.length > 0) {
         const existingSubs = tutorRow.tutorProfile.subjects || [];
         const rawSubList = params.mergeSubjects ? [...existingSubs, ...params.subjects] : params.subjects;
-        const cleanSubs = deduplicateAndNormalizeSubjects(rawSubList, finalClassLevels);
-        profileUpdates.subjects = cleanSubs;
-        finalSubjects = cleanSubs;
-      } else if (params.classLevels && params.classLevels.length > 0 && tutorRow.tutorProfile.subjects.length > 0) {
-        // Re-clean existing subjects against updated classLevels if class changed
-        const recleaned = deduplicateAndNormalizeSubjects(tutorRow.tutorProfile.subjects, finalClassLevels);
-        if (JSON.stringify(recleaned) !== JSON.stringify(tutorRow.tutorProfile.subjects)) {
-          profileUpdates.subjects = recleaned;
-          finalSubjects = recleaned;
+        const sanitized = sanitizeEducationForDb(rawSubList, finalClassLevels);
+        if (sanitized.classLevels.length > 0) {
+          profileUpdates.classLevels = sanitized.classLevels;
+          finalClassLevels = sanitized.classLevels;
+        }
+        profileUpdates.subjects = sanitized.subjects;
+        finalSubjects = sanitized.subjects;
+      } else if (finalClassLevels.length > 0) {
+        // Re-clean existing subjects against updated classLevels (also fills Class 1-8 All Subjects)
+        const sanitized = sanitizeEducationForDb(tutorRow.tutorProfile.subjects, finalClassLevels);
+        if (sanitized.subjects.length > 0 && JSON.stringify(sanitized.subjects) !== JSON.stringify(tutorRow.tutorProfile.subjects)) {
+          profileUpdates.subjects = sanitized.subjects;
+          finalSubjects = sanitized.subjects;
+        }
+        if (sanitized.classLevels.length > 0) {
+          profileUpdates.classLevels = sanitized.classLevels;
+          finalClassLevels = sanitized.classLevels;
         }
       }
       if (Object.keys(profileUpdates).length > 0) {
@@ -641,10 +760,12 @@ export async function syncUserCredentialsInDb(params: {
           data: { role: "TUTOR" },
         });
       }
-      finalClassLevels = params.classLevels ? Array.from(new Set(params.classLevels)) : [];
-      finalSubjects = params.subjects
-        ? deduplicateAndNormalizeSubjects(params.subjects, finalClassLevels)
-        : [];
+      const sanitizedNew = sanitizeEducationForDb(params.subjects || [], params.classLevels || []);
+      finalClassLevels =
+        sanitizedNew.classLevels.length > 0
+          ? sanitizedNew.classLevels
+          : extractStrictClasses((params.classLevels || []).join(", ")).labels;
+      finalSubjects = sanitizedNew.subjects;
       await prisma.tutorProfile.create({
         data: {
           userId: tutorUser.id,
@@ -670,19 +791,21 @@ export async function syncUserCredentialsInDb(params: {
       if (existingSession) {
         const curData = (existingSession.data as Record<string, any>) || {};
         const merged = { ...curData };
-        if (params.email) merged.email = params.email.trim().toLowerCase();
+        if (params.email && isStrictValidEmail(params.email)) merged.email = params.email.trim().toLowerCase();
         if (params.password) merged.password = params.password.trim();
         if (params.name) merged.name = params.name.trim();
         if (params.area) merged.area = params.area.trim();
         if (params.city) merged.city = params.city.trim();
-        if (finalSubjects) merged.subjects = finalSubjects;
-        else if (params.subjects) merged.subjects = params.subjects;
-        if (finalClassLevels) {
+        if (finalSubjects && finalSubjects.length > 0) merged.subjects = finalSubjects;
+        if (finalClassLevels && finalClassLevels.length > 0) {
           merged.classLevels = finalClassLevels;
           if (finalClassLevels[0]) merged.classLevel = finalClassLevels[0];
-        } else if (params.classLevels) {
-          merged.classLevels = params.classLevels;
-          if (params.classLevels[0]) merged.classLevel = params.classLevels[0];
+        } else if (params.classLevels && params.classLevels.length > 0) {
+          const validCls = extractStrictClasses(params.classLevels.join(", ")).labels;
+          if (validCls.length > 0) {
+            merged.classLevels = validCls;
+            merged.classLevel = validCls[0];
+          }
         }
 
         await prisma.whatsappSession.update({
@@ -723,7 +846,7 @@ export const PAYMENT_QR_CAPTION =
   "🆔 UPI: 9311459543@kotakbank\n\n" +
   "👉 Direct Payment Link (Card/UPI/Netbanking):\n" +
   "https://apnatutorhub.com/tutor/plans\n\n" +
-  "Payment ke baad UTR ya screenshot yahan bhejein — team 15 min mein activate kar degi. ✅";
+  "After paying, please send your 12-digit UTR number or payment screenshot here — our team will activate your plan within 15 minutes. ✅";
 
 // Direct Razorpay 1-click link is sent in text instead of offline QR images
 export function paymentQrImage(): { imageUrls?: string[]; imageCaption?: string } {
@@ -786,7 +909,7 @@ async function tryLooseTutorIntent(
   if (intent === "GREETING") {
     const tutorName = (data.name as string) || "Teacher";
     return {
-      reply: `Namaste ${tutorName} ji! 🙏 Main Priya, ApnaTutorHub coordinator. Batayein, matching leads dekhni hain ya profile/plans ki info?`,
+      reply: `Hello ${tutorName}! 👋 I'm Priya, your ApnaTutorHub coordinator. Would you like to see matching tuition leads, or check your profile and plans?`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
@@ -797,7 +920,7 @@ async function tryLooseTutorIntent(
 
   if (intent === "THANKS") {
     return {
-      reply: "Aapka bahut dhanyavaad! 🙏 Kuch aur help chahiye ho toh bas likh dein — *leads*, *plans*, *profile*, ya *help*.",
+      reply: "You're very welcome! 😊 Let me know anytime if you need help — just type *leads*, *plans*, *profile*, or *help*.",
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
@@ -834,7 +957,7 @@ async function tryLooseTutorIntent(
     const bal = await getTutorCoinBalanceByPhone(session.phone);
     const planReply =
       bal.found && bal.balance > 0
-        ? `${formatCoinBalanceMessage(bal.balance)}\n\nAur coins chahiye hon tab naya pack:\n\n${formatCoinPlansMessage()}`
+        ? `${formatCoinBalanceMessage(bal.balance)}\n\nIf you'd like to add more coins, here is our plan:\n\n${formatCoinPlansMessage()}`
         : formatCoinPlansMessage();
     return {
       reply: planReply,
@@ -858,7 +981,7 @@ async function tryLooseTutorIntent(
         : "Not set";
     const location = city ? `${area}, ${city}` : area;
     return {
-      reply: `👤 *Aapka Profile:*\n\nNaam: ${name}\nEmail: ${email}\nLocation: ${location}\nSubjects: ${subjects}\nPhone: +91-${session.phone}\n\nUpdate: *UPDATE AREA*, *UPDATE SUBJECTS*, *UPDATE PASSWORD*`,
+      reply: `👤 *Your Profile:*\n\nName: ${name}\nEmail: ${email}\nLocation: ${location}\nSubjects: ${subjects}\nPhone: +91-${session.phone}\n\nTo update anything, type: *UPDATE AREA*, *UPDATE SUBJECTS*, or *UPDATE PASSWORD*.`,
       nextStep: "DONE",
       updatedData: data,
       userType: "TUTOR",
@@ -869,7 +992,7 @@ async function tryLooseTutorIntent(
 
   if (intent === "HELP") {
     return {
-      reply: `Main Priya, ApnaTutorHub coordinator. Seedha batayein kya chahiye:\n• Leads — *View Leads* ya area likhein (*Rohini mein class?*)\n• Coins / plan — *wallet* ya *plans*\n• Profile — *my profile*\n\n📞 08062180653 (9am–7pm)`,
+      reply: `Hi, I'm Priya from ApnaTutorHub support. Just let me know what you need:\n• Leads — reply *View Leads* or share your area (e.g. *Rohini Delhi*)\n• Coins / Plan — reply *wallet* or *plans*\n• Profile — reply *my profile*\n\n📞 Helpline: 08062180653 (9 AM – 7 PM Mon–Sat)`,
       nextStep: "DONE",
       updatedData: data,
       userType: "TUTOR",
@@ -903,13 +1026,11 @@ function classAskOrBreak(
     const hasClass = Boolean(data.classLevel || (Array.isArray(data.classLevels) && data.classLevels.length > 0));
 
     if (hasSubs && !hasClass) {
-      const inferredClass = (data.subjects as string[]).some((s) => /11|12|physics|chemistry|biology|account/i.test(String(s))) ? "Class 11-12" : "Class 1-8";
       return {
-        reply: `Theek hai! Aapka teaching area / city kaunsa hai? 📍`,
-        nextStep: "T_AREA",
+        reply: `No worries! Which city/area (or Online) do you teach, and which classes (for example: Class 1–8, Class 9–10, or Class 11–12)? 📍`,
+        nextStep: "T_CONVO",
         updatedData: {
           ...data,
-          classLevel: data.classLevel || inferredClass,
           lastBotAsk: "break",
           sameAskCount: 0,
         },
@@ -921,8 +1042,8 @@ function classAskOrBreak(
 
     return {
       reply:
-        `Theek hai — same sawaal dubara nahi poochungi. 😊\n\nAap *kaunse subjects* padhate ho? Maths, Science, English, Physics…\nPayment / QR ke liye *PAY* likhein, ya coordinator: +91 93191 93109`,
-      nextStep: "T_SUBJECTS",
+        `No problem — I won't repeat the same question! 😊\n\nPlease tell me which *classes and subjects* you teach (for example: *Class 1-8 All Subjects* or *Class 11-12 Physics*).\nFor plan activation, type *PAY*, or message coordinator support: +91 93191 93109`,
+      nextStep: "T_CONVO",
       updatedData: {
         ...data,
         lastBotAsk: "break",
@@ -930,7 +1051,7 @@ function classAskOrBreak(
       },
       userType: "TUTOR",
       retries: 0,
-      quickReplies: ["Maths, Science", "All Subjects (Class 1-8)", "Activate Plan ⚡", "Talk to Support 📞"],
+      quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Activate Plan ⚡", "Talk to Support 📞"],
     };
   }
   return {
@@ -982,10 +1103,10 @@ function tryTutorOffScriptReply(
   if (refusesRegistration(rawMessage) || wantsLeadsOnWhatsApp(rawMessage)) {
     return {
       reply:
-        `Theek hai — pehle leads dekh lijiye, registration baad mein ho sakti hai.\n\n` +
+        `Sure — you can browse available leads first and complete registration later.\n\n` +
         `👉 Leads: https://apnatutorhub.com/tutor/leads\n` +
         `👉 Plans: https://apnatutorhub.com/tutor/plans\n\n` +
-        `WhatsApp par specific lead chahiye ho to *Lead ID* (jaise #32042) bhejein.`,
+        `If you want details for a specific inquiry on WhatsApp, reply with its *Lead ID* (e.g. #32042).`,
       nextStep: "DONE",
       updatedData: { ...data, lastBotAsk: "skip-reg", sameAskCount: 0 },
       userType: session.userType || "TUTOR",
@@ -995,11 +1116,9 @@ function tryTutorOffScriptReply(
   }
 
   if (/password/i.test(rawMessage) && /(?:own|already|using|change|reset|update|purana)/i.test(rawMessage)) {
-    // Never ask a registered tutor to type a new password into WhatsApp: the
-    // old flow stored plaintext in session data and weak values like 123456
-    // never reached the DB hash. Send them through the real reset flow.
+    // Send registered tutors through the real password reset flow.
     return {
-      reply: `Password reset ke liye https://apnatutorhub.com/login par *Forgot Password* dabayein — reset link/OTP aapke registered email ya mobile par aayega. 🔑\nAgar email access nahi hai to yahin *MANUAL RESET* likh dein, main temporary password set karke bhej dunga.`,
+      reply: `To reset your password, click *Forgot Password* on https://apnatutorhub.com/login — a reset link/OTP will be sent to your registered email or mobile. 🔑\nIf you don't have access to your email, reply *MANUAL RESET* here and I'll set a temporary password for you.`,
       nextStep: "DONE",
       updatedData: data,
       userType: session.userType || "TUTOR",
@@ -1009,28 +1128,28 @@ function tryTutorOffScriptReply(
   }
 
   const elsewhere = outsideNcrCity(rawMessage);
-  if (elsewhere && /(?:nahi|not in delhi|ncr me nahi|stay|staying|hu|hoon|rehta|rehti|rahata)/i.test(rawMessage)) {
+  if (elsewhere && /(?:nahi|not in delhi|ncr me nahi|stay|staying|hu|hoon|rehta|rehti|rahata|live|living|from)/i.test(rawMessage)) {
     return {
       reply:
-        `Samajh gayi — aap *${elsewhere}* se hain. Travel ki zaroorat nahi.\n\n` +
-        `All-India *online* tuitions available hain:\n` +
+        `Got it — you're based in *${elsewhere}*. No travel is needed!\n\n` +
+        `We have Pan-India *Online* tuition leads (especially for Class 9–12) available here:\n` +
         `👉 https://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n` +
-        `Aapka area/city *${elsewhere}* save kar deti hoon. Kaunse subjects online padhate ho?`,
-      nextStep: "T_SUBJECTS",
+        `I've saved your city as *${elsewhere}*. Which classes and subjects do you teach online?`,
+      nextStep: "T_CONVO",
       updatedData: { ...data, city: elsewhere, area: elsewhere, mode: "ONLINE", lastBotAsk: "outside-ncr", sameAskCount: 0 },
       userType: "TUTOR",
       retries: 0,
-      quickReplies: ["View Online Leads 💻", "Physics / Chem", "Maths", "All Subjects (Class 1-8)"],
+      quickReplies: ["View Online Leads 💻", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
     };
   }
 
   if (refusesAdvancePayment(rawMessage)) {
     return {
       reply:
-        `Koi baat nahi — parent ko *advance tuition fee* nahi deni. 🙏\n\n` +
-        `Membership sirf *leads unlock* ke liye hoti hai:\n` +
-        `• ₹1,257 Commission Plan (6 months validity, 5 leads)\n\n` +
-        `Abhi pay nahi karna to leads dekh sakte hain. Ready hon to *PAY* likhein.\n` +
+        `No problem at all — tutors never pay any advance commission to parents. 🙏\n\n` +
+        `The membership plan is only for unlocking verified parent phone numbers and inquiries:\n` +
+        `• ₹1,257 Commission Plan (6 months validity, 5 verified leads)\n\n` +
+        `You can browse open leads first with no obligation, and reply *PAY* whenever you're ready.\n` +
         `👉 https://apnatutorhub.com/tutor/plans`,
       nextStep,
       updatedData: { ...data, lastBotAsk: "refuse-pay", sameAskCount: 0 },
@@ -1047,7 +1166,7 @@ function tryTutorOffScriptReply(
   const classAskPending =
     step === "T_CLASS" ||
     step === "T_SUBJECTS" ||
-    /kaunsi class|commerce|account|padhate/i.test(lastAsk);
+    /which class|which classes|kaunsi class|commerce|account|padhate|teach/i.test(lastAsk);
 
   if (isBareNo(rawMessage) && !classAskPending) return null;
 
@@ -1074,9 +1193,9 @@ function tryTutorOffScriptReply(
   return {
     reply:
       remaining.length > 0
-        ? `Theek hai, woh subject hata diya. Ab *${remaining.join(", ")}* kaunsi class ko padhate ho? 📚`
-        : `Theek hai, Commerce / Accounts note nahi karungi.\n\nAap *kaunse subjects* padhate ho? Jaise Maths, Science, English, Physics.`,
-    nextStep: remaining.length > 0 ? "T_CLASS" : "T_SUBJECTS",
+        ? `Got it, I've removed that subject. Which classes do you teach for *${remaining.join(", ")}*? 📚`
+        : `Understood, I won't add Commerce / Accountancy.\n\nWhich classes and subjects do you teach? (For example: *Class 1-8 All Subjects*, *Class 9-10 Maths & Science*, or *Class 11-12 Physics*)`,
+    nextStep: remaining.length > 0 ? "T_CLASS" : "T_CONVO",
     updatedData: {
       ...data,
       subjects: remaining,
@@ -1089,9 +1208,1329 @@ function tryTutorOffScriptReply(
     retries: 0,
     quickReplies:
       remaining.length > 0
-        ? ["Class 9-10", "Class 11-12", "Class 1-8"]
-        : ["Maths, Science", "All Subjects (Class 1-8)", "Physics / Chem (11-12)", "English / Hindi"],
+        ? ["Class 1-8", "Class 9-10", "Class 11-12"]
+        : ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "English / Hindi"],
   };
+}
+
+function buildProfileViewResult(
+  session: BotSession,
+  data: Record<string, any>,
+  step: string,
+  userProfile: UserProfileContext | null | undefined
+): EngineResult {
+  const name = (data.name as string) || userProfile?.name || "Not set";
+  const email = (data.email as string) || userProfile?.email || "Not set";
+  const area = (data.area as string) || userProfile?.area || "Not set";
+  const city = (data.city as string) || userProfile?.city || "";
+  const subjects =
+    Array.isArray(data.subjects) && data.subjects.length > 0
+      ? (data.subjects as string[]).join(", ")
+      : userProfile?.subjects?.length
+        ? userProfile.subjects.join(", ")
+        : "Not set";
+  const classes =
+    Array.isArray(data.classLevels) && data.classLevels.length > 0
+      ? (data.classLevels as string[]).join(", ")
+      : userProfile?.classLevels?.length
+        ? userProfile.classLevels.join(", ")
+        : (data.classLevel as string) || "Not set";
+  const mode = (data.mode as string) || userProfile?.teachingMode || "Both (Online + Offline)";
+  const location = city && !area.toLowerCase().includes(city.toLowerCase()) ? `${area}, ${city}` : area;
+  const coinsStr = userProfile?.coins !== undefined && userProfile?.coins !== null ? `\n🪙 Coins: *${userProfile.coins}*` : "";
+
+  const profileText = `👤 *Your Profile:*\n\nName: ${name}\nEmail: ${email}\nLocation: ${location}\nMode: ${mode}\nClasses: ${classes}\nSubjects: ${subjects}\nPhone: +91-${session.phone}${coinsStr}\nPassword: Set (encrypted 🔒)\n\nTo update anything, type:\n• *UPDATE AREA <new locality>*\n• *UPDATE MODE Online / Offline*\n• *UPDATE SUBJECTS <subjects & classes>*\n• *UPDATE PASSWORD <new password>*`;
+  return {
+    reply: profileText,
+    nextStep: step,
+    updatedData: data,
+    retries: 0,
+    quickReplies: ["Update Area 📍", "Update Mode 💻", "Update Subjects 📚", "View Leads 📋"],
+  };
+}
+
+async function handleAiSemanticIntent(params: {
+  ai: AiBotResponse;
+  rawMessage: string;
+  session: BotSession;
+  step: string;
+  data: Record<string, any>;
+  userProfile: UserProfileContext | null | undefined;
+  isDoneState: boolean;
+}): Promise<EngineResult | null> {
+  const { ai, rawMessage, session, step, data, userProfile, isDoneState } = params;
+  const intent = ai.intent || "ONBOARD_OR_UPDATE";
+  const safeNextStep = isDoneState ? "DONE" : step;
+  const fallbackUserType = session.userType || (isDoneState ? "TUTOR" : ai.detectedRole || null);
+
+  if (intent === "OFF_TOPIC_OR_RANDOM") {
+    return {
+      reply: ai.reply,
+      nextStep: safeNextStep,
+      updatedData: data,
+      userType: fallbackUserType,
+      retries: 0,
+      quickReplies:
+        ai.quickReplies && ai.quickReplies.length > 0
+          ? ai.quickReplies
+          : isDoneState
+            ? ["View Leads 📋", "My Profile 👤", "Help 📞"]
+            : ["1️⃣ I'm a Tutor", "2️⃣ I'm a Parent", "Help 📞"],
+    };
+  }
+
+  if (intent === "DECLINE_OR_LATER") {
+    const ext = ai.extractedData || {};
+    const hasEntityFields = Boolean(
+      ext.email ||
+      ext.area ||
+      (Array.isArray(ext.subjects) && ext.subjects.length > 0) ||
+      (Array.isArray(ext.classLevels) && ext.classLevels.length > 0)
+    );
+    if (!hasEntityFields) {
+      return {
+        reply: ai.reply,
+        nextStep: safeNextStep,
+        updatedData: data,
+        userType: fallbackUserType,
+        retries: 0,
+        quickReplies:
+          ai.quickReplies && ai.quickReplies.length > 0
+            ? ai.quickReplies
+            : isDoneState
+              ? ["View Leads 📋", "My Profile 👤", "Help 📞"]
+              : ["View Leads 📋", "Help 📞", "MENU"],
+      };
+    }
+    return null;
+  }
+
+  if (intent === "CHECK_PROFILE") {
+    return buildProfileViewResult(session, data, safeNextStep, userProfile);
+  }
+
+  if (intent === "CHECK_COINS") {
+    const bal = await getTutorCoinBalanceByPhone(session.phone);
+    return {
+      reply: bal.found ? formatCoinBalanceMessage(bal.balance) : ai.reply,
+      nextStep: safeNextStep,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies:
+        bal.found && bal.balance > 0
+          ? ["View All Leads 📋", "Open Wallet 💳", "Help 📞"]
+          : ["View Plans 💰", "View Leads 📋", "Help 📞"],
+    };
+  }
+
+  if (intent === "SHOW_PLANS_OR_PAY") {
+    if (/(?:(?:\b₹?\s*999\b)|999\s*(?:wala|plan|offer|ka))/i.test(rawMessage)) {
+      return {
+        reply: formatOfferEnded999Message(),
+        nextStep: isDoneState ? "DONE" : step === "WELCOME" ? "T_CONVO" : step,
+        updatedData: data,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+      };
+    }
+    const bal = await getTutorCoinBalanceByPhone(session.phone);
+    const wantsPayOrPlanDetails =
+      asksPlanPaymentOrQr(rawMessage) ||
+      /\b(buy|recharge|purchase|plan|plans|pricing|membership|pack|qr|fee|charges)\b/i.test(rawMessage);
+    let reply = ai.reply;
+    if (wantsPayOrPlanDetails && !/1,?257|checkout=starter/i.test(reply)) {
+      reply =
+        bal.found && bal.balance > 0
+          ? `You already have *${bal.balance} coins* in your wallet.\n\n${formatCoinPlansMessage()}`
+          : formatCoinPlansMessage();
+    }
+    return {
+      reply,
+      nextStep: isDoneState ? "DONE" : step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies:
+        ai.quickReplies && ai.quickReplies.length > 0
+          ? ai.quickReplies
+          : ["Activate Plan ⚡", "View Leads 📋", "Talk to Support 📞"],
+      ...(shouldIncludePaymentQr(rawMessage, reply) || asksPlanPaymentOrQr(rawMessage) ? paymentQrImage() : {}),
+    };
+  }
+
+  if (intent === "SHOW_LEADS") {
+    const extArea = typeof ai.extractedData?.area === "string" ? ai.extractedData.area.trim() : "";
+    const extCity = typeof ai.extractedData?.city === "string" ? ai.extractedData.city.trim() : "";
+    const loc = extArea
+      ? validateAndCleanLocality(extCity ? `${extArea}, ${extCity}` : extArea, extCity || (data.city as string) || "Delhi", true)
+      : null;
+    const searchArea =
+      (loc?.isValid && !sameLocality(loc.area, loc.city) ? loc.area : "") ||
+      (typeof data.area === "string" ? data.area : "") ||
+      "";
+    const searchCity = (loc?.city || (typeof data.city === "string" ? data.city : "Delhi")) || "Delhi";
+    const tutorClassLevels =
+      Array.isArray(data.classLevels) && data.classLevels.length > 0
+        ? (data.classLevels as string[])
+        : data.classLevel
+          ? [data.classLevel as string]
+          : undefined;
+    if (searchArea || isDoneState) {
+      const leads = await getChatbotMatchingLeads(
+        searchArea || "Delhi",
+        searchCity,
+        tutorClassLevels,
+        Array.isArray(data.subjects) ? (data.subjects as string[]) : undefined
+      );
+      if (leads.length > 0) {
+        return {
+          reply: formatTutorLeadsAndPlansMessage((data.name as string) || "Teacher", searchArea || searchCity, leads),
+          nextStep: "DONE",
+          updatedData: data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: [`🔥 Unlock Lead #${leads[0].inquiryNumber}`, "💰 View Coin Plans", "🌐 Leads Dashboard"],
+        };
+      }
+    }
+    const leadReply = /apnatutorhub\.com\/tutor\/leads/i.test(ai.reply)
+      ? ai.reply
+      : `${ai.reply}\n\n👉 Browse all open leads: https://apnatutorhub.com/tutor/leads`;
+    return {
+      reply: leadReply,
+      nextStep: isDoneState ? "DONE" : step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ai.quickReplies && ai.quickReplies.length > 0 ? ai.quickReplies : ["View Leads 📋", "My Profile 👤", "View Plans 💰"],
+    };
+  }
+
+  if (intent === "PASSWORD_OR_LOGIN_HELP") {
+    const needsLink = !/apnatutorhub\.com\/login|manual\s*reset/i.test(ai.reply);
+    return {
+      reply: needsLink
+        ? `${ai.reply}\n\n👉 Log in here: https://apnatutorhub.com/login\nReply *MANUAL RESET* to set temporary password *Tutor@123*.`
+        : ai.reply,
+      nextStep: safeNextStep,
+      updatedData: data,
+      userType: fallbackUserType,
+      retries: 0,
+      quickReplies: ai.quickReplies && ai.quickReplies.length > 0 ? ai.quickReplies : ["MANUAL RESET", "View Leads 📋", "Help 📞"],
+    };
+  }
+
+  if (intent === "SUPPORT_OR_HUMAN") {
+    const asksContact = /\b(call|phone|contact|number|support|helpline|escalat|police|complaint|refund|manager|human)\b/i.test(rawMessage);
+    const hasSupportInfo = /(08062180653|93191|apnatutorhub\.com)/i.test(ai.reply);
+    return {
+      reply:
+        asksContact && !hasSupportInfo
+          ? `${ai.reply}\n\n📞 Helpline: 08062180653 | WhatsApp Support: +91 93191 93109`
+          : ai.reply,
+      nextStep: safeNextStep,
+      updatedData: data,
+      userType: fallbackUserType,
+      retries: 0,
+      quickReplies:
+        ai.quickReplies && ai.quickReplies.length > 0
+          ? ai.quickReplies
+          : isDoneState
+            ? ["View Leads 📋", "My Profile 👤", "Talk to Support 📞"]
+            : ["View Leads 📋", "View Plans 💰", "Help 📞"],
+    };
+  }
+
+  return null;
+}
+
+async function tryDeterministicDoneShortcuts(params: {
+  session: BotSession;
+  rawMessage: string;
+  data: Record<string, any>;
+}): Promise<EngineResult | null> {
+  const { session, rawMessage, data } = params;
+  const rawTrimmed = rawMessage.trim();
+
+  // Conversational fallbacks for free leads / delayed payment
+  if (/bina\s*reg|free\s*lead|paise\s*nahi|payment\s*baad|ek\s*enquiry|enquiry\s*dedo|pehle\s*demo|yaar\b/i.test(rawMessage)) {
+    return {
+      reply: `We completely understand! However, verified parent phone numbers and home addresses require an active membership so only serious tutors connect with families. 🙏\n\nYou can start with our ₹1,257 Commission Based Plan (6 months validity, 5 leads).\n\n👉 View Plan: https://apnatutorhub.com/tutor/plans\n👉 Browse Leads: https://apnatutorhub.com/tutor/leads`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  // 1. Reply to broadcast / enquiry interest ("1", "interested", "accept", etc.)
+  if (
+    /^(?:1|1\.|one|interested|i(?:'m|\s+am)?\s+interested|accept|haan\s+interested|padhana\s+hai|mujhe\s+padhana\s+hai|lead\s+(?:dedo|bhejo|chahiye|connect|unlock)|हाँ|पढ़ाना\s*है|पढाना\s*है|रुचि\s*है)$/iu.test(
+      rawTrimmed
+    )
+  ) {
+    return {
+      reply: `Awesome! 🎉 Your interest has been noted.\n\nVisit https://apnatutorhub.com/tutor/leads to view full requirement details and unlock parent contact info.\n\nNeed help? WhatsApp Coordinator: +91 93191 93109`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Coins 🪙", "Talk to Coordinator 📞"],
+    };
+  }
+
+  // 2. Reply "2" in DONE state -> Plans / Pricing
+  if (/^(?:2|2\.|two|plans?|pricing|membership|recharge|प्लान)$/iu.test(rawTrimmed)) {
+    const bal = await getTutorCoinBalanceByPhone(session.phone);
+    const planReply =
+      bal.found && bal.balance > 0
+        ? `${formatCoinBalanceMessage(bal.balance)}\n\nIf you'd like to add more coins, here is our plan:\n\n${formatCoinPlansMessage()}`
+        : formatCoinPlansMessage();
+    return {
+      reply: planReply,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Open Wallet 💳", "Help 📞"],
+      ...paymentQrImage(),
+    };
+  }
+
+  // 3. Reply "3" in DONE state -> Support / Coordinator
+  if (/^(?:3|3\.|three|help|support|coordinator|मदद|सहायता)$/iu.test(rawTrimmed)) {
+    return {
+      reply: `Hi, I'm Priya from ApnaTutorHub support. Just tell me what you need:\n• Leads — reply *View Leads* or type your area (e.g. *Rohini Delhi*)\n• Coins / Plan — reply *wallet* or *plans*\n• Profile — reply *my profile*\n\n📞 WhatsApp Support: +91 93191 93109\nHelpline: 08062180653 (9 AM – 7 PM)`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "View Plans 💰"],
+    };
+  }
+
+  // 4. Account Deactivation / Data Deletion request
+  if (
+    /(?:account|profile|data|number)\s*(?:delete|hatao|remove|band|cancel|close)/i.test(rawMessage) ||
+    /(?:delete|hatao|remove|band|cancel)\s*(?:mera\s*)?(?:account|profile|data|number)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `If you want to pause WhatsApp alerts, simply reply *STOP*. 🙏\n\nTo deactivate or permanently delete your account data, visit https://apnatutorhub.com/tutor/profile or message our compliance coordinator (+91 93191 93109) and we will process it right away.`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["STOP 🛑", "My Profile 👤", "Help 📞"],
+    };
+  }
+
+  if (/^(hi|hello|hey|namaste|ha|haan|theek|thik|ok|okay|yes|done|हाँ|जी|ठीक|नमस्ते)$/iu.test(rawTrimmed)) {
+    return {
+      reply: `Hello! 😊 How can I help you today? Would you like to browse matching student leads or view plan details?`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
+    };
+  }
+
+  if (/\b(fees?\s*kam|kam\s*(hai|hain)?\s*(fees?|budget)?|budget\s*kam|fees?\s*(issue|increase|badhao|zyada)|fee\s*kam)\b/i.test(rawMessage)) {
+    return {
+      reply: `Understood! New inquiries are filtered above market rates:\n• Classes 1–8: Monthly ₹6,000–₹7,600, *All Subjects*\n• Classes 9–12: Hourly ₹700–₹1,050, subject-specific\n\nTutors with a set locality get leads within 5 km; online-only tutors get Online inquiries.\n👉 https://apnatutorhub.com/tutor/leads`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Update Location 📍"],
+    };
+  }
+
+  const wantsProfileChange = /\b(update|change|set|changed|badal|naya|new|add|also|bhi)\b/i.test(rawMessage);
+  if (wantsProfileChange && /\b(teaching\s*mode|mode|online\s*only|offline\s*only)\b/i.test(rawMessage)) {
+    let newMode: "ONLINE" | "OFFLINE" | "EITHER" | null = null;
+    if (/\bonline\b/i.test(rawMessage)) newMode = "ONLINE";
+    else if (/\boffline\b/i.test(rawMessage)) newMode = "OFFLINE";
+    else if (/\b(both|dono|either)\b/i.test(rawMessage)) newMode = "EITHER";
+
+    if (newMode) {
+      const saved = await syncUserCredentialsInDb({ phone: session.phone, mode: newMode });
+      return {
+        reply: saved.updatedFields.includes("mode")
+          ? `Teaching mode updated: *${newMode === "ONLINE" ? "Online (Pan-India) 💻" : newMode === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Online + Offline 🌐"}* ✅`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("mode") ? { ...data, mode: newMode } : data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋"],
+      };
+    }
+    return {
+      reply: "Which teaching mode would you like to choose?\n• *Online* (Pan-India)\n• *Offline* (Home Tuition)\n• *Both* (Online + Offline)",
+      nextStep: "UPDATE_MODE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Online 💻", "Offline 🏠", "Both 🌐", "Cancel"],
+    };
+  }
+  if (wantsProfileChange && /\b(location|area|locality|jagah|address|city)\b/i.test(rawMessage)) {
+    const tail = rawMessage.match(/\b(?:location|area|locality|jagah|address|city)\s+(?:to\s+|as\s+|is\s+|hai\s+|ko\s+|in\s+|for\s+)?([a-zA-Z0-9][a-zA-Z0-9\s.,\/-]{1,60})$/i);
+    const loc = tail
+      ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || undefined, true)
+      : null;
+    if (loc?.isValid && !sameLocality(loc.area, loc.city)) {
+      const saved = await syncUserCredentialsInDb({
+        phone: session.phone,
+        area: loc.area,
+        city: loc.city,
+      });
+      return {
+        reply: saved.updatedFields.includes("area")
+          ? `Location saved: *${loc.area}, ${loc.city}* 📍\n\nYou'll now receive home tuition alerts within 5 km of this area.`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋"],
+      };
+    }
+    return {
+      reply: `What is your new teaching locality? Share your area and city — for example: *Saket Delhi*, *Indirapuram*, *Bandra Mumbai*, or *HSR Layout*. 📍`,
+      nextStep: "UPDATE_AREA",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: [...getLocalitiesQuickReplies((data.city as string) || undefined), "Cancel"],
+    };
+  }
+  if (wantsProfileChange && /\bsubjects?\b/i.test(rawMessage)) {
+    const tail = rawMessage.match(/\bsubjects?\s+(?:to\s+|as\s+|hai\s+|are\s+|for\s+)?(.+)$/i);
+    const inlineRaw = tail ? tail[1].trim() : "";
+    const existingCls = Array.isArray(data.classLevels) && data.classLevels.length > 0
+      ? (data.classLevels as string[])
+      : data.classLevel
+        ? [String(data.classLevel)]
+        : undefined;
+    const strictInline = inlineRaw && !/^(update|change|badal|set|karo|krdo)$/i.test(inlineRaw)
+      ? enforceStrictEducation({ rawMessage, classesInput: existingCls })
+      : null;
+    if (strictInline?.errorPrompt) {
+      return {
+        reply: strictInline.errorPrompt,
+        nextStep: "UPDATE_SUBJECTS",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
+      };
+    }
+    if (strictInline?.ok && strictInline.subjects.length > 0) {
+      const wantsAdd = /\b(also|bhi|add|aur ek)\b/i.test(rawMessage);
+      const saved = await syncUserCredentialsInDb({
+        phone: session.phone,
+        subjects: strictInline.subjects,
+        classLevels: strictInline.classLevels.length > 0 ? strictInline.classLevels : undefined,
+        mergeSubjects: wantsAdd,
+        mergeClasses: wantsAdd,
+      });
+      const outSubs = saved.finalSubjects?.length ? saved.finalSubjects : strictInline.subjects;
+      const outCls = saved.finalClassLevels?.length ? saved.finalClassLevels : strictInline.classLevels;
+      return {
+        reply: saved.updatedFields.includes("subjects")
+          ? `Subjects saved: *${outSubs.join(", ")}*${outCls.length > 0 ? ` (Classes: *${outCls.join(", ")}*)` : ""} ✅`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("subjects")
+          ? {
+            ...data,
+            subjects: outSubs,
+            ...(outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
+          }
+          : data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋"],
+      };
+    }
+    return {
+      reply: `Which subjects and classes do you teach? For example: *Class 1-8 All Subjects*, *Class 9-10 Maths & Science*, or *Class 11-12 Physics*.`,
+      nextStep: "UPDATE_SUBJECTS",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
+    };
+  }
+  if (wantsProfileChange && /\bname\b/i.test(rawMessage)) {
+    const tail = rawMessage.match(/\bname\s+(?:to\s+|as\s+|is\s+|hai\s+)?([a-zA-Z][a-zA-Z\s.'-]{1,48})$/i);
+    if (tail && isValidName(tail[1]) && !/^(update|change|changed|new|naya|set|badal|name)$/i.test(tail[1].trim())) {
+      const saved = await syncUserCredentialsInDb({ phone: session.phone, name: tail[1].trim() });
+      return {
+        reply: saved.updatedFields.includes("name")
+          ? `Name saved: *${tail[1].trim()}* ✅`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("name") ? { ...data, name: tail[1].trim() } : data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋"],
+      };
+    }
+    return {
+      reply: "Please enter your updated full name:",
+      nextStep: "UPDATE_NAME",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Cancel"],
+    };
+  }
+  if (wantsProfileChange && /\b(class|classes|grade)\b/i.test(rawMessage) && !/\b(lead|tuition|koi)\b/i.test(rawMessage)) {
+    const parsedCls = extractStrictClasses(rawMessage);
+    const classesExtracted = parsedCls.labels.length > 0 ? parsedCls.labels : extractAllClassLevelsFromText(rawMessage);
+    if (classesExtracted.length === 0) {
+      return {
+        reply: `Which classes do you teach? For example: *Class 1–8*, *Class 9–10*, or *Class 11–12*.`,
+        nextStep: "UPDATE_CLASS",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
+      };
+    }
+    const wantsAddClass = /\b(also|bhi|add|aur ek|along with|as well)\b/i.test(rawMessage);
+    const saved = await syncUserCredentialsInDb({
+      phone: session.phone,
+      classLevels: classesExtracted,
+      mergeClasses: wantsAddClass,
+    });
+    const outCls = saved.finalClassLevels || classesExtracted;
+    return {
+      reply: saved.updatedFields.includes("class") ? `Classes saved: *${outCls.join(", ")}* ✅` : profileNotSavedReply(),
+      nextStep: "DONE",
+      updatedData: saved.updatedFields.includes("class") ? { ...data, classLevel: outCls[0], classLevels: outCls } : data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["My Profile 👤", "View Leads 📋"],
+    };
+  }
+
+  // Area / locality leads query
+  const areaLeadQuery = rawMessage.match(
+    /\b([A-Za-z][A-Za-z\s]{2,30}?(?:nagar|vihar|pur|ganj|bagh|colony|enclave|sector|sec|kunj|park|town|place|puri|marg|basti|gali|ext|extension|block|phase|market|chowk)?)\b.*?\b(koi\s*(class|tuition|lead|requirement|student)|lead\s*(?:hai|hain|mile|milega)|class\s*(hai|hain|milegi|available)|tuition\s*(hai|hain|available)|koi.*(?:hai|hain)|available\s*(?:hai|hain)?)\b/i
+  ) || rawMessage.match(
+    /\b(koi|kuch)\s+(class|lead|tuition|student|requirement)\s+(hai|hain|milegi|available)\s*(in\s+|mein\s+|ke\s+liye\s+)?([A-Za-z][A-Za-z\s]{2,25})\b/i
+  );
+
+  const hasAreaLeadIntent = areaLeadQuery ||
+    /\b([A-Za-z][A-Za-z\s]{2,20})\s+(mein|me|mai|mai?n|ke\s+aas\s+paas|near|ke\s+pass|ke\s+paas|ke\s+liye)\s+(koi|kuch|class|lead|tuition|student|requirements?)\b/i.test(rawMessage) ||
+    /\b(koi|kuch|any)\s+(class|lead|tuition|student|work|requirement)\s+(?:hai|hain|available|milegi?|milenge?)?\s*(?:in|mein|at|at)?\s*([A-Za-z][A-Za-z\s]{2,25})\b/i.test(rawMessage);
+
+  if (hasAreaLeadIntent) {
+    const locMatch =
+      rawMessage.match(/\b([A-Za-z][A-Za-z\s]{2,30}?(?:nagar|vihar|pur|ganj|bagh|colony|enclave|sector|kunj|park|puri|extension|phase)?)\s*(mein|me|mai|ke|near|aas|pass|paas|liye)\b/i) ||
+      rawMessage.match(/\b(in|at)\s+([A-Za-z][A-Za-z\s]{2,25})\b/i) ||
+      rawMessage.match(/([A-Za-z][A-Za-z\s]{2,25}?)\s+(mein|me|mai)\b/i);
+    const rawLoc = locMatch ? (locMatch[2] || locMatch[1]).trim() : rawMessage.replace(/\b(koi|class|hai|hain|mein|me|mai|lead|tuition|student|available|requirement)\b/gi, " ").trim();
+    const loc = validateAndCleanLocality(rawLoc.trim(), (data.city as string) || "Delhi");
+    if (loc.isValid && !sameLocality(loc.area, loc.city)) {
+      const searchArea = loc.area;
+      const searchCity = loc.city;
+      const classForSearch = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+        ? (data.classLevels as string[])
+        : (data.classLevel as string | undefined);
+      const subjectsForSearch = Array.isArray(data.subjects) ? (data.subjects as string[]) : [];
+      const leads = await getChatbotMatchingLeads(searchArea, searchCity, classForSearch, subjectsForSearch);
+      const displayName = (data.name as string) || "Teacher";
+      if (leads.length > 0) {
+        const leadLines = leads.slice(0, 3).map((l, i) =>
+          `${i + 1}. *#${l.inquiryNumber}* — ${l.classLevel} (${l.subjects.join(", ")})\n   📍 ${l.area} | ${l.mode} | 💰 ${l.budget}`
+        ).join("\n\n");
+        return {
+          reply: `Hello *${displayName}*! There ${leads.length === 1 ? "is" : "are"} *${leads.length} active requirement${leads.length > 1 ? "s" : ""}* near *${searchArea}*:\n\n${leadLines}\n\n🔓 Unlock here: https://apnatutorhub.com/tutor/leads`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: [
+            `🔥 Unlock #${leads[0].inquiryNumber}`,
+            "View All Leads 📋",
+            "My Coins 🪙",
+          ],
+        };
+      } else {
+        return {
+          reply: `There are no matching open inquiries in *${searchArea}* right at this moment — parents post fresh requests every 15–30 minutes. 🔔\n\nMake sure your area is saved so you get the first WhatsApp alert as soon as one arrives:\nhttps://apnatutorhub.com/tutor/leads`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["Update My Area 📍", "View All Leads 📋", "Online Leads 💻"],
+        };
+      }
+    }
+  }
+
+  // Very short conversational confirmations -> show leads directly
+  if (/^(kaise|kya|haan|theek|okay|ok|sure|batao|bta?o|aage|next|aur|ha|huh|hmm|chalega|ho\s*gaya)[\s?!.]*$/i.test(rawTrimmed)) {
+    const area = (data.area as string) || "Delhi";
+    const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+      ? (data.classLevels as string[])
+      : (data.classLevel ? [data.classLevel as string] : undefined);
+    const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", tutorClassLevels, data.subjects as string[]);
+    const leadsLink = "https://apnatutorhub.com/tutor/leads";
+    if (leads.length > 0) {
+      const top = leads[0];
+      return {
+        reply: `Here is an active requirement near *${area}*:\n\n*#${top.inquiryNumber}* — ${top.classLevel} (${top.subjects.join(", ")})\n📍 ${top.area} | ${top.mode} | 💰 ${top.budget}\n\n🔓 Unlock details here:\n${leadsLink}`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: [`🔥 Unlock #${top.inquiryNumber}`, "View All Leads 📋", "My Coins 🪙"],
+      };
+    }
+    return {
+      reply: `You can check the latest open leads in your area right here:\n👉 ${leadsLink}\n\nFeel free to ask any question anytime! 😊`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Update Area 📍", "My Coins 🪙"],
+    };
+  }
+
+  // Asking for students / inquiries in area
+  if (/\b(student\s*(chahiye|do|bhejo|dedo|mil\s*sakta|hai|hain|milega)|koi\s*student|need\s*student|padhane\s*ke\s*liye\s*student)\b/i.test(rawMessage)) {
+    const area = (data.area as string) || "Delhi";
+    const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+      ? (data.classLevels as string[])
+      : (data.classLevel ? [data.classLevel as string] : undefined);
+    const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", tutorClassLevels, data.subjects as string[]);
+    const leadsLink = "https://apnatutorhub.com/tutor/leads";
+    if (leads.length > 0) {
+      const top = leads[0];
+      return {
+        reply: `We found a matching *${top.classLevel}* requirement near *${area}* — ${top.subjects.join(", ")} | ${top.mode} | ${top.budget}\n\n🔓 Unlock here: ${leadsLink}`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: [`🔥 Unlock #${top.inquiryNumber}`, "View All 📋", "My Coins 🪙"],
+      };
+    }
+    return {
+      reply: `No new requirement is open in *${area}* at the moment — you'll get an instant alert when one arrives. You can browse all nearby leads here:\n👉 ${leadsLink}`,
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Online Leads 💻", "Update Area 📍"],
+    };
+  }
+
+  const doneLoose = await tryLooseTutorIntent(session, rawMessage, data, "DONE", "done");
+  if (doneLoose) return doneLoose;
+
+  if (looksLikeUnexpectedNoise(rawMessage)) {
+    return {
+      reply: looseIntentClarifyReply("CONFUSED", true),
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "Help 📞"],
+    };
+  }
+
+  return null;
+}
+
+async function tryDeterministicPreAiFallbacks(params: {
+  session: BotSession;
+  rawMessage: string;
+  msg: string;
+  step: string;
+  data: Record<string, any>;
+  userProfile: UserProfileContext | null | undefined;
+  chatHistory: ProcessMessageOptions["chatHistory"];
+}): Promise<EngineResult | null> {
+  const { session, rawMessage, msg, step, data, userProfile, chatHistory } = params;
+
+  const personaHandled = resolvePersonaPrecheck({
+    rawMessage,
+    step,
+    userType: session.userType ?? null,
+    data,
+    chatHistory,
+    isRegistered: Boolean(userProfile?.isRegistered || data._registered),
+    phone: session.phone,
+  });
+  if (personaHandled) {
+    return {
+      reply: personaHandled.reply,
+      nextStep: personaHandled.nextStep,
+      updatedData: {
+        ...data,
+        ...(personaHandled.updatedData || {}),
+        lang: "en",
+      },
+      userType: personaHandled.userType ?? session.userType ?? null,
+      retries: 0,
+      quickReplies: personaHandled.quickReplies,
+    };
+  }
+
+  // Conversational payment proof without 12-digit UTR
+  const paymentPromptRecently =
+    chatHistory?.some(
+      (m) =>
+        m.direction === "OUTBOUND" &&
+        /upi-qr\.png|scan to pay|payment steps|kotakbank|utr number/i.test(m.body || "")
+    ) ?? false;
+
+  if (
+    /\butr\b/i.test(rawMessage) ||
+    /\b(?:screenshot|ss|receipt|payment\s*proof)\b.{0,20}\b(?:bhej|send|diya|kar|h|shared|sent)\b/i.test(rawMessage) ||
+    (/^\s*(?:done|paid|payment\s*done|pay\s*done)\b/i.test(rawMessage.trim()) && paymentPromptRecently)
+  ) {
+    const justSaidDone = /^\s*(?:done|paid|payment\s*done|pay\s*done)\b/i.test(rawMessage.trim());
+    return {
+      reply: justSaidDone
+        ? `Great! 🎉 If you paid online via Razorpay, your plan is already active — please check your dashboard:\n👉 https://apnatutorhub.com/tutor/leads\n\nIf you transferred via offline UPI, please reply with your 12-digit *UTR number* so our coordinator can verify and activate it.`
+        : `Payment details noted! ✅ If you paid via Razorpay online gateway, your plan is already active at: https://apnatutorhub.com/tutor/leads. For any assistance, contact WhatsApp support: +91 93191 93109.`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: {
+        ...data,
+        lastBotAsk: "await-utr",
+        sameAskCount: 0,
+        paymentProofReceivedAt: new Date().toISOString(),
+      },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Dashboard 🎓", "Talk to Support 📞"],
+    };
+  }
+
+  // Conversational Tutor Document Submission phrases
+  if (
+    /\b(?:bhej\s*diya|bhej\s*diye|documents?\s*sent|documents?\s*attached|ye\s*lo|upload\s*kar\s*diya)\b/i.test(rawMessage)
+  ) {
+    return {
+      reply: `✅ *Documents Received for Verification!*\n\nYour documents have been received by our verification desk. 📋\n\nOur team will review them within 2–4 working hours and activate the *Verified Tutor Badge ✅* on your profile. You'll receive a confirmation here on WhatsApp once approved.\n\nMeanwhile, you can browse fresh tuition requirements and connect with parents:\n👉 https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, kycDocsSubmittedOnWa: true },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Check Profile 👤", "Buy Coins 🪙"],
+    };
+  }
+
+  // KYC & Profile Verification Handler
+  if (
+    /(?:kyc|verif|document|aadhaar|pan\s*card|identity|id\s*proof|marksheet|degree|profile\s*complet|complet.*profile|verify\s*profile)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `🎓 *ApnaTutorHub — Tutor Profile & KYC Verification Guide*\n\nHello! 🙏 You can complete your KYC verification in 2 easy ways to earn your *Verified Teacher Badge ✅*:\n\n━━━━━━━━━━━━━━━━━━━\n*Option 1: Upload Directly on Website (Fastest)*\n━━━━━━━━━━━━━━━━━━━\nOpen Step 6 (KYC Badge) on your profile page and upload your documents:\n👉 *Upload Portal:* https://apnatutorhub.com/tutor/profile\n\n*Required Documents:*\n1️⃣ Government ID (Aadhaar Front & Back / PAN Card)\n2️⃣ Address Proof (Aadhaar / Utility Bill / Bank Passbook)\n3️⃣ Clear Live Selfie (holding your ID)\n\n━━━━━━━━━━━━━━━━━━━\n*Option 2: Send Directly in This WhatsApp Chat*\n━━━━━━━━━━━━━━━━━━━\nYou can also send photos right here:\n📄 1. Aadhaar Card (Both Sides) or PAN Card\n🎓 2. Highest Degree / Marksheet\n🤳 3. A clear Selfie\n\n*⏱️ Review Time:* Our team verifies submitted documents within 2–4 working hours.\n\n*⭐ Verified Tutor Benefits:*\n✅ 'Verified Teacher' green badge on profile\n✅ 5x higher trust & faster parent callbacks\n✅ Priority lead matching\n\n💡 *Note:* KYC is optional to start — you can browse and unlock tuition leads right away!\n👉 *All Leads:* https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, askedKyc: true },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Open Profile 👤", "Main Menu 🏠"],
+    };
+  }
+
+  const offScript = tryTutorOffScriptReply(session, rawMessage, data, step);
+  if (offScript) return offScript;
+
+  // Enquiry Follow-up
+  const isEnquiryFollowUp =
+    /(?:ye|yeh|to|toh)?\s*(?:kay|kya|kyu)\s*(?:hai\s*)?(?:fir|phir)\b|\b(?:ye|yeh)\s*(?:kay|kya)\s*hai\b|\bwhat\s*is\s*this\b|\biska\s*kya\s*(?:matlab|karu|karein)\b|\bkya\s*hai\s*ye\b|\bkyu\s*bheja\b/i.test(rawMessage);
+  if (isEnquiryFollowUp) {
+    return {
+      reply: `This is an initial proposed tuition requirement posted by the student's parents. 📋\n\nAfter the demo class, you can directly discuss and finalize standard fees with the parent (for example, Class 1–8: ₹6,000–₹7,500/month, Class 9–12: ₹700–₹900/hour). 🎯\n\nWould you like to connect with this parent?`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Unlock Lead 📋", "Other Leads 🔍", "Talk to Coordinator 📞"],
+    };
+  }
+
+  // Fees Low / Budget Complaint
+  if (
+    /\b(?:fees?|budget)\s*(?:is\s*)?(?:less|low|kam|chhota|bhot\s*kam|bahut\s*kam|zyada\s*kam|too\s*low)\b|\b(?:less|low|kam)\s*(?:fees?|budget)\b|\b(?:itne\s*me\s*kaise|fees\s*badhao)\b/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Thank you for sharing! Parents often enter a starting estimate when posting an inquiry, and you can directly discuss and finalize your preferred fee after the trial demo class. 📚\n\nWhich classes or areas would you like to see fresh leads for?`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Online Tuitions 💻", "Update Area 📍"],
+    };
+  }
+
+  // Parent Not Picking / Lead Dispute
+  if (
+    /(?:call\s*(?:nahi|ni)\s*(?:uth|lag|mil)|phone\s*(?:nahi|ni)\s*(?:uth|lag|mil)|switched\s*off|not\s*reachable|not\s*picking|invalid\s*number|tutor\s*(?:mil\s*gaya|final|ho\s*gaya)|parent\s*mana\s*kar)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `We completely understand — parents are sometimes busy during office hours:\n\n1️⃣ Please send them a polite WhatsApp message introducing yourself from ApnaTutorHub.\n2️⃣ If there is no response within 24 hours or the parent mentions they already hired someone, let our support desk know — we will verify and refund the coins back to your wallet! 🪙\n\n📞 Support Desk: +91 93191 93109 (9 AM – 7 PM)`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Talk to Support 📞", "View Other Leads 📋", "My Coins 🪙"],
+    };
+  }
+
+  // No Leads Coming Query
+  if (
+    /(?:leads?\s*(?:nahi|ni)\s*(?:aayi|aa\s*rahi|aati|aate|mil\s*rahi)|leads?\s*kyu\s*nahi|koi\s*leads?\s*(?:nahi|ni)|leads?\s*kab\s*aayegi|not\s*getting\s*leads?)/i.test(rawMessage)
+  ) {
+    const tutorArea = (data.area as string) || "your area";
+    return {
+      reply: `As soon as a parent posts a matching requirement near *${tutorArea}*, you receive an instant WhatsApp alert! 🔔\n\nMeanwhile, you can browse and unlock all active inquiries directly on your dashboard:\n👉 https://apnatutorhub.com/tutor/leads\n\nReply *MY PROFILE* anytime to check or update your location and subjects.`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "My Profile 👤", "Update Area 📍"],
+    };
+  }
+
+  if (session.userType === "TUTOR" || step.startsWith("T_")) {
+    const socialLoose = await tryLooseTutorIntent(session, rawMessage, data, step, "social");
+    if (socialLoose) return socialLoose;
+  }
+
+  // Severe legal / police threats
+  if (/\b(police|court|consumer\s*court|consumer\s*forum|fir\b|cyber\s*crime|cyber\s*cell|legal\s*notice)\b/i.test(rawMessage)) {
+    const cleanPhone = session.phone.replace(/^91/, "");
+    return {
+      reply: `Your concern has been escalated on priority for WhatsApp +91-${cleanPhone}. Our senior coordinator will review and assist you right away.\n\n📞 Direct WhatsApp Support: +91 93191 93109\n⏰ Hours: 9:00 AM – 7:00 PM (Mon–Sat)\n\nPlease share your specific issue or lead ID here and we'll resolve it promptly.`,
+      nextStep: step,
+      updatedData: data,
+      retries: 0,
+      quickReplies: ["Talk to Support 📞", "View Leads 📋", "MENU 🏠"],
+    };
+  }
+
+  // Free Leads / Bargaining
+  if (
+    /(?:bina\s*(?:paise|reg|payment)|free\s*(?:lead|enquiry|tuition|demo)|pehle\s*demo\s*(?:fir|phir|baad)|payment\s*baad|ek\s*(?:lead|enquiry)\s*(?:free|dedo))/i.test(rawMessage)
+  ) {
+    return {
+      reply: `We understand your concern! Verified parent phone numbers and home addresses are gated behind a membership so only committed teachers connect with families. 🙏\n\nYou can start with our ₹1,257 Commission Based Plan (6 months validity, 5 verified leads).\n\n👉 View Plans: https://apnatutorhub.com/tutor/plans\n👉 Browse Leads: https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  // Login/Dashboard access issues (excluding MANUAL RESET which runs pre-AI)
+  const isLoginOrDashboardIssue =
+    /^(?:not\s*login|login\s*nhi|cant\s*login|can't\s*login)$/i.test(rawMessage.trim()) ||
+    /\b(?:id|i['’]?d|dashboard|account|login|portal|site|website)\b.*?\b(?:open|khul|login)\s*(?:nahi|ni|not)\s*(?:ho\s*raha|hona|rahi|raha\s*hai|h)?\b/i.test(rawMessage) ||
+    /\b(?:open|khul|chal)\s*(?:nahi|ni)\s*(?:ho\s*raha|rahi|raha\s*hai|raha)\b.*?\b(?:id|i['’]?d|dashboard|account|login|portal)\b/i.test(rawMessage) ||
+    /\b(?:login|sign\s*in)\s*(?:problem|issue|error|nahi\s*ho\s*raha|failed|atak|musibat|nhi\s*ho\s*rahi)\b/i.test(rawMessage);
+
+  if (isLoginOrDashboardIssue) {
+    const cleanPhone = session.phone.replace(/\D/g, "");
+    const last10 = cleanPhone.slice(-10);
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: session.phone },
+          { phone: cleanPhone },
+          { phone: `+91${last10}` },
+          { phone: `91${last10}` },
+          { phone: last10 },
+        ],
+      },
+      select: { id: true, email: true, name: true },
+    }).catch(() => null);
+
+    const email = existingUser?.email || (data.email as string) || `user${last10}@apnatutorhub.com`;
+    const name = existingUser?.name || (data.name as string) || "Teacher";
+    return {
+      reply:
+        `Hello ${name}! If you're having trouble logging in or opening the dashboard, please check these steps: 📲\n\n` +
+        `📧 *Registered Login:* ${email}\n` +
+        `📱 *Mobile:* +91 ${last10}\n\n` +
+        `1️⃣ *Direct Login Link:*\n👉 https://apnatutorhub.com/login\n\n` +
+        `2️⃣ If you forgot your password, tap *MANUAL RESET* below — I'll set a temporary password (*Tutor@123*) immediately.\n\n` +
+        `3️⃣ If the page looks stuck, try refreshing or opening it in Chrome.\n\n` +
+        `Need help? WhatsApp support: +91 93191 93109`,
+      nextStep: step === "WELCOME" ? "DONE" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["MANUAL RESET", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  // Password Query
+  if (
+    /(?:mera|apna|account|login)?\s*(?:ka\s*)?password\s*(?:kya\s*hai|batao|bhool\s*gaya|bataiye|dikhao|reset)|what\s*(?:is\s*)?(?:my\s*)?password|forgot\s*password|reset\s*password/i.test(
+      rawMessage.trim()
+    )
+  ) {
+    const email = (data.email as string) || "N/A";
+    return {
+      reply: `For your security, passwords are stored encrypted in our system. 🔐\n\n👤 *Your Login Details:*\n📱 Mobile: +91-${session.phone}\n📧 Email: ${email}\n\nTo set a new password right here, type:\n*UPDATE PASSWORD <new password>*\n(Example: UPDATE PASSWORD MyPass@123)`,
+      nextStep: step === "WELCOME" ? "DONE" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Update Password", "My Profile 👤", "View Leads 📋"],
+    };
+  }
+
+  // Interested reply matching a recent outbound lead alert
+  const isRegistrationStep =
+    step.startsWith("T_") ||
+    step.startsWith("P_") ||
+    step === "WELCOME";
+  const isInterestedLeadReply =
+    /^(?:interested|yes|i\s*am\s*interested|i'm\s*interested|agree|pl\s*arrange|arrange|mujhe\s*chahiye|ye\s*wali\s*(?:tution|tuition)|interested\s*in\s*this|yes\s*agree)\b/i.test(rawMessage.trim());
+
+  if (!isRegistrationStep && isInterestedLeadReply && chatHistory && chatHistory.length > 0) {
+    for (let i = chatHistory.length - 1; i >= 0; i--) {
+      const m = chatHistory[i];
+      if (m.direction === "OUTBOUND" && m.body) {
+        const histMatch =
+          m.body.match(/(?:requirement|lead|inquiry|enquiry)\s*#?(\d{4,7})\b/i) ||
+          m.body.match(/#(\d{4,7})\b/);
+        if (histMatch) {
+          const result = await formatSingleLeadInquiry(parseInt(histMatch[1], 10), session.phone);
+          return {
+            reply: result.reply,
+            nextStep: "DONE",
+            updatedData: data,
+            userType: session.userType || "TUTOR",
+            retries: 0,
+            quickReplies: result.quickReplies,
+          };
+        }
+      }
+    }
+  }
+
+  // Legacy High-Intent Scenarios (fallback when AI is off or unavailable)
+  if (
+    /(?:\b(?:parent|parents|student|party)\b.*\b(?:contact|number|phone|mobile|no)\b|\b(?:contact|number|phone|mobile|no)\b.*\b(?:parent|parents|student|party)\b)/i.test(rawMessage) ||
+    /contact\s*no\s*(?:do|bhejo|dedo|de\s*do)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `To view the parent's direct verified mobile number and home address, please unlock the inquiry on our website:\n\n1️⃣ Open: https://apnatutorhub.com/tutor/leads\n2️⃣ Select the lead and click *Unlock Lead*\n3️⃣ The parent's verified call & WhatsApp number will appear immediately!\n\nDirect Support WhatsApp: +91 93191 93109`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Help 📞"],
+    };
+  }
+
+  if (
+    step !== "T_AREA" &&
+    /(?:\bonline\b.*?\b(?:class|classes|tuition|tutor|available|teach|padhana|student|work)\b|\b(?:class|classes|tuition|tutor|teach|padhana)\b.*?\bonline\b|^online\s*(?:only)?$)/i.test(rawMessage) &&
+    !/\b(plan|plans|subscription|membership|pricing|coins?|wallet|kharid|interested|facebook|requirement for)\b/i.test(rawMessage) &&
+    data.lastBotAsk !== "online-generic"
+  ) {
+    return {
+      reply: `Yes! We have Pan-India Online Tuition leads available (Google Meet / Zoom) — especially for Class 9–12 and international boards. 💻\n\n👉 *Browse Online Leads:*\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n👉 *Commission Based Plan (₹1,257):*\nhttps://apnatutorhub.com/tutor/plans\n\nWhich classes and subjects do you teach online?`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, mode: "ONLINE", area: data.area || "Online (Pan-India)", city: data.city || "Online", lastBotAsk: "online-generic", sameAskCount: 0 },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Online Leads 💻", "Commission Plan 🤝", "Update Subjects 📚"],
+    };
+  }
+
+  if (
+    /\b(?:distance\s*(?:is\s*)?(?:too\s*|so\s*|very\s*)?far|too\s*far|so\s*far|very\s*far|(?:bahut|bhot|bohot|bahot|kafi|zyada)\s*(?:door|dur)|(?:dur|door)\s*(?:hai|padega|h)|itni?\s*(?:door|dur)|location\s*is\s*far|not\s*in\s*delhi|mere\s*ghar\s*se\s*door|travel\s*nahi\s*kar\s*sakta)\b/i.test(rawMessage)
+  ) {
+    return {
+      reply: `Understood! If that location is far from you, you have two easy options:\n\n1️⃣ *Filter Leads Within 5 km:*\nBrowse leads near your exact locality here:\nhttps://apnatutorhub.com/tutor/leads\n\n2️⃣ *Online Classes:*\nTeach students remotely from home with zero travel:\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\nPlease share your exact locality and city (e.g. *Bandra Mumbai* or *Rohini Delhi*) so I can match closer inquiries! 📍`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Filter Leads 📍", "View Online Leads 💻", "Update Area 🏠"],
+    };
+  }
+
+  if (
+    /(?:mobile\s*app|application\s*kya\s*hai|name\s*of\s*your\s*mobile\s*app|app\s*download|play\s*store\s*app|download\s*app|app\s*ka\s*naam|konsa\s*app|kon\s*sa\s*app|kaha\s*se\s*download)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `ApnaTutorHub works directly in your mobile browser (and can be installed as an app in 1 tap without any Play Store download)! 📱\n\n*How to install on your phone:*\n1️⃣ Open https://apnatutorhub.com in Chrome\n2️⃣ Tap the 3-dots menu (⋮) in the top-right corner\n3️⃣ Select *"Install App"* or *"Add to Home Screen"*\n\nYou'll get instant access to live parent inquiries right from your home screen!`,
+      nextStep: step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Open Website 🌐", "View Leads 📋", "Help 📞"],
+    };
+  }
+
+  if (
+    /(?:saari\s*toh\s*booked|sab\s*(?:hi\s*)?booked|all\s*leads?\s*(?:are\s*)?booked|booked\s*bata\s*raha|full\s*ho\s*gaya|lead\s*full\s*hai|koi\s*bhi\s*open\s*nahi|already\s*booked)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `To protect lead quality and give tutors a 90%+ selection chance, at most 3 verified tutors can unlock any inquiry. 🎯\n\nIf a lead says "Booked", all 3 slots are filled.\n\n👉 *Browse Fresh & Open Leads:*\nhttps://apnatutorhub.com/tutor/leads?status=ACTIVE\n\nNew parent inquiries arrive every 15–30 minutes, so keep an eye on your alerts!`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["Fresh Leads ⚡", "Recharge Wallet 💳", "Coordinator Support 📞"],
+    };
+  }
+
+  if (
+    /(?:demo\s*class\s*kaise|demo\s*ka\s*rule|demo\s*ke\s*baad|trial\s*class|how\s*does\s*demo\s*work|first\s*class\s*free|pehle\s*demo)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `*Demo Class Process & Rules:* 🎓\n\n1️⃣ *For Tutors:*\nAfter unlocking a lead, call the parent to schedule a 30–45 minute trial demo class. Once the parent is satisfied, you finalize monthly or hourly fees directly.\n\n2️⃣ *Platform Terms:*\nOn tuition confirmation, standard terms apply (50% of 1st month tuition fee + 5% recurring commission from the 2nd month).\n\n3️⃣ *For Parents:*\nEnjoy 1 free trial demo session with a verified tutor and continue only if you're completely happy.`,
+      nextStep: step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Help 📞"],
+    };
+  }
+
+  if (
+    /(?:mere\s*pa?ss\s*job|kuch\s*kaam\s*hai|job\s*chahiye|teaching\s*job|salary\s*kitni\s*milegi|interview\s*kab\s*hoga)/i.test(rawMessage)
+  ) {
+    return {
+      reply: `ApnaTutorHub connects tutors directly with verified home and online tuition inquiries across India! 📚\n\nYou can browse matching requirements and connect with parents directly:\n👉 https://apnatutorhub.com/tutor/leads\n\nWhich classes, subjects, and area do you teach?`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View Leads 📋", "Commission Plan 🤝", "Help 📞"],
+    };
+  }
+
+  if (
+    /^(?:interested|yes\s*interested|i\s*am\s*interested|sir\s*i\s*am\s*interested|interested\s*sir|interested\s*for\s*home\s*tuition|interested\s*for\s*tuition|want\s*this\s*lead|i\s*want\s*this\s*lead|mujhe\s*chahiye|apply\s*karna\s*hai|apply\s*kaise\s*kare|kaise\s*apply\s*kare|i\s*want\s*to\s*teach|interested\s*in\s*this|intrested|im\s*interested)\b/i.test(rawMessage.trim()) &&
+    !/#\d{4,7}/.test(rawMessage)
+  ) {
+    return {
+      reply: `Awesome! 🎉 We have verified student tuition requirements waiting on your dashboard.\n\n👉 *View & Unlock Leads:*\nhttps://apnatutorhub.com/tutor/leads\n\n👉 *Commission Based Plan (₹1,257):*\nhttps://apnatutorhub.com/tutor/plans\n\nIf you saw a specific WhatsApp alert, reply with its *Lead ID* (for example: *#32042*)!`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Talk to Coordinator 📞"],
+    };
+  }
+
+  if (/^(?:please\s*)?call(?:\s*me|\s*karo|\s*kro|\s*kariye)?\.?$|\bmujhe\s+call\b|\bcall\s+kar(?:o|na)\b/i.test(rawMessage.trim())) {
+    return {
+      reply: `Please reach our coordinator desk for a call:\n📞 WhatsApp Support: +91 93191 93109 | Helpline: 08062180653\nHours: 9:00 AM – 7:00 PM (Mon–Sat)\n\nIf you're a tutor, browse live inquiries here: https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "WELCOME" : step,
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["View Leads 📋", "I'm a Tutor", "I'm a Parent"],
+    };
+  }
+
+  if (/\bonline\s+le\s+s(?:k|ak)/i.test(rawMessage) || /\b(online|offline)\s+(?:le|kar)\s+(?:sakti|sakta|skti|skta)\b/i.test(rawMessage)) {
+    const cls = normalizeCanonicalClassLevel(rawMessage);
+    const wantsOnline = /\bonline\b/i.test(rawMessage);
+    return {
+      reply: wantsOnline
+        ? `Online batches are strictly for *Class 9 and above*. Classes 1–8 are offline home tuition only.\n\nWhich classes and subjects do you teach? 📚`
+        : `Classes 1–8 are offline home tuition only. Classes 9–12 can be online or home tuition.\n\nWhich classes and subjects do you teach? 📚`,
+      nextStep: "T_CONVO",
+      updatedData: { ...data, mode: wantsOnline ? "ONLINE" : "OFFLINE", ...(cls ? { classLevel: cls } : {}) },
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: ["All Subjects, Class 1-8", "Maths & Science, Class 9-10", "Physics, Class 11-12"],
+    };
+  }
+
+  if (/\b(samajh|samjh)\s*nahi\b|\bbaat\s*samajh\b|\bkya\s*bol\s*rahe\b|\bconfus/i.test(rawMessage)) {
+    if (session.userType === "TUTOR" || step === "DONE" || data._registered === true) {
+      return {
+        reply: `No worries at all! 😊 Let me keep it simple — what would you like to do next?\n\n• View matching tuition leads — type *LEADS*\n• Check or update your profile — type *MY PROFILE*\n• Speak with a coordinator — Call *08062180653* or WhatsApp *+91 93191 93109*`,
+        nextStep: "DONE",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "My Profile 👤", "Talk to Support 📞"],
+      };
+    }
+    const cls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
+    return {
+      reply: cls
+        ? `No worries! For *${cls}*, simply type your subjects and locality (for example: *Mathematics, Rohini*).`
+        : `No worries! You can send everything in one simple message like:\n*Class 8, All Subjects, Rohini Delhi*\n\nOr reply *1* if you are a Tutor, or *2* if you are a Parent.`,
+      nextStep: session.userType === "PARENT" ? "P_CONVO" : step === "WELCOME" ? "WELCOME" : "T_CONVO",
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+      quickReplies: ["Class 1-8 All Subjects", "Class 9-10 Maths", "1 - Tutor", "2 - Parent"],
+    };
+  }
+
+  if (/\b(agree to take|free\s+(?:one\s+)?class|registration fees?|charges?\s+(?:bhi\s+)?lage|koi charges)\b/i.test(rawMessage)) {
+    return {
+      reply: `Your tuition fees are finalized directly with the parent after the demo class. To unlock verified parent contacts, you can activate our ₹1,257 Commission Based Plan (5 leads, 6-month validity).\n\n👉 https://apnatutorhub.com/tutor/leads`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  if (/\b(hindi|english)\s+medium\b/i.test(rawMessage) && !normalizeCanonicalClassLevel(rawMessage)) {
+    const medium = /hindi/i.test(rawMessage) ? "Hindi" : "English";
+    return {
+      reply: `Got it, *${medium} medium* noted! Which classes do you teach — Classes 1–8 (All Subjects), Class 9–10, or Class 11–12? 📚`,
+      nextStep: "T_CONVO",
+      updatedData: { ...data, languagePref: `${medium} medium` },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Class 1-8 All Subjects", "Class 9-10", "Class 11-12"],
+    };
+  }
+
+  if (/\b(not attending|attend(?:ing)? the class|class nahi le|class miss)\b/i.test(rawMessage)) {
+    return {
+      reply: `This is the ApnaTutorHub tuition matching desk — class attendance isn't managed here.\n\nAre you a Tutor looking for students, or a Parent looking for a tutor?\n1 — Tutor\n2 — Parent`,
+      nextStep: "WELCOME",
+      updatedData: { lang: "en" },
+      userType: null,
+      retries: 0,
+      quickReplies: ["1️⃣ I'm a Tutor", "2️⃣ I'm a Parent"],
+    };
+  }
+
+  if (/\b(location\s*(kya|kahan|hai)|kahan\s*(hai|padh|hai ye)|where\s+is\s+(the\s+)?(tuition|class|location)|kitni\s+door|konsi\s+jagah)\b/i.test(rawMessage)) {
+    return {
+      reply: `Leads show only the public *locality / sector / colony* until unlocked (exact house numbers are kept private).\n\nShare your locality — such as *Mukundpur*, *Rohini*, or *Sector 45* — to get home tuition leads within 5 km (or Online for Class 9–12).`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Update Area 📍", "View Leads 📋", "Online Classes"],
+    };
+  }
+
+  if (/\b(payment|fees?)\b.*\b(pehle|before|class)\b|\bclass(?:es)?\s+milne\s+se\s+pehle\b/i.test(rawMessage)) {
+    return {
+      reply: `Tutors finalize monthly or hourly fees directly with the parent after the trial demo. Membership credits are used only to unlock verified parent inquiries.\n\n👉 https://apnatutorhub.com/tutor/wallet`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  if (
+    step !== "WELCOME" &&
+    session.step !== "WELCOME" &&
+    /^(both|dono|online and offline|offline and online)$/i.test(rawMessage.trim())
+  ) {
+    const cls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
+    const junior = cls ? isTill8thClass(cls) : false;
+    return {
+      reply: junior
+        ? `For Classes 1–8, we offer *offline home tuition* only. Which locality and city are you based in? 📍`
+        : `Great! Both *home tuition and online classes* work well for Class 9–12. Which exact classes and subjects do you teach?`,
+      nextStep: session.userType === "PARENT" ? "P_CONVO" : "T_CONVO",
+      updatedData: { ...data, mode: junior ? "OFFLINE" : "EITHER" },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: junior ? ["Class 1-5 All Subjects", "Class 6-8", "Sector 45"] : ["Class 9-10 Maths", "Class 11-12 Physics", "Home Tuition"],
+    };
+  }
+
+  const asksCoinBalance =
+    /how many coins|kitne coins|coin balance|wallet balance|coins? (?:hai|hain|bache|bach[ae]|left|remaining)|mere (?:paas|pass).{0,24}coins|coins?.{0,24}(?:paas|pass|hain|hai)|already have coins|i (?:already )?have coins|coins? (?:already|to hain)/i.test(rawMessage);
+  const explicitPlanAsk =
+    /\b(buy coins|recharge|purchase coins|coin pack|membership|pricing|buy plan|plans?|kharid)\b/i.test(rawMessage);
+
+  if (asksCoinBalance && !explicitPlanAsk) {
+    const bal = await getTutorCoinBalanceByPhone(session.phone);
+    return {
+      reply: bal.found
+        ? formatCoinBalanceMessage(bal.balance)
+        : `No tutor wallet was found for this number. Please log in to check your coin balance:\nhttps://apnatutorhub.com/tutor/wallet`,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: bal.balance > 0
+        ? ["View All Leads 📋", "Open Wallet 💳", "Talk to Support 📞"]
+        : ["View Plans 💰", "View All Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  const isIdentityOrEmailInput =
+    step === "T_NAME" ||
+    step === "T_EMAIL" ||
+    step === "T_PASSWORD" ||
+    step === "UPDATE_NAME" ||
+    step === "UPDATE_EMAIL" ||
+    step === "UPDATE_PASSWORD" ||
+    step === "P_STUDENT_NAME" ||
+    Boolean(extractStrictEmail(rawMessage)) ||
+    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+/.test(rawMessage.trim());
+
+  if (
+    !isIdentityOrEmailInput &&
+    /(?:(?:\b₹?\s*999\b)|999\s*(?:wala|plan|offer|ka))/i.test(rawMessage)
+  ) {
+    return {
+      reply: formatOfferEnded999Message(),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+    };
+  }
+
+  if (
+    !isIdentityOrEmailInput &&
+    (asksPlanPaymentOrQr(rawMessage) || /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim()))
+  ) {
+    return {
+      reply: formatPlanPaymentQrMessage("1257"),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
+    };
+  }
+
+  const isConversationalQuestionOrObjection =
+    rawMessage.trim().split(/\s+/).length > 3 ||
+    /\b(?:kyu|kyun|keun|kaun|kaise|kya|why|how|phir|har\s*mahine|bhi|nahi|not|condition|sahi|fake|fraud|authentic|loot|advance|pehle|baad)\b/i.test(rawMessage);
+
+  if (!isIdentityOrEmailInput && !isConversationalQuestionOrObjection && asksZeroCommissionPlan(rawMessage)) {
+    return {
+      reply: formatGrowthPlanDetailMessage(),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
+    };
+  }
+
+  if (!isIdentityOrEmailInput && !isConversationalQuestionOrObjection && asksCommissionPlan(rawMessage)) {
+    return {
+      reply: formatCommissionPlanDetailMessage(),
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Activate Plan ⚡", "View Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
+    };
+  }
+
+  if (!isIdentityOrEmailInput && /\b(plans?|coins?|packs?|pricing|membership|buy\s*coins|recharge|wallet)\b/i.test(msg)) {
+    const bal = await getTutorCoinBalanceByPhone(session.phone);
+    if (bal.found && bal.balance > 0 && !explicitPlanAsk) {
+      return {
+        reply: formatCoinBalanceMessage(bal.balance),
+        nextStep: step === "WELCOME" ? "T_CONVO" : step,
+        updatedData: data,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["View All Leads 📋", "Open Wallet 💳", "Talk to Support 📞"],
+      };
+    }
+    const planReply = bal.found && bal.balance > 0
+      ? `You already have *${bal.balance} coins* in your wallet — you can unlock leads right away.\n\nIf you'd like to add more credits, here is our current plan:\n\n${formatCoinPlansMessage()}`
+      : formatCoinPlansMessage();
+    return {
+      reply: planReply,
+      nextStep: step === "WELCOME" ? "T_CONVO" : step,
+      updatedData: data,
+      userType: session.userType || "TUTOR",
+      retries: 0,
+      quickReplies: ["Recharge Wallet 💳", "View All Leads 📋", "Talk to Support 📞"],
+      ...paymentQrImage(),
+    };
+  }
+
+  if (
+    !isIdentityOrEmailInput &&
+    (/^(?:show\s+leads?|view\s+leads?|leads?|my\s+leads?|matching\s+leads?|unlock\s+leads?|explore\s+leads?)$/i.test(msg.trim()) ||
+      (/\b(?:show|view|matching|my|explore)\s+lead/i.test(msg) && !/\d{4,7}/.test(msg)))
+  ) {
+    const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
+      ? (data.classLevels as string[])
+      : (data.classLevel ? [data.classLevel as string] : undefined);
+    const leads = await getChatbotMatchingLeads(
+      (data.area as string) || "Delhi",
+      (data.city as string) || "Delhi",
+      tutorClassLevels,
+      data.subjects as string[]
+    );
+    return {
+      reply: formatTutorLeadsAndPlansMessage((data.name as string) || "Teacher", (data.area as string) || "Delhi", leads),
+      nextStep: "DONE",
+      updatedData: data,
+      userType: "TUTOR",
+      retries: 0,
+      quickReplies: [
+        leads.length > 0 ? `🔥 Unlock Lead #${leads[0].inquiryNumber}` : "🔥 View All Leads",
+        "💰 View Coin Plans",
+        "🌐 Leads Dashboard",
+      ],
+    };
+  }
+
+  return null;
+}
+
+function applyWelcomeEarlyTutorDetect(
+  session: BotSession,
+  rawMessage: string,
+  step: string,
+  data: Record<string, any>
+): string {
+  const rawTrimmed = rawMessage.trim();
+  const explicitParentSignal =
+    /\b(parent|child|kid|son|daughter|need\s+a?\s*tutor|looking\s+for\s+a?\s*tutor|want\s+a?\s*tutor|home\s*tutor\s*(?:needed|required|chahiye))\b/i.test(rawTrimmed);
+  if (explicitParentSignal) return step;
+
+  const hasSubjectSignal = /\b(math|maths|mathematics|mathmatics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i.test(rawTrimmed);
+  const hasClassSignal = extractStrictClasses(rawTrimmed).labels.length > 0;
+  const hasLocSignal = validateAndCleanLocality(rawTrimmed).isValid || /\b(nagar|vihar|sector|colony|enclave|pur\b|ganj\b|bagh\b|kunj|road|street|delhi|noida|gurgaon|gurugram|ghaziabad|faridabad|mumbai|bangalore|pune|kolkata|jaipur|lucknow|chandigarh|indore|bhopal|patna|agra|madurai|chennai)\b/i.test(rawTrimmed);
+  const hasTutorSignal = /\b(tutor|teach|teaching|teacher|padhana|padhana\s*hai|classes|tuition|tution)\b/i.test(rawTrimmed);
+
+  if (step === "WELCOME" && (hasSubjectSignal || hasClassSignal || hasLocSignal || hasTutorSignal)) {
+    session.step = "T_CONVO";
+    session.userType = "TUTOR";
+    data.lang = "en";
+    data.userType = "TUTOR";
+    return "T_CONVO";
+  }
+  return step;
 }
 
 export type ProcessMessageOptions = {
@@ -1110,8 +2549,9 @@ export async function processMessage(
   options?: ProcessMessageOptions
 ): Promise<EngineResult> {
   const msg = rawMessage.trim().toUpperCase();
-  let step = session.step;
+  let step = session.step === "LANG_SELECT" ? "WELCOME" : session.step;
   let { data, retries } = session;
+  data = { ...data, lang: "en" };
   const useAi = options?.useAi !== false;
   const userProfile = await getStoredUserProfile(session.phone);
 
@@ -1140,7 +2580,7 @@ export async function processMessage(
       step = "DONE";
     }
     if (!data.name && userProfile.name) data.name = userProfile.name;
-    if (!data.email && userProfile.email && !userProfile.email.startsWith("wa_") && !userProfile.email.startsWith("wa.")) {
+    if (!data.email && userProfile.email && isStrictValidEmail(userProfile.email)) {
       data.email = userProfile.email;
     }
     if (!data.area && userProfile.area) data.area = userProfile.area;
@@ -1186,33 +2626,24 @@ export async function processMessage(
 
   if (isExplicitUnsubscribe) {
     return {
-      reply: `Aapko notifications se unsubscribe kar diya gaya hai. Hamari taraf se ab aapko automated alerts nahi aayenge. 🙏\n\nAgar future mein dobara tuition alerts chahiye hon, toh bas *START* likh kar bhej dein.\n\nApnaTutorHub.com`,
+      reply: `You have been unsubscribed from automated WhatsApp notifications. 🙏\n\nIf you ever want to receive tuition alerts again, simply reply *START*.\n\nApnaTutorHub.com`,
       nextStep: "WELCOME",
-      updatedData: { ...data, unsubscribed: true },
+      updatedData: { ...data, unsubscribed: true, lang: "en" },
       userType: session.userType,
       retries: 0,
       quickReplies: ["START", "MENU"],
     };
   }
 
-  // ── Payment proof (UTR / screenshot / "done" after QR) ─────────────────────
-  // Never claim activation without manual verification. Ask for the UTR or a
-  // screenshot instead of treating a bare "done" as a completed payment.
-  const paymentPromptRecently =
-    chatHistory?.some(
-      (m) =>
-        m.direction === "OUTBOUND" &&
-        /upi-qr\.png|scan to pay|payment steps|kotakbank|utr number/i.test(m.body || "")
-    ) ?? false;
-
-  // UTR number pattern: 12-digit numeric string (NPCI UTR)
+  // ── 1. Global Structural Fast-Paths Only (before AI) ──────────────────────
+  // Automated payment UTR (exact 12-digit NPCI UTR)
   const utrNumberMatch = rawMessage.match(/\b(\d{12})\b/);
   if (utrNumberMatch) {
     return {
       reply:
-        `✅ UTR *${utrNumberMatch[1]}* receive ho gaya hai! Dhanyavaad! 🙏\n\n` +
-        `Hamari team 15–30 minutes mein verify karke aapka plan activate kar degi. Activation ke baad aapko yahan confirmation milega.\n\n` +
-        `Koi sawaal ho to: WhatsApp +91 93191 93109`,
+        `✅ Thank you! Your UTR *${utrNumberMatch[1]}* has been received. 🙏\n\n` +
+        `Our team will verify the payment within 15–30 minutes and activate your plan. You'll receive a confirmation right here once activated.\n\n` +
+        `Need help? WhatsApp Support: +91 93191 93109`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: { ...data, lastBotAsk: "utr-received", utrNumber: utrNumberMatch[1], sameAskCount: 0 },
       userType: session.userType || "TUTOR",
@@ -1221,49 +2652,23 @@ export async function processMessage(
     };
   }
 
-  if (
-    /\butr\b/i.test(rawMessage) ||
-    /\b(?:screenshot|ss|receipt|payment\s*proof)\b.{0,20}\b(?:bhej|send|diya|kar|h)\b/i.test(rawMessage) ||
-    (/^\s*(?:done|paid|payment\s*done|pay\s*done)\b/i.test(rawMessage.trim()) && paymentPromptRecently)
-  ) {
-    // If they just say "done" or "paid" without a UTR, ask for confirmation proof
-    const justSaidDone = /^\s*(?:done|paid|payment\s*done|pay\s*done)\b/i.test(rawMessage.trim());
-    return {
-      reply: justSaidDone
-        ? `Bahut badhiya! 🎉 Agar aapne Razorpay se online pay kiya hai toh plan turant auto-activate ho chuka hai! Ek baar apna portal check karein:\n👉 https://apnatutorhub.com/tutor/leads\n\nAgar offline UPI se transfer kiya hai toh UTR number yahin bhej dein, coordinator verify kar denge.`
-        : `Payment details note kar li hain! ✅ Agar aapne Razorpay online gateway se pay kiya hai toh plan turant active ho chuka hai: https://apnatutorhub.com/tutor/leads. Kisi bhi help ke liye coordinator: +91 93191 93109.`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: {
-        ...data,
-        lastBotAsk: "await-utr",
-        sameAskCount: 0,
-        paymentProofReceivedAt: new Date().toISOString(),
-      },
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["View Leads 📋", "My Dashboard 🎓", "Talk to Support 📞"],
-    };
-  }
-
-  // ── 1. Global commands — always honoured regardless of step ───────────────
+  // ── Global commands — always honoured regardless of step ───────────────
 
   if (CANCEL_COMMANDS.includes(msg)) {
     return {
       reply: MSG.CANCEL,
       nextStep: "WELCOME",
-      updatedData: {},
+      updatedData: { lang: "en" },
       userType: null,
       retries: 0,
       quickReplies: ["MENU", "1 - Tutor", "2 - Parent"],
     };
   }
 
-  // ── Tutor Document Submission on WhatsApp ──────────────────────────────────
-  if (
-    /(?:\[photo\s*\/\s*document|\[document|\b(?:bhej\s*diya|bhej\s*diye|documents?\s*sent|documents?\s*attached|ye\s*lo|check\s*karo|check\s*kar\s*lo|upload\s*kar\s*diya)\b)/i.test(rawMessage)
-  ) {
+  // Explicit WhatsApp media/document attachment upload
+  if (/(?:\[photo\s*\/\s*document|\[document)/i.test(rawMessage)) {
     return {
-      reply: `✅ *Documents Received for Verification!*\n\nAapke documents hamare verification desk ko receive ho gaye hain. 📋\n\nHamari team 2 se 4 working hours mein ise review karke aapke profile par *Verified Tutor Badge ✅* activate kar degi. Approval hote hi aapko yahan WhatsApp par confirmation mil jayega.\n\nTab tak aap fresh tuition requirements dekh sakte hain aur parents se connect kar sakte hain:\n👉 https://apnatutorhub.com/tutor/leads`,
+      reply: `✅ *Documents Received for Verification!*\n\nYour documents have been received by our verification desk. 📋\n\nOur team will review them within 2–4 working hours and activate the *Verified Tutor Badge ✅* on your profile. You'll receive a confirmation here on WhatsApp once approved.\n\nMeanwhile, you can browse fresh tuition requirements and connect with parents:\n👉 https://apnatutorhub.com/tutor/leads`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: { ...data, kycDocsSubmittedOnWa: true },
       userType: "TUTOR",
@@ -1272,121 +2677,14 @@ export async function processMessage(
     };
   }
 
-  // ── KYC & Profile Verification Handler ──────────────────────────────────────
-  if (
-    /(?:kyc|verif|document|aadhaar|pan\s*card|identity|id\s*proof|marksheet|degree|profile\s*complet|complet.*profile|verify\s*profile)/i.test(rawMessage)
-  ) {
+  // Exact single-token Help / Support / Call commands
+  if (HELP_COMMANDS.includes(msg) || /^(?:support|help|madad|coordinator|call)$/i.test(rawMessage.trim())) {
     return {
-      reply: `🎓 *ApnaTutorHub — Tutor Profile & KYC Verification Guide*\n\nNamaste Teacher! 🙏\nAap 2 aasan tareeqon se apna KYC verification complete karke *Verified Teacher Badge ✅* pa sakte hain:\n\n━━━━━━━━━━━━━━━━━━━\n*Option 1: Direct Website Par Upload Karein (Sabse Fast)*\n━━━━━━━━━━━━━━━━━━━\nNeeche diye gaye link par jakar Step 6 (KYC Badge) par click karein aur apne documents upload karein:\n👉 *Upload Portal:* https://apnatutorhub.com/tutor/profile\n\n*Zaroori Documents:*\n1️⃣ Government ID (Aadhaar Card Front & Back / PAN Card)\n2️⃣ Address Proof (Aadhaar / Utility Bill / Bank Passbook)\n3️⃣ Live Selfie (holding your ID)\n\n━━━━━━━━━━━━━━━━━━━\n*Option 2: Seedha Isi WhatsApp Par Bhejein*\n━━━━━━━━━━━━━━━━━━━\nAap *seedha isi chat par* apne documents ki photo bhej dein:\n📄 1. Aadhaar Card (Dono Taraf) ya PAN Card\n🎓 2. Highest Degree / Marksheet photo\n🤳 3. Ek clear Selfie\n\n*⏱️ Review Time:* Hamari verification team 2–4 ghante mein documents check karke aapka account verify kar degi.\n\n*⭐ Verified Tutor Hone Ke Fayde:*\n✅ Profile par 'Verified Teacher' green badge\n✅ Parents ki taraf se 5x zyada trust & direct inquiries\n✅ First Priority Lead Matching\n\n💡 *Lead Unlocking Note:* KYC verification optional hai — aap abhi bhi direct tuition leads unlock kar sakte hain bina KYC ke!\n👉 *All Leads:* https://apnatutorhub.com/tutor/leads`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: { ...data, askedKyc: true },
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["View Leads 📋", "Open Profile 👤", "Main Menu 🏠"],
-    };
-  }
-
-  if (HELP_COMMANDS.includes(msg) || /^call$/i.test(msg.trim()) || /^(?:support|help|madad|coordinator)$/i.test(msg.trim())) {
-    return {
-      reply: `📞 *ApnaTutorHub Support Desk*\n\nAapka message hamari coordinator team ko mil gaya hai. Hamara representative jald hi isi WhatsApp chat par aapko reply karega. 🙏\n\nAgar aapko direct call karni hai:\n📞 Helpline: 08062180653\n⏰ Time: 9:00 AM – 7:00 PM (Mon–Sat)\n\nAap apna specific sawaal ya problem yahan likhein — hum turant resolve karenge!`,
+      reply: `📞 *ApnaTutorHub Support Desk*\n\nYour message has been received by our coordinator desk. A team member will reply to you shortly right here on WhatsApp. 🙏\n\nTo speak directly with support:\n📞 Helpline: 08062180653\n⏰ Hours: 9:00 AM – 7:00 PM (Mon–Sat)\n\nFeel free to write your specific question here anytime!`,
       nextStep: step,
       updatedData: data,
       retries: 0,
       quickReplies: ["View Leads 📋", "View Plans 💰", "MENU 🏠"],
-    };
-  }
-
-  const offScript = tryTutorOffScriptReply(session, rawMessage, data, step);
-  if (offScript) return offScript;
-
-  // ── Enquiry Follow-up / Discrepancy Query (e.g. "Ye kay hai fir?", "ye kya hai fir", "to fir ye kya hai") ──
-  const isEnquiryFollowUp =
-    /(?:ye|yeh|to|toh)?\s*(?:kay|kya|kyu)\s*(?:hai\s*)?(?:fir|phir)\b|\b(?:ye|yeh)\s*(?:kay|kya)\s*hai\b|\bwhat\s*is\s*this\b|\biska\s*kya\s*(?:matlab|karu|karein)\b|\bkya\s*hai\s*ye\b|\bkyu\s*bheja\b/i.test(rawMessage);
-
-  if (isEnquiryFollowUp) {
-    return {
-      reply: `Sir yeh student ke parents ki taraf se post kiya gaya initial proposed budget hai. 📋\n\nDemo class ke time aap parent se standard market fees (jaise Class 1–5: ₹6,000–₹6,800/month ya Class 9+: ₹700–₹900/hour) directly discuss & negotiate kar sakte hain — hamare platform par fee negotiation direct rehti hai! 🎯\n\nAapko is enquiry ke client se connect hona hai?`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Unlock Lead 📋", "Other Leads 🔍", "Talk to Coordinator 📞"],
-    };
-  }
-
-  // ── Fees is Low / Less / Budget Complaint ─────────────────────────────────
-  if (
-    /\b(?:fees?|budget)\s*(?:is\s*)?(?:less|low|kam|chhota|bhot\s*kam|bahut\s*kam|zyada\s*kam|too\s*low)\b|\b(?:less|low|kam)\s*(?:fees?|budget)\b|\b(?:itne\s*me\s*kaise|fees\s*badhao)\b/i.test(rawMessage)
-  ) {
-    return {
-      reply: `Ji bilkul sir! Yeh student ke parents ka starting proposed budget hota hai. Lekin demo class ke baad aap parent se standard fees (Class 1–5: ₹5,000–₹6,800/mo, Class 9+: ₹700–₹900/hr) directly finalize kar sakte hain. 📚\n\nAapko kis class ya area ke fresh leads dekhne hain?`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["View All Leads 📋", "Online Tuitions 💻", "Update Area 📍"],
-    };
-  }
-
-  // ── Parent Not Picking / Switched Off / Lead Dispute ──────────────────────
-  if (
-    /(?:call\s*(?:nahi|ni)\s*(?:uth|lag|mil)|phone\s*(?:nahi|ni)\s*(?:uth|lag|mil)|switched\s*off|not\s*reachable|not\s*picking|invalid\s*number|tutor\s*(?:mil\s*gaya|final|ho\s*gaya)|parent\s*mana\s*kar)/i.test(rawMessage)
-  ) {
-    return {
-      reply: `Sir hum samajhte hain! Kabhi parents office ya transit mein busy hote hain:\n\n1️⃣ Unhe ek polite WhatsApp message bhej dein ki aap ApnaTutorHub se unki tuition requirement ke liye reach out kar rahe hain.\n2️⃣ Agar 24 ghante mein response na aaye ya parent bole ki pehle hi tutor mil gaya hai, toh aap hamare support desk par batayein — hamari team verify karke aapke coins wallet mein refund kar degi! 🪙\n\n📞 Support Desk: +91 93191 93109 (9am–7pm)`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["Talk to Support 📞", "View Other Leads 📋", "My Coins 🪙"],
-    };
-  }
-
-  // ── No Leads Coming / Lead Delay Query ───────────────────────────────────
-  if (
-    /(?:leads?\s*(?:nahi|ni)\s*(?:aayi|aa\s*rahi|aati|aate|mil\s*rahi)|leads?\s*kyu\s*nahi|koi\s*leads?\s*(?:nahi|ni)|leads?\s*kab\s*aayegi|not\s*getting\s*leads?)/i.test(rawMessage)
-  ) {
-    const tutorArea = (data.area as string) || "aapke area";
-    return {
-      reply: `Sir *${tutorArea}* mein jaise hi koi parent fresh tuition post karte hain, aapko instant WhatsApp alert milta hai! 🔔\n\nTab tak aap hamare live portal par saari available requirements dekh aur unlock kar sakte hain:\n👉 https://apnatutorhub.com/tutor/leads\n\nApna area aur subjects check ya update karne ke liye reply karein *MY PROFILE*.`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["View Leads 📋", "My Profile 👤", "Update Area 📍"],
-    };
-  }
-
-  if (session.userType === "TUTOR" || step.startsWith("T_")) {
-    const socialLoose = await tryLooseTutorIntent(session, rawMessage, data, step, "social");
-    if (socialLoose) return socialLoose;
-  }
-
-  // ── Staff Escalation: severe legal / police threats ───────────────────────
-  // General refund / payment / trust / coordinator questions are answered by Gemini AI.
-  // Only true legal threats get escalated to static registration.
-  if (/\b(police|court|consumer\s*court|consumer\s*forum|fir\b|cyber\s*crime|cyber\s*cell|legal\s*notice)\b/i.test(rawMessage)) {
-    const cleanPhone = session.phone.replace(/^91/, "");
-    return {
-      reply: `Aapka issue register kar liya gaya hai. Aapka registered WhatsApp (+91-${cleanPhone}) note ho gaya hai — hamare senior coordinator turant aapki madad karenge.\n\n📞 Direct WhatsApp Support: +91 93191 93109\n⏰ Time: 9:00 AM – 7:00 PM (Mon–Sat)\n\nAap apna specific issue yahan likhein — hum turant resolve karenge!`,
-      nextStep: step,
-      updatedData: data,
-      retries: 0,
-      quickReplies: ["Talk to Support 📞", "View Leads 📋", "MENU 🏠"],
-    };
-  }
-
-  // ── Free Leads / Bargaining / Pehle Demo Baad Mein Payment ────────────────
-  if (
-    /(?:bina\s*(?:paise|reg|payment)|free\s*(?:lead|enquiry|tuition|demo)|pehle\s*demo\s*(?:fir|phir|baad)|payment\s*baad|ek\s*(?:lead|enquiry)\s*(?:free|dedo))/i.test(rawMessage)
-  ) {
-    return {
-      reply: `Sir hum samajhte hain, par parents ke direct verified phone number aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹1,257 Commission Based Plan (6 months validity, 5 leads) se shuru kar sakte hain!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
     };
   }
 
@@ -1402,7 +2700,7 @@ export async function processMessage(
       data = { ...data, unsubscribed: false };
     } else {
       return {
-        reply: `Aapne pehle tuition alerts unsubscribe kiye the. Dobara shuru karne ke liye *START* likhein. 🙏`,
+        reply: `You had previously unsubscribed from tuition alerts. Reply *START* anytime to resume notifications. 🙏`,
         nextStep: "WELCOME",
         updatedData: data,
         userType: session.userType,
@@ -1434,7 +2732,7 @@ export async function processMessage(
     const location = city && !area.toLowerCase().includes(city.toLowerCase()) ? `${area}, ${city}` : area;
     const coinsStr = userProfile?.coins !== undefined && userProfile.coins !== null ? `\n🪙 Coins: *${userProfile.coins}*` : "";
 
-    const profileText = `👤 *Aapka Profile:*\n\nNaam: ${name}\nEmail: ${email}\nLocation: ${location}\nMode: ${mode}\nClass: ${classes}\nSubjects: ${subjects}\nPhone: +91-${session.phone}${coinsStr}\nPassword: Set (encrypted 🔒)\n\nKuch update karna hai? Likhein:\n• *UPDATE AREA <naya area>*\n• *UPDATE MODE Online / Offline*\n• *UPDATE SUBJECTS <subjects>*\n• *UPDATE PASSWORD <naya password>*`;
+    const profileText = `👤 *Your Profile:*\n\nName: ${name}\nEmail: ${email}\nLocation: ${location}\nMode: ${mode}\nClasses: ${classes}\nSubjects: ${subjects}\nPhone: +91-${session.phone}${coinsStr}\nPassword: Set (encrypted 🔒)\n\nTo update anything, type:\n• *UPDATE AREA <new locality>*\n• *UPDATE MODE Online / Offline*\n• *UPDATE SUBJECTS <subjects & classes>*\n• *UPDATE PASSWORD <new password>*`;
     return {
       reply: profileText,
       nextStep: step,
@@ -1444,17 +2742,10 @@ export async function processMessage(
     };
   }
 
-  // ── Manual Password Reset & Login/Dashboard Access Issues ─────────────────
+  // ── Manual Password Reset (explicit command only; loose login help in AI / fallback) ──
   const isExplicitManualReset =
-    /^(?:manual\s*reset|reset\s*password|temporary\s*password|temp\s*password|aap\s*(?:hi\s*)?(?:kardo\s*reset|reset\s*(?:kardo|karo|kar\s*do)|password\s*reset\s*kardo))$/i.test(rawMessage.trim());
-  const isLoginOrDashboardIssue =
-    isExplicitManualReset ||
-    /^(?:not\s*login|login\s*nhi|cant\s*login|can't\s*login)$/i.test(rawMessage.trim()) ||
-    /\b(?:id|i['’]?d|dashboard|account|login|portal|site|website)\b.*?\b(?:open|khul|login)\s*(?:nahi|ni|not)\s*(?:ho\s*raha|hona|rahi|raha\s*hai|h)?\b/i.test(rawMessage) ||
-    /\b(?:open|khul|chal)\s*(?:nahi|ni)\s*(?:ho\s*raha|rahi|raha\s*hai|raha)\b.*?\b(?:id|i['’]?d|dashboard|account|login|portal)\b/i.test(rawMessage) ||
-    /\b(?:login|sign\s*in)\s*(?:problem|issue|error|nahi\s*ho\s*raha|failed|atak|musibat|nhi\s*ho\s*rahi)\b/i.test(rawMessage);
-
-  if (isLoginOrDashboardIssue) {
+    /^(?:manual\s*reset|reset\s*(?:my\s*)?password|temporary\s*password|temp\s*password|aap\s*(?:hi\s*)?(?:kardo\s*reset|reset\s*(?:kardo|karo|kar\s*do)|password\s*reset\s*kardo))$/i.test(rawMessage.trim());
+  if (isExplicitManualReset) {
     const cleanPhone = session.phone.replace(/\D/g, "");
     const last10 = cleanPhone.slice(-10);
     const existingUser = await prisma.user.findFirst({
@@ -1471,80 +2762,49 @@ export async function processMessage(
     }).catch(() => null);
 
     const email = existingUser?.email || (data.email as string) || `user${last10}@apnatutorhub.com`;
-    const name = existingUser?.name || (data.name as string) || "Teacher";
-
-    if (isExplicitManualReset) {
-      const tempPass = "Tutor@123";
-      await syncUserCredentialsInDb({
-        phone: session.phone,
-        password: tempPass,
-      });
-      return {
-        reply:
-          `🔑 *Temporary Password Set Ho Gaya!*\n\n` +
-          `Aapke account ka naya password set kar diya hai:\n` +
-          `🔐 Password: *${tempPass}*\n` +
-          `📧 Login ID: *${email}* ya *${last10}*\n\n` +
-          `👉 *Abhi login karein:* https://apnatutorhub.com/login\n\n` +
-          `Login ke baad profile settings mein jaakar apna password update kar sakte hain. ✅`,
-        nextStep: step === "WELCOME" ? "DONE" : step,
-        updatedData: { ...data, email, password: tempPass },
-        userType: session.userType || "TUTOR",
-        retries: 0,
-        quickReplies: ["View Leads 📋", "My Profile 👤", "Talk to Support 📞"],
-      };
-    }
-
+    const tempPass = "Tutor@123";
+    await syncUserCredentialsInDb({
+      phone: session.phone,
+      password: tempPass,
+    });
     return {
       reply:
-        `Namaste ${name} ji! Login ya Dashboard open hone mein problem aa rahi hai toh yeh check karein: 📲\n\n` +
-        `📧 *Aapka Registered Login:* ${email}\n` +
-        `📱 *Mobile:* +91 ${last10}\n\n` +
-        `1️⃣ *Direct Login Link:*\n👉 https://apnatutorhub.com/login\n\n` +
-        `2️⃣ Agar password yaad nahi ya galat bata raha hai, toh niche *MANUAL RESET* dabayein — hum turant temporary password (*Tutor@123*) set kar denge.\n\n` +
-        `3️⃣ Agar screen blank aa rahi ho, toh browser mein page reload karein ya Incognito/Private window mein open karein.\n\n` +
-        `Koi bhi dikkat ho toh direct call/WhatsApp karein: +91 93191 93109`,
+        `🔑 *Temporary Password Activated!*\n\n` +
+        `Your new login credentials are ready:\n` +
+        `🔐 Password: *${tempPass}*\n` +
+        `📧 Login ID: *${email}* or *${last10}*\n\n` +
+        `👉 *Log in now:* https://apnatutorhub.com/login\n\n` +
+        `After logging in, you can change your password anytime from Profile Settings. ✅`,
       nextStep: step === "WELCOME" ? "DONE" : step,
-      updatedData: data,
+      updatedData: { ...data, email, password: tempPass },
       userType: session.userType || "TUTOR",
       retries: 0,
-      quickReplies: ["MANUAL RESET", "View Leads 📋", "Talk to Support 📞"],
-    };
-  }
-
-  // ── Password Query (e.g. "mera account ka password kya hai", "password kya hai", "forgot password") ──
-  if (
-    /(?:mera|apna|account|login)?\s*(?:ka\s*)?password\s*(?:kya\s*hai|batao|bhool\s*gaya|bataiye|dikhao|reset)|what\s*(?:is\s*)?(?:my\s*)?password|forgot\s*password|reset\s*password/i.test(
-      rawMessage.trim()
-    )
-  ) {
-    const email = (data.email as string) || "N/A";
-    return {
-      reply: `Aapka password security reasons ki wajah se hamare system mein encrypted rehta hai. 🔐\n\n👤 *Aapke Login Details:*\n📱 Mobile: +91-${session.phone}\n📧 Email: ${email}\n\nNaya password set karne ke liye type karein:\n*UPDATE PASSWORD <naya password>*\n(Jaise: UPDATE PASSWORD MyPass@123)`,
-      nextStep: step === "WELCOME" ? "DONE" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Update Password", "My Profile 👤", "View Leads 📋"],
+      quickReplies: ["View Leads 📋", "My Profile 👤", "Talk to Support 📞"],
     };
   }
 
   // ── Combined Email & Password Update Command ──
-  // Examples:
-  // "update my gmail and password coderrohit2927@gmail.com"
-  // "update email and password test@gmail.com Rohit@2927"
-  // "update my email and password"
   const emailAndPassMatch =
     rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?(?:email|gmail)\s+and\s+password(?:\s+(.+))?$/i) ||
     rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?password\s+and\s+(?:email|gmail)(?:\s+(.+))?$/i);
 
   if (emailAndPassMatch) {
     const rest = (emailAndPassMatch[1] || "").trim();
-    const emailMatch = rest.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const rawEmailToken = rest.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12}/);
 
-    if (emailMatch) {
-      const email = emailMatch[0].toLowerCase();
-      const remainingTokens = rest.replace(emailMatch[0], "").trim().split(/\s+/).filter(Boolean);
+    if (rawEmailToken) {
+      const emailCheck = validateStrictEmail(rawEmailToken[0]);
+      if (!emailCheck.ok) {
+        return {
+          reply: `⚠️ ${emailCheck.reason}`,
+          nextStep: "UPDATE_EMAIL",
+          updatedData: data,
+          retries: 0,
+          quickReplies: ["Cancel"],
+        };
+      }
+      const email = emailCheck.email;
+      const remainingTokens = rest.replace(rawEmailToken[0], "").trim().split(/\s+/).filter(Boolean);
       const possiblePass = remainingTokens.length > 0 ? remainingTokens[0] : null;
 
       if (possiblePass && possiblePass.length >= 6) {
@@ -1555,7 +2815,7 @@ export async function processMessage(
         });
         const updated = { ...data, email, password: possiblePass };
         return {
-          reply: `Email (*${email}*) aur Password (*${possiblePass}*) dono successfully update ho gaye hain! 🔒\n\nAap login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+          reply: `Both Email (*${email}*) and Password (*${possiblePass}*) have been updated! 🔒\n\nYou can log in anytime here:\nhttps://apnatutorhub.com/login`,
           nextStep: "DONE",
           updatedData: updated,
           retries: 0,
@@ -1568,7 +2828,7 @@ export async function processMessage(
         });
         const updated = { ...data, email };
         return {
-          reply: `Email *${email}* update ho gaya hai! ✅\n\nAb account login ke liye apna naya password type karein (min 6 characters): 🔑`,
+          reply: `Email *${email}* has been updated! ✅\n\nNow please enter your new password (at least 6 characters): 🔑`,
           nextStep: "UPDATE_PASSWORD",
           updatedData: updated,
           retries: 0,
@@ -1577,7 +2837,7 @@ export async function processMessage(
       }
     } else {
       return {
-        reply: "Apna naya email ID type karein: 📧",
+        reply: "Please enter your new email address (for example, yourname@gmail.com): 📧",
         nextStep: "UPDATE_EMAIL",
         updatedData: data,
         retries: 0,
@@ -1587,13 +2847,12 @@ export async function processMessage(
   }
 
   // ── Single-shot Password Update ──
-  // Examples: "update my password Rohit@2927", "update password Rohit@2927", "change password Rohit@2927", "set password Rohit@2927"
   const directPassMatch = rawMessage.trim().match(/^(?:update|change|set)\s*(?:my\s*)?password\s+(.+)$/i);
   if (directPassMatch) {
     const newPass = directPassMatch[1].trim();
     if (newPass.length < 6) {
       return {
-        reply: "Password kam se kam 6 characters ka hona chahiye. Kripya naya password type karein: 🔑",
+        reply: "Password must be at least 6 characters long. Please enter a new password: 🔑",
         nextStep: "UPDATE_PASSWORD",
         updatedData: data,
         retries: 0,
@@ -1605,9 +2864,9 @@ export async function processMessage(
       password: newPass,
     });
     const updated = { ...data, password: newPass };
-    const userEmail = (data.email as string) || "aapka email";
+    const userEmail = (data.email as string) || "your email";
     return {
-      reply: `Password successfully update ho gaya hai: *${newPass}* 🔒\n\nAap is password aur apne email (*${userEmail}*) ya mobile (+91-${session.phone}) se login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+      reply: `Password updated successfully: *${newPass}* 🔒\n\nYou can log in using this password with your email (*${userEmail}*) or mobile (+91-${session.phone}):\nhttps://apnatutorhub.com/login`,
       nextStep: "DONE",
       updatedData: updated,
       retries: 0,
@@ -1615,10 +2874,9 @@ export async function processMessage(
     };
   }
 
-  // Matches "update password", "change password", "set password", "update my password"
   if (/^(?:update|change|set)\s*(?:my\s*)?password$/i.test(rawMessage.trim())) {
     return {
-      reply: "Apna naya password type karein (min 6 characters): 🔑",
+      reply: "Please enter your new password (at least 6 characters): 🔑",
       nextStep: "UPDATE_PASSWORD",
       updatedData: data,
       retries: 0,
@@ -1627,28 +2885,28 @@ export async function processMessage(
   }
 
   // ── Single-shot Email Update ──
-  // Examples: "update my email coderrohit2927@gmail.com", "update gmail coderrohit2927@gmail.com"
   const directEmailMatch = rawMessage.trim().match(
-    /^(?:update|change|set)\s*(?:my\s*)?(?:email|gmail)\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/i
+    /^(?:update|change|set)\s*(?:my\s*)?(?:email|gmail)\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12})$/i
   );
   if (directEmailMatch) {
-    const newEmail = directEmailMatch[1].trim().toLowerCase();
-    if (!isValidEmailDomain(newEmail)) {
+    const emailCheck = validateStrictEmail(directEmailMatch[1]);
+    if (!emailCheck.ok) {
       return {
-        reply: "Kripya sahi email address enter karein (jaise: yourname@gmail.com): 📧",
+        reply: `⚠️ ${emailCheck.reason}`,
         nextStep: "UPDATE_EMAIL",
         updatedData: data,
         retries: 0,
         quickReplies: ["Cancel"],
       };
     }
+    const newEmail = emailCheck.email;
     await syncUserCredentialsInDb({
       phone: session.phone,
       email: newEmail,
     });
     const updated = { ...data, email: newEmail };
     return {
-      reply: `Email successfully update ho gaya hai: *${newEmail}* ✅\n\nAap is email se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+      reply: `Email updated successfully: *${newEmail}* ✅\n\nYou can now log in to your portal with this email:\nhttps://apnatutorhub.com/login`,
       nextStep: "DONE",
       updatedData: updated,
       retries: 0,
@@ -1656,10 +2914,9 @@ export async function processMessage(
     };
   }
 
-  // Matches "update email", "change email", "update gmail", "update my email", "update my gmail"
   if (/^(?:update|change|set)\s*(?:my\s*)?(?:email|gmail)$/i.test(rawMessage.trim())) {
     return {
-      reply: "Apna naya email ID type karein: 📧",
+      reply: "Please enter your new email address (for example, yourname@gmail.com): 📧",
       nextStep: "UPDATE_EMAIL",
       updatedData: data,
       retries: 0,
@@ -1677,7 +2934,7 @@ export async function processMessage(
       const saved = await syncUserCredentialsInDb({ phone: session.phone, name: newName });
       return {
         reply: saved.updatedFields.includes("name")
-          ? `Naam save ho gaya: *${newName}* ✅`
+          ? `Name updated: *${newName}* ✅`
           : profileNotSavedReply(),
         nextStep: "DONE",
         updatedData: saved.updatedFields.includes("name") ? { ...data, name: newName } : data,
@@ -1687,7 +2944,7 @@ export async function processMessage(
     }
   }
   if (/^(?:update|change|set)\s*(?:my\s*)?name$/i.test(rawMessage.trim())) {
-    return { reply: "Apna naya naam type karo:", nextStep: "UPDATE_NAME", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+    return { reply: "Please enter your new full name:", nextStep: "UPDATE_NAME", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
   }
 
   // ── Single-shot Area / Location ──
@@ -1698,7 +2955,7 @@ export async function processMessage(
     const loc = validateAndCleanLocality(directAreaMatch[1].trim(), (data.city as string) || "Delhi");
     if (!loc.isValid) {
       return {
-        reply: loc.errorPrompt || `📍 Location *"${directAreaMatch[1].trim()}"* hamare system mein available/pehchani nahi gayi.\n\nKripya apna sahi area aur city batayein — jaise: *Rohini Delhi*, *Sector 62 Noida*, ya *Bandra Mumbai*.`,
+        reply: loc.errorPrompt || `📍 Location *"${directAreaMatch[1].trim()}"* could not be recognized.\n\nPlease provide your locality and city — for example: *Rohini Delhi*, *Sector 62 Noida*, or *Bandra Mumbai*.`,
         nextStep: "UPDATE_AREA",
         updatedData: data,
         retries: 0,
@@ -1712,7 +2969,7 @@ export async function processMessage(
     });
     return {
       reply: saved.updatedFields.includes("area")
-        ? `Location save ho gayi: *${loc.area}, ${loc.city}* 📍\n\nDashboard par isi area ke 5 km ki classes dikhengi.`
+        ? `Location updated: *${loc.area}, ${loc.city}* 📍\n\nYou'll now receive home tuition alerts within 5 km of this area.`
         : profileNotSavedReply(),
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
@@ -1721,16 +2978,16 @@ export async function processMessage(
     };
   }
   if (/^(?:update|change|set)\s*(?:my\s*)?area$/i.test(rawMessage.trim())) {
-    return { reply: "Apna naya area / locality type karo:", nextStep: "UPDATE_AREA", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+    return { reply: "Please type your new locality and city (for example, *Rohini, Delhi*):", nextStep: "UPDATE_AREA", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
   }
 
   if (/^(?:update|change|set)\s*(?:my\s*)?subjects?$/i.test(rawMessage.trim())) {
-    return { reply: "Kaunse subjects padhate ho? (comma separated):", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+    return { reply: "Which subjects and classes do you teach? (For example: *Class 1-8 All Subjects* or *Class 9-10 Maths & Science*):", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
   }
 
   if (/^(?:change|update|reset)\s+(?:my\s+)?password$/i.test(rawMessage.trim())) {
     return {
-      reply: "Apna naya password type karein (kam se kam 6 characters): 🔑",
+      reply: "Please enter your new password (at least 6 characters): 🔑",
       nextStep: "UPDATE_PASSWORD",
       updatedData: data,
       retries: 0,
@@ -1739,13 +2996,13 @@ export async function processMessage(
   }
 
   if (/^(?:update|change|set)\s*(?:my\s*)?phone$/i.test(rawMessage.trim())) {
-    return { reply: "Apna naya phone number type karo (10 digits):", nextStep: "UPDATE_PHONE", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+    return { reply: "Please enter your new 10-digit phone number:", nextStep: "UPDATE_PHONE", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
   }
 
   // ── Handle active update steps ──
   if (step.startsWith("UPDATE_") && /^(cancel|back|wapas|nahi)$/i.test(rawMessage.trim())) {
     return {
-      reply: "Update cancel kar diya gaya. Aap login ya matching leads dekh sakte hain.",
+      reply: "Update cancelled. Let me know if you'd like to check leads or your profile.",
       nextStep: "DONE",
       updatedData: data,
       retries: 0,
@@ -1757,7 +3014,7 @@ export async function processMessage(
     const newName = rawMessage.trim();
     if (!isValidName(newName)) {
       return {
-        reply: "Kripya sahi naam enter karein (sirf letters, min 2 characters):",
+        reply: "Please enter a valid full name (letters only, at least 2 characters):",
         nextStep: "UPDATE_NAME",
         updatedData: data,
         retries: 0,
@@ -1765,7 +3022,7 @@ export async function processMessage(
     }
     const saved = await syncUserCredentialsInDb({ phone: session.phone, name: newName });
     return {
-      reply: saved.updatedFields.includes("name") ? `Naam update ho gaya: *${newName}* ✅` : profileNotSavedReply(),
+      reply: saved.updatedFields.includes("name") ? `Name updated: *${newName}* ✅` : profileNotSavedReply(),
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("name") ? { ...data, name: newName } : data,
       retries: 0,
@@ -1774,21 +3031,21 @@ export async function processMessage(
   }
 
   if (step === "UPDATE_EMAIL") {
-    const rawEmail = rawMessage.trim().toLowerCase();
-    const emailMatch = rawEmail.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    const newEmail = emailMatch ? emailMatch[0] : rawEmail;
-    if (!isValidEmailDomain(newEmail)) {
+    const emailCheck = validateStrictEmail(extractStrictEmail(rawMessage) || rawMessage);
+    if (!emailCheck.ok) {
       return {
-        reply: "Kripya sahi email ID enter karein (jaise: yourname@gmail.com):",
+        reply: `⚠️ ${emailCheck.reason}`,
         nextStep: "UPDATE_EMAIL",
         updatedData: data,
         retries: 0,
+        quickReplies: ["Cancel"],
       };
     }
+    const newEmail = emailCheck.email;
     const saved = await syncUserCredentialsInDb({ phone: session.phone, email: newEmail });
     return {
       reply: saved.updatedFields.includes("email")
-        ? `Email update ho gaya: *${newEmail}* ✅\n\nAap is email se login kar sakte hain: https://apnatutorhub.com/login`
+        ? `Email updated: *${newEmail}* ✅\n\nYou can log in here: https://apnatutorhub.com/login`
         : profileNotSavedReply(),
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("email") ? { ...data, email: newEmail } : data,
@@ -1801,17 +3058,17 @@ export async function processMessage(
     const newPass = rawMessage.trim();
     if (newPass.length < 6) {
       return {
-        reply: "Password kam se kam 6 characters ka hona chahiye. Kripya naya password type karein: 🔑",
+        reply: "Password must be at least 6 characters long. Please enter a new password: 🔑",
         nextStep: "UPDATE_PASSWORD",
         updatedData: data,
         retries: 0,
       };
     }
     const saved = await syncUserCredentialsInDb({ phone: session.phone, password: newPass });
-    const userEmail = (data.email as string) || "aapka email";
+    const userEmail = (data.email as string) || "your email";
     return {
       reply: saved.updatedFields.includes("password")
-        ? `Password successfully update ho gaya hai. 🔒\n\nAap is email (*${userEmail}*) aur naye password se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`
+        ? `Password updated successfully! 🔒\n\nYou can now log in using your email (*${userEmail}*) and new password:\nhttps://apnatutorhub.com/login`
         : profileNotSavedReply(),
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("password") ? { ...data, password: newPass } : data,
@@ -1821,38 +3078,59 @@ export async function processMessage(
   }
 
   if (step === "UPDATE_SUBJECTS") {
-    const inlineClasses = extractAllClassLevelsFromText(rawMessage);
-    const targetCls = inlineClasses[0] || (data.classLevel as string | undefined);
-    const aligned = validateAndAlignSubjects(rawMessage.trim(), targetCls);
-    if (!aligned.isValid || aligned.subjects.length === 0) {
+    const wantsAdd = /\b(also|bhi|add|aur ek|along with|as well)\b/i.test(rawMessage);
+    const existingCls = Array.isArray(data.classLevels) && data.classLevels.length > 0
+      ? (data.classLevels as string[])
+      : data.classLevel
+        ? [String(data.classLevel)]
+        : undefined;
+    const strict = enforceStrictEducation({
+      rawMessage: rawMessage.trim(),
+      classesInput: existingCls,
+    });
+    if (strict.errorPrompt) {
       return {
-        reply: aligned.errorPrompt || "Kaunse subjects padhate ho? Jaise: *Maths, Science* ya *All Subjects*.",
+        reply: strict.errorPrompt,
         nextStep: "UPDATE_SUBJECTS",
         updatedData: data,
         retries: 0,
-        quickReplies: ["Maths", "All Subjects", "Physics", "Cancel"],
+        quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
       };
     }
-    const wantsAdd = /\b(also|bhi|add|aur ek|along with|as well)\b/i.test(rawMessage);
+    if (!strict.ok || strict.subjects.length === 0) {
+      return {
+        reply:
+          strict.pendingBaseSubjects.length > 0
+            ? `Got *${strict.pendingBaseSubjects.join(", ")}*! Which classes do you teach? (For example: *Class 1–8*, *Class 9–10*, or *Class 11–12*)`
+            : `Please share both your *classes and subjects* (for example: *Class 1-8 All Subjects*, *Class 9-10 Maths & Science*, or *Class 11-12 Chemistry*):`,
+        nextStep: strict.pendingBaseSubjects.length > 0 ? "UPDATE_CLASS" : "UPDATE_SUBJECTS",
+        updatedData:
+          strict.pendingBaseSubjects.length > 0
+            ? { ...data, pendingBaseSubjects: strict.pendingBaseSubjects }
+            : data,
+        retries: 0,
+        quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
+      };
+    }
     const saved = await syncUserCredentialsInDb({
       phone: session.phone,
-      subjects: aligned.subjects,
-      classLevels: inlineClasses.length > 0 ? inlineClasses : undefined,
+      subjects: strict.subjects,
+      classLevels: strict.classLevels.length > 0 ? strict.classLevels : undefined,
       mergeSubjects: wantsAdd,
       mergeClasses: wantsAdd,
     });
-    const outSubs = saved.finalSubjects || aligned.subjects;
-    const outCls = saved.finalClassLevels || (inlineClasses.length > 0 ? inlineClasses : undefined);
+    const outSubs = saved.finalSubjects?.length ? saved.finalSubjects : strict.subjects;
+    const outCls = saved.finalClassLevels?.length ? saved.finalClassLevels : strict.classLevels;
     return {
       reply: saved.updatedFields.includes("subjects")
-        ? `Subjects save ho gaye: *${outSubs.join(", ")}*${outCls && outCls.length > 0 ? ` (Class: *${outCls.join(", ")}*)` : ""} ✅`
+        ? `Subjects updated: *${outSubs.join(", ")}*${outCls.length > 0 ? ` (Classes: *${outCls.join(", ")}*)` : ""} ✅`
         : profileNotSavedReply(),
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("subjects")
         ? {
           ...data,
           subjects: outSubs,
-          ...(outCls && outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
+          ...(outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
         }
         : data,
       retries: 0,
@@ -1861,23 +3139,57 @@ export async function processMessage(
   }
 
   if (step === "UPDATE_CLASS") {
-    const cls = normalizeCanonicalClassLevel(rawMessage.trim());
-    if (!cls) {
+    const parsedCls = extractStrictClasses(rawMessage.trim());
+    const fallbackSingle = normalizeCanonicalClassLevel(rawMessage.trim());
+    const targetClsList = parsedCls.labels.length > 0 ? parsedCls.labels : fallbackSingle ? [fallbackSingle] : [];
+    if (targetClsList.length === 0) {
       return {
-        reply: "Kaunsi class padhate ho? Jaise: *Class 5*, *Class 9-10*, ya *Class 11-12*.",
+        reply: "Which classes do you teach? For example: *Class 1–8*, *Class 9–10*, or *Class 11–12*.",
         nextStep: "UPDATE_CLASS",
         updatedData: data,
         retries: 0,
         quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
       };
     }
-    const saved = await syncUserCredentialsInDb({ phone: session.phone, classLevels: [cls] });
+    const pendingSubs = Array.isArray(data.pendingBaseSubjects)
+      ? (data.pendingBaseSubjects as string[])
+      : Array.isArray(data.subjects)
+        ? (data.subjects as string[])
+        : [];
+    const strictFromPending = enforceStrictEducation({
+      subjectsInput: pendingSubs,
+      classesInput: targetClsList,
+    });
+    if (strictFromPending.errorPrompt) {
+      return {
+        reply: strictFromPending.errorPrompt,
+        nextStep: "UPDATE_SUBJECTS",
+        updatedData: { ...data, classLevels: targetClsList, classLevel: targetClsList[0] },
+        retries: 0,
+        quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
+      };
+    }
+    const saved = await syncUserCredentialsInDb({
+      phone: session.phone,
+      classLevels: strictFromPending.classLevels.length ? strictFromPending.classLevels : targetClsList,
+      subjects: strictFromPending.subjects.length ? strictFromPending.subjects : undefined,
+    });
+    const outCls = saved.finalClassLevels?.length ? saved.finalClassLevels : targetClsList;
+    const outSubs = saved.finalSubjects?.length ? saved.finalSubjects : undefined;
     return {
       reply: saved.updatedFields.includes("class")
-        ? `Class save ho gayi: *${cls}* ✅`
+        ? `Classes updated: *${outCls.join(", ")}*${outSubs ? `\nSubjects: *${outSubs.join(", ")}*` : ""} ✅`
         : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("class") ? { ...data, classLevel: cls, classLevels: [cls] } : data,
+      updatedData: saved.updatedFields.includes("class")
+        ? {
+          ...data,
+          classLevel: outCls[0],
+          classLevels: outCls,
+          ...(outSubs ? { subjects: outSubs } : {}),
+          pendingBaseSubjects: undefined,
+        }
+        : data,
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
@@ -1886,16 +3198,16 @@ export async function processMessage(
   if (step === "UPDATE_AREA") {
     if (/\b(password|passwd|email)\b/i.test(rawMessage) && !/\b(nagar|vihar|sector|colony)\b/i.test(rawMessage)) {
       if (/\bpassword\b/i.test(rawMessage)) {
-        return { reply: "Naya password type karein (kam se kam 6 characters):", nextStep: "UPDATE_PASSWORD", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+        return { reply: "Please enter your new password (at least 6 characters):", nextStep: "UPDATE_PASSWORD", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
       }
-      return { reply: "Naya email type karein:", nextStep: "UPDATE_EMAIL", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+      return { reply: "Please enter your new email address:", nextStep: "UPDATE_EMAIL", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
     }
     if (/\bsubjects?\b/i.test(rawMessage)) {
-      return { reply: "Kaunse subjects padhate ho? Jaise: *Maths, Science* ya Class 1–8 ke liye *All Subjects*.", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0, quickReplies: ["Maths", "All Subjects", "Cancel"] };
+      return { reply: "Which subjects and classes do you teach? For example: *Class 1-8 All Subjects* or *Class 9-10 Maths & Science*.", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0, quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Cancel"] };
     }
     if (/\bfees?\b|\bbudget\b|\bkam hai\b/i.test(rawMessage)) {
       return {
-        reply: "Fee note ho gayi. Ab Class 1–8 monthly *₹6,000+* aur Class 9+ hourly *₹700+* (market se upar) wali classes aayengi — All Subjects sirf 1–8, 9–12 subject-wise.",
+        reply: "Noted! You'll be matched with leads offering competitive rates (Class 1–8 monthly ₹6,000+ All Subjects, Class 9–12 hourly ₹700+ subject-specific).",
         nextStep: "DONE",
         updatedData: data,
         retries: 0,
@@ -1905,7 +3217,7 @@ export async function processMessage(
     const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || undefined, true);
     if (!loc.isValid || sameLocality(loc.area, loc.city)) {
       return {
-        reply: loc.errorPrompt || "Sirf locality likhein — jaise *Saket*, *Indirapuram*, *Bandra*, ya *HSR Layout*. 📍",
+        reply: loc.errorPrompt || "Please enter a valid locality and city — for example: *Saket Delhi*, *Indirapuram*, *Bandra Mumbai*, or *HSR Layout Bangalore*. 📍",
         nextStep: "UPDATE_AREA",
         updatedData: data,
         userType: "TUTOR",
@@ -1920,7 +3232,7 @@ export async function processMessage(
     });
     return {
       reply: saved.updatedFields.includes("area")
-        ? `Location save ho gayi: *${loc.area}, ${loc.city}* 📍\n\nDashboard par isi area ke 5 km ki classes dikhengi.`
+        ? `Location updated: *${loc.area}, ${loc.city}* 📍\n\nYou'll now receive matching home tuition leads within 5 km of this area.`
         : profileNotSavedReply(),
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
@@ -1933,7 +3245,7 @@ export async function processMessage(
     const phoneMatch = rawMessage.match(/([6-9]\d{9})/);
     const newPhone = phoneMatch ? phoneMatch[1] : rawMessage.trim();
     return {
-      reply: `Phone update request note ho gayi: *${newPhone}* 📱\n\nSecurity ke liye WhatsApp number verify karna hota hai. Agar aapka number change hua hai, toh kripya naye number se WhatsApp karein.`,
+      reply: `Phone update request noted: *${newPhone}* 📱\n\nFor security verification, please message us directly from your new WhatsApp number.`,
       nextStep: "DONE",
       updatedData: { ...data, phone: newPhone },
       retries: 0,
@@ -1949,7 +3261,7 @@ export async function processMessage(
 
     if (!mode) {
       return {
-        reply: "Kripya valid teaching mode chunein:\n• *Online* (Pan-India)\n• *Offline* (Home Tuition)\n• *Both* (Online + Offline)",
+        reply: "Please choose a valid teaching mode:\n• *Online* (Pan-India)\n• *Offline* (Home Tuition)\n• *Both* (Online + Offline)",
         nextStep: "UPDATE_MODE",
         updatedData: data,
         retries: 0,
@@ -1959,7 +3271,7 @@ export async function processMessage(
     const saved = await syncUserCredentialsInDb({ phone: session.phone, mode });
     return {
       reply: saved.updatedFields.includes("mode")
-        ? `Teaching mode update ho gaya: *${mode === "ONLINE" ? "Online (Pan-India) 💻" : mode === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Online + Offline 🌐"}* ✅`
+        ? `Teaching mode updated: *${mode === "ONLINE" ? "Online (Pan-India) 💻" : mode === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Online + Offline 🌐"}* ✅`
         : profileNotSavedReply(),
       nextStep: "DONE",
       updatedData: saved.updatedFields.includes("mode") ? { ...data, mode } : data,
@@ -1969,12 +3281,10 @@ export async function processMessage(
     };
   }
 
-  // ── Single Inquiry / Lead Unlock Shortcut (e.g. "#32042", "Unlock Lead #32042", "32042") ──
-  // STRICT GUARD: Never intercept numbers during active registration steps (e.g. password "123456", budget "5000", pincode "110062")
+  // ── Single Inquiry / Lead Unlock Shortcut (explicit #LeadID or bare ID in DONE) ──
   const isRegistrationStep =
     step.startsWith("T_") ||
     step.startsWith("P_") ||
-    step === "LANG_SELECT" ||
     step === "WELCOME";
 
   const leadMatchAnywhere =
@@ -1985,28 +3295,11 @@ export async function processMessage(
     (step === "DONE" || data._registered === true) &&
     /^\d{4,7}$/.test(rawMessage.trim());
 
-  // If user says "Interested", "Yes agree", "Pl arrange", "I want this lead", etc.
-  const isInterestedLeadReply =
-    /^(?:interested|yes|i\s*am\s*interested|i'm\s*interested|agree|pl\s*arrange|arrange|mujhe\s*chahiye|ye\s*wali\s*(?:tution|tuition)|interested\s*in\s*this|yes\s*agree)\b/i.test(rawMessage.trim());
-
   let targetInquiryNum: number | null = null;
   if (leadMatchAnywhere) {
     targetInquiryNum = parseInt(leadMatchAnywhere[1], 10);
   } else if (isBareNumberInDone) {
     targetInquiryNum = parseInt(rawMessage.trim(), 10);
-  } else if (isInterestedLeadReply && chatHistory && chatHistory.length > 0) {
-    for (let i = chatHistory.length - 1; i >= 0; i--) {
-      const msg = chatHistory[i];
-      if (msg.direction === "OUTBOUND" && msg.body) {
-        const histMatch =
-          msg.body.match(/(?:requirement|lead|inquiry|enquiry)\s*#?(\d{4,7})\b/i) ||
-          msg.body.match(/#(\d{4,7})\b/);
-        if (histMatch) {
-          targetInquiryNum = parseInt(histMatch[1], 10);
-          break;
-        }
-      }
-    }
   }
 
   if (!isRegistrationStep && targetInquiryNum) {
@@ -2018,401 +3311,6 @@ export async function processMessage(
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: result.quickReplies,
-    };
-  }
-
-  // ── High-Intent Real Chat Scenarios (Identified from Aqua SMS logs) ─────────
-
-  // 1. Demanding Parent Contact Number directly in chat
-  if (
-    /(?:\b(?:parent|parents|student|party)\b.*\b(?:contact|number|phone|mobile|no)\b|\b(?:contact|number|phone|mobile|no)\b.*\b(?:parent|parents|student|party)\b)/i.test(rawMessage) ||
-    /contact\s*no\s*(?:do|bhejo|dedo|de\s*do)/i.test(rawMessage)
-  ) {
-    return {
-      reply: `Sir, student aur parent ka direct verified mobile number aur address dekhne ke liye lead ko website par unlock karna hota hai:\n\n1️⃣ Website open karein: https://apnatutorhub.com/tutor/leads\n2️⃣ Lead select karke *Unlock Lead* par click karein.\n3️⃣ Parent ka direct call number & WhatsApp turant display ho jayega!\n\n💡 *ApnaTutorHub Advantage:* Verified genuine student leads direct parent connect ke saath!\n\nDirect Support WhatsApp: +91 93191 93109`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Help 📞"],
-    };
-  }
-
-  // 2. Online Class Preference (e.g. tutors outside Delhi or preferring remote)
-  // When at T_AREA step, allow it to fall through to the main intake flow so "Online" is accepted as teaching mode & locality!
-  if (
-    step !== "T_AREA" &&
-    /(?:\bonline\b.*?\b(?:class|classes|tuition|tutor|available|teach|padhana|student|work)\b|\b(?:class|classes|tuition|tutor|teach|padhana)\b.*?\bonline\b|^online\s*(?:only)?$)/i.test(rawMessage) &&
-    !/\b(plan|plans|subscription|membership|pricing|coins?|wallet|kharid|interested|facebook|requirement for)\b/i.test(rawMessage) &&
-    data.lastBotAsk !== "online-generic"
-  ) {
-    return {
-      reply: `Ji bilkul! Hamare platform par All-India Online Home Tuitions bhi available hain. 💻\n\nAap pure India ke students ko ghar baithe online classes (Google Meet / Zoom) de sakte hain:\n\n👉 *Online Leads dekhein:*\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\n👉 *Commission Based Plan (₹1,257):*\nhttps://apnatutorhub.com/tutor/plans\n\nAap kaunse subjects aur classes online padhana chahte hain? Humein reply karein taaki hum aapke liye matching online leads bhej sakein!`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: { ...data, mode: "ONLINE", area: data.area || "Online (Pan-India)", city: data.city || "Online", lastBotAsk: "online-generic", sameAskCount: 0 },
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["View Online Leads 💻", "Commission Plan 🤝", "Update Subjects 📚"],
-    };
-  }
-
-  // 3. Distance Too Far / Location Mismatch
-  if (
-    /\b(?:distance\s*(?:is\s*)?(?:too\s*|so\s*|very\s*)?far|too\s*far|so\s*far|very\s*far|(?:bahut|bhot|bohot|bahot|kafi|zyada)\s*(?:door|dur)|(?:dur|door)\s*(?:hai|padega|h)|itni?\s*(?:door|dur)|location\s*is\s*far|not\s*in\s*delhi|mere\s*ghar\s*se\s*door|travel\s*nahi\s*kar\s*sakta)\b/i.test(rawMessage)
-  ) {
-    return {
-      reply: `Samajh gaya sir! Agar ye location aapse door hai toh koi pareshani nahi:\n\n1️⃣ *Apne Area Ke Leads Filter Karein:*\nWebsite par jaakar aap apne exact locality ya city ke according leads dekh sakte hain:\nhttps://apnatutorhub.com/tutor/leads\n\n2️⃣ *Online Classes:*\nAap Online tuitions bhi le sakte hain jisme koi travel distance nahi hota:\nhttps://apnatutorhub.com/tutor/leads?mode=ONLINE\n\nApna exact locality aur city batayein (jaise: 'Bandra Mumbai' ya 'Rohini Delhi'), hum aapko aapke area ke tuitions dikhayenge! 📍`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["Filter Leads 📍", "View Online Leads 💻", "Update Area 🏠"],
-    };
-  }
-
-  // 4. Mobile App Download / PWA Instructions
-  if (
-    /(?:mobile\s*app|application\s*kya\s*hai|name\s*of\s*your\s*mobile\s*app|app\s*download|play\s*store\s*app|download\s*app|app\s*ka\s*naam|konsa\s*app|kon\s*sa\s*app|kaha\s*se\s*download)/i.test(rawMessage)
-  ) {
-    return {
-      reply: `Apna Tutor Hub ek ultra-fast Web-App (PWA) hai jo bina kisi Play Store download ke aapke phone par 1-click me install ho jaati hai! 📱\n\n*Mobile App install karne ka aasan tarika:*\n1️⃣ Chrome browser mein open karein: https://apnatutorhub.com\n2️⃣ Browser ke top-right corner mein 3 dots (⋮) par click karein.\n3️⃣ *"Install App"* ya *"Add to Home Screen"* select karein.\n\nAapke phone screen par Apna Tutor Hub ka official app icon aa jayega aur aapko instant lead alerts milenge!`,
-      nextStep: step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Open Website 🌐", "View Leads 📋", "Help 📞"],
-    };
-  }
-
-  // 5. "Saari toh booked bta rha hai" / Max Capacity Query
-  if (
-    /(?:saari\s*toh\s*booked|sab\s*(?:hi\s*)?booked|all\s*leads?\s*(?:are\s*)?booked|booked\s*bata\s*raha|full\s*ho\s*gaya|lead\s*full\s*hai|koi\s*bhi\s*open\s*nahi|already\s*booked)/i.test(rawMessage)
-  ) {
-    return {
-      reply: `Sir hamara strict quality rule hai ki ek tuition lead par maximum 3 verified teachers hi unlock kar sakte hain. Isse parents ko spam calls nahi jaate aur aapke final selection ke chances 90%+ rehte hain! 🎯\n\nAgar koi lead "Booked" dikha rahi hai, iska matlab uske 3 slots book ho chuke hain.\n\n👉 *Fresh & Active Leads (jisme slots khali hain):*\nhttps://apnatutorhub.com/tutor/leads?status=ACTIVE\n\nHar 15-30 minute mein naye parents requirement post karte hain, isliye notification aate hi turant unlock karein!`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["Fresh Leads ⚡", "Recharge Wallet 💳", "Coordinator Support 📞"],
-    };
-  }
-
-  // 6. Demo Class Rules & Expectations
-  if (
-    /(?:demo\s*class\s*kaise|demo\s*ka\s*rule|demo\s*ke\s*baad|trial\s*class|how\s*does\s*demo\s*work|first\s*class\s*free|pehle\s*demo)/i.test(rawMessage)
-  ) {
-    return {
-      reply: `*Demo Class Rule & Process:* 🎓\n\n1️⃣ *Tutors ke liye:*\nLead unlock karne ke baad parent se call karke convenient time par 30-45 minutes ki trial/demo class schedule karein. Demo pasand aane par parent aapse monthly fees aur schedule final karenge.\n\n2️⃣ *Platform Terms:*\nTuition confirm hone par standard platform terms apply hote hain (50% on 1st month tuition fee + 5% recurring platform commission from 2nd month onwards).\n\n3️⃣ *Parents ke liye:*\nAap verified home tutor se 1 free trial demo le sakte hain. Jab student aur aap fully satisfied hon, tabhi classes continue karein.`,
-      nextStep: step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Help 📞"],
-    };
-  }
-
-  // 7. Hiring / Job banter / "Mere pass job kr lo"
-  if (
-    /(?:mere\s*pa?ss\s*job|kuch\s*kaam\s*hai|job\s*chahiye|teaching\s*job|salary\s*kitni\s*milegi|interview\s*kab\s*hoga)/i.test(rawMessage)
-  ) {
-    return {
-      reply: `Apna Tutor Hub par hazaron verified home tuitions aur teaching opportunities available hain! 📚\n\nAap student leads unlock karke direct parents se connect kar sakte hain aur tuition start kar sakte hain.\n\n👉 Available Tuitions dekhein: https://apnatutorhub.com/tutor/leads\nAap kaunse subjects aur classes padhate hain? Humein batayein!`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["View Leads 📋", "Commission Plan 🤝", "Help 📞"],
-    };
-  }
-
-  // 8. Tutors replying "Interested" to broadcast alerts without an inquiry ID
-  if (
-    /^(?:interested|yes\s*interested|i\s*am\s*interested|sir\s*i\s*am\s*interested|interested\s*sir|interested\s*for\s*home\s*tuition|interested\s*for\s*tuition|want\s*this\s*lead|i\s*want\s*this\s*lead|mujhe\s*chahiye|apply\s*karna\s*hai|apply\s*kaise\s*kare|kaise\s*apply\s*kare|i\s*want\s*to\s*teach|interested\s*in\s*this|intrested|im\s*interested)\b/i.test(rawMessage.trim()) &&
-    !/#\d{4,7}/.test(rawMessage)
-  ) {
-    return {
-      reply: `Bahut badhiya! 🎉 Hamare platform par 100% genuine verified tuitions available hain!\n\n👉 *Leads dekhein aur unlock karein:*\nhttps://apnatutorhub.com/tutor/leads\n\n👉 *Commission Based Plan (₹1,257):*\nhttps://apnatutorhub.com/tutor/plans\n\nAgar aapne kisi specific tuition alert ka message dekha hai, toh uska *Lead ID* (jaise: *#32042*) yahan reply karein!`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["View All Leads 📋", "Commission Plan 🤝", "Talk to Coordinator 📞"],
-    };
-  }
-
-  // "Please call" is a callback request, not a class or a new lead.
-  if (/^(?:please\s*)?call(?:\s*me|\s*karo|\s*kro|\s*kariye)?\.?$|\bmujhe\s+call\b|\bcall\s+kar(?:o|na)\b/i.test(rawMessage.trim())) {
-    return {
-      reply: `Ji, call ke liye coordinator se baat karein:\n📞 WhatsApp: +91 93191 93109\nTime: 9am–7pm (Mon–Sat)\n\nAgar aap tutor hain to leads yahan hain: https://apnatutorhub.com/tutor/leads`,
-      nextStep: step === "WELCOME" ? "WELCOME" : step,
-      updatedData: data,
-      userType: session.userType,
-      retries: 0,
-      quickReplies: ["View Leads 📋", "I'm a Tutor", "I'm a Parent"],
-    };
-  }
-
-  // "Online le skti hu" is a teaching-mode reply, not a class name.
-  if (/\bonline\s+le\s+s(?:k|ak)/i.test(rawMessage) || /\b(online|offline)\s+(?:le|kar)\s+(?:sakti|sakta|skti|skta)\b/i.test(rawMessage)) {
-    const cls = normalizeCanonicalClassLevel(rawMessage);
-    const wantsOnline = /\bonline\b/i.test(rawMessage);
-    return {
-      reply: wantsOnline
-        ? `Online sirf *Class 9 aur usse upar* ke liye hai. Class 1–8 par sirf *home tuition (offline)* milta hai.\n\nAap kaunsi class aur kaunse subjects padhate hain? 📚`
-        : `Home tuition (offline) Class 1–8 ke liye hai. Class 9+ online ya ghar par dono ho sakta hai.\n\nKaunsi class aur subjects batayein? 📚`,
-      nextStep: "T_CONVO",
-      updatedData: { ...data, mode: wantsOnline ? "ONLINE" : "OFFLINE", ...(cls ? { classLevel: cls } : {}) },
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["All Subjects, Class 1-8", "Maths, Class 9-10", "Physics, Class 11-12"],
-    };
-  }
-
-  // One clear reply when the person says the bot is not following them.
-  if (/\b(samajh|samjh)\s*nahi\b|\bbaat\s*samajh\b|\bkya\s*bol\s*rahe\b|\bconfus/i.test(rawMessage)) {
-    if (session.userType === "TUTOR" || step === "DONE" || data._registered === true) {
-      return {
-        reply: `Samajh gaya sir, koi baat nahi! 😊 Seedha batayein hum aapki kya madad karein:\n\n• Matching student leads dekhni hain? Type: *LEADS*\n• Profile ya teaching area update karna hai? Type: *MY PROFILE*\n• Direct coordinator se baat karni hai? Call: 08062180653 / WhatsApp: +91 93191 93109`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View Leads 📋", "My Profile 👤", "Talk to Support 📞"],
-      };
-    }
-    const cls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
-    return {
-      reply: cls
-        ? `Theek hai, seedha batayein. *${cls}* ke liye subject aur locality likh dein.\nJaise: *Maths, Rohini*`
-        : `Theek hai. Ek line mein likh dein:\n*Class 8, All Subjects, Mukundpur*\n\nTutor hain to *1*, parent hain to *2*.`,
-      nextStep: session.userType === "PARENT" ? "P_CONVO" : step === "WELCOME" ? "WELCOME" : "T_CONVO",
-      updatedData: data,
-      userType: session.userType,
-      retries: 0,
-      quickReplies: ["Class 1-8 All Subjects", "Class 9-10 Maths", "1 - Tutor", "2 - Parent"],
-    };
-  }
-
-  // Agreeing, asking for a free class, or asking about charges is not a new lead.
-  if (/\b(agree to take|free\s+(?:one\s+)?class|registration fees?|charges?\s+(?:bhi\s+)?lage|koi charges)\b/i.test(rawMessage)) {
-    return {
-      reply: `Parents se fees trial demo ke baad finalize hoti hai. Leads unlock karne ke liye Commission Based Plan (₹1,257) active hai jisme 5 verified leads milti hain.\n\n👉 https://apnatutorhub.com/tutor/leads`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
-    };
-  }
-
-  // "Hindi medium" is the language, not the class Hindi.
-  if (/\b(hindi|english)\s+medium\b/i.test(rawMessage) && !normalizeCanonicalClassLevel(rawMessage)) {
-    const medium = /hindi/i.test(rawMessage) ? "Hindi" : "English";
-    return {
-      reply: `*${medium} medium* note kar liya. Kaunsi class padhate hain — Class 1 se 8 (All Subjects) ya Class 9–12? 📚`,
-      nextStep: "T_CONVO",
-      updatedData: { ...data, languagePref: `${medium} medium` },
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Class 1-8 All Subjects", "Class 9-10", "Class 11-12"],
-    };
-  }
-
-  // Attendance complaints are not a class level.
-  if (/\b(not attending|attend(?:ing)? the class|class nahi le|class miss)\b/i.test(rawMessage)) {
-    return {
-      reply: `Yeh ApnaTutorHub ka tuition matching number hai. Kisi class ki attendance yahan se nahi hoti.\n\nAap tutor hain ya student ke liye tutor chahiye?\n1 — Tutor\n2 — Parent`,
-      nextStep: "WELCOME",
-      updatedData: {},
-      userType: null,
-      retries: 0,
-      quickReplies: ["1️⃣ I'm a Tutor", "2️⃣ I'm a Parent"],
-    };
-  }
-
-  // "Where is the tuition / location?" — answer with how locality works, don't save the question as an area.
-  if (/\b(location\s*(kya|kahan|hai)|kahan\s*(hai|padh|hai ye)|where\s+is\s+(the\s+)?(tuition|class|location)|kitni\s+door|konsi\s+jagah)\b/i.test(rawMessage)) {
-    return {
-      reply: `Lead par sirf *mohalla / sector / colony* dikhta hai, tutor ka ghar nahi.\n\nApna locality batayein — jaise *Mukundpur*, *Rohini*, ya *Sector 45*. Class 1–8 home tuition usi area ke paas milta hai. Class 9+ online bhi ho sakta hai.`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Update Area 📍", "View Leads 📋", "Online Classes"],
-    };
-  }
-
-  // Fee is paid to the tutor by the parent, not a class name.
-  if (/\b(payment|fees?)\b.*\b(pehle|before|class)\b|\bclass(?:es)?\s+milne\s+se\s+pehle\b/i.test(rawMessage)) {
-    return {
-      reply: `Tutor ko parent demo ke baad monthly fees finalize karte hain. Lead unlock karne ke liye Commission Based Plan (₹1,257) use hota hai.\n\n👉 https://apnatutorhub.com/tutor/wallet`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
-    };
-  }
-
-  // "Both" answers online vs offline. Class 1–8 stays home tuition. Skip if at language select or initial welcome.
-  if (
-    step !== "LANG_SELECT" &&
-    step !== "WELCOME" &&
-    session.step !== "LANG_SELECT" &&
-    session.step !== "WELCOME" &&
-    /^(both|dono|online and offline|offline and online)$/i.test(rawMessage.trim())
-  ) {
-    const cls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
-    const junior = cls ? isTill8thClass(cls) : false;
-    return {
-      reply: junior
-        ? `Class 1–8 ke liye sirf *home tuition (offline)* hai. Aapka area kaunsa hai? 📍`
-        : `Class 9+ ke liye *home tuition aur online* dono chalega. Kaunsi class aur subjects confirm kar dein?`,
-      nextStep: session.userType === "PARENT" ? "P_CONVO" : "T_CONVO",
-      updatedData: { ...data, mode: junior ? "OFFLINE" : "EITHER" },
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: junior ? ["Class 1-5 All Subjects", "Class 6-8", "Sector 45"] : ["Class 9-10 Maths", "Class 11-12 Physics", "Home Tuition"],
-    };
-  }
-
-  // "I already have coins" and "how many coins" read the live wallet.
-  // A tutor who still has coins is not asked to buy another pack.
-  const asksCoinBalance =
-    /how many coins|kitne coins|coin balance|wallet balance|coins? (?:hai|hain|bache|bach[ae]|left|remaining)|mere (?:paas|pass).{0,24}coins|coins?.{0,24}(?:paas|pass|hain|hai)|already have coins|i (?:already )?have coins|coins? (?:already|to hain)/i.test(rawMessage);
-  const explicitPlanAsk =
-    /\b(buy coins|recharge|purchase coins|coin pack|membership|pricing|buy plan|plans?|kharid)\b/i.test(rawMessage);
-
-  if (asksCoinBalance && !explicitPlanAsk) {
-    const bal = await getTutorCoinBalanceByPhone(session.phone);
-    return {
-      reply: bal.found
-        ? formatCoinBalanceMessage(bal.balance)
-        : `Is number par tutor wallet nahi mila. Login karke coins check karein:\nhttps://apnatutorhub.com/tutor/wallet`,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: bal.balance > 0
-        ? ["View All Leads 📋", "Open Wallet 💳", "Talk to Support 📞"]
-        : ["View Plans 💰", "View All Leads 📋", "Talk to Support 📞"],
-    };
-  }
-
-  // ── ₹999 Legacy Query Handler (Offer Ended Notice) ──────────────────────────
-  if (/(?:^|\D)999(?!\d)|999\s*wala|999\s*plan|999\s*offer|999\s*ka/i.test(rawMessage)) {
-    return {
-      reply: formatOfferEnded999Message(),
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
-    };
-  }
-
-  // ── Payment / QR / how to pay ───────────────────────────────────────────────
-  if (
-    asksPlanPaymentOrQr(rawMessage) ||
-    /^\s*(?:pay|qr|payment)\s*$/i.test(rawMessage.trim())
-  ) {
-    const hint =
-      typeof data.interestedPlanType === "string" && data.interestedPlanType === "COMMISSION_1257"
-        ? "1257"
-        : "1257";
-    return {
-      reply: formatPlanPaymentQrMessage(hint),
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
-      ...paymentQrImage(),
-    };
-  }
-
-  const isConversationalQuestionOrObjection =
-    rawMessage.trim().split(/\s+/).length > 3 ||
-    /\b(?:kyu|kyun|keun|kaun|kaise|kya|why|how|phir|har\s*mahine|bhi|nahi|not|condition|sahi|fake|fraud|authentic|loot|advance|pehle|baad)\b/i.test(rawMessage);
-
-  // ── Zero Commission BEFORE commission (avoid "without commission plan" mismatch) ──
-  if (!isConversationalQuestionOrObjection && asksZeroCommissionPlan(rawMessage)) {
-    return {
-      reply: formatGrowthPlanDetailMessage(),
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Commission Plan ₹1,257 🤝", "View Leads 📋", "Talk to Support 📞"],
-      ...paymentQrImage(),
-    };
-  }
-
-  // ── Commission Plan Interest Handler (₹1,257) ──────────────────────────────
-  if (!isConversationalQuestionOrObjection && asksCommissionPlan(rawMessage)) {
-    return {
-      reply: formatCommissionPlanDetailMessage(),
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: { ...data, interestedPlanType: "COMMISSION_1257" },
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Activate Plan ⚡", "View Leads 📋", "Talk to Support 📞"],
-      ...paymentQrImage(),
-    };
-  }
-
-  // ── Global Leads & Plans shortcuts ──────────────────────────────────────────
-  if (/plan|coin|pack|pricing|membership|buy coins|recharge|wallet/i.test(msg)) {
-    const bal = await getTutorCoinBalanceByPhone(session.phone);
-    if (bal.found && bal.balance > 0 && !explicitPlanAsk) {
-      return {
-        reply: formatCoinBalanceMessage(bal.balance),
-        nextStep: step === "WELCOME" ? "T_CONVO" : step,
-        updatedData: data,
-        userType: session.userType || "TUTOR",
-        retries: 0,
-        quickReplies: ["View All Leads 📋", "Open Wallet 💳", "Talk to Support 📞"],
-      };
-    }
-    const planReply = bal.found && bal.balance > 0
-      ? `Aapke wallet mein already *${bal.balance} coins* hain — leads abhi unlock kar sakte hain.\n\nAur coins chahiye hon to yeh current plan hai:\n\n${formatCoinPlansMessage()}`
-      : formatCoinPlansMessage();
-    return {
-      reply: planReply,
-      nextStep: step === "WELCOME" ? "T_CONVO" : step,
-      updatedData: data,
-      userType: session.userType || "TUTOR",
-      retries: 0,
-      quickReplies: ["Recharge Wallet 💳", "View All Leads 📋", "Talk to Support 📞"],
-      ...paymentQrImage(),
-    };
-  }
-
-  if (
-    /^(?:show\s+leads?|view\s+leads?|leads?|my\s+leads?|matching\s+leads?|unlock\s+leads?|explore\s+leads?)$/i.test(msg.trim()) ||
-    (/\b(?:show|view|matching|my|explore)\s+lead/i.test(msg) && !/\d{4,7}/.test(msg))
-  ) {
-    const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
-      ? (data.classLevels as string[])
-      : (data.classLevel ? [data.classLevel as string] : undefined);
-    const leads = await getChatbotMatchingLeads(
-      (data.area as string) || "Delhi",
-      (data.city as string) || "Delhi",
-      tutorClassLevels,
-      data.subjects as string[]
-    );
-    return {
-      reply: formatTutorLeadsAndPlansMessage((data.name as string) || "Teacher", (data.area as string) || "Delhi", leads),
-      nextStep: "DONE",
-      updatedData: data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: [
-        leads.length > 0 ? `🔥 Unlock Lead #${leads[0].inquiryNumber}` : "🔥 View All Leads",
-        "💰 View Coin Plans",
-        "🌐 Leads Dashboard",
-      ],
     };
   }
 
@@ -2436,7 +3334,7 @@ export async function processMessage(
       const classMatch = normalizeCanonicalClassLevel(rawMessage);
       if (classMatch) sClass = classMatch;
       else return {
-        reply: `Class clear nahi hai. Is format mein bhejein:\n*Class 8, All Subjects, Rohini, 98xxxxxx*`,
+        reply: `Class level is not clear. Please format as:\n*Class 8, All Subjects, Rohini, 98xxxxxx*`,
         nextStep: "DONE",
         updatedData: data,
         userType: session.userType,
@@ -2459,7 +3357,7 @@ export async function processMessage(
         const publicArea = extractPublicLocality(sArea, adminCity) || extractPublicLocality(rawMessage, adminCity);
         if (!publicArea) {
           return {
-            reply: `Locality clear nahi hai. Ghar number mat likhein.\nJaise: *Class 8, All Subjects, Rohini* ya *Bandra Mumbai*`,
+            reply: `Locality is not clear (do not include a house number).\nFor example: *Class 8, All Subjects, Rohini* or *Bandra Mumbai*`,
             nextStep: "DONE",
             updatedData: data,
             userType: session.userType,
@@ -2468,13 +3366,17 @@ export async function processMessage(
         }
         sArea = publicArea;
       }
-      const adminSubjects = leadSubjectsForClass(
-        sClass,
-        validateAndAlignSubjects(rawMessage, sClass).subjects
-      );
+      const adminStrict = enforceStrictEducation({
+        rawMessage,
+        classesInput: sClass,
+      });
+      const adminSubjects =
+        adminStrict.subjects.length > 0
+          ? adminStrict.subjects
+          : leadSubjectsForClass(sClass, validateAndAlignSubjects(rawMessage, sClass).subjects);
       if (adminSubjects.length === 0) {
         return {
-          reply: `Subject clear nahi hai. Class 1–8 ke liye *All Subjects* likhein. Class 9+ ke liye Maths, Science ya Physics.`,
+          reply: adminStrict.errorPrompt || `Subject is not clear. For Classes 1–8 write *All Subjects*. For Classes 9–12 specify subjects like *Mathematics, Science* or *Physics, Chemistry*.`,
           nextStep: "DONE",
           updatedData: data,
           userType: session.userType,
@@ -2539,83 +3441,22 @@ export async function processMessage(
     }
   }
 
-  // ── Early Detection: Tutor sends teaching details at LANG_SELECT or WELCOME ──
-  const rawTrimmed = rawMessage.trim();
-  const hasSubjectSignal = /\b(math|maths|mathematics|mathmatics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i.test(rawTrimmed);
-  const hasClassSignal = extractAllClassLevelsFromText(rawTrimmed).length > 0 || /\b(class|grade|standard|std|\b[1-9]\b|\b1[0-2]\b|11th|12th|10th|9th|8th|7th|6th|5th|4th|3rd|2nd|1st|primary|middle|senior|secondary|nursery|lkg|ukg|kg)\b/i.test(rawTrimmed);
-  const hasLocSignal = validateAndCleanLocality(rawTrimmed).isValid || /\b(nagar|vihar|sector|colony|enclave|pur\b|ganj\b|bagh\b|kunj|road|street|delhi|noida|gurgaon|gurugram|ghaziabad|faridabad|mumbai|bangalore|pune|kolkata|jaipur|lucknow|chandigarh|indore|bhopal|patna|agra|madurai|chennai)\b/i.test(rawTrimmed);
-  const hasTutorSignal = /\b(tutor|teach|teaching|teacher|padhana|padhana\s*hai|classes|tuition|tution)\b/i.test(rawTrimmed);
-
-  if ((step === "LANG_SELECT" || step === "WELCOME") && (hasSubjectSignal || hasClassSignal || hasLocSignal || hasTutorSignal)) {
-    const isEn = /^[a-zA-Z0-9\s.,'\/&-]+$/.test(rawTrimmed) && !/\b(hai|hain|karna|chahiye|karo|batao|kripya)\b/i.test(rawTrimmed);
-    const chosenLang = isEn ? "en" : (data.lang as string) || "hi";
-    session.step = "T_CONVO";
-    step = "T_CONVO";
-    session.userType = "TUTOR";
-    data.lang = chosenLang;
-    data.userType = "TUTOR";
-  }
-
-  // ── Language Selection & Switch Commands ────────────────────────────────────
-  if (/^(lang|language|bhasha)$/i.test(msg)) {
-    return {
-      reply: MSG.LANG_PROMPT,
-      nextStep: "LANG_SELECT",
-      updatedData: data,
-      userType: session.userType,
-      retries: 0,
-      quickReplies: ["1 - English", "2 - हिंदी"],
-    };
-  }
-
-  if (step === "LANG_SELECT") {
-    if (/^(1|en|english)$/i.test(rawMessage.trim())) {
-      const nextData = { ...data, lang: "en" };
-      return {
-        reply: MSG.WELCOME_EN,
-        nextStep: "WELCOME",
-        updatedData: nextData,
-        userType: null,
-        retries: 0,
-        quickReplies: ["1 - Tutor", "2 - Parent"],
-      };
-    }
-    if (/^(2|hi|hindi|हिंदी|both|dono|1\s*(&|and|\+)?\s*2)$/i.test(rawMessage.trim())) {
-      const nextData = { ...data, lang: "hi" };
-      return {
-        reply: MSG.WELCOME_HI,
-        nextStep: "WELCOME",
-        updatedData: nextData,
-        userType: null,
-        retries: 0,
-        quickReplies: ["1 - ट्यूटर", "2 - पेरेंट"],
-      };
-    }
-    return {
-      reply: MSG.LANG_PROMPT,
-      nextStep: "LANG_SELECT",
-      updatedData: data,
-      userType: session.userType,
-      retries: 0,
-      quickReplies: ["1 - English", "2 - हिंदी"],
-    };
-  }
+  // Always enforce English-only session language (never route to LANG_SELECT)
+  data.lang = "en";
 
   // Skip SPECIAL_COMMANDS intercept for active mid-flow steps where "hi"/"hello" is a wrong input,
   // UNLESS the session was idle (>15 mins), in which case "hi" is a returning greeting to start fresh.
   // CRITICAL: If the user is already registered (DONE state or _registered is true),
-  // NEVER demote them to WELCOME/LANG_SELECT with userType: null when they send Hi/Hello/Menu!
+  // NEVER demote them to WELCOME with userType: null when they send Hi/Hello/Menu!
   const isRegisteredUser = step === "DONE" || data._registered === true;
   if (isRegisteredUser && SPECIAL_COMMANDS.includes(msg)) {
     // START / MENU / HI must also re-subscribe a previously unsubscribed tutor.
-    // This branch previously returned the original `data`, so `unsubscribed`
-    // survived and every later message got the "type START" wall again.
-    const cleanData: Record<string, any> = { ...data };
+    const cleanData: Record<string, any> = { ...data, lang: "en" };
     if (cleanData.unsubscribed) delete cleanData.unsubscribed;
     const isParent = session.userType === "PARENT" || data.userType === "PARENT" || Boolean(data.studentName || data.parentProfileId);
     if (isParent) {
       return {
-        reply: `Namaste! 🙏 Aapki tuition enquiry hamare coordinators ke paas active hai.\n\nAapko trial demo schedule karwana hai ya fee details ke baare mein sawaal hai?`,
+        reply: `Hello! 🙏 Your tuition inquiry is active with our coordinator team.\n\nWould you like an update on your trial demo schedule or tuition fee details?`,
         nextStep: "DONE",
         updatedData: cleanData,
         userType: "PARENT",
@@ -2625,7 +3466,7 @@ export async function processMessage(
     }
     const tutorName = (data.name as string) || "Teacher";
     return {
-      reply: `Namaste ${tutorName} ji! 🙏 Main Priya, ApnaTutorHub coordinator.\n\nBatayein, matching leads dekhna chahte hain ya wallet/plans ki details?`,
+      reply: `Hello ${tutorName}! 👋 I'm Priya, your ApnaTutorHub coordinator.\n\nWould you like to check matching student leads, update your profile, or view plans?`,
       nextStep: "DONE",
       updatedData: cleanData,
       userType: "TUTOR",
@@ -2636,30 +3477,17 @@ export async function processMessage(
 
   const isMidFlow = !session.isIdle && MID_FLOW_STEPS.has(step);
   if (SPECIAL_COMMANDS.includes(msg) && !isMidFlow) {
-
-    const cleanData = session.isIdle ? {} : { ...data };
-    if (cleanData.unsubscribed) {
-      delete cleanData.unsubscribed;
+    const cleanData = session.isIdle ? { lang: "en" } : { ...data, lang: "en" };
+    if ("unsubscribed" in cleanData && cleanData.unsubscribed) {
+      delete (cleanData as Record<string, any>).unsubscribed;
     }
-    if (!cleanData.lang) {
-      return {
-        reply: MSG.LANG_PROMPT,
-        nextStep: "LANG_SELECT",
-        updatedData: cleanData,
-        userType: null,
-        retries: 0,
-        quickReplies: ["1 - English", "2 - हिंदी"],
-      };
-    }
-    const isHi = cleanData.lang === "hi";
-    const reply = isHi ? MSG.WELCOME_HI : MSG.WELCOME_EN;
     return {
-      reply,
+      reply: MSG.WELCOME,
       nextStep: "WELCOME",
       updatedData: cleanData,
       userType: null,
       retries: 0,
-      quickReplies: isHi ? ["1 - ट्यूटर", "2 - पेरेंट"] : ["1 - Tutor", "2 - Parent"],
+      quickReplies: ["1 - Tutor", "2 - Parent"],
     };
   }
 
@@ -2687,19 +3515,24 @@ export async function processMessage(
             if (hasNewReq) {
               const newCls = parentClasses[0] || (ai.extractedData?.classLevel as string) || (data.classLevel as string);
               const newArea = parentLoc.isValid ? parentLoc.area : (ai.extractedData?.area as string) || (data.area as string);
-              const newSubs = (ai.extractedData?.subjects as string[]) || (data.subjects as string[]) || ["All Subjects"];
-              if (newCls && newArea) {
+              const newSubsRaw = (ai.extractedData?.subjects as string[]) || (data.subjects as string[]) || [];
+              const parentStrict = enforceStrictEducation({
+                subjectsInput: newSubsRaw,
+                classesInput: newCls ? [newCls] : undefined,
+              });
+              const finalParentSubs = parentStrict.subjects.length ? parentStrict.subjects : newSubsRaw;
+              if (newCls && newArea && finalParentSubs.length > 0) {
                 await registerParentFromWhatsapp(session.phone, {
                   studentName: (data.studentName as string) || (data.name as string) || "Student",
                   parentName: (data.parentName as string) || (data.name as string) || "Parent",
-                  email: (data.email as string) || undefined,
+                  email: isStrictValidEmail(data.email) ? String(data.email) : undefined,
                   phone: session.phone,
                   city: (parentLoc.city as string) || (data.city as string) || "Delhi",
                   area: newArea,
                   classLevel: newCls,
-                  subjects: newSubs,
+                  subjects: finalParentSubs,
                 });
-                updatedData = { ...updatedData, classLevel: newCls, area: newArea, subjects: newSubs };
+                updatedData = { ...updatedData, classLevel: newCls, area: newArea, subjects: finalParentSubs };
               }
             }
             return {
@@ -2715,7 +3548,7 @@ export async function processMessage(
         } catch (err) { }
       }
       return {
-        reply: `Namaste! Aapki tuition enquiry hamare coordinators ke paas note hai. 🙏\n\nKoi bhi update, fee details ya demo schedule ke liye aap seedha hamare team se connect kar sakte hain:\n\n📞 WhatsApp Coordinator: +91 93191 93109\nTiming: 9:00 AM – 7:00 PM (Mon–Sat)`,
+        reply: `Hello! 🙏 Your tuition inquiry is active with our coordinator team.\n\nFor any updates on tuition fees or your trial demo class schedule, please connect with our desk directly:\n\n📞 WhatsApp Coordinator: +91 93191 93109\nHours: 9:00 AM – 7:00 PM (Mon–Sat)`,
         nextStep: "DONE",
         updatedData: data,
         userType: "PARENT",
@@ -2725,28 +3558,26 @@ export async function processMessage(
     }
 
     // Tutor in DONE state:
-    // Conversational fallbacks for tutors asking about free leads, bargaining, or delayed payment:
-    if (/bina\s*reg|free\s*lead|paise\s*nahi|payment\s*baad|ek\s*enquiry|enquiry\s*dedo|pehle\s*demo|yaar\b/i.test(rawMessage)) {
-      return {
-        reply: `Sir hum samajhte hain, par parents ke direct contact details aur address access ke liye membership zaroori hoti hai taaki genuine teachers hi connect karein. 🙏\n\nAap ₹1,257 Commission Based Plan (6 months validity, 5 leads) se shuru kar sakte hain!\n\n👉 Plan dekhein: https://apnatutorhub.com/tutor/plans\n👉 All Leads: https://apnatutorhub.com/tutor/leads`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["Commission Plan 🤝", "View Leads 📋", "Talk to Support 📞"],
-      };
-    }
-
     const rawTrimmed = rawMessage.trim();
 
     // Direct single email or email statement in DONE state
-    const directEmailMatch = rawTrimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
-    const isBareEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i.test(rawTrimmed);
-    const isEmailUpdateIntent = directEmailMatch && isValidEmailDomain(directEmailMatch[0]) &&
-      (isBareEmail || /\b(?:email|mail|id|update|change|mera|meri|set|save|ye|yeh|hai)\b/i.test(rawTrimmed));
+    const rawEmailTokenMatch = rawTrimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12}/i);
+    const isBareEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12}$/i.test(rawTrimmed);
+    const hasEmailUpdateWords = isBareEmail || /\b(?:email|mail|gmail|id|update|change|mera|meri|set|save|ye|yeh|hai)\b/i.test(rawTrimmed);
 
-    if (isEmailUpdateIntent && directEmailMatch) {
-      const newEmail = directEmailMatch[0].toLowerCase();
+    if (rawEmailTokenMatch && hasEmailUpdateWords) {
+      const emailCheck = validateStrictEmail(rawEmailTokenMatch[0]);
+      if (!emailCheck.ok) {
+        return {
+          reply: `⚠️ ${emailCheck.reason}`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: session.userType || "TUTOR",
+          retries: 0,
+          quickReplies: ["My Profile 👤", "Cancel"],
+        };
+      }
+      const newEmail = emailCheck.email;
       await syncUserCredentialsInDb({
         phone: session.phone,
         email: newEmail,
@@ -2758,7 +3589,7 @@ export async function processMessage(
         mode: data.mode as any,
       });
       return {
-        reply: `Email successfully update ho gaya hai: *${newEmail}* ✅\n\nAap is email se portal par login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+        reply: `Email updated successfully: *${newEmail}* ✅\n\nYou can log in to your portal using this email:\nhttps://apnatutorhub.com/login`,
         nextStep: "DONE",
         updatedData: { ...data, email: newEmail },
         userType: session.userType || "TUTOR",
@@ -2772,7 +3603,7 @@ export async function processMessage(
       await syncUserCredentialsInDb({
         phone: session.phone,
         password: rawTrimmed,
-        email: (data.email as string) || undefined,
+        email: isStrictValidEmail(data.email) ? String(data.email) : undefined,
         name: (data.name as string) || undefined,
         area: (data.area as string) || undefined,
         city: (data.city as string) || undefined,
@@ -2780,384 +3611,14 @@ export async function processMessage(
         classLevels: Array.isArray(data.classLevels) && data.classLevels.length > 0 ? (data.classLevels as string[]) : undefined,
         mode: data.mode as any,
       });
-      const userEmail = (data.email as string) || "aapka email";
+      const userEmail = (data.email as string) || "your email";
       return {
-        reply: `Password successfully update ho gaya hai: *${rawTrimmed}* 🔒\n\nAap is password aur apne email (*${userEmail}*) ya mobile (+91-${session.phone}) se login kar sakte hain:\nhttps://apnatutorhub.com/login`,
+        reply: `Password updated successfully: *${rawTrimmed}* 🔒\n\nYou can now log in using this password with your email (*${userEmail}*) or mobile (+91-${session.phone}):\nhttps://apnatutorhub.com/login`,
         nextStep: "DONE",
         updatedData: { ...data, password: rawTrimmed },
         userType: session.userType || "TUTOR",
         retries: 0,
         quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-      };
-    }
-
-    // 1. Reply to broadcast / enquiry interest ("1", "interested", "accept", etc.)
-    if (
-      /^(?:1|1\.|one|interested|i(?:'m|\s+am)?\s+interested|accept|haan\s+interested|padhana\s+hai|mujhe\s+padhana\s+hai|lead\s+(?:dedo|bhejo|chahiye|connect|unlock)|हाँ|पढ़ाना\s*है|पढाना\s*है|रुचि\s*है)$/iu.test(
-        rawTrimmed
-      )
-    ) {
-      return {
-        reply: `Zabardast! 🎉 Humne aapka response note kar liya hai.\n\nAap turant https://apnatutorhub.com/tutor/leads par jaakar is requirement ki complete details aur parent contact unlock kar sakte hain.\n\nKisi bhi madad ke liye WhatsApp Coordinator: +91 93191 93109`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View Leads 📋", "My Coins 🪙", "Talk to Coordinator 📞"],
-      };
-    }
-
-    // 2. Reply "2" in DONE state -> Plans / Pricing
-    if (/^(?:2|2\.|two|plans?|pricing|membership|recharge|प्लान)$/iu.test(rawTrimmed)) {
-      const bal = await getTutorCoinBalanceByPhone(session.phone);
-      const planReply =
-        bal.found && bal.balance > 0
-          ? `${formatCoinBalanceMessage(bal.balance)}\n\nAur coins chahiye hon tab naya pack:\n\n${formatCoinPlansMessage()}`
-          : formatCoinPlansMessage();
-      return {
-        reply: planReply,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View Leads 📋", "Open Wallet 💳", "Help 📞"],
-        ...paymentQrImage(),
-      };
-    }
-
-    // 3. Reply "3" in DONE state -> Support / Coordinator
-    if (/^(?:3|3\.|three|help|support|coordinator|मदद|सहायता)$/iu.test(rawTrimmed)) {
-      return {
-        reply: `Main Priya, ApnaTutorHub coordinator. Seedha batayein kya chahiye:\n• Leads — *View Leads* ya area likhein (*Rohini mein class?*)\n• Coins / plan — *wallet* ya *plans*\n• Profile — *my profile*\n\n📞 Direct Support: +91 93191 93109\nHelpline: 08062180653 (9am–7pm)`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View Leads 📋", "My Profile 👤", "View Plans 💰"],
-      };
-    }
-
-    // 4. Account Deactivation / Data Deletion request
-    if (
-      /(?:account|profile|data|number)\s*(?:delete|hatao|remove|band|cancel|close)/i.test(rawMessage) ||
-      /(?:delete|hatao|remove|band|cancel)\s*(?:mera\s*)?(?:account|profile|data|number)/i.test(rawMessage)
-    ) {
-      return {
-        reply: `Agar aap WhatsApp alerts pause karna chahte hain, toh yahan *STOP* likhein. 🙏\n\nApna account ya data completely delete / deactivate karne ke liye aap https://apnatutorhub.com/tutor/profile par ja sakte hain ya hamare compliance coordinator (+91 93191 93109) se request kar sakte hain. Hum turant process kar denge.`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["STOP 🛑", "My Profile 👤", "Help 📞"],
-      };
-    }
-
-    if (/^(hi|hello|hey|namaste|ha|haan|theek|thik|ok|okay|yes|done|हाँ|जी|ठीक|नमस्ते)$/iu.test(rawTrimmed)) {
-      return {
-        reply: `Ji batayein, hum aapki kya madad kar sakte hain? Aap matching student leads dekhna chahte hain ya plans ki jankari chahiye? 😊`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View Leads 📋", "View Plans 💰", "Talk to Support 📞"],
-      };
-    }
-
-    if (/\b(fees?\s*kam|kam\s*(hai|hain)?\s*(fees?|budget)?|budget\s*kam|fees?\s*(issue|increase|badhao|zyada)|fee\s*kam)\b/i.test(rawMessage)) {
-      return {
-        reply: `Samajh gaya — fees kam lagi. Ab nayi classes market se *upar* hongi:\n• Class 1–8: monthly ₹6,000–₹7,600, *All Subjects*\n• Class 9–12: hourly ₹700–₹1,050, sirf aapke subjects\n\nLocation wale tutors ko 5 km ke andar. Bina location ke sirf online.\n👉 https://apnatutorhub.com/tutor/leads`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View Leads 📋", "Update Location 📍"],
-      };
-    }
-
-    const wantsProfileChange = /\b(update|change|set|changed|badal|naya|new|add|also|bhi)\b/i.test(rawMessage);
-    if (wantsProfileChange && /\b(teaching\s*mode|mode|online\s*only|offline\s*only)\b/i.test(rawMessage)) {
-      let newMode: "ONLINE" | "OFFLINE" | "EITHER" | null = null;
-      if (/\bonline\b/i.test(rawMessage)) newMode = "ONLINE";
-      else if (/\boffline\b/i.test(rawMessage)) newMode = "OFFLINE";
-      else if (/\b(both|dono|either)\b/i.test(rawMessage)) newMode = "EITHER";
-
-      if (newMode) {
-        const saved = await syncUserCredentialsInDb({ phone: session.phone, mode: newMode });
-        return {
-          reply: saved.updatedFields.includes("mode")
-            ? `Teaching mode update ho gaya: *${newMode === "ONLINE" ? "Online (Pan-India) 💻" : newMode === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Online + Offline 🌐"}* ✅`
-            : profileNotSavedReply(),
-          nextStep: "DONE",
-          updatedData: saved.updatedFields.includes("mode") ? { ...data, mode: newMode } : data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: ["My Profile 👤", "View Leads 📋"],
-        };
-      }
-      return {
-        reply: "Kaunsa teaching mode choose karna chahte hain?\n• *Online* (Pan-India)\n• *Offline* (Home Tuition)\n• *Both* (Online + Offline)",
-        nextStep: "UPDATE_MODE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["Online 💻", "Offline 🏠", "Both 🌐", "Cancel"],
-      };
-    }
-    if (wantsProfileChange && /\b(location|area|locality|jagah|address|city)\b/i.test(rawMessage)) {
-      const tail = rawMessage.match(/\b(?:location|area|locality|jagah|address|city)\s+(?:to\s+|as\s+|is\s+|hai\s+|ko\s+|in\s+|for\s+)?([a-zA-Z0-9][a-zA-Z0-9\s.,\/-]{1,60})$/i);
-      const loc = tail
-        ? validateAndCleanLocality(tail[1].trim(), (data.city as string) || undefined, true)
-        : null;
-      if (loc?.isValid && !sameLocality(loc.area, loc.city)) {
-        const saved = await syncUserCredentialsInDb({
-          phone: session.phone,
-          area: loc.area,
-          city: loc.city,
-        });
-        return {
-          reply: saved.updatedFields.includes("area")
-            ? `Location save ho gayi: *${loc.area}, ${loc.city}* 📍\n\nDashboard par isi area ke 5 km ki classes dikhengi.`
-            : profileNotSavedReply(),
-          nextStep: "DONE",
-          updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: ["My Profile 👤", "View Leads 📋"],
-        };
-      }
-      return {
-        reply: `Naya teaching area kaunsa hai? Sirf locality likhein — jaise *Saket*, *Indirapuram*, *Bandra*, ya *HSR Layout*. 📍`,
-        nextStep: "UPDATE_AREA",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: [...getLocalitiesQuickReplies((data.city as string) || undefined), "Cancel"],
-      };
-    }
-    if (wantsProfileChange && /\bsubjects?\b/i.test(rawMessage)) {
-      const tail = rawMessage.match(/\bsubjects?\s+(?:to\s+|as\s+|hai\s+|are\s+|for\s+)?(.+)$/i);
-      const inlineRaw = tail ? tail[1].trim() : "";
-      const inlineClasses = extractAllClassLevelsFromText(rawMessage);
-      const targetCls = inlineClasses[0] || (data.classLevel as string | undefined);
-      const aligned = inlineRaw && !/^(update|change|badal|set|karo|krdo)$/i.test(inlineRaw)
-        ? validateAndAlignSubjects(inlineRaw, targetCls)
-        : null;
-      if (aligned?.isValid && aligned.subjects.length > 0) {
-        const wantsAdd = /\b(also|bhi|add|aur ek)\b/i.test(rawMessage);
-        const saved = await syncUserCredentialsInDb({
-          phone: session.phone,
-          subjects: aligned.subjects,
-          classLevels: inlineClasses.length > 0 ? inlineClasses : undefined,
-          mergeSubjects: wantsAdd,
-          mergeClasses: wantsAdd,
-        });
-        const outSubs = saved.finalSubjects || aligned.subjects;
-        const outCls = saved.finalClassLevels || (inlineClasses.length > 0 ? inlineClasses : undefined);
-        return {
-          reply: saved.updatedFields.includes("subjects")
-            ? `Subjects save ho gaye: *${outSubs.join(", ")}*${outCls && outCls.length > 0 ? ` (Class: *${outCls.join(", ")}*)` : ""} ✅`
-            : profileNotSavedReply(),
-          nextStep: "DONE",
-          updatedData: saved.updatedFields.includes("subjects")
-            ? {
-              ...data,
-              subjects: outSubs,
-              ...(outCls && outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
-            }
-            : data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: ["My Profile 👤", "View Leads 📋"],
-        };
-      }
-      return {
-        reply: `Kaunse subjects padhate ho? Jaise: *Maths, Science* ya Class 1–8 ke liye *All Subjects*.`,
-        nextStep: "UPDATE_SUBJECTS",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["Maths", "All Subjects", "Physics", "Cancel"],
-      };
-    }
-    if (wantsProfileChange && /\bname\b/i.test(rawMessage)) {
-      const tail = rawMessage.match(/\bname\s+(?:to\s+|as\s+|is\s+|hai\s+)?([a-zA-Z][a-zA-Z\s.'-]{1,48})$/i);
-      if (tail && isValidName(tail[1]) && !/^(update|change|changed|new|naya|set|badal|name)$/i.test(tail[1].trim())) {
-        const saved = await syncUserCredentialsInDb({ phone: session.phone, name: tail[1].trim() });
-        return {
-          reply: saved.updatedFields.includes("name")
-            ? `Naam save ho gaya: *${tail[1].trim()}* ✅`
-            : profileNotSavedReply(),
-          nextStep: "DONE",
-          updatedData: saved.updatedFields.includes("name") ? { ...data, name: tail[1].trim() } : data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: ["My Profile 👤", "View Leads 📋"],
-        };
-      }
-      return {
-        reply: "Apna naya naam type karo:",
-        nextStep: "UPDATE_NAME",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["Cancel"],
-      };
-    }
-    if (wantsProfileChange && /\b(class|classes|grade)\b/i.test(rawMessage) && !/\b(lead|tuition|koi)\b/i.test(rawMessage)) {
-      const classesExtracted = extractAllClassLevelsFromText(rawMessage);
-      if (classesExtracted.length === 0) {
-        return {
-          reply: `Kaunsi class padhate ho? Jaise: *Class 5*, *Class 9-10*, ya *Class 11-12*.`,
-          nextStep: "UPDATE_CLASS",
-          updatedData: data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
-        };
-      }
-      const wantsAddClass = /\b(also|bhi|add|aur ek|along with|as well)\b/i.test(rawMessage);
-      const saved = await syncUserCredentialsInDb({
-        phone: session.phone,
-        classLevels: classesExtracted,
-        mergeClasses: wantsAddClass,
-      });
-      const outCls = saved.finalClassLevels || classesExtracted;
-      return {
-        reply: saved.updatedFields.includes("class") ? `Class save ho gayi: *${outCls.join(", ")}* ✅` : profileNotSavedReply(),
-        nextStep: "DONE",
-        updatedData: saved.updatedFields.includes("class") ? { ...data, classLevel: outCls[0], classLevels: outCls } : data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["My Profile 👤", "View Leads 📋"],
-      };
-    }
-
-    // ── Area / locality leads query (e.g. "Uttam Nagar mai koi class hai?", "Rohini mein leads?") ──
-    const areaLeadQuery = rawMessage.match(
-      /\b([A-Za-z][A-Za-z\s]{2,30}?(?:nagar|vihar|pur|ganj|bagh|colony|enclave|sector|sec|kunj|park|town|place|puri|marg|basti|gali|ext|extension|block|phase|market|chowk)?)\b.*?\b(koi\s*(class|tuition|lead|requirement|student)|lead\s*(?:hai|hain|mile|milega)|class\s*(hai|hain|milegi|available)|tuition\s*(hai|hain|available)|koi.*(?:hai|hain)|available\s*(?:hai|hain)?)\b/i
-    ) || rawMessage.match(
-      /\b(koi|kuch)\s+(class|lead|tuition|student|requirement)\s+(hai|hain|milegi|available)\s*(in\s+|mein\s+|ke\s+liye\s+)?([A-Za-z][A-Za-z\s]{2,25})\b/i
-    );
-
-    const hasAreaLeadIntent = areaLeadQuery ||
-      /\b([A-Za-z][A-Za-z\s]{2,20})\s+(mein|me|mai|mai?n|ke\s+aas\s+paas|near|ke\s+pass|ke\s+paas|ke\s+liye)\s+(koi|kuch|class|lead|tuition|student|requirements?)\b/i.test(rawMessage) ||
-      /\b(koi|kuch|any)\s+(class|lead|tuition|student|work|requirement)\s+(?:hai|hain|available|milegi?|milenge?)?\s*(?:in|mein|at|at)?\s*([A-Za-z][A-Za-z\s]{2,25})\b/i.test(rawMessage);
-
-    if (hasAreaLeadIntent) {
-      // Extract the locality name from the message
-      const locMatch =
-        rawMessage.match(/\b([A-Za-z][A-Za-z\s]{2,30}?(?:nagar|vihar|pur|ganj|bagh|colony|enclave|sector|kunj|park|puri|extension|phase)?)\s*(mein|me|mai|ke|near|aas|pass|paas|liye)\b/i) ||
-        rawMessage.match(/\b(in|at)\s+([A-Za-z][A-Za-z\s]{2,25})\b/i) ||
-        rawMessage.match(/([A-Za-z][A-Za-z\s]{2,25}?)\s+(mein|me|mai)\b/i);
-      const rawLoc = locMatch ? (locMatch[2] || locMatch[1]).trim() : rawMessage.replace(/\b(koi|class|hai|hain|mein|me|mai|lead|tuition|student|available|requirement)\b/gi, " ").trim();
-      const loc = validateAndCleanLocality(rawLoc.trim(), (data.city as string) || "Delhi");
-      if (loc.isValid && !sameLocality(loc.area, loc.city)) {
-        const searchArea = loc.area;
-        const searchCity = loc.city;
-        const classForSearch = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
-          ? (data.classLevels as string[])
-          : (data.classLevel as string | undefined);
-        const subjectsForSearch = Array.isArray(data.subjects) ? (data.subjects as string[]) : [];
-        const leads = await getChatbotMatchingLeads(searchArea, searchCity, classForSearch, subjectsForSearch);
-        const displayName = (data.name as string) || "Teacher";
-        if (leads.length > 0) {
-          const leadLines = leads.slice(0, 3).map((l, i) =>
-            `${i + 1}. *#${l.inquiryNumber}* — ${l.classLevel} (${l.subjects.join(", ")})\n   📍 ${l.area} | ${l.mode} | 💰 ${l.budget}`
-          ).join("\n\n");
-          return {
-            reply: `Ji *${displayName}* ji! *${searchArea}* ke paas *${leads.length} active requirement${leads.length > 1 ? "s" : ""}* hain:\n\n${leadLines}\n\n🔓 Unlock karein: https://apnatutorhub.com/tutor/leads`,
-            nextStep: "DONE",
-            updatedData: data,
-            userType: "TUTOR",
-            retries: 0,
-            quickReplies: [
-              `🔥 Unlock #${leads[0].inquiryNumber}`,
-              "View All Leads 📋",
-              "My Coins 🪙",
-            ],
-          };
-        } else {
-          return {
-            reply: `*${searchArea}* mein abhi koi matching requirement nahi hai — lekin parent har 15-30 min mein post karte hain. 🔔\n\nApna area update karein taaki jab bhi iss area mein lead aaye, *aapko pehle alert mile*:\nhttps://apnatutorhub.com/tutor/leads`,
-            nextStep: "DONE",
-            updatedData: data,
-            userType: "TUTOR",
-            retries: 0,
-            quickReplies: ["Update My Area 📍", "View All Leads 📋", "Online Leads 💻"],
-          };
-        }
-      }
-    }
-
-    // ── "Kaise" / "Kya" / very short confused messages → show leads directly ──
-    if (/^(kaise|kya|haan|theek|okay|ok|sure|batao|bta?o|aage|next|aur|ha|huh|hmm|chalega|ho\s*gaya)[\s?!.]*$/i.test(rawMessage.trim())) {
-      const area = (data.area as string) || "Delhi";
-      const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
-        ? (data.classLevels as string[])
-        : (data.classLevel ? [data.classLevel as string] : undefined);
-      const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", tutorClassLevels, data.subjects as string[]);
-      const leadsLink = "https://apnatutorhub.com/tutor/leads";
-      if (leads.length > 0) {
-        const top = leads[0];
-        return {
-          reply: `Aapke area *${area}* mein yeh requirement hai abhi:\n\n*#${top.inquiryNumber}* — ${top.classLevel} (${top.subjects.join(", ")})\n📍 ${top.area} | ${top.mode} | 💰 ${top.budget}\n\n🔓 Yahan unlock karein:\n${leadsLink}`,
-          nextStep: "DONE",
-          updatedData: data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: [`🔥 Unlock #${top.inquiryNumber}`, "View All Leads 📋", "My Coins 🪙"],
-        };
-      }
-      return {
-        reply: `Aapke area ke latest leads aur unlock ka tariqa yahan dekh sakte hain:\n👉 ${leadsLink}\n\nKoi question ho to batayein! 😊`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View All Leads 📋", "Update Area 📍", "My Coins 🪙"],
-      };
-    }
-
-    // ── "Karawal Nagar mein class hai?", "Koi student hai?", "Student chahiye" ──
-    if (/\b(student\s*(chahiye|do|bhejo|dedo|mil\s*sakta|hai|hain|milega)|koi\s*student|need\s*student|padhane\s*ke\s*liye\s*student)\b/i.test(rawMessage)) {
-      const area = (data.area as string) || "Delhi";
-      const tutorClassLevels = (Array.isArray(data.classLevels) && data.classLevels.length > 0)
-        ? (data.classLevels as string[])
-        : (data.classLevel ? [data.classLevel as string] : undefined);
-      const leads = await getChatbotMatchingLeads(area, (data.city as string) || "Delhi", tutorClassLevels, data.subjects as string[]);
-      const leadsLink = "https://apnatutorhub.com/tutor/leads";
-      if (leads.length > 0) {
-        const top = leads[0];
-        return {
-          reply: `*${area}* mein aapke liye *${top.classLevel}* ki requirement hai — ${top.subjects.join(", ")} | ${top.mode} | ${top.budget}\n\n🔓 Abhi unlock karein: ${leadsLink}`,
-          nextStep: "DONE",
-          updatedData: data,
-          userType: "TUTOR",
-          retries: 0,
-          quickReplies: [`🔥 Unlock #${top.inquiryNumber}`, "View All 📋", "My Coins 🪙"],
-        };
-      }
-      return {
-        reply: `*${area}* mein abhi nayi requirement nahi hai — jaise hi aata hai, alert aayega. Poore Delhi NCR ke leads yahan hain:\n👉 ${leadsLink}`,
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View All Leads 📋", "Online Leads 💻", "Update Area 📍"],
-      };
-    }
-
-    const doneLoose = await tryLooseTutorIntent(session, rawMessage, data, step, "done");
-    if (doneLoose) return doneLoose;
-
-    if (looksLikeUnexpectedNoise(rawMessage)) {
-      return {
-        reply: looseIntentClarifyReply("CONFUSED", true),
-        nextStep: "DONE",
-        updatedData: data,
-        userType: "TUTOR",
-        retries: 0,
-        quickReplies: ["View Leads 📋", "My Profile 👤", "Help 📞"],
       };
     }
 
@@ -3167,13 +3628,10 @@ export async function processMessage(
       .map((m) => m.body.trim());
     const combinedContext = Array.from(new Set([...recentInbounds, rawMessage.trim()])).join(" \n ");
 
-    // Latest explicit classes in THIS message win; previous fragments (2-min
-    // window) are only a fallback when the current message names none.
-    const rawMsgClasses = extractAllClassLevelsFromText(rawMessage);
-    const msgClasses = rawMsgClasses.length > 0 ? rawMsgClasses : extractAllClassLevelsFromText(combinedContext);
+    // Strict extraction (supports multi-clause replies like "Biology 10 - 12. 1-5 all sub.")
+    const rawMsgClasses = extractStrictClasses(rawMessage).labels;
+    const msgClasses = rawMsgClasses.length > 0 ? rawMsgClasses : extractStrictClasses(combinedContext).labels;
     const wantsExplicitAdditive = /\b(also|bhi|add|along with|as well|aur ek)\b/i.test(rawMessage);
-    // User rule: latest stated location/subjects/classes always overwrite the old
-    // values — no exception. Only explicit additive words ("also", "bhi") merge.
     const wantsReplace = !wantsExplicitAdditive;
     const subjectWordsRe =
       /\b(math|maths|mathematics|mathmatics|science|sci|physics|phy|chemistry|chem|biology|bio|account|accountancy|commerce|english|hindi|sanskrit|social|sst|computer|coding|python|all\s*subject|combo|history|geography|political|eco|economics|french|german|spanish|jee|neet)\b/i;
@@ -3183,8 +3641,11 @@ export async function processMessage(
     const directSubStatement = rawMessage.trim().match(
       /^(?:(?:sir|mam|hello|hi)[,\s]+)?(?:my\s+subjects?\s+(?:are|hai)|i\s+teach\s+(?:only\s+)?|subjects?\s*:)\s*(.+)$/i
     );
-    const directSubRes = directSubStatement && !hasNegatedSubject
-      ? validateAndAlignSubjects(directSubStatement[1].trim(), msgClasses[0] || (data.classLevel as string | undefined))
+    const directSubStrict = directSubStatement && !hasNegatedSubject
+      ? enforceStrictEducation({
+        rawMessage: directSubStatement[1].trim(),
+        classesInput: msgClasses.length > 0 ? msgClasses : (Array.isArray(data.classLevels) && data.classLevels.length > 0 ? (data.classLevels as string[]) : data.classLevel ? [String(data.classLevel)] : undefined),
+      })
       : null;
 
     const isMsgSensitive =
@@ -3192,19 +3653,17 @@ export async function processMessage(
       rawMessage.includes("@") ||
       /\b[a-zA-Z]+[0-9]{2,}\b/i.test(rawMessage);
 
-    const rawEmailMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const validEmailInMsg = extractStrictEmail(rawMessage);
     const directLocStatement = rawMessage.trim().match(
       /^(?:(?:sir|mam|hello|hi)[,\s]+)?(?:(?:change|update|set|mera|meri)\s+)?(?:my\s+(?:new\s+)?(?:location|area|locality|city)\s*(?:is|to|hai|kardo|karo)?|i\s+(?:live|stay|am\s+staying|am\s+living)\s+(?:in|at)|i\s+am\s+from|currently\s+(?:in|at)|location\s*[:=-])\s*(.+)$/i
     );
-    // CRITICAL FIX: In DONE state, only treat as direct locality if the user explicitly stated location intent!
-    // Never run validateAndCleanLocality on arbitrary conversational messages ("Pl arrange", "Scammers", "How to pay")!
     const directLocRes = !isMsgSensitive && directLocStatement
       ? validateAndCleanLocality(directLocStatement[1].trim(), (data.city as string) || undefined, true)
       : null;
 
     if (directLocStatement && (!directLocRes || !directLocRes.isValid)) {
       return {
-        reply: `📍 Location *"${directLocStatement[1].trim()}"* hamare system mein available/pehchani nahi gayi.\n\nKripya apna sahi mohalla/area aur city batayein — jaise:\n• *Rohini, Delhi*\n• *Sector 62, Noida*\n• *Bandra, Mumbai*\n• *Online (Pan-India)*`,
+        reply: `📍 Location *"${directLocStatement[1].trim()}"* could not be verified.\n\nPlease enter your locality and city — for example:\n• *Rohini, Delhi*\n• *Sector 62, Noida*\n• *Bandra, Mumbai*\n• *Online (Pan-India)*`,
         nextStep: "DONE",
         updatedData: data,
         userType: session.userType || "TUTOR",
@@ -3217,13 +3676,14 @@ export async function processMessage(
       ai?: Awaited<ReturnType<typeof askGeminiChatbot>>;
     }) => {
       const ai = opts.ai;
-      const mergedData: Record<string, any> = { ...data };
+      const mergedData: Record<string, any> = { ...data, lang: "en" };
       let credentialsChanged = false;
 
-      const extractedEmail = (ai?.extractedData?.email as string) || (rawEmailMatch ? rawEmailMatch[0] : undefined);
+      const aiEmail = ai?.extractedData?.email ? extractStrictEmail(String(ai.extractedData.email)) || String(ai.extractedData.email) : undefined;
+      const extractedEmail = validEmailInMsg || (aiEmail && isStrictValidEmail(aiEmail) ? aiEmail : undefined);
       const extractedPassword = ai?.extractedData?.password as string | undefined;
 
-      const needsEmailSync = extractedEmail && isValidEmailDomain(extractedEmail) && (
+      const needsEmailSync = extractedEmail && isStrictValidEmail(extractedEmail) && (
         extractedEmail.toLowerCase() !== data.email ||
         !userProfile?.email ||
         userProfile.email.startsWith("wa_") ||
@@ -3241,7 +3701,7 @@ export async function processMessage(
         credentialsChanged = true;
       }
 
-      // Location resolution (prefer explicit location statement or AI area+city, allowing non-Delhi city-only updates)
+      // Location resolution
       let areaToSave: string | undefined;
       let cityToSave: string | undefined;
       if (directLocRes?.isValid && !sameLocality(directLocRes.area, directLocRes.city)) {
@@ -3260,32 +3720,39 @@ export async function processMessage(
         }
       }
 
-      // Class resolution: prioritize classes explicitly written in this incoming message or extracted by AI
-      let classesToSave: string[] | undefined = msgClasses.length > 0 ? msgClasses : undefined;
-      if (!classesToSave && ai?.extractedData) {
-        const aiClsRaw = Array.isArray(ai.extractedData.classLevels) && ai.extractedData.classLevels.length > 0
-          ? ai.extractedData.classLevels.map((c) => normalizeCanonicalClassLevel(String(c))).filter((c): c is string => Boolean(c))
+      // Strict Class & Subject resolution (always pass through enforceStrictEducation)
+      const aiClsRaw = ai?.extractedData
+        ? (Array.isArray(ai.extractedData.classLevels) && ai.extractedData.classLevels.length > 0
+          ? ai.extractedData.classLevels.map((c) => String(c))
           : typeof ai.extractedData.classLevel === "string"
-            ? [normalizeCanonicalClassLevel(ai.extractedData.classLevel)].filter((c): c is string => Boolean(c))
-            : [];
-        if (aiClsRaw.length > 0) classesToSave = aiClsRaw;
-      }
+            ? [ai.extractedData.classLevel]
+            : [])
+        : [];
+      const aiSubsRaw =
+        ai?.extractedData && Array.isArray(ai.extractedData.subjects) && !hasNegatedSubject
+          ? ai.extractedData.subjects.map((s) => String(s || "").trim()).filter(Boolean)
+          : [];
 
-      // Subject resolution: validate new subjects against THIS message's class (not stale data.classLevel!)
+      let classesToSave: string[] | undefined;
       let subjectsToSave: string[] | undefined;
-      const effectiveClassForMsg = classesToSave?.[0] || (data.classLevel as string | undefined);
-      if (directSubRes?.isValid && directSubRes.subjects.length > 0) {
-        subjectsToSave = directSubRes.subjects;
-      } else if (ai?.extractedData && Array.isArray(ai.extractedData.subjects) && ai.extractedData.subjects.length > 0 && !hasNegatedSubject) {
-        const rawAiSubs = (ai.extractedData.subjects as unknown[])
-          .map((s) => String(s || "").trim())
-          .filter(Boolean);
-        const aligned = validateAndAlignSubjects(rawAiSubs, effectiveClassForMsg);
-        if (aligned.isValid && aligned.subjects.length > 0) {
-          subjectsToSave = aligned.subjects;
-        } else if (rawAiSubs.length > 0) {
-          subjectsToSave = deduplicateAndNormalizeSubjects(rawAiSubs, classesToSave);
-        }
+
+      if (directSubStrict?.ok && directSubStrict.subjects.length > 0) {
+        subjectsToSave = directSubStrict.subjects;
+        classesToSave = directSubStrict.classLevels.length > 0 ? directSubStrict.classLevels : undefined;
+      } else if (rawHasSubjectWords || rawMsgClasses.length > 0 || aiClsRaw.length > 0 || aiSubsRaw.length > 0) {
+        const fallbackExistingCls =
+          Array.isArray(data.classLevels) && data.classLevels.length > 0
+            ? (data.classLevels as string[])
+            : data.classLevel
+              ? [String(data.classLevel)]
+              : undefined;
+        const strictRes = enforceStrictEducation({
+          rawMessage: rawHasSubjectWords || rawMsgClasses.length > 0 ? rawMessage : undefined,
+          subjectsInput: aiSubsRaw.length > 0 ? aiSubsRaw : undefined,
+          classesInput: msgClasses.length > 0 ? msgClasses : aiClsRaw.length > 0 ? aiClsRaw : fallbackExistingCls,
+        });
+        if (strictRes.classLevels.length > 0) classesToSave = strictRes.classLevels;
+        if (strictRes.subjects.length > 0) subjectsToSave = strictRes.subjects;
       }
 
       const nameToSave =
@@ -3325,7 +3792,6 @@ export async function processMessage(
 
       const areaPatched = saved.updatedFields.includes("area") || Boolean(areaToSave);
       if (areaPatched) {
-        // Never wipe a real locality when only the city was patched.
         if (areaToSave) mergedData.area = areaToSave;
         if (cityToSave) mergedData.city = cityToSave;
       }
@@ -3344,11 +3810,11 @@ export async function processMessage(
       if (saved.updatedFields.includes("name") || nameToSave) mergedData.name = nameToSave;
 
       const savedBits = [
-        (saved.updatedFields.includes("name") || nameToSave) && nameToSave ? `naam *${nameToSave}*` : "",
+        (saved.updatedFields.includes("name") || nameToSave) && nameToSave ? `name *${nameToSave}*` : "",
         areaPatched && areaToSave ? `location *${[areaToSave, cityToSave].filter(Boolean).join(", ")}*` : "",
         (saved.updatedFields.includes("mode") || modeToSave) && modeToSave ? `mode *${modeToSave === "ONLINE" ? "Online (Pan-India) 💻" : modeToSave === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Both (Online + Offline) 🌐"}*` : "",
         (saved.updatedFields.includes("subjects") || subjectsToSave) && displaySubjects && displaySubjects.length > 0 ? `subjects *${displaySubjects.join(", ")}*` : "",
-        (saved.updatedFields.includes("class") || classesToSave) && displayClasses && displayClasses.length > 0 ? `class *${displayClasses.join(", ")}*` : "",
+        (saved.updatedFields.includes("class") || classesToSave) && displayClasses && displayClasses.length > 0 ? `classes *${displayClasses.join(", ")}*` : "",
         saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
       ].filter(Boolean);
 
@@ -3360,10 +3826,21 @@ export async function processMessage(
         const ai = await askGeminiChatbot(rawMessage, session, chatHistory, userProfile);
         if (ai && ai.reply) {
           ai.reply = ai.reply.replace(/\b(Seema|Anjali|Pooja|Riya|Simran|Neha|Shalini)\b/g, "Priya");
+          const semantic = await handleAiSemanticIntent({
+            ai,
+            rawMessage,
+            session,
+            step: "DONE",
+            data,
+            userProfile,
+            isDoneState: true,
+          });
+          if (semantic) return semantic;
+
           const { savedBits, mergedData } = await applyDonePatch({ ai });
           let reply = ai.reply;
-          if (savedBits.length > 0 && !reply.toLowerCase().includes("save ho gaya")) {
-            reply = `${reply}\n\n(Aapka ${savedBits.join(", ")} update kar diya gaya hai ✅)`;
+          if (savedBits.length > 0 && !reply.toLowerCase().includes("updated") && !reply.toLowerCase().includes("saved")) {
+            reply = `${reply}\n\n(Updated: ${savedBits.join(", ")} ✅)`;
           }
 
           return {
@@ -3383,13 +3860,31 @@ export async function processMessage(
       }
     }
 
-    // Deterministic fallback in DONE state — only apply if user made an explicit statement
-    const hasExplicitStatement = Boolean(directLocStatement || directSubStatement || rawEmailMatch);
+    // Deterministic fallback in DONE state (when useAi is false or Gemini unavailable)
+    const preFallbackInDone = await tryDeterministicPreAiFallbacks({
+      session,
+      rawMessage,
+      msg,
+      step: "DONE",
+      data,
+      userProfile,
+      chatHistory,
+    });
+    if (preFallbackInDone) return preFallbackInDone;
+
+    const doneShortcut = await tryDeterministicDoneShortcuts({
+      session,
+      rawMessage,
+      data,
+    });
+    if (doneShortcut) return doneShortcut;
+
+    const hasExplicitStatement = Boolean(directLocStatement || directSubStatement || validEmailInMsg);
     if (hasExplicitStatement) {
       const fallbackPatch = await applyDonePatch({});
       if (fallbackPatch.savedBits.length > 0) {
         return {
-          reply: `Save ho gaya: ${fallbackPatch.savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`,
+          reply: `Saved: ${fallbackPatch.savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`,
           nextStep: "DONE",
           updatedData: fallbackPatch.mergedData,
           userType: session.userType || "TUTOR",
@@ -3399,9 +3894,20 @@ export async function processMessage(
       }
     }
 
-    // Friendly fallback if AI fails in DONE state
+    // Universal fallback in DONE state for unrecognized text or open questions
+    if (looksLikeUnexpectedNoise(rawMessage)) {
+      return {
+        reply: looseIntentClarifyReply("CONFUSED", true),
+        nextStep: "DONE",
+        updatedData: data,
+        userType: session.userType || "TUTOR",
+        retries: 0,
+        quickReplies: ["View Leads 📋", "My Profile 👤", "Help 📞"],
+      };
+    }
+
     return {
-      reply: `Ji batayein, hum aapki kya madad kar sakte hain? Aap matching leads dekhna chahte hain ya plans ki info chahiye? 📚\n\nDirect support ke liye WhatsApp karein: +91 93191 93109`,
+      reply: `Hello! How can I help you today? Feel free to ask any question about leads, plans, or your profile, or call Helpline *08062180653*. 📚\n\nDirect support WhatsApp: +91 93191 93109`,
       nextStep: "DONE",
       updatedData: data,
       userType: session.userType || "TUTOR",
@@ -3410,73 +3916,22 @@ export async function processMessage(
     };
   }
 
-  // Any requirement-like message is checked before the AI can save a lead.
-  // Tutors who already chose Tutor stay on the tutor flow.
-  const mentionsRequirement = /\b(class|grade|subject|physics|chemistry|maths|math|science|accounts|accountancy|biology|nursery|lkg|ukg|jee|neet|all subjects)\b/i.test(rawMessage);
-  if (session.userType !== "TUTOR" && step !== "DONE" && (session.userType === "PARENT" || step.startsWith("P_") || mentionsRequirement)) {
-    const previous: IntakeDraft = {
-      classLevel: typeof data.classLevel === "string" ? data.classLevel : undefined,
-      subjects: Array.isArray(data.subjects) ? (data.subjects as string[]) : undefined,
-      area: typeof data.area === "string" ? data.area : undefined,
-      city: typeof data.city === "string" ? data.city : undefined,
-      mode: data.mode === "ONLINE" || data.mode === "OFFLINE" ? data.mode : undefined,
-      confirm: (data.intakeConfirm as IntakeDraft["confirm"]) ?? null,
-    };
-    const assessed = assessIntake(rawMessage, previous);
-    const intakeData: Record<string, unknown> = {
-      ...data,
-      classLevel: assessed.draft.classLevel,
-      subjects: assessed.draft.subjects,
-      area: assessed.draft.area,
-      city: assessed.draft.city || data.city,
-      mode: assessed.draft.mode,
-      intakeConfirm: assessed.draft.confirm ?? null,
-      userType: "PARENT",
-    };
-    if (!assessed.ready || !assessed.draft.classLevel || !assessed.draft.area || !assessed.draft.subjects?.length) {
-      return {
-        reply: assessed.reply,
-        nextStep: "P_CONVO",
-        updatedData: intakeData,
-        userType: "PARENT",
-        retries: 0,
-        quickReplies: assessed.quickReplies,
-      };
-    }
-    const saved = await registerParentFromWhatsapp(session.phone, {
-      studentName: (data.studentName as string) || (data.name as string) || "Student",
-      parentName: (data.parentName as string) || (data.name as string) || "Parent",
-      email: (data.email as string) || undefined,
-      phone: (data.phone as string) || session.phone,
-      city: assessed.draft.city || (data.city as string) || "Delhi",
-      area: assessed.draft.area,
-      classLevel: assessed.draft.classLevel,
-      subjects: assessed.draft.subjects,
-      modeKey: assessed.draft.mode === "ONLINE" ? "2" : "1",
-    });
-    if (!saved.ok) {
-      return {
-        reply: `Abhi save nahi hua: ${saved.error}\nClass, subject aur locality dubara bhejein. Jaise: *Class 8, All Subjects, Rohini*`,
-        nextStep: "P_CONVO",
-        updatedData: intakeData,
-        userType: "PARENT",
-        retries: 0,
-      };
-    }
-    return {
-      reply: `✅ Request save ho gayi.\n\n📚 ${assessed.draft.classLevel} · ${assessed.draft.subjects.join(", ")}\n📍 ${assessed.draft.area}\n🏠 ${assessed.draft.mode === "ONLINE" ? "Online" : "Home tuition"}\n\nRef #${saved.inquiryNumber}. Team tutor match karegi.`,
-      nextStep: "DONE",
-      updatedData: { ...intakeData, _registered: true, intakeConfirm: null },
-      userType: "PARENT",
-      retries: 0,
-      quickReplies: ["Fee Info", "Talk to Coordinator 📞"],
-    };
-  }
-
   if (useAi) {
     try {
       const ai = await askGeminiChatbot(rawMessage, session, chatHistory, userProfile);
       if (ai && ai.reply) {
+        if (!(session.step === "T_EMAIL" && rawMessage.includes("@"))) {
+          const semantic = await handleAiSemanticIntent({
+            ai,
+            rawMessage,
+            session,
+            step,
+            data,
+            userProfile,
+            isDoneState: false,
+          });
+          if (semantic) return semantic;
+        }
         // Clean and merge extracted data
         const mergedData: Record<string, any> = { ...data };
         // During identity steps the answer is a NAME / EMAIL / PASSWORD — never a
@@ -3497,10 +3952,24 @@ export async function processMessage(
           }
         }
 
-        // Additional Regex extractors for Email & Phone Number
-        const emailMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-        if (emailMatch && !mergedData.email) {
-          mergedData.email = emailMatch[0].toLowerCase();
+        // Additional Regex extractors for Email & Phone Number (strict firewall)
+        const rawEmailInMsgMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12}/);
+        if (rawEmailInMsgMatch) {
+          const strictEm = validateStrictEmail(rawEmailInMsgMatch[0]);
+          if (strictEm.ok) {
+            mergedData.email = strictEm.email;
+          } else if (session.step === "T_EMAIL" || rawMessage.includes("@")) {
+            return {
+              reply: `⚠️ ${strictEm.reason}`,
+              nextStep: "T_EMAIL",
+              updatedData: { ...mergedData, email: undefined, lang: "en" },
+              userType: session.userType || "TUTOR",
+              retries: 0,
+              quickReplies: [],
+            };
+          }
+        } else if (mergedData.email && !isStrictValidEmail(mergedData.email)) {
+          delete mergedData.email;
         }
 
         const phoneMatch = rawMessage.match(/(?:\+?91[\s-]?)?([6-9]\d{9})\b/);
@@ -3514,7 +3983,7 @@ export async function processMessage(
           mergedData.password = pwdMatch[1].trim();
         }
 
-        // Name extractor (explicit name: ... or Dr/Prof title prefix or "mera naam ...")
+        // Name extractor (explicit name: ... or Dr/Prof title prefix)
         if (!mergedData.name || /^(teacher|tutor|user|student|unknown)$/i.test(String(mergedData.name).trim())) {
           const explicitNameMatch =
             rawMessage.match(/(?:my\s*name\s*is|mera\s*naam|name\s*is|naam\s*hai|i\s*am|main\s*hoon)\s+([a-zA-Z\s.'-]+)/i) ||
@@ -3556,33 +4025,32 @@ export async function processMessage(
           }
         }
 
-        const isInitialWelcomeChoice = (session.step === "WELCOME" || session.step === "LANG_SELECT") && /^[12]$/.test(rawMessage.trim());
+        const isInitialWelcomeChoice = session.step === "WELCOME" && /^[12]$/.test(rawMessage.trim());
 
-        const classMatch =
-          rawMessage.match(/(?:class|grade)\s*(\d{1,2}(?:\s*(?:to|-|and)\s*\d{1,2})?|\b[1-9]\b|\b1[0-2]\b|primary|middle|senior|nursery|kg|jee|neet|all)/i) ||
-          rawMessage.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s*(?:to|-|and)\s*\d{1,2}(?:st|nd|rd|th)?)\b/i) ||
-          rawMessage.match(/\b(primary|middle school|senior secondary|11th and 12th|9th and 10th|1st to 5th|6th to 8th|9th to 12th|all classes)\b/i) ||
-          (!isInitialWelcomeChoice && !/^[12]$/.test(rawMessage.trim()) ? rawMessage.match(/^([1-9]|1[0-2])(?:st|nd|rd|th)?$/i) : null);
-        if (classMatch && !mergedData.classLevel && !isInitialWelcomeChoice && !/^[12]$/.test(rawMessage.trim())) {
-          const rawCl = classMatch[0].trim();
-          const cl = /^\d+$/.test(rawCl) ? `Class ${rawCl}` : rawCl;
-          mergedData.classLevel = cl;
-          mergedData.classLevels = [cl];
-        }
-
-        // Align subjects to canonical taxonomy, strictly filtering out unsupported subjects & Class 1-8 senior science
-        const targetCls = (mergedData.classLevel as string) || (data.classLevel as string) || undefined;
-        const shouldCheckRawForSubs =
-          !isOffScriptTutorTalk(rawMessage) &&
-          (Boolean(mergedData.subjects) || session.step === "T_SUBJECTS" || session.step === "P_SUBJECTS");
-        if (shouldCheckRawForSubs) {
-          const rawSubsCandidate = mergedData.subjects || rawMessage;
-          const subAlign = validateAndAlignSubjects(rawSubsCandidate, targetCls);
-          if (subAlign.isValid && subAlign.subjects.length > 0) {
-            mergedData.subjects = subAlign.subjects;
-          } else if (mergedData.subjects && Array.isArray(mergedData.subjects)) {
-            delete mergedData.subjects;
-          }
+        const aiClsCandidate =
+          Array.isArray(ai.extractedData?.classLevels) && ai.extractedData.classLevels.length > 0
+            ? ai.extractedData.classLevels
+            : ai.extractedData?.classLevel
+              ? [ai.extractedData.classLevel]
+              : undefined;
+        const strictEd = applyStrictEducationToData({
+          rawMessage,
+          isIdentityStep,
+          isInitialWelcomeChoice,
+          previousData: data,
+          mergedData,
+          aiSubjects: ai.extractedData?.subjects,
+          aiClasses: aiClsCandidate,
+        });
+        if (strictEd.errorReply && session.userType !== "PARENT") {
+          return {
+            reply: strictEd.errorReply.reply,
+            nextStep: strictEd.errorReply.nextStep,
+            updatedData: { ...strictEd.mergedData, lang: "en" },
+            userType: "TUTOR",
+            retries: 0,
+            quickReplies: strictEd.errorReply.quickReplies,
+          };
         }
 
         // State-specific step input helpers
@@ -3595,41 +4063,11 @@ export async function processMessage(
             mergedData.city = stepLoc.city;
           }
         }
-        const keptClass = keepClassLevel(mergedData.classLevel, rawMessage, data.classLevel);
-        if (keptClass) {
-          mergedData.classLevel = keptClass;
-          mergedData.classLevels = [keptClass];
-        } else {
-          delete mergedData.classLevel;
-          delete mergedData.classLevels;
-        }
-        // During identity steps (name/email/password) the AI frequently mislabels the
-        // answer as `area`. Always preserve the previously-validated area and discard
-        // whatever the AI extracted into mergedData.area during those steps.
         const keptArea = isIdentityStep
           ? (typeof data.area === "string" && data.area.trim() ? data.area.trim() : undefined)
           : keepArea(mergedData.area, rawMessage, data.area, (mergedData.city || data.city || "Delhi") as string);
         if (keptArea) mergedData.area = keptArea;
         else if (!mergedData.area) delete mergedData.area;
-        if (session.step === "T_SUBJECTS" && (!mergedData.subjects || (Array.isArray(mergedData.subjects) && mergedData.subjects.length === 0)) && rawMessage.trim().length >= 2 && !/^(menu|help|cancel)$/i.test(rawMessage.trim())) {
-          const stepSub = validateAndAlignSubjects(rawMessage.trim(), targetCls);
-          if (stepSub.isValid) {
-            mergedData.subjects = stepSub.subjects;
-          }
-        }
-
-        // Taxonomy & Till 8th grade handling
-        if (/all\s*subjects?|combo/i.test(rawMessage)) {
-          const clsNow = normalizeCanonicalClassLevel(String(mergedData.classLevel || ""));
-          mergedData.subjects = isTill8thClass(clsNow) ? ["All Subjects (Class 1-8)"] : leadSubjectsForClass(clsNow, ["All Subjects"]);
-        }
-        if (/1\s*[-–to]+\s*8|class\s*1\s*[-–to]+\s*8|primary|middle|till\s*8/i.test(rawMessage)) {
-          if (!mergedData.classLevel) {
-            mergedData.classLevel = "Class 1-8";
-            mergedData.classLevels = ["Class 1-8"];
-          }
-          mergedData.subjects = ["All Subjects (Class 1-8)"];
-        }
 
         // Robust role detection
         let role: "TUTOR" | "PARENT" | null = null;
@@ -3692,13 +4130,12 @@ export async function processMessage(
         const isFirstChoice = session.step === "WELCOME" && isBareChoice && !hasSubjects && !hasClass && !hasArea;
         if (isFirstChoice) {
           const isTutor = role === "TUTOR" || rawMessage.trim() === "1";
-          const isHi = data.lang === "hi";
           return {
             reply: isTutor
-              ? (isHi ? `बढ़िया! कौन से subject, कौन सी class aur kaunse city/area se hain? 📚` : `Great! Which subjects, which class, and which city / locality do you teach in? 📚`)
-              : (isHi ? `नमस्ते! बच्चे के लिए कौन सी class, subject और किस city/area में ट्यूटर चाहिए? 🎓📍` : `Welcome! For which class, subjects, and which city / locality do you need a tutor? 🎓📍`),
+              ? `Great! Which classes, subjects, and city / locality do you teach in (or Online)? 📚`
+              : `Welcome! Which class, subjects, and city / locality do you need a tutor for? 🎓📍`,
             nextStep: isTutor ? "T_CONVO" : "P_CONVO",
-            updatedData: { ...data, ...(isTutor ? { userType: "TUTOR" } : { userType: "PARENT" }) },
+            updatedData: { ...data, lang: "en", ...(isTutor ? { userType: "TUTOR" } : { userType: "PARENT" }) },
             userType: isTutor ? "TUTOR" : "PARENT",
             retries: 0,
             quickReplies: isTutor
@@ -3709,8 +4146,10 @@ export async function processMessage(
 
         // ── TUTOR Onboarding ──────────────────────────────────────────────────
         if (role === "TUTOR") {
-          const midOnboardOff = tryTutorOffScriptReply(session, rawMessage, mergedData, session.step);
-          if (midOnboardOff) return midOnboardOff;
+          if (isSubjectNegation(rawMessage)) {
+            const midOnboardOff = tryTutorOffScriptReply(session, rawMessage, mergedData, session.step);
+            if (midOnboardOff) return midOnboardOff;
+          }
 
           const isTutorReadyToFinalize =
             hasSubjects &&
@@ -3782,7 +4221,7 @@ export async function processMessage(
               };
             }
             return {
-              reply: `Ji zaroor! Kaunse subject aur kaunsi class ko padhate hain aap? 📚`,
+              reply: `Great! Which classes, subjects, and locality do you teach in? 📚`,
               nextStep: "T_CONVO",
               updatedData: mergedData,
               userType: "TUTOR",
@@ -3791,31 +4230,30 @@ export async function processMessage(
             };
           }
 
-          // Case B: Has subjects, but missing class and area (e.g. user only typed "physics" or "maths")
+          // Case B: Has subjects, but missing class and area
           if (hasSubjects && !hasClass && !hasArea) {
             const sFirst = subsArray[0] || "Subjects";
             const suggestions = getSubjectClassSuggestions(sFirst);
             return classAskOrBreak(mergedData, suggestions.prompt, suggestions.quickReplies);
           }
 
-          // Case C: Has subjects and area, but missing class (e.g. "Sangam Vihar" then "Maths & Science")
+          // Case C: Has subjects and area, but missing class
           if (hasSubjects && hasArea && !hasClass) {
-            const subsText = subsArray.filter((s) => !/all subjects \(class 1-8\)/i.test(s)).join(", ");
+            const subsText = subsArray.join(", ");
             const suggestions = getSubjectClassSuggestions(subsArray[0] || "Subjects");
             return classAskOrBreak(
               mergedData,
-              `${rawArea} mein *${subsText}* kaunsi classes ko padhate ho? 🎓`,
+              `Which classes do you teach *${subsText}* for in *${rawArea}*? 🎓`,
               suggestions.quickReplies
             );
           }
 
-          // Common-Sense Subject-Grade Compatibility Validation:
-          if (hasSubjects && hasClass) {
+          // Common-Sense Subject-Grade Compatibility Validation (single-band check):
+          if (hasSubjects && hasClass && classLevelsArray.length <= 1) {
             const rawCls = classLevelsArray[0] || (mergedData.classLevel as string) || "";
             const validation = validateSubjectClassCompatibility(subsArray, rawCls, "TUTOR");
 
             if (!validation.isValid) {
-              // Illogical combination (e.g. Physics for Class 5)
               mergedData.classLevel = undefined;
               mergedData.classLevels = undefined;
               return {
@@ -3827,27 +4265,15 @@ export async function processMessage(
                 quickReplies: validation.suggestedReplies || ["Class 11-12", "Class 9-10 (Science)"],
               };
             }
-
-            if (validation.switchedSubject) {
-              mergedData.subjects = validation.switchedSubject;
-              subsArray.length = 0;
-              subsArray.push(...validation.switchedSubject);
-            }
-            if (validation.switchedClass) {
-              mergedData.classLevel = validation.switchedClass;
-              mergedData.classLevels = [validation.switchedClass];
-              classLevelsArray.length = 0;
-              classLevelsArray.push(validation.switchedClass);
-            }
           }
 
-          // Case D: Has subjects and class, but missing area (e.g. "Physics" then "Class 11")
+          // Case D: Has subjects and class, but missing area
           if (hasSubjects && hasClass && !hasArea) {
             if (session.step === "T_AREA" && rawMessage.trim().length >= 2) {
               const locCheck = validateAndCleanLocality(rawMessage.trim(), (mergedData.city || data.city || "Delhi") as string);
               if (!locCheck.isValid) {
                 return {
-                  reply: locCheck.errorPrompt || "Kripya apna area / locality batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍",
+                  reply: locCheck.errorPrompt || "Please share your teaching locality and city (for example: *Rohini Delhi*, *Bandra Mumbai*, or *Sector 62 Noida*) 📍",
                   nextStep: "T_AREA",
                   updatedData: mergedData,
                   userType: "TUTOR",
@@ -3862,7 +4288,7 @@ export async function processMessage(
                 mergedData.modeKey = "2";
               }
             } else {
-              const ctx = formatHumanTeachingContext(subsArray, classLevelsArray[0] || (mergedData.classLevel as string), rawArea);
+              const ctx = formatHumanTeachingContext(subsArray, classLevelsArray.length ? classLevelsArray : (mergedData.classLevel as string), rawArea);
               mergedData.subjects = ctx.cleanSubs;
               return {
                 reply: ctx.humanAreaPrompt,
@@ -3875,10 +4301,10 @@ export async function processMessage(
             }
           }
 
-          // Case E1: Has area only, but missing subjects and class (e.g. user typed "sangam vihar")
+          // Case E1: Has area only, missing subjects and class
           if (hasArea && !hasSubjects && !hasClass) {
             return {
-              reply: `*${rawArea}* mein kaunse subjects aur classes padhate ho? 📚`,
+              reply: `Which classes and subjects do you teach in *${rawArea}*? 📚`,
               nextStep: "T_CONVO",
               updatedData: mergedData,
               userType: "TUTOR",
@@ -3887,29 +4313,29 @@ export async function processMessage(
             };
           }
 
-          // Case E2: Has class only, but missing subjects and area
+          // Case E2: Has class only, missing subjects and area
           if (hasClass && !hasSubjects && !hasArea) {
-            const clsText = classLevelsArray[0] || (mergedData.classLevel as string) || "Classes";
+            const clsText = classLevelsArray.join(", ") || (mergedData.classLevel as string) || "Classes";
             return {
-              reply: `*${clsText}* ke liye kaunse subjects padhate ho? 📚`,
+              reply: `Which subjects do you teach for *${clsText}*? 📚`,
               nextStep: "T_SUBJECTS",
               updatedData: mergedData,
               userType: "TUTOR",
               retries: 0,
-              quickReplies: ["All Subjects", "Maths", "Science", "Maths & Science"],
+              quickReplies: ["Mathematics, Science", "Social Science, English", "Physics, Chemistry", "Accountancy, Economics"],
             };
           }
 
-          // Case E3: Has class and area, but missing subjects
+          // Case E3: Has class and area, missing subjects
           if (hasClass && hasArea && !hasSubjects) {
-            const clsText = classLevelsArray[0] || (mergedData.classLevel as string) || "Classes";
+            const clsText = classLevelsArray.join(", ") || (mergedData.classLevel as string) || "Classes";
             return {
-              reply: `${rawArea} mein *${clsText}* ke kaunse subjects padhate hain? 📚`,
+              reply: `Which subjects do you teach for *${clsText}* in *${rawArea}*? 📚`,
               nextStep: "T_SUBJECTS",
               updatedData: mergedData,
               userType: "TUTOR",
               retries: 0,
-              quickReplies: ["All Subjects", "Maths", "Science", "Maths & Science"],
+              quickReplies: ["Mathematics, Science", "Social Science, English", "Physics, Chemistry", "Accountancy, Economics"],
             };
           }
 
@@ -3918,20 +4344,20 @@ export async function processMessage(
             const e4SubCheck = validateAndAlignSubjects(rawMessage.trim(), mergedData.classLevel as string | undefined);
             const e4ErrorPrompt = !e4SubCheck.isValid && e4SubCheck.errorPrompt && rawMessage.trim().length > 2
               ? e4SubCheck.errorPrompt
-              : `📚 Kaunse subjects padhate hain? Jaise: *Maths, Science*, *Physics*, *All Subjects*`;
+              : `📚 Which subjects and classes do you teach? For example: *Class 1-8 All Subjects*, *Class 9-10 Maths & Science*, or *Class 11-12 Physics*`;
             return {
               reply: e4ErrorPrompt,
               nextStep: "T_SUBJECTS",
               updatedData: mergedData,
               userType: "TUTOR",
               retries: 0,
-              quickReplies: ["Maths, Science", "Physics, Chemistry", "English, Hindi", "All Subjects"],
+              quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
             };
           }
 
           // Case E5: Missing class
           if (!hasClass) {
-            return classAskOrBreak(mergedData, `Kaunsi class tak padhate ho? 🎓`, [
+            return classAskOrBreak(mergedData, `Which classes do you teach? 🎓`, [
               "Class 1-8 (All Subjects)",
               "Class 9-10",
               "Class 11-12",
@@ -3943,7 +4369,7 @@ export async function processMessage(
           const hasAreaNow = hasArea || Boolean(typeof mergedData.area === "string" && mergedData.area.trim().length >= 2);
           if (!hasAreaNow) {
             return {
-              reply: `Aapka teaching area / location kya hai? 📍`,
+              reply: `Which city and locality do you teach in (or Online)? 📍`,
               nextStep: "T_AREA",
               updatedData: mergedData,
               userType: "TUTOR",
@@ -3953,40 +4379,23 @@ export async function processMessage(
           }
 
           // Case F: ALL 3 TEACHING CRITERIA ARE PRESENT!
-          // Safety verification: Re-validate subject-grade compatibility before proceeding to email
-          const rawCls = classLevelsArray[0] || (mergedData.classLevel as string) || "";
-          const compatibilityCheck = validateSubjectClassCompatibility(subsArray, rawCls, "TUTOR");
-          if (!compatibilityCheck.isValid) {
-            mergedData.classLevel = undefined;
-            mergedData.classLevels = undefined;
-            return {
-              reply: compatibilityCheck.reason!,
-              nextStep: "T_CLASS",
-              updatedData: mergedData,
-              userType: "TUTOR",
-              retries: 0,
-              quickReplies: compatibilityCheck.suggestedReplies || ["Class 11-12", "Class 9-10 (Science)"],
-            };
-          }
-
           const effectiveArea = (typeof mergedData.area === "string" && mergedData.area.trim()) || rawArea || (mergedData.city as string) || "Delhi";
-          const ctx = formatHumanTeachingContext(subsArray, rawCls, effectiveArea);
+          const ctx = formatHumanTeachingContext(
+            subsArray,
+            classLevelsArray.length ? classLevelsArray : (mergedData.classLevel as string),
+            effectiveArea
+          );
           mergedData.subjects = ctx.cleanSubs;
           const areaName = effectiveArea;
           const cityName = (mergedData.city as string) || "Delhi";
           const tutorName = (mergedData.name as string) || "";
 
           // 0. Name is mandatory — Ask for it before email if missing
-          const hasValidName =
-            tutorName.trim().length >= 2 &&
-            tutorName.trim().length <= 50 &&
-            !/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(tutorName.trim()) &&
-            !/\d/.test(tutorName.trim()) &&
-            /^[a-zA-Z\s.'\-]+$/.test(tutorName.trim());
+          const hasValidName = isValidName(tutorName);
 
           if (!hasValidName && session.step !== "T_NAME" && session.step !== "T_EMAIL" && session.step !== "T_PASSWORD") {
             return {
-              reply: `${ctx.humanEmailSummary}\n\n👤 Apna poora naam batayein (jaise: Priya Sharma, Rahul Gupta):`,
+              reply: `${ctx.humanEmailSummary}\n\n👤 Please share your *full name* (for example: *Priya Sharma* or *Rahul Gupta*):`,
               nextStep: "T_NAME",
               updatedData: mergedData,
               userType: "TUTOR",
@@ -3997,14 +4406,23 @@ export async function processMessage(
 
           // If we are at T_NAME step, accept the name from the current message
           if (session.step === "T_NAME") {
-            // If user provided an email address instead of a name at T_NAME step, capture it and don't complain about digits
-            const emailInNameMsg = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-            if (emailInNameMsg && isValidEmailDomain(emailInNameMsg[0])) {
-              const cleanEm = emailInNameMsg[0].toLowerCase();
-              mergedData.email = cleanEm;
-              await syncUserCredentialsInDb({ phone: session.phone, email: cleanEm });
+            const rawEmailInName = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12}/);
+            if (rawEmailInName) {
+              const strictEmCheck = validateStrictEmail(rawEmailInName[0]);
+              if (!strictEmCheck.ok) {
+                return {
+                  reply: `⚠️ ${strictEmCheck.reason}\n\nFirst, please enter your *full name* (for example: *Priya Sharma*):`,
+                  nextStep: "T_NAME",
+                  updatedData: mergedData,
+                  userType: "TUTOR",
+                  retries: 0,
+                  quickReplies: [],
+                };
+              }
+              mergedData.email = strictEmCheck.email;
+              await syncUserCredentialsInDb({ phone: session.phone, email: strictEmCheck.email });
               return {
-                reply: `Email note ho gaya: *${cleanEm}* ✅\n\n👤 Profile registration ke liye apna *poora naam* batayein (jaise: Priya Sharma, Rahul Gupta):`,
+                reply: `Email noted: *${strictEmCheck.email}* ✅\n\n👤 Please also enter your *full name* (for example: *Priya Sharma* or *Rahul Gupta*):`,
                 nextStep: "T_NAME",
                 updatedData: mergedData,
                 userType: "TUTOR",
@@ -4014,21 +4432,15 @@ export async function processMessage(
             }
 
             const nameCandidate = rawMessage.trim();
-            const isNameOk =
-              nameCandidate.length >= 2 &&
-              nameCandidate.length <= 50 &&
-              !/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(nameCandidate) &&
-              !/\d/.test(nameCandidate) &&
-              /^[a-zA-Z\s.'\-]+$/.test(nameCandidate);
-            if (!isNameOk) {
+            if (!isValidName(nameCandidate)) {
               const typed = nameCandidate.slice(0, 25);
               const reason = /\d/.test(nameCandidate)
-                ? `"*${typed}*" mein digits hain — naam mein sirf letters hone chahiye.`
+                ? `"*${typed}*" contains numbers — please enter letters only.`
                 : nameCandidate.length < 2
-                  ? `Bahut chhota naam lag raha hai.`
-                  : `"*${typed}*" naam nahi lag raha.`;
+                  ? `That name looks too short.`
+                  : `"*${typed}*" does not look like a valid full name.`;
               return {
-                reply: `⚠️ ${reason}\n\n👤 Apna *poora naam* likhein — jaise *Priya Sharma* ya *Rahul Gupta*:`,
+                reply: `⚠️ ${reason}\n\n👤 Please type your *full name* (for example: *Priya Sharma* or *Rahul Gupta*):`,
                 nextStep: "T_NAME",
                 updatedData: mergedData,
                 userType: "TUTOR",
@@ -4041,24 +4453,26 @@ export async function processMessage(
 
           const resolvedTutorName = (mergedData.name as string) || "";
 
-          // Validate email candidate
-          const emailRegexMatch = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-          const emailCandidate = emailRegexMatch ? emailRegexMatch[0].toLowerCase() : (typeof mergedData.email === "string" ? mergedData.email.trim().toLowerCase() : "");
-          const hasValidEmail = Boolean(emailCandidate && isValidEmailDomain(emailCandidate));
-
-          // Catch email domain typos (.gom, .con, etc.) per client voice note feedback
-          if (emailCandidate && !isValidEmailDomain(emailCandidate)) {
-            return {
-              reply: `⚠️ Email address invalid lag raha hai (".gom" ya typo nahi, valid domain jaise ".com" hona chahiye).\n\nKripya sahi email ID enter karein (jaise: yourname@gmail.com): 📧`,
-              nextStep: "T_EMAIL",
-              updatedData: { ...mergedData, email: undefined },
-              userType: "TUTOR",
-              retries: 0,
-              quickReplies: [],
-            };
+          // Strict Email Validation
+          const rawEmailInTurn = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12}/);
+          const candidateEmailToken = rawEmailInTurn ? rawEmailInTurn[0].trim().toLowerCase() : (typeof mergedData.email === "string" ? mergedData.email.trim().toLowerCase() : "");
+          if (candidateEmailToken) {
+            const emailRes = validateStrictEmail(candidateEmailToken);
+            if (!emailRes.ok) {
+              return {
+                reply: `⚠️ ${emailRes.reason}`,
+                nextStep: "T_EMAIL",
+                updatedData: { ...mergedData, email: undefined },
+                userType: "TUTOR",
+                retries: 0,
+                quickReplies: [],
+              };
+            }
           }
+          const emailCandidate = candidateEmailToken && isStrictValidEmail(candidateEmailToken) ? candidateEmailToken : "";
+          const hasValidEmail = Boolean(emailCandidate);
 
-          // 1. Email is STRICTLY MANDATORY — NO SKIP ALLOWED
+          // 1. Email is MANDATORY — unless tutor explicitly declines registration
           if (!hasValidEmail && session.step !== "T_PASSWORD") {
             const emailRepeats =
               String(mergedData.lastBotAsk || "") === "email"
@@ -4070,30 +4484,30 @@ export async function processMessage(
               (emailRepeats >= 2 && (isAckOnly(rawMessage) || isBareNo(rawMessage))) ||
               emailRepeats >= 3;
 
-            if (giveUpEmail) {
+            if (giveUpEmail && ctx.cleanSubs.length > 0 && classLevelsArray.length > 0) {
               try {
                 await registerTutorFromWhatsapp(session.phone, {
                   name: resolvedTutorName || "Tutor",
                   email: waPlaceholderEmail(session.phone),
                   phone: session.phone,
-                  password: "defaultPassword123",
+                  password: "12345678",
                   city: cityName,
                   area: areaName,
                   subjects: ctx.cleanSubs,
                   classLevels: classLevelsArray,
-                  classLevel: rawCls,
+                  classLevel: classLevelsArray[0],
                 });
               } catch (regErr) {
                 console.warn("[engine] Fallback tutor registration on email skip error:", regErr);
               }
               return {
                 reply:
-                  `✅ Profile note ho gayi! Leads aur login ke liye email baad mein bhej sakte hain.\n\n` +
-                  `📋 Matching leads dekhein: https://apnatutorhub.com/tutor/leads\n` +
+                  `✅ Profile details saved! You can share your email later for portal login.\n\n` +
+                  `📋 Browse matching leads: https://apnatutorhub.com/tutor/leads\n` +
                   `💎 Membership plan (₹1,257): https://apnatutorhub.com/tutor/plans\n\n` +
-                  `Reply karein *PAY* ya *QR* — payment QR turant bhejenge!`,
+                  `Reply *PAY* anytime for payment details!`,
                 nextStep: "DONE",
-                updatedData: { ...mergedData, _registered: true, lastBotAsk: "email-skip", sameAskCount: 0 },
+                updatedData: { ...mergedData, _registered: true, lastBotAsk: "email-skip", sameAskCount: 0, lang: "en" },
                 userType: "TUTOR",
                 retries: 0,
                 quickReplies: ["View Leads 📋", "Activate Plan ⚡", "Talk to Support 📞"],
@@ -4102,9 +4516,9 @@ export async function processMessage(
 
             if (session.step === "T_EMAIL") {
               return {
-                reply: `⚠️ Email ID zaroori hai! Student lead alerts aur profile account ke liye valid email chahiye.\n\n📧 Kripya apna Email ID bhejiye (jaise: yourname@gmail.com):`,
+                reply: `⚠️ A valid email address (for example, *yourname@gmail.com*, *@yahoo.com*, or *@outlook.com*) is required for lead alerts and portal login.\n\n📧 Please share your email address:`,
                 nextStep: "T_EMAIL",
-                updatedData: { ...mergedData, lastBotAsk: "email", sameAskCount: emailRepeats },
+                updatedData: { ...mergedData, lastBotAsk: "email", sameAskCount: emailRepeats, lang: "en" },
                 userType: "TUTOR",
                 retries: 0,
                 quickReplies: [],
@@ -4112,9 +4526,9 @@ export async function processMessage(
             }
 
             return {
-              reply: `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\nStudent lead alerts aur login ke liye apna Email ID share karein: 📧`,
+              reply: `Profile details noted! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\n📧 Please share your valid *email address* (e.g., yourname@gmail.com) for login & student lead alerts:`,
               nextStep: "T_EMAIL",
-              updatedData: { ...mergedData, lastBotAsk: "email", sameAskCount: 1 },
+              updatedData: { ...mergedData, lastBotAsk: "email", sameAskCount: 1, lang: "en" },
               userType: "TUTOR",
               retries: 0,
               quickReplies: [],
@@ -4142,11 +4556,10 @@ export async function processMessage(
               const existingPhone10 = (existingUserPhone || "").replace(/\D/g, "").slice(-10);
               const sessionPhone10 = session.phone.replace(/\D/g, "").slice(-10);
 
-              // Cross-account conflict: Email is registered to a DIFFERENT phone number
               if (existingPhone10 && sessionPhone10 && existingPhone10 !== sessionPhone10) {
                 mergedData.email = undefined;
                 return {
-                  reply: `⚠️ Yeh email (*${emailCandidate}*) already kisi doosre mobile number se linked hai.\n\nKripya apna alag personal email ID enter karein jo is WhatsApp number ke saath connect ho sake: 📧`,
+                  reply: `⚠️ This email (*${emailCandidate}*) is already linked to another mobile number.\n\nPlease enter a different personal email address to link with this WhatsApp number: 📧`,
                   nextStep: "T_EMAIL",
                   updatedData: mergedData,
                   userType: "TUTOR",
@@ -4157,7 +4570,7 @@ export async function processMessage(
 
               mergedData.email = emailCandidate;
               return {
-                reply: `Email note ho gaya: *${emailCandidate}* ✅\n_(Yeh email pehle se registered hai)_\n\n🔐 Account login karne ke liye password enter karein (ya type karein *default*):`,
+                reply: `Email noted: *${emailCandidate}* ✅\n_(This email already has an account)_\n\n🔐 Please set a login password (min 6 characters) or reply *default*:`,
                 nextStep: "T_PASSWORD",
                 updatedData: mergedData,
                 userType: "TUTOR",
@@ -4168,10 +4581,10 @@ export async function processMessage(
 
             mergedData.email = emailCandidate;
             const ackLabel = session.step === "T_EMAIL" || emailCandidate
-              ? `Email note ho gaya: *${emailCandidate}* ✅`
-              : (mergedData.area ? `Location note ho gayi: *${mergedData.area}* ✅` : `Details note ho gayi! ✅`);
+              ? `Email noted: *${emailCandidate}* ✅`
+              : (mergedData.area ? `Location noted: *${mergedData.area}* ✅` : `Details noted! ✅`);
             return {
-              reply: `${ackLabel}\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
+              reply: `${ackLabel}\n\n🔐 Choose a password for your account login (min 6 characters), or reply *default*:`,
               nextStep: "T_PASSWORD",
               updatedData: { ...mergedData, emailAcknowledged: true },
               userType: "TUTOR",
@@ -4180,10 +4593,8 @@ export async function processMessage(
             };
           }
 
-          // Save valid email if at or past password step
           mergedData.email = emailCandidate;
 
-          // If in T_PASSWORD step, handle user input
           if (session.step === "T_PASSWORD") {
             const rawTrim = rawMessage.trim();
             const isDefaultChoice = /default|skip|12345678|nahi|no|set 12345678|dont\s*know|pata\s*nahi|forgot|bhool/i.test(rawTrim);
@@ -4194,7 +4605,7 @@ export async function processMessage(
               mergedData.password = rawTrim;
             } else {
               return {
-                reply: `⚠️ Password minimum 6 characters ka hona chahiye.\n\n🔐 Phir se enter karein ya type karein *default*:`,
+                reply: `⚠️ Password must be at least 6 characters long.\n\n🔐 Please enter a stronger password or reply *default*:`,
                 nextStep: "T_PASSWORD",
                 updatedData: { ...mergedData, password: undefined },
                 userType: "TUTOR",
@@ -4205,20 +4616,8 @@ export async function processMessage(
           }
 
           const pwdStr = (mergedData.password as string) || "12345678";
-
-          // 3. Register Tutor in database!
           const phoneToUse = (mergedData.phone as string) || session.phone;
           const emailToUse = emailCandidate;
-
-          let tutorGender: string | null = (mergedData.gender as string) || null;
-          if (!tutorGender && resolvedTutorName) {
-            if (/rohit|rahul|amit|aman|deepak|suresh|ramesh|vikas|pankaj|mohit|sachin|abhishek|ajay|vijay|sanjay|raj|varun|arun|tushar|gaurav|manish/i.test(resolvedTutorName)) {
-              tutorGender = "MALE";
-            } else if (/priya|pooja|neha|anjali|sneha|arti|aarti|divya|shweta|ritika|simran|megha|swati|pallavi|tanu|mansi|aleena/i.test(resolvedTutorName)) {
-              tutorGender = "FEMALE";
-            }
-          }
-
 
           try {
             await registerTutorFromWhatsapp(session.phone, {
@@ -4228,8 +4627,8 @@ export async function processMessage(
               password: pwdStr,
               city: cityName,
               area: areaName,
-              subjects: subsArray.length > 0 ? subsArray : ["All Subjects"],
-              classLevels: classLevelsArray.length > 0 ? classLevelsArray : ["Class 1 to 10"],
+              subjects: ctx.cleanSubs,
+              classLevels: classLevelsArray,
               experience: typeof mergedData.experience === "number" ? mergedData.experience : 2,
             });
           } catch (regErr) {
@@ -4237,23 +4636,22 @@ export async function processMessage(
           }
 
           const usedDefault = mergedData._usedDefaultPassword === true;
-          // Registration is complete: never keep a plaintext password in session JSON.
           delete mergedData.password;
           delete mergedData._usedDefaultPassword;
           mergedData._registered = true;
+          mergedData.lang = "en";
 
-          // Profile created confirmation with login + leads + payment CTA
           const loginLine = `📧 ${emailToUse} | 📱 ${phoneToUse}`;
           const pwdNote = usedDefault
-            ? `\n🔑 Default password *12345678* — login karke change kar lein: https://apnatutorhub.com/login`
+            ? `\n🔑 Default password: *12345678* (you can update it after logging in at https://apnatutorhub.com/login)`
             : ``;
           const finalName = resolvedTutorName || (typeof mergedData.name === "string" ? mergedData.name : "");
-          const nameGreeting = finalName && !/^(tutor|teacher|user|unknown)$/i.test(finalName.trim()) ? ` ${finalName.trim()} ji` : "";
+          const nameGreeting = finalName && !/^(tutor|teacher|user|unknown)$/i.test(finalName.trim()) ? `, ${finalName.trim()}` : "";
           const profileReply =
-            `✅ *Profile taiyaar ho gayi hai${nameGreeting}!*\n` +
+            `✅ *Your tutor profile is ready${nameGreeting}!*\n` +
             `🔐 Login: ${loginLine}\nhttps://apnatutorhub.com/login${pwdNote}\n\n` +
-            `📋 Matching student leads dekhne ke liye reply karein *LEADS*\n` +
-            `💎 Membership plan (₹1,257) ke liye reply karein *PAY* — QR bhejenge turant!\n` +
+            `📋 Reply *LEADS* to view matching student inquiries\n` +
+            `💎 Reply *PAY* for the Commission Based Plan (₹1,257)\n` +
             `👉 Plans: https://apnatutorhub.com/tutor/plans`;
 
           return {
@@ -4304,7 +4702,7 @@ export async function processMessage(
 
           if (!parentHasSubs && !parentHasClass && !parentHasArea) {
             return {
-              reply: `Bachche ke liye kaunsi class, subject aur area mein tutor chahiye? 🎓📍`,
+              reply: `Which class, subjects, and locality do you need a tutor for? 🎓📍`,
               nextStep: "P_CONVO",
               updatedData: mergedData,
               userType: "PARENT",
@@ -4317,7 +4715,7 @@ export async function processMessage(
             const sFirst = parentSubs[0] || "Subjects";
             const suggestions = getSubjectClassSuggestions(sFirst);
             return {
-              reply: `Bachcha kaunsi class mein hai? 🎓`,
+              reply: `Which class is the student in? 🎓`,
               nextStep: "P_CONVO",
               updatedData: mergedData,
               userType: "PARENT",
@@ -4326,7 +4724,6 @@ export async function processMessage(
             };
           }
 
-          // Common-Sense Subject-Grade Compatibility Validation for Parents:
           if (parentHasSubs && parentHasClass) {
             const parentValidation = validateSubjectClassCompatibility(parentSubs, String(parentClass), "PARENT");
             if (!parentValidation.isValid) {
@@ -4358,7 +4755,7 @@ export async function processMessage(
               const locCheck = validateAndCleanLocality(rawMessage.trim(), (mergedData.city || data.city || "Delhi") as string);
               if (!locCheck.isValid) {
                 return {
-                  reply: locCheck.errorPrompt || "Kripya apna area / locality batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍",
+                  reply: locCheck.errorPrompt || "Please share your locality and city (for example: *Rohini Delhi*, *Bandra Mumbai*, or *Sector 62 Noida*) 📍",
                   nextStep: "P_AREA",
                   updatedData: mergedData,
                   userType: "PARENT",
@@ -4368,7 +4765,7 @@ export async function processMessage(
               }
             }
             return {
-              reply: `*${parentSubs.join(", ")} (${parentClass})* ke liye aapka area / city kaunsa hai? 📍`,
+              reply: `Which locality and city do you need the tutor in for *${parentSubs.join(", ")} (${parentClass})*? 📍`,
               nextStep: "P_AREA",
               updatedData: mergedData,
               userType: "PARENT",
@@ -4379,7 +4776,7 @@ export async function processMessage(
 
           if (!parentHasSubs && (parentHasClass || parentHasArea)) {
             return {
-              reply: `Kaunse subjects ke liye tutor chahiye? 📚`,
+              reply: `Which subjects do you need help with? 📚`,
               nextStep: "P_CONVO",
               updatedData: mergedData,
               userType: "PARENT",
@@ -4388,12 +4785,11 @@ export async function processMessage(
             };
           }
 
-          // All 3 criteria present — still refuse a sentence, a menu digit, or the tutor's own address.
           const classLevelName = normalizeCanonicalClassLevel(String(parentClass));
           const areaName = extractPublicLocality(parentArea, (mergedData.city as string) || "Delhi");
           if (!classLevelName) {
             return {
-              reply: `Kaunsi class hai? Class 1 se 12, Nursery, JEE ya NEET likhein. 🎓`,
+              reply: `Which class is the student in? Please enter Class 1–12, Nursery, JEE, or NEET. 🎓`,
               nextStep: "P_CONVO",
               updatedData: { ...mergedData, classLevel: undefined, classLevels: undefined },
               userType: "PARENT",
@@ -4401,20 +4797,27 @@ export async function processMessage(
               quickReplies: ["Class 1-5", "Class 6-8", "Class 9-10", "Class 11-12"],
             };
           }
-          const parentLeadSubjects = leadSubjectsForClass(classLevelName, parentSubs);
+          const parentStrict = enforceStrictEducation({
+            subjectsInput: parentSubs,
+            classesInput: [classLevelName],
+          });
+          const parentLeadSubjects =
+            parentStrict.subjects.length > 0
+              ? parentStrict.subjects
+              : leadSubjectsForClass(classLevelName, parentSubs);
           if (parentLeadSubjects.length === 0) {
             return {
-              reply: `Class ${classLevelName.replace(/^Class\s*/i, "")} ke kaunse subjects chahiye? 📚`,
+              reply: parentStrict.errorPrompt || `Which specific subjects do you need for *${classLevelName}*? 📚`,
               nextStep: "P_CONVO",
               updatedData: { ...mergedData, classLevel: classLevelName },
               userType: "PARENT",
               retries: 0,
-              quickReplies: ["Maths", "Science", "English", "Physics"],
+              quickReplies: ["Mathematics", "Science", "English", "Physics"],
             };
           }
           if (!areaName) {
             return {
-              reply: `*${parentLeadSubjects.join(", ")} (${classLevelName})* ke liye locality batayein — mohalla ya sector, ghar number nahi. 📍`,
+              reply: `Please share your locality / sector (without a house number) for *${parentLeadSubjects.join(", ")} (${classLevelName})*: 📍`,
               nextStep: "P_AREA",
               updatedData: { ...mergedData, classLevel: classLevelName, subjects: parentLeadSubjects },
               userType: "PARENT",
@@ -4425,7 +4828,7 @@ export async function processMessage(
 
           if (session.userType === "TUTOR") {
             return {
-              reply: `Aap tutor hain, isliye yeh student lead nahi bani.\nLeads dekhne ke liye *LEADS* likhein.\n\nParent ki request tabhi save hoti hai jab class, subject aur locality teeno valid hon.`,
+              reply: `Your account is registered as a Tutor, so this was not posted as a student inquiry.\nReply *LEADS* to view matching tuition leads.`,
               nextStep: "T_CONVO",
               updatedData: data,
               userType: "TUTOR",
@@ -4436,7 +4839,7 @@ export async function processMessage(
           const parentReg = await registerParentFromWhatsapp(session.phone, {
             studentName: (mergedData.studentName as string) || (mergedData.name as string) || "Student",
             parentName: (mergedData.parentName as string) || (mergedData.name as string) || "Parent",
-            email: (mergedData.email as string) || undefined,
+            email: isStrictValidEmail(mergedData.email) ? String(mergedData.email) : undefined,
             phone: (mergedData.phone as string) || session.phone,
             city: (mergedData.city as string) || "Delhi",
             area: areaName,
@@ -4446,7 +4849,7 @@ export async function processMessage(
           });
           if (!parentReg.ok) {
             return {
-              reply: `Request save nahi ho payi. Class, subject aur locality alag-alag bhejein.\nJaise: *Class 4, All Subjects, Mukundpur*`,
+              reply: `Your request could not be saved yet. Please share class, subjects, and locality cleanly (for example: *Class 4, All Subjects, Mukundpur*).`,
               nextStep: "P_CONVO",
               updatedData: { ...mergedData, classLevel: classLevelName, area: areaName, subjects: parentLeadSubjects },
               userType: "PARENT",
@@ -4457,16 +4860,16 @@ export async function processMessage(
           delete mergedData.password;
           delete mergedData._usedDefaultPassword;
           mergedData._registered = true;
+          mergedData.lang = "en";
 
-          // Simple profile-created confirmation only. Tutors/demo sent only on request.
           const parentName = (mergedData.name as string) || (mergedData.parentName as string) || "";
           const parentProfileReply =
-            `✅ *Aapki request register ho gayi hai${parentName ? " " + parentName + " ji" : ""}!*\n\n` +
+            `✅ *Your tuition requirement has been registered${parentName ? `, ${parentName}` : ""}!*\n\n` +
             `📚 Class: ${classLevelName}\n` +
             `📖 Subjects: ${parentLeadSubjects.join(", ")}\n` +
             `📍 Area: ${areaName}\n\n` +
-            `Hamari team aapke liye suitable tutors match kar rahi hai. \n` +
-            `Free demo class book karne ke liye reply karein *DEMO* 🎓`;
+            `Our team is matching verified tutors for your request.\n` +
+            `Reply *DEMO* anytime to schedule a free trial demo class! 🎓`;
 
           return {
             reply: parentProfileReply,
@@ -4508,16 +4911,79 @@ export async function processMessage(
   }
 
   // ── 3. Rule-Based Fallback (when AI is off or temporarily unavailable) ─────
+  const preFallback = await tryDeterministicPreAiFallbacks({
+    session,
+    rawMessage,
+    msg,
+    step,
+    data,
+    userProfile,
+    chatHistory,
+  });
+  if (preFallback) return preFallback;
 
-  // Always ask language first (South Indian tutors may not read Hindi)
-  if (step === "WELCOME" && !data.lang) {
+  step = applyWelcomeEarlyTutorDetect(session, rawMessage, step, data);
+
+  // Parent requirement intake fallback (when AI is off or returned null)
+  const mentionsRequirement = /\b(class|grade|subject|physics|chemistry|maths|math|science|accounts|accountancy|biology|nursery|lkg|ukg|jee|neet|all subjects)\b/i.test(rawMessage);
+  if (session.userType !== "TUTOR" && step !== "DONE" && (session.userType === "PARENT" || step.startsWith("P_") || mentionsRequirement)) {
+    const previous: IntakeDraft = {
+      classLevel: typeof data.classLevel === "string" ? data.classLevel : undefined,
+      subjects: Array.isArray(data.subjects) ? (data.subjects as string[]) : undefined,
+      area: typeof data.area === "string" ? data.area : undefined,
+      city: typeof data.city === "string" ? data.city : undefined,
+      mode: data.mode === "ONLINE" || data.mode === "OFFLINE" ? data.mode : undefined,
+      confirm: (data.intakeConfirm as IntakeDraft["confirm"]) ?? null,
+    };
+    const assessed = assessIntake(rawMessage, previous);
+    const intakeData: Record<string, unknown> = {
+      ...data,
+      classLevel: assessed.draft.classLevel,
+      subjects: assessed.draft.subjects,
+      area: assessed.draft.area,
+      city: assessed.draft.city || data.city,
+      mode: assessed.draft.mode,
+      intakeConfirm: assessed.draft.confirm ?? null,
+      userType: "PARENT",
+      lang: "en",
+    };
+    if (!assessed.ready || !assessed.draft.classLevel || !assessed.draft.area || !assessed.draft.subjects?.length) {
+      return {
+        reply: assessed.reply,
+        nextStep: "P_CONVO",
+        updatedData: intakeData,
+        userType: "PARENT",
+        retries: 0,
+        quickReplies: assessed.quickReplies,
+      };
+    }
+    const saved = await registerParentFromWhatsapp(session.phone, {
+      studentName: (data.studentName as string) || (data.name as string) || "Student",
+      parentName: (data.parentName as string) || (data.name as string) || "Parent",
+      email: isStrictValidEmail(data.email) ? String(data.email) : undefined,
+      phone: (data.phone as string) || session.phone,
+      city: assessed.draft.city || (data.city as string) || "Delhi",
+      area: assessed.draft.area,
+      classLevel: assessed.draft.classLevel,
+      subjects: assessed.draft.subjects,
+      modeKey: assessed.draft.mode === "ONLINE" ? "2" : "1",
+    });
+    if (!saved.ok) {
+      return {
+        reply: `Could not save yet: ${saved.error}\nPlease re-send the class, subjects, and locality. For example: *Class 8, All Subjects, Rohini*`,
+        nextStep: "P_CONVO",
+        updatedData: intakeData,
+        userType: "PARENT",
+        retries: 0,
+      };
+    }
     return {
-      reply: MSG.LANG_PROMPT,
-      nextStep: "LANG_SELECT",
-      updatedData: data,
-      userType: null,
+      reply: `✅ Requirement saved!\n\n📚 ${assessed.draft.classLevel} · ${assessed.draft.subjects.join(", ")}\n📍 ${assessed.draft.area}\n🏠 ${assessed.draft.mode === "ONLINE" ? "Online" : "Home tuition"}\n\nRef #${saved.inquiryNumber}. Our team will match qualified tutors shortly.`,
+      nextStep: "DONE",
+      updatedData: { ...intakeData, _registered: true, intakeConfirm: null },
+      userType: "PARENT",
       retries: 0,
-      quickReplies: ["1 - English", "2 - हिंदी"],
+      quickReplies: ["Fee Info", "Talk to Coordinator 📞"],
     };
   }
 
@@ -4525,9 +4991,9 @@ export async function processMessage(
     const normalized = rawMessage.trim();
     if (normalized === "1" || /tutor|teach|instructor/i.test(normalized)) {
       return {
-        reply: `Ji zaroor! Kaunse subject, kaunsi class aur kahan se hain aap? 📚`,
+        reply: `Great! Which classes, subjects, and city / locality do you teach in (or Online)? 📚`,
         nextStep: "T_CONVO",
-        updatedData: {},
+        updatedData: { lang: "en", userType: "TUTOR" },
         userType: "TUTOR",
         retries: 0,
         quickReplies: ["All Subjects, Class 1-8", "Maths, Class 9-10, Dwarka", "Physics, Class 11-12, Rohini"],
@@ -4535,44 +5001,81 @@ export async function processMessage(
     }
     if (normalized === "2" || /parent|student|child|hire/i.test(normalized)) {
       return {
-        reply: `Acha! Bachche ke liye kaunsi class, subject aur area mein tutor chahiye? 🎓📍`,
+        reply: `Welcome! Which class, subjects, and locality do you need a tutor for? 🎓📍`,
         nextStep: "P_CONVO",
-        updatedData: {},
+        updatedData: { lang: "en", userType: "PARENT" },
         userType: "PARENT",
         retries: 0,
         quickReplies: ["Class 9-10 Maths & Sci", "Class 1-5 All Subjects", "Class 11-12"],
       };
     }
 
+    if (looksLikeUnexpectedNoise(normalized)) {
+      return {
+        reply: `I didn't quite recognize that message — I'm Priya from *ApnaTutorHub*! 🙏\n\nPlease reply *1* if you are a *Tutor*, *2* if you are a *Parent*, or ask your question directly.`,
+        nextStep: "WELCOME",
+        updatedData: { lang: "en" },
+        userType: null,
+        retries: 0,
+        quickReplies: ["1️⃣ I'm a Tutor", "2️⃣ I'm a Parent", "Help 📞"],
+      };
+    }
+
+    if (normalized.includes("?") || /^(?:what|how|why|when|where|who|which|can|could|do|does|is|are|tell)\b/i.test(normalized)) {
+      return {
+        reply: `Hi! I'm Priya from *ApnaTutorHub*. I can help you:\n• Find nearby or online tuition leads (reply *1 — Tutor*)\n• Book a verified home or online tutor (reply *2 — Parent*)\n• Get support & plan details (Helpline *08062180653* or WhatsApp *+91 93191 93109*)`,
+        nextStep: "WELCOME",
+        updatedData: { lang: "en" },
+        userType: null,
+        retries: 0,
+        quickReplies: ["1️⃣ I'm a Tutor", "2️⃣ I'm a Parent", "View Plans 💰", "Help 📞"],
+      };
+    }
+
     const welcomedArea = extractPublicLocality(normalized);
     if (welcomedArea || normalized.length >= 3) {
       return {
-        reply: `Swagat hai! *ApnaTutorHub* pe. 🙏\n\nAap kaun hain — tutor ya parent?\n\n1 — *Tutor* (teaching chahiye)\n2 — *Parent* (tutor chahiye)`,
+        reply: `Welcome to *ApnaTutorHub*! 🙏\n\nPlease let us know who you are:\n\n1 — *Tutor* (Looking for tuition students)\n2 — *Parent* (Looking for a home tutor)`,
         nextStep: "WELCOME",
-        updatedData: welcomedArea ? { area: welcomedArea, city: "Delhi" } : {},
+        updatedData: welcomedArea ? { area: welcomedArea, city: "Delhi", lang: "en" } : { lang: "en" },
         userType: null,
         retries: 0,
         quickReplies: ["1️⃣ I'm a Tutor", "2️⃣ I'm a Parent"],
       };
     }
 
-    const isHi = data.lang === "hi";
     return handleInvalid(
       session,
-      isHi ? MSG.WELCOME_HI : MSG.WELCOME_EN,
-      isHi ? ["1 - ट्यूटर", "2 - पेरेंट"] : ["1 - Tutor", "2 - Parent"]
+      MSG.WELCOME,
+      ["1 - Tutor", "2 - Parent"]
     );
   }
 
-  // TUTOR conversational fallback: Require subject, class, area, email, and password before registering
+  // TUTOR conversational fallback: Require subject, class, area, name, email, and password before registering
   if (step === "T_CONVO" || step === "T_NAME" || step === "T_SUBJECTS" || step === "T_CLASS" || step === "T_AREA" || step === "T_EMAIL" || step === "T_PASSWORD" || step === "DONE") {
     const trimmed = rawMessage.trim();
     const fallbackOff = tryTutorOffScriptReply(session, rawMessage, data, step);
     if (fallbackOff) return fallbackOff;
-    const updated: Record<string, any> = { ...data };
+    const updated: Record<string, any> = { ...data, lang: "en" };
 
-    const emailMatch = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    if (emailMatch && isValidEmailDomain(emailMatch[0]) && !updated.email) updated.email = emailMatch[0].toLowerCase();
+    const rawEmailInFallback = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12}/);
+    if (rawEmailInFallback) {
+      const strictFbEmail = validateStrictEmail(rawEmailInFallback[0]);
+      if (strictFbEmail.ok) {
+        updated.email = strictFbEmail.email;
+      } else if (step === "T_EMAIL" || trimmed.includes("@")) {
+        return {
+          reply: `⚠️ ${strictFbEmail.reason}`,
+          nextStep: "T_EMAIL",
+          updatedData: { ...updated, email: undefined },
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: [],
+        };
+      }
+    } else if (updated.email && !isStrictValidEmail(updated.email)) {
+      delete updated.email;
+    }
 
     const phoneMatch = trimmed.match(/(?:\+?91[\s-]?)?([6-9]\d{9})\b/);
     if (phoneMatch && !updated.phone) updated.phone = phoneMatch[1];
@@ -4584,25 +5087,6 @@ export async function processMessage(
       updated.password = trimmed;
     }
 
-    const classMatch =
-      trimmed.match(/(?:class|grade)\s*(\d{1,2}(?:\s*(?:to|-|and)\s*\d{1,2})?|\b[1-9]\b|\b1[0-2]\b|primary|middle|senior|nursery|kg|jee|neet|all)/i) ||
-      trimmed.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s*(?:to|-|and)\s*\d{1,2}(?:st|nd|rd|th)?)\b/i) ||
-      trimmed.match(/\b(primary|middle school|senior secondary|11th and 12th|9th and 10th|1st to 5th|6th to 8th|9th to 12th|all classes|class 1-8|till 8th)\b/i);
-    const keptTutorClass = keepClassLevel(classMatch && !/^[12]$/.test(trimmed) ? classMatch[0] : updated.classLevel, trimmed, data.classLevel);
-    if (keptTutorClass) {
-      updated.classLevel = keptTutorClass;
-      updated.classLevels = [keptTutorClass];
-    } else {
-      const prevCls = normalizeCanonicalClassLevel(typeof data.classLevel === "string" ? data.classLevel : "");
-      if (prevCls) {
-        updated.classLevel = prevCls;
-        updated.classLevels = [prevCls];
-      } else {
-        delete updated.classLevel;
-        delete updated.classLevels;
-      }
-    }
-
     const isSpecialStep =
       step === "T_PASSWORD" ||
       step === "T_EMAIL" ||
@@ -4610,8 +5094,27 @@ export async function processMessage(
       session.step === "T_PASSWORD" ||
       session.step === "T_EMAIL" ||
       session.step === "T_NAME";
+
+    const strictFb = applyStrictEducationToData({
+      rawMessage: trimmed,
+      isIdentityStep: isSpecialStep,
+      isInitialWelcomeChoice: session.step === "WELCOME" && /^[12]$/.test(trimmed),
+      previousData: data,
+      mergedData: updated,
+    });
+    if (strictFb.errorReply) {
+      return {
+        reply: strictFb.errorReply.reply,
+        nextStep: strictFb.errorReply.nextStep,
+        updatedData: strictFb.mergedData,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: strictFb.errorReply.quickReplies,
+      };
+    }
+
     const isSensitiveInput =
-      Boolean(emailMatch) ||
+      Boolean(rawEmailInFallback) ||
       Boolean(pwdMatch) ||
       /^(default|skip|password|pwd|pass|reply\s*default|leads|plans|coins|help|menu|stop|cancel)$/i.test(trimmed) ||
       /\b[a-zA-Z]+[0-9]{2,}\b/i.test(trimmed);
@@ -4630,36 +5133,6 @@ export async function processMessage(
       }
     }
 
-    if (!isOffScriptTutorTalk(trimmed)) {
-      const subAlignFallback = validateAndAlignSubjects(trimmed, updated.classLevel as string);
-      if (subAlignFallback.isValid && subAlignFallback.subjects.length > 0) {
-        updated.subjects = subAlignFallback.subjects;
-      } else if (step === "T_SUBJECTS" && !/^(menu|help|cancel)$/i.test(trimmed)) {
-        const splitSubs = trimmed.split(/,|and|&/i).map((s) => s.trim()).filter(Boolean);
-        const subResStep = validateAndAlignSubjects(splitSubs, updated.classLevel as string);
-        if (subResStep.isValid) {
-          updated.subjects = subResStep.subjects;
-        }
-      }
-    }
-
-    if (/all\s*subjects?|combo/i.test(trimmed)) {
-      if (!updated.subjects || (Array.isArray(updated.subjects) && updated.subjects.length === 0)) {
-        updated.subjects = ["All Subjects", "All Subjects (Class 1-8)"];
-      } else if (!updated.subjects.some((s: string) => /all\s*subjects?/i.test(s))) {
-        updated.subjects.push("All Subjects", "All Subjects (Class 1-8)");
-      }
-    }
-    if (/1\s*[-–to]\s*8|class\s*1-8|till\s*8/i.test(trimmed)) {
-      if (!updated.classLevel) {
-        updated.classLevel = "Class 1-8";
-        updated.classLevels = ["Class 1-8"];
-      }
-      if (!updated.subjects || (Array.isArray(updated.subjects) && updated.subjects.length === 0)) {
-        updated.subjects = ["All Subjects", "All Subjects (Class 1-8)"];
-      }
-    }
-
     const subsArr = Array.isArray(updated.subjects) && updated.subjects.length > 0 ? (updated.subjects as string[]) : [];
     const hasSubs = subsArr.length > 0;
     const classArr = Array.isArray(updated.classLevels) && updated.classLevels.length > 0
@@ -4669,10 +5142,30 @@ export async function processMessage(
     const areaStr = typeof updated.area === "string" ? updated.area.trim() : "";
     const hasAr = Boolean(areaStr && areaStr.toLowerCase() !== "delhi ncr" && areaStr.length >= 2);
 
-    // Enforce 3 Teaching Criteria FIRST!
-    if (!hasSubs && !hasCls && !hasAr) {
+    // Handle random noise or general questions gracefully before re-prompting teaching details
+    if (!hasSubs && !hasCls && !hasAr && !isSpecialStep) {
+      if (looksLikeUnexpectedNoise(trimmed)) {
+        return {
+          reply: looseIntentClarifyReply("CONFUSED", false),
+          nextStep: step === "DONE" ? "DONE" : step,
+          updatedData: updated,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["All Subjects, Class 1-8", "Maths, Class 9-10, Dwarka", "Help 📞"],
+        };
+      }
+      if (trimmed.includes("?") || /^(?:what|how|why|when|where|who|which|can|could|do|does|is|are|tell)\b/i.test(trimmed)) {
+        return {
+          reply: `Happy to help! You can ask about tuition leads, verification, or plans anytime, or reach Helpline *08062180653* (WhatsApp: *+91 93191 93109*).\n\nWhenever you're ready to get matching leads, share the classes, subjects, and locality you teach 📚`,
+          nextStep: step === "DONE" ? "DONE" : step,
+          updatedData: updated,
+          userType: "TUTOR",
+          retries: 0,
+          quickReplies: ["View Leads 📋", "View Plans 💰", "All Subjects, Class 1-8"],
+        };
+      }
       return {
-        reply: `Ji zaroor! Kaunse subject, kaunsi class aur kahan se hain aap? 📚`,
+        reply: `Great! Which classes, subjects, and locality (or Online) do you teach? 📚`,
         nextStep: "T_CONVO",
         updatedData: updated,
         userType: "TUTOR",
@@ -4688,17 +5181,17 @@ export async function processMessage(
     }
 
     if (hasAr && hasSubs && !hasCls) {
-      const subsStr = subsArr.filter((s) => !/all subjects \(class 1-8\)/i.test(s)).join(", ");
+      const subsStr = subsArr.join(", ");
       const suggestions = getSubjectClassSuggestions(subsArr[0] || "Subjects");
       return classAskOrBreak(
         updated,
-        `${areaStr} mein *${subsStr}* kaunsi classes ko padhate ho? 🎓`,
+        `Which classes do you teach *${subsStr}* for in *${areaStr}*? 🎓`,
         suggestions.quickReplies
       );
     }
 
-    // Common-Sense Subject-Grade Compatibility Validation:
-    if (hasSubs && hasCls) {
+    // Single-band compatibility safety check
+    if (hasSubs && hasCls && classArr.length <= 1) {
       const validation = validateSubjectClassCompatibility(subsArr, classArr[0] || "", "TUTOR");
       if (!validation.isValid) {
         updated.classLevel = undefined;
@@ -4712,17 +5205,6 @@ export async function processMessage(
           quickReplies: validation.suggestedReplies || ["Class 11-12", "Class 9-10 (Science)"],
         };
       }
-      if (validation.switchedSubject) {
-        updated.subjects = validation.switchedSubject;
-        subsArr.length = 0;
-        subsArr.push(...validation.switchedSubject);
-      }
-      if (validation.switchedClass) {
-        updated.classLevel = validation.switchedClass;
-        updated.classLevels = [validation.switchedClass];
-        classArr.length = 0;
-        classArr.push(validation.switchedClass);
-      }
     }
 
     if (hasSubs && hasCls && !hasAr) {
@@ -4730,7 +5212,7 @@ export async function processMessage(
         const locCheck = validateAndCleanLocality(trimmed, (updated.city as string) || "Delhi");
         if (!locCheck.isValid) {
           return {
-            reply: locCheck.errorPrompt || "Kripya apna area / locality batayein (jaise: Rohini Delhi, Bandra Mumbai, ya Sector 62 Noida) 📍",
+            reply: locCheck.errorPrompt || "Please share your teaching locality and city (for example: *Rohini Delhi*, *Bandra Mumbai*, or *Sector 62 Noida*) 📍",
             nextStep: "T_AREA",
             updatedData: updated,
             userType: "TUTOR",
@@ -4739,7 +5221,7 @@ export async function processMessage(
           };
         }
       }
-      const ctx = formatHumanTeachingContext(subsArr, classArr[0] || "", areaStr);
+      const ctx = formatHumanTeachingContext(subsArr, classArr.length ? classArr : "", areaStr);
       updated.subjects = ctx.cleanSubs;
       return {
         reply: ctx.humanAreaPrompt,
@@ -4753,7 +5235,7 @@ export async function processMessage(
 
     if (hasAr && !hasSubs && !hasCls) {
       return {
-        reply: `*${areaStr}* mein kaunse subjects aur classes padhate ho? 📚`,
+        reply: `Which classes and subjects do you teach in *${areaStr}*? 📚`,
         nextStep: "T_CONVO",
         updatedData: updated,
         userType: "TUTOR",
@@ -4766,19 +5248,19 @@ export async function processMessage(
       const fallbackSubCheck = validateAndAlignSubjects(rawMessage.trim(), (updated.classLevel as string) || undefined);
       const fallbackSubPrompt = !fallbackSubCheck.isValid && fallbackSubCheck.errorPrompt && rawMessage.trim().length > 2
         ? fallbackSubCheck.errorPrompt
-        : `📚 Kaunse subjects padhate hain? Jaise: *Maths, Science*, *Physics*, *All Subjects*`;
+        : `📚 Which subjects and classes do you teach? For example: *Class 1-8 All Subjects*, *Class 9-10 Maths & Science*, or *Class 11-12 Physics*`;
       return {
         reply: fallbackSubPrompt,
         nextStep: "T_SUBJECTS",
         updatedData: updated,
         userType: "TUTOR",
         retries: 0,
-        quickReplies: ["Maths, Science", "Physics, Chemistry", "English, Hindi", "All Subjects"],
+        quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"],
       };
     }
 
     if (!hasCls) {
-      return classAskOrBreak(updated, `Kaunsi class tak padhate ho? 🎓`, [
+      return classAskOrBreak(updated, `Which classes do you teach? 🎓`, [
         "Class 1-8 (All Subjects)",
         "Class 9-10",
         "Class 11-12",
@@ -4788,7 +5270,7 @@ export async function processMessage(
 
     if (!hasAr) {
       return {
-        reply: `Aapka teaching area / location kya hai? 📍`,
+        reply: `Which city and locality do you teach in (or Online)? 📍`,
         nextStep: "T_AREA",
         updatedData: updated,
         userType: "TUTOR",
@@ -4797,22 +5279,15 @@ export async function processMessage(
       };
     }
 
-    const ctx = formatHumanTeachingContext(subsArr, classArr[0] || "", areaStr);
+    const ctx = formatHumanTeachingContext(subsArr, classArr.length ? classArr : "", areaStr);
     updated.subjects = ctx.cleanSubs;
     const areaName = areaStr || "Delhi";
 
     // 0. Name is mandatory — Ask for it before email if missing
     const fallbackTutorName = (updated.name as string) || "";
-    const fallbackNameValid =
-      fallbackTutorName.trim().length >= 2 &&
-      fallbackTutorName.trim().length <= 50 &&
-      !/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(fallbackTutorName.trim()) &&
-      !/\d/.test(fallbackTutorName.trim()) &&
-      /^[a-zA-Z\s.'\\-]+$/.test(fallbackTutorName.trim());
-
-    if (!fallbackNameValid && session.step !== "T_NAME" && step !== "T_EMAIL" && step !== "T_PASSWORD") {
+    if (!isValidName(fallbackTutorName) && session.step !== "T_NAME" && step !== "T_EMAIL" && step !== "T_PASSWORD") {
       return {
-        reply: `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\n👤 Apna poora naam batayein (jaise: Priya Sharma, Rahul Gupta):`,
+        reply: `Profile details noted! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\n👤 Please share your *full name* (for example: *Priya Sharma* or *Rahul Gupta*):`,
         nextStep: "T_NAME",
         updatedData: updated,
         userType: "TUTOR",
@@ -4824,21 +5299,15 @@ export async function processMessage(
     // If currently at T_NAME step, validate and save the name
     if (session.step === "T_NAME") {
       const nameCandidate = rawMessage.trim();
-      const isNameOk =
-        nameCandidate.length >= 2 &&
-        nameCandidate.length <= 50 &&
-        !/^(hi|hello|hey|namaste|yes|no|ok|okay|done|skip|haan|theek|thik|nahi|ji|ha|acha|achha|sir|madam|mam|bhai)$/i.test(nameCandidate) &&
-        !/\d/.test(nameCandidate) &&
-        /^[a-zA-Z\s.'\\-]+$/.test(nameCandidate);
-      if (!isNameOk) {
+      if (!isValidName(nameCandidate)) {
         const typed = nameCandidate.slice(0, 25);
         const reason = /\d/.test(nameCandidate)
-          ? `"*${typed}*" mein digits hain — naam mein sirf letters hone chahiye.`
+          ? `"*${typed}*" contains numbers — please enter letters only.`
           : nameCandidate.length < 2
-            ? `Bahut chhota naam lag raha hai.`
-            : `"*${typed}*" naam nahi lag raha.`;
+            ? `That name looks too short.`
+            : `"*${typed}*" does not look like a valid full name.`;
         return {
-          reply: `⚠️ ${reason}\n\n👤 Apna *poora naam* likhein — jaise *Priya Sharma* ya *Rahul Gupta*:`,
+          reply: `⚠️ ${reason}\n\n👤 Please type your *full name* (for example: *Priya Sharma* or *Rahul Gupta*):`,
           nextStep: "T_NAME",
           updatedData: updated,
           userType: "TUTOR",
@@ -4850,9 +5319,10 @@ export async function processMessage(
     }
 
     const emailStr = typeof updated.email === "string" ? updated.email.trim().toLowerCase() : "";
-    const hasValidEmail = Boolean(emailStr && emailStr.includes("@") && emailStr.includes("."));
+    const emailValidation = validateStrictEmail(emailStr);
+    const hasValidEmail = emailValidation.ok;
 
-    // 1. Check Email (MANDATORY — NO SKIP)
+    // 1. Check Email (STRICT — VALID DOMAIN ONLY)
     if (!hasValidEmail && step !== "T_PASSWORD") {
       const emailRepeats =
         String(updated.lastBotAsk || "") === "email" ? Number(updated.sameAskCount || 0) + 1 : 1;
@@ -4864,7 +5334,7 @@ export async function processMessage(
       ) {
         return {
           reply:
-            `Email baad mein bhej dena (jaise name@gmail.com).\n\nAbhi leads:\n👉 https://apnatutorhub.com/tutor/leads\n👉 https://apnatutorhub.com/tutor/plans`,
+            `No problem — you can share a valid email (e.g. yourname@gmail.com) later.\n\nBrowse leads & plans anytime:\n👉 https://apnatutorhub.com/tutor/leads\n👉 https://apnatutorhub.com/tutor/plans`,
           nextStep: "DONE",
           updatedData: { ...updated, lastBotAsk: "email-skip", sameAskCount: 0 },
           userType: "TUTOR",
@@ -4875,10 +5345,10 @@ export async function processMessage(
       return {
         reply:
           step === "T_EMAIL"
-            ? `⚠️ Email ID zaroori hai! Student lead alerts aur profile account ke liye valid email chahiye.\n\n📧 Kripya apna Email ID bhejiye (jaise: yourname@gmail.com):`
-            : `Details note ho gayi! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\nStudent lead alerts aur login ke liye apna Email ID share karein: 📧`,
+            ? `⚠️ A valid email address (for example, *yourname@gmail.com*, *@yahoo.com*, or *@outlook.com*) is required for lead alerts and login.\n\n📧 Please enter a real email address:`
+            : `Profile details noted! 📚 ${areaName} — ${ctx.humanSubjectLabel}\n\n📧 Please share your *email address* (e.g., yourname@gmail.com) for student lead alerts and login:`,
         nextStep: "T_EMAIL",
-        updatedData: { ...updated, lastBotAsk: "email", sameAskCount: emailRepeats },
+        updatedData: { ...updated, email: undefined, lastBotAsk: "email", sameAskCount: emailRepeats },
         userType: "TUTOR",
         retries: 0,
         quickReplies: [],
@@ -4906,11 +5376,10 @@ export async function processMessage(
         const existingPhone10 = (existingUserPhone || "").replace(/\D/g, "").slice(-10);
         const sessionPhone10 = session.phone.replace(/\D/g, "").slice(-10);
 
-        // Cross-account conflict: Email is registered to a DIFFERENT phone number
         if (existingPhone10 && sessionPhone10 && existingPhone10 !== sessionPhone10) {
           updated.email = undefined;
           return {
-            reply: `⚠️ Yeh email (*${emailStr}*) already kisi doosre mobile number se linked hai.\n\nKripya apna alag personal email ID enter karein jo is WhatsApp number ke saath connect ho sake: 📧`,
+            reply: `⚠️ This email (*${emailStr}*) is already linked to another mobile number.\n\nPlease enter a different personal email address to link with this WhatsApp number: 📧`,
             nextStep: "T_EMAIL",
             updatedData: updated,
             userType: "TUTOR",
@@ -4921,11 +5390,11 @@ export async function processMessage(
       }
 
       const ackPrefix = (step === "T_AREA" || updated.area)
-        ? `📍 Area note ho gaya: *${areaName}* ✅`
-        : `📧 Email note ho gaya: *${emailStr}* ✅`;
+        ? `📍 Area noted: *${areaName}* ✅`
+        : `📧 Email noted: *${emailStr}* ✅`;
 
       return {
-        reply: `${ackPrefix}\n\n🔐 Account login ke liye koi password rakhna chahte hain? (min 6 characters) ya reply karein *default*:`,
+        reply: `${ackPrefix}\n\n🔐 Choose a password for your account login (min 6 characters), or reply *default*:`,
         nextStep: "T_PASSWORD",
         updatedData: updated,
         userType: "TUTOR",
@@ -4940,7 +5409,7 @@ export async function processMessage(
         updated._usedDefaultPassword = true;
       } else if (pwdStr.length < 6) {
         return {
-          reply: `⚠️ Password minimum 6 characters ka hona chahiye.\n\n🔐 Phir se enter karein ya type karein *default*:`,
+          reply: `⚠️ Password must be at least 6 characters long.\n\n🔐 Please enter a valid password or reply *default*:`,
           nextStep: "T_PASSWORD",
           updatedData: { ...updated, password: undefined },
           userType: "TUTOR",
@@ -4955,16 +5424,6 @@ export async function processMessage(
     const emailToUse = hasValidEmail ? emailStr : undefined;
     const tutorName = (updated.name as string) || "";
 
-    let tutorGender: string | null = (updated.gender as string) || null;
-    if (!tutorGender && tutorName) {
-      if (/rohit|rahul|amit|aman|deepak|suresh|ramesh|vikas|pankaj|mohit|sachin|abhishek|ajay|vijay|sanjay|raj|varun|arun|tushar|gaurav|manish/i.test(tutorName)) {
-        tutorGender = "MALE";
-      } else if (/priya|pooja|neha|anjali|sneha|arti|aarti|divya|shweta|ritika|simran|megha|swati|pallavi|tanu|mansi|aleena/i.test(tutorName)) {
-        tutorGender = "FEMALE";
-      }
-    }
-
-
     try {
       await registerTutorFromWhatsapp(session.phone, {
         name: tutorName || "Tutor",
@@ -4973,31 +5432,28 @@ export async function processMessage(
         password: pwdStr,
         city: (updated.city as string) || "Delhi",
         area: areaName,
-        subjects: Array.isArray(updated.subjects) && updated.subjects.length > 0 ? (updated.subjects as string[]) : ["All Subjects"],
-        classLevels: Array.isArray(updated.classLevels) && updated.classLevels.length > 0
-          ? (updated.classLevels as string[])
-          : updated.classLevel ? [String(updated.classLevel)] : ["Class 1 to 10"],
+        subjects: ctx.cleanSubs,
+        classLevels: classArr,
       });
     } catch (regErr) {
       console.error("[engine] fallback auto-register tutor failed:", regErr);
     }
 
     const usedDefault = updated._usedDefaultPassword === true;
-    // Registration is complete: never keep a plaintext password in session JSON.
     delete updated.password;
     delete updated._usedDefaultPassword;
     updated._registered = true;
+    updated.lang = "en";
 
-    // Simple profile-created confirmation only. Leads/plans sent only when tutor asks.
-    const loginLine2 = `📧 ${emailToUse} | 📱 ${phoneToUse}`;
+    const loginLine2 = `📧 ${emailToUse || waPlaceholderEmail(session.phone)} | 📱 ${phoneToUse}`;
     const pwdNote2 = usedDefault
-      ? `\n🔑 Default password *12345678* — login karke change kar lein: https://apnatutorhub.com/login`
+      ? `\n🔑 Default password: *12345678* (you can update it after logging in at https://apnatutorhub.com/login)`
       : ``;
     const profileReply2 =
-      `✅ *Profile taiyaar ho gayi hai ${tutorName} ji!*\n` +
+      `✅ *Your tutor profile is ready${tutorName ? `, ${tutorName}` : ""}!*\n` +
       `🔐 Login: ${loginLine2}\nhttps://apnatutorhub.com/login${pwdNote2}\n\n` +
-      `Matching student leads dekhne ke liye reply karein *LEADS* 📋\n` +
-      `Membership plans ke liye reply karein *PLANS* 💎`;
+      `Reply *LEADS* to view matching student inquiries 📋\n` +
+      `Reply *PLANS* to view membership plans 💎`;
 
     return {
       reply: profileReply2,
@@ -5016,27 +5472,39 @@ export async function processMessage(
   // PARENT conversational fallback: register only a real class, real subjects, and a locality.
   if (step === "P_CONVO") {
     const trimmed = rawMessage.trim();
-    const updated: Record<string, any> = { ...data };
+    const updated: Record<string, any> = { ...data, lang: "en" };
 
-    const parsedClass = keepClassLevel(updated.classLevel, trimmed, data.classLevel);
-    if (parsedClass) updated.classLevel = parsedClass;
-    else delete updated.classLevel;
-
-    const subAlign = validateAndAlignSubjects(trimmed, typeof updated.classLevel === "string" ? updated.classLevel : undefined);
-    if (subAlign.isValid && subAlign.subjects.length > 0) {
-      updated.subjects = subAlign.subjects;
+    const parsedStrictParent = applyStrictEducationToData({
+      rawMessage: trimmed,
+      isIdentityStep: false,
+      isInitialWelcomeChoice: false,
+      previousData: data,
+      mergedData: updated,
+    });
+    if (parsedStrictParent.errorReply) {
+      return {
+        reply: parsedStrictParent.errorReply.reply,
+        nextStep: "P_CONVO",
+        updatedData: parsedStrictParent.mergedData,
+        userType: "PARENT",
+        retries: 0,
+        quickReplies: parsedStrictParent.errorReply.quickReplies,
+      };
     }
+
     const parsedArea = keepArea(updated.area, trimmed, data.area, (updated.city as string) || "Delhi");
     if (parsedArea) updated.area = parsedArea;
     else if (!extractPublicLocality(typeof updated.area === "string" ? updated.area : "")) delete updated.area;
 
-    const classLevelName = normalizeCanonicalClassLevel(typeof updated.classLevel === "string" ? updated.classLevel : "");
-    const leadSubjects = classLevelName ? leadSubjectsForClass(classLevelName, Array.isArray(updated.subjects) ? updated.subjects : []) : [];
+    const classLevelName = Array.isArray(updated.classLevels) && updated.classLevels.length > 0
+      ? String(updated.classLevels[0])
+      : normalizeCanonicalClassLevel(typeof updated.classLevel === "string" ? updated.classLevel : "");
+    const leadSubjects = Array.isArray(updated.subjects) ? (updated.subjects as string[]) : [];
     const areaName = extractPublicLocality(typeof updated.area === "string" ? updated.area : "", (updated.city as string) || "Delhi");
 
     if (!classLevelName) {
       return {
-        reply: `Bachche ki class batayein — Class 1 se 12, Nursery, JEE ya NEET. Ek sentence class nahi hota. 🎓`,
+        reply: `Please share the student's class — Class 1–12, Nursery/KG, JEE, or NEET. 🎓`,
         nextStep: "P_CONVO",
         updatedData: updated,
         userType: "PARENT",
@@ -5046,7 +5514,7 @@ export async function processMessage(
     }
     if (leadSubjects.length === 0) {
       return {
-        reply: `*${classLevelName}* ke kaunse subjects chahiye? Class 1–8 par All Subjects hota hai. 📚`,
+        reply: `Which subjects do you need a tutor for in *${classLevelName}*? (Classes 1–8 cover All Subjects). 📚`,
         nextStep: "P_CONVO",
         updatedData: { ...updated, classLevel: classLevelName },
         userType: "PARENT",
@@ -5056,7 +5524,7 @@ export async function processMessage(
     }
     if (!areaName) {
       return {
-        reply: `*${classLevelName}* ke liye locality batayein — jaise *Mukundpur* ya *Sector 45*. Ghar number mat likhein. 📍`,
+        reply: `Please share your locality / sector (without a house number) for *${classLevelName}* — for example *Mukundpur* or *Sector 45*: 📍`,
         nextStep: "P_AREA",
         updatedData: { ...updated, classLevel: classLevelName, subjects: leadSubjects },
         userType: "PARENT",
@@ -5068,7 +5536,7 @@ export async function processMessage(
     const parentReg = await registerParentFromWhatsapp(session.phone, {
       studentName: (updated.studentName as string) || (updated.name as string) || "Student",
       parentName: (updated.parentName as string) || (updated.name as string) || "Parent",
-      email: (updated.email as string) || undefined,
+      email: isStrictValidEmail(updated.email) ? String(updated.email) : undefined,
       phone: (updated.phone as string) || session.phone,
       city: (updated.city as string) || "Delhi",
       area: areaName,
@@ -5077,7 +5545,7 @@ export async function processMessage(
     });
     if (!parentReg.ok) {
       return {
-        reply: `Abhi request save nahi ho payi. Class, subject aur area ek saath bhejein.\nJaise: *Class 5, All Subjects, Rohini*`,
+        reply: `Could not save yet. Please send class, subjects, and locality cleanly — for example: *Class 5, All Subjects, Rohini*.`,
         nextStep: "P_CONVO",
         updatedData: { ...updated, classLevel: classLevelName, area: areaName, subjects: leadSubjects },
         userType: "PARENT",
@@ -5087,15 +5555,15 @@ export async function processMessage(
     updated.classLevel = classLevelName;
     updated.area = areaName;
     updated.subjects = leadSubjects;
+    updated._registered = true;
 
-    // Simple profile-created confirmation only. Tutors/demo sent only on request.
     const pName = (updated.name as string) || (updated.parentName as string) || "";
     const parentProfileReply2 =
-      `✅ *Aapki request register ho gayi hai${pName ? " " + pName + " ji" : ""}!*\n\n` +
-      `📚 Class: ${(updated.classLevel as string) || ""} \n` +
+      `✅ *Your tuition requirement has been registered${pName ? `, ${pName}` : ""}!*\n\n` +
+      `📚 Class: ${(updated.classLevel as string) || ""}\n` +
       `📍 Area: ${areaName}\n\n` +
-      `Hamari team aapke liye suitable tutors match kar rahi hai.\n` +
-      `Free demo class book karne ke liye reply karein *DEMO* 🎓`;
+      `Our team is matching verified tutors for your request.\n` +
+      `Reply *DEMO* anytime to book a free trial class! 🎓`;
 
     return {
       reply: parentProfileReply2,
@@ -5133,12 +5601,12 @@ export async function processMessage(
 
   // Fallback
   return {
-    reply: MSG.LANG_PROMPT,
-    nextStep: "LANG_SELECT",
-    updatedData: {},
+    reply: MSG.WELCOME,
+    nextStep: "WELCOME",
+    updatedData: { lang: "en" },
     userType: null,
     retries: 0,
-    quickReplies: ["1 - English", "2 - हिंदी"],
+    quickReplies: ["1 - Tutor", "2 - Parent"],
   };
 }
 
@@ -5154,9 +5622,7 @@ function getStepQuickReplies(nextStep: string): string[] | undefined {
     case "P_CLASS":
       return ["1 (Class 1-5)", "2 (Class 6-8)", "3 (Class 9-10)", "4 (Class 11-12)"];
     case "P_BUDGET":
-      return ["1 (₹3k–₹5k/mo)", "2 (₹5k–₹8k/mo)", "3 (₹8k–₹12k/mo)", "4 (₹12k+/mo)"];
-    case "LANG_SELECT":
-      return ["1 - English", "2 - हिंदी"];
+      return ["1 (₹6k–₹6.8k/mo)", "2 (₹6.8k–₹7.6k/mo)", "3 (₹700–₹850/hr)", "4 (₹850–₹1,050/hr)"];
     case "WELCOME":
       return ["1 - Tutor", "2 - Parent"];
     default:
@@ -5176,7 +5642,7 @@ function handleInvalid(
   if (nextRetries >= MAX_RETRIES) {
     if (session.step === "DONE" || (session.data as Record<string, unknown>)?._registered === true) {
       return {
-        reply: `Thoda clear nahi hua. Koi baat nahi! 😊\n\nAap direct options chun sakte hain ya yahan apna sawaal likhein:\n• *Leads* — matching requirements\n• *Plans* — coins & membership\n• *Help* — direct coordinator`,
+        reply: `I didn't quite catch that — no worries! 😊\n\nHere's what you can type anytime:\n• *Leads* — view matching student requirements\n• *Plans* — check wallet & membership options\n• *Help* — reach our coordinator desk`,
         nextStep: "DONE",
         updatedData: session.data,
         userType: session.userType || "TUTOR",
@@ -5185,77 +5651,74 @@ function handleInvalid(
       };
     }
     return {
-      reply: `Kuch zyada confusion ho gaya. 😅 Chaliye fresh start karte hain.\n\nType *MENU* to restart.`,
+      reply: `Let's start fresh! 😅 Type *MENU* to begin.`,
       nextStep: "WELCOME",
-      updatedData: {},
+      updatedData: { lang: "en" },
       userType: null,
       retries: 0,
       quickReplies: ["MENU", "HELP"],
     };
   }
 
-  // Step-specific contextual guidance
+  // Step-specific contextual guidance (English-only)
   const step = session.step;
   let stepHint = "";
   let stepQuickReplies = quickReplies || ["MENU", "HELP"];
 
   if (step === "T_NAME") {
-    stepHint = `👤 Apna poora naam likhein (jaise: *Priya Sharma*, *Rahul Gupta*).\nSirf letters, koi digits ya symbols nahi.`;
+    stepHint = `👤 Please enter your *full name* (for example: *Priya Sharma*, *Rahul Gupta*).\nLetters only, no digits or symbols.`;
   } else if (step === "T_CITY") {
-    stepHint = `📍 Apna city batayein — jaise *Delhi*, *Mumbai*, *Noida*, *Bangalore*, *Lucknow*.`;
+    stepHint = `📍 Please share your city — for example *Delhi*, *Mumbai*, *Noida*, *Bangalore*, or *Lucknow*.`;
   } else if (step === "T_AREA") {
-    stepHint = `🏠 Apna specific *mohalla / locality* likhein.\nJaise: *Rohini*, *Dwarka*, *Sector 62 Noida*, *Andheri West*.`;
+    stepHint = `🏠 Please enter your *locality / sector* and city.\nFor example: *Rohini*, *Dwarka*, *Sector 62 Noida*, or *Andheri West*.`;
     stepQuickReplies = getLocalitiesQuickReplies((session.data.city as string) || (session.data.area as string));
   } else if (step === "T_SUBJECTS") {
-    stepHint = `📚 Kaunse subjects padhate hain? Comma se alag karke likhein:\nJaise: *Maths, Science* ya *Physics, Chemistry* ya *All Subjects*.`;
-    stepQuickReplies = ["Maths, Science", "Physics, Chemistry", "English, Hindi", "All Subjects"];
+    stepHint = `📚 Which subjects do you teach? Examples:\n• Classes 1–8: *All Subjects*\n• Classes 9–10: *Mathematics, Science, Social Science, English*\n• Classes 11–12: *Physics, Chemistry, Accountancy, Economics*`;
+    stepQuickReplies = ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics / Chem (11-12)", "Commerce (11-12)"];
   } else if (step === "T_CLASSES") {
-    stepHint = `🎓 Number reply karein (comma se multiple choose kar sakte hain):\n1 → Class 1–5\n2 → Class 6–8\n3 → Class 9–10\n4 → Class 11–12\n5 → JEE/NEET\n6 → All`;
+    stepHint = `🎓 Reply with class numbers (comma-separated allowed):\n1 → Class 1–5\n2 → Class 6–8\n3 → Class 9–10\n4 → Class 11–12\n5 → JEE/NEET\n6 → All`;
     stepQuickReplies = ["1,2,3", "3,4", "4", "6 (All)"];
   } else if (step === "T_MODE") {
-    stepHint = `🏡 Sirf *1*, *2*, ya *3* reply karein:\n1 → Home Visit (student ke ghar jaana)\n2 → Online Only\n3 → Both (Home + Online)`;
+    stepHint = `🏡 Reply *1*, *2*, or *3*:\n1 → Home Visit (in-person)\n2 → Online Only\n3 → Both (Home + Online)`;
     stepQuickReplies = ["1", "2", "3"];
   } else if (step === "T_TIMING") {
-    stepHint = `⏰ Apni available timing likhein, jaise:\n*Evenings 5–8pm*, ya *Weekdays 4–8pm*, ya *Mornings only*.`;
+    stepHint = `⏰ Share your available timings, such as:\n*Evenings 5–8pm*, *Weekdays 4–8pm*, or *Mornings only*.`;
     stepQuickReplies = ["Evenings 5-8pm", "Mornings 7-10am", "Weekends only", "Flexible"];
   } else if (step === "T_EXPERIENCE") {
-    stepHint = `💼 Sirf ek *number* likhein (teaching experience years mein).\nJaise: *2*, *5*, *10* — ya *0* agar abhi start kar rahe hain.`;
+    stepHint = `💼 Enter a single number for your teaching experience in years (for example: *2*, *5*, *10*, or *0*).`;
     stepQuickReplies = ["0", "1", "3", "5"];
   } else if (step === "T_CONFIRM") {
-    stepHint = `Sirf *1*, *2*, ya *3* reply karein:\n1 → ✅ Confirm & Register\n2 → ✏️ Edit (start over)\n3 → ❌ Cancel`;
+    stepHint = `Reply *1*, *2*, or *3*:\n1 → ✅ Confirm & Register\n2 → ✏️ Edit (start over)\n3 → ❌ Cancel`;
     stepQuickReplies = ["1", "2", "3"];
   } else if (step === "P_STUDENT_NAME") {
-    stepHint = `👶 Bachche ka naam likhein (jaise: *Aarav*, *Priya*).`;
+    stepHint = `👶 Please share the student's name (for example: *Aarav*, *Priya*).`;
   } else if (step === "P_CLASS") {
-    stepHint = `🎓 Sirf *1 se 6* ke beech ek number reply karein:\n1 → Nursery/KG/Class 1–2\n2 → Class 3–5\n3 → Class 6–8\n4 → Class 9–10\n5 → Class 11–12\n6 → JEE/NEET`;
+    stepHint = `🎓 Reply with a number from *1 to 6*:\n1 → Nursery/KG/Class 1–2\n2 → Class 3–5\n3 → Class 6–8\n4 → Class 9–10\n5 → Class 11–12\n6 → JEE/NEET`;
     stepQuickReplies = ["1", "2", "3", "4", "5", "6"];
   } else if (step === "P_SUBJECTS") {
-    stepHint = `📚 Kaunse subjects mein help chahiye? Jaise: *Maths, Science* ya *All Subjects*.`;
-    stepQuickReplies = ["Maths & Science", "All Subjects", "English", "Physics, Chemistry"];
+    stepHint = `📚 Which subjects does the student need help with? (Classes 1–8 follow All Subjects).`;
+    stepQuickReplies = ["All Subjects", "Maths & Science", "English", "Physics, Chemistry"];
   } else if (step === "P_CITY") {
-    stepHint = `📍 Apna city batayein — jaise *Delhi*, *Noida*, *Mumbai*, *Gurgaon*, *Lucknow*, *Patna*.`;
+    stepHint = `📍 Please enter your city — for example *Delhi*, *Noida*, *Mumbai*, *Gurgaon*, or *Lucknow*.`;
   } else if (step === "P_AREA") {
-    stepHint = `🏠 Bachche ka *area / locality* batayein.\nJaise: *Rohini Delhi*, *Bandra Mumbai*, *Sector 62 Noida*.`;
+    stepHint = `🏠 Please enter your *locality / sector* and city.\nFor example: *Rohini Delhi*, *Bandra Mumbai*, or *Sector 62 Noida*.`;
     stepQuickReplies = getLocalitiesQuickReplies((session.data.city as string) || (session.data.area as string));
   } else if (step === "P_MODE") {
-    stepHint = `🏡 Sirf *1*, *2*, ya *3* reply karein:\n1 → Home Tutor (tutor ghar aaye)\n2 → Online\n3 → Either is fine`;
+    stepHint = `🏡 Reply *1*, *2*, or *3*:\n1 → Home Tutor (at your home)\n2 → Online\n3 → Either is fine`;
     stepQuickReplies = ["1", "2", "3"];
   } else if (step === "P_BUDGET") {
-    stepHint = `💰 Budget select karein:\n1 → ₹6,000–₹6,800/month (Class 1-5)\n2 → ₹6,800–₹7,600/month (Class 6-8)\n3 → ₹700–₹850/hr (Class 9-10)\n4 → ₹850–₹1,050/hr (Class 11-12)`;
+    stepHint = `💰 Select a budget range:\n1 → ₹6,000–₹6,800/month (Class 1-5)\n2 → ₹6,800–₹7,600/month (Class 6-8)\n3 → ₹700–₹850/hr (Class 9-10)\n4 → ₹850–₹1,050/hr (Class 11-12)`;
     stepQuickReplies = ["1 (Class 1-5)", "2 (Class 6-8)", "3 (Class 9-10)", "4 (Class 11-12)"];
-  } else if (step === "LANG_SELECT") {
-    stepHint = `Sirf *1* (English) ya *2* (Hindi) type karein.`;
-    stepQuickReplies = ["1 - English", "2 - हिंदी"];
   } else if (step === "WELCOME") {
-    stepHint = `*1* likhein agar aap Tutor hain, *2* likhein agar aap Parent hain.`;
+    stepHint = `Reply *1* if you are a Tutor, or *2* if you are a Parent looking for a tutor.`;
     stepQuickReplies = ["1 - Tutor", "2 - Parent"];
   }
 
   const reply = contextHint
     ? `${contextHint}`
     : stepHint
-      ? `Samajh nahi aaya. 🙏\n\n${stepHint}`
-      : `Samajh nahi aaya. 🙏 Type *MENU* to restart.`;
+      ? `I didn't quite understand that. 🙏\n\n${stepHint}`
+      : `I didn't quite understand that. 🙏 Type *MENU* to restart.`;
 
   return {
     reply,

@@ -636,8 +636,8 @@ export function formatTutorLeadsAndPlansMessage(
     !name ||
     /^(teacher|tutor|user|student|lead|parent|sir|madam|ji|whatsapp\s*user|unknown)$/i.test(name.trim()) ||
     /^\+?\d+$/.test(name.trim());
-  const greeting = !isGenericOrMissingName ? `*${name.trim()}* ji` : "";
-  const locationLabel = area ? `*${area}*` : "aapke area";
+  const greeting = !isGenericOrMissingName ? ` *${name.trim()}*` : "";
+  const locationLabel = area ? `*${area}*` : "your area";
 
   let contactStatus = "";
   if (contactInfo?.email || contactInfo?.phone) {
@@ -649,7 +649,7 @@ export function formatTutorLeadsAndPlansMessage(
 
   let leadsSection = "";
   if (leads.length > 0) {
-    leadsSection = `\n\n📋 *${locationLabel} ke matching leads:*\n\n` +
+    leadsSection = `\n\n📋 *Matching leads near ${locationLabel}:*\n\n` +
       leads
         .map(
           (l, idx) =>
@@ -658,22 +658,22 @@ export function formatTutorLeadsAndPlansMessage(
         )
         .join("\n\n");
   } else {
-    leadsSection = `\n\n📋 *Matching Leads Alert:*\nAbhi ${locationLabel} mein aapki selected class aur subjects ke liye koi open requirement pending nahi hai.\nJaise hi parent nayi requirement post karenge, aapko sabse pehle instant WhatsApp alert aayega! 🔔\n\nApne city aur Online ke sabhi 600+ leads explore karne ke liye website login karein: https://apnatutorhub.com/tutor/leads`;
+    leadsSection = `\n\n📋 *Matching Leads Alert:*\nThere are no open matching requirements in ${locationLabel} for your selected classes and subjects right now.\nAs soon as a parent posts a matching requirement, you'll receive an instant WhatsApp alert!\n\nExplore all 600+ active city & online leads on your dashboard: https://apnatutorhub.com/tutor/leads`;
   }
 
   const plansSection = `\n\n──────────────────────────\n` +
-    `🔓 *Lead unlock karne ke liye:*\n` +
+    `🔓 *How to Unlock Parent Contacts:*\n` +
     `\n💼 *₹1,257 Commission Based Plan* (5 Leads · 6 Months Validity)\n` +
-    `• 5 Verified Student Leads Unlock\n` +
+    `• Unlock 5 Verified Student Leads\n` +
     `• Low Competition (Max 3 Tutors per Lead)\n` +
     `• Direct Parent Phone + Full Address\n` +
     `• 6 Months Validity (180 Days)\n` +
-    `• 50% 1st Month + 5% Recurring Platform Commission\n` +
-    `\n👉 *Abhi plan activate karein:* https://apnatutorhub.com/tutor/plans\n` +
-    `👉 *Saari leads dekho:* https://apnatutorhub.com/tutor/leads\n` +
-    `\nReply karo *PLANS* ya *LEADS* kabhi bhi!`;
+    `• Terms: 50% commission on 1st month tuition fee + 5% recurring from 2nd month\n` +
+    `\n👉 *Activate Plan:* https://apnatutorhub.com/tutor/plans\n` +
+    `👉 *Browse All Leads:* https://apnatutorhub.com/tutor/leads\n` +
+    `\nReply *PLANS* or *LEADS* anytime.`;
 
-  return `✅ Profile ready ho gayi${greeting ? " " + greeting : ""}!${contactStatus}${leadsSection}${plansSection}`;
+  return `✅ Your profile is ready${greeting}!${contactStatus}${leadsSection}${plansSection}`;
 }
 
 /**
@@ -681,17 +681,17 @@ export function formatTutorLeadsAndPlansMessage(
  */
 export function formatOfferEnded999Message(): string {
   return `⚠️ *Notice: ₹999 Offer Has Ended*\n\n` +
-    `Sir/Ma'am, ₹999 wala introductory / limited-time festival offer ab *officially end (khatam)* ho chuka hai. 🙏\n\n` +
-    `Filhaal hamara official verified plan available hai:\n\n` +
+    `The ₹999 limited-time introductory offer has officially ended.\n\n` +
+    `Our currently active membership option is:\n\n` +
     `💼 *Commission Based Plan — ₹1,257*\n` +
     `• Registration Fee: ₹1,257 (Validity: 6 Months)\n` +
     `• 5 Verified Leads Unlock\n` +
-    `• Low Competition: Max 3 teachers per lead\n` +
+    `• Low Competition: Max 3 tutors per lead\n` +
     `• Direct Parent Phone & Full Address\n` +
     `• Terms: 50% commission on 1st month tuition fee + 5% recurring every month from 2nd month onwards.\n\n` +
-    `👉 *Plan dekhein aur activate karein:*\n` +
+    `👉 *View & Activate Plan:*\n` +
     `https://apnatutorhub.com/tutor/plans\n\n` +
-    `Aap start karne ke liye reply karein *ACTIVATE 1257* ya *LEADS*!`;
+    `Reply *ACTIVATE 1257* or *LEADS* to continue.`;
 }
 
 /**
@@ -699,43 +699,44 @@ export function formatOfferEnded999Message(): string {
  */
 export function formatCommissionPlanDetailMessage(): string {
   return `🤝 *ApnaTutorHub Commission Based Plan (₹1,257)*\n\n` +
-    `Aapne Commission Based Plan choose kiya hai! Yeh plan un teachers ke liye best hai jo kam upfront investment se start karna chahte hain:\n\n` +
+    `Ideal for tutors who prefer starting with a low upfront registration fee:\n\n` +
     `📋 *Plan Features:*\n` +
     `• Registration Fee: *₹1,257* only\n` +
     `• Validity: *6 Months* (180 Days)\n` +
     `• Total Leads: *5 Verified Student Leads Unlock*\n` +
-    `• Commission: *50% on 1st month tuition fee*, aur 2nd month se *5% recurring commission*\n` +
+    `• Commission: *50% on 1st month tuition fee*, then *5% monthly from 2nd month onwards*\n` +
     `• Low Competition: Shared with max 3 tutors only\n` +
     `• Direct Parent Phone & Address Unlocked\n` +
-    `• 5km Nearby Home Tuition ya Online Classes\n\n` +
-    `👉 *Abhi Plan Activate Karein (Instant Online Activation):*\n` +
+    `• 5 km nearby Home Tuition or Online Classes\n\n` +
+    `👉 *Activate Now (Instant Online Activation):*\n` +
     `https://apnatutorhub.com/tutor/plans?checkout=STARTER\n\n` +
-    `Reply karein *PAY* ya *ACTIVATE 1257* instant payment link ke liye.`;
+    `Reply *PAY* or *ACTIVATE 1257* for the instant payment link.`;
 }
 
 /**
  * Detailed explanation when tutor expresses interest in Zero Commission / Silver Plan (Discontinued).
  */
 export function formatGrowthPlanDetailMessage(): string {
-  return `⚠️ *Notice: Without-Commission Plan Closed*\n\n` +
-    `Sir/Ma'am, without-commission (0% Commission / Silver ₹2,999) wale prepaid plans ab *officially close / band* ho chuke hain. 🙏\n\n` +
-    `Filhaal platform par sirf official *Commission Based Plan* active hai jisme kam upfront payment se start kar sakte hain:\n\n` +
+  return `⚠️ *Notice: Without-Commission Plans Closed*\n\n` +
+    `Zero-commission / without-commission prepaid plans (Silver ₹2,999, Gold, Platinum) have been officially discontinued.\n\n` +
+    `Currently, only the verified *Commission Based Plan* is active on the platform:\n\n` +
     `💼 *ApnaTutorHub Commission Based Plan (₹1,257)*\n` +
     `• Registration Fee: *₹1,257* only\n` +
     `• Validity: *6 Months* (180 Days)\n` +
     `• Total Leads: *5 Verified Student Leads Unlock*\n` +
-    `• Terms: *50% on 1st month tuition fee*, aur 2nd month se *5% recurring commission*\n` +
-    `• Low Competition: Max 3 teachers per lead\n` +
+    `• Terms: *50% on 1st month tuition fee*, then *5% monthly from 2nd month onwards*\n` +
+    `• Low Competition: Max 3 tutors per lead\n` +
     `• Direct Parent Phone & Address Unlocked\n\n` +
-    `👉 *Abhi Plan Activate Karein:*\n` +
+    `👉 *Activate Plan:*\n` +
     `https://apnatutorhub.com/tutor/plans\n\n` +
-    `Payment ke liye reply karein *PAY* ya *ACTIVATE 1257*!`;
+    `Reply *PAY* or *ACTIVATE 1257* to continue.`;
 }
 
 const PUBLIC_SITE = "https://apnatutorhub.com";
 
 /** Payment steps + 1-Click Razorpay instant activation link */
 export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "1257"): string {
+  void planHint;
   const plansUrl = `${PUBLIC_SITE}/tutor/plans?checkout=STARTER`;
 
   const planLine = "Commission Based Plan *₹1,257*";
@@ -746,11 +747,11 @@ export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "
     `👉 ${plansUrl}\n\n` +
     `✨ *Membership Perks:*\n` +
     `• *5 Verified Student Leads Unlocked*\n` +
-    `• *6 Months Long Validity* (180 days)\n` +
+    `• *6 Months Validity* (180 days)\n` +
     `• *Direct Parent Phone Numbers & Addresses*\n` +
     `• 50% commission on 1st month tuition fee + 5% recurring from 2nd month\n` +
-    `• 100% Instant Automated Activation via Razorpay (Zero waiting!)\n\n` +
-    `Madad ke liye: WhatsApp +91 93191 93109 (9am–7pm)`
+    `• Instant automated activation via Razorpay\n\n` +
+    `Need help? WhatsApp: +91 93191 93109 | Helpline: 08062180653 (9am–7pm)`
   );
 }
 
@@ -768,9 +769,9 @@ export function formatCoinPlansMessage(): string {
 • Validity: 6 Months (180 Days)
 • Terms: 50% commission on 1st month tuition fee + 5% recurring every month from 2nd month onwards.
 
-ℹ️ *Note:* Without-commission (0% commission) prepaid plans ab officially band ho chuke hain. Platform par sirf verified Commission Based Plan active hai.
+ℹ️ *Note:* Zero-commission prepaid plans are discontinued. Only the verified Commission Based Plan is active.
 
-👉 *Abhi Plan Activate Karein:*
+👉 *Activate Plan:*
 https://apnatutorhub.com/tutor/plans
 
 👉 *All Available Leads:*
@@ -779,9 +780,9 @@ https://apnatutorhub.com/tutor/leads`;
 
 export function formatCoinBalanceMessage(balance: number): string {
   if (balance > 0) {
-    return `Aapke wallet mein *${balance} coins* hain. 🪙\n\nInhi coins se student leads unlock ho jayengi. Naya coin pack lene ki zaroorat nahi hai.\n\n👉 *Leads unlock karein:* https://apnatutorhub.com/tutor/leads\n👉 *Wallet:* https://apnatutorhub.com/tutor/wallet`;
+    return `You have *${balance} coins* in your wallet. 🪙\n\nYou can use these coins directly to unlock student leads — no need to buy another pack right now.\n\n👉 *Unlock Leads:* https://apnatutorhub.com/tutor/leads\n👉 *Wallet:* https://apnatutorhub.com/tutor/wallet`;
   }
-  return `Aapke wallet mein abhi *0 coins* hain.\n\n${formatCoinPlansMessage()}`;
+  return `Your wallet balance is currently *0 coins*.\n\n${formatCoinPlansMessage()}`;
 }
 
 export async function getTutorCoinBalanceByPhone(phone?: string | null): Promise<{
@@ -835,7 +836,7 @@ export function formatParentDemoMessage(
     contactStatus = `\n✅ *Registered:* ${parts.join(" | ")}\n`;
   }
 
-  return `Namaste${parentName}! 🙏 We have verified home and online tutors ready for *${classStr}* (${subjStr}) in *${area || "your area"}*! 🎓✨${contactStatus}
+  return `Hello${parentName}! We have verified home and online tutors ready for *${classStr}* (${subjStr}) in *${area || "your area"}*! 🎓✨${contactStatus}
 
 ⭐ *Why 10,000+ Parents Trust ApnaTutorHub:*
 • 100% Background & KYC Verified Tutors
@@ -875,7 +876,7 @@ export async function formatSingleLeadInquiry(
 
   if (!lead) {
     return {
-      reply: `❌ Requirement *#${inquiryNumber}* nahi mili ya expire ho chuki hai.\n\nActive tuition requirements dekhne ke liye reply karein *LEADS* ya dashboard check karein:\n👉 https://apnatutorhub.com/tutor/leads`,
+      reply: `❌ Requirement *#${inquiryNumber}* was not found or has expired.\n\nReply *LEADS* to see active student requirements or browse your dashboard:\n👉 https://apnatutorhub.com/tutor/leads`,
       quickReplies: ["View All Leads 📋", "💎 Membership Plans", "Help / Support 📞"],
     };
   }
@@ -898,7 +899,7 @@ export async function formatSingleLeadInquiry(
   }
 
   const displaySubjects = leadSubjectsForClass(lead.classLevel, lead.subjects);
-  const subjStr = displaySubjects.length > 0 ? displaySubjects.join(", ") : "All Core Subjects";
+  const subjStr = displaySubjects.length > 0 ? displaySubjects.join(", ") : "All Subjects";
   const modeStr = isTill8thClass(lead.classLevel) || lead.mode === "OFFLINE"
     ? "Home Visit 🏡"
     : lead.mode === "ONLINE"
@@ -914,7 +915,7 @@ export async function formatSingleLeadInquiry(
     if (pref === "FEMALE") {
       genderNote = `\n⚠️ *Tutor Preference:* Female Tutor Only 👩`;
       if (tutorGender === "MALE") {
-        genderNote += `\n*(Note: Parent ne female teacher prefer ki hai. Agar aap male tutor hain to similar requirement #32043 check karein.)*`;
+        genderNote += `\n*(Note: This parent requested a female tutor. Please explore other matching requirements on your dashboard.)*`;
       }
     } else if (pref === "MALE") {
       genderNote = `\n⚠️ *Tutor Preference:* Male Tutor Only 👨`;
@@ -927,16 +928,16 @@ export async function formatSingleLeadInquiry(
 
   let statusWarning = "";
   if (isClosed) {
-    statusWarning = `\n\n⚠️ *Status:* Yeh lead close ho chuki hai (${lead.status}).`;
+    statusWarning = `\n\n⚠️ *Status:* This lead is currently closed (${lead.status}).`;
   }
 
   const unlockGuide = tutorBalance.found && tutorBalance.balance > 0
-    ? `Aapke wallet mein *${tutorBalance.balance} coins* hain. Is lead ke liye *${coinCost} coins* lagte hain — naya pack lene ki zaroorat nahi.\n` +
-      `👉 https://apnatutorhub.com/tutor/leads?inquiry=${lead.inquiryNumber}`
-    : `💎 *Unlock Karne Ke Tarike:*\n` +
-      `1. Website par link open karein aur Unlock par click karein.\n` +
-      `2. Is lead ki cost *${coinCost} coins* hai (~5% of one month's fee).\n` +
-      `3. ₹1,257 Commission Plan (5 leads, 6 months validity) se bhi unlock hota hai.\n\n` +
+    ? `You have *${tutorBalance.balance} coins* in your wallet. This lead requires *${coinCost} coins*.\n` +
+      `👉 Unlock here: https://apnatutorhub.com/tutor/leads?inquiry=${lead.inquiryNumber}`
+    : `💎 *How to Unlock:*\n` +
+      `1. Open the dashboard link and click *Unlock Lead*.\n` +
+      `2. Unlock cost: *${coinCost} coins* (~5% of one month's fee).\n` +
+      `3. Included in the ₹1,257 Commission Plan (5 leads, 6 months validity).\n\n` +
       `👉 *Membership Plans:*\nhttps://apnatutorhub.com/tutor/plans`;
 
   const message =

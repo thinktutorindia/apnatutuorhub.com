@@ -342,25 +342,19 @@ export function normalizeSubjectsForClassRule(subjects: string[], classLevels: s
     const deferredAllLabels: string[] = [];
 
     for (const p of parsedSubjects) {
+      const key = p.base.toLowerCase();
       if (p.allSubjects) {
-        const target = p.nums && p.nums.length ? p.nums.filter((n) => n > 8) : seniorGrades;
+        const target = p.nums && p.nums.length ? p.nums.filter((n) => n >= 9 && n <= 10) : seniorGrades.filter((n) => n <= 10);
         for (const n of target) {
-          if (n <= 10) {
-            // Class 9-10: never store a generic label — use core subjects.
-            seniorOut.push(`Mathematics for Class ${ROMAN[n]}`);
-            seniorOut.push(`Science for Class ${ROMAN[n]}`);
-          } else {
-            // Class 11-12 has no universal "all subjects"; kept only as a
-            // last-resort label when no concrete subject covers that class.
-            deferredAllLabels.push(`All Subjects for Class ${ROMAN[n]}`);
-          }
+          seniorOut.push(`Mathematics for Class ${ROMAN[n]}`);
+          seniorOut.push(`Science for Class ${ROMAN[n]}`);
         }
         continue;
       }
 
       if (p.qualifier) {
         seniorOut.push(`${p.base} for ${p.qualifier}`);
-        explicitBases.add(p.base.toLowerCase());
+        explicitBases.add(key);
         continue;
       }
 
@@ -368,8 +362,24 @@ export function normalizeSubjectsForClassRule(subjects: string[], classLevels: s
         const seniorNums = p.nums.filter((n) => n > 8);
         // Explicit junior-only subject (e.g. "EVS for Class 5") must never leak into 9-12.
         if (!seniorNums.length) continue;
-        for (const n of seniorNums) seniorOut.push(`${p.base} for Class ${ROMAN[n]}`);
-        explicitBases.add(p.base.toLowerCase());
+        if (JUNIOR_ONLY_BASES.has(key)) continue;
+        for (const n of seniorNums) {
+          if ((n === 9 || n === 10) && (key === "physics" || key === "chemistry" || key === "biology")) {
+            seniorOut.push(`Science for Class ${ROMAN[n]}`);
+          } else if (
+            (n === 9 || n === 10) &&
+            (key === "history" || key === "geography" || key === "political science" || key === "economics" || key === "social science")
+          ) {
+            seniorOut.push(`Social Science for Class ${ROMAN[n]}`);
+          } else if ((n === 9 || n === 10) && (key === "accountancy" || key === "business studies" || key === "commerce")) {
+            continue;
+          } else if ((n === 11 || n === 12) && (key === "social science" || key === "science")) {
+            continue;
+          } else {
+            seniorOut.push(`${p.base} for Class ${ROMAN[n]}`);
+          }
+        }
+        explicitBases.add(key);
         continue;
       }
 
@@ -383,11 +393,17 @@ export function normalizeSubjectsForClassRule(subjects: string[], classLevels: s
       if (!seniorLabels.length) seniorOut.push(p.base);
       for (const label of seniorLabels) {
         const gradeNum = ROMAN_TO_NUM[label.toLowerCase()];
-        // Class 9-10: Physics, Chemistry, Biology map to Science for Class IX/X
+        // Class 9-10: Physics, Chemistry, Biology map to Science; Humanities map to Social Science
         if ((gradeNum === 9 || gradeNum === 10) && (key === "physics" || key === "chemistry" || key === "biology")) {
           seniorOut.push(`Science for Class ${label}`);
-        } else if ((gradeNum === 11 || gradeNum === 12) && key === "social science") {
-          // Social Science never attaches to Class 11-12
+        } else if (
+          (gradeNum === 9 || gradeNum === 10) &&
+          (key === "history" || key === "geography" || key === "political science" || key === "economics" || key === "social science")
+        ) {
+          seniorOut.push(`Social Science for Class ${label}`);
+        } else if ((gradeNum === 9 || gradeNum === 10) && (key === "accountancy" || key === "business studies" || key === "commerce")) {
+          continue;
+        } else if ((gradeNum === 11 || gradeNum === 12) && (key === "social science" || key === "science")) {
           continue;
         } else {
           seniorOut.push(`${p.base} for Class ${label}`);
@@ -395,15 +411,8 @@ export function normalizeSubjectsForClassRule(subjects: string[], classLevels: s
       }
     }
 
-    // Senior "All Subjects" labels are a last resort: drop them whenever the
-    // tutor has given at least one concrete Class 9-12 subject.
     if (seniorOut.length) out.push(...seniorOut);
-    const coveredClasses = new Set<number>();
-    for (const s of seniorOut) for (const n of parseClassGradesFromText(s)) coveredClasses.add(n);
-    for (const label of deferredAllLabels) {
-      const nums = parseClassGradesFromText(label);
-      if (!nums.length || nums.some((n) => !coveredClasses.has(n))) out.push(label);
-    }
+    void deferredAllLabels;
   }
 
   return [...new Set(out)];

@@ -33,6 +33,8 @@ export const KNOWN_INDIAN_CITIES: Record<string, string> = {
   gurgaon: "Gurgaon",
   gurugram: "Gurgaon",
   ghaziabad: "Ghaziabad",
+  gaziyabad: "Ghaziabad",
+  gaziabad: "Ghaziabad",
   faridabad: "Faridabad",
   mumbai: "Mumbai",
   "navi mumbai": "Navi Mumbai",
@@ -188,7 +190,8 @@ const NON_LOCALITY_WORDS = new Set([
   "mujhe", "mujhko", "bola", "boli", "raha", "rahi", "rahe", "pagal", "salary", "paisa", "paise", "de", "do", "dena", "lena", "provide", "karta", "karti", "karte",
   "who", "what", "where", "how", "why", "when", "can", "could", "will", "would", "is", "am", "are", "have", "has", "give", "send", "tell", "teach", "work", "looking", "interested",
   "my", "home", "ghar", "house", "makaan", "anywhere", "kahin", "everywhere", "any", "all", "sab", "sabhi", "pure", "poore", "poora", "city", "state", "desh", "india",
-  "pay", "paying", "arrange", "arranging", "pl", "scam", "scammer", "scammers", "invalid", "ready", "tomorrow", "today", "yesterday", "check", "checking", "later", "fine", "sure", "xyz", "busy", "study", "tuition", "tution", "nothing", "wait", "waiting", "soon", "morning", "evening", "night", "good", "bad", "fake", "fraud", "true", "false", "correct", "wrong", "change", "new"
+  "pay", "paying", "arrange", "arranging", "pl", "scam", "scammer", "scammers", "invalid", "ready", "tomorrow", "today", "yesterday", "check", "checking", "later", "fine", "sure", "xyz", "busy", "study", "tuition", "tution", "nothing", "wait", "waiting", "soon", "morning", "evening", "night", "good", "bad", "fake", "fraud", "true", "false", "correct", "wrong", "change", "new",
+  "ncr", "trust", "aata", "aati", "nhi", "diya", "liye"
 ]);
 
 // Words that can never (by themselves) be a locality — subject/class chatter.
@@ -262,6 +265,21 @@ const PROMINENT_LOCALITIES: Array<{ name: string; city: string }> = [
   { name: "vasundhara", city: "Ghaziabad" },
   { name: "raj nagar", city: "Ghaziabad" },
   { name: "sanjay nagar", city: "Ghaziabad" },
+  { name: "loni", city: "Ghaziabad" },
+  { name: "crossings republik", city: "Ghaziabad" },
+  { name: "kashmere gate", city: "Delhi" },
+  { name: "tis hazari", city: "Delhi" },
+  { name: "chirag delhi", city: "Delhi" },
+  { name: "derawal nagar", city: "Delhi" },
+  { name: "paharganj", city: "Delhi" },
+  { name: "ramesh nagar", city: "Delhi" },
+  { name: "kirti nagar", city: "Delhi" },
+  { name: "moti nagar", city: "Delhi" },
+  { name: "sarojini nagar", city: "Delhi" },
+  { name: "mandir marg", city: "Delhi" },
+  { name: "north campus", city: "Delhi" },
+  { name: "south campus", city: "Delhi" },
+  { name: "rani bagh", city: "Delhi" },
   { name: "mukharjee nagar", city: "Delhi" },
   { name: "gtb nagar", city: "Delhi" },
   { name: "south extension", city: "Delhi" },
@@ -497,6 +515,34 @@ export function validateAndCleanLocality(
 
   let clean = raw.trim();
 
+  // If multi-line structured onboarding text (e.g. "Location South Delhi, Saket\nSubjects: ..."), focus on the location line first
+  if (clean.includes("\n")) {
+    const lines = clean.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const labeled = lines.find((l) => /^(?:1[).]\s*)?(?:my\s+)?(?:location|area|locality|address|city)\b/i.test(l));
+    if (labeled) {
+      clean = labeled.replace(/^1[).]\s*/i, "");
+    }
+  }
+
+  // Normalize common phonetic / spaceless Indian locality & city spellings before lookup
+  clean = clean
+    .replace(/\bkarol\s*bagh\b|\bkarolbagh\b/gi, "karol bagh")
+    .replace(/\blaxmi\s*nagar\b|\blaxminagar\b/gi, "laxmi nagar")
+    .replace(/\bpatel\s*nagar\b|\bpatelnagar\b/gi, "patel nagar")
+    .replace(/\btilak\s*nagar\b|\btilaknagar\b/gi, "tilak nagar")
+    .replace(/\buttam\s*nagar\b|\buttamnagar\b/gi, "uttam nagar")
+    .replace(/\bmalviya\s*nagar\b|\bmalviyanagar\b/gi, "malviya nagar")
+    .replace(/\blajpat\s*nagar\b|\blajpatnagar\b/gi, "lajpat nagar")
+    .replace(/\bnehru\s*place\b|\bnehruplace\b/gi, "nehru place")
+    .replace(/\bmodel\s*town\b|\bmodeltown\b/gi, "model town")
+    .replace(/\bvasant\s*kunj\b|\bvasantkunj\b/gi, "vasant kunj")
+    .replace(/\bjanak\s*puri\b/gi, "janakpuri")
+    .replace(/\bvikas\s*puri\b/gi, "vikaspuri")
+    .replace(/\bindr?apuram\b/gi, "indirapuram")
+    .replace(/\bmukhar?jee\s*nagar\b/gi, "mukherjee nagar")
+    .replace(/\bkashm[ie]re?\s*gate\b/gi, "kashmere gate")
+    .replace(/\bgaziy?abad\b/gi, "ghaziabad");
+
   // Strip conversational wrappers (Hinglish + English) without truncating mid-sentence locations like "Noida me Sector 62"
   clean = clean.replace(
     /^(?:mai|main|hum|me|i\s*(?:am|'m)?\s*(?:from|live\s*in|stay\s*in|living\s*in|staying\s*in|based\s*in)|currently\s*(?:in|at|living\s*in)|current\s*residence|my\s*(?:new\s+)?(?:area|location|locality|city)\s*(?:is|hai)?|mera\s+(?:area|location|locality|city)|meri\s+(?:location|jagah)|near|nearby|opposite|opp|area|location|locality)[:\s-]+/i,
@@ -659,6 +705,18 @@ export function validateAndCleanLocality(
           area: detectedCity,
           city: detectedCity,
         };
+      }
+
+      // Before returning city-only prompt, check if the full text contains a known locality (e.g. "South Delhi, Saket\nSubjects: ...")
+      for (const loc of PROMINENT_LOCALITIES) {
+        if (new RegExp(`\\b${loc.name}\\b`, "i").test(clean)) {
+          const cap = loc.name.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+          return {
+            isValid: true,
+            area: cap,
+            city: detectedCity || loc.city || defaultCity,
+          };
+        }
       }
 
       // If user only gave the city name (e.g. "Delhi", "Mumbai"), ask for specific area

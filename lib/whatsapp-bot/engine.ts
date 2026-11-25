@@ -84,6 +84,7 @@ import {
 } from "./loose-intent";
 import {
   isStrictValidEmail,
+  isPlaceholderEmail,
   validateStrictEmail,
   extractStrictEmail,
   extractStrictClasses,
@@ -222,7 +223,11 @@ function isValidName(v: string): boolean {
   const clean = v.trim();
   if (clean.length < 2 || clean.length > 50) return false;
   if (looksLikeUnexpectedNoise(clean)) return false;
+  if (clean.split(/\s+/).length > 4) return false;
   if (/^(hi|hello|hey|namaste|yes|no|ok|done|skip|test|testing|asdf|qwerty|abc|xyz|lol|lmao|none|null|na|unknown|tutor|teacher|parent|student|admin|help|menu)$/i.test(clean)) return false;
+  if (/\b(mujhe|mujhse|mera|meri|apka|aapka|tum|aap|kisi|aur|kuch|bhi|nhi|nahi|hai|hain|h|tha|thi|the|ho|hu|hoon|aata|aati|trust|fake|fraud|scam|lead|leads|plan|plans|paisa|paise|rupees?|fee|fees|problem|issue|help|call|please|pls|plz|kyu|kyon|kya|kaise|kahan|kab|kaun|koi|liye|diya|de|do|lena|dena|karo|kardo|chahiye|chayie|chahta|chahti|teach|teaching|subject|subjects|class|classes|area|location|city|online|offline|refund|payment|pay|login|password|email|gmail|portal|app|website|sir|mam|madam)\b/i.test(clean)) {
+    return false;
+  }
   if (/\d/.test(clean)) return false;
   return /^[a-zA-Z\s.'-]+$/.test(clean);
 }
@@ -1549,7 +1554,8 @@ async function tryDeterministicDoneShortcuts(params: {
     };
   }
 
-  const wantsProfileChange = /\b(update|change|set|changed|badal|naya|new|add|also|bhi)\b/i.test(rawMessage);
+  const isComplaintOrTrust = /\b(trust|scam|fake|fraud|loot|le\s*liye|kuch\s*(?:bhi\s*)?(?:nhi|nahi)\s*diya|refund|complaint|cheat)\b/i.test(rawMessage);
+  const wantsProfileChange = !isComplaintOrTrust && /\b(update|change|set|changed|badal|naya|new|add|also|bhi)\b/i.test(rawMessage);
   if (wantsProfileChange && /\b(teaching\s*mode|mode|online\s*only|offline\s*only)\b/i.test(rawMessage)) {
     let newMode: "ONLINE" | "OFFLINE" | "EITHER" | null = null;
     if (/\bonline\b/i.test(rawMessage)) newMode = "ONLINE";
@@ -1667,7 +1673,13 @@ async function tryDeterministicDoneShortcuts(params: {
       quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
     };
   }
-  if (wantsProfileChange && /\bname\b/i.test(rawMessage)) {
+  const wantsNameUpdate =
+    !isComplaintOrTrust &&
+    (
+      /\b(?:update|change|set|edit|correct|rename|badal)\s+(?:my\s+|profile\s+)?name\b/i.test(rawMessage) ||
+      /\b(?:my\s+name|mera\s+naa?m)\s+(?:is|to|as|hai)\b/i.test(rawMessage)
+    );
+  if (wantsNameUpdate) {
     const tail = rawMessage.match(/\bname\s+(?:to\s+|as\s+|is\s+|hai\s+)?([a-zA-Z][a-zA-Z\s.'-]{1,48})$/i);
     if (tail && isValidName(tail[1]) && !/^(update|change|changed|new|naya|set|badal|name)$/i.test(tail[1].trim())) {
       const saved = await syncUserCredentialsInDb({ phone: session.phone, name: tail[1].trim() });
@@ -1692,8 +1704,23 @@ async function tryDeterministicDoneShortcuts(params: {
     };
   }
   if (wantsProfileChange && /\b(class|classes|grade)\b/i.test(rawMessage) && !/\b(lead|tuition|koi)\b/i.test(rawMessage)) {
+    const strictBoth = enforceStrictEducation({ rawMessage });
     const parsedCls = extractStrictClasses(rawMessage);
-    const classesExtracted = parsedCls.labels.length > 0 ? parsedCls.labels : extractAllClassLevelsFromText(rawMessage);
+    const classesExtracted = strictBoth.classLevels.length > 0
+      ? strictBoth.classLevels
+      : parsedCls.labels.length > 0
+        ? parsedCls.labels
+        : extractAllClassLevelsFromText(rawMessage);
+    if (strictBoth.errorPrompt) {
+      return {
+        reply: strictBoth.errorPrompt,
+        nextStep: "UPDATE_SUBJECTS",
+        updatedData: data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
+      };
+    }
     if (classesExtracted.length === 0) {
       return {
         reply: `Which classes do you teach? For example: *Class 1–8*, *Class 9–10*, or *Class 11–12*.`,
@@ -1708,17 +1735,61 @@ async function tryDeterministicDoneShortcuts(params: {
     const saved = await syncUserCredentialsInDb({
       phone: session.phone,
       classLevels: classesExtracted,
+      subjects: strictBoth.ok && strictBoth.subjects.length > 0 ? strictBoth.subjects : undefined,
       mergeClasses: wantsAddClass,
+      mergeSubjects: wantsAddClass,
     });
     const outCls = saved.finalClassLevels || classesExtracted;
+    const outSubs = saved.finalSubjects || (strictBoth.ok ? strictBoth.subjects : undefined);
+    const savedSubsOk = Boolean(outSubs && outSubs.length > 0 && saved.updatedFields.includes("subjects"));
     return {
-      reply: saved.updatedFields.includes("class") ? `Classes saved: *${outCls.join(", ")}* ✅` : profileNotSavedReply(),
+      reply: saved.updatedFields.includes("class") || savedSubsOk
+        ? savedSubsOk
+          ? `Subjects & classes updated: *${outSubs!.join(", ")}* (Classes: *${outCls.join(", ")}*) ✅`
+          : `Classes saved: *${outCls.join(", ")}* ✅`
+        : profileNotSavedReply(),
       nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("class") ? { ...data, classLevel: outCls[0], classLevels: outCls } : data,
+      updatedData: saved.updatedFields.includes("class") || savedSubsOk
+        ? {
+            ...data,
+            classLevel: outCls[0],
+            classLevels: outCls,
+            ...(savedSubsOk ? { subjects: outSubs } : {}),
+          }
+        : data,
       userType: "TUTOR",
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋"],
     };
+  }
+
+  // Casual shorthand locality update e.g. "Update chirag delhi", "Can u update it for nehru place"
+  const casualAreaUpdate = rawMessage.trim().match(
+    /^(?:(?:can\s+u|can\s+you|please|pls|kindly)\s+)?(?:update|change|set)(?:\s+it|\s+my)?(?:\s+to|\s+for|\s+in)?\s+([a-zA-Z0-9][a-zA-Z0-9\s.,\/-]{2,60})$/i
+  );
+  if (
+    !isComplaintOrTrust &&
+    casualAreaUpdate &&
+    !/\b(subject|subjects|class|classes|name|email|gmail|password|mode|profile|leads?|plans?)\b/i.test(casualAreaUpdate[1])
+  ) {
+    const loc = validateAndCleanLocality(casualAreaUpdate[1].trim(), (data.city as string) || undefined, true);
+    if (loc.isValid && !sameLocality(loc.area, loc.city)) {
+      const saved = await syncUserCredentialsInDb({
+        phone: session.phone,
+        area: loc.area,
+        city: loc.city,
+      });
+      return {
+        reply: saved.updatedFields.includes("area")
+          ? `Location updated: *${loc.area}, ${loc.city}* 📍\n\nYou'll now receive home tuition alerts within 5 km of this area.`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
+        userType: "TUTOR",
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋"],
+      };
+    }
   }
 
   // Area / locality leads query
@@ -2573,38 +2644,82 @@ export async function processMessage(
     }).then((msgs) => msgs.reverse()).catch(() => [])
   );
 
+  // Scrub stale/legacy dirty session fields first so invalid emails, junk names, or invalid subjects never persist
+  if (data.email && (!isStrictValidEmail(data.email) || isPlaceholderEmail(String(data.email)))) {
+    delete data.email;
+  }
+  if (data.name && !isValidName(String(data.name))) {
+    delete data.name;
+  }
+  if (typeof data.area === "string" && /^(delhi ncr|india|unknown|na|none)$/i.test(data.area.trim())) {
+    delete data.area;
+  }
+  if (Array.isArray(data.subjects) && data.subjects.length > 0) {
+    const scrubbedSessionEdu = sanitizeEducationForDb(data.subjects, data.classLevels || (data.classLevel ? [data.classLevel] : []));
+    data.subjects = scrubbedSessionEdu.subjects;
+    if (scrubbedSessionEdu.classLevels.length > 0) {
+      data.classLevels = scrubbedSessionEdu.classLevels;
+      data.classLevel = scrubbedSessionEdu.classLevels[0];
+    }
+  }
+
   // Sync state data from DB profile if registered so context is never lost
   if (userProfile?.isRegistered) {
     if (!data._registered) data._registered = true;
     if (step !== "DONE" && !MID_FLOW_STEPS.has(step)) {
       step = "DONE";
     }
-    if (!data.name && userProfile.name) data.name = userProfile.name;
-    if (!data.email && userProfile.email && isStrictValidEmail(userProfile.email)) {
+    if (!data.name && userProfile.name && isValidName(userProfile.name)) data.name = userProfile.name;
+    if (!data.email && userProfile.email && isStrictValidEmail(userProfile.email) && !isPlaceholderEmail(userProfile.email)) {
       data.email = userProfile.email;
     }
-    if (!data.area && userProfile.area) data.area = userProfile.area;
+    if (!data.area && userProfile.area && !/^(delhi ncr|india|unknown|na|none)$/i.test(userProfile.area.trim())) {
+      data.area = userProfile.area;
+    }
     if (!data.city && userProfile.city) data.city = userProfile.city;
     if ((!data.subjects || (Array.isArray(data.subjects) && data.subjects.length === 0)) && userProfile.subjects?.length) {
-      data.subjects = userProfile.subjects;
+      const sanitizedProfileEdu = sanitizeEducationForDb(userProfile.subjects, userProfile.classLevels || []);
+      if (sanitizedProfileEdu.subjects.length > 0) {
+        data.subjects = sanitizedProfileEdu.subjects;
+      }
+      if ((!data.classLevels || (Array.isArray(data.classLevels) && data.classLevels.length === 0)) && sanitizedProfileEdu.classLevels.length > 0) {
+        data.classLevels = sanitizedProfileEdu.classLevels;
+        if (!data.classLevel) data.classLevel = sanitizedProfileEdu.classLevels[0];
+      }
     }
     if ((!data.classLevels || (Array.isArray(data.classLevels) && data.classLevels.length === 0)) && userProfile.classLevels?.length) {
-      data.classLevels = userProfile.classLevels;
-      if (!data.classLevel) data.classLevel = userProfile.classLevels[0];
+      const parsedProfileCls = extractStrictClasses(userProfile.classLevels.join(", ")).labels;
+      if (parsedProfileCls.length > 0) {
+        data.classLevels = parsedProfileCls;
+        if (!data.classLevel) data.classLevel = parsedProfileCls[0];
+      }
     }
     if (!data.mode && userProfile.teachingMode) {
       data.mode = userProfile.teachingMode;
     }
   }
 
-  // ── Ignore WhatsApp Business Automated Away / Greeting Messages ──────────
+  // ── Ignore WhatsApp Business Automated Away / Greeting Messages & Bare Reactions ──
+  const trimmedRaw = rawMessage.trim();
   if (
-    /^(?:thank\s*you\s*for\s*contacting|welcome\s*to\s.*thank\s*you\s*for\s*reaching|a\s*warm\s*welcome\s*to\s|hello\s+great\s+to\s+see\s+you\s+and\s+welcome\s+to)\b/i.test(rawMessage.trim()) ||
-    /please\s*let\s*us\s*know\s*how\s*we\s*can\s*help\s*you\b/i.test(rawMessage.trim())
+    /^(?:thank\s*you\s*for\s*contacting|welcome\s*to\s.*thank\s*you\s*for\s*reaching|a\s*warm\s*welcome\s*to\s|hello\s+great\s+to\s+see\s+you\s+and\s+welcome\s+to)\b/i.test(trimmedRaw) ||
+    /please\s*let\s*us\s*know\s*how\s*we\s*can\s*help\s*you\b/i.test(trimmedRaw) ||
+    /this\s+chat\s+isn[’']?t\s+monitored|chat\s+is\s+not\s+monitored|you\s+may\s+not\s+receive\s+a\s+response\s+here|reach\s+out\s+to\s+our\s+team\s+at|automated\s+(?:message|response|reply)/i.test(trimmedRaw) ||
+    /^\[reaction(?::[^\]]*)?\]$/i.test(trimmedRaw)
   ) {
-    console.log(`[whatsapp-bot] Ignored automated WhatsApp business greeting from ${session.phone}`);
+    console.log(`[whatsapp-bot] Ignored automated WhatsApp business greeting/reaction from ${session.phone}`);
     return {
       reply: "",
+      nextStep: step,
+      updatedData: data,
+      userType: session.userType,
+      retries: 0,
+    };
+  }
+
+  if (/^\[unsupported\]$/i.test(trimmedRaw)) {
+    return {
+      reply: `I couldn't read that attachment or message format. Please reply in text (for example: *LEADS*, *PLANS*, *PROFILE*, or ask your question directly).`,
       nextStep: step,
       updatedData: data,
       userType: session.userType,
@@ -2761,22 +2876,32 @@ export async function processMessage(
       select: { id: true, email: true, name: true },
     }).catch(() => null);
 
-    const email = existingUser?.email || (data.email as string) || `user${last10}@apnatutorhub.com`;
+    const validLoginEmail = [existingUser?.email, data.email].find(
+      (e) => typeof e === "string" && isStrictValidEmail(e) && !isPlaceholderEmail(e)
+    ) as string | undefined;
     const tempPass = "Tutor@123";
     await syncUserCredentialsInDb({
       phone: session.phone,
       password: tempPass,
     });
+    const nextData: Record<string, any> = { ...data, password: tempPass };
+    if (validLoginEmail) {
+      nextData.email = validLoginEmail;
+    } else {
+      delete nextData.email;
+    }
     return {
       reply:
         `🔑 *Temporary Password Activated!*\n\n` +
         `Your new login credentials are ready:\n` +
         `🔐 Password: *${tempPass}*\n` +
-        `📧 Login ID: *${email}* or *${last10}*\n\n` +
+        (validLoginEmail
+          ? `📧 Login ID: *${validLoginEmail}* or *${last10}*\n\n`
+          : `📱 Login ID: *${last10}* (add a personal email anytime with *Update email yourname@gmail.com*)\n\n`) +
         `👉 *Log in now:* https://apnatutorhub.com/login\n\n` +
         `After logging in, you can change your password anytime from Profile Settings. ✅`,
       nextStep: step === "WELCOME" ? "DONE" : step,
-      updatedData: { ...data, email, password: tempPass },
+      updatedData: nextData,
       userType: session.userType || "TUTOR",
       retries: 0,
       quickReplies: ["View Leads 📋", "My Profile 👤", "Talk to Support 📞"],
@@ -3013,11 +3138,21 @@ export async function processMessage(
   if (step === "UPDATE_NAME") {
     const newName = rawMessage.trim();
     if (!isValidName(newName)) {
+      if (/\?|\b(trust|scam|fake|fraud|refund|lead|leads|plan|plans|fees?|help|call|problem|issue|nhi|nahi|kya|kaise|paise|mujhe|mujhse)\b/i.test(newName)) {
+        return {
+          reply: `I understand your concern! You can speak directly with our coordinator team on Helpline *08062180653* (9 AM–7 PM) or WhatsApp support *+91 93191 93109*, or view active student inquiries directly on your portal: https://apnatutorhub.com/tutor/leads`,
+          nextStep: "DONE",
+          updatedData: data,
+          retries: 0,
+          quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+        };
+      }
       return {
-        reply: "Please enter a valid full name (letters only, at least 2 characters):",
+        reply: "Please enter a valid full name (letters only, up to 4 words):",
         nextStep: "UPDATE_NAME",
         updatedData: data,
         retries: 0,
+        quickReplies: ["Cancel"],
       };
     }
     const saved = await syncUserCredentialsInDb({ phone: session.phone, name: newName });

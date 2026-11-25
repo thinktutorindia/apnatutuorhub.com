@@ -173,13 +173,8 @@ export function getLeadPointCost(
   budgetMin?: number | null,
   budgetMax?: number | null
 ): number {
-  if ((budgetMin && budgetMin > 0) || (budgetMax && budgetMax > 0)) {
-    return coinCostFromTuitionFee({
-      budgetMin,
-      budgetMax,
-      classLevel: classGrade,
-    });
-  }
+  // Universal published rates: Class 1-8 = 10, Class 9-10 = 20,
+  // Class 11-12 / entrance = 30 coins. Budget never changes this.
   return coinCostFromClass(classGrade);
 }
 

@@ -132,7 +132,7 @@ function UnlockedContactPanel({ contacts }: { contacts: UnlockedContact[] }) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 2xl:grid-cols-3">
         {contacts.map((c) => {
           const wa = whatsappNumber(c.phone);
           return (
@@ -183,6 +183,15 @@ function UnlockedContactPanel({ contacts }: { contacts: UnlockedContact[] }) {
                   </a>
                 )}
               </div>
+
+              {c.purchaseId && (
+                <div className="pt-1">
+                  <RequestLeadRefundButton
+                    purchaseId={c.purchaseId}
+                    purchasedAt={c.unlockedAt}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -637,8 +646,8 @@ function LeadCard({
                 <Crown size={13} className="text-amber-500" />
                 <span>
                   {lang === "hi"
-                    ? `प्लान लाभ · 0 कॉइन्स (${subscriptionInfo?.quotaRemaining ?? Math.max(1, Math.floor(remainingPoints / 10))} शेष)`
-                    : `Plan Benefit · 0 Coins (${subscriptionInfo?.quotaRemaining ?? Math.max(1, Math.floor(remainingPoints / 10))} left)`}
+                    ? `प्लान में शामिल · ${subscriptionInfo?.quotaRemaining ?? Math.max(1, Math.floor(remainingPoints / 10))} अनलॉक शेष`
+                    : `Free with your plan · ${subscriptionInfo?.quotaRemaining ?? Math.max(1, Math.floor(remainingPoints / 10))} unlocks left`}
                 </span>
               </span>
             ) : (
@@ -651,6 +660,13 @@ function LeadCard({
             <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
               {lang === "hi" ? "सटीक समय:" : "Exact time:"} {timeInfo.exactTime}
             </span>
+            {unlockViaMembershipPoints && (
+              <p className="w-full text-[11px] font-semibold text-emerald-800">
+                {lang === "hi"
+                  ? "इस अनलॉक पर कोई कॉइन नहीं कटेगा — आपके सक्रिय प्लान में शामिल है।"
+                  : "No coins will be deducted — this unlock is included in your active plan."}
+              </p>
+            )}
           </div>
 
           {lead.isPurchased ? (
@@ -1339,7 +1355,7 @@ export function LeadFeedClient({
           )}
         </div>
       ) : (
-        <div className="grid gap-5 grid-cols-[repeat(auto-fit,minmax(420px,1fr))]">
+        <div className="grid gap-5 grid-cols-1 2xl:grid-cols-3">
           {filtered.map((lead) => (
             <LeadCard
               key={lead.id}

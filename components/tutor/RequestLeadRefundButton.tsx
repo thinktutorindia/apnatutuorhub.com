@@ -6,12 +6,14 @@ import { AlertCircle, CheckCircle2, Flag, Loader2, X } from "lucide-react";
 import { requestLeadRefundAction } from "@/app/actions/wallet.actions";
 
 const REFUND_REASONS = [
-  "Phone number switched off / unreachable / invalid",
-  "Parent already hired another tutor / Requirement closed",
-  "Location or subject mismatch / Incorrect details",
-  "Parent budget too low or tuition cancelled",
-  "Fake requirement / Not interested in tuition",
-  "Other issue",
+  "Wrong class / grade — requirement is for another class",
+  "Already taken — parent hired another tutor",
+  "Parent phone switched off / unreachable / wrong number",
+  "Subject mismatch — not what I teach",
+  "Location mismatch — too far / wrong area",
+  "Budget too low or tuition cancelled",
+  "Fake requirement / parent not interested",
+  "Other issue (write details below)",
 ] as const;
 
 export function RequestLeadRefundButton({

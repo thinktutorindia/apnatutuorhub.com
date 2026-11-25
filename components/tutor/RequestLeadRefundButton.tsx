@@ -33,14 +33,6 @@ export function RequestLeadRefundButton({
   const [message, setMessage] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const withinWindow =
-    !purchasedAt ||
-    Date.now() - new Date(purchasedAt).getTime() <= 48 * 60 * 60 * 1000;
-
-  if (!withinWindow) {
-    return null;
-  }
-
   if (done) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
@@ -166,7 +158,7 @@ export function RequestLeadRefundButton({
 
             {/* Refund Guarantee Info */}
             <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 text-[11px] text-amber-900 leading-relaxed">
-              💡 <strong>Coin Refund Policy:</strong> You have up to 48 hours from purchase to submit feedback. Once verified by telecalling logs, 100% of the coins will be restored to your wallet balance.
+              💡 <strong>Coin Refund Policy:</strong> Tell us what went wrong with this lead. Our quality team reviews every request; if the lead is found invalid, the full unlock amount is restored to your wallet. Older leads are reviewed manually.
             </div>
 
             {/* Actions */}

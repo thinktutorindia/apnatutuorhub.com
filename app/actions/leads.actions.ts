@@ -681,11 +681,13 @@ export async function purchaseLeadAction(
     quotaRemainingPoints = Math.max(0, planTotalPoints - usedPoints);
   }
 
-  const isFreePlanUnlock = hasActivePlan && quotaRemainingPoints >= leadPointCost;
-  const effectiveCoinCost = isFreePlanUnlock ? 0 : leadPointCost;
+  // Every unlock costs published class-based coins (10 / 20 / 30).
+  // The ₹1,257 membership credits 60 coins to the wallet — it does not make
+  // individual unlocks free.
+  const effectiveCoinCost = leadPointCost;
 
   const walletBalance = wallet?.balance ?? 0;
-  if (!isFreePlanUnlock && walletBalance < effectiveCoinCost) {
+  if (walletBalance < effectiveCoinCost) {
     return actionError(
       `Insufficient coins. You have ${walletBalance} coins but this lead costs ${effectiveCoinCost}. Please top up your wallet.`
     );

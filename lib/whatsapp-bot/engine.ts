@@ -13,7 +13,7 @@ import {
 import { type BotSession } from "./session";
 import { handleTutorStep } from "./flows/tutor";
 import { handleParentStep } from "./flows/parent";
-import { askGeminiChatbot, type AiBotResponse } from "./ai-agent";
+import { askGeminiChatbot, containsHindiOrHinglishSlip, type AiBotResponse } from "./ai-agent";
 import { getStoredUserProfile, type UserProfileContext } from "./user-profile-context";
 import {
   getChatbotMatchingLeads,
@@ -3124,92 +3124,168 @@ export async function processMessage(
     return { reply: "Please enter your new 10-digit phone number:", nextStep: "UPDATE_PHONE", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
   }
 
-  // ── Handle active update steps ──
-  if (step.startsWith("UPDATE_") && /^(cancel|back|wapas|nahi)$/i.test(rawMessage.trim())) {
+  // ── Handle active update steps (never trap user on questions, other languages, or cancel) ──
+  const clearUpdateRetry = (d: Record<string, any>) => {
+    const next = { ...d };
+    delete next._updateRetry;
+    return next;
+  };
+  if (
+    step.startsWith("UPDATE_") &&
+    /^(?:cancel|back|wapas|nahi|no|skip|later|leave\s*it|rehne\s*do|baad\s*m(?:ein|e)|abhi\s*nahi|forget\s*it|stop|chh?odo|band\s*karo|नहीं|बाद\s*में|छोड़ो)$/iu.test(rawMessage.trim())
+  ) {
     return {
       reply: "Update cancelled. Let me know if you'd like to check leads or your profile.",
       nextStep: "DONE",
-      updatedData: data,
+      updatedData: clearUpdateRetry(data),
       retries: 0,
       quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
     };
   }
 
+  const updateRetryCount = step.startsWith("UPDATE_") ? Number(data._updateRetry || 0) + 1 : 0;
+  const looksLikeNonAnswerQuestionOrForeign = (txt: string, allowSpaceWords = false): boolean => {
+    const t = txt.trim();
+    if (!t) return true;
+    if (/[?？]/.test(t)) return true;
+    if (/[^\u0000-\u007F]/.test(t) && !/^[👋🙏🤝🙋💐👍👌✅💯👏]+$/u.test(t)) return true;
+    if (
+      /\b(fees?|plan|plans|lead|leads|coin|coins|wallet|refund|trust|scam|fake|fraud|help|support|call|how|what|why|when|where|which|who|kya|kaise|kitna|kitne|kahan|kab|batao|btaiye|samjhao|forgot)\b/i.test(t)
+    ) {
+      return true;
+    }
+    if (!allowSpaceWords && t.split(/\s+/).length >= 4 && !t.includes("@")) return true;
+    return false;
+  };
+
   if (step === "UPDATE_NAME") {
-    const newName = rawMessage.trim();
+    const newName = rawMessage
+      .trim()
+      .replace(/^(?:my\s+name\s+is|i\s+am|i'm|i\s+m|myself|this\s+is|mera\s+naa?m(?:\s+hai)?)\s+/i, "")
+      .replace(/\s+hai$/i, "")
+      .trim();
     if (!isValidName(newName)) {
-      if (/\?|\b(trust|scam|fake|fraud|refund|lead|leads|plan|plans|fees?|help|call|problem|issue|nhi|nahi|kya|kaise|paise|mujhe|mujhse)\b/i.test(newName)) {
+      if (looksLikeNonAnswerQuestionOrForeign(rawMessage, true) || updateRetryCount >= 2) {
+        if (useAi) {
+          step = "DONE";
+          data = clearUpdateRetry(data);
+        } else {
+          return {
+            reply: `Got it! I paused the name update so we can help you directly.\n\nReply *LEADS*, *PLANS*, *MY PROFILE*, or call Helpline *08062180653* (WhatsApp *+91 93191 93109*).`,
+            nextStep: "DONE",
+            updatedData: clearUpdateRetry(data),
+            retries: 0,
+            quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+          };
+        }
+      } else {
         return {
-          reply: `I understand your concern! You can speak directly with our coordinator team on Helpline *08062180653* (9 AM–7 PM) or WhatsApp support *+91 93191 93109*, or view active student inquiries directly on your portal: https://apnatutorhub.com/tutor/leads`,
-          nextStep: "DONE",
-          updatedData: data,
-          retries: 0,
-          quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+          reply: "Please enter a valid full name (letters only, up to 4 words):",
+          nextStep: "UPDATE_NAME",
+          updatedData: { ...data, _updateRetry: updateRetryCount },
+          retries: updateRetryCount,
+          quickReplies: ["Cancel"],
         };
       }
+    } else {
+      const saved = await syncUserCredentialsInDb({ phone: session.phone, name: newName });
       return {
-        reply: "Please enter a valid full name (letters only, up to 4 words):",
-        nextStep: "UPDATE_NAME",
-        updatedData: data,
+        reply: saved.updatedFields.includes("name") ? `Name updated: *${newName}* ✅` : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("name") ? clearUpdateRetry({ ...data, name: newName }) : clearUpdateRetry(data),
         retries: 0,
-        quickReplies: ["Cancel"],
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
       };
     }
-    const saved = await syncUserCredentialsInDb({ phone: session.phone, name: newName });
-    return {
-      reply: saved.updatedFields.includes("name") ? `Name updated: *${newName}* ✅` : profileNotSavedReply(),
-      nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("name") ? { ...data, name: newName } : data,
-      retries: 0,
-      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-    };
   }
 
   if (step === "UPDATE_EMAIL") {
-    const emailCheck = validateStrictEmail(extractStrictEmail(rawMessage) || rawMessage);
+    const extracted = extractStrictEmail(rawMessage);
+    const emailCheck = validateStrictEmail(extracted || rawMessage);
     if (!emailCheck.ok) {
+      if (looksLikeNonAnswerQuestionOrForeign(rawMessage) || updateRetryCount >= 2) {
+        if (useAi) {
+          step = "DONE";
+          data = clearUpdateRetry(data);
+        } else {
+          return {
+            reply: `Got it — we paused the email update so I can help you directly.\n\nWhenever you'd like to update it later, type *UPDATE EMAIL yourname@gmail.com*. Reply *LEADS*, *PLANS*, or *HELP* anytime!`,
+            nextStep: "DONE",
+            updatedData: clearUpdateRetry(data),
+            retries: 0,
+            quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+          };
+        }
+      } else {
+        return {
+          reply: `⚠️ ${emailCheck.reason}`,
+          nextStep: "UPDATE_EMAIL",
+          updatedData: { ...data, _updateRetry: updateRetryCount },
+          retries: updateRetryCount,
+          quickReplies: ["Cancel"],
+        };
+      }
+    } else {
+      const newEmail = emailCheck.email;
+      const saved = await syncUserCredentialsInDb({ phone: session.phone, email: newEmail });
       return {
-        reply: `⚠️ ${emailCheck.reason}`,
-        nextStep: "UPDATE_EMAIL",
-        updatedData: data,
+        reply: saved.updatedFields.includes("email")
+          ? `Email updated: *${newEmail}* ✅\n\nYou can log in here: https://apnatutorhub.com/login`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("email") ? clearUpdateRetry({ ...data, email: newEmail }) : clearUpdateRetry(data),
         retries: 0,
-        quickReplies: ["Cancel"],
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
       };
     }
-    const newEmail = emailCheck.email;
-    const saved = await syncUserCredentialsInDb({ phone: session.phone, email: newEmail });
-    return {
-      reply: saved.updatedFields.includes("email")
-        ? `Email updated: *${newEmail}* ✅\n\nYou can log in here: https://apnatutorhub.com/login`
-        : profileNotSavedReply(),
-      nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("email") ? { ...data, email: newEmail } : data,
-      retries: 0,
-      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-    };
   }
 
   if (step === "UPDATE_PASSWORD") {
     const newPass = rawMessage.trim();
-    if (newPass.length < 6) {
+    const isOffTopicPass = looksLikeNonAnswerQuestionOrForeign(newPass) || /\s/.test(newPass);
+    if (isOffTopicPass) {
+      if (useAi) {
+        step = "DONE";
+        data = clearUpdateRetry(data);
+      } else {
+        return {
+          reply: `I paused the password update instead of saving that message as a password.\n\nType *RESET PASSWORD* anytime for a temporary password, or ask your question directly!`,
+          nextStep: "DONE",
+          updatedData: clearUpdateRetry(data),
+          retries: 0,
+          quickReplies: ["Reset Password 🔑", "View Leads 📋", "Help 📞"],
+        };
+      }
+    } else if (newPass.length < 6) {
+      if (updateRetryCount >= 2) {
+        return {
+          reply: `No worries! We cancelled the password update. Type *UPDATE PASSWORD* anytime when you're ready.`,
+          nextStep: "DONE",
+          updatedData: clearUpdateRetry(data),
+          retries: 0,
+          quickReplies: ["My Profile 👤", "View Leads 📋"],
+        };
+      }
       return {
-        reply: "Password must be at least 6 characters long. Please enter a new password: 🔑",
+        reply: "Password must be at least 6 characters long (no spaces). Please enter a new password or type *Cancel*: 🔑",
         nextStep: "UPDATE_PASSWORD",
-        updatedData: data,
+        updatedData: { ...data, _updateRetry: updateRetryCount },
+        retries: updateRetryCount,
+        quickReplies: ["Cancel"],
+      };
+    } else {
+      const saved = await syncUserCredentialsInDb({ phone: session.phone, password: newPass });
+      const userEmail = (data.email as string) || "your registered login";
+      return {
+        reply: saved.updatedFields.includes("password")
+          ? `Password updated successfully! 🔒\n\nYou can now log in using *${userEmail}* and your new password:\nhttps://apnatutorhub.com/login`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("password") ? clearUpdateRetry({ ...data, password: newPass }) : clearUpdateRetry(data),
         retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
       };
     }
-    const saved = await syncUserCredentialsInDb({ phone: session.phone, password: newPass });
-    const userEmail = (data.email as string) || "your email";
-    return {
-      reply: saved.updatedFields.includes("password")
-        ? `Password updated successfully! 🔒\n\nYou can now log in using your email (*${userEmail}*) and new password:\nhttps://apnatutorhub.com/login`
-        : profileNotSavedReply(),
-      nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("password") ? { ...data, password: newPass } : data,
-      retries: 0,
-      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-    };
   }
 
   if (step === "UPDATE_SUBJECTS") {
@@ -3227,50 +3303,66 @@ export async function processMessage(
       return {
         reply: strict.errorPrompt,
         nextStep: "UPDATE_SUBJECTS",
-        updatedData: data,
-        retries: 0,
+        updatedData: { ...data, _updateRetry: updateRetryCount },
+        retries: updateRetryCount,
         quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
       };
     }
     if (!strict.ok || strict.subjects.length === 0) {
+      if (strict.pendingBaseSubjects.length === 0 && (looksLikeNonAnswerQuestionOrForeign(rawMessage, true) || updateRetryCount >= 2)) {
+        if (useAi) {
+          step = "DONE";
+          data = clearUpdateRetry(data);
+        } else {
+          return {
+            reply: `I paused the subject update so I can help with your question. Whenever you're ready, type *UPDATE SUBJECTS Class 9-10 Maths & Science* (or ask about *LEADS* / *PLANS*)!`,
+            nextStep: "DONE",
+            updatedData: clearUpdateRetry(data),
+            retries: 0,
+            quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+          };
+        }
+      } else {
+        return {
+          reply:
+            strict.pendingBaseSubjects.length > 0
+              ? `Got *${strict.pendingBaseSubjects.join(", ")}*! Which classes do you teach? (For example: *Class 1–8*, *Class 9–10*, or *Class 11–12*)`
+              : `Please share both your *classes and subjects* (for example: *Class 1-8 All Subjects*, *Class 9-10 Maths & Science*, or *Class 11-12 Chemistry*):`,
+          nextStep: strict.pendingBaseSubjects.length > 0 ? "UPDATE_CLASS" : "UPDATE_SUBJECTS",
+          updatedData:
+            strict.pendingBaseSubjects.length > 0
+              ? clearUpdateRetry({ ...data, pendingBaseSubjects: strict.pendingBaseSubjects })
+              : { ...data, _updateRetry: updateRetryCount },
+          retries: updateRetryCount,
+          quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
+        };
+      }
+    } else {
+      const saved = await syncUserCredentialsInDb({
+        phone: session.phone,
+        subjects: strict.subjects,
+        classLevels: strict.classLevels.length > 0 ? strict.classLevels : undefined,
+        mergeSubjects: wantsAdd,
+        mergeClasses: wantsAdd,
+      });
+      const outSubs = saved.finalSubjects?.length ? saved.finalSubjects : strict.subjects;
+      const outCls = saved.finalClassLevels?.length ? saved.finalClassLevels : strict.classLevels;
       return {
-        reply:
-          strict.pendingBaseSubjects.length > 0
-            ? `Got *${strict.pendingBaseSubjects.join(", ")}*! Which classes do you teach? (For example: *Class 1–8*, *Class 9–10*, or *Class 11–12*)`
-            : `Please share both your *classes and subjects* (for example: *Class 1-8 All Subjects*, *Class 9-10 Maths & Science*, or *Class 11-12 Chemistry*):`,
-        nextStep: strict.pendingBaseSubjects.length > 0 ? "UPDATE_CLASS" : "UPDATE_SUBJECTS",
-        updatedData:
-          strict.pendingBaseSubjects.length > 0
-            ? { ...data, pendingBaseSubjects: strict.pendingBaseSubjects }
-            : data,
+        reply: saved.updatedFields.includes("subjects")
+          ? `Subjects updated: *${outSubs.join(", ")}*${outCls.length > 0 ? ` (Classes: *${outCls.join(", ")}*)` : ""} ✅`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("subjects")
+          ? clearUpdateRetry({
+            ...data,
+            subjects: outSubs,
+            ...(outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
+          })
+          : clearUpdateRetry(data),
         retries: 0,
-        quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
       };
     }
-    const saved = await syncUserCredentialsInDb({
-      phone: session.phone,
-      subjects: strict.subjects,
-      classLevels: strict.classLevels.length > 0 ? strict.classLevels : undefined,
-      mergeSubjects: wantsAdd,
-      mergeClasses: wantsAdd,
-    });
-    const outSubs = saved.finalSubjects?.length ? saved.finalSubjects : strict.subjects;
-    const outCls = saved.finalClassLevels?.length ? saved.finalClassLevels : strict.classLevels;
-    return {
-      reply: saved.updatedFields.includes("subjects")
-        ? `Subjects updated: *${outSubs.join(", ")}*${outCls.length > 0 ? ` (Classes: *${outCls.join(", ")}*)` : ""} ✅`
-        : profileNotSavedReply(),
-      nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("subjects")
-        ? {
-          ...data,
-          subjects: outSubs,
-          ...(outCls.length > 0 ? { classLevels: outCls, classLevel: outCls[0] } : {}),
-        }
-        : data,
-      retries: 0,
-      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-    };
   }
 
   if (step === "UPDATE_CLASS") {
@@ -3278,114 +3370,161 @@ export async function processMessage(
     const fallbackSingle = normalizeCanonicalClassLevel(rawMessage.trim());
     const targetClsList = parsedCls.labels.length > 0 ? parsedCls.labels : fallbackSingle ? [fallbackSingle] : [];
     if (targetClsList.length === 0) {
-      return {
-        reply: "Which classes do you teach? For example: *Class 1–8*, *Class 9–10*, or *Class 11–12*.",
-        nextStep: "UPDATE_CLASS",
-        updatedData: data,
-        retries: 0,
-        quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
-      };
-    }
-    const pendingSubs = Array.isArray(data.pendingBaseSubjects)
-      ? (data.pendingBaseSubjects as string[])
-      : Array.isArray(data.subjects)
-        ? (data.subjects as string[])
-        : [];
-    const strictFromPending = enforceStrictEducation({
-      subjectsInput: pendingSubs,
-      classesInput: targetClsList,
-    });
-    if (strictFromPending.errorPrompt) {
-      return {
-        reply: strictFromPending.errorPrompt,
-        nextStep: "UPDATE_SUBJECTS",
-        updatedData: { ...data, classLevels: targetClsList, classLevel: targetClsList[0] },
-        retries: 0,
-        quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
-      };
-    }
-    const saved = await syncUserCredentialsInDb({
-      phone: session.phone,
-      classLevels: strictFromPending.classLevels.length ? strictFromPending.classLevels : targetClsList,
-      subjects: strictFromPending.subjects.length ? strictFromPending.subjects : undefined,
-    });
-    const outCls = saved.finalClassLevels?.length ? saved.finalClassLevels : targetClsList;
-    const outSubs = saved.finalSubjects?.length ? saved.finalSubjects : undefined;
-    return {
-      reply: saved.updatedFields.includes("class")
-        ? `Classes updated: *${outCls.join(", ")}*${outSubs ? `\nSubjects: *${outSubs.join(", ")}*` : ""} ✅`
-        : profileNotSavedReply(),
-      nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("class")
-        ? {
-          ...data,
-          classLevel: outCls[0],
-          classLevels: outCls,
-          ...(outSubs ? { subjects: outSubs } : {}),
-          pendingBaseSubjects: undefined,
+      if (looksLikeNonAnswerQuestionOrForeign(rawMessage, true) || updateRetryCount >= 2) {
+        if (useAi) {
+          step = "DONE";
+          data = clearUpdateRetry(data);
+        } else {
+          return {
+            reply: `I paused the class update so we can help with your query. Type *UPDATE CLASS Class 9-10* anytime, or browse *LEADS* / *PLANS*!`,
+            nextStep: "DONE",
+            updatedData: clearUpdateRetry(data),
+            retries: 0,
+            quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+          };
         }
-        : data,
-      retries: 0,
-      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-    };
+      } else {
+        return {
+          reply: "Which classes do you teach? For example: *Class 1–8*, *Class 9–10*, or *Class 11–12*.",
+          nextStep: "UPDATE_CLASS",
+          updatedData: { ...data, _updateRetry: updateRetryCount },
+          retries: updateRetryCount,
+          quickReplies: ["Class 1-8", "Class 9-10", "Class 11-12", "Cancel"],
+        };
+      }
+    } else {
+      const pendingSubs = Array.isArray(data.pendingBaseSubjects)
+        ? (data.pendingBaseSubjects as string[])
+        : Array.isArray(data.subjects)
+          ? (data.subjects as string[])
+          : [];
+      const strictFromPending = enforceStrictEducation({
+        subjectsInput: pendingSubs,
+        classesInput: targetClsList,
+      });
+      if (strictFromPending.errorPrompt) {
+        return {
+          reply: strictFromPending.errorPrompt,
+          nextStep: "UPDATE_SUBJECTS",
+          updatedData: clearUpdateRetry({ ...data, classLevels: targetClsList, classLevel: targetClsList[0] }),
+          retries: 0,
+          quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Physics (11-12)", "Cancel"],
+        };
+      }
+      const saved = await syncUserCredentialsInDb({
+        phone: session.phone,
+        classLevels: strictFromPending.classLevels.length ? strictFromPending.classLevels : targetClsList,
+        subjects: strictFromPending.subjects.length ? strictFromPending.subjects : undefined,
+      });
+      const outCls = saved.finalClassLevels?.length ? saved.finalClassLevels : targetClsList;
+      const outSubs = saved.finalSubjects?.length ? saved.finalSubjects : undefined;
+      return {
+        reply: saved.updatedFields.includes("class")
+          ? `Classes updated: *${outCls.join(", ")}*${outSubs ? `\nSubjects: *${outSubs.join(", ")}*` : ""} ✅`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("class")
+          ? clearUpdateRetry({
+            ...data,
+            classLevel: outCls[0],
+            classLevels: outCls,
+            ...(outSubs ? { subjects: outSubs } : {}),
+            pendingBaseSubjects: undefined,
+          })
+          : clearUpdateRetry(data),
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+      };
+    }
   }
 
   if (step === "UPDATE_AREA") {
     if (/\b(password|passwd|email)\b/i.test(rawMessage) && !/\b(nagar|vihar|sector|colony)\b/i.test(rawMessage)) {
       if (/\bpassword\b/i.test(rawMessage)) {
-        return { reply: "Please enter your new password (at least 6 characters):", nextStep: "UPDATE_PASSWORD", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+        return { reply: "Please enter your new password (at least 6 characters):", nextStep: "UPDATE_PASSWORD", updatedData: clearUpdateRetry(data), retries: 0, quickReplies: ["Cancel"] };
       }
-      return { reply: "Please enter your new email address:", nextStep: "UPDATE_EMAIL", updatedData: data, retries: 0, quickReplies: ["Cancel"] };
+      return { reply: "Please enter your new email address:", nextStep: "UPDATE_EMAIL", updatedData: clearUpdateRetry(data), retries: 0, quickReplies: ["Cancel"] };
     }
     if (/\bsubjects?\b/i.test(rawMessage)) {
-      return { reply: "Which subjects and classes do you teach? For example: *Class 1-8 All Subjects* or *Class 9-10 Maths & Science*.", nextStep: "UPDATE_SUBJECTS", updatedData: data, retries: 0, quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Cancel"] };
+      return { reply: "Which subjects and classes do you teach? For example: *Class 1-8 All Subjects* or *Class 9-10 Maths & Science*.", nextStep: "UPDATE_SUBJECTS", updatedData: clearUpdateRetry(data), retries: 0, quickReplies: ["All Subjects (Class 1-8)", "Maths & Science (9-10)", "Cancel"] };
     }
     if (/\bfees?\b|\bbudget\b|\bkam hai\b/i.test(rawMessage)) {
       return {
         reply: "Noted! You'll be matched with leads offering competitive rates (Class 1–8 monthly ₹6,000+ All Subjects, Class 9–12 hourly ₹700+ subject-specific).",
         nextStep: "DONE",
-        updatedData: data,
+        updatedData: clearUpdateRetry(data),
         retries: 0,
         quickReplies: ["View Leads 📋", "My Profile 👤"],
       };
     }
     const loc = validateAndCleanLocality(rawMessage.trim(), (data.city as string) || undefined, true);
     if (!loc.isValid || sameLocality(loc.area, loc.city)) {
+      if (looksLikeNonAnswerQuestionOrForeign(rawMessage, true) || updateRetryCount >= 2) {
+        if (useAi) {
+          step = "DONE";
+          data = clearUpdateRetry(data);
+        } else {
+          return {
+            reply: `No problem — I paused the location update so I can help directly. Reply *UPDATE AREA Rohini Delhi* anytime, or ask about *LEADS* or *PLANS*!`,
+            nextStep: "DONE",
+            updatedData: clearUpdateRetry(data),
+            retries: 0,
+            quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+          };
+        }
+      } else {
+        return {
+          reply: loc.errorPrompt || "Please enter a valid locality and city — for example: *Saket Delhi*, *Indirapuram*, *Bandra Mumbai*, or *HSR Layout Bangalore*. 📍",
+          nextStep: "UPDATE_AREA",
+          updatedData: { ...data, _updateRetry: updateRetryCount },
+          userType: "TUTOR",
+          retries: updateRetryCount,
+          quickReplies: [...getLocalitiesQuickReplies((data.city as string) || undefined), "Cancel"],
+        };
+      }
+    } else {
+      const saved = await syncUserCredentialsInDb({
+        phone: session.phone,
+        area: loc.area,
+        city: loc.city,
+      });
       return {
-        reply: loc.errorPrompt || "Please enter a valid locality and city — for example: *Saket Delhi*, *Indirapuram*, *Bandra Mumbai*, or *HSR Layout Bangalore*. 📍",
-        nextStep: "UPDATE_AREA",
-        updatedData: data,
-        userType: "TUTOR",
+        reply: saved.updatedFields.includes("area")
+          ? `Location updated: *${loc.area}, ${loc.city}* 📍\n\nYou'll now receive matching home tuition leads within 5 km of this area.`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("area") ? clearUpdateRetry({ ...data, area: loc.area, city: loc.city }) : clearUpdateRetry(data),
         retries: 0,
-        quickReplies: [...getLocalitiesQuickReplies((data.city as string) || undefined), "Cancel"],
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
       };
     }
-    const saved = await syncUserCredentialsInDb({
-      phone: session.phone,
-      area: loc.area,
-      city: loc.city,
-    });
-    return {
-      reply: saved.updatedFields.includes("area")
-        ? `Location updated: *${loc.area}, ${loc.city}* 📍\n\nYou'll now receive matching home tuition leads within 5 km of this area.`
-        : profileNotSavedReply(),
-      nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("area") ? { ...data, area: loc.area, city: loc.city } : data,
-      retries: 0,
-      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-    };
   }
 
   if (step === "UPDATE_PHONE") {
     const phoneMatch = rawMessage.match(/([6-9]\d{9})/);
-    const newPhone = phoneMatch ? phoneMatch[1] : rawMessage.trim();
-    return {
-      reply: `Phone update request noted: *${newPhone}* 📱\n\nFor security verification, please message us directly from your new WhatsApp number.`,
-      nextStep: "DONE",
-      updatedData: { ...data, phone: newPhone },
-      retries: 0,
-      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-    };
+    if (!phoneMatch && (looksLikeNonAnswerQuestionOrForeign(rawMessage, true) || updateRetryCount >= 2)) {
+      if (useAi) {
+        step = "DONE";
+        data = clearUpdateRetry(data);
+      } else {
+        return {
+          reply: `Cancelled phone update. Let me know how I can help — reply *LEADS*, *PLANS*, or *HELP*!`,
+          nextStep: "DONE",
+          updatedData: clearUpdateRetry(data),
+          retries: 0,
+          quickReplies: ["View Leads 📋", "Help 📞"],
+        };
+      }
+    } else {
+      const newPhone = phoneMatch ? phoneMatch[1] : rawMessage.trim();
+      return {
+        reply: `Phone update request noted: *${newPhone}* 📱\n\nFor security verification, please message us directly from your new WhatsApp number.`,
+        nextStep: "DONE",
+        updatedData: clearUpdateRetry({ ...data, phone: newPhone }),
+        retries: 0,
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
+      };
+    }
   }
 
   if (step === "UPDATE_MODE") {
@@ -3395,25 +3534,41 @@ export async function processMessage(
     else if (/\b(both|dono|either)\b/i.test(rawMessage)) mode = "EITHER";
 
     if (!mode) {
+      if (looksLikeNonAnswerQuestionOrForeign(rawMessage, true) || updateRetryCount >= 2) {
+        if (useAi) {
+          step = "DONE";
+          data = clearUpdateRetry(data);
+        } else {
+          return {
+            reply: `I paused the teaching-mode update so I can help directly. Reply *UPDATE MODE Online* / *Offline* / *Both* anytime!`,
+            nextStep: "DONE",
+            updatedData: clearUpdateRetry(data),
+            retries: 0,
+            quickReplies: ["View Leads 📋", "View Plans 💰", "Help 📞"],
+          };
+        }
+      } else {
+        return {
+          reply: "Please choose a valid teaching mode:\n• *Online* (Pan-India)\n• *Offline* (Home Tuition)\n• *Both* (Online + Offline)",
+          nextStep: "UPDATE_MODE",
+          updatedData: { ...data, _updateRetry: updateRetryCount },
+          retries: updateRetryCount,
+          quickReplies: ["Online 💻", "Offline 🏠", "Both 🌐", "Cancel"],
+        };
+      }
+    } else {
+      const saved = await syncUserCredentialsInDb({ phone: session.phone, mode });
       return {
-        reply: "Please choose a valid teaching mode:\n• *Online* (Pan-India)\n• *Offline* (Home Tuition)\n• *Both* (Online + Offline)",
-        nextStep: "UPDATE_MODE",
-        updatedData: data,
+        reply: saved.updatedFields.includes("mode")
+          ? `Teaching mode updated: *${mode === "ONLINE" ? "Online (Pan-India) 💻" : mode === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Online + Offline 🌐"}* ✅`
+          : profileNotSavedReply(),
+        nextStep: "DONE",
+        updatedData: saved.updatedFields.includes("mode") ? clearUpdateRetry({ ...data, mode }) : clearUpdateRetry(data),
+        userType: "TUTOR",
         retries: 0,
-        quickReplies: ["Online 💻", "Offline 🏠", "Both 🌐", "Cancel"],
+        quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
       };
     }
-    const saved = await syncUserCredentialsInDb({ phone: session.phone, mode });
-    return {
-      reply: saved.updatedFields.includes("mode")
-        ? `Teaching mode updated: *${mode === "ONLINE" ? "Online (Pan-India) 💻" : mode === "OFFLINE" ? "Offline (Home Tuition) 🏠" : "Online + Offline 🌐"}* ✅`
-        : profileNotSavedReply(),
-      nextStep: "DONE",
-      updatedData: saved.updatedFields.includes("mode") ? { ...data, mode } : data,
-      userType: "TUTOR",
-      retries: 0,
-      quickReplies: ["My Profile 👤", "View Leads 📋", "MENU"],
-    };
   }
 
   // ── Single Inquiry / Lead Unlock Shortcut (explicit #LeadID or bare ID in DONE) ──
@@ -4539,7 +4694,7 @@ export async function processMessage(
             };
           }
 
-          // If we are at T_NAME step, accept the name from the current message
+          // If we are at T_NAME step, accept the name from the current message (strip wrappers; never loop forever)
           if (session.step === "T_NAME") {
             const rawEmailInName = rawMessage.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,12}/);
             if (rawEmailInName) {
@@ -4566,24 +4721,42 @@ export async function processMessage(
               };
             }
 
-            const nameCandidate = rawMessage.trim();
+            const nameCandidate = rawMessage
+              .trim()
+              .replace(/^(?:my\s+name\s+is|i\s+am|i'm|i\s+m|myself|this\s+is|mera\s+naa?m(?:\s+hai)?)\s+/i, "")
+              .replace(/\s+hai$/i, "")
+              .trim();
             if (!isValidName(nameCandidate)) {
-              const typed = nameCandidate.slice(0, 25);
-              const reason = /\d/.test(nameCandidate)
-                ? `"*${typed}*" contains numbers — please enter letters only.`
-                : nameCandidate.length < 2
-                  ? `That name looks too short.`
-                  : `"*${typed}*" does not look like a valid full name.`;
-              return {
-                reply: `⚠️ ${reason}\n\n👤 Please type your *full name* (for example: *Priya Sharma* or *Rahul Gupta*):`,
-                nextStep: "T_NAME",
-                updatedData: mergedData,
-                userType: "TUTOR",
-                retries: session.retries + 1,
-                quickReplies: [],
-              };
+              if ((session.retries || 0) >= 2 || /\?|\b(fees?|plan|plans|lead|leads|help|call|support)\b/i.test(rawMessage)) {
+                if (ai.reply && !containsHindiOrHinglishSlip(ai.reply)) {
+                  return {
+                    reply: ai.reply,
+                    nextStep: "T_CONVO",
+                    updatedData: mergedData,
+                    userType: "TUTOR",
+                    retries: 0,
+                    quickReplies: ai.quickReplies?.length ? ai.quickReplies : ["View Leads 📋", "Help 📞"],
+                  };
+                }
+              } else {
+                const typed = nameCandidate.slice(0, 25);
+                const reason = /\d/.test(nameCandidate)
+                  ? `"*${typed}*" contains numbers — please enter letters only.`
+                  : nameCandidate.length < 2
+                    ? `That name looks too short.`
+                    : `"*${typed}*" does not look like a valid full name.`;
+                return {
+                  reply: `⚠️ ${reason}\n\n👤 Please type your *full name* (for example: *Priya Sharma* or *Rahul Gupta*):`,
+                  nextStep: "T_NAME",
+                  updatedData: mergedData,
+                  userType: "TUTOR",
+                  retries: (session.retries || 0) + 1,
+                  quickReplies: [],
+                };
+              }
+            } else {
+              mergedData.name = nameCandidate;
             }
-            mergedData.name = nameCandidate;
           }
 
           const resolvedTutorName = (mergedData.name as string) || "";
@@ -4733,9 +4906,30 @@ export async function processMessage(
           if (session.step === "T_PASSWORD") {
             const rawTrim = rawMessage.trim();
             const isDefaultChoice = /default|skip|12345678|nahi|no|set 12345678|dont\s*know|pata\s*nahi|forgot|bhool/i.test(rawTrim);
+            const looksOffScript =
+              /[?？]|[^\u0000-\u007F]/.test(rawTrim) ||
+              /\s/.test(rawTrim) ||
+              /\b(fees?|plan|plans|lead|leads|coin|coins|wallet|help|support|call|how|what|why|when|where|which|who|kya|kaise|kitna|kitne|batao|trust|scam|fake|refund)\b/i.test(rawTrim);
             if (isDefaultChoice) {
               mergedData.password = "12345678";
               mergedData._usedDefaultPassword = true;
+            } else if (looksOffScript) {
+              if ((session.retries || 0) >= 2) {
+                mergedData.password = "12345678";
+                mergedData._usedDefaultPassword = true;
+              } else {
+                const helpMsg = ai.reply && !containsHindiOrHinglishSlip(ai.reply)
+                  ? ai.reply
+                  : `I'm happy to help with that! You can review plans at https://apnatutorhub.com/tutor/plans or call Helpline *08062180653*.`;
+                return {
+                  reply: `${helpMsg}\n\n🔐 Whenever you're ready, enter a 6+ character password (no spaces) or reply *default* to finish setup:`,
+                  nextStep: "T_PASSWORD",
+                  updatedData: { ...mergedData, password: undefined },
+                  userType: "TUTOR",
+                  retries: (session.retries || 0) + 1,
+                  quickReplies: ["Default Password", "12345678"],
+                };
+              }
             } else if (rawTrim.length >= 6) {
               mergedData.password = rawTrim;
             } else {
@@ -4744,7 +4938,7 @@ export async function processMessage(
                 nextStep: "T_PASSWORD",
                 updatedData: { ...mergedData, password: undefined },
                 userType: "TUTOR",
-                retries: 0,
+                retries: (session.retries || 0) + 1,
                 quickReplies: ["Default Password", "12345678"],
               };
             }
@@ -5431,10 +5625,24 @@ export async function processMessage(
       };
     }
 
-    // If currently at T_NAME step, validate and save the name
+    // If currently at T_NAME step, validate and save the name (strip wrappers; never loop forever)
     if (session.step === "T_NAME") {
-      const nameCandidate = rawMessage.trim();
+      const nameCandidate = rawMessage
+        .trim()
+        .replace(/^(?:my\s+name\s+is|i\s+am|i'm|i\s+m|myself|this\s+is|mera\s+naa?m(?:\s+hai)?)\s+/i, "")
+        .replace(/\s+hai$/i, "")
+        .trim();
       if (!isValidName(nameCandidate)) {
+        if ((session.retries || 0) >= 2 || /[?？]|[^\u0000-\u007F]/.test(rawMessage) || /\b(fees?|plan|plans|lead|leads|help|call|support)\b/i.test(rawMessage)) {
+          return {
+            reply: `No worries! Let's help you right away — ask any question about leads or plans, or share your classes, subjects, and locality anytime.\n\nHelpline: *08062180653* | WhatsApp Support: +91 93191 93109`,
+            nextStep: "T_CONVO",
+            updatedData: updated,
+            userType: "TUTOR",
+            retries: 0,
+            quickReplies: ["All Subjects, Class 1-8", "View Plans 💰", "Help 📞"],
+          };
+        }
         const typed = nameCandidate.slice(0, 25);
         const reason = /\d/.test(nameCandidate)
           ? `"*${typed}*" contains numbers — please enter letters only.`
@@ -5446,7 +5654,7 @@ export async function processMessage(
           nextStep: "T_NAME",
           updatedData: updated,
           userType: "TUTOR",
-          retries: session.retries + 1,
+          retries: (session.retries || 0) + 1,
           quickReplies: [],
         };
       }
@@ -5539,16 +5747,34 @@ export async function processMessage(
     }
 
     if (step === "T_PASSWORD") {
+      const looksOffScript =
+        /[?？]|[^\u0000-\u007F]/.test(trimmed) ||
+        /\s/.test(trimmed) ||
+        /\b(fees?|plan|plans|lead|leads|coin|coins|wallet|help|support|call|how|what|why|when|where|which|who|kya|kaise|kitna|kitne|batao|trust|scam|fake|refund)\b/i.test(trimmed);
       if (/default|skip|12345678|nahi|no|dont\s*know|pata\s*nahi|forgot|bhool/i.test(pwdStr)) {
         updated.password = "12345678";
         updated._usedDefaultPassword = true;
+      } else if (looksOffScript) {
+        if ((session.retries || 0) >= 2) {
+          updated.password = "12345678";
+          updated._usedDefaultPassword = true;
+        } else {
+          return {
+            reply: `Got it! For plans & fee details visit https://apnatutorhub.com/tutor/plans (or call Helpline *08062180653*).\n\n🔐 Whenever you're ready, enter a 6+ character password (no spaces) or reply *default*:`,
+            nextStep: "T_PASSWORD",
+            updatedData: { ...updated, password: undefined },
+            userType: "TUTOR",
+            retries: (session.retries || 0) + 1,
+            quickReplies: ["Default Password", "12345678"],
+          };
+        }
       } else if (pwdStr.length < 6) {
         return {
-          reply: `⚠️ Password must be at least 6 characters long.\n\n🔐 Please enter a valid password or reply *default*:`,
+          reply: `⚠️ Password must be at least 6 characters long (no spaces).\n\n🔐 Please enter a valid password or reply *default*:`,
           nextStep: "T_PASSWORD",
           updatedData: { ...updated, password: undefined },
           userType: "TUTOR",
-          retries: 0,
+          retries: (session.retries || 0) + 1,
           quickReplies: ["Default Password", "12345678"],
         };
       }
@@ -5580,7 +5806,7 @@ export async function processMessage(
     updated._registered = true;
     updated.lang = "en";
 
-    const loginLine2 = `📧 ${emailToUse || waPlaceholderEmail(session.phone)} | 📱 ${phoneToUse}`;
+    const loginLine2 = emailToUse ? `📧 ${emailToUse} | 📱 ${phoneToUse}` : `📱 ${phoneToUse}`;
     const pwdNote2 = usedDefault
       ? `\n🔑 Default password: *12345678* (you can update it after logging in at https://apnatutorhub.com/login)`
       : ``;

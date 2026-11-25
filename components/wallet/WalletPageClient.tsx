@@ -407,7 +407,8 @@ export function WalletPageClient({
               <h2 className="text-base font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
                 Coin Cost Guide
               </h2>
-              <p className="text-xs text-gray-600 font-600">Universal platform rates — lead unlock cost corresponds to a fair ~5% of one month&apos;s student fee</p>
+              <p className="text-xs text-gray-600 font-600">Fixed rates by class — 10 coins for Class 1–8, 20 for Class 9–10, 30 for Class 11–12 / entrance.</p>
+              <p className="text-[11px] font-700 text-emerald-800 mt-1">₹1,257 plan = 60 coins → 6 primary unlocks OR 3 secondary OR 2 senior, or any mix.</p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">

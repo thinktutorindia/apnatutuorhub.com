@@ -417,9 +417,8 @@ function LeadCard({
     subscriptionInfo?.remainingPoints ??
     (subscriptionInfo?.quotaRemaining ?? 0) * 10;
   const hasActiveMembership = Boolean(subscriptionInfo?.hasActivePlan);
-  const unlockViaMembershipPoints = Boolean(
-    hasActiveMembership && remainingPoints >= planPointCost
-  );
+  // Membership credits coins to the wallet; it never makes an unlock free.
+  const unlockViaMembershipPoints = false;
 
   const timeInfo = formatPostTime(lead.createdAt, lead.id);
 
@@ -1355,7 +1354,7 @@ export function LeadFeedClient({
           )}
         </div>
       ) : (
-        <div className="grid gap-5 grid-cols-1 2xl:grid-cols-3">
+        <div className="grid gap-5 grid-cols-1">
           {filtered.map((lead) => (
             <LeadCard
               key={lead.id}

@@ -23,6 +23,7 @@ import { useSeniorTutor, translateClass, translateSubject, formatFeeDisplay } fr
 import { purchaseLeadAction } from "@/app/actions/leads.actions";
 import { cleanClassLevelDisplay, sanitizeSubjectsForClassLevel } from "@/lib/dummy-campaign-types";
 import { formatLeadBudget } from "@/lib/lead-utils";
+import { getLeadPointCost } from "@/lib/subscription-plans";
 import { StartChatButton } from "@/components/chat/StartChatButton";
 import { RequestLeadRefundButton } from "@/components/tutor/RequestLeadRefundButton";
 
@@ -136,8 +137,11 @@ export function SeniorDashboardClient({
     speak(text);
   };
 
+  const costForLead = (lead: SeniorLeadItem) =>
+    getLeadPointCost(lead.classLevel, lead.budgetMin, lead.budgetMax);
+
   const handleOpenUnlockConfirm = (lead: SeniorLeadItem) => {
-    if (!isSubscriptionActive && walletBalance < 10) {
+    if (walletBalance < costForLead(lead)) {
       showFeedback(
         lang === "hi"
           ? "फ़ोन नंबर देखने के लिए कम से कम 10 कॉइन्स आवश्यक हैं। कॉइन्स जोड़ें।"
@@ -163,10 +167,8 @@ export function SeniorDashboardClient({
 
       const parentContact = res.data.parentContact;
       const purchaseId = res.data.purchaseId;
-      // Deduct coins if not on unlimited plan
-      if (!isSubscriptionActive) {
-        setWalletBalance((prev) => Math.max(0, prev - 10));
-      }
+      // Membership credits coins to the wallet; every unlock still costs coins.
+      setWalletBalance((prev) => Math.max(0, prev - costForLead(pendingUnlockLead)));
       setUnlockedCount((prev) => prev + 1);
 
       // Update lead in local state
@@ -564,9 +566,7 @@ return (
       >
         <Phone size={17} className="shrink-0" />
         <span>
-          {isSubscriptionActive
-            ? t("seeParentPhonePlanBtn")
-            : t("seePhoneBtn")}
+          {t("seePhoneBtn")}
         </span>
       </button>
     </div>
@@ -605,9 +605,7 @@ return (
         </div>
 
         <p className="text-slate-700 font-medium text-sm sm:text-base">
-          {isSubscriptionActive
-            ? t("usePlanCreditModalText")
-            : t("confirmExplainText")}
+          {t("confirmExplainText")}
         </p>
 
         {/* Selected Inquiry & Visual Coin Math Breakdown */}
@@ -633,7 +631,7 @@ return (
             <div className="flex justify-between font-bold text-slate-700">
               <span>{t("mathCurrentLabel")}</span>
               <span>
-                {isSubscriptionActive ? t("activeMembershipLeads") : `${walletBalance} ${t("coinsBadge")}`}
+                `${walletBalance} ${t("coinsBadge")}`
               </span>
             </div>
             <div className="flex justify-between font-bold text-[#B45309]">
@@ -643,7 +641,7 @@ return (
             <div className="flex justify-between font-display font-black text-xl text-[#065F46] border-t border-[#E5DEC9] pt-2">
               <span>{t("mathRemainingLabel")}</span>
               <span>
-                {isSubscriptionActive ? t("membershipActive") : `${Math.max(0, walletBalance - 10)} ${t("coinsBadge")}`}
+                `${Math.max(0, walletBalance - costForLead(pendingUnlockLead))} ${t("coinsBadge")}`
               </span>
             </div>
           </div>
@@ -659,9 +657,7 @@ return (
           >
             {isUnlocking
               ? (lang === "hi" ? "अनलॉक हो रहा है…" : "Unlocking…")
-              : isSubscriptionActive
-                ? (lang === "hi" ? "हाँ, फ़ोन नंबर दिखाएं · प्लान में शामिल" : "Yes, Show Phone Number · Free with Plan")
-                : (lang === "hi" ? "हाँ, फ़ोन नंबर दिखाएं (10 कॉइन्स)" : "Yes, Show Phone Number")}
+              : (lang === "hi" ? "हाँ, फ़ोन नंबर दिखाएं" : "Yes, Show Phone Number")}
           </button>
           <button
             type="button"

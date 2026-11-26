@@ -3743,6 +3743,24 @@ export async function processMessage(
   // Always enforce English-only session language (never route to LANG_SELECT)
   data.lang = "en";
 
+  // Bare 1 / 2 is the role choice shown on the welcome card. In DONE or WELCOME
+  // state it must never be silently dropped — answer directly and keep the state.
+  const isBareRoleChoice = /^[12]$/.test(rawMessage.trim());
+  if (isBareRoleChoice && (step === "DONE" || data._registered === true || step === "WELCOME")) {
+    const wantsTutor = rawMessage.trim() === "1";
+    const cleanData: Record<string, any> = { ...data, lang: "en", userType: wantsTutor ? "TUTOR" : "PARENT" };
+    return {
+      reply: wantsTutor
+        ? "Namaste! 👋 Aap tutor ke liye student leads dekhna chahte hain. Yahan click karein: https://apnatutorhub.com/tutor/leads — koi help chahiye to yahin likhein."
+        : "Namaste! 👋 Aapko home ya online tutor chahiye? Child ki class, subjects aur area bhej dijiye — main verified tutor dhoondh kar bhej dungi. Helpline: +91 93191 93109",
+      nextStep: "DONE",
+      updatedData: cleanData,
+      userType: wantsTutor ? "TUTOR" : "PARENT",
+      retries: 0,
+      quickReplies: wantsTutor ? ["View Leads 📋", "My Profile 👤", "Help 📞"] : ["Need Tutor 🎓", "Talk to Coordinator 📞"],
+    };
+  }
+
   // Skip SPECIAL_COMMANDS intercept for active mid-flow steps where "hi"/"hello" is a wrong input,
   // UNLESS the session was idle (>15 mins), in which case "hi" is a returning greeting to start fresh.
   // CRITICAL: If the user is already registered (DONE state or _registered is true),

@@ -15,7 +15,9 @@ import type { Classification } from "../lib/whatsapp-bot/pipeline/classifier";
 const SRC = "exports/whatsapp_all_chats_2026-11-26.json";
 const OUT = "exports/offline_replay_report.json";
 
-type Msg = { atUTC: string; direction: string; body: string; from?: string; messageId?: string | null };
+type Msg = { atUTC: string; direction: string; body: string; from?: string; messageId?: string | null; step?: string | null };
+
+const OUTBOUND_TEMPLATE_RE = /^(?:\[(?:Tuition Enquiry|Photo|Document)|Welcome to \*ApnaTutorHub|Namaste! Aapki tuition enquiry|Requirement #|Hi! I'm Priya)/i;
 
 function fakeStore(initial: ProfileSnapshot) {
   const state = { snapshot: initial, updates: [] as ProfileFields[], rejects: [] as Array<{ field: string; input: string; reason: string }> };
@@ -38,7 +40,10 @@ async function main() {
 
   const decisions = { REPLY: 0, SILENT: 0 };
   const reasons: Record<string, number> = {};
+  const silenceTexts: Record<string, Record<string, number>> = {};
   const intents: Record<string, number> = {};
+  const samples: Array<{ phone: string; at: string; userMessage: string; pendingQuestion: string | null; newReply: string }> = [];
+  let skippedRows = 0;
   const examples: Record<string, unknown[]> = {
     silent: [], reply: [], stopped: [], reactions: [], autoReply: [], stuckAtEmail: [], mathsSaves: [], noDecision: [],
   };
@@ -59,26 +64,35 @@ async function main() {
     };
     const { store, state } = fakeStore(profile);
     const seenIds = new Set<string>();
-    const recentTexts: string[] = [];
+    const recentTexts: Array<{ text: string; at: string }> = [];
     let pendingField: string | undefined;
+    let pendingQuestion: string | null = null;
     let askCount = 0;
     let askedAt: Date | null = null;
 
     for (let i = 0; i < msgs.length; i += 1) {
       const msg = msgs[i];
       if (msg.direction === "OUTBOUND") {
-        recentTexts.push((msg.body ?? "").trim().toLowerCase());
+        recentTexts.push({ text: (msg.body ?? "").trim().toLowerCase(), at: msg.atUTC });
+        continue;
+      }
+      const text = msg.body ?? "";
+      if (msg.step === "AQUA_BACKFILL" || OUTBOUND_TEMPLATE_RE.test(text.trim())) {
+        skippedRows += 1;
         continue;
       }
       inboundCount += 1;
-      const text = msg.body ?? "";
-      const pre = evaluatePrefilter({ text, messageId: msg.messageId ?? null, seenMessageIds: seenIds, recentTexts });
+      const pre = evaluatePrefilter({ text, messageId: msg.messageId ?? null, seenMessageIds: seenIds, recentTexts, now: new Date(msg.atUTC), hasPendingQuestion: Boolean(pendingQuestion) });
       if (msg.messageId) seenIds.add(msg.messageId);
-      recentTexts.push(text.trim().toLowerCase());
+      recentTexts.push({ text: text.trim().toLowerCase(), at: msg.atUTC });
       reasons[pre.reason ?? "none"] = (reasons[pre.reason ?? "none"] ?? 0) + 1;
 
       if (pre.decision === "SILENT") {
         decisions.SILENT += 1;
+        const rk = pre.reason ?? "none";
+        silenceTexts[rk] ??= {};
+        const key = text.trim().slice(0, 120) || "(empty)";
+        silenceTexts[rk][key] = (silenceTexts[rk][key] ?? 0) + 1;
         const ex = { phone: user.phone, at: msg.atUTC, text: text.slice(0, 160), reason: pre.reason };
         if (pre.reason === "opt_out" && examples.stopped.length < 5) examples.stopped.push(ex);
         if (pre.reason === "reaction" && examples.reactions.length < 5) examples.reactions.push(ex);
@@ -90,7 +104,12 @@ async function main() {
       const c: Classification = await classify(text, { pendingField });
       intents[c.intent] = (intents[c.intent] ?? 0) + 1;
       const missing = computeMissing(state.snapshot);
-      const gate = await applySaveGate({ phone: user.phone, classification: c, store: fakeStore(state.snapshot).store });
+      const gate = await applySaveGate({
+        phone: user.phone,
+        classification: c,
+        store: fakeStore(state.snapshot).store,
+        source: { step: msg.step ?? null, direction: msg.direction, senderName: msg.from ?? null, body: text },
+      });
       if (gate.status === "SAVED") {
         savedEntries.push(...(gate.fields.subjects ?? []));
         if (c.extracted.classes_subjects && /\b(?:math|science|physics|chemistry|biology|9\s*(?:to|-)\s*12|10\s*(?:to|-)\s*12)\b/i.test(text) && examples.mathsSaves.length < 8) {
@@ -108,7 +127,17 @@ async function main() {
         askCount: dAsk(), askedAt,
       });
       function dAsk() { return askCount; }
-      if (d.shouldRecordAsk) { askCount += 1; askedAt = new Date(msg.atUTC); pendingField = d.askedField; }
+      if (d.shouldRecordAsk) {
+        askCount += 1; askedAt = new Date(msg.atUTC); pendingField = d.askedField;
+        pendingQuestion = d.reply.split("\n\n").at(-1) ?? null;
+      }
+      samples.push({
+        phone: user.phone,
+        at: msg.atUTC,
+        userMessage: text.slice(0, 300),
+        pendingQuestion,
+        newReply: d.reply.slice(0, 600),
+      });
       decisions.REPLY += 1;
       if (!d.reply.trim() && examples.noDecision.length < 8) examples.noDecision.push({ phone: user.phone, at: msg.atUTC, text: text.slice(0, 120) });
       if (examples.reply.length < 8) examples.reply.push({ phone: user.phone, text: text.slice(0, 100), reply: d.reply.slice(0, 180), reason: pre.reason });
@@ -119,7 +148,8 @@ async function main() {
         legacyDiff += 1;
         if (diffs.length < 10) diffs.push({ phone: user.phone, inbound: text.slice(0, 100), new: d.reply.slice(0, 140), legacy: actual.slice(0, 140) });
       }
-      if (/email/i.test(recentTexts[recentTexts.length - 1] ?? "") && !/[a-z0-9._%+-]+@/i.test(text) && examples.stuckAtEmail.length < 8) {
+      const previousOutbound = [...msgs.slice(0, i)].reverse().find((m) => m.direction === "OUTBOUND")?.body ?? "";
+      if (/email/i.test(previousOutbound) && !/[a-z0-9._%+-]+@/i.test(text) && examples.stuckAtEmail.length < 8) {
         examples.stuckAtEmail.push({ phone: user.phone, text: text.slice(0, 120) });
       }
     }
@@ -144,12 +174,22 @@ async function main() {
   const welcome207 = loops.filter((l) => /welcome|namaste|hello|hi!/i.test(l.text)).slice(0, 10);
   const loop2837 = loops.filter((l) => l.phone.includes("2837")).slice(0, 10);
 
+  const topSilenceTexts: Record<string, Array<{ text: string; count: number }>> = {};
+  for (const [reason, texts] of Object.entries(silenceTexts)) {
+    topSilenceTexts[reason] = Object.entries(texts)
+      .map(([text, count]) => ({ text, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
+  }
+
   const report = {
     generatedAt: new Date().toISOString(),
     source: SRC,
     inboundReplayed: inboundCount,
+    skippedRows,
     decisions,
     reasons,
+    topSilenceTexts,
     intents,
     legacyDiff,
     savedClassSubjectEntries: savedEntries.length,
@@ -162,12 +202,34 @@ async function main() {
   fs.mkdirSync("exports", { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(report, null, 2), "utf8");
 
+  // Readable 100-sample review file.
+  const step = Math.max(1, Math.floor(samples.length / 100));
+  const sample100 = samples.filter((_, idx) => idx % step === 0).slice(0, 100);
+  const md = [
+    "# Offline replay — sample new replies",
+    "",
+    `Generated ${new Date().toISOString()} · ${sample100.length} samples · deterministic fallback (no Gemini/Maps)`,
+    "",
+    ...sample100.flatMap((s, i) => [
+      `## ${i + 1}. ${s.phone} · ${s.at}`,
+      `**User:** ${JSON.stringify(s.userMessage)}`,
+      `**Pending question:** ${s.pendingQuestion ? JSON.stringify(s.pendingQuestion) : "none"}`,
+      `**New reply:**`,
+      "",
+      s.newReply,
+      "",
+    ]),
+  ].join("\n");
+  fs.writeFileSync("exports/offline_replay_sample_replies.md", md, "utf8");
+
   console.log(JSON.stringify({
     inboundReplayed: inboundCount,
+    skippedRows,
     decisions,
     topReasons: Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 8),
     topIntents: Object.entries(intents).sort((a, b) => b[1] - a[1]).slice(0, 8),
     legacyDiff,
+    topSilenceTexts: Object.fromEntries(Object.entries(topSilenceTexts).map(([k, v]) => [k, v.slice(0, 5)])),
     savedClassSubjectEntries: savedEntries.length,
     topLoop: loops[0],
     welcome207: welcome207.slice(0, 3),

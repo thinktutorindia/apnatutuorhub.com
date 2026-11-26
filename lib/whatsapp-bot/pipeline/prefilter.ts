@@ -18,17 +18,23 @@ const QUOTED_ALERT =
 const OPT_OUT =
   /\b(?:stop|unsubscribe|unsub|not interested|don't message|dont message|nahi chahiye|mat bhejo|msg mat karo|band karo)\b/i;
 const RE_SUBSCRIBE = /^(?:start|menu|hi|hello|halo)$/i;
-const BARE_ACK = /^(?:ok|okay|thanks|thank you|thx|👍|🙏|haan|han|ji)$/i;
+const BARE_ACK = /^(?:ok|okay|thanks|thank you|thx|👍|🙏)$/i;
+const AFFIRMATIVE = /^(?:yes|haan|han|ha|1|2|interested|i am interested|i'm interested|ready|confirm|haan ji)$/i;
+
+export type RecentText = { text: string; at?: Date | string };
+const DUPLICATE_WINDOW_MS = 5_000;
 
 export function evaluatePrefilter(input: {
   text: string;
   messageType?: string | null;
   messageId?: string | null;
   seenMessageIds?: Set<string>;
-  recentTexts?: string[];
+  recentTexts?: RecentText[];
   hasPendingQuestion?: boolean;
+  now?: Date;
 }): PrefilterDecision {
   const text = (input.text ?? "").trim();
+  const now = input.now ?? new Date();
 
   if (input.messageType === "reaction" || /^\[reaction(?::.*)?\]$/i.test(text)) {
     return { decision: "SILENT", reason: "reaction" };
@@ -36,10 +42,19 @@ export function evaluatePrefilter(input: {
   if (/^\[(?:status|read|delivered|sent|failed)(?::.*)?\]$/i.test(text)) {
     return { decision: "SILENT", reason: "status_event" };
   }
+  // Broadcast/pending replies are ALWAYS answered — never treated as noise.
+  if (AFFIRMATIVE.test(text)) {
+    return { decision: "REPLY", reason: "affirmative" };
+  }
   if (input.messageId && input.seenMessageIds?.has(input.messageId)) {
     return { decision: "SILENT", reason: "duplicate_message_id" };
   }
-  if (input.recentTexts?.some((t) => t.trim().toLowerCase() === text.toLowerCase() && text.length > 0)) {
+  const isRecentDuplicate = input.recentTexts?.some((entry) => {
+    if (entry.text.trim().toLowerCase() !== text.toLowerCase() || !text) return false;
+    if (!entry.at) return false; // no timestamp → cannot prove it is within the window
+    return now.getTime() - new Date(entry.at).getTime() <= DUPLICATE_WINDOW_MS;
+  });
+  if (isRecentDuplicate) {
     return { decision: "SILENT", reason: "duplicate_text" };
   }
   if (BUSINESS_AUTO_REPLY.test(text)) {

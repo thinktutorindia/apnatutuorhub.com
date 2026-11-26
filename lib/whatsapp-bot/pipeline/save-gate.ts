@@ -87,9 +87,22 @@ export async function applySaveGate(input: {
   pendingField?: string;
   /** true only when the user explicitly confirmed a change / yes-button. */
   confirmedChange?: boolean;
+  /** Provenance of the inbound row — backfills / staff / forwarded text can never save. */
+  source?: { step?: string | null; direction?: string; senderName?: string | null; body?: string };
 }): Promise<SaveGateResult> {
   const { classification: c, store, phone } = input;
   if (c.message_type !== "ANSWER_TO_PENDING" && c.message_type !== "PROFILE_INFO") return { status: "NO_SAVE" };
+
+  const src = input.source ?? {};
+  const step = (src.step ?? "").toUpperCase();
+  if (step === "AQUA_BACKFILL" || src.direction === "OUTBOUND" || /\bstaff\b/i.test(src.senderName ?? "")) {
+    await store.logReject({ phone, field: "source", input: (src.body ?? "").slice(0, 200), reason: "outbound_or_backfill_or_staff" });
+    return { status: "NO_SAVE" };
+  }
+  if (/\b(?:products?|download|try our|https?:\/\/|www\.|requirement\s*#|tuition enquiry|client:|forwarded|fwd:)\b/i.test(src.body ?? "")) {
+    await store.logReject({ phone, field: "source", input: (src.body ?? "").slice(0, 200), reason: "promo_or_forwarded" });
+    return { status: "NO_SAVE" };
+  }
 
   const current = await store.snapshot();
   const fields: ProfileFields = {};

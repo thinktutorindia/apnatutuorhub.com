@@ -61,11 +61,17 @@ function deterministic(text: string, pendingField?: string): Classification {
   let intent: Intent = "other";
   let type: MessageType = "UNCLEAR";
 
+  // Questions, broadcasts, forwards and promotions must never become profile writes.
+  const NOT_PROFILE =
+    /\?|\b(?:what|how|why|where|when|which|who|kya|kaise|kitna|kitne|kahan|fee|fees|price|free|plan|lead|leads|requirement|student|teacher|tutor|parent|looking|need|want|please|download|try our|products?|http|www\.|reply stop|client:|subject:|location:|budget:)\b|#\d{4,}/i.test(t);
+
   if (/^(?:stop|start|menu|help|hi|hello|manual reset|pay|activate|cancel)\b/i.test(t)) {
     type = "COMMAND";
+  } else if (/^(?:yes|haan|han|ha|1|2|interested|i am interested|i'm interested|ready|confirm)$/i.test(t)) {
+    type = "CHITCHAT"; intent = "interested";
   } else if (/fees?|free|price|kitna|kya\s*fee|payment/i.test(lower)) {
     type = "QUESTION"; intent = "fees";
-  } else if (/lead|student|requirement|enquiry/i.test(lower)) {
+  } else if (/lead|requirement|enquiry/i.test(lower)) {
     type = "QUESTION"; intent = "leads";
   } else if (/plan|commission|1257|2999/i.test(lower)) {
     type = "QUESTION"; intent = "plans";
@@ -79,33 +85,34 @@ function deterministic(text: string, pendingField?: string): Classification {
     type = "QUESTION"; intent = "where_from";
   } else if (/call me|human|coordinator|support/i.test(lower)) {
     type = "QUESTION"; intent = "human";
-  } else if (/interested|ready|haan/i.test(lower)) {
-    type = "CHITCHAT"; intent = "interested";
   } else if (/^(?:ok|okay|thanks|thank you|👍|🙏)$/i.test(t)) {
     type = "CHITCHAT";
   }
 
-  if (EMAIL_RE_HINT.test(t)) {
-    type = pendingField === "email" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
-    extracted.email = { value: t.trim(), confidence: 0.95 };
-    intent = "update";
-  } else if (/\b(class|grade|nursery|mathematics|physics|chemistry|biology|all subjects)\b/i.test(t) && /\d|nursery|kg/i.test(t)) {
-    type = pendingField === "classes_subjects" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
-    extracted.classes_subjects = { value: t.trim(), confidence: 0.9 };
-    intent = "update";
-  } else if (/\b(vihar|colony|sector|gali|marg|road|lane|near|nagar|delhi|noida|mumbai)\b/i.test(t)) {
-    type = pendingField === "location" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
-    extracted.location = { value: t.trim(), confidence: 0.85 };
-    intent = "update";
-  } else if (/^[a-z][a-z.' -]{1,39}$/i.test(t) && !/\b(?:fee|plan|lead|class|subject|email|hello|hi)\b/i.test(lower)) {
-    type = pendingField === "name" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
-    extracted.name = { value: t.trim(), confidence: 0.8 };
-    intent = "update";
+  const explicitUpdate = /^(?:change|update|set)\s+(?:my\s+)?(?:name|email|area|location|subjects|classes)/i.test(t);
+  if (!NOT_PROFILE || explicitUpdate) {
+    if (EMAIL_RE_HINT.test(t) && (pendingField === "email" || explicitUpdate || /^(?:my email|email)\s*(?:is|:)?/i.test(t))) {
+      type = pendingField === "email" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
+      extracted.email = { value: t.trim(), confidence: 0.95 };
+      intent = "update";
+    } else if (
+      pendingField === "classes_subjects" || explicitUpdate ||
+      /^(?:i (?:teach|can teach)|teaching|classes?\s*\d|\d{1,2}\s*(?:to|-|se)\s*\d{1,2}|class\s*\d{1,2}\s*(?:maths|science|physics|chemistry|biology|all subjects)|(?:maths?|physics|chemistry|biology|all subjects)[,\s]+(?:maths?|science|physics|chemistry|biology|english|sst|all subjects|\d))/i.test(t)
+    ) {
+      type = pendingField === "classes_subjects" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
+      extracted.classes_subjects = { value: t.trim(), confidence: 0.9 };
+      intent = "update";
+    } else if (pendingField === "location" || /^my (?:area|locality|location|city) is\b/i.test(t)) {
+      type = pendingField === "location" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
+      extracted.location = { value: t.trim(), confidence: 0.85 };
+      intent = "update";
+    } else if (pendingField === "name" || /^my name is\b/i.test(t)) {
+      type = pendingField === "name" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
+      extracted.name = { value: t.trim(), confidence: 0.8 };
+      intent = "update";
+    }
   }
 
-  if (pendingField && type === "UNCLEAR" && extracted[pendingField as keyof Extracted]) {
-    type = "ANSWER_TO_PENDING";
-  }
   return { message_type: type, extracted, intent, confidence: 0.8, usedFallback: true };
 }
 

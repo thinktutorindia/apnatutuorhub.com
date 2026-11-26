@@ -119,6 +119,32 @@ const c = (over: Partial<Classification> = {}): Classification => ({
     assert.equal(saved.status, "SAVED");
   });
 
-  console.log(`\n${passed}/10 classifier/save-gate checks passed`);
+  await check("classifier: business promo never yields a class/subject save", async () => {
+    const r = await classify("*Please download and try our safe, natural, science-based, plant/herb active-molecule products*");
+    assert.deepEqual(r.extracted, {});
+    assert.notEqual(r.intent, "update");
+  });
+
+  await check("classifier: question about tutors never yields a profile save", async () => {
+    const r = await classify("HI do you need class 11 Maths or Physics teacher ?");
+    assert.deepEqual(r.extracted, {});
+  });
+
+  await check("save gate: AQUA_BACKFILL / promo / forwarded rows never write", async () => {
+    const bad = c({ extracted: { classes_subjects: { value: "class 1 science", confidence: 0.95 } } });
+    for (const source of [
+      { step: "AQUA_BACKFILL", direction: "INBOUND", body: "science-based products" },
+      { step: "DONE", direction: "OUTBOUND", body: "Welcome to ApnaTutorHub" },
+      { step: "DONE", direction: "INBOUND", body: "Requirement #10391 Class: Class 5" },
+    ]) {
+      const { store, state } = fakeStore();
+      const r = await applySaveGate({ phone: "919000000099", classification: bad, store, source });
+      assert.equal(r.status, "NO_SAVE");
+      assert.equal(state.updates.length, 0);
+      assert.equal(state.rejects[0].field, "source");
+    }
+  });
+
+  console.log(`\n${passed}/13 classifier/save-gate checks passed`);
   console.log("No Gemini call, DB write or WhatsApp send performed.");
 })().catch((e) => { console.error("FAIL", e); process.exit(1); });

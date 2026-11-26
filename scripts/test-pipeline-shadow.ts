@@ -36,8 +36,15 @@ const tests: Array<() => void> = [
     const seen = new Set(["wamid.abc"]);
     assert.equal(evaluatePrefilter({ text: "hello", messageId: "wamid.abc", seenMessageIds: seen }).reason, "duplicate_message_id");
   }),
-  () => check("prefilter: duplicate text is silent", () => {
-    assert.equal(evaluatePrefilter({ text: "welcome", recentTexts: ["Welcome"] }).reason, "duplicate_text");
+  () => check("prefilter: duplicate text only within 5 seconds", () => {
+    const now = new Date("2026-11-26T10:00:00Z");
+    assert.equal(evaluatePrefilter({ text: "welcome", recentTexts: [{ text: "Welcome", at: new Date("2026-11-26T09:59:58Z") }], now }).reason, "duplicate_text");
+    assert.equal(evaluatePrefilter({ text: "welcome", recentTexts: [{ text: "Welcome", at: new Date("2026-11-26T09:50:00Z") }], now }).decision, "REPLY");
+  }),
+  () => check("prefilter: yes/haan/1/2/interested never silent", () => {
+    for (const t of ["yes", "haan", "1", "2", "interested", "i am interested"]) {
+      assert.equal(evaluatePrefilter({ text: t }).decision, "REPLY", `${t} must get a reply`);
+    }
   }),
   () => check("prefilter: other business auto-reply is silent", () => {
     assert.equal(evaluatePrefilter({ text: "Thank you for contacting us, we will get back shortly." }).reason, "other_business_auto_reply");

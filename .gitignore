@@ -56,6 +56,11 @@ staff_performance_*
 /data/
 /datauploadrawdata/
 /exports/
+/public/*preview*.html
+/public/newsdata_leads_preview.html
+/public/staff_performance_*.html
+/public/today_parents_dashboard_upload.html
+/public/staff_pitch_guide.html
 /whattodo/
 whattodo.zip
 *.zip

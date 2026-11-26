@@ -44,6 +44,8 @@ const tests: Array<() => void> = [
   () => check("confirmation asks YES/NO and records no new field question", () => {
     const d = decide({ inbound: "new@example.invalid", classification: c({ message_type: "PROFILE_INFO", intent: "update" }), missing: [], confirmation: { field: "email", proposed: "new@example.invalid" } });
     assert.match(d.reply, /YES/);
+    assert.equal(d.reply.includes("new@example.invalid"), false, "confirmation must not echo the full email");
+    assert.match(d.reply, /\*\*\*\*@example\.invalid/);
     assert.deepEqual(d.quickReplies, ["YES", "NO"]);
     assert.equal(d.askedField, undefined);
   }),

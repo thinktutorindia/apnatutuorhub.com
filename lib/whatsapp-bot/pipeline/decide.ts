@@ -83,8 +83,10 @@ export function decide(input: DecisionInput): Decision {
   else answer = t("oneMoment");
 
   if (input.confirmation) {
+    // Never echo a full email address back into a confirmation prompt.
+    const proposed = input.confirmation.proposed.replace(/[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})/i, (_m, domain: string) => `****@${domain}`);
     return {
-      reply: compose(answer, `${input.confirmation.proposed}\n${t("confirmSave")}`),
+      reply: compose(answer, `${proposed}\n${t("confirmSave")}`),
       quickReplies: dedupeQuickReplies(["YES", "NO"]),
       shouldRecordAsk: false,
       intent,

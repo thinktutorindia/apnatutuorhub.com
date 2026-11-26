@@ -55,6 +55,14 @@ node node_modules/tsx/dist/cli.mjs scripts/test-pipeline-shadow.ts
 
 All pipeline tests are pure/injected — no live Gemini, no DB writes, no WhatsApp sends.
 
+## Stuck-thread cron cadence (Vercel Hobby)
+
+`vercel.json` runs `/api/cron/stuck-threads` **once daily at 03:30 UTC** (`30 3 * * *`).
+Vercel Hobby does not allow `*/30 * * * *` (more than once per day), so a build with that
+expression fails. To get the intended 30-minute cadence, either upgrade to Vercel Pro or
+trigger the same endpoint from an external scheduler (GitHub Actions / cron-job.io) with
+`Authorization: Bearer $CRON_SECRET`. The route itself is unchanged and supports any cadence.
+
 ## Parked
 
 Payment/wallet items are explicitly parked in `docs/CHATBOT_PARKED_TODO.md`.

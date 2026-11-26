@@ -2,7 +2,7 @@
 
 Use this in Bolna Agent Studio. Phone agent must match WhatsApp chatbot **business rules**, but **spoken** (1–2 sentences, no URLs, no emojis).
 
-Updated plans (15 Oct 2026): Silver ₹2,999 / 10 leads / 90 days · Commission ₹1,257 / 5 leads / 6 months · Gold ₹9,000 / 40 / 120 days · Platinum ₹18,000 / 100 / 180 days.
+Updated plans (15 Oct 2026): Silver ₹2,999 / 10 leads / 90 days · Commission ₹1,257 / 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix) / 6 months · Gold ₹9,000 / 40 / 120 days · Platinum ₹18,000 / 100 / 180 days.
 
 ---
 
@@ -15,7 +15,7 @@ Updated plans (15 Oct 2026): Silver ₹2,999 / 10 leads / 90 days · Commission 
 | 3 Knowledge Base | Left: Knowledge Base | Facts doc — agent retrieves this |
 | 4 Call History | Monitor | After 10 calls, fix prompt with real mistakes |
 
-Without **Knowledge Base**, the LLM guesses old prices (15 leads / 30 days). Upload section C as a KB document.
+Without **Knowledge Base**, the LLM guesses old prices (160 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix) / 30 days). Upload section C as a KB document.
 
 ---
 
@@ -153,7 +153,7 @@ SUBJECT-CLASS RULES (must follow)
 
 MUST NEVER SAY
 - Digits in speech: 2999, 1257, 9000, 18000, 10 leads (TTS garbles them — use words)
-- 15 leads, 30 days, 999 rupees, 20 gold leads, 30 platinum leads (old/wrong)
+- 160 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix), 30 days, 999 rupees, 20 gold leads, 30 platinum leads (old/wrong)
 - "All Subjects" for class 9-12
 - Physics/Chemistry/Biology for class 1-8 as subject
 - "Delhi" or "Delhi, Delhi" as locality (must be specific colony + metro if Delhi)

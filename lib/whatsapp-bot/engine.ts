@@ -28,6 +28,7 @@ import {
   formatGrowthPlanDetailMessage,
   formatPlanPaymentQrMessage,
 } from "./leads-helper";
+import { COMMISSION_PLAN, commissionPlanCoinsText } from "@/lib/subscription-plans";
 import {
   asksCommissionPlan,
   asksPlanPaymentOrQr,
@@ -847,7 +848,7 @@ export type EngineResult = {
 /** Clean Kotak UPI QR (9311459543@kotakbank / ROHIT SHARMA) — the only QR sent in chat. */
 export const PAYMENT_QR_IMAGE_URL = "https://apnatutorhub.com/images/payment/upi-qr.png";
 export const PAYMENT_QR_CAPTION =
-  "💳 Scan to pay ₹1,257 — Commission Based Plan (6 months validity)\n" +
+  `💳 Scan to pay ₹${COMMISSION_PLAN.priceInr} — Commission Based Plan (${COMMISSION_PLAN.validityText.toLowerCase()} validity)\n` +
   "🆔 UPI: 9311459543@kotakbank\n\n" +
   "👉 Direct Payment Link (Card/UPI/Netbanking):\n" +
   "https://apnatutorhub.com/tutor/plans\n\n" +
@@ -1153,7 +1154,7 @@ function tryTutorOffScriptReply(
       reply:
         `No problem at all — tutors never pay any advance commission to parents. 🙏\n\n` +
         `The membership plan is only for unlocking verified parent phone numbers and inquiries:\n` +
-        `• ₹1,257 Commission Plan (6 months validity, 5 verified leads)\n\n` +
+        `• ₹${COMMISSION_PLAN.priceInr} Commission Plan (${COMMISSION_PLAN.validityText.toLowerCase()} validity, ${commissionPlanCoinsText()})\n\n` +
         `You can browse open leads first with no obligation, and reply *PAY* whenever you're ready.\n` +
         `👉 https://apnatutorhub.com/tutor/plans`,
       nextStep,
@@ -1471,7 +1472,7 @@ async function tryDeterministicDoneShortcuts(params: {
   // Conversational fallbacks for free leads / delayed payment
   if (/bina\s*reg|free\s*lead|paise\s*nahi|payment\s*baad|ek\s*enquiry|enquiry\s*dedo|pehle\s*demo|yaar\b/i.test(rawMessage)) {
     return {
-      reply: `We completely understand! However, verified parent phone numbers and home addresses require an active membership so only serious tutors connect with families. 🙏\n\nYou can start with our ₹1,257 Commission Based Plan (6 months validity, 5 leads).\n\n👉 View Plan: https://apnatutorhub.com/tutor/plans\n👉 Browse Leads: https://apnatutorhub.com/tutor/leads`,
+      reply: `We completely understand! However, verified parent phone numbers and home addresses require an active membership so only serious tutors connect with families. 🙏\n\nYou can start with our ₹${COMMISSION_PLAN.priceInr} Commission Based Plan (${COMMISSION_PLAN.validityText.toLowerCase()} validity, ${commissionPlanCoinsText()}).\n\n👉 View Plan: https://apnatutorhub.com/tutor/plans\n👉 Browse Leads: https://apnatutorhub.com/tutor/leads`,
       nextStep: "DONE",
       updatedData: data,
       userType: "TUTOR",
@@ -2108,7 +2109,7 @@ async function tryDeterministicPreAiFallbacks(params: {
     /(?:bina\s*(?:paise|reg|payment)|free\s*(?:lead|enquiry|tuition|demo)|pehle\s*demo\s*(?:fir|phir|baad)|payment\s*baad|ek\s*(?:lead|enquiry)\s*(?:free|dedo))/i.test(rawMessage)
   ) {
     return {
-      reply: `We understand your concern! Verified parent phone numbers and home addresses are gated behind a membership so only committed teachers connect with families. 🙏\n\nYou can start with our ₹1,257 Commission Based Plan (6 months validity, 5 verified leads).\n\n👉 View Plans: https://apnatutorhub.com/tutor/plans\n👉 Browse Leads: https://apnatutorhub.com/tutor/leads`,
+      reply: `We understand your concern! Verified parent phone numbers and home addresses are gated behind a membership so only committed teachers connect with families. 🙏\n\nYou can start with our ₹${COMMISSION_PLAN.priceInr} Commission Based Plan (${COMMISSION_PLAN.validityText.toLowerCase()} validity, ${commissionPlanCoinsText()}).\n\n👉 View Plans: https://apnatutorhub.com/tutor/plans\n👉 Browse Leads: https://apnatutorhub.com/tutor/leads`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: "TUTOR",
@@ -2368,7 +2369,7 @@ async function tryDeterministicPreAiFallbacks(params: {
 
   if (/\b(agree to take|free\s+(?:one\s+)?class|registration fees?|charges?\s+(?:bhi\s+)?lage|koi charges)\b/i.test(rawMessage)) {
     return {
-      reply: `Your tuition fees are finalized directly with the parent after the demo class. To unlock verified parent contacts, you can activate our ₹1,257 Commission Based Plan (5 leads, 6-month validity).\n\n👉 https://apnatutorhub.com/tutor/leads`,
+      reply: `Your tuition fees are finalized directly with the parent after the demo class. To unlock verified parent contacts, you can activate our ₹${COMMISSION_PLAN.priceInr} Commission Based Plan (${commissionPlanCoinsText()}, ${COMMISSION_PLAN.validityText.toLowerCase()} validity).\n\n👉 https://apnatutorhub.com/tutor/leads`,
       nextStep: step === "WELCOME" ? "T_CONVO" : step,
       updatedData: data,
       userType: session.userType || "TUTOR",

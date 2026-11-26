@@ -13,6 +13,7 @@ import { UserProfileContext } from "./user-profile-context";
 import { enforceStrictEducation, extractStrictEmail, isPlaceholderEmail, validateStrictEmail } from "./strict-rules";
 import { looksLikeUnexpectedNoise } from "./loose-intent";
 import { GEMINI_TEXT_MODEL_CASCADE, getGeminiApiKey } from "@/lib/gemini-models";
+import { COMMISSION_PLAN, commissionPlanCoinsText } from "@/lib/subscription-plans";
 
 export type ChatHistoryEntry = {
   direction: string;
@@ -103,7 +104,7 @@ You are Priya, the coordinator for ApnaTutorHub (https://apnatutorhub.com) — I
 - NEVER extract random words, missing-TLD domains, typos (.gom/.con/@gmai.com), or apnatutorhub placeholder addresses.
 
 ⚠️ PLATFORM FACTS (VERIFIED):
-- Active Tutor Plan: **₹1,257 Commission Based Plan** (6 months validity, unlocks 5 verified parent contacts, max 3 tutors per lead, 50% commission on 1st month tuition fee + 5% recurring from 2nd month onwards). Instant Razorpay activation: https://apnatutorhub.com/tutor/plans?checkout=STARTER
+- Active Tutor Plan: **₹${COMMISSION_PLAN.priceInr} Commission Based Plan** (${COMMISSION_PLAN.validityText.toLowerCase()} validity, credits ${commissionPlanCoinsText()}, max 3 tutors per lead, 50% commission on 1st month tuition fee + 5% recurring from 2nd month onwards). Unlock cost is FIXED: 10 coins Class 1-8, 20 coins Class 9-10, 30 coins Class 11-12 / entrance. Instant Razorpay activation: https://apnatutorhub.com/tutor/plans?checkout=STARTER
 - Zero-commission / Silver ₹2,999 plans & ₹999 offers are discontinued/ended.
 - Portal access works directly in mobile browser (PWA installable, no Play Store download needed): Login https://apnatutorhub.com/login | Leads https://apnatutorhub.com/tutor/leads | Plans https://apnatutorhub.com/tutor/plans | Wallet https://apnatutorhub.com/tutor/wallet
 - Helpline: 08062180653 (9 AM – 7 PM Mon–Sat) | Official WhatsApp Coordinator: +91 93191 93109
@@ -158,7 +159,7 @@ function englishFallbackForIntent(intent: AiIntent): string {
     case "SHOW_LEADS":
       return `You can browse and unlock all active matching tuition leads on your dashboard: https://apnatutorhub.com/tutor/leads`;
     case "SHOW_PLANS_OR_PAY":
-      return `Our current ₹1,257 Commission Based Plan gives 6 months validity and 5 verified parent contacts: https://apnatutorhub.com/tutor/plans`;
+      return `Our current ₹${COMMISSION_PLAN.priceInr} Commission Based Plan gives ${COMMISSION_PLAN.validityText.toLowerCase()} validity and credits ${commissionPlanCoinsText()}: https://apnatutorhub.com/tutor/plans`;
     case "CHECK_COINS":
       return `You can check your live coin wallet anytime here: https://apnatutorhub.com/tutor/wallet`;
     case "CHECK_PROFILE":

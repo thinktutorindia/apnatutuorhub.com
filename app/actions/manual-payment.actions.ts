@@ -6,6 +6,7 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/action-resu
 import { revalidatePath } from "next/cache";
 import { can } from "@/lib/rbac";
 import type { PaymentRequestType, SubscriptionPlan, PaymentRequestStatus } from "@prisma/client";
+import { COMMISSION_PLAN } from "@/lib/subscription-plans";
 
 export interface SubmitPaymentInput {
   type: PaymentRequestType;
@@ -227,6 +228,7 @@ export async function adminApprovePaymentAction(
 
       // Plan validity days
       const planDaysMap: Record<string, number> = {
+        [COMMISSION_PLAN.id]: COMMISSION_PLAN.validityDays,
         BRONZE: 30,
         SILVER: 60,
         GOLD: 60,
@@ -256,6 +258,25 @@ export async function adminApprovePaymentAction(
           isActive: true,
         },
       });
+
+      // ₹1,257 Commission plan (including offline UPI) credits exactly 60 coins.
+      if (plan === COMMISSION_PLAN.id) {
+        const wallet = await tx.wallet.upsert({
+          where: { tutorProfileId: tutorProfile.id },
+          create: { tutorProfileId: tutorProfile.id, balance: COMMISSION_PLAN.coins },
+          update: { balance: { increment: COMMISSION_PLAN.coins } },
+        });
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: COMMISSION_PLAN.coins,
+            balanceAfter: wallet.balance,
+            type: "PURCHASE",
+            description: `₹${COMMISSION_PLAN.priceInr} Commission Based Plan (Offline UPI) — ${COMMISSION_PLAN.coinSummary}`,
+            referenceId: request.utrNumber || `offline_plan_${requestId}`,
+          },
+        });
+      }
 
       // Update tutor profile
       await tx.tutorProfile.update({

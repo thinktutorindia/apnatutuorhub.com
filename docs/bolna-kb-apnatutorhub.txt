@@ -30,7 +30,7 @@ NEVER pitch this plan when caller asks about commission-based/1257 plan.
 
 PLAN 2 — COMMISSION BASED
 Price: 1257 rupees (one-time registration)
-Leads: 5 verified leads
+Leads: 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix)
 Validity: 6 months (180 days)
 Commission: 50 percent of first month tuition fee to platform, then 5 percent every month from month 2 onwards.
 Competition: Max 3 tutors per lead
@@ -55,7 +55,7 @@ When to pitch: caller says "platinum", "18000", "18k", "sabse bada", "exclusive"
 
 WRONG NUMBERS (never say these):
 - 999 rupees (old offer, discontinued)
-- 15 leads for Silver (old, now 10)
+- 160 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix) for Silver (old, now 10)
 - 30 days validity for Silver (old, now 90)
 - 20 leads for Gold (old, now 40)
 - 60 days for Gold (old, now 120)
@@ -78,7 +78,7 @@ Hindi spoken forms (use these on Hindi calls):
 - Gold: नौ हज़ार रुपये
 - Platinum: अठारह हज़ार रुपये
 - 10 leads: दस लीड (say लीड not लीड्स)
-- 5 leads: पाँच लीड
+- 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix): पाँच लीड
 - 40 leads: चालीस लीड
 - 100 leads: सौ लीड
 - 90 days: नब्बे दिन
@@ -277,7 +277,7 @@ SECTION 11: THINGS PRIYA MUST NEVER SAY
 - "I understand your concern" / "Certainly!" / "Absolutely!" / "As an AI"
 - Welcome / Namaste after the first greeting
 - Website URLs spoken aloud (apnatutorhub.com/tutor/plans etc.)
-- 999 rupees, 15 leads, 30 days, 20 Gold leads, 30 Platinum leads
+- 999 rupees, 160 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix), 30 days, 20 Gold leads, 30 Platinum leads
 - "All Subjects" for class 9 to 12
 - Physics/Chemistry/Biology for class 1 to 8
 - "Delhi" as a locality (must be specific colony)

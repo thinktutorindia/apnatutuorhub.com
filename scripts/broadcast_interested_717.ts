@@ -8,7 +8,7 @@
  *  - Rich realistic location with neighborhood landmark (e.g. "Sangam Vihar, Gali No. 16 (near Kumar Sweets)").
  *  - Tutors without exact locality strictly get Online Mode (remote Pan-India).
  *  - Authentic Delhi-NCR coordinator Hinglish voice.
- *  - Prominent Commission Based Plan (₹1,257 registration, 6 months validity, 5 leads, 50% 1st month + 5% recurring).
+ *  - Prominent Commission Based Plan (₹1,257 registration, 6 months validity, 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix), 50% 1st month + 5% recurring).
  *  - Respectful greeting: "Namaste {FirstName} ji 🙏" (or "Namaste ji 🙏").
  *  - Concrete class label (never generic "Class 1-8").
  *  - Class 1-8 monthly fee; Class 9-12 hourly fee.
@@ -90,7 +90,7 @@ Student ke parent demo class schedule karna chahte hain.
 
 💼 *Commission Based Plan (Kam Upfront Se Shuru Karein):*
 • Registration Fee: ₹1,257 (6 Months Validity)
-• 5 Verified Student Leads Unlock
+• 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix)
 • Platform Commission: 1st month fee ka 50%, aur 2nd month se sirf 5% monthly commission
 
 Agar aap yeh tuition lene ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko parent se direct connect kara degi.`;
@@ -124,7 +124,7 @@ Student ke parent demo class arrange karwana chahte hain.
 
 💼 *Commission Based Plan (Kam Upfront Se Shuru Karein):*
 • Registration Fee: ₹1,257 (6 Months Validity)
-• 5 Verified Student Leads Unlock
+• 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix)
 • Platform Commission: 1st month fee ka 50%, aur 2nd month se sirf 5% monthly commission
 
 Agar aap yeh online tuition accept karne ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko student details share kar degi.`;

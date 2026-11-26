@@ -16,11 +16,15 @@ import {
   type SubscriptionPlanConfig,
   getPriceWithGst,
   getGstAmount,
+  COMMISSION_PLAN,
+  commissionPlanCoinsText,
 } from "@/lib/subscription-plans";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { validateCouponAction, type ValidateCouponResult } from "@/app/actions/coupon.actions";
 import { UpiQrPaymentCard } from "@/components/payment/UpiQrPaymentCard";
 import { useSeniorTutor } from "@/components/tutor/SeniorTutorContext";
+
+const COINS_TEXT = commissionPlanCoinsText();
 
 interface Props {
   currentPlan: string;
@@ -31,7 +35,7 @@ interface Props {
 const FAQ_ITEMS = [
   {
     q: "How does the ₹1,257 Commission Based Plan work?",
-    a: "The Commission Based Plan requires a one-time registration fee of ₹1,257 with 6 Months validity. You get to unlock 5 verified parent leads. Our platform commission is 50% on the first month's student fee, and 5% recurring platform commission every month from the 2nd month onwards.",
+    a: `The Commission Based Plan requires a one-time registration fee of ₹${COMMISSION_PLAN.priceInr} with ${COMMISSION_PLAN.validityText} validity. You get ${commissionPlanCoinsText()}. Our platform commission is 50% on the first month's student fee, and 5% recurring platform commission every month from the 2nd month onwards.`,
   },
   {
     q: "Is the ₹2,999 Without-Commission / 0% Commission Plan still available?",
@@ -283,9 +287,9 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
           <p className="text-sm sm:text-base text-slate-300 max-w-3xl mx-auto leading-relaxed" style={{ fontFamily: "'Inter', sans-serif" }}>
             {lang === "hi" ? (
-              <>हमारे आधिकारिक <span className="text-emerald-300 font-bold">कमीशन आधारित प्लान</span> के साथ सत्यापित छात्र लीड्स अनलॉक करें — 5 सत्यापित लीड्स, 6 महीने की वैधता, मात्र ₹1,257 पंजीकरण शुल्क और सीधे अभिभावक संपर्क!</>
+              <>हमारे आधिकारिक <span className="text-emerald-300 font-bold">कमीशन आधारित प्लान</span> के साथ सत्यापित छात्र लीड्स अनलॉक करें — {COINS_TEXT}, 6 महीने की वैधता, मात्र ₹1,257 पंजीकरण शुल्क और सीधे अभिभावक संपर्क!</>
             ) : (
-              <>Start unlocking verified student leads with our official <span className="text-emerald-300 font-bold">Commission Based Plan</span> — 5 Verified Leads, 6 Months validity, low ₹1,257 registration, and direct parent contacts!</>
+              <>Start unlocking verified student leads with our official <span className="text-emerald-300 font-bold">Commission Based Plan</span> — {COINS_TEXT}, 6 Months validity, low ₹1,257 registration, and direct parent contacts!</>
             )}
           </p>
 
@@ -296,7 +300,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 {lang === "hi" ? "सक्रिय प्लान:" : "Active Plan:"} <span className="text-emerald-300 font-extrabold">{activePlanConfig.name}</span>
               </div>
               <span className="text-slate-500 hidden sm:inline">·</span>
-              <span className="text-xs text-slate-200 font-semibold">{lang === "hi" ? "5 लीड्स अनलॉक" : "5 Leads Unlocked"}</span>
+              <span className="text-xs text-slate-200 font-semibold">{COINS_TEXT}</span>
               {expiresAt && (
                 <>
                   <span className="text-slate-500 hidden sm:inline">·</span>
@@ -353,12 +357,12 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-1.5 max-w-2xl leading-relaxed">
                   {lang === "hi" ? (
                     <>
-                      <strong className="text-emerald-900">5 सत्यापित छात्र लीड्स</strong> अनलॉक करने के लिए मात्र <strong className="text-emerald-900">₹1,257</strong> के कम पंजीकरण शुल्क और <strong className="text-slate-900">6 महीने की वैधता</strong> के साथ शुरुआत करें।
+                      <strong className="text-emerald-900">{COINS_TEXT}</strong> अनलॉक करने के लिए मात्र <strong className="text-emerald-900">₹1,257</strong> के कम पंजीकरण शुल्क और <strong className="text-slate-900">6 महीने की वैधता</strong> के साथ शुरुआत करें।
                       <br className="hidden sm:inline" /> प्लेटफ़ॉर्म कमीशन: <strong>पहले महीने के ट्यूशन शुल्क का 50%</strong>, और <strong>दूसरे महीने से प्रति माह 5% आवर्ती कमीशन</strong>।
                     </>
                   ) : (
                     <>
-                      Start with a low upfront fee of <strong className="text-emerald-900">₹1,257</strong> for <strong className="text-slate-900">6 Months validity</strong> to unlock <strong className="text-emerald-900">5 verified student leads</strong>.
+                      Start with a low upfront fee of <strong className="text-emerald-900">₹1,257</strong> for <strong className="text-slate-900">6 Months validity</strong> to unlock <strong className="text-emerald-900">{COINS_TEXT}</strong>.
                       <br className="hidden sm:inline" /> Platform commission: <strong>50% of 1st month tuition fee</strong>, and <strong>5% recurring commission every month from 2nd month onwards</strong>.
                     </>
                   )}
@@ -368,7 +372,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               {/* Feature Pills Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
                 {[
-                  { icon: '✅', text: lang === "hi" ? '5 सत्यापित लीड्स अनलॉक' : '5 Verified Leads Unlock', color: 'bg-emerald-500/10 border-emerald-300 text-emerald-950' },
+                  { icon: '✅', text: COINS_TEXT, color: 'bg-emerald-500/10 border-emerald-300 text-emerald-950' },
                   { icon: '📅', text: lang === "hi" ? '6 महीने (180 दिन)' : '6 Months (180 Days)', color: 'bg-blue-500/10 border-blue-300 text-blue-950' },
                   { icon: '🤝', text: lang === "hi" ? '50% पहले महीने का शुल्क' : '50% 1st Month Fee', color: 'bg-amber-500/10 border-amber-300 text-amber-950' },
                   { icon: '🔄', text: lang === "hi" ? '5% दूसरे माह से' : '5% Monthly from 2nd Mo', color: 'bg-teal-500/10 border-teal-300 text-teal-950' },
@@ -383,7 +387,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               </div>
 
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                *Commission Terms: One-time ₹1,257 registration fee valid for 6 months. Unlocks 5 verified leads. Platform charges 50% commission from the 1st month student fee collected, and 5% monthly commission from 2nd month onwards.
+                *Commission Terms: One-time ₹1,257 registration fee valid for 6 months. Credits {COINS_TEXT}. Platform charges 50% commission from the 1st month student fee collected, and 5% monthly commission from 2nd month onwards.
               </p>
             </div>
 
@@ -402,7 +406,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                     Commission Plan
                   </div>
                   <div className="text-xs font-bold text-emerald-700 mt-0.5">
-                    5 Verified Leads Unlocked
+                    {COINS_TEXT}
                   </div>
                 </div>
 
@@ -420,8 +424,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Available Leads:</span>
-                    <span className="font-black text-emerald-700">5 Student Leads</span>
+                    <span>Coins:</span>
+                    <span className="font-black text-emerald-700">{COMMISSION_PLAN.coins}</span>
                   </div>
                 </div>
 
@@ -453,8 +457,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                     <span className="font-black text-slate-900">6 Months</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Leads:</span>
-                    <span className="font-black text-emerald-700">5 Student Leads</span>
+                    <span>Coins:</span>
+                    <span className="font-black text-emerald-700">{COMMISSION_PLAN.coins}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Competition:</span>
@@ -471,7 +475,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <span>🤝 Select Commission Plan</span>
                   <ArrowRight size={16} />
                 </button>
-                <p className="text-[10px] text-slate-400 font-semibold">Instant unlock for 5 verified student leads</p>
+                <p className="text-[10px] text-slate-400 font-semibold">Instant activation with {COINS_TEXT}</p>
               </div>
             )}
           </div>
@@ -484,7 +488,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
             <span>Prepaid Zero-Commission Plans are Closed</span>
           </p>
           <p className="mt-2 leading-relaxed text-slate-500">
-            Platform par bina commission wale prepaid tiers band kar diye gaye hain. Sabhi verified teachers exclusively official <strong>Commission Based Plan (₹1,257)</strong> se start kar sakte hain jisme 6 Months validity aur 5 verified student leads milti hain.
+            Platform par bina commission wale prepaid tiers band kar diye gaye hain. Sabhi verified teachers exclusively official <strong>Commission Based Plan (₹1,257)</strong> se start kar sakte hain jisme 6 Months validity aur {COINS_TEXT} milte hain.
           </p>
         </div>
         {/* If Membership is already Active: Show Clean High-Satisfaction Active Member View */}
@@ -501,8 +505,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 </h3>
                 <p className="text-xs text-slate-500 font-medium mt-1">
                   {lang === "hi" 
-                    ? "आपके पास 5 सत्यापित छात्र लीड अनलॉक करने का कोटा है। अभिभावकों से संपर्क करने के आसान चरण:"
-                    : "You have a quota to unlock 5 verified student leads. Simple steps to connect with parents:"}
+                    ? `आपके पास ${COINS_TEXT} अनलॉक करने का कोटा है। अभिभावकों से संपर्क करने के आसान चरण:`
+                    : `You have a quota to unlock ${COINS_TEXT}. Simple steps to connect with parents:`}
                 </p>
               </div>
 
@@ -591,10 +595,10 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               <div className="space-y-3">
                 <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
                   <h4 className="text-xs font-bold text-slate-900">
-                    {lang === "hi" ? "मेरे 5 लीड्स खत्म होने के बाद क्या होगा?" : "What happens after my 5 leads are used?"}
+                    {lang === "hi" ? `मेरे ${COMMISSION_PLAN.coins} कॉइन्स खत्म होने के बाद क्या होगा?` : `What happens after my ${COMMISSION_PLAN.coins} coins are used?`}
                   </h4>
                   <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                    {lang === "hi" ? "5 सत्यापित लीड्स का उपयोग करने के बाद, आप कॉइन वॉलेट से तुरंत नए लीड्स अनलॉक कर सकते हैं या रिन्यू कर सकते हैं।" : "Once your 5 verified leads are used, you can top up coins in your wallet to unlock more leads or renew your plan."}
+                    {lang === "hi" ? `${COMMISSION_PLAN.coins} कॉइन्स का उपयोग करने के बाद, आप कॉइन वॉलेट से तुरंत नए लीड्स अनलॉक कर सकते हैं या रिन्यू कर सकते हैं।` : `Once your ${COMMISSION_PLAN.coins} coins are used, you can top up coins in your wallet to unlock more leads or renew your plan.`}
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
@@ -627,8 +631,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                 </h4>
                 <p className="text-xs font-medium text-slate-600 max-w-2xl leading-relaxed">
                   {lang === "hi"
-                    ? "कमीशन प्लान में 5 सत्यापित लीड्स, 6 महीने की वैधता, और अधिकतम 3 शिक्षक प्रति लीड का नियम शामिल है।"
-                    : "The Commission Plan includes 5 verified leads, 6 months validity, and low competition (maximum 3 tutors per lead)."}
+                    ? `कमीशन प्लान में ${COINS_TEXT}, 6 महीने की वैधता, और अधिकतम 3 शिक्षक प्रति लीड का नियम शामिल है।`
+                    : `The Commission Plan includes ${COINS_TEXT}, 6 months validity, and low competition (maximum 3 tutors per lead).`}
                 </p>
               </div>
               <Link
@@ -920,7 +924,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       Membership Activated! 🎉
                                     </h3>
                                     <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-                                      Congratulations! You are now a <strong>Verified ApnaTutorHub Teacher</strong>. Your 5 student leads quota has been unlocked immediately.
+                                      Congratulations! You are now a <strong>Verified ApnaTutorHub Teacher</strong>. {COINS_TEXT} have been credited to your wallet immediately.
                                     </p>
                                   </div>
 
@@ -941,8 +945,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       </span>
                                     </div>
                                     <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
-                                      <span className="text-slate-500">Leads Unlocked:</span>
-                                      <span className="text-emerald-700 font-black">5 Verified Student Leads*</span>
+                                      <span className="text-slate-500">Coins Credited:</span>
+                                      <span className="text-emerald-700 font-black">{COINS_TEXT}</span>
                                     </div>
                                     <div className="flex items-center justify-between py-1">
                                       <span className="text-slate-500">Validity:</span>
@@ -960,7 +964,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       href="/tutor/leads"
                                       className="w-full py-3.5 px-6 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xl shadow-emerald-700/30 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-98"
                                     >
-                                      <span>Browse Your 5 Student Leads Now</span>
+                                      <span>Browse Student Leads Now</span>
                                       <ArrowRight size={16} />
                                     </Link>
                                     <button

@@ -1099,7 +1099,7 @@ export async function adminCreateLeadAction(
   const budgetMin = input.budgetMin && input.budgetMin > 0 ? input.budgetMin : null;
   const budgetMax = input.budgetMax && input.budgetMax > 0 ? input.budgetMax : null;
   if (!budgetMin && !budgetMax) {
-    return actionError("Enter the tuition fee. Unlock coins are 5% of that amount.");
+    return actionError("Enter the tuition fee. Unlock cost is fixed by class: 10 / 20 / 30 coins.");
   }
 
   // 1. Resolve Parent Profile ID — every lead must be tied to a contactable parent.

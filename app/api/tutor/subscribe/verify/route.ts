@@ -1,7 +1,13 @@
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { getSubscriptionPlan, getPriceWithGst, getGstAmount } from "@/lib/subscription-plans";
+import {
+  COMMISSION_PLAN,
+  getSubscriptionPlan,
+  getPriceWithGst,
+  getGstAmount,
+  planCoinCredit,
+} from "@/lib/subscription-plans";
 import {
   fetchRazorpayOrder,
   isRazorpayConfigured,
@@ -134,10 +140,10 @@ export async function POST(request: Request) {
   const validityDays = plan.validityDays || 30;
   const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
-  // Activate Subscription in DB with Bonus Coins (Gold: +50 coins, Platinum: +100 coins)
-  const bonusCoins = plan.id === "PLATINUM" ? 100 : plan.id === "GOLD" ? 50 : 0;
-  // For STARTER festival pass, plan.totalPoints = 30 (enough for 1 lead of any class)
-  const isStarterPass = plan.id === "STARTER";
+  // Activate subscription and credit the coins included with the plan.
+  // ₹1,257 Commission plan always credits exactly 60 coins (single source of truth).
+  const creditCoins = planCoinCredit(plan.id);
+  const isStarterPass = plan.id === COMMISSION_PLAN.id;
 
   await prisma.$transaction(async (tx) => {
     // If order has a coupon attached, consume it atomically
@@ -181,21 +187,24 @@ export async function POST(request: Request) {
       },
     });
 
-    if (bonusCoins > 0) {
+    if (creditCoins > 0) {
+      const isCommissionPlan = plan.id === COMMISSION_PLAN.id;
       const wallet = await tx.wallet.upsert({
         where: { tutorProfileId: tutorProfile.id },
-        create: { tutorProfileId: tutorProfile.id, balance: bonusCoins },
-        update: { balance: { increment: bonusCoins } },
+        create: { tutorProfileId: tutorProfile.id, balance: creditCoins },
+        update: { balance: { increment: creditCoins } },
       });
 
       await tx.walletTransaction.create({
         data: {
           walletId: wallet.id,
-          amount: bonusCoins,
+          amount: creditCoins,
           balanceAfter: wallet.balance,
-          type: "BONUS",
-          description: `🎁 Bonus ${bonusCoins} coins included with ${plan.name}`,
-          referenceId: paymentId || orderId || `bonus_sub_${Date.now()}`,
+          type: isCommissionPlan ? "PURCHASE" : "BONUS",
+          description: isCommissionPlan
+            ? `₹${COMMISSION_PLAN.priceInr} Commission Based Plan — ${COMMISSION_PLAN.coinSummary}`
+            : `🎁 Bonus ${creditCoins} coins included with ${plan.name}`,
+          referenceId: paymentId || orderId || `plan_credit_${Date.now()}`,
         },
       });
     }

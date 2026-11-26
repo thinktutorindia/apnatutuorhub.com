@@ -1,5 +1,41 @@
 export type SubscriptionPlanId = "STARTER" | "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
 
+/**
+ * SINGLE SOURCE OF TRUTH — ₹1,257 Commission Based Plan.
+ *
+ * Everything (bot replies, dashboard copy, wallet credit and plan metadata)
+ * must read from this object. Unlock costs are FIXED by class band; tuition
+ * fee never changes them. 60 coins = 6 primary OR 3 secondary OR 2 senior
+ * unlocks, or any mix.
+ */
+export const COMMISSION_PLAN = {
+  id: "STARTER" as const,
+  priceInr: 1257,
+  coins: 60,
+  validityDays: 180,
+  validityText: "6 Months",
+  unlockCoins: {
+    class1To8: 10,
+    class9To10: 20,
+    class11To12AndEntrance: 30,
+  },
+  coinSummary: "60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix)",
+} as const;
+
+/** One helper for every user-facing mention of the plan's coin allowance. */
+export function commissionPlanCoinsText(): string {
+  return COMMISSION_PLAN.coinSummary;
+}
+
+/** Wallet coins credited when a paid subscription is activated. */
+export function planCoinCredit(planId?: string | null): number {
+  const key = planId?.toUpperCase();
+  if (key === COMMISSION_PLAN.id) return COMMISSION_PLAN.coins;
+  if (key === "GOLD") return 50;
+  if (key === "PLATINUM") return 100;
+  return 0;
+}
+
 export interface ClassLeadQuota {
   classLevel: string;
   gradeRange: string;
@@ -19,17 +55,17 @@ export interface FeeStructureQuota {
   badge: string;
 }
 
-export const TOTAL_PLAN_LEAD_POINTS = 60; // Default fallback for Growth Plan
+export const TOTAL_PLAN_LEAD_POINTS = COMMISSION_PLAN.coins;
 
 export function getPlanTotalPoints(planId?: string | null): number {
-  if (!planId) return 60;
+  if (!planId) return COMMISSION_PLAN.coins;
   const key = planId.toUpperCase();
-  if (key === "STARTER") return 50;   // 5 leads (10 pts each, 5 leads total)
+  if (key === COMMISSION_PLAN.id) return COMMISSION_PLAN.coins; // 60 coins, fixed
   if (key === "BRONZE") return 60;    // Up to 6 leads (<₹3k: 6 leads, ₹3k-5k: 3 leads, >₹5k: 2 leads)
   if (key === "PLATINUM") return 1200; // 100 leads @ ~12 pts (Class 1–5 baseline)
   if (key === "GOLD") return 480;     // 40 leads @ ~12 pts
   if (key === "SILVER") return 120;   // 10 leads @ ~12 pts
-  return 60;
+  return COMMISSION_PLAN.coins;
 }
 
 export const GST_RATE = 0.18; // 18% GST applicable on digital / software services in India
@@ -72,8 +108,8 @@ export const CLASS_LEAD_DISTRIBUTION: ClassLeadQuota[] = [
 ];
 
 /**
- * Dynamic Lead Quota Breakdown by Tuition Fee Structure for ₹2,999 Growth Plan (60 pts total)
- * Lead unlock cost corresponds to fair ~5% of one month's student fee.
+ * Lead quota breakdown. Unlock costs are FIXED by class band — the tuition
+ * fee is display-only and never changes coin cost.
  */
 export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   {
@@ -105,16 +141,15 @@ export const FEE_STRUCTURE_DISTRIBUTION: FeeStructureQuota[] = [
   },
 ];
 
-/** Hourly quotes are turned into one month before the 5% coin charge. */
+/** Kept for compatibility with admin fee displays; coin cost is no longer fee-derived. */
 export const HOURLY_CLASSES_PER_MONTH = 12;
-/** ₹2,999 Growth Plan (No Commission) wallet. 5% of the fee is priced in these coins, never above the whole plan. */
+/** ₹2,999 Growth Plan (No Commission) wallet. */
 export const GROWTH_PLAN_PRICE_INR = 2999;
 export const GROWTH_PLAN_COINS = 60;
 
 /**
- * Unlock coins are 5% of the tuition fee, priced inside the ₹2,999 plan (60 coins).
- * Hourly fees become a month first (rate × 12). One lead never costs more than 60 coins.
- * Class is used only when no fee amount is present.
+ * DEPRECATED compatibility shim. Fee/budget never changes unlock cost.
+ * Use getLeadPointCost(classLevel) for every new caller.
  */
 export function coinCostFromTuitionFee(opts: {
   budgetMin?: number | null;
@@ -122,15 +157,10 @@ export function coinCostFromTuitionFee(opts: {
   rateType?: "MONTHLY" | "HOURLY";
   classLevel?: string | null;
 }): number {
-  const min = opts.budgetMin && opts.budgetMin > 0 ? opts.budgetMin : 0;
-  const max = opts.budgetMax && opts.budgetMax > 0 ? opts.budgetMax : 0;
-  const fee = min && max ? Math.round((min + max) / 2) : max || min;
-  if (!fee) return coinCostFromClass(opts.classLevel);
-
-  const rateType = opts.rateType ?? (fee < 2000 ? "HOURLY" : "MONTHLY");
-  const monthly = rateType === "HOURLY" ? fee * HOURLY_CLASSES_PER_MONTH : fee;
-  const coins = Math.round((monthly * 0.05 * GROWTH_PLAN_COINS) / GROWTH_PLAN_PRICE_INR);
-  return Math.min(GROWTH_PLAN_COINS, Math.max(1, coins));
+  void opts.budgetMin;
+  void opts.budgetMax;
+  void opts.rateType;
+  return getLeadPointCost(opts.classLevel);
 }
 
 function coinCostFromClass(classGrade?: string | null): number {
@@ -148,7 +178,7 @@ function coinCostFromClass(classGrade?: string | null): number {
     gradeStr.includes("iit") ||
     gradeStr.includes("coding")
   ) {
-    return 30;
+    return COMMISSION_PLAN.unlockCoins.class11To12AndEntrance;
   }
 
   if (
@@ -158,15 +188,15 @@ function coinCostFromClass(classGrade?: string | null): number {
     gradeStr.includes("metric") ||
     gradeStr.includes("matric")
   ) {
-    return 20;
+    return COMMISSION_PLAN.unlockCoins.class9To10;
   }
 
-  return 10;
+  return COMMISSION_PLAN.unlockCoins.class1To8;
 }
 
 /**
- * Lead unlock cost. A fee amount wins: coins are 5% of that fee.
- * Class buckets apply only when the lead has no fee.
+ * Lead unlock cost — FIXED by class band, independent of fee/budget.
+ * 1–8: 10 · 9–10: 20 · 11–12 / entrance: 30.
  */
 export function getLeadPointCost(
   classGrade?: string | null,
@@ -222,17 +252,17 @@ export interface SubscriptionPlanConfig {
 
 export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConfig> = {
   STARTER: {
-    id: "STARTER",
+    id: COMMISSION_PLAN.id,
     name: "Commission Based Plan",
-    priceInr: 1257,
+    priceInr: COMMISSION_PLAN.priceInr,
     originalPriceInr: 2500,
     festivalDiscountPct: 50,
     festivalBadge: "COMMISSION PLAN",
-    totalLeads: 5,
-    totalPoints: 50,
-    monthlyLeads: 5,
-    validityDays: 180,
-    validityText: "Valid for 6 Months",
+    totalLeads: COMMISSION_PLAN.coins / COMMISSION_PLAN.unlockCoins.class1To8,
+    totalPoints: COMMISSION_PLAN.coins,
+    monthlyLeads: COMMISSION_PLAN.coins / COMMISSION_PLAN.unlockCoins.class1To8,
+    validityDays: COMMISSION_PLAN.validityDays,
+    validityText: `Valid for ${COMMISSION_PLAN.validityText}`,
     maxTutorsPerLead: 3,
     competitionLabel: "Low Competition (Shared with max 3 tutors)",
     exclusivityType: "SHARED_3",
@@ -248,7 +278,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     isSpecialRetargetingOffer: false,
     commissionNote: "50% Commission of 1st Month + 5% Every Month from 2nd Month onwards",
     features: [
-      "✅ 5 Verified Leads Unlock",
+      `✅ ${COMMISSION_PLAN.coinSummary} Unlock`,
       "📅 6 Months Validity (180 Days)",
       "🤝 50% Commission on 1st Month Tuition Fee",
       "🔄 5% Commission Every Month (from 2nd month onwards)",
@@ -259,7 +289,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, SubscriptionPlanConf
     ],
     classBreakdown: CLASS_LEAD_DISTRIBUTION,
     feeBreakdown: FEE_STRUCTURE_DISTRIBUTION,
-    termsNote: "₹1,257 registration fee. Valid for 6 months. Unlocks 5 verified leads. Platform commission: 50% on 1st month tuition fee, and 5% commission every month from 2nd month onwards.",
+    termsNote: `₹${COMMISSION_PLAN.priceInr} registration fee. Valid for ${COMMISSION_PLAN.validityText.toLowerCase()}. Credits ${COMMISSION_PLAN.coinSummary}. Platform commission: 50% on 1st month tuition fee, and 5% commission every month from 2nd month onwards.`,
   },
   BRONZE: {
     id: "BRONZE",

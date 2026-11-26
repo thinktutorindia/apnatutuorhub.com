@@ -8,7 +8,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { extractPublicLocality, formatLeadBudget, isTill8thClass, leadSubjectsForClass } from "@/lib/lead-utils";
-import { getLeadPointCost } from "@/lib/subscription-plans";
+import {
+  COMMISSION_PLAN,
+  commissionPlanCoinsText,
+  getLeadPointCost,
+} from "@/lib/subscription-plans";
 import { coversClassLevel, hasSubjectOverlap, extractGradeNumber, isGenderCompatible } from "@/lib/matching-engine";
 import { expandTutorSubjectsAndClasses } from "./auto-register";
 import { haversineDistanceKm } from "@/lib/haversine";
@@ -663,8 +667,8 @@ export function formatTutorLeadsAndPlansMessage(
 
   const plansSection = `\n\n──────────────────────────\n` +
     `🔓 *How to Unlock Parent Contacts:*\n` +
-    `\n💼 *₹1,257 Commission Based Plan* (5 Leads · 6 Months Validity)\n` +
-    `• Unlock 5 Verified Student Leads\n` +
+    `\n💼 *₹${COMMISSION_PLAN.priceInr} Commission Based Plan* (${COMMISSION_PLAN.coinSummary} · ${COMMISSION_PLAN.validityText} Validity)\n` +
+    `• ${COMMISSION_PLAN.coinSummary}\n` +
     `• Low Competition (Max 3 Tutors per Lead)\n` +
     `• Direct Parent Phone + Full Address\n` +
     `• 6 Months Validity (180 Days)\n` +
@@ -683,9 +687,9 @@ export function formatOfferEnded999Message(): string {
   return `⚠️ *Notice: ₹999 Offer Has Ended*\n\n` +
     `The ₹999 limited-time introductory offer has officially ended.\n\n` +
     `Our currently active membership option is:\n\n` +
-    `💼 *Commission Based Plan — ₹1,257*\n` +
-    `• Registration Fee: ₹1,257 (Validity: 6 Months)\n` +
-    `• 5 Verified Leads Unlock\n` +
+    `💼 *Commission Based Plan — ₹${COMMISSION_PLAN.priceInr}*\n` +
+    `• Registration Fee: ₹${COMMISSION_PLAN.priceInr} (Validity: ${COMMISSION_PLAN.validityText})\n` +
+    `• ${COMMISSION_PLAN.coinSummary}\n` +
     `• Low Competition: Max 3 tutors per lead\n` +
     `• Direct Parent Phone & Full Address\n` +
     `• Terms: 50% commission on 1st month tuition fee + 5% recurring every month from 2nd month onwards.\n\n` +
@@ -698,12 +702,12 @@ export function formatOfferEnded999Message(): string {
  * Detailed breakdown when tutor expresses interest in Commission Based Plan.
  */
 export function formatCommissionPlanDetailMessage(): string {
-  return `🤝 *ApnaTutorHub Commission Based Plan (₹1,257)*\n\n` +
+  return `🤝 *ApnaTutorHub Commission Based Plan (₹${COMMISSION_PLAN.priceInr})*\n\n` +
     `Ideal for tutors who prefer starting with a low upfront registration fee:\n\n` +
     `📋 *Plan Features:*\n` +
-    `• Registration Fee: *₹1,257* only\n` +
-    `• Validity: *6 Months* (180 Days)\n` +
-    `• Total Leads: *5 Verified Student Leads Unlock*\n` +
+    `• Registration Fee: *₹${COMMISSION_PLAN.priceInr}* only\n` +
+    `• Validity: *${COMMISSION_PLAN.validityText}* (${COMMISSION_PLAN.validityDays} Days)\n` +
+    `• Coins: *${COMMISSION_PLAN.coinSummary}*\n` +
     `• Commission: *50% on 1st month tuition fee*, then *5% monthly from 2nd month onwards*\n` +
     `• Low Competition: Shared with max 3 tutors only\n` +
     `• Direct Parent Phone & Address Unlocked\n` +
@@ -720,10 +724,10 @@ export function formatGrowthPlanDetailMessage(): string {
   return `⚠️ *Notice: Without-Commission Plans Closed*\n\n` +
     `Zero-commission / without-commission prepaid plans (Silver ₹2,999, Gold, Platinum) have been officially discontinued.\n\n` +
     `Currently, only the verified *Commission Based Plan* is active on the platform:\n\n` +
-    `💼 *ApnaTutorHub Commission Based Plan (₹1,257)*\n` +
-    `• Registration Fee: *₹1,257* only\n` +
-    `• Validity: *6 Months* (180 Days)\n` +
-    `• Total Leads: *5 Verified Student Leads Unlock*\n` +
+    `💼 *ApnaTutorHub Commission Based Plan (₹${COMMISSION_PLAN.priceInr})*\n` +
+    `• Registration Fee: *₹${COMMISSION_PLAN.priceInr}* only\n` +
+    `• Validity: *${COMMISSION_PLAN.validityText}* (${COMMISSION_PLAN.validityDays} Days)\n` +
+    `• Coins: *${COMMISSION_PLAN.coinSummary}*\n` +
     `• Terms: *50% on 1st month tuition fee*, then *5% monthly from 2nd month onwards*\n` +
     `• Low Competition: Max 3 tutors per lead\n` +
     `• Direct Parent Phone & Address Unlocked\n\n` +
@@ -739,15 +743,15 @@ export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "
   void planHint;
   const plansUrl = `${PUBLIC_SITE}/tutor/plans?checkout=STARTER`;
 
-  const planLine = "Commission Based Plan *₹1,257*";
+  const planLine = `Commission Based Plan *₹${COMMISSION_PLAN.priceInr}*`;
 
   return (
     `💳 *${planLine} — Instant Online Activation*\n\n` +
     `⚡ *1-Click Secure Payment (UPI / GPay / PhonePe / Paytm / Cards):*\n` +
     `👉 ${plansUrl}\n\n` +
     `✨ *Membership Perks:*\n` +
-    `• *5 Verified Student Leads Unlocked*\n` +
-    `• *6 Months Validity* (180 days)\n` +
+    `• *${COMMISSION_PLAN.coinSummary}*\n` +
+    `• *${COMMISSION_PLAN.validityText} Validity* (${COMMISSION_PLAN.validityDays} days)\n` +
     `• *Direct Parent Phone Numbers & Addresses*\n` +
     `• 50% commission on 1st month tuition fee + 5% recurring from 2nd month\n` +
     `• Instant automated activation via Razorpay\n\n` +
@@ -761,12 +765,12 @@ export function formatPlanPaymentQrMessage(planHint: "1257" | "2999" | "any" = "
 export function formatCoinPlansMessage(): string {
   return `💎 *ApnaTutorHub Membership Plan*
 
-💼 *Commission Based Plan — ₹1,257 (6 Months Validity)*
-• Registration Fee: *₹1,257*
-• *5 Verified Student Leads Unlock*
+💼 *Commission Based Plan — ₹${COMMISSION_PLAN.priceInr} (${COMMISSION_PLAN.validityText} Validity)*
+• Registration Fee: *₹${COMMISSION_PLAN.priceInr}*
+• *${COMMISSION_PLAN.coinSummary}*
 • *Low Competition* — Max 3 tutors per lead
 • *Direct Parent Contact* — Phone number + address
-• Validity: 6 Months (180 Days)
+• Validity: ${COMMISSION_PLAN.validityText} (${COMMISSION_PLAN.validityDays} Days)
 • Terms: 50% commission on 1st month tuition fee + 5% recurring every month from 2nd month onwards.
 
 ℹ️ *Note:* Zero-commission prepaid plans are discontinued. Only the verified Commission Based Plan is active.
@@ -936,8 +940,8 @@ export async function formatSingleLeadInquiry(
       `👉 Unlock here: https://apnatutorhub.com/tutor/leads?inquiry=${lead.inquiryNumber}`
     : `💎 *How to Unlock:*\n` +
       `1. Open the dashboard link and click *Unlock Lead*.\n` +
-      `2. Unlock cost: *${coinCost} coins* (~5% of one month's fee).\n` +
-      `3. Included in the ₹1,257 Commission Plan (5 leads, 6 months validity).\n\n` +
+      `2. Fixed unlock cost: *${coinCost} coins* (Class 1–8: 10 · Class 9–10: 20 · Class 11–12 / entrance: 30).\n` +
+      `3. ₹${COMMISSION_PLAN.priceInr} Commission Plan credits ${COMMISSION_PLAN.coinSummary}.\n\n` +
       `👉 *Membership Plans:*\nhttps://apnatutorhub.com/tutor/plans`;
 
   const message =

@@ -40,7 +40,7 @@ import { StartChatButton } from "@/components/chat/StartChatButton";
 import { LeadNotifReminderBanner } from "@/components/tutor/LeadNotifReminderBanner";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { getInquiryDisplayCode, formatLeadBudget, presentLeadPostedAt, publicTutorSlots } from "@/lib/lead-utils";
-import { getLeadPointCost } from "@/lib/subscription-plans";
+import { COMMISSION_PLAN, commissionPlanCoinsText, getLeadPointCost } from "@/lib/subscription-plans";
 import { RequestLeadRefundButton } from "@/components/tutor/RequestLeadRefundButton";
 import { getWhatsAppSupportLink, SUPPORT_PHONE_DISPLAY } from "@/lib/support";
 import {
@@ -1013,13 +1013,13 @@ export function LeadFeedClient({
             <div className="space-y-1.5 max-w-2xl">
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/15 text-white border border-white/20 text-xs font-bold">
                 <Zap size={13} />
-                <span>₹1,257 &nbsp;•&nbsp; 6 Months Validity &nbsp;•&nbsp; 5 Verified Leads Unlock</span>
+                <span>₹{COMMISSION_PLAN.priceInr} &nbsp;•&nbsp; {COMMISSION_PLAN.validityText} Validity &nbsp;•&nbsp; {commissionPlanCoinsText()}</span>
               </div>
               <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
                 Get the Commission Based Plan (₹1,257) — Unlock Verified Student Leads
               </h2>
               <p className="text-xs sm:text-sm text-emerald-100 leading-relaxed">
-                Start with a low upfront registration fee of ₹1,257 with 6 Months validity. Low competition: each lead shared with max 3 verified tutors only.
+                Start with a low upfront registration fee of ₹{COMMISSION_PLAN.priceInr} with {COMMISSION_PLAN.validityText} validity. Low competition: each lead shared with max 3 verified tutors only.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 shrink-0">

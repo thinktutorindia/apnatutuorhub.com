@@ -5,7 +5,7 @@ import { TutorPlansPageClient } from "@/components/tutor/TutorPlansPageClient";
 
 export const metadata = {
   title: "Tutor Membership Plans | ApnaTutorHub",
-  description: "Unlock verified home and online tuition leads with our official Commission Based Plan (5 Leads · 6 Months Validity · Low ₹1,257 Registration Fee).",
+  description: "Unlock verified home and online tuition leads with our official Commission Based Plan (60 coins · 6 Months Validity · Low ₹1,257 Registration Fee).",
 };
 
 export default async function TutorPlansPage() {

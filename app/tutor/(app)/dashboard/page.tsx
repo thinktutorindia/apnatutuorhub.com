@@ -23,6 +23,7 @@ import { formatLeadBudget, getInquiryDisplayCode, publicTutorSlots } from "@/lib
 import { haversineDistanceKm } from "@/lib/haversine";
 import { INDIAN_CITY_COORDINATES, resolveLocationCoordinates } from "@/lib/geocoding";
 import { hasSubjectOverlap, extractGradeNumber } from "@/lib/feed-matching";
+import { COMMISSION_PLAN, commissionPlanCoinsText } from "@/lib/subscription-plans";
 import { isGenderCompatible } from "@/lib/matching-engine";
 import {
   cleanClassLevelDisplay,
@@ -530,8 +531,8 @@ export default async function TutorDashboardPage({ searchParams }: PageProps) {
                 Payment Successful! Your Membership is Active.
               </h3>
               <p className="text-sm text-emerald-100 font-semibold mt-0.5">
-                Commission Based Plan is active for <strong>6 Months</strong> with{" "}
-                <strong>5 verified student leads</strong> included.
+                Commission Based Plan is active for <strong>{COMMISSION_PLAN.validityText}</strong> with{" "}
+                <strong>{commissionPlanCoinsText()}</strong> credited.
               </p>
             </div>
           </div>

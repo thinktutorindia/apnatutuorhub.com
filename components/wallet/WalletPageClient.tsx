@@ -7,6 +7,7 @@ import { Wallet, ArrowUpRight, ArrowDownLeft, RotateCcw, Gift, ShieldCheck, Plus
 import type { WalletTransactionType } from "@prisma/client";
 import { TopUpModal } from "@/components/wallet/TopUpModal";
 import { useSeniorTutor } from "@/components/tutor/SeniorTutorContext";
+import { COMMISSION_PLAN, commissionPlanCoinsText } from "@/lib/subscription-plans";
 
 type Transaction = {
   id: string;
@@ -174,7 +175,7 @@ export function WalletPageClient({
                 className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-xs transition-colors"
               >
                 <Sparkles size={14} />
-                <span>{lang === "hi" ? "कमीशन प्लान देखें (5 लीड्स)" : "Explore Membership (5 Leads)"}</span>
+                <span>{lang === "hi" ? `कमीशन प्लान देखें (${COMMISSION_PLAN.coins} कॉइन्स)` : `Explore Membership (${COMMISSION_PLAN.coins} Coins)`}</span>
               </Link>
             )}
           </div>
@@ -407,8 +408,8 @@ export function WalletPageClient({
               <h2 className="text-base font-800 text-[#0F2540]" style={{ fontFamily: "Poppins, sans-serif" }}>
                 Coin Cost Guide
               </h2>
-              <p className="text-xs text-gray-600 font-600">Fixed rates by class — 10 coins for Class 1–8, 20 for Class 9–10, 30 for Class 11–12 / entrance.</p>
-              <p className="text-[11px] font-700 text-emerald-800 mt-1">₹1,257 plan = 60 coins → 6 primary unlocks OR 3 secondary OR 2 senior, or any mix.</p>
+              <p className="text-xs text-gray-600 font-600">Fixed rates by class — {COMMISSION_PLAN.unlockCoins.class1To8} coins for Class 1–8, {COMMISSION_PLAN.unlockCoins.class9To10} for Class 9–10, {COMMISSION_PLAN.unlockCoins.class11To12AndEntrance} for Class 11–12 / entrance.</p>
+              <p className="text-[11px] font-700 text-emerald-800 mt-1">₹{COMMISSION_PLAN.priceInr} plan = {commissionPlanCoinsText()}.</p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -450,7 +451,7 @@ export function WalletPageClient({
                   {tier.cost} <span className="text-lg font-700 text-amber-600">🪙</span>
                 </p>
                 <p className="text-[11px] font-700 text-emerald-800">{tier.billing}</p>
-                <p className="text-[10px] font-600 text-gray-500">per unlocked contact (~5% fee share)</p>
+                <p className="text-[10px] font-600 text-gray-500">per unlocked contact (fixed by class, fee-independent)</p>
               </div>
             ))}
           </div>

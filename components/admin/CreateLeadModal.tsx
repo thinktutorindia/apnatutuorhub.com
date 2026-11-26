@@ -502,7 +502,7 @@ export function CreateLeadModal({
     }
 
     if (!feeQuote) {
-      setErrorMsg("Enter the tuition fee. Unlock coins are 5% of that amount.");
+      setErrorMsg("Enter the tuition fee. Unlock cost is fixed by class: 10 / 20 / 30 coins.");
       return;
     }
 
@@ -1466,18 +1466,18 @@ export function CreateLeadModal({
                     </div>
 
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-3.5 py-3 text-xs text-emerald-950">
-                      <p className="font-extrabold text-[#0F2540]">Unlock coins are 5% of this fee, inside the ₹{GROWTH_PLAN_PRICE_INR} plan ({GROWTH_PLAN_COINS} coins)</p>
+                      <p className="font-extrabold text-[#0F2540]">Unlock cost is fixed by class (10 / 20 / 30 coins), independent of this fee.</p>
                       {feeQuote ? (
                         <p className="mt-1 font-semibold text-emerald-900">
                           {feeQuote.rateType === "HOURLY"
                             ? `₹${feeQuote.fee.toLocaleString("en-IN")}/hr × ${HOURLY_CLASSES_PER_MONTH} classes = ₹${feeQuote.monthly.toLocaleString("en-IN")}/month. `
                             : `Fee ₹${feeQuote.fee.toLocaleString("en-IN")}/month. `}
-                          5% of that fee is <span className="font-extrabold">{feeQuote.coinCost} coins</span>
+                          Fixed unlock cost is <span className="font-extrabold">{feeQuote.coinCost} coins</span>
                           {` (a ₹${GROWTH_PLAN_PRICE_INR} plan has ${GROWTH_PLAN_COINS} coins).`}
                           {" "}The card shows {PUBLIC_TUTOR_SLOTS} tutor slots.
                         </p>
                       ) : (
-                        <p className="mt-1 font-semibold text-emerald-900">Enter the fee. Coins are 5% of that amount, scaled to the 60-coin plan.</p>
+                        <p className="mt-1 font-semibold text-emerald-900">Enter the fee for display. Unlock coins are fixed at 10 / 20 / 30 by class band.</p>
                       )}
                     </div>
 
@@ -1816,7 +1816,7 @@ export function CreateLeadModal({
                             : "Enter a fee"}
                         </span>
                         <span>•</span>
-                        <span>🪙 {feeQuote ? `${feeQuote.coinCost} of ${GROWTH_PLAN_COINS} coins` : "5% of the fee, in plan coins"} · {PUBLIC_TUTOR_SLOTS} slots shown</span>
+                        <span>🪙 {feeQuote ? `${feeQuote.coinCost} coins (fixed by class)` : "10 / 20 / 30 coins by class"} · {PUBLIC_TUTOR_SLOTS} slots shown</span>
                       </div>
                     </div>
                   </div>

@@ -7,7 +7,7 @@ import {
 } from "@/lib/razorpay";
 import { creditCoinsToWallet } from "@/app/actions/wallet.actions";
 import { consumeCouponInTx } from "@/app/actions/coupon.actions";
-import { getSubscriptionPlan } from "@/lib/subscription-plans";
+import { COMMISSION_PLAN, getSubscriptionPlan, planCoinCredit } from "@/lib/subscription-plans";
 
 // POST /api/webhooks/razorpay
 // Called by Razorpay after a successful payment (payment.captured event).
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     const validityDays = plan.validityDays || 30;
     const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
-    const bonusCoins = plan.id === "PLATINUM" ? 100 : plan.id === "GOLD" ? 50 : 0;
+    const creditCoins = planCoinCredit(plan.id);
 
     await prisma.$transaction(async (tx) => {
       await tx.tutorProfile.update({
@@ -114,21 +114,24 @@ export async function POST(request: Request) {
         },
       });
 
-      if (bonusCoins > 0) {
+      if (creditCoins > 0) {
+        const isCommissionPlan = plan.id === COMMISSION_PLAN.id;
         const wallet = await tx.wallet.upsert({
           where: { tutorProfileId },
-          create: { tutorProfileId, balance: bonusCoins },
-          update: { balance: { increment: bonusCoins } },
+          create: { tutorProfileId, balance: creditCoins },
+          update: { balance: { increment: creditCoins } },
         });
 
         await tx.walletTransaction.create({
           data: {
             walletId: wallet.id,
-            amount: bonusCoins,
+            amount: creditCoins,
             balanceAfter: wallet.balance,
-            type: "BONUS",
-            description: `🎁 Bonus ${bonusCoins} coins included with ${plan.name}`,
-            referenceId: paymentId || orderId || `bonus_sub_${Date.now()}`,
+            type: isCommissionPlan ? "PURCHASE" : "BONUS",
+            description: isCommissionPlan
+              ? `₹${COMMISSION_PLAN.priceInr} Commission Based Plan — ${COMMISSION_PLAN.coinSummary}`
+              : `🎁 Bonus ${creditCoins} coins included with ${plan.name}`,
+            referenceId: paymentId || orderId || `plan_credit_${Date.now()}`,
           },
         });
       }

@@ -21,13 +21,22 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 
 import {
+  COMMISSION_PLAN,
   GROWTH_PLAN_COINS,
   GROWTH_PLAN_PRICE_INR,
   SUBSCRIPTION_PLANS,
   TOTAL_PLAN_LEAD_POINTS,
   getLeadPointCost,
   getPlanTotalPoints,
+  planCoinCredit,
 } from "../lib/subscription-plans";
+import {
+  formatCoinPlansMessage,
+  formatCommissionPlanDetailMessage,
+  formatGrowthPlanDetailMessage,
+  formatOfferEnded999Message,
+  formatPlanPaymentQrMessage,
+} from "../lib/whatsapp-bot/leads-helper";
 import {
   asksCommissionPlan,
   asksPlanPaymentOrQr,
@@ -107,17 +116,57 @@ const tests: Array<() => Promise<void>> = [
     assert.equal(getPlanTotalPoints("BRONZE"), 60);
   }),
 
-  gap(
-    "coins: ₹1,257 STARTER must credit 60 coins",
-    { getPlanTotalPoints_STARTER: getPlanTotalPoints("STARTER"), walletBonus: 0 },
-    { getPlanTotalPoints_STARTER: 60, walletBonus: 60 },
-    "subscription-plans.ts:27 returns 50; subscribe/verify/route.ts:138 credits STARTER 0 bonus coins. Rule says 60."
-  ),
+  test("coins: ₹1,257 STARTER credits exactly 60 coins (single source of truth)", () => {
+    assert.equal(COMMISSION_PLAN.priceInr, 1257);
+    assert.equal(COMMISSION_PLAN.coins, 60);
+    assert.equal(COMMISSION_PLAN.validityDays, 180);
+    assert.equal(getPlanTotalPoints("STARTER"), 60);
+    assert.equal(SUBSCRIPTION_PLANS.STARTER.totalPoints, 60);
+    assert.equal(planCoinCredit("STARTER"), 60);
+
+    // Wallet-credit code path must read from COMMISSION_PLAN, not a literal 0/50.
+    const verify = read("app/api/tutor/subscribe/verify/route.ts");
+    const webhook = read("app/api/webhooks/razorpay/route.ts");
+    const manual = read("app/actions/manual-payment.actions.ts");
+    assert.match(verify, /const creditCoins = planCoinCredit\(plan\.id\)/);
+    assert.match(webhook, /const creditCoins = planCoinCredit\(plan\.id\)/);
+    assert.match(manual, /balance: COMMISSION_PLAN\.coins/);
+  }),
 
   test("coins: plan prices and commission note frozen", () => {
     assert.equal(SUBSCRIPTION_PLANS.STARTER.priceInr, 1257);
     assert.match(SUBSCRIPTION_PLANS.STARTER.commissionNote ?? "", /50%.+5%/);
     assert.equal(SUBSCRIPTION_PLANS.BRONZE.priceInr, 2999);
+    assert.match(SUBSCRIPTION_PLANS.STARTER.termsNote ?? "", /60 coins/);
+    assert.match(SUBSCRIPTION_PLANS.STARTER.features[0] ?? "", /60 coins/);
+  }),
+
+  test("coins: every bot plan message uses the 60-coin wording, never '5 leads'", () => {
+    const messages = [
+      formatOfferEnded999Message(),
+      formatCommissionPlanDetailMessage(),
+      formatGrowthPlanDetailMessage(),
+      formatPlanPaymentQrMessage("1257"),
+      formatCoinPlansMessage(),
+    ];
+    for (const msg of messages) {
+      assert.equal(/\b5\s+(?:verified\s+|student\s+)?leads?\b/i.test(msg), false, `stale lead count in: ${msg.slice(0, 120)}`);
+      assert.match(msg, /60 coins/);
+    }
+    assert.match(formatCommissionPlanDetailMessage(), /6 primary \/ 3 secondary \/ 2 senior/);
+  }),
+
+  test("coins: no live source says ~5% of fee or 9/11/12 coin costs", () => {
+    for (const file of [
+      "lib/whatsapp-bot/leads-helper.ts",
+      "components/admin/CreateLeadModal.tsx",
+      "components/wallet/WalletPageClient.tsx",
+      "app/actions/admin.actions.ts",
+      "lib/subscription-plans.ts",
+    ]) {
+      const src = read(file);
+      assert.equal(/~5%\s*of|\(5%\s*fee|5%\s*of\s*(?:that|this|one month)/i.test(src), false, `stale fee-based coin text in ${file}`);
+    }
   }),
 
   // ── 2. PLANS ───────────────────────────────────────────────────────────────

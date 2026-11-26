@@ -156,6 +156,14 @@ const tests: Array<() => Promise<void>> = [
     assert.match(formatCommissionPlanDetailMessage(), /6 primary \/ 3 secondary \/ 2 senior/);
   }),
 
+  test("engine: location success is only reported when the DB actually wrote it", () => {
+    const src = read("lib/whatsapp-bot/engine.ts");
+    assert.match(src, /if \(profileUpdates\.address !== undefined \|\| profileUpdates\.city !== undefined\) updatedFields\.push\("area"\)/);
+    assert.match(src, /const areaPatched = saved\.updatedFields\.includes\("area"\)/);
+    assert.match(src, /locationRejected/);
+    assert.equal(/updatedFields\.push\("area"\);\s*\/\/ no readback/.test(src), false);
+  }),
+
   test("coins: no live source says ~5% of fee or 9/11/12 coin costs", () => {
     for (const file of [
       "lib/whatsapp-bot/leads-helper.ts",

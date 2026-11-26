@@ -734,7 +734,8 @@ export async function syncUserCredentialsInDb(params: {
             data: { phone: canon },
           });
         }
-        if (params.area || params.city) updatedFields.push("area");
+        // Only claim "area" as saved when a location field was actually written.
+        if (profileUpdates.address !== undefined || profileUpdates.city !== undefined) updatedFields.push("area");
         if (profileUpdates.subjects) updatedFields.push("subjects");
         if (profileUpdates.classLevels) updatedFields.push("class");
         if (profileUpdates.teachingMode) updatedFields.push("mode");
@@ -4122,7 +4123,7 @@ export async function processMessage(
         })
         : { ok: true, updatedFields: [] as string[], finalSubjects: undefined, finalClassLevels: undefined };
 
-      const areaPatched = saved.updatedFields.includes("area") || Boolean(areaToSave);
+      const areaPatched = saved.updatedFields.includes("area");
       if (areaPatched) {
         if (areaToSave) mergedData.area = areaToSave;
         if (cityToSave) mergedData.city = cityToSave;
@@ -4150,7 +4151,11 @@ export async function processMessage(
         saved.updatedFields.includes("email") ? `email *${mergedData.email}*` : "",
       ].filter(Boolean);
 
-      return { savedBits, mergedData };
+      return {
+        savedBits,
+        mergedData,
+        locationRejected: Boolean(areaToSave && !saved.updatedFields.includes("area")),
+      };
     };
 
     if (useAi) {
@@ -4169,7 +4174,17 @@ export async function processMessage(
           });
           if (semantic) return semantic;
 
-          const { savedBits, mergedData } = await applyDonePatch({ ai });
+          const { savedBits, mergedData, locationRejected } = await applyDonePatch({ ai });
+          if (locationRejected) {
+            return {
+              reply: `I couldn't verify that location, so I have *not* changed it. Please send the locality and city again — for example *Saket Delhi* or *Chirag Delhi*. 📍`,
+              nextStep: "DONE",
+              updatedData: data,
+              userType: session.userType,
+              retries: 0,
+              quickReplies: ["My Profile 👤", "View Leads 📋"],
+            };
+          }
           let reply = ai.reply;
           if (savedBits.length > 0) {
             const hasDbDetailsInReply = /all subjects|class\s*[1-9]|saved in database|updated:/i.test(reply);
@@ -4219,6 +4234,16 @@ export async function processMessage(
     const hasExplicitStatement = Boolean(directLocStatement || directSubStatement || validEmailInMsg);
     if (hasExplicitStatement) {
       const fallbackPatch = await applyDonePatch({});
+      if (fallbackPatch.locationRejected) {
+        return {
+          reply: `I couldn't verify that location, so I have *not* changed it. Please send the locality and city again — for example *Saket Delhi* or *Chirag Delhi*. 📍`,
+          nextStep: "DONE",
+          updatedData: data,
+          userType: session.userType || "TUTOR",
+          retries: 0,
+          quickReplies: ["My Profile 👤", "View Leads 📋"],
+        };
+      }
       if (fallbackPatch.savedBits.length > 0) {
         return {
           reply: `Saved: ${fallbackPatch.savedBits.join(", ")}. ✅\n\nProfile: https://apnatutorhub.com/tutor/profile`,

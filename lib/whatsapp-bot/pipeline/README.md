@@ -33,8 +33,11 @@ inbound → prefilter → context → classifier → save gate → decide → co
 
 - `WA_PIPELINE_SHADOW` — `1` enables outcome recording (default off).
 - `CRON_SECRET` — protects `/api/cron/stuck-threads` in production.
-- Existing bot vars: `AQUA_WHATSAPP_*`, `GEMINI_API_KEY` (or `GOOGLE_API_KEY`), `DATABASE_URL` / `DIRECT_URL`.
-- No Google Maps key exists locally; the geocoder interface falls back to `needsReview`.
+- `GEMINI_API_KEY` (or `GOOGLE_API_KEY` / `GOOGLE_GENAI_API_KEY`) — classifier + name check. **Not present locally.**
+- `GOOGLE_MAPS_API_KEY` — Google Geocoding. **Not present locally** → geocoder returns null → `needsReview`.
+- `DATABASE_URL` / `DIRECT_URL` — Prisma stores (counters, outcomes, rejected saves, callbacks, session fields).
+- Existing bot vars: `AQUA_WHATSAPP_*`.
+- Real adapters fail closed: Gemini unavailable → deterministic classifier; name check unavailable → no save; geocoder unavailable → `needsReview` (city-only is still rejected by the validator before any geocode).
 
 ## Tests
 

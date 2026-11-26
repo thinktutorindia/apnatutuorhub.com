@@ -302,6 +302,8 @@ model ParentProfile {
   state     String?
   pincode   String?
   address   String?
+  locality  String?
+  landmark  String?
   latitude  Float?
   longitude Float?
   createdAt DateTime @default(now())
@@ -355,6 +357,8 @@ model TutorProfile {
   state            String?
   pincode          String?
   address          String?
+  locality         String?
+  landmark         String?
   introVideoUrl    String?
   profileScore     Int          @default(0)
   averageRating    Float        @default(0)
@@ -527,6 +531,8 @@ model Lead {
   longitude        Float?
   city             String?
   area             String?
+  locality         String?
+  landmark         String?
   pincode          String?
   timingPreference String?
   tutorGenderPref  String?    // MALE, FEMALE, ANY
@@ -1146,15 +1152,22 @@ model StaffActivityEvent {
 model WhatsappSession {
   id            String   @id @default(cuid())
   phone         String   @unique          // E.164 without +, e.g. "919000000000"
-  userType      String?                   // "TUTOR" | "PARENT" | null
-  step          String   @default("WELCOME")
-  data          Json     @default("{}")   // Collected field values
-  retries       Int      @default(0)      // Consecutive invalid replies
-  lastMessageAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  userType        String?                 // "TUTOR" | "PARENT" | null
+  step            String   @default("WELCOME")
+  data            Json     @default("{}") // Collected field values (legacy mirror)
+  retries         Int      @default(0)    // Consecutive invalid replies
+  unsubscribed    Boolean  @default(false)
+  windowExpiresAt DateTime?                // last inbound + 24h
+  pendingQuestion String?
+  pendingAskedAt  DateTime?
+  askCount        Int      @default(0)    // ignored-pending counter
+  rollingSummary  String?  @db.Text
+  lastMessageAt   DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([lastMessageAt])
+  @@index([windowExpiresAt])
   @@map("whatsapp_sessions")
 }
 
@@ -1183,4 +1196,70 @@ model WhatsappChatMessage {
   @@index([createdAt])
   @@index([isRead])
   @@map("whatsapp_chat_messages")
+}
+
+// ────────────────────────────────────────────────────────────────
+// WhatsApp bot pipeline state (modular rewrite)
+// ────────────────────────────────────────────────────────────────
+
+/// Per-phone counters that survive serverless restarts.
+model WhatsappReplyCounter {
+  phone              String   @id
+  windowStart        DateTime @default(now()) // start of current 10-min rate window
+  repliesInWindow    Int      @default(0)      // max 5 bot replies / 10 min
+  lastReplyText      String?  @db.Text
+  lastReplyTextCount Int      @default(0)      // max 2 identical replies in a row
+  flaggedForStaff    Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+
+  @@map("whatsapp_reply_counters")
+}
+
+/// One row per inbound turn: what the pipeline decided and how it replied.
+model WhatsappReplyOutcome {
+  id             String   @id @default(cuid())
+  phone          String
+  inboundMessageId String?
+  decision       String              // REPLY | SILENT
+  reason         String?             // reaction, duplicate, opt_out, rate_limit, ...
+  fallbackUsed   Boolean  @default(false)
+  channel        String?             // TEXT | TEMPLATE | IMAGE
+  latencyMs      Int?
+  createdAt      DateTime @default(now())
+
+  @@index([phone, createdAt])
+  @@index([decision, createdAt])
+  @@index([reason, createdAt])
+  @@map("whatsapp_reply_outcomes")
+}
+
+/// Every value rejected by the SAVE GATE (input, field, reason).
+model WhatsappRejectedSave {
+  id        String   @id @default(cuid())
+  phone     String
+  field     String              // email | name | locality | subjects | classLevels
+  input     String?  @db.Text
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([phone, createdAt])
+  @@index([field, createdAt])
+  @@map("whatsapp_rejected_saves")
+}
+
+/// Staff callback task created by "human / call me" intent.
+model CallbackTask {
+  id            String    @id @default(cuid())
+  phone         String
+  reason        String
+  preferredTime String?
+  status        String    @default("PENDING") // PENDING | CONTACTED | DONE | CANCELLED
+  assignedToId  String?
+  staffAlertedAt DateTime?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  @@index([status, createdAt])
+  @@index([phone, createdAt])
+  @@map("callback_tasks")
 }

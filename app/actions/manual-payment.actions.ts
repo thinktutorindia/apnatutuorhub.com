@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { can } from "@/lib/rbac";
 import type { PaymentRequestType, SubscriptionPlan, PaymentRequestStatus } from "@prisma/client";
 import { COMMISSION_PLAN } from "@/lib/subscription-plans";
+import { creditPlanCoinsIfAbsent } from "@/lib/plan-credit";
 
 export interface SubmitPaymentInput {
   type: PaymentRequestType;
@@ -260,23 +261,14 @@ export async function adminApprovePaymentAction(
       });
 
       // ₹1,257 Commission plan (including offline UPI) credits exactly 60 coins.
-      if (plan === COMMISSION_PLAN.id) {
-        const wallet = await tx.wallet.upsert({
-          where: { tutorProfileId: tutorProfile.id },
-          create: { tutorProfileId: tutorProfile.id, balance: COMMISSION_PLAN.coins },
-          update: { balance: { increment: COMMISSION_PLAN.coins } },
-        });
-        await tx.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
-            amount: COMMISSION_PLAN.coins,
-            balanceAfter: wallet.balance,
-            type: "PURCHASE",
-            description: `₹${COMMISSION_PLAN.priceInr} Commission Based Plan (Offline UPI) — ${COMMISSION_PLAN.coinSummary}`,
-            referenceId: request.utrNumber || `offline_plan_${requestId}`,
-          },
-        });
-      }
+      // Idempotent on UTR so a re-approval cannot double-credit.
+      await creditPlanCoinsIfAbsent(tx, {
+        tutorProfileId: tutorProfile.id,
+        planId: plan,
+        paymentId: request.utrNumber || `offline_plan_${requestId}`,
+        planName: "Commission Based Plan (Offline UPI)",
+        source: "manual-payment-approval",
+      });
 
       // Update tutor profile
       await tx.tutorProfile.update({

@@ -7,7 +7,8 @@ import {
 } from "@/lib/razorpay";
 import { creditCoinsToWallet } from "@/app/actions/wallet.actions";
 import { consumeCouponInTx } from "@/app/actions/coupon.actions";
-import { COMMISSION_PLAN, getSubscriptionPlan, planCoinCredit } from "@/lib/subscription-plans";
+import { getSubscriptionPlan } from "@/lib/subscription-plans";
+import { creditPlanCoinsIfAbsent } from "@/lib/plan-credit";
 
 // POST /api/webhooks/razorpay
 // Called by Razorpay after a successful payment (payment.captured event).
@@ -88,8 +89,6 @@ export async function POST(request: Request) {
     const validityDays = plan.validityDays || 30;
     const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
-    const creditCoins = planCoinCredit(plan.id);
-
     await prisma.$transaction(async (tx) => {
       await tx.tutorProfile.update({
         where: { id: tutorProfileId },
@@ -114,27 +113,13 @@ export async function POST(request: Request) {
         },
       });
 
-      if (creditCoins > 0) {
-        const isCommissionPlan = plan.id === COMMISSION_PLAN.id;
-        const wallet = await tx.wallet.upsert({
-          where: { tutorProfileId },
-          create: { tutorProfileId, balance: creditCoins },
-          update: { balance: { increment: creditCoins } },
-        });
-
-        await tx.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
-            amount: creditCoins,
-            balanceAfter: wallet.balance,
-            type: isCommissionPlan ? "PURCHASE" : "BONUS",
-            description: isCommissionPlan
-              ? `₹${COMMISSION_PLAN.priceInr} Commission Based Plan — ${COMMISSION_PLAN.coinSummary}`
-              : `🎁 Bonus ${creditCoins} coins included with ${plan.name}`,
-            referenceId: paymentId || orderId || `plan_credit_${Date.now()}`,
-          },
-        });
-      }
+      await creditPlanCoinsIfAbsent(tx, {
+        tutorProfileId,
+        planId: plan.id,
+        paymentId: paymentId || orderId || `plan_credit_${tutorProfileId}_${now.getTime()}`,
+        planName: plan.name,
+        source: "razorpay-webhook",
+      });
     });
 
     console.info("[razorpay-webhook] Activated tutor subscription via webhook", {

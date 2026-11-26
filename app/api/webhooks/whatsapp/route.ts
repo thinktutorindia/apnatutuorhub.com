@@ -23,6 +23,11 @@ import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";
 import { indiaPhoneLast10 } from "@/lib/india-phone";
 import { updateWhatsAppChatMessageStatus, upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { isPositiveInterest, autoTagWhatsAppInterest } from "@/lib/whatsapp-interest-sync";
+import { evaluatePrefilter, recordOutcome } from "@/lib/whatsapp-bot/pipeline/prefilter";
+
+// SHADOW MODE: when WA_PIPELINE_SHADOW=1, record prefilter decisions in
+// whatsapp_reply_outcomes. It never sends and never changes the legacy reply.
+const SHADOW_PIPELINE_ENABLED = process.env.WA_PIPELINE_SHADOW === "1";
 
 export const runtime = "nodejs";
 
@@ -381,6 +386,24 @@ export async function POST(request: Request): Promise<NextResponse> {
         autoTagWhatsAppInterest({ phone, text, contactName }).catch((err) => {
           console.warn("[whatsapp-webhook] Auto interest tagging error:", err);
         });
+      }
+    }
+
+    // ── SHADOW PIPELINE (record only, never send) ──────────────────────────────
+    if (SHADOW_PIPELINE_ENABLED) {
+      const shadowStart = Date.now();
+      try {
+        const decision = evaluatePrefilter({ text, messageType, messageId });
+        await recordOutcome({
+          phone,
+          inboundMessageId: messageId,
+          decision: decision.decision,
+          reason: decision.reason,
+          channel: decision.decision === "REPLY" ? "TEXT" : undefined,
+          latencyMs: Date.now() - shadowStart,
+        });
+      } catch (err) {
+        console.warn("[whatsapp-shadow] outcome recording failed:", err);
       }
     }
 

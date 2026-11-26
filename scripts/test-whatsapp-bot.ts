@@ -40,7 +40,14 @@ const DEVANAGARI_RE = /[\u0900-\u097F]/;
 const HINGLISH_REPLY_RE =
   /\b(kaunsi class|aapka|apna|batayein|bhejein|chahiye|theek hai|samajh gayi|samajh gaya|namaste|dhanyavaad|kripya|padhate ho|padhate hain|taiyaar ho gayi|note ho gay|save ho gay)\b/i;
 
-function assertEnglishOnly(text: string, label: string) {
+/**
+ * SHADOW MODE NOTE: the LEGACY engine is still English-only, so these checks
+ * freeze its current output. The new "match user language" policy lives in
+ * lib/whatsapp-bot/pipeline/language.ts and is tested independently in
+ * scripts/test-pipeline-shadow.ts. At cutover these assertions move to the
+ * language-aware helper.
+ */
+function assertLegacyEnglishBaseline(text: string, label: string) {
   assert.equal(DEVANAGARI_RE.test(text), false, `[${label}] Reply must not contain Devanagari script: ${text}`);
   assert.equal(HINGLISH_REPLY_RE.test(text), false, `[${label}] Reply must not contain Hinglish phrases: ${text}`);
 }
@@ -73,9 +80,9 @@ const tests = [
     assert.equal("LANG_PROMPT" in MSG, false);
     assert.equal("WELCOME_HI" in MSG, false);
     assert.equal(SPECIAL_COMMANDS.includes("LANG"), false);
-    assertEnglishOnly(MSG.WELCOME, "MSG.WELCOME");
-    assertEnglishOnly(MSG.CANCEL, "MSG.CANCEL");
-    assertEnglishOnly(MSG.UNKNOWN, "MSG.UNKNOWN");
+    assertLegacyEnglishBaseline(MSG.WELCOME, "MSG.WELCOME");
+    assertLegacyEnglishBaseline(MSG.CANCEL, "MSG.CANCEL");
+    assertLegacyEnglishBaseline(MSG.UNKNOWN, "MSG.UNKNOWN");
   }),
 
   // ── 2. Strict Email Validation ────────────────────────────────────────────
@@ -113,7 +120,7 @@ const tests = [
       "a@gmail.com",
     ]) {
       assert.equal(isStrictValidEmail(bad), false, `Expected invalid email: ${bad}`);
-      assertEnglishOnly(validateStrictEmail(bad).ok ? "" : validateStrictEmail(bad).reason, `email error ${bad}`);
+      assertLegacyEnglishBaseline(validateStrictEmail(bad).ok ? "" : validateStrictEmail(bad).reason, `email error ${bad}`);
     }
     assert.equal(isPlaceholderEmail("wa.9811111111@apnatutorhub.com"), true);
     assert.equal(isPlaceholderEmail("tutor8@example.invalid"), false);
@@ -156,7 +163,7 @@ const tests = [
     assert.equal(res.ok, false);
     assert.equal(res.incompatibleSeniorOnlyForJunior, true);
     assert.ok(res.errorPrompt);
-    assertEnglishOnly(res.errorPrompt!, "Physics Class 5");
+    assertLegacyEnglishBaseline(res.errorPrompt!, "Physics Class 5");
   }),
 
   test("Classes 9-10 fold Physics/Chemistry/Biology to Science & Humanities to Social Science; reject All Subjects", () => {
@@ -176,7 +183,7 @@ const tests = [
     const all910 = enforceStrictEducation({ rawMessage: "All subjects for Class 9-10" });
     assert.equal(all910.ok, false);
     assert.equal(all910.needsSpecificSubjectsFor9to12, true);
-    assertEnglishOnly(all910.errorPrompt || "", "All subjects 9-10");
+    assertLegacyEnglishBaseline(all910.errorPrompt || "", "All subjects 9-10");
   }),
 
   test("Classes 11-12 store exact stream subjects + class ONLY and reject All Subjects / generic Science", () => {
@@ -196,7 +203,7 @@ const tests = [
     const badAll = enforceStrictEducation({ rawMessage: "All subjects for Class 11-12" });
     assert.equal(badAll.ok, false);
     assert.equal(badAll.needsSpecificSubjectsFor9to12, true);
-    assertEnglishOnly(badAll.errorPrompt || "", "All subjects 11-12");
+    assertLegacyEnglishBaseline(badAll.errorPrompt || "", "All subjects 11-12");
 
     const badSci = enforceStrictEducation({ rawMessage: "Science for Class 12" });
     assert.equal(badSci.ok, false);
@@ -262,7 +269,7 @@ const tests = [
       phone: "919000000099",
     });
     assert.ok(spokenPref);
-    assertEnglishOnly(spokenPref.reply, "spokenPref");
+    assertLegacyEnglishBaseline(spokenPref.reply, "spokenPref");
     assert.equal((spokenPref.updatedData as any)?.languagePref, "Bilingual / Hindi-English");
 
     const bareEnglishAfterNri = resolvePersonaPrecheck({
@@ -288,7 +295,7 @@ const tests = [
     });
     assert.ok(appConfused);
     assert.match(appConfused.reply, /apnatutorhub\.com\/login/);
-    assertEnglishOnly(appConfused.reply, "appConfused");
+    assertLegacyEnglishBaseline(appConfused.reply, "appConfused");
 
     for (const msg of [
       "I'm comfortable",
@@ -306,7 +313,7 @@ const tests = [
         phone: "919000000099",
       });
       assert.ok(p, `Expected persona precheck to handle: ${msg}`);
-      assertEnglishOnly(p.reply, `persona: ${msg}`);
+      assertLegacyEnglishBaseline(p.reply, `persona: ${msg}`);
     }
   }),
 
@@ -315,16 +322,16 @@ const tests = [
     const r1 = await processMessage(makeSession(), "Hi", { useAi: false, chatHistory: [] });
     assert.notEqual(r1.nextStep, "LANG_SELECT");
     assert.equal(r1.nextStep, "WELCOME");
-    assertEnglishOnly(r1.reply, "WELCOME Hi");
+    assertLegacyEnglishBaseline(r1.reply, "WELCOME Hi");
 
     const r2 = await processMessage(makeSession({ isIdle: true, step: "T_AREA" }), "MENU", { useAi: false, chatHistory: [] });
     assert.notEqual(r2.nextStep, "LANG_SELECT");
     assert.equal(r2.nextStep, "WELCOME");
-    assertEnglishOnly(r2.reply, "Idle MENU");
+    assertLegacyEnglishBaseline(r2.reply, "Idle MENU");
 
     const r3 = await processMessage(makeSession({ step: "LANG_SELECT" as string }), "Hello", { useAi: false, chatHistory: [] });
     assert.notEqual(r3.nextStep, "LANG_SELECT");
-    assertEnglishOnly(r3.reply, "Upgraded LANG_SELECT");
+    assertLegacyEnglishBaseline(r3.reply, "Upgraded LANG_SELECT");
   }),
 
   test('Engine processes "Biology 10 - 12. 1-5 all sub." and "Nursery to class 3\\nAll subjects" cleanly', async () => {
@@ -336,7 +343,7 @@ const tests = [
     assert.equal((multi.updatedData.subjects as string[]).includes("All Subjects for Class 1"), true);
     assert.equal((multi.updatedData.subjects as string[]).includes("Science for Class X"), true);
     assert.equal((multi.updatedData.subjects as string[]).includes("Biology for Class XI"), true);
-    assertEnglishOnly(multi.reply, "Multi-clause T_CONVO");
+    assertLegacyEnglishBaseline(multi.reply, "Multi-clause T_CONVO");
 
     const splitMsg = await processMessage(makeSession(), "Nursery to class 3\nAll subjects", {
       useAi: false,
@@ -349,7 +356,7 @@ const tests = [
       "Class 2",
       "Class 3",
     ]);
-    assertEnglishOnly(splitMsg.reply, "Split Nursery to class 3");
+    assertLegacyEnglishBaseline(splitMsg.reply, "Split Nursery to class 3");
   }),
 
   test("Engine rejects invalid/typo emails at T_EMAIL and accepts valid emails to T_PASSWORD", async () => {
@@ -371,7 +378,7 @@ const tests = [
     );
     assert.equal(badTypo.nextStep, "T_EMAIL");
     assert.equal(badTypo.updatedData.email, undefined);
-    assertEnglishOnly(badTypo.reply, "Bad typo email");
+    assertLegacyEnglishBaseline(badTypo.reply, "Bad typo email");
 
     const badRandom = await processMessage(
       makeSession({ step: "T_EMAIL", userType: "TUTOR", data: baseData }),
@@ -380,7 +387,7 @@ const tests = [
     );
     assert.equal(badRandom.nextStep, "T_EMAIL");
     assert.equal(badRandom.updatedData.email, undefined);
-    assertEnglishOnly(badRandom.reply, "Random email text");
+    assertLegacyEnglishBaseline(badRandom.reply, "Random email text");
 
     const goodEmail = await processMessage(
       makeSession({ step: "T_EMAIL", userType: "TUTOR", data: baseData }),
@@ -389,7 +396,7 @@ const tests = [
     );
     assert.equal(goodEmail.nextStep, "T_PASSWORD", `Expected T_PASSWORD but got ${goodEmail.nextStep}. Reply was: ${goodEmail.reply}`);
     assert.equal(goodEmail.updatedData.email, "tutor1@example.invalid");
-    assertEnglishOnly(goodEmail.reply, "Valid email");
+    assertLegacyEnglishBaseline(goodEmail.reply, "Valid email");
   }),
 
   test("Engine NRI reply 'No thodi hindi thodi English' does NOT pollute subjects with English", async () => {
@@ -408,7 +415,7 @@ const tests = [
     );
     assert.equal(nriReply.nextStep, "T_CONVO");
     assert.equal(Boolean((nriReply.updatedData.subjects as string[] | undefined)?.includes("English")), false);
-    assertEnglishOnly(nriReply.reply, "NRI language reply");
+    assertLegacyEnglishBaseline(nriReply.reply, "NRI language reply");
   }),
 
   // ── 6. Parent Intake Rules ────────────────────────────────────────────────
@@ -417,7 +424,7 @@ const tests = [
     assert.equal(class4.ready, true);
     assert.deepEqual(class4.draft.subjects, ["All Subjects"]);
     assert.equal(class4.draft.mode, "OFFLINE");
-    assertEnglishOnly(class4.reply, "Parent Class 4");
+    assertLegacyEnglishBaseline(class4.reply, "Parent Class 4");
 
     const badAll12 = sealLeadEntry({
       classLevel: "Class 12",
@@ -426,7 +433,7 @@ const tests = [
       mode: "ONLINE",
     });
     assert.equal(badAll12.ok, false);
-    if (!badAll12.ok) assertEnglishOnly(badAll12.reason, "sealLeadEntry 12 All Subjects");
+    if (!badAll12.ok) assertLegacyEnglishBaseline(badAll12.reason, "sealLeadEntry 12 All Subjects");
   }),
 
   // ── 7. Verify extractStrictClasses ignores pincodes & sector numbers ──────
@@ -462,7 +469,7 @@ const tests = [
     assert.equal(randomSanitized.intent, "OFF_TOPIC_OR_RANDOM");
     assert.deepEqual(randomSanitized.extractedData, {});
     assert.equal(randomSanitized.isComplete, false);
-    assertEnglishOnly(randomSanitized.reply, "AI OFF_TOPIC_OR_RANDOM");
+    assertLegacyEnglishBaseline(randomSanitized.reply, "AI OFF_TOPIC_OR_RANDOM");
 
     const multiIntent = sanitizeAiBotResponse(
       {
@@ -500,7 +507,7 @@ const tests = [
       "how do I contact support?"
     );
     assert.ok(hinglishLeaked);
-    assertEnglishOnly(hinglishLeaked.reply, "AI Hinglish slip replacement");
+    assertLegacyEnglishBaseline(hinglishLeaked.reply, "AI Hinglish slip replacement");
     assert.equal(hinglishLeaked.quickReplies.some((q) => /batayein/i.test(q)), false);
 
     const enforcedElementary = sanitizeAiBotResponse(
@@ -525,14 +532,14 @@ const tests = [
       chatHistory: [],
     });
     assert.equal(rNoiseWelcome.nextStep, "WELCOME");
-    assertEnglishOnly(rNoiseWelcome.reply, "WELCOME random noise");
+    assertLegacyEnglishBaseline(rNoiseWelcome.reply, "WELCOME random noise");
 
     const rQuestionWelcome = await processMessage(makeSession(), "how does payment and trial work?", {
       useAi: false,
       chatHistory: [],
     });
     assert.equal(rQuestionWelcome.nextStep, "WELCOME");
-    assertEnglishOnly(rQuestionWelcome.reply, "WELCOME question");
+    assertLegacyEnglishBaseline(rQuestionWelcome.reply, "WELCOME question");
 
     const rNoiseTutor = await processMessage(
       makeSession({ step: "T_CONVO", userType: "TUTOR", data: { lang: "en", userType: "TUTOR" } }),
@@ -541,7 +548,7 @@ const tests = [
     );
     assert.equal(rNoiseTutor.nextStep, "T_CONVO");
     assert.equal(rNoiseTutor.updatedData.subjects, undefined);
-    assertEnglishOnly(rNoiseTutor.reply, "T_CONVO random noise");
+    assertLegacyEnglishBaseline(rNoiseTutor.reply, "T_CONVO random noise");
 
     const rQuestionTutor = await processMessage(
       makeSession({ step: "T_CONVO", userType: "TUTOR", data: { lang: "en", userType: "TUTOR" } }),
@@ -549,7 +556,7 @@ const tests = [
       { useAi: false, chatHistory: [] }
     );
     assert.equal(rQuestionTutor.nextStep, "T_CONVO");
-    assertEnglishOnly(rQuestionTutor.reply, "T_CONVO open question");
+    assertLegacyEnglishBaseline(rQuestionTutor.reply, "T_CONVO open question");
 
     const rBadName = await processMessage(
       makeSession({
@@ -570,7 +577,7 @@ const tests = [
     );
     assert.equal(rBadName.nextStep, "T_NAME");
     assert.equal(rBadName.updatedData.name, undefined);
-    assertEnglishOnly(rBadName.reply, "T_NAME noise rejection");
+    assertLegacyEnglishBaseline(rBadName.reply, "T_NAME noise rejection");
 
     const rDoneNoise = await processMessage(
       makeSession({
@@ -582,7 +589,7 @@ const tests = [
       { useAi: false, chatHistory: [] }
     );
     assert.equal(rDoneNoise.nextStep, "DONE");
-    assertEnglishOnly(rDoneNoise.reply, "DONE random noise");
+    assertLegacyEnglishBaseline(rDoneNoise.reply, "DONE random noise");
   }),
 
   // ── 10. Nov 2026 Audit Regression Guards ──────────────────────────────────
@@ -625,7 +632,7 @@ const tests = [
       { useAi: false, chatHistory: [] }
     );
     assert.notEqual(rComplaint.nextStep, "UPDATE_NAME");
-    assertEnglishOnly(rComplaint.reply, "Complaint mentioning name");
+    assertLegacyEnglishBaseline(rComplaint.reply, "Complaint mentioning name");
 
     // Even inside UPDATE_NAME, conversational distrust text must NOT be saved as name
     const rDistrustInUpdateName = await processMessage(
@@ -635,7 +642,7 @@ const tests = [
     );
     assert.equal(rDistrustInUpdateName.updatedData.name, undefined);
     assert.equal(rDistrustInUpdateName.nextStep, "DONE");
-    assertEnglishOnly(rDistrustInUpdateName.reply, "UPDATE_NAME distrust guard");
+    assertLegacyEnglishBaseline(rDistrustInUpdateName.reply, "UPDATE_NAME distrust guard");
 
     // Roman ordinals XIth and XIIth work cleanly
     const rRoman = enforceStrictEducation({
@@ -666,7 +673,7 @@ const tests = [
     );
     assert.equal(rQuestionInEmail.nextStep, "DONE");
     assert.equal(rQuestionInEmail.updatedData.email, undefined);
-    assertEnglishOnly(rQuestionInEmail.reply, "UPDATE_EMAIL question escape");
+    assertLegacyEnglishBaseline(rQuestionInEmail.reply, "UPDATE_EMAIL question escape");
 
     const rQuestionInUpdatePass = await processMessage(
       makeSession({ step: "UPDATE_PASSWORD", userType: "TUTOR", data: { lang: "en", userType: "TUTOR", _registered: true } }),
@@ -675,7 +682,7 @@ const tests = [
     );
     assert.equal(rQuestionInUpdatePass.nextStep, "DONE");
     assert.equal(rQuestionInUpdatePass.updatedData.password, undefined);
-    assertEnglishOnly(rQuestionInUpdatePass.reply, "UPDATE_PASSWORD question escape");
+    assertLegacyEnglishBaseline(rQuestionInUpdatePass.reply, "UPDATE_PASSWORD question escape");
 
     const rQuestionInTPass = await processMessage(
       makeSession({
@@ -696,7 +703,7 @@ const tests = [
     );
     assert.equal(rQuestionInTPass.nextStep, "T_PASSWORD");
     assert.equal(rQuestionInTPass.updatedData.password, undefined);
-    assertEnglishOnly(rQuestionInTPass.reply, "T_PASSWORD question guard");
+    assertLegacyEnglishBaseline(rQuestionInTPass.reply, "T_PASSWORD question guard");
 
     const rNameWrapper = await processMessage(
       makeSession({
@@ -716,7 +723,7 @@ const tests = [
       { useAi: false, chatHistory: [] }
     );
     assert.equal(rNameWrapper.updatedData.name, "Amit Verma");
-    assertEnglishOnly(rNameWrapper.reply, "T_NAME intro wrapper");
+    assertLegacyEnglishBaseline(rNameWrapper.reply, "T_NAME intro wrapper");
 
     const rTamilWelcome = await processMessage(
       makeSession({ step: "WELCOME" }),
@@ -724,7 +731,7 @@ const tests = [
       { useAi: false, chatHistory: [] }
     );
     assert.equal(rTamilWelcome.nextStep, "WELCOME");
-    assertEnglishOnly(rTamilWelcome.reply, "Foreign script deterministic English reply");
+    assertLegacyEnglishBaseline(rTamilWelcome.reply, "Foreign script deterministic English reply");
 
     const rHindiInAreaUpdate = await processMessage(
       makeSession({ step: "UPDATE_AREA", userType: "TUTOR", data: { lang: "en", userType: "TUTOR", _registered: true } }),
@@ -732,7 +739,7 @@ const tests = [
       { useAi: false, chatHistory: [] }
     );
     assert.equal(rHindiInAreaUpdate.nextStep, "DONE");
-    assertEnglishOnly(rHindiInAreaUpdate.reply, "Hindi script escape in UPDATE_AREA");
+    assertLegacyEnglishBaseline(rHindiInAreaUpdate.reply, "Hindi script escape in UPDATE_AREA");
   }),
 
   // ── 12. Live WhatsApp "8tk" Hindi Slang & Multi-Band Separation ────────────

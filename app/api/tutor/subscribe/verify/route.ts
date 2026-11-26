@@ -6,8 +6,8 @@ import {
   getSubscriptionPlan,
   getPriceWithGst,
   getGstAmount,
-  planCoinCredit,
 } from "@/lib/subscription-plans";
+import { creditPlanCoinsIfAbsent } from "@/lib/plan-credit";
 import {
   fetchRazorpayOrder,
   isRazorpayConfigured,
@@ -140,9 +140,8 @@ export async function POST(request: Request) {
   const validityDays = plan.validityDays || 30;
   const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
-  // Activate subscription and credit the coins included with the plan.
+  // Activate subscription. Coin credit is delegated to the idempotent helper.
   // ₹1,257 Commission plan always credits exactly 60 coins (single source of truth).
-  const creditCoins = planCoinCredit(plan.id);
   const isStarterPass = plan.id === COMMISSION_PLAN.id;
 
   await prisma.$transaction(async (tx) => {
@@ -187,27 +186,13 @@ export async function POST(request: Request) {
       },
     });
 
-    if (creditCoins > 0) {
-      const isCommissionPlan = plan.id === COMMISSION_PLAN.id;
-      const wallet = await tx.wallet.upsert({
-        where: { tutorProfileId: tutorProfile.id },
-        create: { tutorProfileId: tutorProfile.id, balance: creditCoins },
-        update: { balance: { increment: creditCoins } },
-      });
-
-      await tx.walletTransaction.create({
-        data: {
-          walletId: wallet.id,
-          amount: creditCoins,
-          balanceAfter: wallet.balance,
-          type: isCommissionPlan ? "PURCHASE" : "BONUS",
-          description: isCommissionPlan
-            ? `₹${COMMISSION_PLAN.priceInr} Commission Based Plan — ${COMMISSION_PLAN.coinSummary}`
-            : `🎁 Bonus ${creditCoins} coins included with ${plan.name}`,
-          referenceId: paymentId || orderId || `plan_credit_${Date.now()}`,
-        },
-      });
-    }
+    await creditPlanCoinsIfAbsent(tx, {
+      tutorProfileId: tutorProfile.id,
+      planId: plan.id,
+      paymentId: paymentId || orderId || `plan_credit_${tutorProfile.id}_${now.getTime()}`,
+      planName: plan.name,
+      source: "subscribe/verify",
+    });
   });
 
   revalidatePath("/tutor/leads");

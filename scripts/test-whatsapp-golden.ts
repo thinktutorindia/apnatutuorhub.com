@@ -128,9 +128,9 @@ const tests: Array<() => Promise<void>> = [
     const verify = read("app/api/tutor/subscribe/verify/route.ts");
     const webhook = read("app/api/webhooks/razorpay/route.ts");
     const manual = read("app/actions/manual-payment.actions.ts");
-    assert.match(verify, /const creditCoins = planCoinCredit\(plan\.id\)/);
-    assert.match(webhook, /const creditCoins = planCoinCredit\(plan\.id\)/);
-    assert.match(manual, /balance: COMMISSION_PLAN\.coins/);
+    assert.match(verify, /creditPlanCoinsIfAbsent\(tx, \{/);
+    assert.match(webhook, /creditPlanCoinsIfAbsent\(tx, \{/);
+    assert.match(manual, /creditPlanCoinsIfAbsent\(tx, \{/);
   }),
 
   test("coins: plan prices and commission note frozen", () => {

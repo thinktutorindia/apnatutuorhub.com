@@ -792,7 +792,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                         type="text"
                                         value={couponCode}
                                         onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                                        placeholder="Enter code (e.g. WELCOME10, APNATUTOR25)"
+                                        placeholder="Enter coupon code"
                                         className="flex-1 h-11 px-3.5 rounded-xl border border-gray-300 text-xs font-800 uppercase focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 outline-none"
                                       />
                                       <button
@@ -803,23 +803,6 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       >
                                         {couponLoading ? "Checking..." : "Apply Coupon"}
                                       </button>
-                                    </div>
-
-                                    {/* Quick coupons */}
-                                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                                      {["WELCOME10", "INTROTUTOR15", "APNATUTOR25"].map((code) => (
-                                        <button
-                                          key={code}
-                                          type="button"
-                                          onClick={() => {
-                                            setCouponCode(code);
-                                            handleApplyCoupon(SUBSCRIPTION_PLANS[checkoutPlanId].priceInr);
-                                          }}
-                                          className="text-[10px] font-800 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-all cursor-pointer"
-                                        >
-                                          🏷️ {code}
-                                        </button>
-                                      ))}
                                     </div>
 
                                     {couponError && (

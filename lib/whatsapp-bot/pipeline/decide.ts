@@ -14,6 +14,8 @@ export type DecisionInput = {
   askCount?: number;
   askedAt?: Date | null;
   now?: Date;
+  /** Previous outbound (broadcast) text — used to answer "interested/yes" with lead info first. */
+  previousBotMessage?: string | null;
 };
 
 export type Decision = {
@@ -41,6 +43,27 @@ const INTENT_KEY: Partial<Record<Intent, Parameters<typeof replyInLanguage>[1]>>
   human: "callMe",
 };
 
+/** Answer an affirmative broadcast reply using the lead details in the previous bot message. */
+export function leadContextAnswer(previous: string | null | undefined, t: (key: Parameters<typeof replyInLanguage>[1]) => string): string | null {
+  const text = (previous ?? "").trim();
+  if (!text) return null;
+  const isLead = /#\d{4,}|tuition enquiry|enquiry id|student location|class:\s*class|budget:/i.test(text);
+  if (!isLead) return null;
+  const id = text.match(/#(\d{4,})/)?.[1];
+  const grade = text.match(/class\s*[:\-]?\s*(?:class\s*)?([\d]+\s*(?:-\s*\d+)?|nursery|kg)/i)?.[1];
+  const subject = text.match(/subject[s]?\s*[:\-]?\s*([^\n,]+)/i)?.[1]?.trim();
+  const location = text.match(/(?:student location|location|area)\s*[:\-]?\s*([^\n,]+)/i)?.[1]?.trim();
+  const budget = text.match(/budget\s*[:\-]?\s*([^\n]+)/i)?.[1]?.trim();
+  const parts = [t("leadIntro")];
+  if (id) parts.push(`*#${id}*`);
+  if (grade) parts.push(`Class ${grade}`);
+  if (subject) parts.push(subject);
+  if (location) parts.push(`📍 ${location}`);
+  if (budget) parts.push(`💰 ${budget}`);
+  parts.push(t("unlockHow"));
+  return parts.join(" ");
+}
+
 export function decide(input: DecisionInput): Decision {
   const inbound = input.inbound ?? "";
   const language: ReplyLanguage = detectLanguage(inbound);
@@ -53,7 +76,7 @@ export function decide(input: DecisionInput): Decision {
   const direct = INTENT_KEY[intent];
   if (intent === "decline") answer = t("optOut");
   else if (intent === "coins") answer = t("plans");
-  else if (intent === "interested") answer = t("welcomeBack");
+  else if (intent === "interested") answer = leadContextAnswer(input.previousBotMessage, t) ?? t("welcomeBack");
   else if (c.message_type === "COMMAND") answer = t("welcomeBack");
   else if (direct) answer = t(direct);
   else if (c.message_type === "QUESTION") answer = t("fallback");

@@ -35,5 +35,13 @@ for (const u of data.users) {
     (examples[bucket] ??= []).push(text.slice(0, 100));
   }
 }
-console.log(JSON.stringify({ totalOther: total, buckets: counts, examples: Object.fromEntries(Object.entries(examples).map(([k, v]) => [k, v.slice(0, 4)])) }, null, 2));
+const rest = examples.unclassified_rest ?? [];
+const step = Math.max(1, Math.floor(rest.length / 50));
+const sample50 = rest.filter((_, i) => i % step === 0).slice(0, 50);
+console.log(JSON.stringify({
+  totalOther: total,
+  buckets: counts,
+  examples: Object.fromEntries(Object.entries(examples).map(([k, v]) => [k, v.slice(0, 4)])),
+  unclassifiedRestSample50: sample50,
+}, null, 2));
 })().catch((e) => { console.error(e); process.exit(1); });

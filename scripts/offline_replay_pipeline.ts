@@ -19,6 +19,13 @@ type Msg = { atUTC: string; direction: string; body: string; from?: string; mess
 
 const OUTBOUND_TEMPLATE_RE = /^(?:\[(?:Tuition Enquiry|Photo|Document)|Welcome to \*ApnaTutorHub|Namaste! Aapki tuition enquiry|Requirement #|Hi! I'm Priya)/i;
 
+const STEP_TO_FIELD: Record<string, "name" | "email" | "location" | "classes_subjects"> = {
+  T_NAME: "name", UPDATE_NAME: "name",
+  T_EMAIL: "email", UPDATE_EMAIL: "email",
+  T_AREA: "location", UPDATE_AREA: "location", T_CITY: "location",
+  T_SUBJECTS: "classes_subjects", T_CLASSES: "classes_subjects", UPDATE_SUBJECTS: "classes_subjects",
+};
+
 function fakeStore(initial: ProfileSnapshot) {
   const state = { snapshot: initial, updates: [] as ProfileFields[], rejects: [] as Array<{ field: string; input: string; reason: string }> };
   const store: ProfileStore = {
@@ -47,7 +54,7 @@ async function main() {
   const piiHits: Array<{ phone: string; at: string; kind: string; reply: string }> = [];
   let skippedRows = 0;
   const examples: Record<string, unknown[]> = {
-    silent: [], reply: [], stopped: [], reactions: [], autoReply: [], stuckAtEmail: [], mathsSaves: [], noDecision: [], affirmative: [],
+    silent: [], reply: [], stopped: [], reactions: [], autoReply: [], stuckAtEmail: [], mathsSaves: [], noDecision: [], affirmative: [], broadcastAffirmative: [],
   };
   const savedEntries: string[] = [];
   let inboundCount = 0;
@@ -84,9 +91,14 @@ async function main() {
         continue;
       }
       inboundCount += 1;
+      const previousBot = [...msgs.slice(0, i)].reverse().find((m) => m.direction === "OUTBOUND");
+      const previousBotMessage = previousBot?.body ?? null;
+      const stepPending = previousBot?.step ? STEP_TO_FIELD[previousBot.step] : undefined;
+      const effectivePending = pendingField ?? stepPending;
+      if (stepPending && !pendingQuestion) pendingQuestion = previousBotMessage?.slice(0, 160) ?? null;
       const pre = evaluatePrefilter({
         text, messageId: msg.messageId ?? null, seenMessageIds: seenIds, recentTexts,
-        now: new Date(msg.atUTC), hasPendingQuestion: Boolean(pendingQuestion),
+        now: new Date(msg.atUTC), hasPendingQuestion: Boolean(pendingQuestion || effectivePending),
         alreadyUnsubscribed: optedOutPhones.has(user.phone),
       });
       if (pre.unsubscribed) optedOutPhones.add(user.phone);
@@ -108,7 +120,7 @@ async function main() {
         continue;
       }
 
-      const c: Classification = await classify(text, { pendingField });
+      const c: Classification = await classify(text, { pendingField: effectivePending });
       intents[c.intent] = (intents[c.intent] ?? 0) + 1;
       const missing = computeMissing(state.snapshot);
       const gate = await applySaveGate({
@@ -132,6 +144,7 @@ async function main() {
         missing,
         confirmation: gate.status === "NEEDS_CONFIRMATION" ? { field: gate.field, proposed: gate.proposed } : null,
         askCount: dAsk(), askedAt,
+        previousBotMessage,
       });
       function dAsk() { return askCount; }
       if (d.shouldRecordAsk) {
@@ -148,6 +161,16 @@ async function main() {
       decisions.REPLY += 1;
       if (pre.reason === "affirmative" && examples.affirmative.length < 8) {
         examples.affirmative.push({ phone: user.phone, text: text.slice(0, 100), reply: d.reply.slice(0, 180) });
+      }
+      if (pre.reason === "affirmative" && previousBotMessage && /#\d{4,}|tuition enquiry|enquiry id/i.test(previousBotMessage) && examples.broadcastAffirmative.length < 10) {
+        const actual = msgs.slice(i + 1).find((m) => m.direction === "OUTBOUND")?.body ?? "";
+        examples.broadcastAffirmative.push({
+          phone: user.phone,
+          previousOutbound: previousBotMessage.slice(0, 220),
+          userMessage: text.slice(0, 80),
+          beforeLegacy: actual.slice(0, 220),
+          afterNew: d.reply.slice(0, 300),
+        });
       }
       const pii = /(?:^|\D)(?:9[6-9]\d{9}|[6-9]\d{9})(?!\d)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}|Tutor@123|12345678|\b\d{12}\b/i.exec(d.reply);
       if (pii && piiHits.length < 20) piiHits.push({ phone: user.phone, at: msg.atUTC, kind: pii[0].slice(0, 30), reply: d.reply.slice(0, 160) });

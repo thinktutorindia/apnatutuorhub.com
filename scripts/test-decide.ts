@@ -57,6 +57,21 @@ const tests: Array<() => void> = [
     assert.match(d.reply, /[\u0900-\u097F]/);
     assert.match(d.reply, /ईमेल/);
   }),
+  () => check("broadcast 'interested' answers with lead info THEN asks one field", () => {
+    const previous = "[Tuition Enquiry #45341]\nClass: Class 5 (All Subjects)\nStudent location: Jhandewalan, Delhi\nBudget: ₹6,400 – ₹6,550 / month";
+    const d = decide({
+      inbound: "I am interested",
+      classification: c({ message_type: "CHITCHAT", intent: "interested" }),
+      missing: ["email"],
+      previousBotMessage: previous,
+    });
+    assert.match(d.reply, /#45341/);
+    assert.match(d.reply, /Class 5/);
+    assert.match(d.reply, /Jhandewalan/);
+    assert.match(d.reply, /unlock/i);
+    assert.match(d.reply, /valid email/);
+    assert.equal(d.reply.indexOf("#45341") < d.reply.indexOf("valid email"), true, "answer must come before the question");
+  }),
   () => check("compose produces one message with no empty parts", () => {
     assert.equal(compose("Answer.", "Question?"), "Answer.\n\nQuestion?");
     assert.equal(compose("Only answer."), "Only answer.");

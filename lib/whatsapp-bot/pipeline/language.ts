@@ -41,7 +41,9 @@ export type TemplateKey =
   | "whereFrom"
   | "callMe"
   | "confirmSave"
-  | "optOut";
+  | "optOut"
+  | "leadIntro"
+  | "unlockHow";
 
 const TEMPLATES: Record<TemplateKey, Record<ReplyLanguage, string>> = {
   fallback: {
@@ -133,6 +135,16 @@ const TEMPLATES: Record<TemplateKey, Record<ReplyLanguage, string>> = {
     EN: "You have been unsubscribed from automated messages. Reply START anytime to resume.",
     HINGLISH: "Aapko automated messages se unsubscribe kar diya gaya hai. Dobara shuru karne ke liye START bhejiye.",
     HI: "आपको स्वचालित संदेशों से अनसब्सक्राइब कर दिया गया है। फिर शुरू करने के लिए START भेजें।",
+  },
+  leadIntro: {
+    EN: "About this lead:",
+    HINGLISH: "Is lead ke baare me:",
+    HI: "इस लीड के बारे में:",
+  },
+  unlockHow: {
+    EN: "To unlock the parent contact, use wallet coins: 10 (Class 1-8), 20 (9-10), 30 (11-12/entrance). Open https://apnatutorhub.com/tutor/leads",
+    HINGLISH: "Parent contact unlock karne ke liye wallet coins use karein: 10 (Class 1-8), 20 (9-10), 30 (11-12/entrance). Yahan kholein: https://apnatutorhub.com/tutor/leads",
+    HI: "पेरेंट कॉन्टैक्ट अनलॉक करने के लिए वॉलेट कॉइन्स: 10 (कक्षा 1-8), 20 (9-10), 30 (11-12/प्रवेश यहाँ खोलें: https://apnatutorhub.com/tutor/leads",
   },
 };
 

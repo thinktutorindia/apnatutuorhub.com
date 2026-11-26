@@ -40,7 +40,8 @@ export type TemplateKey =
   | "online"
   | "whereFrom"
   | "callMe"
-  | "confirmSave";
+  | "confirmSave"
+  | "optOut";
 
 const TEMPLATES: Record<TemplateKey, Record<ReplyLanguage, string>> = {
   fallback: {
@@ -127,6 +128,11 @@ const TEMPLATES: Record<TemplateKey, Record<ReplyLanguage, string>> = {
     EN: "Please reply YES to confirm this change, or NO to cancel.",
     HINGLISH: "Is badlaav ko confirm karne ke liye YES likhiye, ya cancel ke liye NO.",
     HI: "इस परिवर्तन की पुष्टि के लिए YES लिखें, या रद्द करने के लिए NO।",
+  },
+  optOut: {
+    EN: "You have been unsubscribed from automated messages. Reply START anytime to resume.",
+    HINGLISH: "Aapko automated messages se unsubscribe kar diya gaya hai. Dobara shuru karne ke liye START bhejiye.",
+    HI: "आपको स्वचालित संदेशों से अनसब्सक्राइब कर दिया गया है। फिर शुरू करने के लिए START भेजें।",
   },
 };
 

@@ -51,7 +51,8 @@ export function decide(input: DecisionInput): Decision {
   // Direct intents are answered before any onboarding question.
   let answer: string;
   const direct = INTENT_KEY[intent];
-  if (intent === "coins") answer = t("plans");
+  if (intent === "decline") answer = t("optOut");
+  else if (intent === "coins") answer = t("plans");
   else if (intent === "interested") answer = t("welcomeBack");
   else if (c.message_type === "COMMAND") answer = t("welcomeBack");
   else if (direct) answer = t(direct);

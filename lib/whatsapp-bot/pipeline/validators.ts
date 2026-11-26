@@ -13,6 +13,8 @@ export type Validation<T> =
 
 // ── LOCATION ──────────────────────────────────────────────────────────────────
 
+export type GeoSource = "static" | "nominatim" | "gemini-text" | "pin" | "none";
+
 export type LocationValue = {
   raw: string;
   locality: string;
@@ -20,10 +22,22 @@ export type LocationValue = {
   lat: number | null;
   lng: number | null;
   landmark: string | null;
+  geo_source: GeoSource;
+};
+
+export type GeoResult = {
+  locality?: string | null;
+  city?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  landmark?: string | null;
+  geo_source?: GeoSource;
+  needsReview?: boolean;
 };
 
 export interface Geocoder {
-  geocode(raw: string): Promise<{ locality?: string; city?: string; lat?: number; lng?: number } | null>;
+  geocode(raw: string, knownCity?: string | null): Promise<GeoResult | null>;
+  geocodePin?(lat: number, lng: number): Promise<GeoResult | null>;
 }
 
 const CITY_ONLY = /^(?:new\s+delhi|delhi|ncr|north\s+delhi|south\s+delhi|east\s+delhi|west\s+delhi|central\s+delhi|noida|greater\s+noida|gurugram|gurgaon|mumbai|pune|hyderabad|bengaluru|bangalore|chennai|kolkata|jaipur|lucknow|patna|ahmedabad|chandigarh|online(?:\s*\(pan-?india\))?)$/i;
@@ -49,23 +63,51 @@ export function validateLocation(raw: string, geocoder?: Geocoder): Promise<Vali
   const landmarkMatch = text.match(/\b(?:near|opp\.?|opposite|behind|beside)\s+(.+)$/i);
   const landmark = landmarkMatch ? landmarkMatch[1].trim() : null;
 
-  const base: LocationValue = { raw: text, locality, city, lat: null, lng: null, landmark };
+  const base: LocationValue = { raw: text, locality, city, lat: null, lng: null, landmark, geo_source: "none" };
   if (!geocoder) return Promise.resolve({ ok: true, value: base, needsReview: true });
 
-  return geocoder.geocode(text).then((geo) => {
+  return geocoder.geocode(text, city).then((geo) => {
     if (!geo) return { ok: true as const, value: base, needsReview: true };
     return {
       ok: true as const,
-      needsReview: !(geo.lat != null && geo.lng != null),
+      needsReview: geo.needsReview ?? !(geo.lat != null && geo.lng != null),
       value: {
         ...base,
         locality: geo.locality || base.locality,
         city: geo.city || base.city,
         lat: geo.lat ?? null,
         lng: geo.lng ?? null,
+        landmark: geo.landmark || base.landmark,
+        geo_source: geo.geo_source ?? "none",
       },
     };
   }).catch(() => ({ ok: true as const, value: base, needsReview: true }));
+}
+
+/** WhatsApp location pin: exact coords are kept; locality comes from reverse lookup. */
+export function validateLocationPin(
+  lat: number,
+  lng: number,
+  geocoder: Geocoder
+): Promise<Validation<LocationValue>> {
+  if (!geocoder.geocodePin) return Promise.resolve({ ok: false, reason: "Pin geocoding unavailable." });
+  return geocoder.geocodePin(lat, lng).then((geo) => {
+    if (!geo) return { ok: false as const, reason: "Pin location could not be resolved." };
+    const raw = `${geo.locality ?? ""}, ${geo.city ?? ""}`.replace(/^,\s*|,\s*$/g, "");
+    return {
+      ok: true as const,
+      needsReview: geo.needsReview ?? false,
+      value: {
+        raw: raw || `${lat}, ${lng}`,
+        locality: geo.locality ?? "",
+        city: geo.city ?? null,
+        lat,
+        lng,
+        landmark: geo.landmark ?? null,
+        geo_source: "pin" as const,
+      },
+    };
+  }).catch(() => ({ ok: false as const, reason: "Pin location could not be resolved." }));
 }
 
 // ── EMAIL ─────────────────────────────────────────────────────────────────────

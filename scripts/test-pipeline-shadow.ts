@@ -52,10 +52,14 @@ const tests: Array<() => void> = [
   () => check("prefilter: quoted/forwarded alert text is silent", () => {
     assert.equal(evaluatePrefilter({ text: "[Tuition Enquiry #45341] Client: Mrs. Sharma Class: Class 5" }).reason, "quoted_alert");
   }),
-  () => check("prefilter: opt-out words set flag", () => {
+  () => check("prefilter: opt-out sends ONE confirmation then silence", () => {
     const r = evaluatePrefilter({ text: "not interested" });
-    assert.equal(r.decision, "SILENT");
+    assert.equal(r.decision, "REPLY");
+    assert.equal(r.reason, "opt_out_confirmation");
     assert.equal(r.unsubscribed, true);
+    const next = evaluatePrefilter({ text: "still not interested", alreadyUnsubscribed: true });
+    assert.equal(next.decision, "SILENT");
+    assert.equal(next.reason, "opt_out");
   }),
   () => check("prefilter: START re-subscribes", () => {
     assert.equal(evaluatePrefilter({ text: "START" }).reSubscribed, true);

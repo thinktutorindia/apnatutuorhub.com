@@ -226,23 +226,34 @@ export function resolveLocationCoordinates(query?: string | null): { lat: number
 }
 
 
+let lastNominatimRequestAt = 0;
+/** Nominatim policy: at most 1 request/second. */
+async function nominatimSlot(): Promise<void> {
+  const wait = 1000 - (Date.now() - lastNominatimRequestAt);
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastNominatimRequestAt = Date.now();
+}
+
 export async function geocodeLocation(params: {
   address?: string | null;
   city?: string | null;
   state?: string | null;
   pincode?: string | null;
+  /** Extra locality/city hint used when re-querying after a Gemini text split. */
+  cityHint?: string | null;
 }): Promise<{ lat: number; lng: number } | null> {
-  const { address, city, state, pincode } = params;
+  const { address, city, state, pincode, cityHint } = params;
 
   // Build query string
-  const queryParts = [address, city, state, pincode, "India"].filter(Boolean);
+  const queryParts = [address, cityHint, city, state, pincode, "India"].filter(Boolean);
   if (queryParts.length === 0) return null;
 
   const searchQuery = queryParts.join(", ");
 
   try {
+    await nominatimSlot();
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+      `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&addressdetails=1&q=${encodeURIComponent(
         searchQuery
       )}&limit=1`,
       {
@@ -275,4 +286,31 @@ export async function geocodeLocation(params: {
   }
 
   return null;
+}
+
+/** Reverse lookup for an exact WhatsApp location pin. */
+export async function reverseGeocodeLocation(lat: number, lng: number): Promise<{
+  locality: string | null;
+  city: string | null;
+} | null> {
+  try {
+    await nominatimSlot();
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&countrycodes=in&addressdetails=1&zoom=18&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`,
+      {
+        headers: { "User-Agent": "ApnaTutorHub-Geocoding-Engine/1.0 (support@apnatutorhub.com)" },
+        next: { revalidate: 86400 },
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json() as { address?: Record<string, string> };
+    const a = data.address ?? {};
+    return {
+      locality: a.sublocality || a.neighbourhood || a.locality || a.town || a.village || null,
+      city: a.city || a.town || a.county || a.state_district || a.state || null,
+    };
+  } catch (err) {
+    console.warn("[geocoding] Nominatim reverse failed:", err);
+    return null;
+  }
 }

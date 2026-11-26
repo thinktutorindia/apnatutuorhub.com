@@ -31,6 +31,7 @@ export function evaluatePrefilter(input: {
   seenMessageIds?: Set<string>;
   recentTexts?: RecentText[];
   hasPendingQuestion?: boolean;
+  alreadyUnsubscribed?: boolean;
   now?: Date;
 }): PrefilterDecision {
   const text = (input.text ?? "").trim();
@@ -67,7 +68,9 @@ export function evaluatePrefilter(input: {
     /\b(?:i am interested|interested in|send (?:me )?lead|demo|ready)\b/i.test(text) &&
     !/\bnot interested\b/i.test(text);
   if (OPT_OUT.test(text) && !positiveOverride) {
-    return { decision: "SILENT", reason: "opt_out", unsubscribed: true };
+    if (input.alreadyUnsubscribed) return { decision: "SILENT", reason: "opt_out", unsubscribed: true };
+    // One confirmation reply, then silence on every subsequent message.
+    return { decision: "REPLY", reason: "opt_out_confirmation", unsubscribed: true };
   }
   if (RE_SUBSCRIBE.test(text)) {
     return { decision: "REPLY", reason: null, reSubscribed: true };

@@ -43,9 +43,11 @@ async function main() {
   const silenceTexts: Record<string, Record<string, number>> = {};
   const intents: Record<string, number> = {};
   const samples: Array<{ phone: string; at: string; userMessage: string; pendingQuestion: string | null; newReply: string }> = [];
+  const optedOutPhones = new Set<string>();
+  const piiHits: Array<{ phone: string; at: string; kind: string; reply: string }> = [];
   let skippedRows = 0;
   const examples: Record<string, unknown[]> = {
-    silent: [], reply: [], stopped: [], reactions: [], autoReply: [], stuckAtEmail: [], mathsSaves: [], noDecision: [],
+    silent: [], reply: [], stopped: [], reactions: [], autoReply: [], stuckAtEmail: [], mathsSaves: [], noDecision: [], affirmative: [],
   };
   const savedEntries: string[] = [];
   let inboundCount = 0;
@@ -82,7 +84,12 @@ async function main() {
         continue;
       }
       inboundCount += 1;
-      const pre = evaluatePrefilter({ text, messageId: msg.messageId ?? null, seenMessageIds: seenIds, recentTexts, now: new Date(msg.atUTC), hasPendingQuestion: Boolean(pendingQuestion) });
+      const pre = evaluatePrefilter({
+        text, messageId: msg.messageId ?? null, seenMessageIds: seenIds, recentTexts,
+        now: new Date(msg.atUTC), hasPendingQuestion: Boolean(pendingQuestion),
+        alreadyUnsubscribed: optedOutPhones.has(user.phone),
+      });
+      if (pre.unsubscribed) optedOutPhones.add(user.phone);
       if (msg.messageId) seenIds.add(msg.messageId);
       recentTexts.push({ text: text.trim().toLowerCase(), at: msg.atUTC });
       reasons[pre.reason ?? "none"] = (reasons[pre.reason ?? "none"] ?? 0) + 1;
@@ -139,6 +146,11 @@ async function main() {
         newReply: d.reply.slice(0, 600),
       });
       decisions.REPLY += 1;
+      if (pre.reason === "affirmative" && examples.affirmative.length < 8) {
+        examples.affirmative.push({ phone: user.phone, text: text.slice(0, 100), reply: d.reply.slice(0, 180) });
+      }
+      const pii = /(?:^|\D)(?:9[6-9]\d{9}|[6-9]\d{9})(?!\d)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}|Tutor@123|12345678|\b\d{12}\b/i.exec(d.reply);
+      if (pii && piiHits.length < 20) piiHits.push({ phone: user.phone, at: msg.atUTC, kind: pii[0].slice(0, 30), reply: d.reply.slice(0, 160) });
       if (!d.reply.trim() && examples.noDecision.length < 8) examples.noDecision.push({ phone: user.phone, at: msg.atUTC, text: text.slice(0, 120) });
       if (examples.reply.length < 8) examples.reply.push({ phone: user.phone, text: text.slice(0, 100), reply: d.reply.slice(0, 180), reason: pre.reason });
 
@@ -193,6 +205,7 @@ async function main() {
     intents,
     legacyDiff,
     savedClassSubjectEntries: savedEntries.length,
+    piiHits,
     loops: loops.slice(0, 20),
     welcome207,
     loop2837,

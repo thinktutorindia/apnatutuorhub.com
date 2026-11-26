@@ -10,7 +10,8 @@
 import * as fs from "fs";
 import { classify } from "../lib/whatsapp-bot/pipeline/classifier";
 import { validateEmail, validateLocation } from "../lib/whatsapp-bot/pipeline/validators";
-import { LiveGeminiClassifier, GoogleGeocoder, DnsMxLookup } from "../lib/whatsapp-bot/pipeline/real-adapters";
+import { LiveGeminiClassifier, DnsMxLookup } from "../lib/whatsapp-bot/pipeline/real-adapters";
+import { StackGeocoder } from "../lib/whatsapp-bot/pipeline/geocoder";
 
 if (!process.argv.includes("--i-provided-keys")) {
   console.error("PREPARED ONLY: pass --i-provided-keys after supplying GEMINI_API_KEY and GOOGLE_MAPS_API_KEY.");
@@ -18,10 +19,6 @@ if (!process.argv.includes("--i-provided-keys")) {
 }
 if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY && !process.env.GOOGLE_GENAI_API_KEY) {
   console.error("Gemini key missing. Refusing to run.");
-  process.exit(1);
-}
-if (!process.env.GOOGLE_MAPS_API_KEY) {
-  console.error("GOOGLE_MAPS_API_KEY missing. Refusing to run.");
   process.exit(1);
 }
 
@@ -34,7 +31,7 @@ async function main() {
     users: Array<{ phone: string; messages: Array<{ atUTC: string; direction: string; body: string }> }>;
   };
   const gemini = new LiveGeminiClassifier();
-  const geocoder = new GoogleGeocoder();
+  const geocoder = new StackGeocoder(); // static → Nominatim → Gemini text-only → Nominatim retry
   const mx = new DnsMxLookup();
   const rows: unknown[] = [];
 

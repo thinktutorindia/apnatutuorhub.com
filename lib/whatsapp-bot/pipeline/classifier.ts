@@ -65,7 +65,9 @@ function deterministic(text: string, pendingField?: string): Classification {
   const NOT_PROFILE =
     /\?|\b(?:what|how|why|where|when|which|who|kya|kaise|kitna|kitne|kahan|fee|fees|price|free|plan|lead|leads|requirement|student|teacher|tutor|parent|looking|need|want|please|download|try our|products?|http|www\.|reply stop|client:|subject:|location:|budget:)\b|#\d{4,}/i.test(t);
 
-  if (/^(?:stop|start|menu|help|hi|hello|manual reset|pay|activate|cancel)\b/i.test(t)) {
+  if (/^(?:stop|unsubscribe|not interested|don't message|nahi chahiye)\b/i.test(t)) {
+    type = "COMMAND"; intent = "decline";
+  } else if (/^(?:start|menu|help|hi|hello|manual reset|pay|activate|cancel)\b/i.test(t)) {
     type = "COMMAND";
   } else if (/^(?:yes|haan|han|ha|1|2|interested|i am interested|i'm interested|ready|confirm)$/i.test(t)) {
     type = "CHITCHAT"; intent = "interested";

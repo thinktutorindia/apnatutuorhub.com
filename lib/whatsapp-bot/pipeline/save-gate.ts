@@ -24,6 +24,8 @@ export type ProfileFields = {
   city?: string;
   subjects?: string[];
   classLevels?: string[];
+  /** Carried through the pipeline; DB persistence needs a migration (not yet applied). */
+  geo_source?: import("./validators").GeoSource;
 };
 
 export interface ProfileStore {
@@ -154,6 +156,7 @@ export async function applySaveGate(input: {
         }
         fields.area = r.value.locality;
         fields.city = r.value.city ?? undefined;
+        fields.geo_source = r.value.geo_source;
       }
     } else if (field === "classes_subjects") {
       const r = parseClassesAndSubjects(raw);

@@ -29,9 +29,18 @@ export type TemplateKey =
   | "needName"
   | "needEmail"
   | "needLocation"
+  | "needClasses"
   | "unsupportedEmail"
   | "humanHandoff"
-  | "oneMoment";
+  | "oneMoment"
+  | "leads"
+  | "plans"
+  | "fees"
+  | "login"
+  | "online"
+  | "whereFrom"
+  | "callMe"
+  | "confirmSave";
 
 const TEMPLATES: Record<TemplateKey, Record<ReplyLanguage, string>> = {
   fallback: {
@@ -73,6 +82,51 @@ const TEMPLATES: Record<TemplateKey, Record<ReplyLanguage, string>> = {
     EN: "One moment please…",
     HINGLISH: "Thoda wait kijiye…",
     HI: "कृपया एक क्षण प्रतीक्षा करें…",
+  },
+  needClasses: {
+    EN: "Which classes and subjects do you teach?",
+    HINGLISH: "Aap kaunsi classes aur subjects padhate hain?",
+    HI: "आप किस कक्षा और विषय पढ़ाते हैं?",
+  },
+  leads: {
+    EN: "You can browse matching tuition leads on your dashboard: https://apnatutorhub.com/tutor/leads",
+    HINGLISH: "Aap apne dashboard par matching tuition leads dekh sakte hain: https://apnatutorhub.com/tutor/leads",
+    HI: "आप अपने डैशबोर्ड पर मैचिंग ट्यूशन लीड देख सकते हैं: https://apnatutorhub.com/tutor/leads",
+  },
+  plans: {
+    EN: "The ₹1,257 Commission Plan gives 60 coins — 6 primary / 3 secondary / 2 senior unlocks, or any mix: https://apnatutorhub.com/tutor/plans",
+    HINGLISH: "₹1,257 Commission Plan me 60 coins milte hain — 6 primary / 3 secondary / 2 senior unlocks, ya koi mix: https://apnatutorhub.com/tutor/plans",
+    HI: "₹1,257 कमीशन प्लान में 60 कॉइन्स मिलते हैं — 6 प्राइमरी / 3 सेकंडरी / 2 सीनियर अनलॉक, या कोई मिश्रण: https://apnatutorhub.com/tutor/plans",
+  },
+  fees: {
+    EN: "Fees are fixed by class: 1-8 ₹8,000–12,000/month; 9-10 ₹800–1,200/hour; 11-12 ₹1,200–2,200/hour.",
+    HINGLISH: "Fees class ke hisaab se fixed hain: 1-8 ₹8,000–12,000/month; 9-10 ₹800–1,200/hour; 11-12 ₹1,200–2,200/hour.",
+    HI: "शुल्क कक्षा के अनुसार निर्धारित हैं: 1-8 ₹8,000–12,000/माह; 9-10 ₹800–1,200/घंटा; 11-12 ₹1,200–2,200/घंटा।",
+  },
+  login: {
+    EN: "Log in at https://apnatutorhub.com/login. If you forgot your password, reply MANUAL RESET.",
+    HINGLISH: "https://apnatutorhub.com/login par login kijiye. Password bhool gaye to MANUAL RESET likhiye.",
+    HI: "https://apnatutorhub.com/login पर लॉगिन करें। पासवर्ड भूल गए हों तो MANUAL RESET लिखें।",
+  },
+  online: {
+    EN: "We have Pan-India online tuition leads: https://apnatutorhub.com/tutor/leads?mode=ONLINE",
+    HINGLISH: "Pan-India online tuition leads maujood hain: https://apnatutorhub.com/tutor/leads?mode=ONLINE",
+    HI: "पैन-इंडिया ऑनलाइन ट्यूशन लीड उपलब्ध हैं: https://apnatutorhub.com/tutor/leads?mode=ONLINE",
+  },
+  whereFrom: {
+    EN: "You received our message because you registered or enquired on ApnaTutorHub. Reply STOP to opt out.",
+    HINGLISH: "Aapko hamara message isliye mila kyunki aapne ApnaTutorHub par register ya enquiry ki thi. STOP karke band kar sakte hain.",
+    HI: "आपको हमारा संदेश इसलिए मिला क्योंकि आपने ApnaTutorHub पर पंजीकरण या पूछताछ की थी। STOP से बंद कर सकते हैं।",
+  },
+  callMe: {
+    EN: "Our coordinator will call you. Please share a convenient time.",
+    HINGLISH: "Hamara coordinator aapko call karega. Suitable time bhejiye.",
+    HI: "हमारा समन्वयक आपको कॉल करेगा। कृपया सुविधाजनक समय बताएं।",
+  },
+  confirmSave: {
+    EN: "Please reply YES to confirm this change, or NO to cancel.",
+    HINGLISH: "Is badlaav ko confirm karne ke liye YES likhiye, ya cancel ke liye NO.",
+    HI: "इस परिवर्तन की पुष्टि के लिए YES लिखें, या रद्द करने के लिए NO।",
   },
 };
 

@@ -38,13 +38,14 @@ export function validateLocation(raw: string, geocoder?: Geocoder): Promise<Vali
   if (CITY_ONLY.test(text)) return fail("A city alone is not enough. Please add a locality, lane or landmark.");
   if (/\?$/.test(text) || /\b(?:please|kindly|send me|call me|my name is|email)\b/i.test(text)) return fail("Please send only the location.");
   if (text.split(/\s+/).length > 14) return fail("That looks like a sentence, not a location.");
-  if (!PLACE_HINT.test(text)) return fail("Please include a locality, lane, road or landmark.");
 
   const cityMatch = text.match(CITY_WORDS);
   const city = cityMatch ? cityMatch[0].replace(/\bnew\s+delhi\b/i, "New Delhi") : null;
   let locality = text.split(/[,]/)[0].trim();
   if (city && locality.toLowerCase() === city.toLowerCase()) locality = text.replace(city, "").replace(/^[,-\s]+/, "").trim();
   if (!locality) locality = text;
+  const hasNamedLocality = Boolean(city && locality && locality.toLowerCase() !== city.toLowerCase());
+  if (!PLACE_HINT.test(text) && !hasNamedLocality) return fail("Please include a locality, lane, road or landmark.");
   const landmarkMatch = text.match(/\b(?:near|opp\.?|opposite|behind|beside)\s+(.+)$/i);
   const landmark = landmarkMatch ? landmarkMatch[1].trim() : null;
 

@@ -9,7 +9,7 @@
 export type ReplyLanguage = "EN" | "HINGLISH" | "HI";
 
 const DEVANAGARI = /[\u0900-\u097F]/;
-const HINGLISH_MARKERS = /\b(aap|aapka|aapko|aapke|kaise|kya|kyu|kyun|nahi|nahin|chahiye|chahein|batao|bataiye|samajh|theek|thik|haan|han|ji|sir|ma'am|padhna|padhana|leads?|plans?|karo|karein|milti|milte|hai|hain|hoon|rehta|rehti|yahin|yahi|abhi|pehle|baad|mein|mai|se|ka|ki|ke|ko|aur|ya|test|check|kar|diya|diye|doon|dunga|dungi)\b/i;
+const HINGLISH_MARKERS = /\b(aap|aapka|aapko|aapke|kaise|kya|kyu|kyun|nahi|nahin|chahiye|chahein|batao|bataiye|samajh|theek|thik|haan|han|ji|sir|ma'am|padhna|padhana|karo|karein|milti|milte|hai|hain|hoon|rehta|rehti|yahin|yahi|abhi|pehle|baad|mein|mai|se|ka|ki|ke|ko|aur|ya|test|check|kar|diya|diye|doon|dunga|dungi)\b/i;
 
 export function detectLanguage(text: string): ReplyLanguage {
   const raw = (text ?? "").trim();

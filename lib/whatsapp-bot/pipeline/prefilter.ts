@@ -12,11 +12,11 @@ export type PrefilterDecision = {
 };
 
 const BUSINESS_AUTO_REPLY =
-  /\b(?:thank you for contacting|thanks for reaching out|currently unavailable|we are away|out of office|auto[- ]reply|will get back to you shortly)\b/i;
+  /\b(?:thank you for contacting|thank you for your message|thanks for reaching out|currently unavailable|we(?:'re| are) (?:currently )?unavailable|we are away|out of office|auto[- ]reply|will get back to you shortly|we'll respond as soon as possible)\b/i;
 const QUOTED_ALERT =
   /(?:\[tuition enquiry|#\d{4,}|client:\s*|class:\s*|mode:\s*|location:\s*|budget:\s*|preference:\s*|reply stop to unsubscribe)/i;
 const OPT_OUT =
-  /\b(?:stop|unsubscribe|unsub|not interested|don't message|dont message|nahi chahiye|mat bhejo|msg mat karo|band karo)\b/i;
+  /\b(?:stop|unsubscribe|unsub|not interested|don't message|dont message|nahi chahiye|mat bhejo|msg mat karo|message mat karo|dobara mat bhejo|band karo)\b/i;
 const RE_SUBSCRIBE = /^(?:start|menu|hi|hello|halo)$/i;
 const BARE_ACK = /^(?:ok|okay|thanks|thank you|thx|👍|🙏)$/i;
 const AFFIRMATIVE = /^(?:yes|haan|han|ha|1|2|interested|i am interested|i'm interested|ready|confirm|haan ji)$/i;
@@ -37,7 +37,11 @@ export function evaluatePrefilter(input: {
   const text = (input.text ?? "").trim();
   const now = input.now ?? new Date();
 
-  if (input.messageType === "reaction" || /^\[reaction(?::.*)?\]$/i.test(text)) {
+  if (
+    input.messageType === "reaction" ||
+    /^\[reaction(?::.*)?\]$/i.test(text) ||
+    /^reaction\b[\s\r\n]+\d{2}-\d{2}-\d{4}/i.test(text)
+  ) {
     return { decision: "SILENT", reason: "reaction" };
   }
   if (/^\[(?:status|read|delivered|sent|failed)(?::.*)?\]$/i.test(text)) {

@@ -3,11 +3,12 @@
  * Classifies only; saves nothing. Never throws.
  */
 import { EMAIL_RE_HINT } from "./classifier-shared";
+import { stripAquaNoise } from "./pii";
 
 export type MessageType = "ANSWER_TO_PENDING" | "PROFILE_INFO" | "QUESTION" | "COMMAND" | "CHITCHAT" | "UNCLEAR";
 export type Intent =
   | "leads" | "plans" | "fees" | "login" | "coins" | "update" | "human" | "online"
-  | "where_from" | "interested" | "documents" | "decline" | "other";
+  | "where_from" | "interested" | "documents" | "decline" | "no_email" | "chitchat" | "other";
 
 export type ExtractedField = { value?: string; confidence: number };
 export type Extracted = {
@@ -31,7 +32,7 @@ export interface GeminiClassifier {
 }
 
 const TYPES: MessageType[] = ["ANSWER_TO_PENDING", "PROFILE_INFO", "QUESTION", "COMMAND", "CHITCHAT", "UNCLEAR"];
-const INTENTS: Intent[] = ["leads", "plans", "fees", "login", "coins", "update", "human", "online", "where_from", "interested", "documents", "decline", "other"];
+const INTENTS: Intent[] = ["leads", "plans", "fees", "login", "coins", "update", "human", "online", "where_from", "interested", "documents", "decline", "no_email", "chitchat", "other"];
 
 function field(raw: unknown): ExtractedField | undefined {
   if (!raw || typeof raw !== "object") return undefined;
@@ -55,8 +56,9 @@ export function isStrictClassification(raw: unknown): raw is Classification {
 }
 
 function deterministic(text: string, pendingField?: string): Classification {
-  const t = text.trim();
+  const t = stripAquaNoise(text).trim();
   const lower = t.toLowerCase();
+  if (!t) return { message_type: "UNCLEAR", extracted: {}, intent: "other", confidence: 0, usedFallback: true };
   const extracted: Extracted = {};
   let intent: Intent = "other";
   let type: MessageType = "UNCLEAR";
@@ -65,9 +67,13 @@ function deterministic(text: string, pendingField?: string): Classification {
   const NOT_PROFILE =
     /\?|\b(?:what|how|why|where|when|which|who|kya|kaise|kitna|kitne|kahan|fee|fees|price|free|plan|lead|leads|requirement|student|teacher|tutor|parent|looking|need|want|please|download|try our|products?|http|www\.|reply stop|client:|subject:|location:|budget:)\b|#\d{4,}/i.test(t);
 
-  if (/^(?:stop|unsubscribe|not interested|don't message|nahi chahiye)\b/i.test(t)) {
+  if (/^(?:stop|unsubscribe|not interested|don't message|nahi chahiye|message mat karo|dobara mat bhejo|band karo)\b/i.test(t)) {
     type = "COMMAND"; intent = "decline";
-  } else if (/^(?:start|menu|help|hi|hello|manual reset|pay|activate|cancel)\b/i.test(t)) {
+  } else if (/^(?:no email|email nahi|mere paas email nahi|sirf whatsapp|only whatsapp)\b/i.test(t)) {
+    type = "PROFILE_INFO"; intent = "no_email";
+  } else if (/^(?:hi|hello|hey|namaste|hii|heelo|good (?:morning|evening)|thanks?|thank you|ok|okay)\b/i.test(t)) {
+    type = "CHITCHAT"; intent = "chitchat";
+  } else if (/^(?:start|menu|help|manual reset|pay|activate|cancel)\b/i.test(t)) {
     type = "COMMAND";
   } else if (/^(?:yes|haan|han|ha|1|2|interested|i am interested|i'm interested|ready|confirm)$/i.test(t)) {
     type = "CHITCHAT"; intent = "interested";
@@ -77,7 +83,7 @@ function deterministic(text: string, pendingField?: string): Classification {
     type = "QUESTION"; intent = "leads";
   } else if (/plan|commission|1257|2999/i.test(lower)) {
     type = "QUESTION"; intent = "plans";
-  } else if (/login|password|forgot|reset/i.test(lower)) {
+  } else if (/login|log in|sign.?in|password|forgot|reset|link.{0,20}not.{0,10}open|not opening/i.test(lower)) {
     type = "QUESTION"; intent = "login";
   } else if (/coin|wallet/i.test(lower)) {
     type = "QUESTION"; intent = "coins";
@@ -85,7 +91,7 @@ function deterministic(text: string, pendingField?: string): Classification {
     type = "QUESTION"; intent = "online";
   } else if (/where.*(?:number|get my)|kahan se/i.test(lower)) {
     type = "QUESTION"; intent = "where_from";
-  } else if (/call me|human|coordinator|support/i.test(lower)) {
+  } else if (/call me|call pe baat|call karo|call kijiye|phone karo|human|coordinator|support/i.test(lower)) {
     type = "QUESTION"; intent = "human";
   } else if (/^(?:ok|okay|thanks|thank you|👍|🙏)$/i.test(t)) {
     type = "CHITCHAT";
@@ -93,25 +99,31 @@ function deterministic(text: string, pendingField?: string): Classification {
 
   const explicitUpdate = /^(?:change|update|set)\s+(?:my\s+)?(?:name|email|area|location|subjects|classes)/i.test(t);
   const alreadyClassified = type === "CHITCHAT" || type === "COMMAND" || type === "QUESTION";
-  if ((!NOT_PROFILE && !alreadyClassified) || explicitUpdate) {
-    if (EMAIL_RE_HINT.test(t) && (pendingField === "email" || explicitUpdate || /^(?:my email|email)\s*(?:is|:)?/i.test(t))) {
-      type = pendingField === "email" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
-      extracted.email = { value: t.trim(), confidence: 0.95 };
-      intent = "update";
-    } else if (
+  const CLASS_FRAGMENT = /\b(?:\d{1,2}\s*(?:to|-|se|tak)\s*\d{1,2}|class\s*(?:\d{1,2}|xi|xii)|nursery|physics|chemistry|biology|mathematics|maths|science|english|social science|all subjects)\b/i;
+  const LOC_FRAGMENT = /\b(?:sector\s*\d+|[a-z]+\s*(?:nagar|vihar|colony|road|marg|gali|chowk|khand)|najafgarh|rohini|noida|gurugram|delhi|mumbai)\b/i;
+
+  const emailMatch = t.match(EMAIL_RE_HINT);
+  if (emailMatch) {
+    // An email is always routed to the validator, even when unasked.
+    if (type === "UNCLEAR") type = pendingField === "email" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
+    if (intent === "other") intent = "update";
+    extracted.email = { value: emailMatch[0], confidence: pendingField === "email" || explicitUpdate ? 0.95 : 0.75 };
+  } else if (!alreadyClassified) {
+    if (
       pendingField === "classes_subjects" || explicitUpdate ||
-      /^(?:i (?:teach|can teach)|teaching|classes?\s*\d|\d{1,2}\s*(?:to|-|se)\s*\d{1,2}|class\s*\d{1,2}\s*(?:maths|science|physics|chemistry|biology|all subjects)|(?:maths?|physics|chemistry|biology|all subjects)[,\s]+(?:maths?|science|physics|chemistry|biology|english|sst|all subjects|\d))/i.test(t)
+      (/^(?:i (?:teach|can teach)|teaching)/i.test(t) && CLASS_FRAGMENT.test(t)) ||
+      CLASS_FRAGMENT.test(t) && t.length <= 90
     ) {
       type = pendingField === "classes_subjects" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
-      extracted.classes_subjects = { value: t.trim(), confidence: 0.9 };
+      extracted.classes_subjects = { value: t.match(CLASS_FRAGMENT)?.[0] ?? t, confidence: pendingField === "classes_subjects" ? 0.9 : 0.7 };
       intent = "update";
-    } else if (pendingField === "location" || /^my (?:area|locality|location|city) is\b/i.test(t)) {
+    } else if (pendingField === "location" || LOC_FRAGMENT.test(t)) {
       type = pendingField === "location" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
-      extracted.location = { value: t.trim(), confidence: 0.85 };
+      extracted.location = { value: t.match(LOC_FRAGMENT)?.[0] ?? t, confidence: pendingField === "location" ? 0.85 : 0.7 };
       intent = "update";
     } else if (pendingField === "name" || /^my name is\b/i.test(t)) {
       type = pendingField === "name" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
-      extracted.name = { value: t.trim(), confidence: 0.8 };
+      extracted.name = { value: t.replace(/^my name is\s+/i, ""), confidence: pendingField === "name" ? 0.8 : 0.7 };
       intent = "update";
     }
   }

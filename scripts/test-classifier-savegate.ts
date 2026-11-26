@@ -125,6 +125,27 @@ const c = (over: Partial<Classification> = {}): Classification => ({
     assert.notEqual(r.intent, "update");
   });
 
+  await check("classifier: email extracted anywhere, even unasked", async () => {
+    const r = await classify("reach me at rakesh@example.com when free");
+    assert.equal(r.extracted.email?.value, "rakesh@example.com");
+    assert.ok((r.extracted.email?.confidence ?? 0) < 0.8, "unasked email needs confirmation");
+  });
+
+  await check("classifier: no-email / Hinglish opt-out / call-me / login gaps", async () => {
+    assert.equal((await classify("email nahi hai, sirf whatsapp")).intent, "no_email");
+    assert.equal((await classify("message mat karo")).intent, "decline");
+    assert.equal((await classify("dobara mat bhejo")).intent, "decline");
+    assert.equal((await classify("band karo")).intent, "decline");
+    assert.equal((await classify("call pe baat karni h")).intent, "human");
+    assert.equal((await classify("link not opening")).intent, "login");
+    assert.equal((await classify("unable to sign in")).intent, "login");
+  });
+
+  await check("classifier: trailing Aqua timestamp/noise stripped", async () => {
+    const noisy = "And this too\n 25-11-2026 12:03 \n 25-11-2026 12:03:12 \n \n \n \n Reply";
+    assert.deepEqual(await classify(noisy), await classify("And this too"));
+  });
+
   await check("classifier: pending location cannot hijack 'Interested' into a profile field", async () => {
     for (const t of ["Interested", "I am interested", "I'm interested", "yes"]) {
       const r = await classify(t, { pendingField: "location" });
@@ -153,6 +174,6 @@ const c = (over: Partial<Classification> = {}): Classification => ({
     }
   });
 
-  console.log(`\n${passed}/14 classifier/save-gate checks passed`);
+  console.log(`\n${passed}/17 classifier/save-gate checks passed`);
   console.log("No Gemini call, DB write or WhatsApp send performed.");
 })().catch((e) => { console.error("FAIL", e); process.exit(1); });

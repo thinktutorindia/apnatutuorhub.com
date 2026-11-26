@@ -46,8 +46,15 @@ const tests: Array<() => void> = [
       assert.equal(evaluatePrefilter({ text: t }).decision, "REPLY", `${t} must get a reply`);
     }
   }),
-  () => check("prefilter: other business auto-reply is silent", () => {
-    assert.equal(evaluatePrefilter({ text: "Thank you for contacting us, we will get back shortly." }).reason, "other_business_auto_reply");
+  () => check("prefilter: other business auto-replies are silent", () => {
+    for (const t of [
+      "Thank you for contacting us, we will get back shortly.",
+      "Thank you for your message. We're unavailable right now.",
+      "We are currently unavailable. Please try after sometime.",
+    ]) assert.equal(evaluatePrefilter({ text: t }).reason, "other_business_auto_reply", t);
+  }),
+  () => check("prefilter: reaction [timestamp] variant is silent", () => {
+    assert.equal(evaluatePrefilter({ text: "reaction \n 28-09-2026 17:51 \n 28-09-2026 17:51:16 \n Reply" }).reason, "reaction");
   }),
   () => check("prefilter: quoted/forwarded alert text is silent", () => {
     assert.equal(evaluatePrefilter({ text: "[Tuition Enquiry #45341] Client: Mrs. Sharma Class: Class 5" }).reason, "quoted_alert");

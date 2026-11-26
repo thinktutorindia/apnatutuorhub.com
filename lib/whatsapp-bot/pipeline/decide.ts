@@ -41,6 +41,8 @@ const INTENT_KEY: Partial<Record<Intent, Parameters<typeof replyInLanguage>[1]>>
   online: "online",
   where_from: "whereFrom",
   human: "callMe",
+  no_email: "unsupportedEmail",
+  chitchat: "welcomeBack",
 };
 
 /** Answer an affirmative broadcast reply using the lead details in the previous bot message. */

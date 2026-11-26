@@ -139,7 +139,7 @@ async function runExtremeTests() {
   console.log("\n--- TEST 14: '5pm' at T_TIMING step for onboarding tutor ---");
   const onboardingSession: BotSession = {
     id: "test-onboarding-123",
-    phone: "919876543210",
+    phone: "919000000000",
     userType: "TUTOR",
     step: "T_TIMING",
     data: { name: "Ananya", city: "Delhi", area: "Rohini", subjects: ["Maths"], classLevel: "Class 1-8" },

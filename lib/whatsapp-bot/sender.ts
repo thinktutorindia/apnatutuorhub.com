@@ -28,7 +28,7 @@ export const AUTO_BOT_REPLY_ENABLED = true;
 
 /**
  * Send a plain-text WhatsApp message to a user.
- * `to` should be E.164 digits without +, e.g. "919876543210".
+ * `to` should be E.164 digits without +, e.g. "919000000000".
  * Also persists the outbound message to whatsapp_chat_messages for staff view.
  */
 export async function sendBotMessage(

@@ -5,9 +5,9 @@
 /**
  * Masks a phone number for non-super-admin staff views.
  * Examples:
- *   "+91 9876543210" -> "+91 98765*****"
- *   "9876543210"     -> "98765*****"
- *   "+919876543210"  -> "+9198765*****"
+ *   "+91 9000000000" -> "+91 98765*****"
+ *   "9000000000"     -> "98765*****"
+ *   "+919000000000"  -> "+9198765*****"
  */
 export function maskPhoneNumber(phone?: string | null): string | null {
   if (!phone) return null;

@@ -679,7 +679,7 @@ export function AdminEditUserForm({
                   name="phone"
                   defaultValue={user.phone || ""}
                   required={isTutor}
-                  placeholder="9876543210 (mandatory for tutors)"
+                  placeholder="9000000000 (mandatory for tutors)"
                   className="w-full rounded-2xl px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 transition-all font-bold"
                   title={
                     !user.phone && !isSuperAdmin

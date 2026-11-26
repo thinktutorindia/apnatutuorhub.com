@@ -549,7 +549,7 @@ export function AdminCommandPalette({
                     <AlertTriangle size={24} className="mx-auto text-amber-400" />
                     <p className="text-sm font-bold">No matching records found.</p>
                     <p className="text-xs text-slate-500">
-                      Try typing a phone number (e.g. 9876543210), tutor name, locality, or admin feature.
+                      Try typing a phone number (e.g. 9000000000), tutor name, locality, or admin feature.
                     </p>
                   </div>
                 )}

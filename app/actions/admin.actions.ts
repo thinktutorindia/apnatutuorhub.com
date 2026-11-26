@@ -218,7 +218,7 @@ export async function adminCreateUserAction(
     const last10 = indiaPhoneLast10(input.phone.trim());
 
     if (!canon || !last10) {
-      return actionError("Mobile number must be a valid 10-digit Indian number (e.g. 9876543210).");
+      return actionError("Mobile number must be a valid 10-digit Indian number (e.g. 9000000000).");
     }
 
     const existingPhone = await findPrimaryUserForWhatsApp(prisma, input.phone.trim());
@@ -2859,7 +2859,7 @@ async function resolveUserPhoneFromForm(
   const { canonicalIndiaPhone, findPrimaryUserForWhatsApp } = await import("@/lib/india-phone");
   const canon = canonicalIndiaPhone(raw);
   if (!canon) {
-    return actionError("Mobile number must be a valid 10-digit Indian number (e.g. 9876543210).");
+    return actionError("Mobile number must be a valid 10-digit Indian number (e.g. 9000000000).");
   }
   const existingPhone = await findPrimaryUserForWhatsApp(prisma, raw);
   if (existingPhone && existingPhone.id !== userId) {

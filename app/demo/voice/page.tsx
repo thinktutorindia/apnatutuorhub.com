@@ -231,7 +231,7 @@ export default function VoiceDemoPage() {
         const res = await fetch("/api/voice/call", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ callId, from: fromPhone || "919876543210", text: line }),
+          body: JSON.stringify({ callId, from: fromPhone || "919000000000", text: line }),
         });
         const data = (await res.json()) as {
           say?: string;

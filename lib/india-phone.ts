@@ -1,5 +1,5 @@
 /**
- * Single canonical format for Indian mobiles in DB: 91 + 10 digits (e.g. 919876543210).
+ * Single canonical format for Indian mobiles in DB: 91 + 10 digits (e.g. 919000000000).
  */
 import type { PrismaClient, User } from "@prisma/client";
 import { normalizeIndiaWhatsApp } from "@/lib/aqua-whatsapp";

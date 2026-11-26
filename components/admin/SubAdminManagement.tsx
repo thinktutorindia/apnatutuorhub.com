@@ -509,7 +509,7 @@ export function SubAdminManagement({ initialSubAdmins, roleBadges }: SubAdminMan
                       type="tel"
                       value={form.phone}
                       onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      placeholder="e.g. 9876543210"
+                      placeholder="e.g. 9000000000"
                       className="w-full h-11 px-4 rounded-2xl border border-slate-300 text-xs font-700 outline-none focus:border-[#2D9E6B]"
                     />
                   </div>

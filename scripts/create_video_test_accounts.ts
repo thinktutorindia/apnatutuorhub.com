@@ -31,7 +31,7 @@ async function main() {
 
   // 2. Parent Test Account
   const parentEmail = "parent.demo@apnatutorhub.com";
-  const parentPhone = "9876543210";
+  const parentPhone = "9000000000";
   const parent = await prisma.user.upsert({
     where: { email: parentEmail },
     update: {

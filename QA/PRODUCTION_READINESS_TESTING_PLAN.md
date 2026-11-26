@@ -84,7 +84,7 @@ Fix or explicitly accept these before calling the product complete.
 - [ ] Staging URL (disposable DB) — **required** for money/RBAC mutation tests
 - [x] Parent test account — `getwebhype@gmail.com` (GetWeb Hype; created this session; lead #031595 left open)
 - [ ] Tutor test account (unverified KYC) — **not used**; do not create a second tutor that overwrites existing profiles
-- [x] Tutor test account (KYC approved, coins) — `zhaniesupport@gmail.com` (Zhanie Support; 90 coins after unlock −30 + milestone +30; profile left unchanged)
+- [x] Tutor test account (KYC approved, coins) — `tutor@example.invalid` (Zhanie Support; 90 coins after unlock −30 + milestone +30; profile left unchanged)
 - [x] Super Admin account — `coderrohit2927@gmail.com` (Rohit Sharma)
 - [x] Sub-admin SUPPORT — `rohitdevmode2927@gmail.com` (12/15 features; Support base)
 - [ ] Sub-admin VERIFICATION
@@ -492,7 +492,7 @@ Login as Super Admin. Walk **every** sidebar item.
 
 ### 6.3 Users `/admin/users`
 
-- [x] Search email / phone / name — `zhaniesupport@gmail.com` → Zhanie Support, KYC APPROVED, Active, 19 Aug. `getwebhype@gmail.com` → **1** Filtered User, GetWeb Hype PARENT Active Delhi, 26 Aug, Direct Online Signup. Export CSV button present (**not clicked**).
+- [x] Search email / phone / name — `tutor@example.invalid` → Zhanie Support, KYC APPROVED, Active, 19 Aug. `getwebhype@gmail.com` → **1** Filtered User, GetWeb Hype PARENT Active Delhi, 26 Aug, Direct Online Signup. Export CSV button present (**not clicked**).
 - [x] Filter parent / tutor / system `@apnatutorhub.com` vs genuine — filters present
 - [ ] Create Parent (default password documented) — **not run** (would add users)
 - [ ] Create Tutor

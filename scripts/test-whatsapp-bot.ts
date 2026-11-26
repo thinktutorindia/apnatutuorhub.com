@@ -48,7 +48,7 @@ function assertEnglishOnly(text: string, label: string) {
 function makeSession(overrides: Partial<BotSession> = {}): BotSession {
   return {
     id: "test-session",
-    phone: "919900000099",
+    phone: "919000000099",
     userType: null,
     step: "WELCOME",
     data: { lang: "en" },
@@ -81,17 +81,17 @@ const tests = [
   // ── 2. Strict Email Validation ────────────────────────────────────────────
   test("Email firewall accepts valid real emails", () => {
     for (const em of [
-      "priya.sharma@gmail.com",
-      "amit_verma@yahoo.co.in",
-      "faculty@outlook.com",
-      "prof.singh@iitd.ac.in",
-      "contact@brightacademy.org",
+      "tutor2@example.invalid",
+      "tutor4@example.invalid",
+      "tutor5@example.invalid",
+      "tutor6@example.invalid",
+      "tutor7@example.invalid",
     ]) {
       assert.equal(isStrictValidEmail(em), true, `Expected valid email: ${em}`);
     }
     assert.equal(
       extractStrictEmail("My email is Teacher.Rohit99@Gmail.Com please update"),
-      "teacher.rohit99@gmail.com"
+      "tutor3@example.invalid"
     );
   }),
 
@@ -101,8 +101,8 @@ const tests = [
       "available",
       "not available",
       "rohit@",
-      "wa.9876543210@apnatutorhub.com",
-      "wa_9876543210@apnatutorhub.internal",
+      "wa.9000000000@apnatutorhub.com",
+      "wa_9000000000@apnatutorhub.internal",
       "test@example.com",
       "fake@mailinator.com",
       "rahul@gmal.com",
@@ -116,7 +116,7 @@ const tests = [
       assertEnglishOnly(validateStrictEmail(bad).ok ? "" : validateStrictEmail(bad).reason, `email error ${bad}`);
     }
     assert.equal(isPlaceholderEmail("wa.9811111111@apnatutorhub.com"), true);
-    assert.equal(isPlaceholderEmail("realuser@gmail.com"), false);
+    assert.equal(isPlaceholderEmail("tutor8@example.invalid"), false);
   }),
 
   // ── 3. Strict Class & Subject Taxonomy ────────────────────────────────────
@@ -259,7 +259,7 @@ const tests = [
       data: {},
       chatHistory: nriOutbound,
       isRegistered: false,
-      phone: "919900000099",
+      phone: "919000000099",
     });
     assert.ok(spokenPref);
     assertEnglishOnly(spokenPref.reply, "spokenPref");
@@ -272,7 +272,7 @@ const tests = [
       data: {},
       chatHistory: nriOutbound,
       isRegistered: false,
-      phone: "919900000099",
+      phone: "919000000099",
     });
     assert.ok(bareEnglishAfterNri);
     assert.equal((bareEnglishAfterNri.updatedData as any)?.languagePref, "English");
@@ -284,7 +284,7 @@ const tests = [
       data: {},
       chatHistory: [{ direction: "OUTBOUND", body: "Check Requirement #32787 on apnatutorhub.com/login" }],
       isRegistered: true,
-      phone: "919900000099",
+      phone: "919000000099",
     });
     assert.ok(appConfused);
     assert.match(appConfused.reply, /apnatutorhub\.com\/login/);
@@ -303,7 +303,7 @@ const tests = [
         userType: null,
         data: {},
         isRegistered: false,
-        phone: "919900000099",
+        phone: "919000000099",
       });
       assert.ok(p, `Expected persona precheck to handle: ${msg}`);
       assertEnglishOnly(p.reply, `persona: ${msg}`);
@@ -384,11 +384,11 @@ const tests = [
 
     const goodEmail = await processMessage(
       makeSession({ step: "T_EMAIL", userType: "TUTOR", data: baseData }),
-      "priya.sharma.test999@gmail.com",
+      "tutor1@example.invalid",
       { useAi: false, chatHistory: [] }
     );
     assert.equal(goodEmail.nextStep, "T_PASSWORD", `Expected T_PASSWORD but got ${goodEmail.nextStep}. Reply was: ${goodEmail.reply}`);
-    assert.equal(goodEmail.updatedData.email, "priya.sharma.test999@gmail.com");
+    assert.equal(goodEmail.updatedData.email, "tutor1@example.invalid");
     assertEnglishOnly(goodEmail.reply, "Valid email");
   }),
 
@@ -650,7 +650,7 @@ const tests = [
     // Automated "not monitored" business auto-responder must not hijack email
     const rAutoAway = await processMessage(
       makeSession({ step: "DONE", userType: "TUTOR", data: { lang: "en", userType: "TUTOR", _registered: true } }),
-      "Hey there! For quick assistance email us at woot@mcaffeine.com. This chat isn't monitored.",
+      "Hey there! For quick assistance email us at support@example.invalid. This chat isn't monitored.",
       { useAi: false, chatHistory: [] }
     );
     assert.equal(rAutoAway.reply, "");
@@ -684,7 +684,7 @@ const tests = [
         data: {
           lang: "en",
           userType: "TUTOR",
-          email: "priya.sharma@gmail.com",
+          email: "tutor2@example.invalid",
           area: "Rohini",
           city: "Delhi",
           subjects: ["Physics for Class XI"],

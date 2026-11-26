@@ -1123,7 +1123,7 @@ export function StaffLeadsUploadClient() {
                                 className="w-full border rounded-lg px-2.5 py-1 text-xs"
                                 value={editBuffer.email ?? ""}
                                 onChange={(e) => setEditBuffer((b) => ({ ...b, email: e.target.value }))}
-                                placeholder="tutor@gmail.com"
+                                placeholder="tutor@example.invalid"
                               />
                             ) : lead.email ? (
                               <span className="text-slate-800 font-medium whitespace-nowrap flex items-center gap-1.5">

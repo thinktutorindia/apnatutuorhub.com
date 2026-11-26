@@ -309,7 +309,7 @@ export const registerSchema = z.object({
   phone: z
     .string()
     .min(10, "Phone number must be 10 digits")
-    .regex(/^[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)"),
+    .regex(/^[6-9]\d{9}$/, "Please enter a valid 10-digit Indian mobile number (e.g. 9000000000)"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")

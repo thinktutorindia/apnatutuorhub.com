@@ -201,7 +201,7 @@ export async function handleCallerTurn(input: {
 
   if (turn.sendOffered && next.offeredLead) {
     const phone = callerPhone(input.from);
-    const dummy = !phone || /9876543210/.test(phone);
+    const dummy = !phone || /9000000000/.test(phone);
     if (phone && !dummy) {
       const lead = next.offeredLead;
       const code = lead.inquiryNumber ? `#${lead.inquiryNumber}` : "";

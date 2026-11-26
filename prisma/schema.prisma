@@ -1145,7 +1145,7 @@ model StaffActivityEvent {
 
 model WhatsappSession {
   id            String   @id @default(cuid())
-  phone         String   @unique          // E.164 without +, e.g. "919876543210"
+  phone         String   @unique          // E.164 without +, e.g. "919000000000"
   userType      String?                   // "TUTOR" | "PARENT" | null
   step          String   @default("WELCOME")
   data          Json     @default("{}")   // Collected field values
@@ -1167,7 +1167,7 @@ model WhatsappSession {
 
 model WhatsappChatMessage {
   id          String   @id @default(cuid())
-  phone       String                        // E.164, e.g. "919876543210"
+  phone       String                        // E.164, e.g. "919000000000"
   direction   String                        // "INBOUND" | "OUTBOUND"
   senderName  String?                       // "User" | "Bot" | Staff Member Name
   body        String   @db.Text             // Full message text

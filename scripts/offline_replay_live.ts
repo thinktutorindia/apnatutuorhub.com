@@ -12,6 +12,7 @@ import { classify } from "../lib/whatsapp-bot/pipeline/classifier";
 import { validateEmail, validateLocation } from "../lib/whatsapp-bot/pipeline/validators";
 import { LiveGeminiClassifier, DnsMxLookup } from "../lib/whatsapp-bot/pipeline/real-adapters";
 import { StackGeocoder } from "../lib/whatsapp-bot/pipeline/geocoder";
+import { maskForExternal } from "../lib/whatsapp-bot/pipeline/pii";
 
 if (!process.argv.includes("--i-provided-keys")) {
   console.error("PREPARED ONLY: pass --i-provided-keys after supplying GEMINI_API_KEY and GOOGLE_MAPS_API_KEY.");
@@ -41,7 +42,8 @@ async function main() {
       if (rows.length >= LIMIT) break outer;
       const text = msg.body?.trim();
       if (!text) continue;
-      const c = await classify(text, { gemini });
+      // Gemini sees masked text only; validation below uses the original values.
+      const c = await classify(maskForExternal(text), { gemini });
       const probe: Record<string, unknown> = { phone: user.phone, message: text.slice(0, 300), classification: c };
       if (c.extracted.email?.value) probe.emailValidation = await validateEmail(c.extracted.email.value, mx);
       if (c.extracted.location?.value) probe.locationGeocode = await validateLocation(c.extracted.location.value, geocoder);

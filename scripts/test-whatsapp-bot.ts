@@ -97,7 +97,7 @@ const tests = [
       assert.equal(isStrictValidEmail(em), true, `Expected valid email: ${em}`);
     }
     assert.equal(
-      extractStrictEmail("My email is Teacher.Rohit99@Gmail.Com please update"),
+      extractStrictEmail("My email is tutor3@example.invalid please update"),
       "tutor3@example.invalid"
     );
   }),

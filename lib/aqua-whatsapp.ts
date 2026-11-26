@@ -281,6 +281,8 @@ export async function sendAquaWhatsAppMessage(input: {
   placeholders?: string[];
   estimatedInr?: number;
   bypassDailyCap?: boolean;
+  /** Inbound replies (bot/staff) pass true; proactive jobs leave it false. */
+  bypassOutboundGate?: boolean;
 }): Promise<AquaSendResult> {
   const cfg = getAquaWhatsAppConfig();
   if (!cfg.enabled) return { ok: false, error: "Aqua WhatsApp is disabled." };
@@ -289,8 +291,18 @@ export async function sendAquaWhatsAppMessage(input: {
   const to = normalizeIndiaWhatsApp(input.to);
   if (!to) return { ok: false, error: "Enter a valid Indian mobile number." };
 
+  // Every proactive outbound message must respect opt-out + the 24h window.
+  // Text outside the window is silently upgraded to an approved template.
+  let mode: AquaSendMode = input.mode;
+  if (!input.bypassOutboundGate) {
+    const { canSendWhatsApp } = await import("@/lib/whatsapp-bot/pipeline/outbound-gate");
+    const gate = await canSendWhatsApp(to, input.mode);
+    if (!gate.allowed) return { ok: false, error: `Outbound gate blocked: ${gate.reason}` };
+    mode = gate.mode;
+  }
+
   // Chatbot conversational text replies are ALWAYS uncapped and automatic
-  if (input.mode !== "text" && !input.bypassDailyCap) {
+  if (mode !== "text" && !input.bypassDailyCap) {
     const capError = await assertDailyCap(cfg);
     if (capError) return { ok: false, error: capError };
   }
@@ -323,7 +335,7 @@ export async function sendAquaWhatsAppMessage(input: {
 
   // Pinbot / Meta Cloud API v3 payload format
   const body: Record<string, unknown> =
-    input.mode === "template"
+    mode === "template"
       ? {
           messaging_product: "whatsapp",
           recipient_type: "individual",
@@ -335,7 +347,7 @@ export async function sendAquaWhatsAppMessage(input: {
             ...(templateComponents.length > 0 ? { components: templateComponents } : {}),
           },
         }
-      : input.mode === "image"
+      : mode === "image"
         ? {
             messaging_product: "whatsapp",
             recipient_type: "individual",

@@ -633,6 +633,7 @@ export async function sendStaffWhatsAppReplyAction(params: {
       mode: "text",
       text: cleanText,
       bypassDailyCap: true,
+      bypassOutboundGate: true, // staff reply to an existing inbound thread
     });
 
     if (!res.ok) {

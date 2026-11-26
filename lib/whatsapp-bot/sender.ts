@@ -50,6 +50,7 @@ export async function sendBotMessage(
     mode: "text",
     text: safeText,
     bypassDailyCap: true,
+    bypassOutboundGate: true, // inbound reply — already inside the 24h window
   });
 
   // Persist outbound message immediately so the thread stays complete if Aqua drops its copy.
@@ -97,6 +98,7 @@ export async function sendBotImageMessage(
       imageUrl: url,
       imageCaption: caption,
       bypassDailyCap: true,
+      bypassOutboundGate: true, // inbound reply — already inside the 24h window
     });
 
     upsertWhatsAppChatMessage({

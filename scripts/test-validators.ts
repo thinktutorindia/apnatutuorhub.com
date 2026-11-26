@@ -64,7 +64,7 @@ const tests: Array<() => Promise<void>> = [
   check("email: typo gets a suggestion", async () => {
     const r = await validateEmail("abc@gmial.com", mxOk);
     assert.equal(r.ok, false);
-    assert.equal(r.suggestion, "abc@example.invalid");
+    assert.equal(r.suggestion, "abc@gmail.com");
   }),
   check("email: placeholder / apnatutorhub.com rejected", async () => {
     assert.equal((await validateEmail("wa_919000000099@apnatutorhub.com", mxOk)).ok, false);

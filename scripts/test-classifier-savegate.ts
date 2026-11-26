@@ -125,6 +125,14 @@ const c = (over: Partial<Classification> = {}): Classification => ({
     assert.notEqual(r.intent, "update");
   });
 
+  await check("classifier: pending location cannot hijack 'Interested' into a profile field", async () => {
+    for (const t of ["Interested", "I am interested", "I'm interested", "yes"]) {
+      const r = await classify(t, { pendingField: "location" });
+      assert.equal(r.intent, "interested", `${t} must stay interested even with a pending field`);
+      assert.deepEqual(r.extracted, {});
+    }
+  });
+
   await check("classifier: question about tutors never yields a profile save", async () => {
     const r = await classify("HI do you need class 11 Maths or Physics teacher ?");
     assert.deepEqual(r.extracted, {});
@@ -145,6 +153,6 @@ const c = (over: Partial<Classification> = {}): Classification => ({
     }
   });
 
-  console.log(`\n${passed}/13 classifier/save-gate checks passed`);
+  console.log(`\n${passed}/14 classifier/save-gate checks passed`);
   console.log("No Gemini call, DB write or WhatsApp send performed.");
 })().catch((e) => { console.error("FAIL", e); process.exit(1); });

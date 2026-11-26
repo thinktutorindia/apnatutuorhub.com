@@ -92,7 +92,8 @@ function deterministic(text: string, pendingField?: string): Classification {
   }
 
   const explicitUpdate = /^(?:change|update|set)\s+(?:my\s+)?(?:name|email|area|location|subjects|classes)/i.test(t);
-  if (!NOT_PROFILE || explicitUpdate) {
+  const alreadyClassified = type === "CHITCHAT" || type === "COMMAND" || type === "QUESTION";
+  if ((!NOT_PROFILE && !alreadyClassified) || explicitUpdate) {
     if (EMAIL_RE_HINT.test(t) && (pendingField === "email" || explicitUpdate || /^(?:my email|email)\s*(?:is|:)?/i.test(t))) {
       type = pendingField === "email" ? "ANSWER_TO_PENDING" : "PROFILE_INFO";
       extracted.email = { value: t.trim(), confidence: 0.95 };

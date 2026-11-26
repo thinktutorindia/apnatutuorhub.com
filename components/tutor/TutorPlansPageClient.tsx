@@ -25,6 +25,7 @@ import { UpiQrPaymentCard } from "@/components/payment/UpiQrPaymentCard";
 import { useSeniorTutor } from "@/components/tutor/SeniorTutorContext";
 
 const COINS_TEXT = commissionPlanCoinsText();
+const COUPON_UI_ENABLED = false; // all coupon codes deactivated — hide coupon input everywhere
 
 interface Props {
   currentPlan: string;
@@ -785,7 +786,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                     </div>
                                   </div>
 
-                                  {/* Coupon Code Section */}
+                                  {/* Coupon UI disabled — all coupon codes deactivated */}
+                                  {COUPON_UI_ENABLED && (
                                   <div className="space-y-2 pt-1">
                                     <label className="text-xs font-800 text-gray-800 flex items-center gap-1.5">
                                       <Ticket size={14} className="text-[#2D9E6B]" />
@@ -820,6 +822,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       </p>
                                     )}
                                   </div>
+                                  )}
 
                                   {/* Action Buttons / Online Checkout & QR Payment Flow */}
                                   {planStep === "summary" && (

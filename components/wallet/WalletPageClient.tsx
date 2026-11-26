@@ -8,6 +8,7 @@ import type { WalletTransactionType } from "@prisma/client";
 import { TopUpModal } from "@/components/wallet/TopUpModal";
 import { useSeniorTutor } from "@/components/tutor/SeniorTutorContext";
 import { COMMISSION_PLAN, commissionPlanCoinsText } from "@/lib/subscription-plans";
+import { COIN_TOPUP_ENABLED } from "@/lib/razorpay";
 
 type Transaction = {
   id: string;
@@ -160,7 +161,7 @@ export function WalletPageClient({
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
-            {canTopup ? (
+            {canTopup && COIN_TOPUP_ENABLED ? (
               <button
                 type="button"
                 onClick={() => setTopUpOpen(true)}
@@ -180,6 +181,29 @@ export function WalletPageClient({
             )}
           </div>
         </div>
+
+        {!COIN_TOPUP_ENABLED && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="space-y-0.5">
+              <p className="text-xs font-800 text-amber-950">
+                {lang === "hi" ? "कॉइन टॉप-अप अभी उपलब्ध नहीं है" : "Coin Top-Up Currently Unavailable"}
+              </p>
+              <p className="text-xs font-medium text-amber-900">
+                {lang === "hi"
+                  ? `कॉइन टॉप-अप पैक अस्थायी रूप से बंद हैं। लीड अनलॉक करने के लिए ₹${COMMISSION_PLAN.priceInr.toLocaleString("en-IN")} स्टार्टर प्लान (${COMMISSION_PLAN.coins} कॉइन्स · ${COMMISSION_PLAN.validityText} वैधता) चुनें।`
+                  : `Coin top-up packs are temporarily unavailable. Move to the Starter Plan (₹${COMMISSION_PLAN.priceInr.toLocaleString("en-IN")} · ${COMMISSION_PLAN.coins} coins · ${COMMISSION_PLAN.validityText} validity) to unlock leads.`}
+              </p>
+            </div>
+            <Link
+              href="/tutor/plans?checkout=STARTER"
+              className="shrink-0 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] !text-white text-xs font-800 whitespace-nowrap transition-colors shadow-xs"
+            >
+              {lang === "hi"
+                ? `स्टार्टर प्लान ₹${COMMISSION_PLAN.priceInr.toLocaleString("en-IN")} लें →`
+                : `Move to Starter Plan ₹${COMMISSION_PLAN.priceInr.toLocaleString("en-IN")} →`}
+            </Link>
+          </div>
+        )}
 
         {/* Balance Card + Stats */}
         <div className="grid gap-5 sm:grid-cols-3">

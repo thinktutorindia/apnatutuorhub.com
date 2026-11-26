@@ -10,6 +10,8 @@ import {
   type ActionResult,
 } from "@/lib/action-result";
 import {
+  COIN_TOPUP_ENABLED,
+  COIN_TOPUP_UNAVAILABLE_MSG,
   createRazorpayOrder,
   getCoinPackage,
   isRazorpayConfigured,
@@ -34,6 +36,10 @@ export async function createCoinOrderAction(
   packageId: CoinPackageId,
   couponCode?: string
 ): Promise<CoinOrderResult> {
+  if (!COIN_TOPUP_ENABLED) {
+    return actionError(COIN_TOPUP_UNAVAILABLE_MSG);
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     return actionError("Your session has expired. Please log in again.");

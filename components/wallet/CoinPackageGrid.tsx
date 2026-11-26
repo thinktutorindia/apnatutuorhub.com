@@ -8,10 +8,12 @@ export function CoinPackageGrid({
   onSelect,
   loading,
   appliedCoupon,
+  disabled = false,
 }: {
   onSelect: (id: CoinPackageId) => void;
   loading: CoinPackageId | null;
   appliedCoupon?: ValidateCouponResult | null;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-3">
@@ -36,10 +38,13 @@ export function CoinPackageGrid({
         return (
           <div
             key={pkg.id}
-            className={`relative flex flex-col justify-between gap-4 p-5 rounded-xl border transition-all ${
-              pkg.popular ? "border-green-600 shadow-md ring-1 ring-green-600" : "border-gray-200 shadow-xs"
-            }`}
-            style={{ backgroundColor: "#FFFFFF" }}
+            className={`relative flex flex-col justify-between gap-4 p-5 rounded-xl border transition-all ${disabled
+                ? "border-gray-200 bg-gray-50/80 opacity-75"
+                : pkg.popular
+                  ? "border-green-600 shadow-md ring-1 ring-green-600"
+                  : "border-gray-200 shadow-xs"
+              }`}
+            style={disabled ? undefined : { backgroundColor: "#FFFFFF" }}
           >
             {/* Popular / Coupon Discount Badge */}
             {discountSavings > 0 ? (
@@ -102,11 +107,13 @@ export function CoinPackageGrid({
             {/* CTA */}
             <button
               type="button"
-              disabled={isLoading || loading !== null}
+              disabled={disabled || isLoading || loading !== null}
               onClick={() => onSelect(pkg.id as CoinPackageId)}
-              className="at-btn at-btn-primary w-full text-xs font-600 cursor-pointer disabled:opacity-60"
+              className="at-btn at-btn-primary w-full text-xs font-600 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isLoading ? (
+              {disabled ? (
+                <span>Currently Unavailable</span>
+              ) : isLoading ? (
                 <>
                   <Zap size={14} className="at-spinner" />
                   <span>Processing…</span>

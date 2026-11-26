@@ -74,6 +74,10 @@ export const COIN_PACKAGES = [
   },
 ] as const;
 
+export const COIN_TOPUP_ENABLED = false;
+export const COIN_TOPUP_UNAVAILABLE_MSG =
+  "Coin top-up packs are currently unavailable. Please activate the Starter Plan (₹1,257 · 60 coins · 6 months validity) instead.";
+
 export type CoinPackageId = (typeof COIN_PACKAGES)[number]["id"];
 
 export function getCoinPackage(id: CoinPackageId) {

@@ -28,6 +28,7 @@ import {
 } from "@/app/actions/leads.actions";
 import { FieldError, FormAlert } from "@/components/ui/FieldError";
 import { getLeadPointCost } from "@/lib/subscription-plans";
+import { COIN_TOPUP_ENABLED } from "@/lib/razorpay";
 import { isTill8thClass } from "@/lib/lead-utils";
 import {
   cleanClassLevelDisplay,
@@ -304,15 +305,27 @@ export function LeadPurchaseModal({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <Link
-                    href="/tutor/wallet"
-                    onClick={onClose}
-                    className="flex flex-col items-center justify-center p-3.5 rounded-2xl border-2 border-amber-300 bg-amber-50/50 hover:bg-amber-100 hover:border-amber-400 text-center transition-all group shadow-2xs"
-                  >
-                    <Coins size={22} className="text-amber-600 mb-1 group-hover:scale-110 transition-transform" />
-                    <span className="text-xs font-800 text-amber-950">Top Up Coins →</span>
-                    <span className="text-[10px] text-amber-800 font-medium mt-0.5">Coin packs starting from ₹250</span>
-                  </Link>
+                  {COIN_TOPUP_ENABLED ? (
+                    <Link
+                      href="/tutor/wallet"
+                      onClick={onClose}
+                      className="flex flex-col items-center justify-center p-3.5 rounded-2xl border-2 border-amber-300 bg-amber-50/50 hover:bg-amber-100 hover:border-amber-400 text-center transition-all group shadow-2xs"
+                    >
+                      <Coins size={22} className="text-amber-600 mb-1 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-800 text-amber-950">Top Up Coins →</span>
+                      <span className="text-[10px] text-amber-800 font-medium mt-0.5">Coin packs starting from ₹250</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/tutor/plans?checkout=STARTER"
+                      onClick={onClose}
+                      className="flex flex-col items-center justify-center p-3.5 rounded-2xl border-2 border-amber-300 bg-amber-50 text-center transition-all group shadow-2xs"
+                    >
+                      <Coins size={22} className="text-amber-600 mb-1" />
+                      <span className="text-xs font-800 text-amber-950">Top-Up Unavailable · Starter Plan ₹1,257 →</span>
+                      <span className="text-[10px] text-amber-800 font-medium mt-0.5">60 coins · 6 months validity</span>
+                    </Link>
+                  )}
 
                   <Link
                     href="/tutor/plans"

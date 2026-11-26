@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { CheckCircle2, Wallet, X, Ticket, Tag, AlertCircle, Zap, Lock, ArrowLeft } from "lucide-react";
 import { CoinPackageGrid } from "@/components/wallet/CoinPackageGrid";
 import { validateCouponAction, type ValidateCouponResult } from "@/app/actions/coupon.actions";
 import { createCoinOrderAction, confirmCoinPaymentAction } from "@/app/actions/wallet.actions";
-import { COIN_PACKAGES, type CoinPackageId } from "@/lib/razorpay";
+import {
+  COIN_PACKAGES,
+  COIN_TOPUP_ENABLED,
+  COIN_TOPUP_UNAVAILABLE_MSG,
+  type CoinPackageId,
+} from "@/lib/razorpay";
 import { UpiQrPaymentCard } from "@/components/payment/UpiQrPaymentCard";
 
 declare global {
@@ -85,6 +91,10 @@ export function TopUpModal({
   };
 
   const handleSelectPackage = (pkgId: CoinPackageId) => {
+    if (!COIN_TOPUP_ENABLED) {
+      setErrorMsg(COIN_TOPUP_UNAVAILABLE_MSG);
+      return;
+    }
     const pkg = COIN_PACKAGES.find((p: any) => p.id === pkgId);
     if (!pkg) return;
     setSelectedPkg(pkg);
@@ -92,6 +102,10 @@ export function TopUpModal({
   };
 
   const handleOnlineCoinCheckout = async (pkgId: CoinPackageId) => {
+    if (!COIN_TOPUP_ENABLED) {
+      setErrorMsg(COIN_TOPUP_UNAVAILABLE_MSG);
+      return;
+    }
     const pkg = COIN_PACKAGES.find((p: any) => p.id === pkgId);
     if (!pkg) return;
     setLoadingPkg(pkgId);
@@ -196,7 +210,9 @@ export function TopUpModal({
                 Top Up Coins
               </h2>
               <p className="text-xs text-gray-500 font-medium">
-                Scan UPI QR to pay via any UPI app · Instant admin verification!
+                {COIN_TOPUP_ENABLED
+                  ? "Scan UPI QR to pay via any UPI app · Instant admin verification!"
+                  : "Coin top-up packs are currently unavailable · Activate Starter Plan (₹1,257)"}
               </p>
             </div>
           </div>
@@ -213,7 +229,7 @@ export function TopUpModal({
         </div>
 
         {/* Coupon Code Redemption Input Section */}
-        {modalState === "packages" && (
+        {modalState === "packages" && COIN_TOPUP_ENABLED && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -299,12 +315,37 @@ export function TopUpModal({
         {/* States */}
         {modalState === "packages" && (
           <>
+            {!COIN_TOPUP_ENABLED && (
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-800 text-amber-950 flex items-center gap-1.5">
+                    <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                    <span>Coin Top-Up Currently Unavailable</span>
+                  </p>
+                  <p className="text-xs text-amber-900/90 font-medium leading-relaxed">
+                    {COIN_TOPUP_UNAVAILABLE_MSG}
+                  </p>
+                </div>
+                <Link
+                  href="/tutor/plans?checkout=STARTER"
+                  onClick={onClose}
+                  className="shrink-0 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#0F2540] hover:bg-[#1A3C5E] !text-white text-xs font-800 whitespace-nowrap transition-colors shadow-xs"
+                >
+                  Move to Starter Plan (₹1,257) →
+                </Link>
+              </div>
+            )}
             {errorMsg && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-500 text-red-600">
                 {errorMsg}
               </div>
             )}
-            <CoinPackageGrid onSelect={handleSelectPackage} loading={loadingPkg} appliedCoupon={appliedCoupon} />
+            <CoinPackageGrid
+              onSelect={handleSelectPackage}
+              loading={loadingPkg}
+              appliedCoupon={appliedCoupon}
+              disabled={!COIN_TOPUP_ENABLED}
+            />
           </>
         )}
 

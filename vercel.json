@@ -11,10 +11,6 @@
     {
       "path": "/api/cron/geo-leads",
       "schedule": "30 12 * * *"
-    },
-    {
-      "path": "/api/cron/stuck-threads",
-      "schedule": "30 3 * * *"
     }
   ]
 }

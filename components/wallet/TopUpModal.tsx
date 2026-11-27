@@ -13,6 +13,7 @@ import {
   type CoinPackageId,
 } from "@/lib/razorpay";
 import { UpiQrPaymentCard } from "@/components/payment/UpiQrPaymentCard";
+import { TermsAgreementCheckbox } from "@/components/payment/TermsAgreementCheckbox";
 
 declare global {
   interface Window {
@@ -40,6 +41,7 @@ export function TopUpModal({
   const [loadingPkg, setLoadingPkg] = useState<CoinPackageId | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [creditedCoins, setCreditedCoins] = useState(0);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Coupon state
   const [couponCode, setCouponCode] = useState("");
@@ -98,12 +100,17 @@ export function TopUpModal({
     const pkg = COIN_PACKAGES.find((p: any) => p.id === pkgId);
     if (!pkg) return;
     setSelectedPkg(pkg);
+    setTermsAccepted(false);
     setModalState("checkout_choice");
   };
 
   const handleOnlineCoinCheckout = async (pkgId: CoinPackageId) => {
     if (!COIN_TOPUP_ENABLED) {
       setErrorMsg(COIN_TOPUP_UNAVAILABLE_MSG);
+      return;
+    }
+    if (!termsAccepted) {
+      setErrorMsg("Please accept the Terms & Conditions before proceeding to payment.");
       return;
     }
     const pkg = COIN_PACKAGES.find((p: any) => p.id === pkgId);
@@ -389,11 +396,16 @@ export function TopUpModal({
             </div>
 
             <div className="space-y-3 pt-2">
+              <TermsAgreementCheckbox
+                id="topup-terms-checkbox"
+                checked={termsAccepted}
+                onChange={setTermsAccepted}
+              />
               <button
                 type="button"
-                disabled={loadingPkg !== null}
+                disabled={loadingPkg !== null || !termsAccepted}
                 onClick={() => handleOnlineCoinCheckout(selectedPkg.id)}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Zap size={15} />
                 <span>
@@ -409,8 +421,9 @@ export function TopUpModal({
 
               <button
                 type="button"
+                disabled={!termsAccepted}
                 onClick={() => setModalState("qr_payment")}
-                className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Lock size={13} className="text-gray-500" />
                 <span>Pay via Kotak UPI QR (Offline / Screenshot Transfer)</span>

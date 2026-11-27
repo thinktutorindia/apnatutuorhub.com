@@ -16,16 +16,12 @@ import {
   type SubscriptionPlanConfig,
   getPriceWithGst,
   getGstAmount,
-  COMMISSION_PLAN,
-  commissionPlanCoinsText,
 } from "@/lib/subscription-plans";
 import { ActionOverlay } from "@/components/ui/LoadingState";
 import { validateCouponAction, type ValidateCouponResult } from "@/app/actions/coupon.actions";
 import { UpiQrPaymentCard } from "@/components/payment/UpiQrPaymentCard";
+import { TermsAgreementCheckbox } from "@/components/payment/TermsAgreementCheckbox";
 import { useSeniorTutor } from "@/components/tutor/SeniorTutorContext";
-
-const COINS_TEXT = commissionPlanCoinsText();
-const COUPON_UI_ENABLED = false; // all coupon codes deactivated — hide coupon input everywhere
 
 interface Props {
   currentPlan: string;
@@ -36,7 +32,7 @@ interface Props {
 const FAQ_ITEMS = [
   {
     q: "How does the ₹1,257 Commission Based Plan work?",
-    a: `The Commission Based Plan requires a one-time registration fee of ₹${COMMISSION_PLAN.priceInr} with ${COMMISSION_PLAN.validityText} validity. You get ${commissionPlanCoinsText()}. Our platform commission is 50% on the first month's student fee, and 5% recurring platform commission every month from the 2nd month onwards.`,
+    a: "The Commission Based Plan requires a one-time registration fee of ₹1,257 with 6 Months validity. You get to unlock 5 verified parent leads. Our platform commission is 50% on the first month's student fee, and 5% recurring platform commission every month from the 2nd month onwards.",
   },
   {
     q: "Is the ₹2,999 Without-Commission / 0% Commission Plan still available?",
@@ -83,6 +79,11 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
   // Checkout modal & coupon state
   const [checkoutPlanId, setCheckoutPlanId] = useState<SubscriptionPlanId | null>(null);
   const [planStep, setPlanStep] = useState<"summary" | "qr_payment" | "submitted">("summary");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  useEffect(() => {
+    setTermsAccepted(false);
+  }, [checkoutPlanId]);
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -182,6 +183,10 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
   };
 
   const handleRazorpaySubscribe = async (planId: SubscriptionPlanId) => {
+    if (!termsAccepted) {
+      setErrorMessage("Please accept the Terms & Conditions before proceeding to payment.");
+      return;
+    }
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -190,6 +195,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
       const res = await fetch("/api/tutor/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, couponCode: appliedCoupon?.code }),
         body: JSON.stringify({ planId, couponCode: codeToSend }),
       });
 
@@ -275,10 +281,13 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
         <div className="max-w-5xl mx-auto text-center space-y-5 relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-yellow-300 text-xs font-black backdrop-blur-md" style={{ background: 'rgba(251,191,36,0.1)', borderColor: 'rgba(251,191,36,0.3)' }}>
             <Crown size={14} className="text-yellow-400" />
+            <span>Verified Lead Membership Plans</span>
             <span>{lang === "hi" ? "सत्यापित लीड मेंबरशिप प्लान" : "Verified Lead Membership Plans"}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+            Choose Your Plan &amp; Win{' '}
+            <span style={{ background: 'linear-gradient(90deg, #FBBF24, #F59E0B, #FB923C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Exclusive Tuition Leads</span>
             {lang === "hi" ? (
               <>अपना प्लान चुनें और पाएं <span style={{ background: 'linear-gradient(90deg, #FBBF24, #F59E0B, #FB923C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>एक्सक्लूसिव ट्यूशन लीड्स</span></>
             ) : (
@@ -287,10 +296,11 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
           </h1>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-3xl mx-auto leading-relaxed" style={{ fontFamily: "'Inter', sans-serif" }}>
+            Start unlocking verified student leads with our official <span className="text-emerald-300 font-bold">Commission Based Plan</span> — 5 Verified Leads, 6 Months validity, low ₹1,257 registration, and direct parent contacts!
             {lang === "hi" ? (
-              <>हमारे आधिकारिक <span className="text-emerald-300 font-bold">कमीशन आधारित प्लान</span> के साथ सत्यापित छात्र लीड्स अनलॉक करें — {COINS_TEXT}, 6 महीने की वैधता, मात्र ₹1,257 पंजीकरण शुल्क और सीधे अभिभावक संपर्क!</>
+              <>हमारे आधिकारिक <span className="text-emerald-300 font-bold">कमीशन आधारित प्लान</span> के साथ सत्यापित छात्र लीड्स अनलॉक करें — 5 सत्यापित लीड्स, 6 महीने की वैधता, मात्र ₹1,257 पंजीकरण शुल्क और सीधे अभिभावक संपर्क!</>
             ) : (
-              <>Start unlocking verified student leads with our official <span className="text-emerald-300 font-bold">Commission Based Plan</span> — {COINS_TEXT}, 6 Months validity, low ₹1,257 registration, and direct parent contacts!</>
+              <>Start unlocking verified student leads with our official <span className="text-emerald-300 font-bold">Commission Based Plan</span> — 5 Verified Leads, 6 Months validity, low ₹1,257 registration, and direct parent contacts!</>
             )}
           </p>
 
@@ -298,14 +308,17 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
             <div className="inline-flex flex-wrap justify-center items-center gap-3 px-5 py-3 rounded-2xl border" style={{ background: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.35)' }}>
               <div className="flex items-center gap-2 text-xs font-bold text-white">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                Active Plan: <span className="text-emerald-300 font-extrabold">{activePlanConfig.name}</span>
                 {lang === "hi" ? "सक्रिय प्लान:" : "Active Plan:"} <span className="text-emerald-300 font-extrabold">{activePlanConfig.name}</span>
               </div>
               <span className="text-slate-500 hidden sm:inline">·</span>
-              <span className="text-xs text-slate-200 font-semibold">{COINS_TEXT}</span>
+              <span className="text-xs text-slate-200 font-semibold">5 Leads Unlocked</span>
+              <span className="text-xs text-slate-200 font-semibold">{lang === "hi" ? "5 लीड्स अनलॉक" : "5 Leads Unlocked"}</span>
               {expiresAt && (
                 <>
                   <span className="text-slate-500 hidden sm:inline">·</span>
                   <span className="text-xs text-emerald-200 font-semibold">
+                    Valid Until: {new Date(expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                     {lang === "hi" ? "वैधता तिथि:" : "Valid Until:"} {new Date(expiresAt).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
                 </>
@@ -338,32 +351,38 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-600 shadow-md shadow-emerald-700/20">
                   <Handshake size={14} className="text-emerald-100" />
+                  <span>COMMISSION BASED PLAN</span>
                   <span>{lang === "hi" ? "कमीशन आधारित प्लान" : "COMMISSION BASED PLAN"}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold text-emerald-950 bg-white/90 border border-emerald-300 shadow-2xs">
                   <Clock size={13} className="text-emerald-700" />
+                  <span>6 Months Long Validity</span>
                   <span>{lang === "hi" ? "6 महीने की लंबी वैधता" : "6 Months Long Validity"}</span>
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black text-amber-900 bg-amber-100/90 border border-amber-300">
+                  ⚡ 50% OFF REGISTRATION
                   {lang === "hi" ? "⚡ पंजीकरण पर 50% छूट" : "⚡ 50% OFF REGISTRATION"}
                 </span>
               </div>
 
               <div>
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#0F2540] leading-tight tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  Commission Based Plan —{" "}
                   {lang === "hi" ? "कमीशन आधारित प्लान — " : "Commission Based Plan — "}
                   <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">₹1,257</span>{" "}
                   <span className="text-base sm:text-lg font-bold text-slate-400 line-through">₹2,500</span>
                 </h2>
                 <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-1.5 max-w-2xl leading-relaxed">
+                  Start with a low upfront fee of <strong className="text-emerald-900">₹1,257</strong> for <strong className="text-slate-900">6 Months validity</strong> to unlock <strong className="text-emerald-900">5 verified student leads</strong>.
+                  <br className="hidden sm:inline" /> Platform commission: <strong>50% of 1st month tuition fee</strong>, and <strong>5% recurring commission every month from 2nd month onwards</strong>.
                   {lang === "hi" ? (
                     <>
-                      <strong className="text-emerald-900">{COINS_TEXT}</strong> अनलॉक करने के लिए मात्र <strong className="text-emerald-900">₹1,257</strong> के कम पंजीकरण शुल्क और <strong className="text-slate-900">6 महीने की वैधता</strong> के साथ शुरुआत करें।
+                      <strong className="text-emerald-900">5 सत्यापित छात्र लीड्स</strong> अनलॉक करने के लिए मात्र <strong className="text-emerald-900">₹1,257</strong> के कम पंजीकरण शुल्क और <strong className="text-slate-900">6 महीने की वैधता</strong> के साथ शुरुआत करें।
                       <br className="hidden sm:inline" /> प्लेटफ़ॉर्म कमीशन: <strong>पहले महीने के ट्यूशन शुल्क का 50%</strong>, और <strong>दूसरे महीने से प्रति माह 5% आवर्ती कमीशन</strong>।
                     </>
                   ) : (
                     <>
-                      Start with a low upfront fee of <strong className="text-emerald-900">₹1,257</strong> for <strong className="text-slate-900">6 Months validity</strong> to unlock <strong className="text-emerald-900">{COINS_TEXT}</strong>.
+                      Start with a low upfront fee of <strong className="text-emerald-900">₹1,257</strong> for <strong className="text-slate-900">6 Months validity</strong> to unlock <strong className="text-emerald-900">5 verified student leads</strong>.
                       <br className="hidden sm:inline" /> Platform commission: <strong>50% of 1st month tuition fee</strong>, and <strong>5% recurring commission every month from 2nd month onwards</strong>.
                     </>
                   )}
@@ -373,7 +392,13 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               {/* Feature Pills Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
                 {[
-                  { icon: '✅', text: COINS_TEXT, color: 'bg-emerald-500/10 border-emerald-300 text-emerald-950' },
+                  { icon: '✅', text: '5 Verified Leads Unlock', color: 'bg-emerald-500/10 border-emerald-300 text-emerald-950' },
+                  { icon: '📅', text: '6 Months (180 Days)', color: 'bg-blue-500/10 border-blue-300 text-blue-950' },
+                  { icon: '🤝', text: '50% 1st Month Fee', color: 'bg-amber-500/10 border-amber-300 text-amber-950' },
+                  { icon: '🔄', text: '5% Monthly from 2nd Mo', color: 'bg-teal-500/10 border-teal-300 text-teal-950' },
+                  { icon: '📍', text: '5km Nearby or Online', color: 'bg-sky-500/10 border-sky-300 text-sky-950' },
+                  { icon: '📞', text: 'Direct Parent Contact', color: 'bg-purple-500/10 border-purple-300 text-purple-950' },
+                  { icon: '✅', text: lang === "hi" ? '5 सत्यापित लीड्स अनलॉक' : '5 Verified Leads Unlock', color: 'bg-emerald-500/10 border-emerald-300 text-emerald-950' },
                   { icon: '📅', text: lang === "hi" ? '6 महीने (180 दिन)' : '6 Months (180 Days)', color: 'bg-blue-500/10 border-blue-300 text-blue-950' },
                   { icon: '🤝', text: lang === "hi" ? '50% पहले महीने का शुल्क' : '50% 1st Month Fee', color: 'bg-amber-500/10 border-amber-300 text-amber-950' },
                   { icon: '🔄', text: lang === "hi" ? '5% दूसरे माह से' : '5% Monthly from 2nd Mo', color: 'bg-teal-500/10 border-teal-300 text-teal-950' },
@@ -388,7 +413,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
               </div>
 
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                *Commission Terms: One-time ₹1,257 registration fee valid for 6 months. Credits {COINS_TEXT}. Platform charges 50% commission from the 1st month student fee collected, and 5% monthly commission from 2nd month onwards.
+                *Commission Terms: One-time ₹1,257 registration fee valid for 6 months. Unlocks 5 verified leads. Platform charges 50% commission from the 1st month student fee collected, and 5% monthly commission from 2nd month onwards.
               </p>
             </div>
 
@@ -407,7 +432,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                     Commission Plan
                   </div>
                   <div className="text-xs font-bold text-emerald-700 mt-0.5">
-                    {COINS_TEXT}
+                    5 Verified Leads Unlocked
                   </div>
                 </div>
 
@@ -425,8 +450,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Coins:</span>
-                    <span className="font-black text-emerald-700">{COMMISSION_PLAN.coins}</span>
+                    <span>Available Leads:</span>
+                    <span className="font-black text-emerald-700">5 Student Leads</span>
                   </div>
                 </div>
 
@@ -458,8 +483,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                     <span className="font-black text-slate-900">6 Months</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Coins:</span>
-                    <span className="font-black text-emerald-700">{COMMISSION_PLAN.coins}</span>
+                    <span>Leads:</span>
+                    <span className="font-black text-emerald-700">5 Student Leads</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Competition:</span>
@@ -476,7 +501,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                   <span>🤝 Select Commission Plan</span>
                   <ArrowRight size={16} />
                 </button>
-                <p className="text-[10px] text-slate-400 font-semibold">Instant activation with {COINS_TEXT}</p>
+                <p className="text-[10px] text-slate-400 font-semibold">Instant unlock for 5 verified student leads</p>
               </div>
             )}
           </div>
@@ -489,7 +514,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
             <span>Prepaid Zero-Commission Plans are Closed</span>
           </p>
           <p className="mt-2 leading-relaxed text-slate-500">
-            Platform par bina commission wale prepaid tiers band kar diye gaye hain. Sabhi verified teachers exclusively official <strong>Commission Based Plan (₹1,257)</strong> se start kar sakte hain jisme 6 Months validity aur {COINS_TEXT} milte hain.
+            Platform par bina commission wale prepaid tiers band kar diye gaye hain. Sabhi verified teachers exclusively official <strong>Commission Based Plan (₹1,257)</strong> se start kar sakte hain jisme 6 Months validity aur 5 verified student leads milti hain.
           </p>
         </div>
         {/* If Membership is already Active: Show Clean High-Satisfaction Active Member View */}
@@ -499,194 +524,370 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5">
               <div className="border-b border-slate-100 pb-3">
                 <span className="text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
-                  {lang === "hi" ? "चरण-दर-चरण मार्गदर्शिका" : "Step-by-Step Guide"}
+                  Step-by-Step Guide
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black text-[#0F2540] mt-2">
-                  {lang === "hi" ? "विद्यार्थी लीड्स कैसे अनलॉक करें? (4 आसान चरण)" : "How to Unlock Student Leads? (4 Simple Steps)"}
+                  Student Leads Kaise Unlock Karein? (4 Simple Steps)
                 </h3>
                 <p className="text-xs text-slate-500 font-medium mt-1">
-                  {lang === "hi" 
-                    ? `आपके पास ${COINS_TEXT} अनलॉक करने का कोटा है। अभिभावकों से संपर्क करने के आसान चरण:`
-                    : `You have a quota to unlock ${COINS_TEXT}. Simple steps to connect with parents:`}
+                  Aapke paas 5 verified student leads unlock karne ka quota hai. Parent se connect karne ke aasan steps:
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-black flex items-center justify-center text-sm">
-                    1
-                  </div>
-                  <h4 className="text-sm font-black text-slate-900">
-                    {lang === "hi" ? "1. छात्र आवश्यकताएं देखें" : "1. View Student Inquiries"}
-                  </h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {lang === "hi" ? "अपने विषय और 5 किमी के दायरे में नए छात्रों की जरूरतें देखें।" : "Check student requirements in your subjects and within 5 km."}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 space-y-2">
-                  <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm">
-                    2
-                  </div>
-                  <h4 className="text-sm font-black text-slate-900">
-                    {lang === "hi" ? "2. अभिभावक नंबर अनलॉक करें" : "2. Unlock Parent Contact"}
-                  </h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {lang === "hi" ? "'View Parent Contact Details' दबाएं, अभिभावक का फोन नंबर और पता तुरंत दिखेगा।" : "Click 'View Parent Contact Details'. Direct phone number & address appear instantly."}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2">
-                  <div className="w-9 h-9 rounded-xl bg-amber-600 text-white font-black flex items-center justify-center text-sm">
-                    3
-                  </div>
-                  <h4 className="text-sm font-black text-slate-900">
-                    {lang === "hi" ? "3. अभिभावक को कॉल करें" : "3. Call Parent Directly"}
-                  </h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {lang === "hi" ? "सीधा कॉल या व्हाट्सएप करें, बात करें और मुफ्त डेमो क्लास तय करें।" : "Call or WhatsApp directly, discuss student needs, and schedule a demo class."}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200 space-y-2">
-                  <div className="w-9 h-9 rounded-xl bg-teal-600 text-white font-black flex items-center justify-center text-sm">
-                    4
-                  </div>
-                  <h4 className="text-sm font-black text-slate-900">
-                    {lang === "hi" ? "4. पढ़ाना शुरू करें" : "4. Start Tutoring"}
-                  </h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {lang === "hi" ? "सफल डेमो के बाद ट्यूशन शुरू करें और मासिक फीस प्राप्त करें।" : "Start regular classes after demo and earn your monthly tuition fees."}
-                  </p>
-                </div>
-              </div>
-
-              {/* Dedicated Support Card */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl shrink-0">
-                    📞
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-black text-slate-900">
-                      {lang === "hi" ? "समर्पित ट्यूटर समन्वयक सहायता" : "Dedicated Tutor Coordinator Support"}
-                    </h5>
-                    <p className="text-[11px] text-slate-500 font-semibold">
-                      {lang === "hi" ? "कोई भी परेशानी हो, सीधा व्हाट्सएप पर संपर्क करें: +91 93191 93109" : "Need help? Reach out directly on WhatsApp: +91 93191 93109"}
+              {/* ── TUITION FEE STRUCTURE LEAD SCHEDULE SECTION ── */}
+              <div className="mt-14 bg-gradient-to-b from-slate-900 via-[#0F2540] to-slate-900 rounded-3xl p-6 sm:p-10 text-white shadow-2xl space-y-8 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-3xl pointer-events-none rounded-full" />
+                <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-500/10 blur-3xl pointer-events-none rounded-full" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-black flex items-center justify-center text-sm">
+                      1
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900">Student Inquiries Dekhein</h4>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Apne subject aur 5 km ke daayre mein naye student requirements check karein.
                     </p>
                   </div>
-                </div>
-                <a
-                  href="https://wa.me/919319193109?text=Namaste%2C%20main%20verified%20tutor%20hoon%20ApnaTutorHub%20par.%20Mujhe%20madad%20chahiye."
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-black shrink-0 inline-flex items-center gap-2 shadow-sm"
-                >
-                  <MessageSquare size={14} />
-                  <span>WhatsApp Coordinator</span>
-                </a>
-              </div>
-            </div>
 
-            {/* Active Tutors FAQ */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-4">
-              <h3 className="text-lg font-black text-slate-900">
-                {lang === "hi" ? "सत्यापित शिक्षकों के लिए सामान्य प्रश्न" : "Common Questions for Verified Tutors"}
-              </h3>
-              <div className="space-y-3">
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
-                  <h4 className="text-xs font-bold text-slate-900">
-                    {lang === "hi" ? `मेरे ${COMMISSION_PLAN.coins} कॉइन्स खत्म होने के बाद क्या होगा?` : `What happens after my ${COMMISSION_PLAN.coins} coins are used?`}
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                    {lang === "hi" ? `${COMMISSION_PLAN.coins} कॉइन्स का उपयोग करने के बाद, आप कॉइन वॉलेट से तुरंत नए लीड्स अनलॉक कर सकते हैं या रिन्यू कर सकते हैं।` : `Once your ${COMMISSION_PLAN.coins} coins are used, you can top up coins in your wallet to unlock more leads or renew your plan.`}
-                  </p>
-                </div>
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
-                  <h4 className="text-xs font-bold text-slate-900">
-                    {lang === "hi" ? "यदि अभिभावक ने कॉल नहीं उठाया या लीड में समस्या हुई?" : "What if a parent does not answer or the lead has an issue?"}
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                    {lang === "hi" ? "लीड कार्ड पर 'Request Refund' का विकल्प होता है। हमारी टीम जांच करके आपका लीड क्रेडिट तुरंत वापस कर देती है।" : "Each lead card has a 'Request Refund' option. Our support team verifies and restores your lead credit promptly."}
-                  </p>
-                </div>
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
-                  <h4 className="text-xs font-bold text-slate-900">
-                    {lang === "hi" ? "कमीशन कब और कैसे देना होता है?" : "When and how is commission paid?"}
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                    {lang === "hi" ? "जब छात्र से पहले महीने की ट्यूशन फीस मिल जाती है, तब 50% कमीशन UPI द्वारा भेजा जाता है। दूसरे महीने से सिर्फ 5% प्लेटफॉर्म फीस होती है।" : "Platform commission (50%) is paid via UPI only after you receive the first month's student fees. From the 2nd month onwards, a small 5% recurring fee applies."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-8 mt-6">
-            {/* Transparent Terms Callout */}
-            <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h4 className="text-sm font-black text-[#0F2540] flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-[#2D9E6B]" />
-                  <span>{lang === "hi" ? "पारदर्शी नियम और सत्यापित लीड गारंटी" : "Transparent Terms & Verified Lead Guarantee"}</span>
-                </h4>
-                <p className="text-xs font-medium text-slate-600 max-w-2xl leading-relaxed">
-                  {lang === "hi"
-                    ? `कमीशन प्लान में ${COINS_TEXT}, 6 महीने की वैधता, और अधिकतम 3 शिक्षक प्रति लीड का नियम शामिल है।`
-                    : `The Commission Plan includes ${COINS_TEXT}, 6 months validity, and low competition (maximum 3 tutors per lead).`}
-                </p>
-              </div>
-              <Link
-                href="/terms"
-                className="px-5 py-2.5 rounded-xl bg-[#0F2540] hover:bg-[#1b3a60] !text-white text-xs font-black whitespace-nowrap transition-all shadow-md shrink-0 inline-flex items-center justify-center"
-                style={{ color: "#ffffff" }}
-              >
-                {lang === "hi" ? "पूरे नियम और शर्तें देखें →" : "View Full Terms & Conditions →"}
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* ── FAQ ACCORDION SECTION ── */}
-        <div className="mt-14 bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
-          <div className="text-center space-y-1">
-            <h2 className="text-2xl font-black text-[#0F2540]">
-              {lang === "hi" ? "अक्सर पूछे जाने वाले प्रश्न" : "Frequently Asked Questions"}
-            </h2>
-            <p className="text-xs font-semibold text-slate-500">
-              {lang === "hi" ? "लीड प्लान और वैधता के बारे में अक्सर पूछे जाने वाले सवाल" : "Got questions about our lead plans and validity?"}
-            </p>
-          </div>
-
-          <div className="space-y-3 max-w-3xl mx-auto">
-            {FAQ_ITEMS.map((item, idx) => {
-              const isOpen = openFaq === idx;
-              return (
-                <div
-                  key={idx}
-                  className="rounded-2xl border border-slate-200 overflow-hidden transition-all"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    className="w-full p-4 text-left text-xs font-extrabold text-[#0F2540] flex items-center justify-between gap-4 bg-slate-50/50 hover:bg-slate-50 cursor-pointer"
-                  >
-                    <span>{item.q}</span>
-                    {isOpen ? <ChevronUp size={16} className="text-slate-400 shrink-0" /> : <ChevronDown size={16} className="text-slate-400 shrink-0" />}
-                  </button>
-                  {isOpen && (
-                    <div className="p-4 text-xs font-semibold text-slate-600 bg-white border-t border-slate-100 leading-relaxed">
-                      {item.a}
+                  <div className="max-w-3xl space-y-2 relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-emerald-300 text-[11px] font-black uppercase tracking-wider">
+                      <Layers size={13} className="text-emerald-400" />
+                      <span>Dynamic Lead Unlock Capacity</span>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+                    <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                      Tuition Fee Structure Lead Delivery Schedule
+                    </h2>
+                    <p className="text-xs sm:text-sm font-medium text-slate-300 leading-relaxed">
+                      On the ₹2,999 Silver Plan, leads are dynamically unlocked based on universal class &amp; tuition fee structure. Lead unlock costs represent a fair ~5% of one month&apos;s student tuition fee across all grades &amp; subjects.
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-sm">
+                      2
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900">Parent Contact Unlock</h4>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      &quot;View Parent Contact Details&quot; par tap karein. Direct phone number &amp; address turant dikh jayega.
+                    </p>
+                  </div>
 
-      {/* ── MEMBERSHIP PURCHASE & COUPON CHECKOUT MODAL ── */}
+                  {/* 3 Fee Structure Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 relative z-10">
+                    {FEE_STRUCTURE_DISTRIBUTION.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white/10 border border-white/15 rounded-2xl p-6 backdrop-blur-md hover:bg-white/15 hover:border-white/30 transition-all flex flex-col justify-between space-y-4 shadow-lg group"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-emerald-400 font-mono uppercase tracking-wider">
+                              Tier {idx + 1}
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-yellow-400 text-yellow-950 text-xs font-black shadow-sm">
+                              {item.badge}
+                            </span>
+                            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2">
+                              <div className="w-9 h-9 rounded-xl bg-amber-600 text-white font-black flex items-center justify-center text-sm">
+                                3
+                              </div>
+                              <h4 className="text-sm font-black text-slate-900">Parent Ko Call Karein</h4>
+                              <p className="text-xs text-slate-600 leading-relaxed">
+                                Direct Call ya WhatsApp button dabayein, baat karein aur free demo class schedule karein.
+                              </p>
+                            </div>
+
+                            <div>
+                              <h3 className="text-xl font-black text-white group-hover:text-yellow-300 transition-colors">
+                                {item.monthlyRange}
+                              </h3>
+                              <p className="text-xs font-bold text-slate-300 mt-0.5">
+                                {item.feeBand}
+                              </p>
+                              <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200 space-y-2">
+                                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white font-black flex items-center justify-center text-sm">
+                                  4
+                                </div>
+
+                                <p className="text-xs font-normal text-slate-300 leading-relaxed">
+                                  {item.description}
+                                  <h4 className="text-sm font-black text-slate-900">Teaching Shuru Karein</h4>
+                                  <p className="text-xs text-slate-600 leading-relaxed">
+                                    Demo ke baad regular classes start karein aur monthly tuition fees earn karein.
+                                  </p>
+                              </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-white/10 space-y-1.5">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Typical Classes &amp; Categories
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {item.popularClasses.map((cls, cIdx) => (
+                                  <span
+                                    key={cIdx}
+                                    className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/10 text-slate-200 border border-white/10"
+                                  >
+                                    {cls}
+                                  </span>
+                                ))}
+                                <div className="pt-2 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl shrink-0">
+                                      📞
+                                    </div>
+                                    <div>
+                                      <h5 className="text-xs font-black text-slate-900">Dedicated Tutor Coordinator Support</h5>
+                                      <p className="text-[11px] text-slate-500 font-semibold">Koi bhi pareshani ho, seedha WhatsApp par sampark karein: +91 93191 93109</p>
+                                    </div>
+                                  </div>
+                                  <a
+                                    href="https://wa.me/919319193109?text=Namaste%20Rohit%20Ji%2C%20main%20verified%20tutor%20hoon%20ApnaTutorHub%20par.%20Mujhe%20madad%20chahiye."
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-black shrink-0 inline-flex items-center gap-2 shadow-sm"
+                                  >
+                                    <MessageSquare size={14} />
+                                    <span>WhatsApp Coordinator</span>
+                                  </a>
+                                </div>
+            ))}
+                              </div>
+                            </div>
+
+                            {/* Dynamic mix callout */}
+                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-xs font-medium text-slate-300 flex items-center justify-between gap-4 flex-wrap relative z-10">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                                <span>
+                                  <strong>💡 Mixed Tuition Support:</strong> You can mix and match fee tiers freely (e.g. 1 high-ticket lead + 1 standard lead + 1 lower-fee lead) using your 60 plan points.
+                                </span>
+                                {/* Active Tutors FAQ */}
+                                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-4">
+                                  <h3 className="text-lg font-black text-slate-900">Common Questions for Verified Tutors</h3>
+                                  <div className="space-y-3">
+                                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
+                                      <h4 className="text-xs font-bold text-slate-900">Mere 5 leads khatam hone ke baad kya hoga?</h4>
+                                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                                        Jab aapke 5 verified leads use ho jayenge, aap simple coin top-up se naye leads unlock kar sakte hain ya renewal le sakte hain.
+                                      </p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
+                                      <h4 className="text-xs font-bold text-slate-900">Agar parent ne call receive nahi kiya ya lead fake hui?</h4>
+                                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                                        Lead card ke niche &quot;Request Refund&quot; button hota hai. Team verify karke aapka lead credit wapas kar deti hai.
+                                      </p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
+                                      <h4 className="text-xs font-bold text-slate-900">Commission kab aur kaise dena hota hai?</h4>
+                                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                                        Jab student se pehle mahine ki tuition fee receive ho jati hai, tab 50% commission platform ko UPI se transfer karna hota hai. 2nd month se keval 5% recurring platform fee hoti hai.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <Link
+                                  href="/terms"
+                                  className="text-yellow-400 hover:text-yellow-300 font-bold underline text-xs inline-flex items-center gap-1"
+                                >
+                                  Read Lead Delivery &amp; Exclusivity Terms <ArrowRight size={13} />
+                                </Link>
+                              </div>
+                            </div>
+                            ) : (
+                            <>
+                              {/* ── NOTICE REGARDING ZERO-COMMISSION PLANS (DISCONTINUED) ── */}
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-6 text-center text-xs text-slate-600 max-w-xl mx-auto mb-10 shadow-xs">
+                                <p className="font-extrabold text-[#0F2540] flex items-center justify-center gap-1.5 text-sm">
+                                  <span>🔒</span>
+                                  <span>Prepaid Zero-Commission Plans are Closed</span>
+                                </p>
+                                <p className="mt-2 leading-relaxed text-slate-500">
+                                  Platform par bina commission wale prepaid tiers band kar diye gaye hain. Sabhi verified teachers exclusively official <strong>Commission Based Plan (₹1,257)</strong> se start kar sakte hain jisme 6 Months validity aur 5 verified student leads milti hain.
+                                </p>
+                              </div>
+
+                              {/* ── FEATURE SPECIFICATION TABLE ── */}
+                              <div className="mt-14 bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
+                                <div className="text-center space-y-2">
+                                  <h2 className="text-2xl font-black text-[#0F2540]">
+                                    {showSpecialOffer ? "Plan Feature Matrix Comparison" : "₹2,999 Silver Membership Details & Benefits"}
+                                  </h2>
+                                  <p className="text-xs font-semibold text-slate-500">
+                                    {showSpecialOffer ? "Compare our Commission Deal and the Flagship Silver Membership" : "Complete specifications and verified lead guarantee of the ₹2,999 Silver Plan (Zero Commission)"}
+                                  </p>
+                                </div>
+                                {/* ── FAQ ACCORDION SECTION ── */}
+                                <div className="mt-14 bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
+                                  <div className="text-center space-y-1">
+                                    <h2 className="text-2xl font-black text-[#0F2540]">Frequently Asked Questions</h2>
+                                    <p className="text-xs font-semibold text-slate-500">Got questions about our lead plans and validity?</p>
+                                  </div>
+
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs text-left text-slate-700 border-collapse min-w-[700px]">
+                                      <thead>
+                                        <tr className="border-b border-slate-200 bg-slate-50 text-[#0F2540] font-black">
+                                          <th className="py-3.5 px-3">Feature / Benefit</th>
+                                          <th className="py-3.5 px-3 text-center bg-emerald-50/50 text-emerald-950 font-black">
+                                            Commission Plan<br />
+                                            <span className="text-emerald-700 font-extrabold text-sm">₹1,257</span>
+                                          </th>
+                                          <th className="py-3.5 px-3 text-center bg-blue-50/60 text-blue-950 font-black ring-1 ring-blue-300/40">
+                                            Silver Plan (0%)<br />
+                                            <span className="text-emerald-700 font-extrabold text-sm">₹2,999</span>{" "}
+                                            <span className="text-slate-400 line-through text-[10px]">₹5,999</span>
+                                          </th>
+                                          <th className="py-3.5 px-3 text-center bg-yellow-50/60 text-yellow-950 font-black">
+                                            Gold Plan<br />
+                                            <span className="text-yellow-900 font-extrabold text-sm">₹9,000</span>{" "}
+                                            <span className="text-slate-400 line-through text-[10px]">₹12,000</span>
+                                          </th>
+                                          <th className="py-3.5 px-3 text-center bg-purple-50/70 text-purple-950 font-black">
+                                            Platinum VIP 👑<br />
+                                            <span className="text-purple-900 font-extrabold text-sm">₹18,000</span>{" "}
+                                            <span className="text-slate-400 line-through text-[10px]">₹24,000</span>
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100 font-semibold">
+                                        <tr>
+                                          <td className="py-3.5 px-3 font-bold text-slate-900">Total Lead Allocation</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/30">5 Verified Leads</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-blue-50/20">10 Verified Leads</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-yellow-900 bg-yellow-50/20">40 Leads</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">100 High-Value Leads</td>
+                                        </tr>
+                                        <tr>
+                                          <td className="py-3.5 px-3 font-bold text-slate-900">Platform Commission</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-amber-700 bg-emerald-50/30">50% 1st Mo + 5% Recurring</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-emerald-600 bg-blue-50/20">🎉 0% (Keep 100% Fees)</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-emerald-600 bg-yellow-50/20">🎉 0% (Keep 100% Fees)</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-emerald-600 bg-purple-50/30">🎉 0% (Keep 100% Fees)</td>
+                                        </tr>
+                                        <tr>
+                                          <td className="py-3.5 px-3 font-bold text-slate-900">Competition Level</td>
+                                          <td className="py-3.5 px-3 text-center font-bold text-emerald-900 bg-emerald-50/30">Max 3 Tutors</td>
+                                          <td className="py-3.5 px-3 text-center font-bold text-blue-900 bg-blue-50/20">Max 3 Tutors</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-amber-900 bg-yellow-50/20">🔒 Semi-Exclusive (Max 2)</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">👑 100% Solo Lock (1 Tutor Only)</td>
+                                        </tr>
+                                        <tr>
+                                          <td className="py-3.5 px-3 font-bold text-slate-900">Plan Validity</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/30">6 Months (180 Days)</td>
+                                          <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-blue-50/20">90 Days</td>
+                                          <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-yellow-50/20">120 Days</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">180 Days</td>
+                                        </tr>
+                                        <tr>
+                                          <td className="py-3.5 px-3 font-bold text-slate-900">Direct Parent Phone &amp; Locality</td>
+                                          <td className="py-3.5 px-3 text-center bg-emerald-50/30"><Check size={16} className="mx-auto text-emerald-600" /></td>
+                                          <td className="py-3.5 px-3 text-center bg-blue-50/20"><Check size={16} className="mx-auto text-emerald-600" /></td>
+                                          <td className="py-3.5 px-3 text-center bg-yellow-50/20"><Check size={16} className="mx-auto text-emerald-600" /></td>
+                                          <td className="py-3.5 px-3 text-center bg-purple-50/30"><Check size={16} className="mx-auto text-emerald-600" /></td>
+                                        </tr>
+                                        <tr>
+                                          <td className="py-3.5 px-3 font-bold text-slate-900">Matching Radius</td>
+                                          <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-emerald-50/30">5 km / Online</td>
+                                          <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-blue-50/20">15 km</td>
+                                          <td className="py-3.5 px-3 text-center font-bold text-slate-700 bg-yellow-50/20">25 km</td>
+                                          <td className="py-3.5 px-3 text-center font-black text-purple-900 bg-purple-50/30">Unlimited City / Pan-India</td>
+                                        </tr>
+                                        <tr>
+                                          <td className="py-3.5 px-3 font-bold text-slate-900">Placement &amp; Support</td>
+                                          <td className="py-3.5 px-3 text-center text-slate-600 bg-emerald-50/30">Demo Booking Support</td>
+                                          <td className="py-3.5 px-3 text-center text-slate-600 bg-blue-50/20">24/7 Support Desk + Verified Badge</td>
+                                          <td className="py-3.5 px-3 text-center text-yellow-900 font-bold bg-yellow-50/20">+3,000 Boost + WhatsApp Alerts</td>
+                                          <td className="py-3.5 px-3 text-center text-purple-900 font-black bg-purple-50/30">+10,000 VIP Boost + Dedicated RM</td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+
+                                {/* ── LEGAL TRANSPARENCY & TERMS CALLOUT ── */}
+                                <div className="mt-14 p-6 rounded-3xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                  <div className="space-y-1">
+                                    <h4 className="text-sm font-black text-[#0F2540] flex items-center gap-2">
+                                      <ShieldCheck size={18} className="text-[#2D9E6B]" />
+                                      <span>Transparent Terms &amp; Verified Lead Guarantee</span>
+                                    </h4>
+                                    <p className="text-xs font-medium text-slate-600 max-w-2xl leading-relaxed">
+                                      All lead allowances (<strong>Silver Plan: 15 verified leads unlocked across all classes &amp; subjects</strong>), 0% platform commission terms, validity (30 days), and the low-competition tutor cap (max 3 tutors) are governed by our platform terms.
+                                    </p>
+                                  </div>
+                                  <Link
+                                    href="/terms"
+                                    className="px-5 py-2.5 rounded-xl bg-[#0F2540] hover:bg-[#1b3a60] !text-white text-xs font-black whitespace-nowrap transition-all shadow-md shrink-0 inline-flex items-center justify-center"
+                                    style={{ color: "#ffffff" }}
+                                  >
+                                    View Full Terms &amp; Conditions →
+                                  </Link>
+                                </div>
+
+                                {/* ── FAQ ACCORDION SECTION ── */}
+                                <div className="mt-14 bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
+                                  <div className="text-center space-y-1">
+                                    <h2 className="text-2xl font-black text-[#0F2540]">Frequently Asked Questions</h2>
+                                    <p className="text-xs font-semibold text-slate-500">Got questions about our lead plans and validity?</p>
+                                  </div>
+
+                                  <div className="space-y-3 max-w-3xl mx-auto">
+                                    {FAQ_ITEMS.map((item, idx) => {
+                                      const isOpen = openFaq === idx;
+                                      return (
+                                        <div
+                                          key={idx}
+                                          className="rounded-2xl border border-slate-200 overflow-hidden transition-all"
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() => setOpenFaq(isOpen ? null : idx)}
+                                            className="w-full p-4 text-left text-xs font-extrabold text-[#0F2540] flex items-center justify-between gap-4 bg-slate-50/50 hover:bg-slate-50 cursor-pointer"
+                                          >
+                                            <span>{item.q}</span>
+                                            {isOpen ? <ChevronUp size={16} className="text-slate-400 shrink-0" /> : <ChevronDown size={16} className="text-slate-400 shrink-0" />}
+                                          </button>
+                                          {isOpen && (
+                                            <div className="p-4 text-xs font-semibold text-slate-600 bg-white border-t border-slate-100 leading-relaxed">
+                                              {item.a}
+                                              <div className="space-y-3 max-w-3xl mx-auto">
+                                                {FAQ_ITEMS.map((item, idx) => {
+                                                  const isOpen = openFaq === idx;
+                                                  return (
+                                                    <div
+                                                      key={idx}
+                                                      className="rounded-2xl border border-slate-200 overflow-hidden transition-all"
+                                                    >
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => setOpenFaq(isOpen ? null : idx)}
+                                                        className="w-full p-4 text-left text-xs font-extrabold text-[#0F2540] flex items-center justify-between gap-4 bg-slate-50/50 hover:bg-slate-50 cursor-pointer"
+                                                      >
+                                                        <span>{item.q}</span>
+                                                        {isOpen ? <ChevronUp size={16} className="text-slate-400 shrink-0" /> : <ChevronDown size={16} className="text-slate-400 shrink-0" />}
+                                                      </button>
+                                                      {isOpen && (
+                                                        <div className="p-4 text-xs font-semibold text-slate-600 bg-white border-t border-slate-100 leading-relaxed">
+                                                          {item.a}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )
+                                                }
+                </div>
+                                              );
+            })}
+                                            </div>
+        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </>
+        )}
+                            </div>
+
+                            {/* ── MEMBERSHIP PURCHASE & COUPON CHECKOUT MODAL ── */}
                             {checkoutPlanId && (
                               <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
                                 <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl w-full max-w-lg relative p-6 sm:p-8 space-y-5">
@@ -786,8 +987,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                     </div>
                                   </div>
 
-                                  {/* Coupon UI disabled — all coupon codes deactivated */}
-                                  {COUPON_UI_ENABLED && (
+                                  {/* Coupon Code Section */}
                                   <div className="space-y-2 pt-1">
                                     <label className="text-xs font-800 text-gray-800 flex items-center gap-1.5">
                                       <Ticket size={14} className="text-[#2D9E6B]" />
@@ -798,7 +998,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                         type="text"
                                         value={couponCode}
                                         onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                                        placeholder="Enter coupon code"
+                                        placeholder="Enter code (e.g. WELCOME10, APNATUTOR25)"
                                         className="flex-1 h-11 px-3.5 rounded-xl border border-gray-300 text-xs font-800 uppercase focus:border-[#2D9E6B] focus:ring-2 focus:ring-[#2D9E6B]/20 outline-none"
                                       />
                                       <button
@@ -809,6 +1009,23 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       >
                                         {couponLoading ? "Checking..." : "Apply Coupon"}
                                       </button>
+                                    </div>
+
+                                    {/* Quick coupons */}
+                                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                      {["WELCOME10", "INTROTUTOR15", "APNATUTOR25"].map((code) => (
+                                        <button
+                                          key={code}
+                                          type="button"
+                                          onClick={() => {
+                                            setCouponCode(code);
+                                            handleApplyCoupon(SUBSCRIPTION_PLANS[checkoutPlanId].priceInr);
+                                          }}
+                                          className="text-[10px] font-800 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-all cursor-pointer"
+                                        >
+                                          🏷️ {code}
+                                        </button>
+                                      ))}
                                     </div>
 
                                     {couponError && (
@@ -822,16 +1039,20 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       </p>
                                     )}
                                   </div>
-                                  )}
 
                                   {/* Action Buttons / Online Checkout & QR Payment Flow */}
                                   {planStep === "summary" && (
                                     <div className="pt-3 border-t border-gray-200 space-y-2.5">
+                                      <TermsAgreementCheckbox
+                                        id="plan-terms-checkbox"
+                                        checked={termsAccepted}
+                                        onChange={setTermsAccepted}
+                                      />
                                       <button
                                         type="button"
-                                        disabled={isLoading}
+                                        disabled={isLoading || !termsAccepted}
                                         onClick={() => handleRazorpaySubscribe(checkoutPlanId)}
-                                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 !text-white text-xs font-900 flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+                                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 !text-white text-xs font-900 flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
                                         <Zap size={15} className="!text-white" />
                                         <span className="!text-white font-900">
@@ -851,8 +1072,9 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
 
                                       <button
                                         type="button"
+                                        disabled={!termsAccepted}
                                         onClick={() => setPlanStep("qr_payment")}
-                                        className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                        className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
                                         <Lock size={13} className="text-gray-500" />
                                         <span>Pay via Kotak UPI QR (Offline / Screenshot Transfer)</span>
@@ -927,7 +1149,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       Membership Activated! 🎉
                                     </h3>
                                     <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-                                      Congratulations! You are now a <strong>Verified ApnaTutorHub Teacher</strong>. {COINS_TEXT} have been credited to your wallet immediately.
+                                      Congratulations! You are now a <strong>Verified ApnaTutorHub Teacher</strong>. Your 5 student leads quota has been unlocked immediately.
                                     </p>
                                   </div>
 
@@ -948,8 +1170,8 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       </span>
                                     </div>
                                     <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
-                                      <span className="text-slate-500">Coins Credited:</span>
-                                      <span className="text-emerald-700 font-black">{COINS_TEXT}</span>
+                                      <span className="text-slate-500">Leads Unlocked:</span>
+                                      <span className="text-emerald-700 font-black">5 Verified Student Leads*</span>
                                     </div>
                                     <div className="flex items-center justify-between py-1">
                                       <span className="text-slate-500">Validity:</span>
@@ -967,7 +1189,7 @@ export function TutorPlansPageClient({ currentPlan, expiresAt, leadsUsedThisMont
                                       href="/tutor/leads"
                                       className="w-full py-3.5 px-6 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xl shadow-emerald-700/30 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-98"
                                     >
-                                      <span>Browse Student Leads Now</span>
+                                      <span>Browse Your 5 Student Leads Now</span>
                                       <ArrowRight size={16} />
                                     </Link>
                                     <button

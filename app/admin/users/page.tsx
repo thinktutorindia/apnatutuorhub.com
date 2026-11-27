@@ -21,7 +21,7 @@ import { UserAvatar } from "@/components/admin/UserAvatar";
 import { UserSubjectChips } from "@/components/admin/UserSubjectChips";
 import { resolveDocViewUrl } from "@/lib/s3";
 import { AdminBulkUserTopupControl } from "@/components/admin/AdminBulkUserTopupControl";
-import { maskPhoneNumber } from "@/lib/mask-utils";
+import { maskPhoneNumber, decryptPhoneToken, ENCRYPTED_PHONE_PREFIX } from "@/lib/mask-utils";
 import { can } from "@/lib/rbac";
 import { UserEntrySource } from "@/components/admin/UserEntrySource";
 import { UserDirectoryPhoneReveal } from "@/components/admin/UserDirectoryPhoneReveal";
@@ -93,14 +93,35 @@ export default async function AdminUsersPage({
   const where: any = {};
   const andConditions: any[] = [];
 
+  const isEncryptedTokenLookup = q.startsWith(ENCRYPTED_PHONE_PREFIX);
+  const decryptedPhone = isEncryptedTokenLookup ? decryptPhoneToken(q) : null;
+
   if (q) {
-    andConditions.push({
-      OR: [
-        { email: { contains: q, mode: "insensitive" as const } },
-        { name: { contains: q, mode: "insensitive" as const } },
-        { phone: { contains: q, mode: "insensitive" as const } },
-      ],
-    });
+    if (isEncryptedTokenLookup) {
+      if (decryptedPhone) {
+        const d10 = decryptedPhone.slice(-10);
+        const variants = Array.from(
+          new Set([decryptedPhone, d10, `+${decryptedPhone}`, `+91${d10}`].filter(Boolean))
+        );
+        andConditions.push({
+          OR: [
+            { phone: { in: variants } },
+            ...(d10.length >= 10 ? [{ phone: { endsWith: d10 } }] : []),
+          ],
+        });
+      } else {
+        // Invalid/tampered encrypted token -> match nothing
+        andConditions.push({ id: "__invalid_encrypted_token__" });
+      }
+    } else {
+      andConditions.push({
+        OR: [
+          { email: { contains: q, mode: "insensitive" as const } },
+          { name: { contains: q, mode: "insensitive" as const } },
+          { phone: { contains: q, mode: "insensitive" as const } },
+        ],
+      });
+    }
   }
   if (roleFilter) {
     andConditions.push({ role: roleFilter as "PARENT" | "TUTOR" | "SUPER_ADMIN" | "SUB_ADMIN" });
@@ -527,6 +548,7 @@ export default async function AdminUsersPage({
                               maskedPhone={maskPhoneNumber(u.phone)}
                               initialRawPhone={isSuperAdmin ? u.phone : null}
                               isSuperAdmin={isSuperAdmin}
+                              disableReveal={isEncryptedTokenLookup && !isSuperAdmin}
                             />
                           </div>
                         </div>

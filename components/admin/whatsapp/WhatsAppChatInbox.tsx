@@ -23,6 +23,9 @@ import {
   Wand2,
   Users,
   X,
+  Copy,
+  Check,
+  Lock,
 } from "lucide-react";
 import {
   polishMessageWithAIAction,
@@ -82,12 +85,14 @@ function mergeMessages(
 
 const WhatsAppChatComposer = memo(function WhatsAppChatComposer({
   phone,
+  displayPhone,
   disabled,
   onSend,
   incomingMessage,
   recipientName,
 }: {
   phone: string;
+  displayPhone?: string;
   disabled: boolean;
   onSend: (text: string) => Promise<void>;
   incomingMessage?: string;
@@ -277,7 +282,7 @@ const WhatsAppChatComposer = memo(function WhatsAppChatComposer({
                 void handleSend();
               }
             }}
-            placeholder={`Reply to +${phone} on WhatsApp... (Press Enter to send)`}
+            placeholder={`Reply to ${displayPhone || `+${phone}`} on WhatsApp... (Press Enter to send)`}
             className="w-full resize-none px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
           />
         </div>
@@ -300,6 +305,7 @@ export function WhatsAppChatInbox() {
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<WhatsAppChatMessageItem[]>([]);
   const [contact, setContact] = useState<WhatsAppChatContactDetails | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
 
   const lastIncomingMessage = useMemo(() => {
     const inbound = [...messages].reverse().find((m) => m.direction === "INBOUND");
@@ -906,8 +912,11 @@ export function WhatsAppChatInbox() {
                       </div>
 
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mb-1">
-                        <span className="font-mono text-slate-600 font-semibold">
-                          +{thread.phone}
+                        <span className="font-mono text-slate-600 font-semibold flex items-center gap-1">
+                          {thread.isPhoneMasked && (
+                            <Lock size={9} className="text-amber-500 shrink-0" aria-hidden />
+                          )}
+                          {thread.displayPhone || `+${thread.phone}`}
                         </span>
                         <span className="text-slate-300">•</span>
                         <span
@@ -1055,7 +1064,7 @@ export function WhatsAppChatInbox() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="font-extrabold text-sm text-slate-900 truncate">
-                        {contact?.name || activeThread?.name || `+${selectedPhone}`}
+                        {contact?.name || activeThread?.name || contact?.displayPhone || activeThread?.displayPhone || `+${selectedPhone}`}
                       </h3>
                       {contact?.isRegistered && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
@@ -1064,7 +1073,12 @@ export function WhatsAppChatInbox() {
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500 flex items-center gap-2">
-                      <span className="font-mono font-medium">+{selectedPhone}</span>
+                      <span className="font-mono font-medium inline-flex items-center gap-1">
+                        {(contact?.isPhoneMasked || activeThread?.isPhoneMasked) && (
+                          <Lock size={10} className="text-amber-500 shrink-0" aria-hidden />
+                        )}
+                        {contact?.displayPhone || activeThread?.displayPhone || `+${selectedPhone}`}
+                      </span>
                       {contact?.location && (
                         <>
                           <span>•</span>
@@ -1118,29 +1132,58 @@ export function WhatsAppChatInbox() {
                     <span className="hidden sm:inline">Campaign</span>
                   </Link>
 
-                  <a
-                    href={`https://wa.me/${selectedPhone}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
-                    title="Open in WhatsApp Web"
-                  >
-                    <MessageSquare size={13} />
-                    <span className="hidden sm:inline">WA Web</span>
-                  </a>
+                  {(contact?.encryptedToken || activeThread?.encryptedToken) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tok = contact?.encryptedToken || activeThread?.encryptedToken;
+                        if (!tok) return;
+                        navigator.clipboard?.writeText(tok).then(() => {
+                          setCopiedToken(true);
+                          setTimeout(() => setCopiedToken(false), 2000);
+                        }).catch(() => {});
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      title="Copy encrypted user lookup ID (paste into User Directory to view profile without exposing mobile number)"
+                    >
+                      {copiedToken ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                      <span className="hidden sm:inline">
+                        {copiedToken ? "Copied ID" : "Copy Encrypted ID"}
+                      </span>
+                    </button>
+                  )}
 
-                  <a
-                    href={`tel:+${selectedPhone}`}
-                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
-                    title="Call Phone"
-                  >
-                    <Phone size={14} />
-                    <span className="hidden sm:inline">Call</span>
-                  </a>
+                  {!(contact?.isPhoneMasked || activeThread?.isPhoneMasked) && (
+                    <>
+                      <a
+                        href={`https://wa.me/${selectedPhone}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
+                        title="Open in WhatsApp Web"
+                      >
+                        <MessageSquare size={13} />
+                        <span className="hidden sm:inline">WA Web</span>
+                      </a>
+
+                      <a
+                        href={`tel:+${selectedPhone}`}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
+                        title="Call Phone"
+                      >
+                        <Phone size={14} />
+                        <span className="hidden sm:inline">Call</span>
+                      </a>
+                    </>
+                  )}
 
                   {contact?.userId && (
                     <a
-                      href={`/admin/users?search=${selectedPhone}`}
+                      href={`/admin/users?q=${encodeURIComponent(
+                        contact?.isPhoneMasked || activeThread?.isPhoneMasked
+                          ? contact?.encryptedToken || activeThread?.encryptedToken || ""
+                          : selectedPhone
+                      )}`}
                       target="_blank"
                       rel="noreferrer"
                       className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
@@ -1323,6 +1366,7 @@ export function WhatsAppChatInbox() {
 
               <WhatsAppChatComposer
                 phone={selectedPhone}
+                displayPhone={contact?.displayPhone || activeThread?.displayPhone}
                 disabled={loadingMessages}
                 onSend={handleSendMessage}
                 incomingMessage={lastIncomingMessage}

@@ -10,6 +10,7 @@ interface UserDirectoryPhoneRevealProps {
   maskedPhone?: string | null;
   initialRawPhone?: string | null;
   isSuperAdmin?: boolean;
+  disableReveal?: boolean;
 }
 
 export function UserDirectoryPhoneReveal({
@@ -18,6 +19,7 @@ export function UserDirectoryPhoneReveal({
   maskedPhone,
   initialRawPhone,
   isSuperAdmin = false,
+  disableReveal = false,
 }: UserDirectoryPhoneRevealProps) {
   const [revealedPhone, setRevealedPhone] = useState<string | null>(initialRawPhone || null);
   const [loading, setLoading] = useState(false);
@@ -129,25 +131,31 @@ export function UserDirectoryPhoneReveal({
       <div className="flex items-center gap-1.5 flex-wrap">
         <span
           className="flex items-center gap-1 text-[11px] font-bold text-slate-500 font-mono"
-          title="Phone number masked for staff security. Tap reveal to view (100 daily limit)."
+          title={
+            disableReveal
+              ? "Phone number is masked for encrypted profile lookup."
+              : "Phone number masked for staff security. Tap reveal to view (100 daily limit)."
+          }
         >
           <Lock size={10} className="text-amber-500 shrink-0" />
           <span>{maskedPhone}</span>
         </span>
-        <button
-          type="button"
-          onClick={handleReveal}
-          disabled={loading}
-          className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-          title="Reveal phone number (Counts against your 100 daily quota)"
-        >
-          {loading ? (
-            <Loader2 size={10} className="animate-spin text-emerald-700" />
-          ) : (
-            <Eye size={10} className="text-emerald-700" />
-          )}
-          <span>{loading ? "Revealing..." : "Reveal"}</span>
-        </button>
+        {!disableReveal && (
+          <button
+            type="button"
+            onClick={handleReveal}
+            disabled={loading}
+            className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-300 rounded-lg px-2 py-0.5 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+            title="Reveal phone number (Counts against your 100 daily quota)"
+          >
+            {loading ? (
+              <Loader2 size={10} className="animate-spin text-emerald-700" />
+            ) : (
+              <Eye size={10} className="text-emerald-700" />
+            )}
+            <span>{loading ? "Revealing..." : "Reveal"}</span>
+          </button>
+        )}
       </div>
       {errorMsg && (
         <span className="text-[10px] font-bold text-red-600 block animate-in fade-in-50">

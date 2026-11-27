@@ -7,9 +7,34 @@ import { upsertWhatsAppChatMessage } from "@/lib/whatsapp-chat-log";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/action-result";
 import { revalidatePath } from "next/cache";
 import { getAllowedSubAdminModules } from "@/lib/rbac";
+import {
+  decryptPhoneToken,
+  ENCRYPTED_PHONE_PREFIX,
+  encryptPhoneToken,
+  maskPhoneNumber,
+} from "@/lib/mask-utils";
+
+function resolveTargetPhone(phoneOrToken: string): string | null {
+  const trimmed = phoneOrToken.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith(ENCRYPTED_PHONE_PREFIX)) {
+    const decrypted = decryptPhoneToken(trimmed);
+    if (!decrypted) return null;
+    return normalizeIndiaWhatsApp(decrypted) || decrypted.replace(/\D/g, "") || null;
+  }
+  return normalizeIndiaWhatsApp(trimmed) || trimmed.replace(/\D/g, "") || null;
+}
+
+function formatMaskedDisplayPhone(phone: string): string {
+  const masked = maskPhoneNumber(phone) || "••••••••••";
+  return masked.startsWith("+") ? masked : `+${masked}`;
+}
 
 export interface WhatsAppConversationSummary {
   phone: string;
+  displayPhone?: string;
+  encryptedToken?: string;
+  isPhoneMasked?: boolean;
   name: string;
   email?: string | null;
   role: string;
@@ -108,6 +133,9 @@ export interface WhatsAppEmployeeRepliesReport {
 
 export interface WhatsAppChatContactDetails {
   phone: string;
+  displayPhone?: string;
+  encryptedToken?: string;
+  isPhoneMasked?: boolean;
   name: string;
   email?: string | null;
   role: string;
@@ -189,7 +217,11 @@ export async function getWhatsAppChatThreadsAction(params?: {
   if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
 
   try {
-    const searchRaw = params?.search?.trim() ?? "";
+    const searchRawInput = params?.search?.trim() ?? "";
+    const decryptedSearchPhone = searchRawInput.startsWith(ENCRYPTED_PHONE_PREFIX)
+      ? decryptPhoneToken(searchRawInput)
+      : null;
+    const searchRaw = decryptedSearchPhone ?? searchRawInput;
     const search = searchRaw.toLowerCase();
     const roleFilter = params?.roleFilter?.toUpperCase();
     const unreadOnly = Boolean(params?.unreadOnly);
@@ -520,9 +552,14 @@ export async function getWhatsAppChatThreadsAction(params?: {
       }
 
       const sentByName = latestMsg.sentByUserId ? staffNameMap.get(latestMsg.sentByUserId) ?? null : null;
+      const encryptedToken = encryptPhoneToken(phone);
+      const displayPhone = isSuperAdmin ? `+${phone}` : formatMaskedDisplayPhone(phone);
 
       threads.push({
-        phone,
+        phone: isSuperAdmin ? phone : encryptedToken,
+        displayPhone,
+        encryptedToken,
+        isPhoneMasked: !isSuperAdmin,
         name,
         email,
         role,
@@ -578,8 +615,9 @@ export async function getWhatsAppChatMessagesAction(
 ): Promise<ActionResult<{ messages: WhatsAppChatMessageItem[]; contact: WhatsAppChatContactDetails | null }>> {
   const guard = await requireStaffOrAdmin();
   if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
+  const isSuperAdmin = guard.session.user.role === "SUPER_ADMIN";
 
-  const normalized = normalizeIndiaWhatsApp(phone) || phone.replace(/\D/g, "");
+  const normalized = resolveTargetPhone(phone);
   if (!normalized) return actionError("Invalid phone number");
 
   const sinceIso = options?.since?.trim();
@@ -634,9 +672,10 @@ export async function getWhatsAppChatMessagesAction(
       }
     }
 
+    const encryptedToken = encryptPhoneToken(normalized);
     const messages: WhatsAppChatMessageItem[] = rawMessages.map((m) => ({
       id: m.id,
-      phone: m.phone,
+      phone: isSuperAdmin ? m.phone : encryptedToken,
       direction: m.direction as "INBOUND" | "OUTBOUND",
       senderName: m.senderName,
       sentByUserId: m.sentByUserId ?? null,
@@ -670,10 +709,18 @@ export async function getWhatsAppChatMessagesAction(
         }),
       ]);
 
-      const sessionData = (session?.data as Record<string, any>) || {};
+      const rawSessionData = (session?.data as Record<string, any>) || {};
+      const sessionData = isSuperAdmin
+        ? rawSessionData
+        : Object.fromEntries(
+            Object.entries(rawSessionData).filter(([k]) => !/phone|mobile|whatsapp/i.test(k))
+          );
 
       contact = {
-        phone: normalized,
+        phone: isSuperAdmin ? normalized : encryptedToken,
+        displayPhone: isSuperAdmin ? `+${normalized}` : formatMaskedDisplayPhone(normalized),
+        encryptedToken,
+        isPhoneMasked: !isSuperAdmin,
         name:
           user?.name ||
           rawMessages.find((m) => m.contactName)?.contactName ||
@@ -719,8 +766,9 @@ export async function sendStaffWhatsAppReplyAction(params: {
 }): Promise<ActionResult<{ message: WhatsAppChatMessageItem }>> {
   const guard = await requireStaffOrAdmin();
   if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
+  const isSuperAdmin = guard.session.user.role === "SUPER_ADMIN";
 
-  const normalized = normalizeIndiaWhatsApp(params.phone) || params.phone.replace(/\D/g, "");
+  const normalized = resolveTargetPhone(params.phone);
   if (!normalized) return actionError("Invalid phone number.");
 
   const cleanText = params.text.trim();
@@ -807,7 +855,7 @@ export async function sendStaffWhatsAppReplyAction(params: {
     return actionSuccess({
       message: {
         id: saved.id,
-        phone: saved.phone,
+        phone: isSuperAdmin ? saved.phone : encryptPhoneToken(saved.phone),
         direction: "OUTBOUND",
         senderName: saved.senderName,
         sentByUserId: saved.sentByUserId ?? guard.session.user.id,
@@ -842,8 +890,9 @@ export async function markWhatsAppContactAsInterestedAction(params: {
 }): Promise<ActionResult<{ leadId: string; isNew: boolean }>> {
   const guard = await requireStaffOrAdmin();
   if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
+  const isSuperAdmin = guard.session.user.role === "SUPER_ADMIN";
 
-  const normalized = normalizeIndiaWhatsApp(params.phone) || params.phone.replace(/\D/g, "");
+  const normalized = resolveTargetPhone(params.phone);
   if (!normalized) return actionError("Invalid phone number.");
 
   try {
@@ -1134,7 +1183,7 @@ export async function getEmployeeWhatsAppRepliesReportAction(params?: {
 
     const recentReplies: WhatsAppRecentStaffReply[] = recentRows.map((r) => ({
       id: r.id,
-      phone: r.phone,
+      phone: isSuperAdmin ? r.phone : formatMaskedDisplayPhone(r.phone),
       staffId: r.sentByUserId,
       staffName:
         r.sentByUser?.name ||

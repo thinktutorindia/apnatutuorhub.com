@@ -118,7 +118,7 @@ export function AuditLogFilterBar({
 
   const hasActiveFilters = Boolean(action || entity || adminId || subAdminOnly);
 
-  const ENTITIES = ["User", "TutorProfile", "Lead", "Wallet", "PlatformSetting"];
+  const ENTITIES = ["User", "TutorProfile", "Lead", "Wallet", "WhatsApp", "PlatformSetting"];
 
   return (
     <div className="mb-6 space-y-4">

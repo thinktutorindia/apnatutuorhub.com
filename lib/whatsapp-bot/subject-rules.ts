@@ -190,7 +190,7 @@ const NON_LOCALITY_WORDS = new Set([
   "mujhe", "mujhko", "bola", "boli", "raha", "rahi", "rahe", "pagal", "salary", "paisa", "paise", "de", "do", "dena", "lena", "provide", "karta", "karti", "karte",
   "who", "what", "where", "how", "why", "when", "can", "could", "will", "would", "is", "am", "are", "have", "has", "give", "send", "tell", "teach", "work", "looking", "interested",
   "my", "home", "ghar", "house", "makaan", "anywhere", "kahin", "everywhere", "any", "all", "sab", "sabhi", "pure", "poore", "poora", "city", "state", "desh", "india",
-  "pay", "paying", "arrange", "arranging", "pl", "scam", "scammer", "scammers", "invalid", "ready", "tomorrow", "today", "yesterday", "check", "checking", "later", "fine", "sure", "xyz", "busy", "study", "tuition", "tution", "nothing", "wait", "waiting", "soon", "morning", "evening", "night", "good", "bad", "fake", "fraud", "true", "false", "correct", "wrong", "change", "new",
+  "pay", "paying", "arrange", "arranging", "pl", "plz", "pls", "cant", "can't", "cannot", "didn't", "won't", "don't", "this", "one", "that", "these", "those", "bato", "nah", "nh", "okie", "k", "anything", "something", "everything", "scam", "scammer", "scammers", "invalid", "ready", "tomorrow", "today", "yesterday", "check", "checking", "later", "fine", "sure", "xyz", "busy", "study", "tuition", "tution", "nothing", "wait", "waiting", "soon", "morning", "evening", "night", "good", "bad", "fake", "fraud", "true", "false", "correct", "wrong", "change", "new",
   "ncr", "trust", "aata", "aati", "nhi", "diya", "liye"
 ]);
 

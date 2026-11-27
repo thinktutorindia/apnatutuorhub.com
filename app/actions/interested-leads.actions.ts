@@ -996,11 +996,17 @@ export async function sendDummyNotificationsToInterestedLeadsAction(
                         : personalized
                     }`
                   : personalized;
+              const broadcastUserId = user?.id && user.id !== "dev-admin" ? user.id : null;
+              const broadcastUserLabel =
+                (user && "name" in user && typeof user.name === "string" && user.name) ||
+                (user && "email" in user && typeof user.email === "string" && user.email) ||
+                "Coordinator";
               await prisma.whatsappChatMessage.create({
                 data: {
                   phone: normalized,
                   direction: "OUTBOUND",
-                  senderName: "Coordinator Broadcast",
+                  senderName: `${broadcastUserLabel} (Broadcast)`,
+                  sentByUserId: broadcastUserId,
                   body: logBody,
                   step: "INTERESTED_BLAST",
                   messageId: waResult.providerMessageId || null,

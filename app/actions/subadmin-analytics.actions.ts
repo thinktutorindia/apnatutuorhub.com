@@ -21,23 +21,59 @@ export interface SubAdminStat {
   suspensions: number;
   reactivations: number;
   walletAdjustments: number;
+  waRepliesToday: number;
+  waRepliesLast7Days: number;
+  waRepliesLast30Days: number;
+  waRepliesTotal: number;
+  waUniqueContacts: number;
+  waFailedReplies: number;
+  waLastReplyAt: string | null;
   firstActionAt: string | null;
   lastActionAt: string | null;
   topActions: { action: string; count: number }[];
   dailyActivity: { date: string; count: number }[];
 }
 
+export interface WhatsAppStaffStatRow {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  department: string | null;
+  isActive: boolean;
+  waRepliesToday: number;
+  waRepliesLast7Days: number;
+  waRepliesLast30Days: number;
+  waRepliesTotal: number;
+  waUniqueContacts: number;
+  waFailedReplies: number;
+  waLastReplyAt: string | null;
+}
+
 export interface SubAdminAnalyticsData {
   subAdmins: SubAdminStat[];
+  waStaffLeaderboard: WhatsAppStaffStatRow[];
   platformTotals: {
     totalAuditActions: number;
     last30DaysActions: number;
     activeSubAdmins: number;
     mostActiveId: string | null;
+    totalWaReplies: number;
+    waRepliesToday: number;
+    waRepliesLast30Days: number;
+    topWaResponderId: string | null;
   };
   teamDailyTrend: { date: string; count: number }[];
   actionBreakdown: { action: string; count: number }[];
   departmentBreakdown: { dept: string; count: number }[];
+}
+
+function getIstMidnightUtc(): Date {
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const istNow = new Date(Date.now() + IST_OFFSET_MS);
+  return new Date(
+    Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()) - IST_OFFSET_MS
+  );
 }
 
 function isoDate(d: Date) {
@@ -70,22 +106,70 @@ export async function getSubAdminAnalyticsData(): Promise<SubAdminAnalyticsData 
   since30d.setDate(since30d.getDate() - 30);
   const since7d = new Date(now);
   since7d.setDate(since7d.getDate() - 7);
+  const todayStart = getIstMidnightUtc();
 
-  // Fetch all sub-admins
-  const subAdminUsers = await prisma.user.findMany({
-    where: { role: "SUB_ADMIN" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      subAdminRole: true,
-      isActive: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  // Fetch all sub-admins and all staff accounts for WhatsApp attribution
+  const [subAdminUsers, allStaffUsers] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: "SUB_ADMIN" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        subAdminRole: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.user.findMany({
+      where: { role: { in: ["SUB_ADMIN", "SUPER_ADMIN"] } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        subAdminRole: true,
+        isActive: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   const subAdminIds = subAdminUsers.map((u) => u.id);
+
+  // Per-employee WhatsApp manual reply aggregation from whatsapp_chat_messages
+  type WaAggRow = {
+    sentByUserId: string;
+    total: number;
+    last30d: number;
+    last7d: number;
+    today: number;
+    unique_contacts: number;
+    failed_count: number;
+    last_reply_at: Date | null;
+  };
+  let waAggRows: WaAggRow[] = [];
+  try {
+    waAggRows = await prisma.$queryRaw<WaAggRow[]>`
+      SELECT
+        "sentByUserId",
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE "createdAt" >= ${since30d})::int AS last30d,
+        COUNT(*) FILTER (WHERE "createdAt" >= ${since7d})::int AS last7d,
+        COUNT(*) FILTER (WHERE "createdAt" >= ${todayStart})::int AS today,
+        COUNT(DISTINCT phone)::int AS unique_contacts,
+        COUNT(*) FILTER (WHERE UPPER(COALESCE(status, '')) = 'FAILED')::int AS failed_count,
+        MAX("createdAt") AS last_reply_at
+      FROM whatsapp_chat_messages
+      WHERE "sentByUserId" IS NOT NULL
+        AND step = 'STAFF_REPLY'
+      GROUP BY "sentByUserId"
+    `;
+  } catch {
+    waAggRows = [];
+  }
+  const waByStaffId = new Map(waAggRows.map((r) => [r.sentByUserId, r]));
 
   // Fetch all audit logs for sub-admins (safe fallback if model unavailable)
   let allLogs: any[] = [];
@@ -141,6 +225,7 @@ export async function getSubAdminAnalyticsData(): Promise<SubAdminAnalyticsData 
   const subAdmins: SubAdminStat[] = subAdminUsers.map((user) => {
     const userLogs: any[] = allLogs.filter((l: any) => l.adminId === user.id);
     const userNotes: any[] = allNotes.filter((n: any) => n.authorUserId === user.id);
+    const wa = waByStaffId.get(user.id);
 
     const logs30d = userLogs.filter((l: any) => new Date(l.createdAt) >= since30d);
     const logs7d = userLogs.filter((l: any) => new Date(l.createdAt) >= since7d);
@@ -179,6 +264,13 @@ export async function getSubAdminAnalyticsData(): Promise<SubAdminAnalyticsData 
         userLogs.filter(
           (l: any) => l.action === "WALLET_ADMIN_CREDIT" || l.action === "WALLET_ADMIN_DEBIT"
         ).length,
+      waRepliesToday: wa?.today ?? 0,
+      waRepliesLast7Days: wa?.last7d ?? 0,
+      waRepliesLast30Days: wa?.last30d ?? 0,
+      waRepliesTotal: wa?.total ?? 0,
+      waUniqueContacts: wa?.unique_contacts ?? 0,
+      waFailedReplies: wa?.failed_count ?? 0,
+      waLastReplyAt: wa?.last_reply_at ? new Date(wa.last_reply_at).toISOString() : null,
       firstActionAt: sorted.length > 0 ? sorted[0].createdAt.toISOString() : null,
       lastActionAt: sorted.length > 0 ? sorted[sorted.length - 1].createdAt.toISOString() : null,
       topActions,
@@ -186,15 +278,43 @@ export async function getSubAdminAnalyticsData(): Promise<SubAdminAnalyticsData 
     };
   });
 
+  const waStaffLeaderboard: WhatsAppStaffStatRow[] = allStaffUsers
+    .map((u) => {
+      const wa = waByStaffId.get(u.id);
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        department: u.subAdminRole,
+        isActive: u.isActive,
+        waRepliesToday: wa?.today ?? 0,
+        waRepliesLast7Days: wa?.last7d ?? 0,
+        waRepliesLast30Days: wa?.last30d ?? 0,
+        waRepliesTotal: wa?.total ?? 0,
+        waUniqueContacts: wa?.unique_contacts ?? 0,
+        waFailedReplies: wa?.failed_count ?? 0,
+        waLastReplyAt: wa?.last_reply_at ? new Date(wa.last_reply_at).toISOString() : null,
+      };
+    })
+    .filter((u) => u.role === "SUB_ADMIN" || u.waRepliesTotal > 0)
+    .sort((a, b) => b.waRepliesTotal - a.waRepliesTotal || b.waRepliesLast30Days - a.waRepliesLast30Days);
+
   const mostActive = [...subAdmins].sort((a, b) => b.totalActions - a.totalActions)[0];
+  const topWaResponder = waStaffLeaderboard[0];
 
   return {
     subAdmins,
+    waStaffLeaderboard,
     platformTotals: {
       totalAuditActions: allLogs.length,
       last30DaysActions: allLogs.filter((l: any) => new Date(l.createdAt) >= since30d).length,
       activeSubAdmins: subAdminUsers.filter((u) => u.isActive).length,
       mostActiveId: mostActive?.id ?? null,
+      totalWaReplies: waStaffLeaderboard.reduce((s, r) => s + r.waRepliesTotal, 0),
+      waRepliesToday: waStaffLeaderboard.reduce((s, r) => s + r.waRepliesToday, 0),
+      waRepliesLast30Days: waStaffLeaderboard.reduce((s, r) => s + r.waRepliesLast30Days, 0),
+      topWaResponderId: topWaResponder && topWaResponder.waRepliesTotal > 0 ? topWaResponder.id : null,
     },
     teamDailyTrend,
     actionBreakdown,

@@ -107,9 +107,9 @@ export default function TermsPage() {
             <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black">
               🛡️
             </div>
-            <h3 className="text-sm font-black text-[#0F2540]">Fair Replacement</h3>
+            <h3 className="text-sm font-black text-[#0F2540]">Wallet Coin Refunds Only</h3>
             <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-              Full credit coin refund if a parent contact is found unreachable or permanently invalid.
+              No bank/UPI cash refunds. For any invalid, fraud, or unreachable lead, 100% of spent coins are refunded directly back to your ApnaTutorHub wallet.
             </p>
           </div>
         </div>
@@ -257,27 +257,43 @@ export default function TermsPage() {
           </div>
         </section>
 
-        {/* Section 5: Verification & Replacement Policy */}
+        {/* Section 5: Verification, Replacement & Non-Refundable Policy */}
         <section className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-5">
           <h2 className="text-xl font-black text-[#0F2540] flex items-center gap-2">
             <ShieldCheck size={20} className="text-[#2D9E6B]" />
-            <span>5. Lead Verification &amp; Replacement Policy</span>
+            <span>5. Lead Verification, Wallet Coin Refunds &amp; Strict No Cash Refund Policy</span>
           </h2>
-          <div className="space-y-3 text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+          <div className="space-y-4 text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-1.5 text-amber-950">
+              <div className="text-xs sm:text-sm font-black">
+                ⚠️ Strict No Bank / UPI / Cash Refund Policy (Wallet Coin Credits Only)
+              </div>
+              <p className="text-xs font-semibold leading-relaxed">
+                All payments made toward registration fees, membership plans, or wallet coin packages are <strong>100% final and non-refundable in cash, UPI, card, or bank transfer</strong>. Because digital wallet coins and platform lead-access are provisioned immediately upon payment, ApnaTutorHub <strong>does not refund money (₹) back to any bank account or payment method</strong> under any circumstances.
+              </p>
+            </div>
+
             <p>
-              Parent requirements on ApnaTutorHub are posted by signed-in parent accounts with a registered mobile number. We do not currently run SMS OTP verification. In the rare event of an invalid inquiry, we offer full protection:
+              Parent requirements on ApnaTutorHub are posted by signed-in parent accounts with a registered mobile number. In the event of an invalid, unresponsive, or fraudulent inquiry, all remedies are provided exclusively as <strong>wallet coin refunds</strong> (never cash/bank payouts):
             </p>
             <ul className="space-y-2 list-disc list-inside text-xs font-semibold text-slate-700 pl-2">
               <li>
-                <strong>Unreachable Parent / Wrong Number:</strong> If a parent number is out of service or incorrect, tutors can report the lead within 48 hours for immediate coin refund or replacement lead credit.
+                <strong>Fraud / Fake / Spam Leads:</strong> If an inquiry turns out to be fake, fraudulent, or non-genuine, report it within 48 hours and <strong>100% of the spent coins are credited back to your ApnaTutorHub wallet</strong> upon verification.
               </li>
               <li>
-                <strong>Duplicate Posting:</strong> If a parent posted identical duplicate requests, the redundant lead unlock fee is refunded.
+                <strong>Unreachable Parent / Wrong Number:</strong> If a parent number is out of service, switched off permanently, or incorrect, report the lead within 48 hours for an immediate <strong>coin refund back into your wallet</strong> or replacement lead credit.
               </li>
               <li>
-                <strong>Requirement Withdrawn:</strong> If the parent hired another tutor or closed the requirement after your unlock, support will issue a full wallet credit upon verification.
+                <strong>Duplicate Posting:</strong> If a parent posted identical duplicate requests, the redundant lead unlock fee is refunded in coins to your wallet.
+              </li>
+              <li>
+                <strong>Requirement Withdrawn:</strong> If the parent hired another tutor or closed the requirement after your unlock, support will issue a full wallet coin credit upon verification.
               </li>
             </ul>
+
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed pt-1">
+              <strong>Dispute &amp; Grievance Resolution:</strong> By completing a payment on ApnaTutorHub, you expressly acknowledge and accept that platform fees are non-refundable to bank/UPI accounts and that any lead dispute, wrong contact, or fraud report is settled solely via wallet coin restoration. Please contact support or our grievance desk before filing any external chargeback or cyber-cell dispute so coin credits can be resolved promptly.
+            </p>
           </div>
         </section>
 

@@ -21,6 +21,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Wand2,
+  Users,
+  X,
 } from "lucide-react";
 import {
   polishMessageWithAIAction,
@@ -31,12 +33,15 @@ import {
   getWhatsAppChatMessagesAction,
   sendStaffWhatsAppReplyAction,
   markWhatsAppContactAsInterestedAction,
+  getEmployeeWhatsAppRepliesReportAction,
   type WhatsAppConversationSummary,
   type WhatsAppChatMessageItem,
   type WhatsAppChatContactDetails,
   type WhatsAppReplyFilter,
+  type WhatsAppEmployeeRepliesReport,
 } from "@/app/actions/whatsapp-chat.actions";
 import Link from "next/link";
+import { EmployeeWhatsAppTrackerPanel } from "@/components/admin/whatsapp/EmployeeWhatsAppTrackerPanel";
 
 const QUICK_TEMPLATES = [
   {
@@ -307,6 +312,12 @@ export function WhatsAppChatInbox() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [interestedOnly, setInterestedOnly] = useState(false);
   const [replyFilter, setReplyFilter] = useState<WhatsAppReplyFilter>("ALL");
+  const [staffFilter, setStaffFilter] = useState("");
+  const [showEmployeeTracker, setShowEmployeeTracker] = useState(false);
+  const [trackerRange, setTrackerRange] = useState<"today" | "7d" | "30d" | "all">("30d");
+  const [trackerStaffId, setTrackerStaffId] = useState("");
+  const [employeeReport, setEmployeeReport] = useState<WhatsAppEmployeeRepliesReport | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalThreads, setTotalThreads] = useState(0);
@@ -349,9 +360,28 @@ export function WhatsAppChatInbox() {
 
   const filterSignature = useMemo(
     () =>
-      [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter].join("|"),
-    [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter]
+      [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter, staffFilter].join("|"),
+    [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter, staffFilter]
   );
+
+  const loadEmployeeReport = useCallback(
+    async (rangeOverride?: "today" | "7d" | "30d" | "all", staffIdOverride?: string) => {
+      setLoadingReport(true);
+      const res = await getEmployeeWhatsAppRepliesReportAction({
+        range: rangeOverride ?? trackerRange,
+        staffId: (staffIdOverride ?? trackerStaffId) || undefined,
+      });
+      if (res.success && res.data) {
+        setEmployeeReport(res.data);
+      }
+      setLoadingReport(false);
+    },
+    [trackerRange, trackerStaffId]
+  );
+
+  useEffect(() => {
+    void loadEmployeeReport();
+  }, [loadEmployeeReport]);
 
   const loadThreads = useCallback(
     async (silent = false, pageOverride?: number) => {
@@ -363,6 +393,7 @@ export function WhatsAppChatInbox() {
         unreadOnly,
         interestedOnly,
         replyFilter,
+        staffIdFilter: staffFilter || undefined,
         page: activePage,
         pageSize: THREADS_PAGE_SIZE,
       });
@@ -384,7 +415,7 @@ export function WhatsAppChatInbox() {
       }
       setLoadingThreads(false);
     },
-    [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter, page, mobileViewChat]
+    [debouncedSearch, roleFilter, unreadOnly, interestedOnly, replyFilter, staffFilter, page, mobileViewChat]
   );
 
   useEffect(() => {
@@ -489,13 +520,16 @@ export function WhatsAppChatInbox() {
                     lastMessage: {
                       body: messageText,
                       direction: "OUTBOUND",
-                      senderName: "Staff (You)",
+                      senderName: res.data!.message.senderName,
+                      sentByUserId: res.data!.message.sentByUserId ?? null,
+                      sentByName: res.data!.message.sentByName ?? null,
                       createdAt: res.data!.message.createdAt,
                     },
                   }
                 : t
             )
           );
+          void loadEmployeeReport();
           setFeedback({ type: "success", text: "WhatsApp message delivered!" });
           setTimeout(() => setFeedback(null), 3000);
         } else {
@@ -513,7 +547,7 @@ export function WhatsAppChatInbox() {
         });
       }
     },
-    [selectedPhone]
+    [selectedPhone, loadEmployeeReport]
   );
 
   // Mark current contact as an INTERESTED lead in Staff CRM
@@ -618,12 +652,43 @@ export function WhatsAppChatInbox() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 {totalUnread > 0 && (
                   <span className="flex items-center gap-1 rounded-full bg-rose-500 text-white px-2 py-0.5 text-[11px] font-bold shadow-xs">
                     {totalUnread} new
                   </span>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !showEmployeeTracker;
+                    setShowEmployeeTracker(next);
+                    if (next) {
+                      setMobileViewChat(true);
+                      void loadEmployeeReport();
+                    }
+                  }}
+                  title="Track WhatsApp replies by employee"
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-colors cursor-pointer ${
+                    showEmployeeTracker
+                      ? "bg-[#0F2540] text-white shadow-xs"
+                      : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                  }`}
+                >
+                  <Users size={13} />
+                  <span>{employeeReport?.isSuperAdmin ? "By Staff" : "My Replies"}</span>
+                  {employeeReport && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                        showEmployeeTracker
+                          ? "bg-white/20 text-white"
+                          : "bg-emerald-600 text-white"
+                      }`}
+                    >
+                      {employeeReport.totals.repliesToday}
+                    </span>
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={() => loadThreads()}
@@ -727,6 +792,43 @@ export function WhatsAppChatInbox() {
               >
                 We replied ({awaitingUserCount})
               </button>
+
+              {employeeReport?.isSuperAdmin && employeeReport.employees.length > 0 && (
+                <select
+                  value={staffFilter}
+                  onChange={(e) => setStaffFilter(e.target.value)}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold outline-none shrink-0 cursor-pointer border ${
+                    staffFilter
+                      ? "bg-[#0F2540] text-white border-[#0F2540]"
+                      : "bg-slate-100 text-slate-700 border-transparent hover:bg-slate-200"
+                  }`}
+                  title="Filter chats replied by a specific employee"
+                >
+                  <option value="" className="bg-white text-slate-800">
+                    Employee: All
+                  </option>
+                  {employeeReport.employees.map((emp) => (
+                    <option
+                      key={emp.staffId}
+                      value={emp.staffId}
+                      className="bg-white text-slate-800"
+                    >
+                      {emp.name} ({emp.repliesTotal})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {staffFilter && (
+                <button
+                  type="button"
+                  onClick={() => setStaffFilter("")}
+                  className="p-1 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 shrink-0 cursor-pointer"
+                  title="Clear employee filter"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -757,6 +859,7 @@ export function WhatsAppChatInbox() {
                     type="button"
                     onClick={() => {
                       setSelectedPhone(thread.phone);
+                      setShowEmployeeTracker(false);
                       setMobileViewChat(true);
                     }}
                     className={`w-full text-left p-3.5 transition-all flex items-start gap-3 relative border-b border-slate-100 ${
@@ -829,7 +932,15 @@ export function WhatsAppChatInbox() {
                       {/* Last Message Snippet */}
                       <p className="text-xs text-slate-600 truncate font-normal line-clamp-1">
                         {thread.lastMessage?.direction === "OUTBOUND" ? (
-                          <span className="text-slate-400 font-medium">You: </span>
+                          <span className="text-slate-400 font-medium">
+                            {thread.lastMessage.sentByName
+                              ? `${thread.lastMessage.sentByName}: `
+                              : thread.lastMessage.senderName &&
+                                  thread.lastMessage.senderName !== "Bot" &&
+                                  thread.lastMessage.senderName !== "Aqua"
+                                ? `${thread.lastMessage.senderName.replace(/\s*\(Staff\)\s*$/i, "")}: `
+                                : "You: "}
+                          </span>
                         ) : null}
                         {thread.lastMessage?.body || "Conversation started"}
                       </p>
@@ -886,7 +997,37 @@ export function WhatsAppChatInbox() {
             backgroundPosition: "0 0, 20px 20px",
           }}
         >
-          {selectedPhone ? (
+          {showEmployeeTracker ? (
+            <EmployeeWhatsAppTrackerPanel
+              report={employeeReport}
+              loading={loadingReport}
+              range={trackerRange}
+              onRangeChange={(next) => {
+                setTrackerRange(next);
+                void loadEmployeeReport(next, trackerStaffId);
+              }}
+              staffId={trackerStaffId}
+              onStaffIdChange={(next) => {
+                setTrackerStaffId(next);
+                void loadEmployeeReport(trackerRange, next);
+              }}
+              onRefresh={() => void loadEmployeeReport()}
+              onClose={() => {
+                setShowEmployeeTracker(false);
+                if (!selectedPhone) setMobileViewChat(false);
+              }}
+              onFilterInboxByEmployee={(empId) => {
+                setStaffFilter(empId);
+                setShowEmployeeTracker(false);
+                setMobileViewChat(false);
+              }}
+              onOpenChat={(phone) => {
+                setSelectedPhone(phone);
+                setShowEmployeeTracker(false);
+                setMobileViewChat(true);
+              }}
+            />
+          ) : selectedPhone ? (
             <>
               {/* Chat Header */}
               <div className="h-16 px-4 py-2 bg-white/95 backdrop-blur-md border-b border-slate-200 flex items-center justify-between shrink-0 shadow-xs z-10">
@@ -1096,8 +1237,16 @@ export function WhatsAppChatInbox() {
                 ) : (
                   messages.map((msg) => {
                     const isInbound = msg.direction === "INBOUND";
-                    const isStaff = msg.senderName && msg.senderName.includes("Staff");
-                    const isBot = msg.senderName === "Bot";
+                    const isStaff =
+                      Boolean(msg.sentByUserId) ||
+                      msg.step === "STAFF_REPLY" ||
+                      Boolean(msg.senderName && msg.senderName.includes("Staff"));
+                    const displaySender = isInbound
+                      ? msg.senderName || "User"
+                      : msg.sentByName
+                        ? `${msg.sentByName} (Staff)`
+                        : msg.senderName || "System";
+                    const isFailed = msg.status?.toUpperCase() === "FAILED";
 
                     return (
                       <div
@@ -1124,21 +1273,28 @@ export function WhatsAppChatInbox() {
                                     : "text-emerald-800"
                               }
                             >
-                              {msg.senderName || (isInbound ? "User" : "System")}
+                              {displaySender}
                             </span>
-                            {msg.step && (
-                              <span
-                                className={`text-[9px] px-1 py-0.2 rounded font-mono ${
-                                  isInbound
-                                    ? "bg-slate-100 text-slate-500"
-                                    : isStaff
-                                      ? "bg-emerald-700/60 text-emerald-100"
-                                      : "bg-emerald-200/60 text-emerald-900"
-                                }`}
-                              >
-                                {msg.step}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {isFailed && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-rose-600 text-white">
+                                  FAILED
+                                </span>
+                              )}
+                              {msg.step && (
+                                <span
+                                  className={`text-[9px] px-1 py-0.2 rounded font-mono ${
+                                    isInbound
+                                      ? "bg-slate-100 text-slate-500"
+                                      : isStaff
+                                        ? "bg-emerald-700/60 text-emerald-100"
+                                        : "bg-emerald-200/60 text-emerald-900"
+                                  }`}
+                                >
+                                  {msg.step}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Message Body */}

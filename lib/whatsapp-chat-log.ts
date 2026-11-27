@@ -14,6 +14,7 @@ export type WhatsAppChatLogInput = {
   direction: WhatsAppChatDirection;
   body: string;
   senderName?: string | null;
+  sentByUserId?: string | null;
   contactName?: string | null;
   step?: string | null;
   messageId?: string | null;
@@ -37,6 +38,7 @@ export async function upsertWhatsAppChatMessage(input: WhatsAppChatLogInput) {
     phone,
     direction: input.direction,
     senderName: input.senderName?.trim() || null,
+    sentByUserId: input.sentByUserId?.trim() || null,
     contactName: input.contactName?.trim() || null,
     body,
     step: input.step?.trim() || null,
@@ -49,13 +51,32 @@ export async function upsertWhatsAppChatMessage(input: WhatsAppChatLogInput) {
 
   if (messageId) {
     try {
-      return await prisma.whatsappChatMessage.upsert({
+      const existing = await prisma.whatsappChatMessage.findUnique({
         where: { messageId },
-        create: data,
-        update: {
+        select: { senderName: true, step: true, sentByUserId: true },
+      });
+
+      if (!existing) {
+        return await prisma.whatsappChatMessage.create({ data });
+      }
+
+      // Preserve per-person staff attribution when Aqua backfill/sync later touches the same messageId.
+      const isGenericBackfill = data.step === "AQUA_BACKFILL" || data.senderName === "Aqua";
+      const hasStaffAttribution =
+        Boolean(existing.sentByUserId) ||
+        existing.step === "STAFF_REPLY" ||
+        Boolean(existing.senderName && existing.senderName !== "Aqua" && existing.senderName !== "User");
+
+      const nextSenderName =
+        isGenericBackfill && hasStaffAttribution ? undefined : (data.senderName ?? undefined);
+
+      return await prisma.whatsappChatMessage.update({
+        where: { messageId },
+        data: {
           contactName: data.contactName ?? undefined,
           messageType: data.messageType ?? undefined,
-          senderName: data.senderName ?? undefined,
+          senderName: nextSenderName,
+          sentByUserId: existing.sentByUserId ? undefined : (data.sentByUserId ?? undefined),
         },
       });
     } catch (err) {

@@ -80,6 +80,7 @@ export function resolveParentContactForLead(lead: {
       name?: string | null;
       phone?: string | null;
       email?: string | null;
+      role?: string | null;
     } | null;
   } | null;
 }): RealisticParentContact {
@@ -87,6 +88,12 @@ export function resolveParentContactForLead(lead: {
   const rawPhone = (user?.phone || "").replace(/\D/g, "");
   const rawName = (user?.name || "").trim();
   const rawEmail = (user?.email || "").trim().toLowerCase();
+
+  // Never expose internal staff / sub-admin / super-admin accounts as parent contacts
+  const isStaffOrAdminAccount =
+    user?.role === "SUPER_ADMIN" ||
+    user?.role === "SUB_ADMIN" ||
+    /\b(?:sanskriti\s*vaish|varsha\s*verma)\b/i.test(rawName);
 
   const isGenericName =
     !rawName ||
@@ -105,7 +112,7 @@ export function resolveParentContactForLead(lead: {
     rawEmail.includes("apnatutorhub.internal");
 
   // If already genuine and non-placeholder, keep it
-  if (!isGenericName && !isPlaceholderPhone && !isPlaceholderEmail) {
+  if (!isStaffOrAdminAccount && !isGenericName && !isPlaceholderPhone && !isPlaceholderEmail) {
     return {
       name: rawName,
       phone: user?.phone || rawPhone,
@@ -122,11 +129,14 @@ export function resolveParentContactForLead(lead: {
 
   const firstName = REALISTIC_FIRST_NAMES[seed % REALISTIC_FIRST_NAMES.length];
   const lastName = REALISTIC_LAST_NAMES[(seed >> 3) % REALISTIC_LAST_NAMES.length];
-  const finalName = !isGenericName ? rawName : `${firstName} ${lastName}`;
+  const finalName =
+    !isStaffOrAdminAccount && !isGenericName && !isPlaceholderPhone
+      ? rawName
+      : `${firstName} ${lastName}`;
 
   // Generate deterministic 10-digit mobile number
   let finalPhone = user?.phone || "";
-  if (isPlaceholderPhone) {
+  if (isStaffOrAdminAccount || isPlaceholderPhone) {
     const prefix = MOBILE_PREFIXES[(seed >> 2) % MOBILE_PREFIXES.length];
     const suffixNum = 100000 + ((seed >> 5) % 899999);
     // Standard 10-digit Indian mobile number (e.g., 9810123456)
@@ -135,7 +145,7 @@ export function resolveParentContactForLead(lead: {
 
   // Generate clean email
   let finalEmail = rawEmail;
-  if (isPlaceholderEmail) {
+  if (isStaffOrAdminAccount || isPlaceholderEmail || isPlaceholderPhone) {
     const cleanFirst = firstName.toLowerCase();
     const cleanLast = lastName.toLowerCase().slice(0, 4);
     const num = 10 + ((seed >> 4) % 89);

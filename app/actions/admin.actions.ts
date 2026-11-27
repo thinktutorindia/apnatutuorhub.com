@@ -3631,15 +3631,28 @@ export async function sendAdminCustomNotificationAction(data: {
           `✅ WhatsApp delivered to +${to}${waRes.providerMessageId ? ` (ID: ${waRes.providerMessageId})` : ""}`
         );
 
+        const customSenderName = session.user.name || session.user.email || "Admin";
         await prisma.whatsappChatMessage.create({
           data: {
             phone: to,
             direction: "OUTBOUND",
-            senderName: "Admin",
+            senderName: `${customSenderName} (Staff)`,
+            sentByUserId: session.user.id,
             body,
             step: "ADMIN_CUSTOM",
             messageId: waRes.providerMessageId || null,
+            status: waRes.rawStatus || "accepted",
             isRead: true,
+          },
+        }).catch(() => {});
+
+        await prisma.auditLog.create({
+          data: {
+            adminId: session.user.id,
+            action: "WHATSAPP_CUSTOM_NOTICE",
+            entityType: "WhatsApp",
+            entityId: to,
+            details: `Sent custom WhatsApp notification to +${to}: ${data.title.trim().slice(0, 80)}`,
           },
         }).catch(() => {});
       } else {

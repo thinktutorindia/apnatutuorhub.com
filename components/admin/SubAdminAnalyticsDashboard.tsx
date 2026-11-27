@@ -72,6 +72,8 @@ const ACTION_LABEL: Record<string, string> = {
   SETTING_UPDATE: "Setting Updated",
   ADMIN_RESET_PASSWORD: "Password Reset",
   DELETE_USER: "User Deleted",
+  WHATSAPP_STAFF_REPLY: "WhatsApp Reply",
+  WHATSAPP_CUSTOM_NOTICE: "WhatsApp Notice",
 };
 
 const CHART_COLORS = ["#2D9E6B", "#1A3C5E", "#7C3AED", "#EA580C", "#DB2777", "#0284C7", "#16A34A", "#D97706"];
@@ -214,6 +216,11 @@ function StaffCard({
             <span className="text-[11px] text-slate-600 font-bold">
               {stat.totalActions} actions
             </span>
+            {stat.waRepliesTotal > 0 && (
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                💬 {stat.waRepliesTotal} WA
+              </span>
+            )}
           </div>
         </div>
         <ChevronRight size={16} className={`shrink-0 mt-1 ${selected ? "text-[#2D9E6B]" : "text-slate-300"}`} />
@@ -235,14 +242,14 @@ function StaffDetailPanel({
   const deptColor = getDeptColor(stat.department);
 
   const metricCards = [
+    { label: "WA Replies (All)", value: stat.waRepliesTotal, icon: MessageSquare, color: "#059669" },
+    { label: "WA Today", value: stat.waRepliesToday, icon: Flame, color: "#EA580C" },
+    { label: "WA Contacts", value: stat.waUniqueContacts, icon: Users, color: "#0284C7" },
     { label: "Total Actions", value: stat.totalActions, icon: Activity, color: "#1A3C5E" },
     { label: "Last 7 Days", value: stat.actionsLast7Days, icon: Zap, color: "#7C3AED" },
     { label: "Last 30 Days", value: stat.actionsLast30Days, icon: TrendingUp, color: "#2D9E6B" },
-    { label: "Staff Notes", value: stat.notesAuthored, icon: MessageSquare, color: "#0284C7" },
     { label: "KYC Approved", value: stat.kycApprovals, icon: CheckCircle2, color: "#16A34A" },
-    { label: "KYC Rejected", value: stat.kycRejections, icon: XCircle, color: "#DC2626" },
-    { label: "Suspensions", value: stat.suspensions, icon: ShieldCheck, color: "#D97706" },
-    { label: "Wallet Ops", value: stat.walletAdjustments, icon: Wallet, color: "#DB2777" },
+    { label: "Staff Notes", value: stat.notesAuthored, icon: Star, color: "#D97706" },
   ];
 
   return (
@@ -295,18 +302,26 @@ function StaffDetailPanel({
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 text-xs text-slate-600 font-bold">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100 text-xs text-slate-600 font-bold">
           <div>
             <span className="text-slate-400 font-extrabold block">Joined</span>
             {fmtDateTime(stat.joinedAt)}
           </div>
           <div>
-            <span className="text-slate-400 font-extrabold block">First Action</span>
-            {fmtDateTime(stat.firstActionAt)}
+            <span className="text-slate-400 font-extrabold block">Last Audit Action</span>
+            {fmtDateTime(stat.lastActionAt)}
           </div>
           <div>
-            <span className="text-slate-400 font-extrabold block">Last Action</span>
-            {fmtDateTime(stat.lastActionAt)}
+            <span className="text-slate-400 font-extrabold block">Last WA Reply</span>
+            {fmtDateTime(stat.waLastReplyAt)}
+          </div>
+          <div>
+            <span className="text-slate-400 font-extrabold block">WA (7d / 30d)</span>
+            {stat.waRepliesLast7Days} / {stat.waRepliesLast30Days}
+          </div>
+          <div>
+            <span className="text-slate-400 font-extrabold block">WA Failed</span>
+            <span className={stat.waFailedReplies > 0 ? "text-rose-600" : ""}>{stat.waFailedReplies}</span>
           </div>
           <div>
             <span className="text-slate-400 font-extrabold block">Dept.</span>
@@ -432,17 +447,25 @@ export function SubAdminAnalyticsDashboard({ data }: { data: SubAdminAnalyticsDa
   );
 
   const mostActiveId = data.platformTotals.mostActiveId;
+  const topWaId = data.platformTotals.topWaResponderId;
 
   return (
     <div className="space-y-7">
       {/* ── Platform KPI Strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <KPICard
           label="Total Staff Actions"
           value={data.platformTotals.totalAuditActions}
           sub="All time, all sub-admins"
           icon={Activity}
           color="#1A3C5E"
+        />
+        <KPICard
+          label="WA Replies (All)"
+          value={data.platformTotals.totalWaReplies}
+          sub={`${data.platformTotals.waRepliesToday} today · ${data.platformTotals.waRepliesLast30Days} in 30d`}
+          icon={MessageSquare}
+          color="#059669"
         />
         <KPICard
           label="Actions (30 Days)"
@@ -454,7 +477,7 @@ export function SubAdminAnalyticsDashboard({ data }: { data: SubAdminAnalyticsDa
         <KPICard
           label="Active Staff"
           value={data.platformTotals.activeSubAdmins}
-          sub={`of ${data.subAdmins.length} total members`}
+          sub={`of ${data.subAdmins.length} sub-admins`}
           icon={Users}
           color="#7C3AED"
         />
@@ -465,6 +488,102 @@ export function SubAdminAnalyticsDashboard({ data }: { data: SubAdminAnalyticsDa
           icon={Award}
           color="#EA580C"
         />
+      </div>
+
+      {/* ── Per-Employee WhatsApp Reply Tracker ── */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-black text-[#0F2540] flex items-center gap-2">
+              <MessageSquare size={18} className="text-emerald-600" />
+              WhatsApp Replies by Employee
+            </h2>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">
+              Per-person manual WhatsApp replies sent from the live staff inbox (Today uses IST)
+            </p>
+          </div>
+          <Link
+            href="/admin/whatsapp-chats"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition-colors shrink-0 self-start sm:self-auto"
+          >
+            <MessageSquare size={14} />
+            Open WhatsApp Inbox
+            <ArrowUpRight size={14} />
+          </Link>
+        </div>
+
+        {data.waStaffLeaderboard.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400 font-semibold">
+            No staff WhatsApp replies tracked yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <th className="py-2.5 pr-4">Employee</th>
+                  <th className="py-2.5 px-3">Role / Dept</th>
+                  <th className="py-2.5 px-3 text-right">Today</th>
+                  <th className="py-2.5 px-3 text-right">7 Days</th>
+                  <th className="py-2.5 px-3 text-right">30 Days</th>
+                  <th className="py-2.5 px-3 text-right">All Time</th>
+                  <th className="py-2.5 px-3 text-right">Unique Chats</th>
+                  <th className="py-2.5 px-3 text-right">Failed</th>
+                  <th className="py-2.5 pl-3 text-right">Last Reply</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold">
+                {data.waStaffLeaderboard.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 pr-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-[#0F2540]">
+                          {row.name || row.email.split("@")[0]}
+                        </span>
+                        {row.id === topWaId && (
+                          <span className="text-[9px] font-black text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-full">
+                            🔥 TOP
+                          </span>
+                        )}
+                        {!row.isActive && (
+                          <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                            Inactive
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-medium">{row.email}</p>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span
+                        className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor:
+                            (row.role === "SUPER_ADMIN" ? "#0F2540" : getDeptColor(row.department)) + "18",
+                          color: row.role === "SUPER_ADMIN" ? "#0F2540" : getDeptColor(row.department),
+                        }}
+                      >
+                        {row.role === "SUPER_ADMIN" ? "Super Admin" : getDeptLabel(row.department)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right font-black text-orange-600">{row.waRepliesToday}</td>
+                    <td className="py-3 px-3 text-right font-bold text-slate-700">{row.waRepliesLast7Days}</td>
+                    <td className="py-3 px-3 text-right font-bold text-slate-700">{row.waRepliesLast30Days}</td>
+                    <td className="py-3 px-3 text-right font-black text-emerald-700">{row.waRepliesTotal}</td>
+                    <td className="py-3 px-3 text-right text-sky-700 font-bold">{row.waUniqueContacts}</td>
+                    <td className="py-3 px-3 text-right">
+                      <span className={row.waFailedReplies > 0 ? "text-rose-600 font-bold" : "text-slate-400"}>
+                        {row.waFailedReplies}
+                      </span>
+                    </td>
+                    <td className="py-3 pl-3 text-right text-[11px] text-slate-500 whitespace-nowrap">
+                      {fmtDateTime(row.waLastReplyAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── Team Trend Chart ── */}
@@ -669,6 +788,7 @@ export function SubAdminAnalyticsDashboard({ data }: { data: SubAdminAnalyticsDa
                 "Total Actions": s.totalActions,
                 "Last 30 Days": s.actionsLast30Days,
                 "Last 7 Days": s.actionsLast7Days,
+                "WA Replies": s.waRepliesTotal,
               }))}
               margin={{ top: 5, right: 10, left: -15, bottom: 5 }}
               barCategoryGap="25%"
@@ -686,6 +806,7 @@ export function SubAdminAnalyticsDashboard({ data }: { data: SubAdminAnalyticsDa
               <Bar dataKey="Total Actions" fill="#1A3C5E" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Last 30 Days" fill="#2D9E6B" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Last 7 Days" fill="#7C3AED" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="WA Replies" fill="#0284C7" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

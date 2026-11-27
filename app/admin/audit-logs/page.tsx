@@ -21,6 +21,8 @@ const ACTION_COLOR: Record<string, { bg: string; text: string; border: string }>
   WALLET_ADMIN_CREDIT: { bg: "bg-emerald-100", text: "text-emerald-950", border: "border-emerald-300" },
   WALLET_ADMIN_DEBIT: { bg: "bg-red-100", text: "text-red-950", border: "border-red-300" },
   SETTING_UPDATE: { bg: "bg-blue-100", text: "text-blue-950", border: "border-blue-300" },
+  WHATSAPP_STAFF_REPLY: { bg: "bg-emerald-100", text: "text-emerald-950", border: "border-emerald-300" },
+  WHATSAPP_CUSTOM_NOTICE: { bg: "bg-teal-100", text: "text-teal-950", border: "border-teal-300" },
 };
 
 const ENTITY_ICON: Record<string, string> = {
@@ -29,6 +31,7 @@ const ENTITY_ICON: Record<string, string> = {
   Lead: "📄",
   Wallet: "💰",
   PlatformSetting: "⚙️",
+  WhatsApp: "💬",
 };
 
 const SUB_ADMIN_ROLE_BADGE: Record<string, { bg: string; text: string; label: string }> = {

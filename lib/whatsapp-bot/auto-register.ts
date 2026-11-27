@@ -227,6 +227,20 @@ export async function registerTutorFromWhatsapp(
         }
       }
 
+      const isPlaceholderName = (raw: string): boolean =>
+        !raw ||
+        raw.length < 2 ||
+        /^(tutor|parent|user|student|sir|madam|mam|unknown|apnatutorhub|\.+)$/i.test(raw) ||
+        raw.includes("@") ||
+        /^\+?\d{6,}$/.test(raw) ||
+        /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s.]+$/u.test(raw);
+      const candidateName = typeof data.name === "string" ? data.name.trim() : "";
+      const existingName = (user.name || "").trim();
+      const nameToUpdate =
+        isPlaceholderName(existingName) && candidateName.length <= 60 && !isPlaceholderName(candidateName)
+          ? candidateName
+          : undefined;
+
       const updatePasswordHash =
         passwordHash ?? (!user.passwordHash ? await bcrypt.hash("12345678", 10) : undefined);
 
@@ -240,6 +254,7 @@ export async function registerTutorFromWhatsapp(
                 ? "SUB_ADMIN"
                 : user.role || "TUTOR",
           phone: normalizedPhone,
+          ...(nameToUpdate ? { name: nameToUpdate } : {}),
           ...(emailToUpdate ? { email: emailToUpdate } : {}),
           ...(updatePasswordHash ? { passwordHash: updatePasswordHash } : {}),
           // Mark as WHATSAPP
@@ -380,12 +395,15 @@ export async function registerParentFromWhatsapp(
       (email ? await prisma.user.findUnique({ where: { email } }) : null);
 
     if (user) {
+      const keepExistingName =
+        Boolean(user.name?.trim()) && !/^(parent|user|student|tutor|\.+)$/i.test(user.name!.trim()) && parentName === "Parent";
+      const emailIsPlaceholder = !user.email || /^(?:wa[._]|user\d+)/i.test(user.email) || user.email.endsWith("@apnatutorhub.com");
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
-          name: parentName || user.name,
+          name: keepExistingName ? user.name! : (parentName || user.name),
           ...(normalizedPhone ? { phone: normalizedPhone } : {}),
-          ...((!user.email || user.email.startsWith("wa_")) && email && !email.startsWith("wa_") ? { email } : {}),
+          ...(emailIsPlaceholder && email && !email.endsWith("@apnatutorhub.com") ? { email } : {}),
           ...(!(user as any).signupSource || (user as any).signupSource === "WEBSITE" ? { signupSource: "WHATSAPP" } : {}),
         },
       });

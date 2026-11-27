@@ -500,7 +500,7 @@ export async function purchaseLeadAction(
         pincode: true,
         parentProfile: {
           select: {
-            user: { select: { id: true, name: true, email: true, phone: true } },
+            user: { select: { id: true, name: true, email: true, phone: true, role: true } },
           },
         },
       },
@@ -526,21 +526,29 @@ export async function purchaseLeadAction(
 
   if (!lead && (leadId.startsWith("lead_ath_") || leadId.startsWith("dummy_"))) {
     try {
-      let adminUser = await prisma.user.findFirst({
-        where: { role: { in: ["SUPER_ADMIN", "SUB_ADMIN"] } },
+      let deskUser = await prisma.user.findUnique({
+        where: { email: "leads.desk@apnatutorhub.com" },
         include: { parentProfile: true },
       });
-      if (!adminUser) {
-        adminUser = await prisma.user.findFirst({
-          where: { email: { contains: "admin" } },
+      if (!deskUser) {
+        deskUser = await prisma.user.create({
+          data: {
+            name: "Verified Parent Helpdesk",
+            email: "leads.desk@apnatutorhub.com",
+            role: "PARENT",
+            isActive: true,
+            parentProfile: {
+              create: { city: "Delhi" },
+            },
+          },
           include: { parentProfile: true },
         });
       }
-      if (adminUser) {
-        let parentProfileId = adminUser.parentProfile?.id;
+      if (deskUser) {
+        let parentProfileId = deskUser.parentProfile?.id;
         if (!parentProfileId) {
           const newPp = await prisma.parentProfile.create({
-            data: { userId: adminUser.id, city: "Delhi" },
+            data: { userId: deskUser.id, city: "Delhi" },
           });
           parentProfileId = newPp.id;
         }
@@ -563,7 +571,7 @@ export async function purchaseLeadAction(
           pincode: true,
           parentProfile: {
             select: {
-              user: { select: { id: true, name: true, email: true, phone: true } },
+              user: { select: { id: true, name: true, email: true, phone: true, role: true } },
             },
           },
         } as const;
@@ -707,74 +715,74 @@ export async function purchaseLeadAction(
       if (existing) throw new Error(`ALREADY_UNLOCKED:${existing.id}`);
 
       // 1. Atomic Wallet Balance Guard (if coins are required)
-    if (effectiveCoinCost > 0) {
-      const walletUpdate = await tx.wallet.updateMany({
-        where: {
-          tutorProfileId,
-          balance: { gte: effectiveCoinCost },
-        },
-        data: {
-          balance: { decrement: effectiveCoinCost },
-          totalSpent: { increment: effectiveCoinCost },
-        },
-      });
+      if (effectiveCoinCost > 0) {
+        const walletUpdate = await tx.wallet.updateMany({
+          where: {
+            tutorProfileId,
+            balance: { gte: effectiveCoinCost },
+          },
+          data: {
+            balance: { decrement: effectiveCoinCost },
+            totalSpent: { increment: effectiveCoinCost },
+          },
+        });
 
-      if (walletUpdate.count === 0) {
-        throw new Error(`INSUFFICIENT_COINS: Insufficient balance to purchase lead.`);
+        if (walletUpdate.count === 0) {
+          throw new Error(`INSUFFICIENT_COINS: Insufficient balance to purchase lead.`);
+        }
       }
-    }
 
-    // Unlock stays open for later tutors. purchaseCount is shared, so every tutor
-    // sees the same updated spots. The feed displays at most 3 slots.
-    const leadUpdate = await tx.lead.updateMany({
-      where: {
-        id: leadId,
-        status: { notIn: ["CLOSED", "EXPIRED", "COMPLETED"] },
-      },
-      data: {
-        purchaseCount: { increment: 1 },
-      },
-    });
-
-    if (leadUpdate.count === 0) {
-      throw new Error(`LEAD_CLOSED: This lead is no longer accepting applications.`);
-    }
-
-    if (lead.status === "ACTIVE") {
-      await tx.lead.update({
-        where: { id: leadId },
-        data: { status: "MATCHING" },
-      });
-    }
-
-    // 3. Record purchase with effective coin cost
-    const purchase = await tx.leadPurchase.create({
-      data: {
-        leadId,
-        tutorProfileId,
-        coinsSpent: effectiveCoinCost,
-      },
-    });
-
-    // Update tutorProfile leadsUsedThisMonth
-    await tx.tutorProfile.update({
-      where: { id: tutorProfileId },
-      data: { leadsUsedThisMonth: { increment: 1 } },
-    });
-
-    if (effectiveCoinCost > 0 && wallet) {
-      const updatedW = await tx.wallet.findUnique({ where: { id: wallet.id } });
-      await tx.walletTransaction.create({
+      // Unlock stays open for later tutors. purchaseCount is shared, so every tutor
+      // sees the same updated spots. The feed displays at most 3 slots.
+      const leadUpdate = await tx.lead.updateMany({
+        where: {
+          id: leadId,
+          status: { notIn: ["CLOSED", "EXPIRED", "COMPLETED"] },
+        },
         data: {
-          walletId: wallet.id,
-          type: "DEDUCTION",
-          amount: effectiveCoinCost,
-          balanceAfter: updatedW?.balance ?? 0,
-          description: `Unlocked lead: ${lead.classLevel} (${Array.isArray(lead.subjects) ? lead.subjects.slice(0, 2).join(", ") : "All Subjects"})`,
-          referenceId: leadId,
+          purchaseCount: { increment: 1 },
         },
       });
-    }
+
+      if (leadUpdate.count === 0) {
+        throw new Error(`LEAD_CLOSED: This lead is no longer accepting applications.`);
+      }
+
+      if (lead.status === "ACTIVE") {
+        await tx.lead.update({
+          where: { id: leadId },
+          data: { status: "MATCHING" },
+        });
+      }
+
+      // 3. Record purchase with effective coin cost
+      const purchase = await tx.leadPurchase.create({
+        data: {
+          leadId,
+          tutorProfileId,
+          coinsSpent: effectiveCoinCost,
+        },
+      });
+
+      // Update tutorProfile leadsUsedThisMonth
+      await tx.tutorProfile.update({
+        where: { id: tutorProfileId },
+        data: { leadsUsedThisMonth: { increment: 1 } },
+      });
+
+      if (effectiveCoinCost > 0 && wallet) {
+        const updatedW = await tx.wallet.findUnique({ where: { id: wallet.id } });
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            type: "DEDUCTION",
+            amount: effectiveCoinCost,
+            balanceAfter: updatedW?.balance ?? 0,
+            description: `Unlocked lead: ${lead.classLevel} (${Array.isArray(lead.subjects) ? lead.subjects.slice(0, 2).join(", ") : "All Subjects"})`,
+            referenceId: leadId,
+          },
+        });
+      }
 
       return purchase;
     }, { timeout: 15000, maxWait: 10000 }).catch((err: Error) => {

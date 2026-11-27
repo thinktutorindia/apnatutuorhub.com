@@ -20,6 +20,8 @@ export interface WhatsAppConversationSummary {
     body: string;
     direction: "INBOUND" | "OUTBOUND";
     senderName?: string | null;
+    sentByUserId?: string | null;
+    sentByName?: string | null;
     createdAt: string;
   } | null;
   unreadCount: number;
@@ -51,10 +53,57 @@ export interface WhatsAppChatMessageItem {
   phone: string;
   direction: "INBOUND" | "OUTBOUND";
   senderName?: string | null;
+  sentByUserId?: string | null;
+  sentByName?: string | null;
+  status?: string | null;
   body: string;
   step?: string | null;
   isRead: boolean;
   createdAt: string;
+}
+
+export interface WhatsAppEmployeeReplyStat {
+  staffId: string;
+  name: string;
+  email: string;
+  role: string;
+  subAdminRole: string | null;
+  isActive: boolean;
+  repliesToday: number;
+  replies7d: number;
+  replies30d: number;
+  repliesTotal: number;
+  customMessagesTotal: number;
+  uniqueContacts: number;
+  failedCount: number;
+  lastReplyAt: string | null;
+}
+
+export interface WhatsAppRecentStaffReply {
+  id: string;
+  phone: string;
+  staffId: string | null;
+  staffName: string;
+  body: string;
+  step: string | null;
+  status: string | null;
+  createdAt: string;
+}
+
+export interface WhatsAppEmployeeRepliesReport {
+  isSuperAdmin: boolean;
+  range: "today" | "7d" | "30d" | "all";
+  totals: {
+    repliesToday: number;
+    replies7d: number;
+    replies30d: number;
+    repliesTotal: number;
+    uniqueContacts: number;
+    activeResponders: number;
+    unattributedStaffReplies: number;
+  };
+  employees: WhatsAppEmployeeReplyStat[];
+  recentReplies: WhatsAppRecentStaffReply[];
 }
 
 export interface WhatsAppChatContactDetails {
@@ -132,6 +181,7 @@ export async function getWhatsAppChatThreadsAction(params?: {
   unreadOnly?: boolean;
   interestedOnly?: boolean;
   replyFilter?: WhatsAppReplyFilter;
+  staffIdFilter?: string;
   page?: number;
   pageSize?: number;
 }): Promise<ActionResult<WhatsAppChatThreadsPage>> {
@@ -145,6 +195,14 @@ export async function getWhatsAppChatThreadsAction(params?: {
     const unreadOnly = Boolean(params?.unreadOnly);
     const interestedOnly = Boolean(params?.interestedOnly);
     const replyFilter: WhatsAppReplyFilter = params?.replyFilter ?? "ALL";
+    const isSuperAdmin = guard.session.user.role === "SUPER_ADMIN";
+    const requestedStaffId = params?.staffIdFilter?.trim() || null;
+    // Sub-admins may only filter by their own ID; Super Admins can inspect any staff member
+    const effectiveStaffFilter = requestedStaffId
+      ? isSuperAdmin
+        ? requestedStaffId
+        : guard.session.user.id
+      : null;
     const page = Math.max(1, Math.floor(params?.page ?? 1));
     const pageSize = Math.min(
       MAX_THREAD_PAGE_SIZE,
@@ -157,6 +215,7 @@ export async function getWhatsAppChatThreadsAction(params?: {
       phone: string;
       direction: string;
       senderName: string | null;
+      sentByUserId: string | null;
       contactName: string | null;
       body: string;
       step: string | null;
@@ -195,10 +254,10 @@ export async function getWhatsAppChatThreadsAction(params?: {
 
     const statsRows = await prisma.$queryRaw<StatsRow[]>`
       WITH latest AS (
-        SELECT id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt"
+        SELECT id, phone, direction, "senderName", "sentByUserId", "contactName", body, step, "messageId", "isRead", "createdAt"
         FROM (
           SELECT
-            id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt",
+            id, phone, direction, "senderName", "sentByUserId", "contactName", body, step, "messageId", "isRead", "createdAt",
             ROW_NUMBER() OVER (PARTITION BY phone ORDER BY "createdAt" DESC) AS rn
           FROM whatsapp_chat_messages
         ) x
@@ -244,6 +303,16 @@ export async function getWhatsAppChatThreadsAction(params?: {
           ${interestedOnly}::boolean = false
           OR RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = ANY(${interestedList}::text[])
         )
+        AND (
+          ${effectiveStaffFilter}::text IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM whatsapp_chat_messages wm
+            WHERE wm.phone = base.phone
+              AND wm."sentByUserId" = ${effectiveStaffFilter}
+              AND wm.step = 'STAFF_REPLY'
+          )
+        )
     `;
 
     const stats = statsRows[0] ?? {
@@ -272,10 +341,10 @@ export async function getWhatsAppChatThreadsAction(params?: {
 
     const pageRows = await prisma.$queryRaw<LatestRow[]>`
       WITH latest AS (
-        SELECT id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt"
+        SELECT id, phone, direction, "senderName", "sentByUserId", "contactName", body, step, "messageId", "isRead", "createdAt"
         FROM (
           SELECT
-            id, phone, direction, "senderName", "contactName", body, step, "messageId", "isRead", "createdAt",
+            id, phone, direction, "senderName", "sentByUserId", "contactName", body, step, "messageId", "isRead", "createdAt",
             ROW_NUMBER() OVER (PARTITION BY phone ORDER BY "createdAt" DESC) AS rn
           FROM whatsapp_chat_messages
         ) x
@@ -313,10 +382,24 @@ export async function getWhatsAppChatThreadsAction(params?: {
           ${interestedOnly}::boolean = false
           OR RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = ANY(${interestedList}::text[])
         )
+        AND (
+          ${effectiveStaffFilter}::text IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM whatsapp_chat_messages wm
+            WHERE wm.phone = base.phone
+              AND wm."sentByUserId" = ${effectiveStaffFilter}
+              AND wm.step = 'STAFF_REPLY'
+          )
+        )
       ORDER BY "createdAt" DESC
       LIMIT ${pageSize}
       OFFSET ${offset}
     `;
+
+    const staffUserIds = Array.from(
+      new Set(pageRows.map((r) => r.sentByUserId).filter((id): id is string => Boolean(id)))
+    );
 
     const phones = pageRows.map((r) => r.phone);
     const phoneVariants: string[] = [];
@@ -326,7 +409,7 @@ export async function getWhatsAppChatThreadsAction(params?: {
       if (digits10 && digits10 !== p) phoneVariants.push(digits10);
     });
 
-    const [users, sessions] = await Promise.all([
+    const [users, sessions, staffSenders] = await Promise.all([
       phoneVariants.length === 0
         ? Promise.resolve([])
         : prisma.user.findMany({
@@ -366,7 +449,15 @@ export async function getWhatsAppChatThreadsAction(params?: {
               userType: true,
             },
           }),
+      staffUserIds.length === 0
+        ? Promise.resolve([])
+        : prisma.user.findMany({
+            where: { id: { in: staffUserIds } },
+            select: { id: true, name: true, email: true },
+          }),
     ]);
+
+    const staffNameMap = new Map(staffSenders.map((u) => [u.id, u.name || u.email]));
 
     const userMap = new Map<string, (typeof users)[0]>();
     users.forEach((u) => {
@@ -428,6 +519,8 @@ export async function getWhatsAppChatThreadsAction(params?: {
         if (!hay.includes(search)) continue;
       }
 
+      const sentByName = latestMsg.sentByUserId ? staffNameMap.get(latestMsg.sentByUserId) ?? null : null;
+
       threads.push({
         phone,
         name,
@@ -440,6 +533,8 @@ export async function getWhatsAppChatThreadsAction(params?: {
           body: latestMsg.body,
           direction: latestMsg.direction as "INBOUND" | "OUTBOUND",
           senderName: latestMsg.senderName,
+          sentByUserId: latestMsg.sentByUserId,
+          sentByName,
           createdAt: latestMsg.createdAt.toISOString(),
         },
         unreadCount: unread,
@@ -493,26 +588,30 @@ export async function getWhatsAppChatMessagesAction(
   const limit = Math.min(Math.max(options?.limit ?? 350, 50), 1500);
 
   try {
-    let rawMessages: Awaited<ReturnType<typeof prisma.whatsappChatMessage.findMany>>;
-
-    if (incremental && sinceIso) {
-      const sinceDate = new Date(sinceIso);
-      if (Number.isNaN(sinceDate.getTime())) {
-        return actionError("Invalid since timestamp");
-      }
-      rawMessages = await prisma.whatsappChatMessage.findMany({
-        where: { phone: normalized, createdAt: { gt: sinceDate } },
-        orderBy: { createdAt: "asc" },
-        take: 150,
-      });
-    } else {
-      const latestBatch = await prisma.whatsappChatMessage.findMany({
-        where: { phone: normalized },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-      });
-      rawMessages = latestBatch.reverse();
+    const sinceDate = incremental && sinceIso ? new Date(sinceIso) : null;
+    if (sinceDate && Number.isNaN(sinceDate.getTime())) {
+      return actionError("Invalid since timestamp");
     }
+
+    const msgInclude = {
+      sentByUser: { select: { id: true, name: true, email: true } },
+    } as const;
+
+    const rawMessages = sinceDate
+      ? await prisma.whatsappChatMessage.findMany({
+          where: { phone: normalized, createdAt: { gt: sinceDate } },
+          orderBy: { createdAt: "asc" },
+          take: 150,
+          include: msgInclude,
+        })
+      : (
+          await prisma.whatsappChatMessage.findMany({
+            where: { phone: normalized },
+            orderBy: { createdAt: "desc" },
+            take: limit,
+            include: msgInclude,
+          })
+        ).reverse();
 
     if (markRead && rawMessages.length > 0) {
       const unreadInboundIds = rawMessages
@@ -540,6 +639,9 @@ export async function getWhatsAppChatMessagesAction(
       phone: m.phone,
       direction: m.direction as "INBOUND" | "OUTBOUND",
       senderName: m.senderName,
+      sentByUserId: m.sentByUserId ?? null,
+      sentByName: m.sentByUser ? m.sentByUser.name || m.sentByUser.email : null,
+      status: m.status ?? null,
       body: m.body,
       step: m.step,
       isRead: m.isRead,
@@ -609,7 +711,7 @@ export async function getWhatsAppChatMessagesAction(
 
 /**
  * Send a manual WhatsApp reply directly from staff/admin to user via Aqua SMS.
- * Automatically saves the message in whatsapp_chat_messages with staff's name.
+ * Automatically saves the message in whatsapp_chat_messages with staff's name and user ID.
  */
 export async function sendStaffWhatsAppReplyAction(params: {
   phone: string;
@@ -640,11 +742,12 @@ export async function sendStaffWhatsAppReplyAction(params: {
       console.warn(`[sendStaffWhatsAppReplyAction] Aqua API warning: ${res.error}`);
     }
 
-    // 2. Append to our log immediately. Do not wait for Aqua to echo the message back.
+    // 2. Append to our log immediately with immutable sentByUserId attribution.
     const saved = await upsertWhatsAppChatMessage({
       phone: normalized,
       direction: "OUTBOUND",
       senderName: `${staffName} (Staff)`,
+      sentByUserId: guard.session.user.id,
       body: cleanText,
       step: "STAFF_REPLY",
       messageId: res.providerMessageId || null,
@@ -654,40 +757,52 @@ export async function sendStaffWhatsAppReplyAction(params: {
     });
     if (!saved) return actionError("Failed to store the reply in the local chat log.");
 
-    // Update presence & log activity for staff member
+    // Update presence, staff activity trail, and admin audit log per person
     try {
-      await prisma.staffPresence.upsert({
-        where: { staffId: guard.session.user.id },
-        create: {
-          staffId: guard.session.user.id,
-          dutyStatus: "ON_DUTY",
-          online: true,
-          isIdle: false,
-          currentPath: "/admin/whatsapp-chats",
-          lastSeenAt: new Date(),
-          lastActiveAt: new Date(),
-        },
-        update: {
-          online: true,
-          isIdle: false,
-          currentPath: "/admin/whatsapp-chats",
-          lastSeenAt: new Date(),
-          lastActiveAt: new Date(),
-        },
-      });
-      await prisma.staffActivityEvent.create({
-        data: {
-          staffId: guard.session.user.id,
-          type: "ACTIVE",
-          path: "/admin/whatsapp-chats",
-          detail: `Sent manual WhatsApp reply to ${normalized}`,
-        },
-      });
+      await Promise.all([
+        prisma.staffPresence.upsert({
+          where: { staffId: guard.session.user.id },
+          create: {
+            staffId: guard.session.user.id,
+            dutyStatus: "ON_DUTY",
+            online: true,
+            isIdle: false,
+            currentPath: "/admin/whatsapp-chats",
+            lastSeenAt: new Date(),
+            lastActiveAt: new Date(),
+          },
+          update: {
+            online: true,
+            isIdle: false,
+            currentPath: "/admin/whatsapp-chats",
+            lastSeenAt: new Date(),
+            lastActiveAt: new Date(),
+          },
+        }),
+        prisma.staffActivityEvent.create({
+          data: {
+            staffId: guard.session.user.id,
+            type: "ACTIVE",
+            path: "/admin/whatsapp-chats",
+            detail: `Sent manual WhatsApp reply to ${normalized}`,
+          },
+        }),
+        prisma.auditLog.create({
+          data: {
+            adminId: guard.session.user.id,
+            action: "WHATSAPP_STAFF_REPLY",
+            entityType: "WhatsApp",
+            entityId: normalized,
+            details: `Replied to +${normalized} (${res.ok ? res.rawStatus || "accepted" : "failed"}): ${cleanText.slice(0, 140)}`,
+          },
+        }),
+      ]);
     } catch (auditErr) {
       console.warn("[sendStaffWhatsAppReplyAction] Audit tracking warning:", auditErr);
     }
 
     revalidatePath("/admin/whatsapp-chats");
+    revalidatePath("/admin/sub-admins/analytics");
 
     return actionSuccess({
       message: {
@@ -695,6 +810,9 @@ export async function sendStaffWhatsAppReplyAction(params: {
         phone: saved.phone,
         direction: "OUTBOUND",
         senderName: saved.senderName,
+        sentByUserId: saved.sentByUserId ?? guard.session.user.id,
+        sentByName: staffName,
+        status: saved.status ?? null,
         body: saved.body,
         step: saved.step,
         isRead: saved.isRead,
@@ -819,5 +937,233 @@ export async function markWhatsAppContactAsInterestedAction(params: {
   } catch (err) {
     console.error("[markWhatsAppContactAsInterestedAction] Error:", err);
     return actionError(err instanceof Error ? err.message : "Failed to mark as interested.");
+  }
+}
+
+function getIstMidnightUtc(): Date {
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const istNow = new Date(Date.now() + IST_OFFSET_MS);
+  return new Date(
+    Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()) - IST_OFFSET_MS
+  );
+}
+
+/**
+ * Per-employee WhatsApp reply tracking & leaderboard.
+ * - SUPER_ADMIN: returns breakdown across all team members (SUB_ADMIN + SUPER_ADMIN) and recent replies.
+ * - SUB_ADMIN: scoped strictly to their own replies so employees see only their own counts.
+ */
+export async function getEmployeeWhatsAppRepliesReportAction(params?: {
+  range?: "today" | "7d" | "30d" | "all";
+  staffId?: string;
+}): Promise<ActionResult<WhatsAppEmployeeRepliesReport>> {
+  const guard = await requireStaffOrAdmin();
+  if (guard.error || !guard.session) return actionError(guard.error ?? "Unauthorized");
+
+  const isSuperAdmin = guard.session.user.role === "SUPER_ADMIN";
+  const range = params?.range ?? "30d";
+  const scopedStaffId = isSuperAdmin
+    ? params?.staffId?.trim() || null
+    : guard.session.user.id;
+
+  try {
+    const now = Date.now();
+    const todayStart = getIstMidnightUtc();
+    const sevenDaysStart = new Date(now - 7 * 86_400_000);
+    const thirtyDaysStart = new Date(now - 30 * 86_400_000);
+
+    type StaffReplyAgg = {
+      sentByUserId: string;
+      replies_today: number;
+      replies_7d: number;
+      replies_30d: number;
+      replies_total: number;
+      custom_total: number;
+      unique_contacts: number;
+      failed_count: number;
+      last_reply_at: Date | null;
+    };
+
+    const staffWhere = isSuperAdmin
+      ? { role: { in: ["SUPER_ADMIN", "SUB_ADMIN"] as ("SUPER_ADMIN" | "SUB_ADMIN")[] } }
+      : { id: guard.session.user.id };
+
+    const recentSince =
+      range === "today"
+        ? todayStart
+        : range === "7d"
+          ? sevenDaysStart
+          : range === "30d"
+            ? thirtyDaysStart
+            : null;
+
+    const [staffUsers, aggRows, unattributedRow, recentRows] = await Promise.all([
+      prisma.user.findMany({
+        where: staffWhere,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          subAdminRole: true,
+          isActive: true,
+        },
+        orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      }),
+      prisma.$queryRaw<StaffReplyAgg[]>`
+        SELECT
+          "sentByUserId",
+          COUNT(*) FILTER (WHERE step = 'STAFF_REPLY' AND "createdAt" >= ${todayStart})::int AS replies_today,
+          COUNT(*) FILTER (WHERE step = 'STAFF_REPLY' AND "createdAt" >= ${sevenDaysStart})::int AS replies_7d,
+          COUNT(*) FILTER (WHERE step = 'STAFF_REPLY' AND "createdAt" >= ${thirtyDaysStart})::int AS replies_30d,
+          COUNT(*) FILTER (WHERE step = 'STAFF_REPLY')::int AS replies_total,
+          COUNT(*) FILTER (WHERE step = 'ADMIN_CUSTOM')::int AS custom_total,
+          COUNT(DISTINCT phone) FILTER (
+            WHERE step = 'STAFF_REPLY'
+              AND (${recentSince}::timestamptz IS NULL OR "createdAt" >= ${recentSince})
+          )::int AS unique_contacts,
+          COUNT(*) FILTER (
+            WHERE step = 'STAFF_REPLY'
+              AND UPPER(COALESCE(status, '')) = 'FAILED'
+              AND (${recentSince}::timestamptz IS NULL OR "createdAt" >= ${recentSince})
+          )::int AS failed_count,
+          MAX("createdAt") FILTER (WHERE step = 'STAFF_REPLY') AS last_reply_at
+        FROM whatsapp_chat_messages
+        WHERE "sentByUserId" IS NOT NULL
+          AND direction = 'OUTBOUND'
+          AND step IN ('STAFF_REPLY', 'ADMIN_CUSTOM')
+          AND (${scopedStaffId}::text IS NULL OR "sentByUserId" = ${scopedStaffId})
+        GROUP BY "sentByUserId"
+      `,
+      isSuperAdmin
+        ? prisma.whatsappChatMessage.count({
+            where: { step: "STAFF_REPLY", sentByUserId: null },
+          })
+        : Promise.resolve(0),
+      prisma.whatsappChatMessage.findMany({
+        where: {
+          direction: "OUTBOUND",
+          step: { in: ["STAFF_REPLY", "ADMIN_CUSTOM"] },
+          sentByUserId: scopedStaffId ? scopedStaffId : { not: null },
+          ...(recentSince ? { createdAt: { gte: recentSince } } : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: 40,
+        select: {
+          id: true,
+          phone: true,
+          body: true,
+          step: true,
+          status: true,
+          senderName: true,
+          sentByUserId: true,
+          createdAt: true,
+          sentByUser: {
+            select: { name: true, email: true },
+          },
+        },
+      }),
+    ]);
+
+    const aggMap = new Map(aggRows.map((r) => [r.sentByUserId, r]));
+
+    const employees: WhatsAppEmployeeReplyStat[] = staffUsers
+      .map((u) => {
+        const agg = aggMap.get(u.id);
+        return {
+          staffId: u.id,
+          name: u.name || u.email.split("@")[0],
+          email: u.email,
+          role: u.role,
+          subAdminRole: u.subAdminRole,
+          isActive: u.isActive,
+          repliesToday: agg?.replies_today ?? 0,
+          replies7d: agg?.replies_7d ?? 0,
+          replies30d: agg?.replies_30d ?? 0,
+          repliesTotal: agg?.replies_total ?? 0,
+          customMessagesTotal: agg?.custom_total ?? 0,
+          uniqueContacts: agg?.unique_contacts ?? 0,
+          failedCount: agg?.failed_count ?? 0,
+          lastReplyAt: agg?.last_reply_at ? new Date(agg.last_reply_at).toISOString() : null,
+        };
+      })
+      .sort((a, b) => {
+        const aMetric =
+          range === "today"
+            ? a.repliesToday
+            : range === "7d"
+              ? a.replies7d
+              : range === "30d"
+                ? a.replies30d
+                : a.repliesTotal;
+        const bMetric =
+          range === "today"
+            ? b.repliesToday
+            : range === "7d"
+              ? b.replies7d
+              : range === "30d"
+                ? b.replies30d
+                : b.repliesTotal;
+        if (bMetric !== aMetric) return bMetric - aMetric;
+        if (b.repliesTotal !== a.repliesTotal) return b.repliesTotal - a.repliesTotal;
+        return Number(b.isActive) - Number(a.isActive);
+      });
+
+    // Global unique contacts across the selected window
+    type DistinctRow = { cnt: number };
+    const distinctRows = await prisma.$queryRaw<DistinctRow[]>`
+      SELECT COUNT(DISTINCT phone)::int AS cnt
+      FROM whatsapp_chat_messages
+      WHERE direction = 'OUTBOUND'
+        AND step = 'STAFF_REPLY'
+        AND "sentByUserId" IS NOT NULL
+        AND (${scopedStaffId}::text IS NULL OR "sentByUserId" = ${scopedStaffId})
+        AND (${recentSince}::timestamptz IS NULL OR "createdAt" >= ${recentSince})
+    `;
+
+    const repliesToday = employees.reduce((s, e) => s + e.repliesToday, 0);
+    const replies7d = employees.reduce((s, e) => s + e.replies7d, 0);
+    const replies30d = employees.reduce((s, e) => s + e.replies30d, 0);
+    const repliesTotal = employees.reduce((s, e) => s + e.repliesTotal, 0);
+    const activeResponders = employees.filter((e) => {
+      if (range === "today") return e.repliesToday > 0;
+      if (range === "7d") return e.replies7d > 0;
+      if (range === "30d") return e.replies30d > 0;
+      return e.repliesTotal > 0;
+    }).length;
+
+    const recentReplies: WhatsAppRecentStaffReply[] = recentRows.map((r) => ({
+      id: r.id,
+      phone: r.phone,
+      staffId: r.sentByUserId,
+      staffName:
+        r.sentByUser?.name ||
+        r.sentByUser?.email ||
+        r.senderName ||
+        "Staff",
+      body: r.body,
+      step: r.step,
+      status: r.status,
+      createdAt: r.createdAt.toISOString(),
+    }));
+
+    return actionSuccess({
+      isSuperAdmin,
+      range,
+      totals: {
+        repliesToday,
+        replies7d,
+        replies30d,
+        repliesTotal,
+        uniqueContacts: distinctRows[0]?.cnt ?? 0,
+        activeResponders,
+        unattributedStaffReplies: unattributedRow,
+      },
+      employees,
+      recentReplies,
+    });
+  } catch (err) {
+    console.error("[getEmployeeWhatsAppRepliesReportAction] Error:", err);
+    return actionError(err instanceof Error ? err.message : "Failed to load employee WhatsApp report.");
   }
 }

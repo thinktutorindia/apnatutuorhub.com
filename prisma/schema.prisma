@@ -247,6 +247,7 @@ model User {
   staffFollowUpReminders StaffFollowUpReminder[]  @relation("StaffFollowUpReminders")
   staffPresence          StaffPresence?           @relation("StaffPresence")
   staffActivityEvents    StaffActivityEvent[]     @relation("StaffActivityEvents")
+  whatsappRepliesSent    WhatsappChatMessage[]    @relation("WhatsappRepliesSent")
 
   @@map("users")
 }
@@ -1179,22 +1180,25 @@ model WhatsappSession {
 // ────────────────────────────────────────────────
 
 model WhatsappChatMessage {
-  id          String   @id @default(cuid())
-  phone       String                        // E.164, e.g. "919000000000"
-  direction   String                        // "INBOUND" | "OUTBOUND"
-  senderName  String?                       // "User" | "Bot" | Staff Member Name
-  body        String   @db.Text             // Full message text
-  step        String?                       // Bot step at time of message
-  messageId   String?  @unique              // Provider message ID (Aqua/Meta); nulls allowed
-  messageType String?                       // text, image, document, template, interactive, ...
-  status      String?                       // received, accepted, sent, delivered, read, failed
-  contactName String?                       // WhatsApp profile / contact name when known
-  isRead      Boolean  @default(false)      // Marked true when staff views the message
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  phone        String                        // E.164, e.g. "919000000000"
+  direction    String                        // "INBOUND" | "OUTBOUND"
+  senderName   String?                       // "User" | "Bot" | Staff Member Name
+  sentByUserId String?                       // Foreign key to User (SUPER_ADMIN / SUB_ADMIN) who sent this reply
+  sentByUser   User?    @relation("WhatsappRepliesSent", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  body         String   @db.Text             // Full message text
+  step         String?                       // Bot step at time of message
+  messageId    String?  @unique              // Provider message ID (Aqua/Meta); nulls allowed
+  messageType  String?                       // text, image, document, template, interactive, ...
+  status       String?                       // received, accepted, sent, delivered, read, failed
+  contactName  String?                       // WhatsApp profile / contact name when known
+  isRead       Boolean  @default(false)      // Marked true when staff views the message
+  createdAt    DateTime @default(now())
 
   @@index([phone, createdAt])
   @@index([createdAt])
   @@index([isRead])
+  @@index([sentByUserId, createdAt])
   @@map("whatsapp_chat_messages")
 }
 

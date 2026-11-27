@@ -29,6 +29,7 @@ import {
   cleanClassLevelDisplay,
   sanitizeSubjectsForClassLevel,
 } from "@/lib/dummy-campaign-types";
+import { resolveParentContactForLead } from "@/lib/lead-contact-generator";
 import { DashboardQuickPrefTrigger } from "@/components/tutor/DashboardQuickPrefTrigger";
 import { SeniorDashboardClient, SeniorLeadItem } from "@/components/tutor/SeniorDashboardClient";
 
@@ -436,7 +437,7 @@ export default async function TutorDashboardPage({ searchParams }: PageProps) {
             parentProfile: {
               include: {
                 user: {
-                  select: { name: true, phone: true },
+                  select: { name: true, phone: true, email: true, role: true },
                 },
               },
             },
@@ -457,10 +458,10 @@ export default async function TutorDashboardPage({ searchParams }: PageProps) {
     }
   > = {};
   for (const p of allPurchases) {
-    const parentUser = p.lead?.parentProfile?.user;
+    const resolvedContact = p.lead ? resolveParentContactForLead(p.lead) : null;
     purchasedMap[p.leadId] = {
-      parentName: parentUser?.name || "Parent",
-      parentPhone: parentUser?.phone || "",
+      parentName: resolvedContact?.name || "Verified Parent",
+      parentPhone: resolvedContact?.phone || "",
       purchaseId: p.id,
       purchasedAt: p.createdAt.toISOString(),
       parentProfileId: p.lead?.parentProfileId || undefined,
@@ -495,7 +496,7 @@ export default async function TutorDashboardPage({ searchParams }: PageProps) {
     .filter((p) => p.lead && !displayLeads.some((d) => d.id === p.leadId))
     .map((p) => {
       const l = p.lead;
-      const parentUser = l.parentProfile?.user;
+      const resolvedContact = resolveParentContactForLead(l);
       return {
         id: l.id,
         inquiryNumber: l.inquiryNumber ?? 1001,
@@ -509,8 +510,8 @@ export default async function TutorDashboardPage({ searchParams }: PageProps) {
         timingPreference: l.timingPreference,
         distanceKm: null,
         isPurchased: true,
-        parentName: parentUser?.name || "Verified Parent",
-        parentPhone: parentUser?.phone || null,
+        parentName: resolvedContact.name || "Verified Parent",
+        parentPhone: resolvedContact.phone || null,
         parentProfileId: l.parentProfileId || null,
         purchaseId: p.id,
         purchasedAt: p.createdAt.toISOString(),

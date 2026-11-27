@@ -93,7 +93,7 @@ type UnlockedContact = {
 };
 
 function unlockedStorageKey(tutorId?: string) {
-  return `ath:unlocked-contacts:v1:${tutorId || "anonymous"}`;
+  return `ath:unlocked-contacts:v2:${tutorId || "anonymous"}`;
 }
 
 function readUnlockedContacts(tutorId?: string): UnlockedContact[] {
@@ -873,8 +873,10 @@ export function LeadFeedClient({
   const visibleUnlockedContacts = useMemo(() => {
     const byLead = new Map<string, UnlockedContact>();
     for (const c of serverUnlockedContacts) byLead.set(c.leadId, c);
-    // Locally cached contact is fresher and survives a slow server refresh.
-    for (const c of unlockedContacts) byLead.set(c.leadId, c);
+    // Only fall back to locally cached contact if the server list hasn't caught up yet.
+    for (const c of unlockedContacts) {
+      if (!byLead.has(c.leadId)) byLead.set(c.leadId, c);
+    }
     return Array.from(byLead.values());
   }, [serverUnlockedContacts, unlockedContacts]);
 

@@ -97,7 +97,7 @@ export function resolveParentContactForLead(lead: {
 
   const isGenericName =
     !rawName ||
-    /^(parent|user|admin|apnatutorhub|verified|coordinator|test)/i.test(rawName);
+    /^(parent|user|admin|apnatutorhub|verified|coordinator|test|online\s*parent|helpdesk|inquiry)/i.test(rawName);
 
   const isPlaceholderPhone =
     !rawPhone ||

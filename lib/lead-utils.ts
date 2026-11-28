@@ -74,8 +74,8 @@ export async function getNextInquiryNumber(
 
 export type BudgetRateType = "MONTHLY" | "HOURLY";
 
-/** Slots are presented as 1–5 out of 5, derived from the lead id so every tutor sees the same number. */
-export const PUBLIC_TUTOR_SLOTS = 5;
+/** Slots are presented as 1–3 out of 3, derived from the lead id so every tutor sees the same number. */
+export const PUBLIC_TUTOR_SLOTS = 3;
 
 export function publicTutorSlots(
   leadId?: string | null,
@@ -90,7 +90,7 @@ export function publicTutorSlots(
   for (let i = 0; i < id.length; i++) {
     hash = (hash * 31 + id.charCodeAt(i)) | 0;
   }
-  const base = 1 + (Math.abs(hash) % PUBLIC_TUTOR_SLOTS); // stable 1..5 for this lead
+  const base = 1 + (Math.abs(hash) % PUBLIC_TUTOR_SLOTS); // stable 1..3 for this lead
   // The tutor who unlocked sees one slot fewer; everyone else sees the original.
   const left = unlockedByViewer ? Math.max(0, base - 1) : base;
   return {

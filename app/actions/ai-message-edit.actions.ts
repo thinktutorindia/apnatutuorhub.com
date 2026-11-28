@@ -352,7 +352,7 @@ function applyLocalToneEdits(
 
     case "COMMISSION_PITCH":
       if (!text.includes("1,257") && !text.includes("Commission")) {
-        text = `${text.trim()}\n\n💼 *Commission Based Plan (Kam Upfront Se Shuru Karein):*\n• Registration Fee: ₹1,257 (6 Months Validity)\n• 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix)\n• Platform Commission: 1st month fee ka 50%, aur 2nd month se sirf 5% monthly commission`;
+        text = `${text.trim()}\n\n💼 *Commission Based Plan (Kam Upfront Se Shuru Karein):*\n• Registration Fee: ₹1,257 (6 Months Validity)\n• 60 coins (6 lead unlocks at 10 coins fixed across all classes 1–12)\n• Platform Commission: 1st month fee ka 50%, aur 2nd month se sirf 5% monthly commission`;
         explanation = "Appended ₹1,257 Commission Based Plan terms.";
       }
       break;
@@ -458,7 +458,7 @@ Incoming Customer Message: "${incomingMessage || "(No prior message, drafting ge
 You are drafting/editing a WhatsApp recruitment pitch for tutors who expressed interest in taking tuitions.
 Follow strict rules:
 - 5km nearby locality or ONLINE mode.
-- Commission Based Plan: Registration Fee ₹1,257 (6 Months Validity), 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix), 50% 1st month fee commission, then 5% from 2nd month onwards.
+- Commission Based Plan: Registration Fee ₹1,257 (6 Months Validity), 60 coins (6 lead unlocks at 10 coins fixed across all classes 1–12), 50% 1st month fee commission, then 5% from 2nd month onwards.
 - Warm Delhi-NCR coordinator Hinglish: "Namaste {{name}} ji 🙏", "Student ke parent demo class schedule karna chahte hain."
 - No closing signature like "— Coordinator, Apna Tutor Hub".
 `;

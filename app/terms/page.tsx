@@ -153,7 +153,7 @@ export default function TermsPage() {
                     <div className="text-[10px] text-emerald-700 font-medium">50% 1st month + 5% recurring from 2nd month</div>
                   </td>
                   <td className="py-3 px-4 font-bold text-emerald-900">₹1,257 (Registration Fee)</td>
-                  <td className="py-3 px-4 text-center font-bold text-slate-900">60 coins (6 primary / 3 secondary / 2 senior, or mix)</td>
+                  <td className="py-3 px-4 text-center font-bold text-slate-900">60 coins (6 lead unlocks · 10 coins fixed Class 1–12)</td>
                   <td className="py-3 px-4 text-center text-emerald-700 font-bold">6 Months</td>
                   <td className="py-3 px-4 text-emerald-900 font-bold">Low Competition (Max 3 tutors)</td>
                 </tr>

@@ -35,7 +35,7 @@
 
 ## 3. Active Membership Plan & Support Details
 
-- **Active Plan:** **₹1,257 Commission Based Plan** (6 months validity, 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix) unlocked, max 3 tutors per lead, 50% commission on 1st month tuition fee + 5% recurring monthly from 2nd month).
+- **Active Plan:** **₹1,257 Commission Based Plan** (6 months validity, 60 coins (6 lead unlocks at 10 coins fixed across all classes 1–12) unlocked, max 3 tutors per lead, 50% commission on 1st month tuition fee + 5% recurring monthly from 2nd month).
 - **Instant Activation:** `https://apnatutorhub.com/tutor/plans?checkout=STARTER`
 - **Portal Links:** Login `https://apnatutorhub.com/login` | Leads `https://apnatutorhub.com/tutor/leads` | Wallet `https://apnatutorhub.com/tutor/wallet`
 - **Support:** Helpline `08062180653` (9 AM – 7 PM Mon–Sat) | Coordinator WhatsApp `+91 93191 93109`

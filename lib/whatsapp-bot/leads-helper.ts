@@ -940,7 +940,7 @@ export async function formatSingleLeadInquiry(
       `👉 Unlock here: https://apnatutorhub.com/tutor/leads?inquiry=${lead.inquiryNumber}`
     : `💎 *How to Unlock:*\n` +
       `1. Open the dashboard link and click *Unlock Lead*.\n` +
-      `2. Fixed unlock cost: *${coinCost} coins* (Class 1–8: 10 · Class 9–10: 20 · Class 11–12 / entrance: 30).\n` +
+      `2. Fixed unlock cost: *${coinCost} coins* across all classes (Class 1–12).\n` +
       `3. ₹${COMMISSION_PLAN.priceInr} Commission Plan credits ${COMMISSION_PLAN.coinSummary}.\n\n` +
       `👉 *Membership Plans:*\nhttps://apnatutorhub.com/tutor/plans`;
 

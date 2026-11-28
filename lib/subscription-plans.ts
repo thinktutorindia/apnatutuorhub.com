@@ -16,10 +16,10 @@ export const COMMISSION_PLAN = {
   validityText: "6 Months",
   unlockCoins: {
     class1To8: 10,
-    class9To10: 20,
-    class11To12AndEntrance: 30,
+    class9To10: 10,
+    class11To12AndEntrance: 10,
   },
-  coinSummary: "60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix)",
+  coinSummary: "60 coins (6 lead unlocks at 10 coins fixed across all classes 1–12)",
 } as const;
 
 /** One helper for every user-facing mention of the plan's coin allowance. */

@@ -2803,6 +2803,27 @@ export async function processMessage(
     };
   }
 
+  // Direct call/support unavailable complaints -> explain phone support is for Verified Tutors only
+  const isAutoAwayNoise = /(?:thank\s*you\s*for\s*your\s*message|we'?re\s*unavailable\s*right\s*now)/i.test(rawMessage);
+  const isSupportUnavailableComplaint =
+    !isAutoAwayNoise &&
+    /(?:no\s*one\s*(?:is\s*)?(?:taking|picking|answering|responding)|not\s*(?:taking|picking|pick\s*up|answering|responding|available|reachable)|call\s*(?:nahi|nhi|not)\s*(?:utha|pick|lag|connect|aya|aaya)|support\s*(?:team\s*)?(?:is\s*)?(?:not\s*available|unavailable|busy)|helpline\s*(?:is\s*)?(?:not\s*(?:working|reachable|available)|busy|band)|koi\s*(?:call|phone)\s*(?:nahi|nhi)\s*(?:utha|lag))/i.test(
+      rawMessage
+    );
+  if (isSupportUnavailableComplaint) {
+    const isHinglish = /\b(?:nhi|nahi|utha|koi|aaya|aya|lag|karo|band)\b|[\u0900-\u097F]/i.test(rawMessage);
+    const reply = isHinglish
+      ? `📞 *Direct Call Support — Sirf Verified Tutors Ke Liye*\n\nApnaTutorHub par direct phone aur coordinator call support *sirf Verified (Paid Plan) Tutors* ke liye available hai. ✅\n\n• *Dedicated Coordinator & Phone Support* unlock karne ke liye apna Verified Tutor Plan activate karein:\n  👉 https://apnatutorhub.com/tutor/plans\n\n• Agar aapne abhi plan activate nahi kiya hai, to apna sawal yahin WhatsApp par likh dein — humari team aur assistant aapki madad yahin chat par karenge! 🙏`
+      : `📞 *Direct Call Support — Verified Tutors Only*\n\nDirect phone & coordinator call support is exclusively available for *Verified (Paid Plan) Tutors* on ApnaTutorHub. ✅\n\n• To unlock *Dedicated Coordinator & Phone Support*, please activate your Verified Tutor Plan here:\n  👉 https://apnatutorhub.com/tutor/plans\n\n• If you haven't activated a plan yet, you can still get instant help right here on WhatsApp — just type your question below or reply *LEADS* / *PLANS*! 🙏`;
+    return {
+      reply,
+      nextStep: step,
+      updatedData: data,
+      retries: 0,
+      quickReplies: ["View Plans 💰", "View Leads 📋", "MENU 🏠"],
+    };
+  }
+
   // Exact single-token Help / Support / Call commands
   if (HELP_COMMANDS.includes(msg) || /^(?:support|help|madad|coordinator|call)$/i.test(rawMessage.trim())) {
     return {

@@ -47,7 +47,7 @@ Student ke parent demo class schedule karna chahte hain.
 
 💼 *Commission Based Plan (Kam Upfront Se Shuru Karein):*
 • Registration Fee: ₹1,257 (6 Months Validity)
-• 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix)
+• 60 coins (6 lead unlocks at 10 coins fixed across all classes 1–12)
 • Platform Commission: 1st month fee ka 50%, aur 2nd month se sirf 5% monthly commission
 
 Agar aap yeh tuition lene ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko parent se direct connect kara degi.`;
@@ -74,7 +74,7 @@ Student ke parent demo class arrange karwana chahte hain.
 
 💼 *Commission Based Plan (Kam Upfront Se Shuru Karein):*
 • Registration Fee: ₹1,257 (6 Months Validity)
-• 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix)
+• 60 coins (6 lead unlocks at 10 coins fixed across all classes 1–12)
 • Platform Commission: 1st month fee ka 50%, aur 2nd month se sirf 5% monthly commission
 
 Agar aap yeh online tuition accept karne ke liye interested hain, toh abhi *YES* ya *1* reply kijiye. Hamari team aapko student details share kar degi.`;
@@ -1282,7 +1282,7 @@ export function WhatsAppBlastModal({ isOpen, onClose, onRefresh }: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleAiEdit("Include Commission Based Plan details: ₹1,257 registration fee, 6 months validity, 60 coins (6 primary / 3 secondary / 2 senior unlocks, or any mix), 50% 1st month + 5% recurring from 2nd month")}
+                    onClick={() => handleAiEdit("Include Commission Based Plan details: ₹1,257 registration fee, 6 months validity, 60 coins (6 lead unlocks at 10 coins fixed across all classes 1–12), 50% 1st month + 5% recurring from 2nd month")}
                     disabled={isAiEditing}
                     className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 hover:border-purple-400 text-purple-900 text-[10px] font-black cursor-pointer flex items-center gap-1"
                   >

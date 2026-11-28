@@ -97,9 +97,9 @@ const TEMPLATES: Record<TemplateKey, Record<ReplyLanguage, string>> = {
     HI: "आप अपने डैशबोर्ड पर मैचिंग ट्यूशन लीड देख सकते हैं: https://apnatutorhub.com/tutor/leads",
   },
   plans: {
-    EN: "The ₹1,257 Commission Plan gives 60 coins — 6 primary / 3 secondary / 2 senior unlocks, or any mix: https://apnatutorhub.com/tutor/plans",
-    HINGLISH: "₹1,257 Commission Plan me 60 coins milte hain — 6 primary / 3 secondary / 2 senior unlocks, ya koi mix: https://apnatutorhub.com/tutor/plans",
-    HI: "₹1,257 कमीशन प्लान में 60 कॉइन्स मिलते हैं — 6 प्राइमरी / 3 सेकंडरी / 2 सीनियर अनलॉक, या कोई मिश्रण: https://apnatutorhub.com/tutor/plans",
+    EN: "The ₹1,257 Commission Plan gives 60 coins — 6 lead unlocks (10 coins fixed across Class 1–12): https://apnatutorhub.com/tutor/plans",
+    HINGLISH: "₹1,257 Commission Plan me 60 coins milte hain — 6 lead unlocks (Class 1–12 sabhi classes me fixed 10 coins): https://apnatutorhub.com/tutor/plans",
+    HI: "₹1,257 कमीशन प्लान में 60 कॉइन्स मिलते हैं — 6 लीड अनलॉक (कक्षा 1–12 में फिक्स्ड 10 कॉइन्स प्रति लीड): https://apnatutorhub.com/tutor/plans",
   },
   fees: {
     EN: "Fees are fixed by class: 1-8 ₹8,000–12,000/month; 9-10 ₹800–1,200/hour; 11-12 ₹1,200–2,200/hour.",
